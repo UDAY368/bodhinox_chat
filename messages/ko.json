@@ -7854,7 +7854,10 @@
       "forbidden": "관리자만 Meta 광고를 변경할 수 있습니다",
       "invalidNumber": "이 워크스페이스에 연결된 WhatsApp 번호를 선택하세요",
       "missingScope": "Meta가 이 기능에 필요한 권한을 부여하지 않았습니다",
-      "exportTooLarge": "한 번에 내보내기에는 리드가 너무 많습니다. 필터를 좁혀 주세요"
+      "exportTooLarge": "한 번에 내보내기에는 리드가 너무 많습니다. 필터를 좁혀 주세요",
+      "manageNotEnabled": "Bodhinox에서 광고를 변경하는 기능이 아직 켜지지 않았습니다.",
+      "changePending": "이 항목에 대한 변경이 이미 Meta로 전송 중입니다. 완료될 때까지 기다려 주세요.",
+      "overBudgetCap": "워크스페이스의 일일 예산 한도보다 하루에 더 많이 지출하게 됩니다."
     },
     "instagram": {
       "instagram_not_enabled": "Instagram이 활성화되지 않았습니다",
@@ -11090,7 +11093,8 @@
     "tabs": {
       "ads": "광고",
       "leads": "잠재 고객",
-      "conversions": "전환"
+      "conversions": "전환",
+      "campaigns": "캠페인"
     },
     "table": {
       "level": "표시",
@@ -11197,7 +11201,91 @@
     },
     "notConnected": "아직 연결된 Meta 광고 계정이 없습니다. 관리자가 설정 > 광고에서 연결합니다.",
     "tokenInvalid": "Meta 액세스가 만료되어 결과가 더 이상 업데이트되지 않습니다. 관리자가 설정 > 광고에서 다시 연결해야 합니다.",
-    "openSettings": "설정 > 광고 열기"
+    "openSettings": "설정 > 광고 열기",
+    "manage": {
+      "manageOff": "여기에서 캠페인을 볼 수 있습니다. Bodhinox에서 일시 중지, 재개, 예산 변경은 Meta가 이 앱의 광고 관리를 승인하면 켜집니다.",
+      "missingScopes": "광고 관리를 허용하려면 설정 → 광고에서 광고 계정을 다시 연결하세요 (누락: {scopes}).",
+      "syncedAt": "{time} 업데이트됨",
+      "neverSynced": "아직 Meta에서 불러오지 않음",
+      "capIs": "일일 예산 한도: {amount}",
+      "noCap": "일일 예산 한도 없음",
+      "setCap": "예산 한도",
+      "refresh": "새로 고침",
+      "refreshQueued": "Meta에서 새로 고치는 중입니다. 1분 정도 걸립니다.",
+      "unknownTitle": "Meta의 응답이 불분명했습니다",
+      "unknownHelp": "이 변경 사항은 Meta에 도달했을 수도, 아닐 수도 있습니다. 다시 확인하거나 광고 관리자에서 확인한 뒤 닫으세요.",
+      "changeLine": "{name}: {field} {from} → {to}",
+      "recheck": "Meta에서 확인",
+      "recheckApplied": "Meta에 변경 사항이 표시됩니다. 적용되었습니다.",
+      "recheckNotShown": "Meta에 아직 변경 사항이 표시되지 않습니다.",
+      "dismiss": "닫기",
+      "empty": "이 광고 계정에 아직 캠페인이 없습니다.",
+      "name": "이름",
+      "delivery": "게재 상태",
+      "budget": "예산",
+      "ends": "종료",
+      "spend30": "지출 (30일)",
+      "chats30": "채팅 (30일)",
+      "actions": "작업",
+      "recentTitle": "최근 변경",
+      "changeStatus": {
+        "queued": "전송 중",
+        "applied": "적용됨",
+        "failed": "실패",
+        "unknown": "불분명",
+        "dismissed": "닫음"
+      },
+      "capTitle": "일일 예산 한도",
+      "capHelp": "Bodhinox는 하루에 이보다 많이 지출하게 되는 예산이나 재개를 거부합니다. Meta에서는 아무것도 바뀌지 않습니다.",
+      "capClear": "한도를 없애려면 비워 두세요.",
+      "confirmResume": "{name}을(를) 재개할까요?",
+      "confirmPause": "{name}을(를) 일시 중지할까요?",
+      "resumeHelp": "다시 게재되며 예산을 지출하기 시작합니다.",
+      "pauseHelp": "재개할 때까지 게재가 중지됩니다.",
+      "editHelp": "변경 사항이 Meta로 전송되며, Meta가 받아들이면 여기에 표시됩니다.",
+      "edit": {
+        "daily_budget": "{name}의 일일 예산",
+        "lifetime_budget": "{name}의 총 예산",
+        "end_time": "{name}의 종료일",
+        "name": "{name} 이름 바꾸기"
+      },
+      "amountIn": "금액 ({currency})",
+      "currentValue": "현재: {amount}",
+      "fields": {
+        "status": "상태",
+        "daily_budget": "일일 예산",
+        "lifetime_budget": "총 예산",
+        "end_time": "종료일",
+        "name": "이름"
+      },
+      "status": {
+        "active": "활성",
+        "paused": "일시 중지됨"
+      },
+      "levels": {
+        "campaign": "캠페인",
+        "adset": "광고 세트",
+        "ad": "광고"
+      },
+      "perDay": "하루 {amount}",
+      "total": "총 {amount}",
+      "cancel": "취소",
+      "save": "저장",
+      "resume": "재개",
+      "pause": "일시 중지",
+      "sendChange": "변경 보내기",
+      "collapse": "접기",
+      "expand": "펼치기",
+      "more": "추가 작업",
+      "changeDaily": "일일 예산 변경",
+      "changeLifetime": "총 예산 변경",
+      "changeEnd": "종료일 변경",
+      "rename": "이름 바꾸기",
+      "failed": "실패했습니다. 다시 시도하세요.",
+      "invalidValue": "올바른 값을 입력하세요.",
+      "sent": "Meta로 전송했습니다.",
+      "capSaved": "예산 한도를 저장했습니다."
+    }
   },
   "Appointments": {
     "title": "예약",

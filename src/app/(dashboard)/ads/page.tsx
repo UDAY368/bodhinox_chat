@@ -3,7 +3,8 @@
 // The Ads page. It asks GET /api/meta-ads/status first: while Meta ads are off
 // or not configured it shows the not-enabled state (with the count of
 // conversations started from ads, which needs no Meta approval). Otherwise it
-// shows the Ads, Leads and Conversions tabs; without a connection it points
+// shows the Ads, Campaigns (manage campaigns, ad sets and ads), Leads and
+// Conversions tabs; without a connection it points
 // admins to Settings > Ads. No Facebook code loads on this page.
 
 import { useCallback, useEffect, useState } from 'react';
@@ -15,6 +16,7 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { AdsNotEnabled } from '@/components/ads/ads-not-enabled';
 import { AdsTable } from '@/components/ads/ads-table';
+import { CampaignsPanel } from '@/components/ads/campaigns-panel';
 import { LeadsTable } from '@/components/ads/leads-table';
 import { ConversionsPanel } from '@/components/ads/conversions-panel';
 import { useAuth } from '@/hooks/use-auth';
@@ -93,11 +95,15 @@ export default function AdsPage() {
         <Tabs defaultValue="ads">
           <TabsList>
             <TabsTrigger value="ads">{t('tabs.ads')}</TabsTrigger>
+            <TabsTrigger value="campaigns">{t('tabs.campaigns')}</TabsTrigger>
             <TabsTrigger value="leads">{t('tabs.leads')}</TabsTrigger>
             <TabsTrigger value="conversions">{t('tabs.conversions')}</TabsTrigger>
           </TabsList>
           <TabsContent value="ads" className="pt-4">
             <AdsTable canManage={isAdmin && active} canSegment={isAgent} />
+          </TabsContent>
+          <TabsContent value="campaigns" className="pt-4">
+            <CampaignsPanel canManage={isAdmin && active} />
           </TabsContent>
           <TabsContent value="leads" className="pt-4">
             <LeadsTable canManage={isAdmin} />

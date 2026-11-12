@@ -1730,8 +1730,59 @@ model meta_ad_connections {
   disconnected_at DateTime? @db.Timestamptz(6)
   created_at DateTime @db.Timestamptz(6) @default(now())
   updated_at DateTime @db.Timestamptz(6) @default(now())
+  /// Ad management (20261120000000): the workspace's cap on any daily budget, in the ad account currency's minor unit.
+  max_daily_budget_minor BigInt?
+  objects_synced_at DateTime? @db.Timestamptz(6)
   // 20261104100000_meta_ad_connections: the partial unique indexes meta_ad_connections_one_live and meta_ad_connections_page_live, the column grants that hide the tokens from the app role, and the crm_* definer lookups are owned by the SQL.
   @@unique([account_id, id])
+}
+
+/// Ad management (20261120000000): cached campaigns, ad sets and ads of the connected ad account, written by the worker.
+model meta_ad_objects {
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  connection_id String @db.Uuid
+  /// 'campaign' | 'adset' | 'ad'
+  level String
+  object_id String
+  campaign_id String?
+  adset_id String?
+  name String?
+  status String?
+  effective_status String?
+  objective String?
+  daily_budget_minor BigInt?
+  lifetime_budget_minor BigInt?
+  start_time DateTime? @db.Timestamptz(6)
+  end_time DateTime? @db.Timestamptz(6)
+  synced_at DateTime @db.Timestamptz(6) @default(now())
+  @@id([account_id, object_id])
+  @@index([account_id, level, campaign_id], map: "meta_ad_objects_tree")
+}
+
+/// Ad management (20261120000000): changes admins asked for, applied once by the worker through an outbound intent.
+model meta_ad_changes {
+  id String @db.Uuid @id @default(dbgenerated("gen_random_uuid()"))
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  connection_id String @db.Uuid
+  level String
+  object_id String
+  object_name String?
+  /// 'status' | 'daily_budget' | 'lifetime_budget' | 'end_time' | 'name'
+  field String
+  from_value String?
+  to_value String
+  /// 'queued' | 'applied' | 'failed' | 'unknown' | 'dismissed'
+  status String @default("queued")
+  last_error_code String?
+  requested_by String @db.Uuid
+  applied_at DateTime? @db.Timestamptz(6)
+  resolved_by String? @db.Uuid
+  resolved_at DateTime? @db.Timestamptz(6)
+  created_at DateTime @db.Timestamptz(6) @default(now())
+  updated_at DateTime @db.Timestamptz(6) @default(now())
+  // The partial unique index meta_ad_changes_one_open (one open change per object and field) is owned by the SQL.
+  @@unique([account_id, id])
+  @@index([account_id, created_at(sort: Desc)], map: "meta_ad_changes_recent")
 }
 
 model ad_referrals {

@@ -24,6 +24,10 @@ const MESSAGE: Record<MetaAdsErrorCode, string> = {
   revoke_failed: 'revokeFailed',
   meta_error: 'metaError',
   rate_limited: 'rateLimited',
+  manage_not_enabled: 'manageNotEnabled',
+  change_pending: 'changePending',
+  over_budget_cap: 'overBudgetCap',
+  not_found: 'notFound',
 };
 
 export function metaAdsErrorResponse(code: MetaAdsErrorCode): NextResponse {

@@ -9052,6 +9052,22 @@
         "default": "now()",
         "reference": null,
         "definition": "updated_at timestamptz NOT NULL DEFAULT now()"
+      },
+      {
+        "name": "max_daily_budget_minor",
+        "type": "bigint",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "max_daily_budget_minor bigint CHECK (max_daily_budget_minor > 0 AND max_daily_budget_minor < 1000000000000000)"
+      },
+      {
+        "name": "objects_synced_at",
+        "type": "timestamptz",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "objects_synced_at timestamptz"
       }
     ],
     "ad_referrals": [
@@ -18322,6 +18338,282 @@
         "default": "now()",
         "reference": null,
         "definition": "created_at timestamptz NOT NULL DEFAULT now()"
+      }
+    ],
+    "meta_ad_objects": [
+      {
+        "name": "account_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "NULLIF(current_setting('app.account_id', true),'')::uuid ",
+        "reference": {
+          "table": "accounts",
+          "column": "id",
+          "onDelete": "CASCADE"
+        },
+        "definition": "account_id uuid NOT NULL DEFAULT NULLIF(current_setting('app.account_id', true),'')::uuid"
+      },
+      {
+        "name": "connection_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": null,
+        "reference": {
+          "table": "meta_ad_connections",
+          "column": "id",
+          "onDelete": "NO ACTION"
+        },
+        "definition": "connection_id uuid NOT NULL"
+      },
+      {
+        "name": "level",
+        "type": "text",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "level text NOT NULL CHECK (level IN ('campaign','adset','ad'))"
+      },
+      {
+        "name": "object_id",
+        "type": "text",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "object_id text NOT NULL CHECK (object_id ~ '^\\d{1,32}$')"
+      },
+      {
+        "name": "campaign_id",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "campaign_id text CHECK (campaign_id ~ '^\\d{1,32}$')"
+      },
+      {
+        "name": "adset_id",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "adset_id text CHECK (adset_id ~ '^\\d{1,32}$')"
+      },
+      {
+        "name": "name",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "name text CHECK (char_length(name) <= 500)"
+      },
+      {
+        "name": "status",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "status text CHECK (char_length(status) <= 64)"
+      },
+      {
+        "name": "effective_status",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "effective_status text CHECK (char_length(effective_status) <= 64)"
+      },
+      {
+        "name": "objective",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "objective text CHECK (char_length(objective) <= 64)"
+      },
+      {
+        "name": "daily_budget_minor",
+        "type": "bigint",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "daily_budget_minor bigint CHECK (daily_budget_minor >= 0)"
+      },
+      {
+        "name": "lifetime_budget_minor",
+        "type": "bigint",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "lifetime_budget_minor bigint CHECK (lifetime_budget_minor >= 0)"
+      },
+      {
+        "name": "start_time",
+        "type": "timestamptz",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "start_time timestamptz"
+      },
+      {
+        "name": "end_time",
+        "type": "timestamptz",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "end_time timestamptz"
+      },
+      {
+        "name": "synced_at",
+        "type": "timestamptz",
+        "nullable": false,
+        "default": "now()",
+        "reference": null,
+        "definition": "synced_at timestamptz NOT NULL DEFAULT now()"
+      }
+    ],
+    "meta_ad_changes": [
+      {
+        "name": "id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "gen_random_uuid()",
+        "reference": null,
+        "definition": "id uuid PRIMARY KEY DEFAULT gen_random_uuid()"
+      },
+      {
+        "name": "account_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "NULLIF(current_setting('app.account_id', true),'')::uuid ",
+        "reference": {
+          "table": "accounts",
+          "column": "id",
+          "onDelete": "CASCADE"
+        },
+        "definition": "account_id uuid NOT NULL DEFAULT NULLIF(current_setting('app.account_id', true),'')::uuid"
+      },
+      {
+        "name": "connection_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": null,
+        "reference": {
+          "table": "meta_ad_connections",
+          "column": "id",
+          "onDelete": "NO ACTION"
+        },
+        "definition": "connection_id uuid NOT NULL"
+      },
+      {
+        "name": "level",
+        "type": "text",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "level text NOT NULL CHECK (level IN ('campaign','adset','ad'))"
+      },
+      {
+        "name": "object_id",
+        "type": "text",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "object_id text NOT NULL CHECK (object_id ~ '^\\d{1,32}$')"
+      },
+      {
+        "name": "object_name",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "object_name text CHECK (char_length(object_name) <= 500)"
+      },
+      {
+        "name": "field",
+        "type": "text",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "field text NOT NULL CHECK (field IN ('status','daily_budget','lifetime_budget','end_time','name'))"
+      },
+      {
+        "name": "from_value",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "from_value text CHECK (char_length(from_value) <= 500)"
+      },
+      {
+        "name": "to_value",
+        "type": "text",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "to_value text NOT NULL CHECK (char_length(to_value) BETWEEN 1 AND 500)"
+      },
+      {
+        "name": "status",
+        "type": "text",
+        "nullable": false,
+        "default": "'queued'",
+        "reference": null,
+        "definition": "status text NOT NULL DEFAULT 'queued' CHECK (status IN ('queued','applied','failed','unknown','dismissed'))"
+      },
+      {
+        "name": "last_error_code",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "last_error_code text CHECK (last_error_code ~ '^[0-9:]{0,32}$')"
+      },
+      {
+        "name": "requested_by",
+        "type": "uuid",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "requested_by uuid NOT NULL"
+      },
+      {
+        "name": "applied_at",
+        "type": "timestamptz",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "applied_at timestamptz"
+      },
+      {
+        "name": "resolved_by",
+        "type": "uuid",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "resolved_by uuid"
+      },
+      {
+        "name": "resolved_at",
+        "type": "timestamptz",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "resolved_at timestamptz"
+      },
+      {
+        "name": "created_at",
+        "type": "timestamptz",
+        "nullable": false,
+        "default": "now()",
+        "reference": null,
+        "definition": "created_at timestamptz NOT NULL DEFAULT now()"
+      },
+      {
+        "name": "updated_at",
+        "type": "timestamptz",
+        "nullable": false,
+        "default": "now()",
+        "reference": null,
+        "definition": "updated_at timestamptz NOT NULL DEFAULT now()"
       }
     ]
   }

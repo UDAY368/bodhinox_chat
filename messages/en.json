@@ -7854,7 +7854,10 @@
       "forbidden": "Only administrators can change Meta ads",
       "invalidNumber": "Choose a connected WhatsApp number of this workspace",
       "missingScope": "Meta did not grant the permission this feature needs",
-      "exportTooLarge": "Too many leads to export at once; narrow the filter"
+      "exportTooLarge": "Too many leads to export at once; narrow the filter",
+      "manageNotEnabled": "Changing ads from Bodhinox is not turned on yet.",
+      "changePending": "A change to this is already on its way to Meta. Wait for it to finish.",
+      "overBudgetCap": "That would spend more per day than your workspace's daily budget cap allows."
     },
     "instagram": {
       "instagram_not_enabled": "Instagram is not enabled",
@@ -11090,7 +11093,8 @@
     "tabs": {
       "ads": "Ads",
       "leads": "Leads",
-      "conversions": "Conversions"
+      "conversions": "Conversions",
+      "campaigns": "Campaigns"
     },
     "table": {
       "level": "Show",
@@ -11197,7 +11201,91 @@
     },
     "notConnected": "No Meta ad account is connected yet. An administrator connects one in Settings > Ads.",
     "tokenInvalid": "Meta access expired, so results are no longer updated. An administrator must reconnect in Settings > Ads.",
-    "openSettings": "Open Settings > Ads"
+    "openSettings": "Open Settings > Ads",
+    "manage": {
+      "manageOff": "You can see your campaigns here. Pausing, resuming and changing budgets from Bodhinox turns on once Meta approves ad management for this app.",
+      "missingScopes": "Reconnect your ad account in Settings → Ads to allow ad management (missing: {scopes}).",
+      "syncedAt": "Updated {time}",
+      "neverSynced": "Not loaded from Meta yet",
+      "capIs": "Daily budget cap: {amount}",
+      "noCap": "No daily budget cap",
+      "setCap": "Budget cap",
+      "refresh": "Refresh",
+      "refreshQueued": "Refreshing from Meta. This takes a minute.",
+      "unknownTitle": "Meta's answer was unclear",
+      "unknownHelp": "These changes may or may not have reached Meta. Check again, or look in Ads Manager and dismiss.",
+      "changeLine": "{name}: {field} {from} → {to}",
+      "recheck": "Check with Meta",
+      "recheckApplied": "Meta shows the change. It is applied.",
+      "recheckNotShown": "Meta does not show the change yet.",
+      "dismiss": "Dismiss",
+      "empty": "No campaigns found in this ad account yet.",
+      "name": "Name",
+      "delivery": "Delivery",
+      "budget": "Budget",
+      "ends": "Ends",
+      "spend30": "Spend (30 days)",
+      "chats30": "Chats (30 days)",
+      "actions": "Actions",
+      "recentTitle": "Recent changes",
+      "changeStatus": {
+        "queued": "Sending",
+        "applied": "Applied",
+        "failed": "Failed",
+        "unknown": "Unclear",
+        "dismissed": "Dismissed"
+      },
+      "capTitle": "Daily budget cap",
+      "capHelp": "Bodhinox refuses any budget, or resume, that would spend more than this per day. It does not change anything at Meta.",
+      "capClear": "Leave empty to remove the cap.",
+      "confirmResume": "Resume {name}?",
+      "confirmPause": "Pause {name}?",
+      "resumeHelp": "It starts delivering again and spending its budget.",
+      "pauseHelp": "It stops delivering until you resume it.",
+      "editHelp": "The change is sent to Meta and shows here when Meta accepts it.",
+      "edit": {
+        "daily_budget": "Daily budget of {name}",
+        "lifetime_budget": "Total budget of {name}",
+        "end_time": "End date of {name}",
+        "name": "Rename {name}"
+      },
+      "amountIn": "Amount ({currency})",
+      "currentValue": "Now: {amount}",
+      "fields": {
+        "status": "status",
+        "daily_budget": "daily budget",
+        "lifetime_budget": "total budget",
+        "end_time": "end date",
+        "name": "name"
+      },
+      "status": {
+        "active": "Active",
+        "paused": "Paused"
+      },
+      "levels": {
+        "campaign": "Campaign",
+        "adset": "Ad set",
+        "ad": "Ad"
+      },
+      "perDay": "{amount} / day",
+      "total": "{amount} total",
+      "cancel": "Cancel",
+      "save": "Save",
+      "resume": "Resume",
+      "pause": "Pause",
+      "sendChange": "Send change",
+      "collapse": "Collapse",
+      "expand": "Expand",
+      "more": "More actions",
+      "changeDaily": "Change daily budget",
+      "changeLifetime": "Change total budget",
+      "changeEnd": "Change end date",
+      "rename": "Rename",
+      "failed": "That did not work. Try again.",
+      "invalidValue": "Enter a valid value.",
+      "sent": "Sent to Meta.",
+      "capSaved": "Budget cap saved."
+    }
   },
   "Appointments": {
     "title": "Appointments",

@@ -234,6 +234,9 @@ export const KNOWN_UNMAPPED = [
   'instagram/ai-comments/[id]',
   'meta-ads/conversions/[id]/resolve',
   'meta-ads/leads/[id]',
+  // Another workspace's change id is not_found for both (a read or a dismiss of the caller's own changes only): src/lib/meta-ads/manage.integration.test.ts.
+  'meta-ads/manage/changes/[id]/dismiss',
+  'meta-ads/manage/changes/[id]/recheck',
   'payments/customer-payments/[id]/refund',
   'payments/refunds/[id]',
   'whatsapp/forms/[id]/duplicate',

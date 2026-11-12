@@ -11,6 +11,8 @@ export const META_ADS_JOB_TYPES = [
   'meta.leads_sync',
   'meta.insights_sync',
   'meta.capi_event',
+  'meta.ad_objects_sync',
+  'meta.ad_change',
 ] as const;
 export type MetaAdsJobType = (typeof META_ADS_JOB_TYPES)[number];
 
@@ -51,6 +53,10 @@ export async function handleMetaAdsJob(accountId: string, type: string, payload:
       return (await import('./insights')).handleInsightsSyncJob(accountId, payload);
     case 'meta.capi_event':
       return (await import('./capi')).handleCapiEventJob(accountId, payload, attempt);
+    case 'meta.ad_objects_sync':
+      return (await import('./manage')).handleAdObjectsSyncJob(accountId);
+    case 'meta.ad_change':
+      return (await import('./manage')).handleAdChangeJob(accountId, payload, attempt);
     default:
       // meta.page_webhook is routed before the tenant scope (handleMetaPageWebhookJob).
       throw new Error('Unsupported job type');

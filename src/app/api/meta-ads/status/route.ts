@@ -2,11 +2,12 @@
 //   { enabled: false, reason, connection: null, missingScopes }  while the feature is off or not configured
 //   { enabled: true, appId, loginConfigId, connection, missingScopes }  otherwise
 // connection is the live connection's DTO (never a token); missingScopes lists,
-// per feature, the permissions the grant lacks. No Meta call.
+// per feature, the permissions the grant lacks; manageEnabled says whether ad
+// changes may be sent (META_ADS_MANAGE_ENABLED). No Meta call.
 
 import { NextResponse } from 'next/server';
 import { requireSession } from '@/lib/auth/session';
-import { metaAdsStatus, missingScopes } from '@/lib/meta-ads/config';
+import { metaAdsManageEnabled, metaAdsStatus, missingScopes } from '@/lib/meta-ads/config';
 import { getConnection } from '@/lib/meta-ads/connection';
 import { actorOf, metaAdsRouteError, NO_STORE } from '@/lib/meta-ads/http';
 
@@ -20,11 +21,13 @@ export async function GET(request: Request) {
     const scopes = connection?.scopes ?? [];
     return NextResponse.json({
       ...status,
+      manageEnabled: metaAdsManageEnabled(),
       connection,
       missingScopes: {
         insights: missingScopes(scopes, 'insights'),
         leads: missingScopes(scopes, 'leads'),
         capi: missingScopes(scopes, 'capi'),
+        manage: missingScopes(scopes, 'manage'),
       },
     }, { headers: NO_STORE });
   } catch (error) {
