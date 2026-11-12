@@ -30,7 +30,7 @@ test.describe('ads with META_ADS_ENABLED unset', () => {
   test('an agent saves and activates a flow with the ad-click trigger', async ({ page }) => {
     await login(page, fixtures().users.agent);
     await page.goto('/flows');
-    await page.getByRole('button', { name: 'New flow' }).first().click();
+    await page.getByRole('button', { name: 'New automation' }).first().click();
     // A gallery template already passes activation checks; a blank flow has no steps.
     const dialog = page.getByRole('dialog');
     await dialog.getByLabel('Search templates').fill('welcome menu');

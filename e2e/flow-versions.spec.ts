@@ -21,7 +21,7 @@ async function publish(page: Page, flowId: string) {
 test('a flow is published as v1, edited, dry-run without a run, and published as v2', async ({ page }) => {
   await login(page, fixtures().users.admin);
   await page.goto('/flows');
-  await page.getByRole('button', { name: 'New flow' }).first().click();
+  await page.getByRole('button', { name: 'New automation' }).first().click();
   const dialog = page.getByRole('dialog');
   await dialog.getByLabel('Search templates').fill('Journey menu');
   // Pick the card by its exact name: other templates' descriptions can mention it

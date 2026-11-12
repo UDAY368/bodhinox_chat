@@ -52,10 +52,20 @@ import { channelPath } from "@/lib/channels/routes";
 import { effectiveTriggers } from "@/lib/flows/flow-triggers";
 import type { FlowChannelScope, FlowTriggerConfig, FlowTriggerType } from "@/lib/flows/types";
 import { splitFlow } from "./split-flow";
+import { ChannelBadge } from "@/components/inbox/channel-badge";
+import { navChannels } from "@/components/layout/page-search-navigation";
+import { useWorkspaceChannels } from "@/hooks/use-workspace-channels";
+import { useSearchParams } from "next/navigation";
 
 /**
- * One channel's automations (Stage 1, Stage 5): /whatsapp/flows and
- * /instagram/flows.
+ * Automations. `channel="all"` (/automation, the ManyChat-style unified
+ * list) lists every channel's flows with a channel badge and a channel
+ * filter; "New automation" asks which channel the new one is for, and the
+ * template gallery follows it. Folders belong to one channel, so they show
+ * only in a single-channel list. A single channel (`whatsapp` / `instagram`)
+ * keeps the earlier per-channel list.
+ *
+ * Per channel (Stage 1, Stage 5):
  *
  * Lists the channel's own flows plus legacy 'any' flows, which run on both
  * channels and show a "Both channels" badge with a split action. Each row
@@ -189,13 +199,30 @@ export function AutomationHubRail({ active }: { active: "flows" | "basics" | "se
   );
 }
 
-export function FlowList({ channel }: { channel: Channel }) {
+export function FlowList({ channel }: { channel: Channel | "all" }) {
   const router = useRouter();
+  const unified = channel === "all";
+  const { data: channelData } = useWorkspaceChannels();
+  const enabledChannels = navChannels(channelData?.enabled);
+  const searchParams = useSearchParams();
+  const initialFilter = searchParams.get("channel");
+  const [channelFilter, setChannelFilter] = useState<"all" | Channel>(
+    initialFilter === "whatsapp" || initialFilter === "instagram" ? initialFilter : "all",
+  );
+  const [chosenChannel, setChosenChannel] = useState<Channel | null>(null);
+  // The channel a new automation is for: the list's own, or the one picked in the dialog.
+  const createChannel: Channel = unified
+    ? (chosenChannel && enabledChannels.includes(chosenChannel) ? chosenChannel : enabledChannels[0])
+    : channel;
+  /** The section a flow opens in (a legacy 'any' flow opens in WhatsApp in the unified list). */
+  const sectionOf = (flow: { channel_scope?: FlowChannelScope | null }): Channel =>
+    unified ? (flow.channel_scope === "instagram" ? "instagram" : "whatsapp") : channel;
   const canCreate = useCan("send-messages");
   const t = useTranslations("Flows.list");
   const tRow = useTranslations("Flows.listRow");
   const tFolders = useTranslations("Flows.folders");
   const tSection = useTranslations("Flows.channelSection");
+  const tChannelName = useTranslations("Inbox.channel");
   const tGate = useTranslations("GatedButton");
   const [flows, setFlows] = useState<FlowRow[]>([]);
   const [folders, setFolders] = useState<FolderRow[]>([]);
@@ -213,11 +240,12 @@ export function FlowList({ channel }: { channel: Channel }) {
   const [deleting, setDeleting] = useState<FlowRow | null>(null);
   const [moving, setMoving] = useState<FlowRow | null>(null);
   const [folderDialog, setFolderDialog] = useState<{ mode: "create" } | { mode: "rename"; folder: FolderRow } | null>(null);
-  const editorPath = (id: string) => channelPath(channel, "flows", id);
+  const editorPath = (id: string, section: Channel = unified ? createChannel : channel) => channelPath(section, "flows", id);
 
   const visibleFlows = useMemo(
-    () => flows.filter((flow) => flowMatches(flow, { status: statusFilter, trigger: triggerFilter, folder: folderFilter, query })),
-    [flows, query, statusFilter, triggerFilter, folderFilter],
+    () => flows.filter((flow) => flowMatches(flow, { status: statusFilter, trigger: triggerFilter, folder: folderFilter, query })
+      && (channelFilter === "all" || flow.channel_scope === channelFilter || flow.channel_scope === "any")),
+    [flows, query, statusFilter, triggerFilter, folderFilter, channelFilter],
   );
   const triggerTypes = useMemo(
     () => [...new Set(flows.flatMap((flow) => effectiveTriggers(flow).map((trigger) => trigger.trigger_type)))].sort(),
@@ -226,6 +254,8 @@ export function FlowList({ channel }: { channel: Channel }) {
   const folderName = useMemo(() => new Map(folders.map((folder) => [folder.id, folder.name])), [folders]);
 
   const loadFolders = useCallback(async () => {
+    // Folders belong to one channel; the unified list shows none.
+    if (channel === "all") return;
     try {
       const res = await authFetch(`/api/flows/folders?channel=${channel}`, { cache: "no-store" });
       if (!res.ok) return;
@@ -241,8 +271,8 @@ export function FlowList({ channel }: { channel: Channel }) {
     (async () => {
       try {
         const [flowsRes, tmplRes, names] = await Promise.all([
-          authFetch(`/api/flows?channel=${channel}`),
-          authFetch(`/api/flows/templates?channel=${channel}`),
+          authFetch(channel === "all" ? "/api/flows" : `/api/flows?channel=${channel}`),
+          authFetch(channel === "all" ? "/api/flows/templates" : `/api/flows/templates?channel=${channel}`),
           loadMemberNames(),
           loadFolders(),
         ]);
@@ -287,7 +317,7 @@ export function FlowList({ channel }: { channel: Channel }) {
           name: newName.trim(),
           trigger_type: "keyword",
           trigger_config: { keywords: [] },
-          channel_scope: channel,
+          channel_scope: createChannel,
         }),
       });
       if (!res.ok) throw new Error(`Create failed: ${res.status}`);
@@ -309,7 +339,7 @@ export function FlowList({ channel }: { channel: Channel }) {
       const res = await authFetch("/api/flows", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ template_slug: slug, channel_scope: channel }),
+        body: JSON.stringify({ template_slug: slug, channel_scope: createChannel }),
       });
       if (!res.ok) {
         const json = await res.json().catch(() => ({}));
@@ -333,12 +363,12 @@ export function FlowList({ channel }: { channel: Channel }) {
       const res = await authFetch(`/api/flows/${flow.id}/duplicate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ channel_scope: channel }),
+        body: JSON.stringify({ channel_scope: sectionOf(flow) }),
       });
       const json = (await res.json().catch(() => ({}))) as { flow?: FlowRow; error?: string };
       if (!res.ok || !json.flow) throw new Error(json.error ?? t("duplicateError"));
       toast.success(t("duplicateSuccess", { name: json.flow.name }));
-      router.push(editorPath(json.flow.id));
+      router.push(editorPath(json.flow.id, sectionOf(flow)));
     } catch (err) {
       toast.error(err instanceof Error ? err.message : t("duplicateError"));
     } finally {
@@ -355,7 +385,8 @@ export function FlowList({ channel }: { channel: Channel }) {
         return;
       }
       toast.success(tSection("splitDone"));
-      router.push(editorPath(ids[channel]));
+      const section = unified ? "whatsapp" : channel;
+      router.push(editorPath(ids[section], section));
     } finally {
       setBusyId(null);
     }
@@ -462,6 +493,9 @@ export function FlowList({ channel }: { channel: Channel }) {
     await loadFolders();
   }
 
+  // The unified list's dialog offers only the chosen channel's templates.
+  const galleryTemplates = unified ? templates.filter((tpl) => !tpl.channels || tpl.channels.includes(createChannel)) : templates;
+
   if (loading) {
     return (
       <div className="flex h-full items-center justify-center">
@@ -475,13 +509,13 @@ export function FlowList({ channel }: { channel: Channel }) {
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-semibold text-foreground">{tSection(channel === "instagram" ? "instagramTitle" : "whatsappTitle")}</h1>
+            <h1 className="text-2xl font-semibold text-foreground">{unified ? t("unifiedTitle") : tSection(channel === "instagram" ? "instagramTitle" : "whatsappTitle")}</h1>
             <span className="inline-flex items-center rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-300">
               {t("beta")}
             </span>
           </div>
           <p className="mt-1 text-sm text-muted-foreground">
-            {tSection(channel === "instagram" ? "instagramDescription" : "whatsappDescription")}
+            {unified ? t("unifiedDescription") : tSection(channel === "instagram" ? "instagramDescription" : "whatsappDescription")}
           </p>
         </div>
         <GatedButton
@@ -502,6 +536,15 @@ export function FlowList({ channel }: { channel: Channel }) {
         />
       ) : (
         <>
+          {unified && enabledChannels.length > 1 && (
+            <div role="group" aria-label={t("channelFilterLabel")} className="flex flex-wrap items-center gap-1.5" data-testid="channel-filter">
+              {(["all", ...enabledChannels] as const).map((value) => (
+                <FolderChip key={value} active={channelFilter === value} onClick={() => setChannelFilter(value)}
+                  label={value === "all" ? t("allChannels") : tChannelName(value)} />
+              ))}
+            </div>
+          )}
+          {!unified && (
           <div role="group" aria-label={tFolders("filterLabel")} className="flex flex-wrap items-center gap-1.5">
             <FolderChip active={folderFilter === "all"} onClick={() => setFolderFilter("all")} label={tFolders("all")} />
             {folders.length > 0 && (
@@ -542,6 +585,7 @@ export function FlowList({ channel }: { channel: Channel }) {
               </Button>
             )}
           </div>
+          )}
 
           <div className="flex flex-wrap items-center gap-3">
             <div className="relative w-full sm:max-w-xs">
@@ -601,7 +645,8 @@ export function FlowList({ channel }: { channel: Channel }) {
                     creator={creatorLabel(memberNames, flow.user_id)}
                     canCreate={canCreate}
                     busy={busyId === flow.id}
-                    onEdit={() => router.push(editorPath(flow.id))}
+                    showChannel={unified}
+                    onEdit={() => router.push(editorPath(flow.id, sectionOf(flow)))}
                     onDuplicate={() => handleDuplicate(flow)}
                     onSplit={() => handleSplit(flow)}
                     onDelete={() => setDeleting(flow)}
@@ -628,6 +673,18 @@ export function FlowList({ channel }: { channel: Channel }) {
             </DialogDescription>
           </DialogHeader>
 
+          {unified && enabledChannels.length > 1 && (
+            <div role="tablist" aria-label={t("chooseChannel")} className="inline-flex w-fit gap-1 rounded-lg border border-border bg-muted p-1" data-testid="create-channel">
+              {enabledChannels.map((value) => (
+                <button key={value} type="button" role="tab" aria-selected={createChannel === value} onClick={() => setChosenChannel(value)}
+                  className={cn("inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
+                    createChannel === value ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}>
+                  <span aria-hidden><ChannelBadge channel={value} showWhatsApp compact /></span>
+                  {tChannelName(value)}
+                </button>
+              ))}
+            </div>
+          )}
           <div className="space-y-2">
             <p className="text-xs uppercase tracking-wide text-muted-foreground">
               {t("startBlank")}
@@ -650,18 +707,18 @@ export function FlowList({ channel }: { channel: Channel }) {
             </div>
           </div>
 
-          {templates.length > 0 && (
+          {galleryTemplates.length > 0 && (
             <div className="space-y-3 border-t border-border pt-4">
               <p className="text-xs uppercase tracking-wide text-muted-foreground">
                 {t("startTemplate")}
               </p>
-              <TemplateGallery templates={templates} creating={creating} onUse={handleUseTemplate} />
+              <TemplateGallery key={createChannel} templates={galleryTemplates} creating={creating} onUse={handleUseTemplate} />
             </div>
           )}
 
           <DialogFooter>
             {/* The AI builder makes WhatsApp flows, so it is offered only in the WhatsApp section. */}
-            {channel === "whatsapp" && (
+            {createChannel === "whatsapp" && (
               <AiGenerateFlowButton disabled={creating} onCreated={(id) => { setCreateOpen(false); router.push(editorPath(id)); }} />
             )}
             <Button
@@ -682,7 +739,7 @@ export function FlowList({ channel }: { channel: Channel }) {
     </div>
   );
 
-  return channel === "instagram" ? (
+  return channel === "instagram" || (unified && enabledChannels.includes("instagram")) ? (
     <div className="flex flex-col gap-6 p-6 md:flex-row">
       <AutomationHubRail active="flows" />
       {list}
@@ -747,8 +804,10 @@ function EmptyState({
 }
 
 function FlowListRow({
-  flow, folder, creator, canCreate, busy, onEdit, onDuplicate, onSplit, onDelete, onRestore, onMove,
+  flow, folder, creator, canCreate, busy, onEdit, onDuplicate, onSplit, onDelete, onRestore, onMove, showChannel = false,
 }: {
+  /** The unified list names each flow's channel. */
+  showChannel?: boolean;
   flow: FlowRow;
   folder: string | null;
   creator: CreatorLabel | null;
@@ -780,6 +839,9 @@ function FlowListRow({
           <button type="button" onClick={onEdit} className="min-w-0 truncate text-left text-sm font-semibold text-foreground hover:text-primary hover:underline">
             {flow.name}
           </button>
+          {showChannel && !both && (flow.channel_scope === "whatsapp" || flow.channel_scope === "instagram") && (
+            <span className="w-fit" data-flow-channel={flow.channel_scope}><ChannelBadge channel={flow.channel_scope} showWhatsApp compact /></span>
+          )}
           {both && (
             <Badge
               variant="outline"

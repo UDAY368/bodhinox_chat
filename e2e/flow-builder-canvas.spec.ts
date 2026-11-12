@@ -7,7 +7,7 @@ import { fixtures, login } from './fixtures';
 
 async function newBlankFlow(page: Page, name: string) {
   await page.goto('/flows');
-  await page.getByRole('button', { name: 'New flow' }).first().click();
+  await page.getByRole('button', { name: 'New automation' }).first().click();
   const dialog = page.getByRole('dialog');
   await dialog.getByPlaceholder('e.g. Welcome menu').fill(name);
   await dialog.getByRole('button', { name: 'Create blank flow' }).click();
@@ -110,7 +110,7 @@ test('an Instagram flow starts on two triggers', async ({ page }) => {
   test.skip(process.env.E2E_INSTAGRAM !== '1', 'needs INSTAGRAM_ENABLED and a connected Instagram account');
   await login(page, fixtures().users.agent);
   await page.goto('/instagram/flows');
-  await page.getByRole('button', { name: 'New flow' }).first().click();
+  await page.getByRole('button', { name: 'New automation' }).first().click();
   const dialog = page.getByRole('dialog');
   await dialog.getByPlaceholder('e.g. Welcome menu').fill(`Two triggers ${fixtures().runId}`);
   await dialog.getByRole('button', { name: 'Create blank flow' }).click();

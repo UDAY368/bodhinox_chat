@@ -1,6 +1,6 @@
-import { FlowList } from '@/components/flows/flow-list';
+import { redirect } from 'next/navigation';
 
-// WhatsApp › Flows (Stage 1): this channel's flows plus legacy flows that run on both.
+// WhatsApp › Flows moved into the unified Automation list; old links open it filtered to WhatsApp.
 export default function WhatsAppFlowsPage() {
-  return <FlowList channel="whatsapp" />;
+  redirect('/automation?channel=whatsapp');
 }

@@ -1,6 +1,6 @@
-import { FlowList } from '@/components/flows/flow-list';
+import { redirect } from 'next/navigation';
 
-// Instagram › Flows (Stage 1): this channel's flows plus legacy flows that run on both.
+// Instagram › Flows moved into the unified Automation list; old links open it filtered to Instagram.
 export default function InstagramFlowsPage() {
-  return <FlowList channel="instagram" />;
+  redirect('/automation?channel=instagram');
 }

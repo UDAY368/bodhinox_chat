@@ -57,7 +57,7 @@ describe('Sidebar per channel set', () => {
     h.data = workspace({}, off);
     const html = render();
     expect(groupsIn(html)).toEqual(['workspace', 'whatsapp']);
-    for (const href of ['/whatsapp/inbox', '/whatsapp/flows', '/whatsapp/automations', '/broadcasts', '/settings?tab=templates', '/forms', '/ads'])
+    for (const href of ['/whatsapp/inbox', '/automation', '/whatsapp/automations', '/broadcasts', '/settings?tab=templates', '/forms', '/ads'])
       expect(html).toContain(`href="${href}"`);
     expect(html).not.toContain('href="/inbox"');
     expect(html).not.toContain('/instagram/');
@@ -98,8 +98,16 @@ describe('Sidebar per channel set', () => {
 
   it('marks the active page, including nested channel pages', () => {
     h.data = workspace({}, {});
-    h.pathname = '/instagram/flows/abc';
-    expect(render()).toMatch(/aria-current="page"[^>]*href="\/instagram\/flows"|href="\/instagram\/flows"[^>]*aria-current="page"/);
+    h.pathname = '/instagram/inbox/abc';
+    expect(render()).toMatch(/aria-current="page"[^>]*href="\/instagram\/inbox"|href="\/instagram\/inbox"[^>]*aria-current="page"/);
+  });
+
+  it('marks Automation active while a flow is open in either channel', () => {
+    h.data = workspace({}, {});
+    for (const path of ['/automation', '/whatsapp/flows/abc', '/instagram/flows/abc']) {
+      h.pathname = path;
+      expect(render()).toMatch(/aria-current="page"[^>]*href="\/automation"|href="\/automation"[^>]*aria-current="page"/);
+    }
   });
 
   it('puts an amber dot on a channel group that needs attention', () => {

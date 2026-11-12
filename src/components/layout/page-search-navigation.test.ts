@@ -14,15 +14,15 @@ const hrefs = (enabled: Parameters<typeof navigationPages>[0]) => navigationPage
 const groups = (enabled: Parameters<typeof buildNavigation>[0]) =>
   Object.fromEntries(buildNavigation(enabled).map((group) => [group.id, group.pages.map((page) => page.href)]));
 
-const WHATSAPP_PAGES = ['/whatsapp/inbox', '/whatsapp/flows', '/whatsapp/automations', '/broadcasts', '/settings?tab=templates', '/forms', '/ads'];
+const WHATSAPP_PAGES = ['/whatsapp/inbox', '/whatsapp/automations', '/broadcasts', '/settings?tab=templates', '/forms', '/ads'];
 const INSTAGRAM_PAGES = [
   // Stage 5: Instagram opens on its home page.
   '/instagram/home',
-  '/instagram/inbox', '/instagram/flows', '/instagram/automations', '/instagram/comments',
+  '/instagram/inbox', '/instagram/automations', '/instagram/comments',
   '/instagram/conversation-starters', '/instagram/default-reply', '/instagram/quick-automations',
   // Stage 3
   '/instagram/ref-links', '/instagram/menu', '/instagram/insights'];
-const WORKSPACE_PAGES = ['/dashboard', '/analytics', '/notifications', '/contacts', '/pipelines', '/appointments', '/agents'];
+const WORKSPACE_PAGES = ['/dashboard', '/analytics', '/notifications', '/contacts', '/automation', '/pipelines', '/appointments', '/agents'];
 
 describe('navigation per channel set', () => {
   it('only WhatsApp: one WhatsApp group plus Workspace, no All inboxes', () => {
@@ -123,7 +123,7 @@ describe('page search', () => {
 describe('page titles', () => {
   it('resolves nested and channel routes without confusing unrelated prefixes', () => {
     expect(getPageTitleKey('/agents/123')).toBe('aiAgents');
-    expect(getPageTitleKey('/whatsapp/flows/abc')).toBe('flows');
+    expect(getPageTitleKey('/whatsapp/flows/abc')).toBe('automation');
     expect(getPageTitleKey('/instagram/automations/new')).toBe('automations');
     expect(getPageTitleKey('/instagram/inbox')).toBe('inbox');
     expect(getPageTitleKey('/instagram/comments')).toBe('comments');

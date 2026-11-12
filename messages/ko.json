@@ -105,7 +105,8 @@
     "home": "홈",
     "basics": "기본",
     "sequences": "시퀀스",
-    "subscription": "구독"
+    "subscription": "구독",
+    "automation": "자동화"
   },
   "Header": {
     "dashboard": "대시보드",
@@ -145,7 +146,8 @@
     "home": "홈",
     "basics": "기본",
     "sequences": "시퀀스",
-    "subscription": "구독"
+    "subscription": "구독",
+    "automation": "자동화"
   },
   "ModeToggle": {
     "switchMode": "{mode} 모드로 전환"
@@ -2215,7 +2217,7 @@
       "title": "플로우",
       "beta": "베타",
       "description": "분기하는 버튼 기반 WhatsApp 대화를 만드세요. 메뉴, FAQ, 사람이 개입하기 전 1차 응대에 유용합니다.",
-      "newFlow": "새 플로우",
+      "newFlow": "새 자동화",
       "statusDraft": "초안",
       "statusActive": "활성",
       "statusPaused": "일시 중지됨",
@@ -2229,8 +2231,8 @@
       "emptyTitle": "아직 플로우가 없습니다",
       "emptyDesc": "첫 대화를 만들어보세요 — 환영 메뉴, 주문 조회, FAQ 봇 등. 고객이 버튼을 탭하면 봇이 알맞은 답변(또는 알맞은 상담원)으로 안내합니다.",
       "createFirst": "첫 플로우 만들기",
-      "createTitle": "새 플로우 만들기",
-      "createDesc": "템플릿에서 시작하거나 처음부터 만드세요.",
+      "createTitle": "새 자동화",
+      "createDesc": "채널을 고른 뒤 템플릿으로 시작하거나 처음부터 만드세요.",
       "startTemplate": "템플릿에서 시작",
       "nodeCount": "노드 {count}개",
       "startBlank": "또는 빈 상태로 시작",
@@ -2270,7 +2272,12 @@
       "triggerIgLiveComment": "트리거: 라이브 댓글",
       "triggerIgRef": "트리거: 추적 링크 {refs}",
       "triggerIgRefNone": "트리거: 추적 링크 (아직 키 없음)",
-      "triggerIgShareToStory": "트리거: 누군가 게시물을 스토리에 공유할 때"
+      "triggerIgShareToStory": "트리거: 누군가 게시물을 스토리에 공유할 때",
+      "unifiedTitle": "자동화",
+      "unifiedDescription": "WhatsApp과 Instagram의 모든 자동화를 한곳에서 관리합니다. 만들 때 채널을 고르세요.",
+      "channelFilterLabel": "채널",
+      "allChannels": "모든 채널",
+      "chooseChannel": "새 자동화의 채널"
     },
     "edit": {
       "notFound": "플로우를 찾을 수 없습니다.",
