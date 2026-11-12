@@ -1075,7 +1075,7 @@ export function describeTrigger(trigger: FlowTriggerConfig | { trigger_type: str
     if (cfg.match_type === "regex") return t("triggerRegex");
     const keywords = Array.isArray(cfg.keywords) ? (cfg.keywords as string[]) : [];
     if (keywords.length === 0) return t("triggerKeywordNone");
-    return t("triggerKeyword", { keywords: keywords.join(", ") });
+    return t(cfg.match_type === "not_contains" ? "triggerKeywordNot" : "triggerKeyword", { keywords: keywords.join(", ") });
   }
   if (type === "template_reply") {
     return t("triggerTemplateReply", { template: String(cfg.template_name ?? "") });

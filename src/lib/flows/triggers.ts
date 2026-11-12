@@ -87,14 +87,23 @@ export async function keywordTriggerMatches(text: string, cfg: KeywordTriggerCon
     return typeof cfg.pattern === "string" && cfg.pattern.length > 0 &&
       regexMatches(cfg.pattern, text, { caseSensitive: Boolean(cfg.case_sensitive) });
   }
-  if (!cfg.keywords?.length) return false;
-  const exact = cfg.match_type === "exact";
+  const keywords = (cfg.keywords ?? []).filter(Boolean);
+  if (!keywords.length) return false;
   const haystack = cfg.case_sensitive ? text : text.toLowerCase();
-  return cfg.keywords.some((raw) => {
-    if (!raw) return false;
-    const needle = cfg.case_sensitive ? raw : raw.toLowerCase();
-    return exact ? haystack === needle : haystack.includes(needle);
-  });
+  const needles = keywords.map((raw) => (cfg.case_sensitive ? raw : raw.toLowerCase()));
+  switch (cfg.match_type) {
+    case "exact": return needles.some((n) => haystack === n);
+    case "starts_with": return needles.some((n) => haystack.trimStart().startsWith(n));
+    case "word": return needles.some((n) => containsWord(haystack, n));
+    case "not_contains": return needles.every((n) => !haystack.includes(n));
+    default: return needles.some((n) => haystack.includes(n));
+  }
+}
+
+/** Whether `needle` appears with no letter, digit or underscore right before or after it, in any script. */
+export function containsWord(haystack: string, needle: string): boolean {
+  const escaped = needle.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`(?<![\\p{L}\\p{N}_])${escaped}(?![\\p{L}\\p{N}_])`, "u").test(haystack);
 }
 
 /** The variables a template-reply start sets, or null when the tap is not for this flow. */

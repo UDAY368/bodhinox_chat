@@ -939,9 +939,11 @@ export interface KeywordTriggerConfig {
    * `regex` tests `pattern` against the message instead of the keywords.
    * `intent` (Stage 5, needs AI) asks lib/ai/intent-match.ts whether the
    * message means `intent`; it is tried only after every exact trigger failed
-   * and before default_reply.
+   * and before default_reply. `word` matches a keyword as a whole word,
+   * `starts_with` at the start of the message, and `not_contains` when the
+   * message contains none of the keywords.
    */
-  match_type?: "exact" | "contains" | "regex" | "intent";
+  match_type?: "exact" | "contains" | "word" | "starts_with" | "not_contains" | "regex" | "intent";
   /** The meaning to recognise for `match_type: "intent"` (≤ FLOW_TRIGGER_LIMITS.intentChars). */
   intent?: string;
   case_sensitive?: boolean;
