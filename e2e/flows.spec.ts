@@ -10,7 +10,7 @@ test('an agent adds a location question with a reply timeout to a new flow', asy
   await dialog.getByRole('button', { name: 'Create blank flow' }).click();
   await expect(page).toHaveURL(/\/flows\/[0-9a-f-]{36}/);
 
-  // The block library starts closed; the round + menu adds the step.
+  // The round + menu adds the step (Content is open; this step is in it).
   await page.getByTestId('add-step-button').click();
   await page.getByTestId('add-step-list').getByRole('button', { name: 'Ask for location' }).click();
   await page.getByLabel(/^Variable key/).fill('pickup');

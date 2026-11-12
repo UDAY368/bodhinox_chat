@@ -79,8 +79,7 @@ import {
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import {
-  ChevronLeft, ChevronRight, CircleHelp, Hand, LayoutGrid, Lock, LockOpen, Map as MapIcon, Maximize, MousePointerClick, PanelLeftClose,
-  PanelLeftOpen, Plus, Search, Trash2, Undo2, X, Zap, ZoomIn, ZoomOut,
+  ChevronLeft, ChevronRight, CircleHelp, Hand, LayoutGrid, Lock, LockOpen, Map as MapIcon, Maximize, MousePointerClick, Plus, Trash2, Undo2, X, Zap, ZoomIn, ZoomOut,
 } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -90,8 +89,7 @@ import { useTranslations } from 'next-intl';
 
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { CAPABILITY_SETUP_HREF, filterPaletteTypes, paletteBlock, useWorkspaceCapabilities } from './palette';
+import { useWorkspaceCapabilities } from './palette';
 import { canvasNodeDimensions } from './canvas-layout';
 import {
   applyEdgeConnection,
@@ -101,7 +99,6 @@ import {
 import { autoLayout, shouldAutoLayout } from '@/lib/flows/layout';
 import {
   NodeIconChip,
-  groupNodeTypesByCategory,
   nodeColors,
   summarizeNode,
   type BuilderNode,
@@ -484,8 +481,6 @@ function FlowCanvasInner() {
     setSelectedTrigger(index);
     if (index !== null) setSelectedNodeKeyRaw(null);
   }, []);
-  // The step library (every step as tiles) sits in the left panel until a step or trigger is opened there.
-  const [libraryOpen, setLibraryOpen] = useState(false);
   const [summaryOpen, setSummaryOpen] = useState(false);
   const [mapOpen, setMapOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
@@ -494,10 +489,7 @@ function FlowCanvasInner() {
   // Lock: view-only canvas (pan + zoom still work). Canvas-local, not saved.
   const [locked, setLocked] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
-  const selectNode = useCallback((key: string) => {
-    setSelectedNodeKey(key);
-    if (window.innerWidth < 1100) setLibraryOpen(false);
-  }, [setSelectedNodeKey]);
+  const selectNode = useCallback((key: string) => setSelectedNodeKey(key), [setSelectedNodeKey]);
   const selectedNode = useMemo(
     () =>
       selectedNodeKey
@@ -982,8 +974,6 @@ function FlowCanvasInner() {
         // Keyed by trigger, so opening another trigger starts on its summary, not the last one's form.
         <TriggerInspector key={selectedTrigger} index={selectedTrigger} onClose={() => setSelectedTrigger(null)} onRemove={removeTriggerAt}
           triggerTypes={triggerTypes} readOnly={locked} />
-      ) : libraryOpen ? (
-        <CanvasBlockLibrary t={t} onAdded={selectNode} />
       ) : summaryOpen ? (
         <FlowSummaryPanel onCollapse={() => setSummaryOpen(false)} steps={builderNodes.length} triggers={triggers.length} />
       ) : null}
@@ -1049,9 +1039,6 @@ function FlowCanvasInner() {
           />}
           <Panel position="top-left" className="!top-4 !left-4">
             <div className="flex items-center gap-2">
-            <Button variant="outline" size="icon-sm" className="bg-card shadow-sm" onClick={() => { setSummaryOpen(false); setLibraryOpen(value => !value); }} aria-label={t('studioToggleLibrary')} title={t('studioToggleLibrary')} aria-expanded={libraryOpen}>
-              {libraryOpen ? <PanelLeftClose className="h-4 w-4" /> : <PanelLeftOpen className="h-4 w-4" />}
-            </Button>
             <Button variant="outline" size="icon-sm" className="bg-card shadow-sm" onClick={() => setLocked(value => !value)} aria-pressed={locked} aria-label={locked ? t('unlockCanvas') : t('lockCanvas')} title={locked ? t('unlockCanvas') : t('lockCanvas')}>
               {locked ? <Lock className="h-4 w-4 text-primary" /> : <LockOpen className="h-4 w-4" />}
             </Button>
@@ -1099,7 +1086,7 @@ function FlowCanvasInner() {
         </ReactFlow>
         </EdgeActionsContext.Provider>
         </NextStepContext.Provider>
-        {!panelOpen && !libraryOpen && !summaryOpen && (
+        {!panelOpen && !summaryOpen && (
           <button type="button" onClick={() => setSummaryOpen(true)} aria-label={tc('showDetails')} title={tc('showDetails')}
             data-testid="show-flow-summary"
             className="border-border bg-card text-muted-foreground hover:text-foreground absolute top-1/2 left-3 z-10 inline-flex size-9 -translate-y-1/2 items-center justify-center rounded-full border shadow-sm transition-colors">
@@ -1371,85 +1358,6 @@ function TriggerInspector({ index, onClose, onRemove, triggerTypes, readOnly }: 
           </Button>
         </div>
       )}
-    </aside>
-  );
-}
-
-// ============================================================
-// Floating add-node button — bottom-right of the canvas. Mirrors
-// the list view's AddNodeButton (same dropdown menu, same NodeType
-// list, same icons via NODE_META) but drops the new node into the
-// center of the visible viewport rather than appending to a list.
-// ============================================================
-
-
-function CanvasBlockLibrary({ t, onAdded }: { t: ReturnType<typeof useTranslations>; onAdded: (key: string) => void }) {
-  const reactFlow = useReactFlow();
-  const { addNode, updateNodePosition, nodeTypes } = useFlowEditor();
-  const caps = useWorkspaceCapabilities();
-  const [query, setQuery] = useState('');
-  // Only the steps the flow's channel runs (Stage 1).
-  const matching = filterPaletteTypes(nodeTypes.map(type => ({ type, label: t(`nodes.${type}.label`), description: t(`nodes.${type}.blurb`) })), query);
-
-  const handleAdd = (type: NodeType) => {
-    const key = addNode(type);
-    onAdded(key);
-    // Place the new node at the visible canvas center. The Panel's
-    // own DOM lives inside ReactFlow so we can climb up to find the
-    // .react-flow root and read its bounding rect. If we can't find
-    // it (test envs, etc.), addNode's default (0, 0) is the fallback
-    // and the user can drag the node into view.
-    const root = document.querySelector('.react-flow') as HTMLElement | null;
-    if (!root) return;
-    const rect = root.getBoundingClientRect();
-    const center = reactFlow.screenToFlowPosition({
-      x: rect.left + rect.width / 2,
-      y: rect.top + rect.height / 2,
-    });
-    // NODE_WIDTH / NODE_HEIGHT are the dagre layout defaults; offset
-    // so the card sits visually centered rather than top-left at the
-    // viewport center.
-    updateNodePosition(
-      key,
-      center.x - NODE_WIDTH / 2,
-      center.y - NODE_HEIGHT / 2
-    );
-  };
-
-  return (
-    <aside className="flow-studio-library flex min-h-0 flex-col border-r border-border bg-card" aria-label={t('studioLibrary')}>
-      <div className="border-b border-border px-4 py-4">
-        <div className="mb-1 flex items-center gap-2 text-sm font-semibold"><LayoutGrid className="h-4 w-4 text-primary" />{t('studioLibrary')}</div>
-        <p className="mb-3 text-xs leading-relaxed text-muted-foreground">{t('studioLibraryHelp')}</p>
-        <div className="relative"><Search className="pointer-events-none absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" /><Input aria-label={t('studioSearch')} placeholder={t('studioSearch')} value={query} onChange={event => setQuery(event.target.value)} className="h-9 pl-8 text-xs" /></div>
-      </div>
-      <div className="min-h-0 flex-1 overflow-y-auto p-3">
-        {groupNodeTypesByCategory(matching.map(item => item.type)).map(group => (
-          <section key={group.id} className="mb-5">
-            <h3 className="mb-2 px-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">{t(`categories.${group.id}`)}</h3>
-            <div className="grid grid-cols-2 gap-2">{group.types.map(type => {
-              const blocked = paletteBlock(type, caps);
-              if (blocked) {
-                // Provider not configured: the step could not be published, so it is not offered.
-                return (
-                  <div key={type} title={t(`capabilityBlocked.${blocked}`)} aria-disabled="true" data-blocked={blocked} className="flow-studio-block flex min-h-24 w-full flex-col items-center justify-center gap-1.5 rounded-xl border border-dashed border-border px-2 py-3 text-center opacity-60">
-                    <NodeIconChip type={type} size={30} iconSize={15} />
-                    <span className="text-xs font-medium text-muted-foreground">{t(`nodes.${type}.label`)}</span>
-                    <a href={CAPABILITY_SETUP_HREF[blocked]} className="text-[10px] font-medium text-primary hover:underline">{t('capabilitySetUp')}</a>
-                  </div>
-                );
-              }
-              return (
-                <button key={type} type="button" title={t(`nodes.${type}.blurb`)} onClick={() => handleAdd(type)} className="flow-studio-block group flex min-h-24 w-full flex-col items-center justify-center gap-2 rounded-xl border border-border px-2 py-3 text-center transition-colors hover:bg-primary-soft focus-visible:outline-2 focus-visible:outline-primary">
-                  <NodeIconChip type={type} size={30} iconSize={15} />
-                  <span className="text-xs font-medium text-foreground">{t(`nodes.${type}.label`)}</span>
-                </button>
-              );
-            })}</div>
-          </section>
-        ))}
-        {matching.length === 0 && <p className="px-2 py-6 text-center text-xs text-muted-foreground">{t('studioNoResults')}</p>}
-      </div>
     </aside>
   );
 }
