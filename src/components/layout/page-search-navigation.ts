@@ -35,7 +35,6 @@ export function navChannels(enabled: readonly Channel[] | null | undefined): Cha
 function channelPages(channel: Channel): NavPage[] {
   const common: NavPage[] = [
     { href: channelPath(channel, 'inbox'), labelKey: 'inbox', group: channel, unread: channel },
-    { href: channelPath(channel, 'flows'), labelKey: 'flows', group: channel, beta: true },
     { href: channelPath(channel, 'automations'), labelKey: 'automations', group: channel },
   ];
   if (channel === 'whatsapp')
@@ -69,6 +68,8 @@ function workspacePages(channels: readonly Channel[]): NavPage[] {
     page('/analytics', 'analytics'),
     page('/notifications', 'notifications'),
     page('/contacts', 'contacts'),
+    // One Automation section for every channel (the channel is chosen per automation).
+    page('/automation', 'automation'),
     page('/pipelines', 'pipelines'),
     page('/appointments', 'appointments'),
     page('/agents', 'aiAgents'),
@@ -122,6 +123,9 @@ export function filterPages(
 const allPages: NavPage[] = [
   ...navigationPages(['whatsapp', 'instagram']).filter((page) => !page.href.includes('?')),
   // Stage 5 Instagram pages reached from the automation area and the home page, not the sidebar.
+  // A flow's editor still lives under its channel; it belongs to the Automation section.
+  { href: channelPath('whatsapp', 'flows'), labelKey: 'automation', group: 'whatsapp' },
+  { href: channelPath('instagram', 'flows'), labelKey: 'automation', group: 'instagram' },
   { href: channelPath('instagram', 'basics'), labelKey: 'basics', group: 'instagram' },
   { href: channelPath('instagram', 'sequences'), labelKey: 'sequences', group: 'instagram' },
   { href: channelPath('instagram', 'subscription'), labelKey: 'subscription', group: 'instagram' },

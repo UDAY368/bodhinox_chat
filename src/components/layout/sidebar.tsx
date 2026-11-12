@@ -121,6 +121,7 @@ const NAV_ICONS: Record<string, typeof LayoutDashboard> = {
   ads: Megaphone,
   automations: Zap,
   flows: Workflow,
+  automation: Workflow,
   forms: ClipboardList,
   comments: MessageCircle,
   conversationStarters: MessagesSquare,
@@ -134,7 +135,9 @@ const NAV_ICONS: Record<string, typeof LayoutDashboard> = {
 };
 
 const isActivePath = (pathname: string, href: string) =>
-  pathname === href || pathname.startsWith(`${href}/`);
+  pathname === href || pathname.startsWith(`${href}/`)
+  // A flow's editor stays under its channel (/whatsapp/flows/<id>) but belongs to Automation.
+  || (href === '/automation' && /^\/(whatsapp|instagram)\/flows(\/|$)/.test(pathname));
 
 const commerceNavItems: NavItem[] = [
   { href: '/commerce/orders', labelKey: 'orders', icon: ShoppingBag },

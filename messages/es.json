@@ -105,7 +105,8 @@
     "home": "Inicio",
     "basics": "Básicos",
     "sequences": "Secuencias",
-    "subscription": "Suscripción"
+    "subscription": "Suscripción",
+    "automation": "Automatización"
   },
   "Header": {
     "dashboard": "Panel",
@@ -145,7 +146,8 @@
     "home": "Inicio",
     "basics": "Básicos",
     "sequences": "Secuencias",
-    "subscription": "Suscripción"
+    "subscription": "Suscripción",
+    "automation": "Automatización"
   },
   "ModeToggle": {
     "switchMode": "Cambiar al modo {mode}"
@@ -2215,7 +2217,7 @@
       "title": "Flujos",
       "beta": "Beta",
       "description": "Crea conversaciones de WhatsApp con ramificaciones y botones. Útil para menús, preguntas frecuentes y triaje antes de que intervenga una persona.",
-      "newFlow": "Nuevo flujo",
+      "newFlow": "Nueva automatización",
       "statusDraft": "Borrador",
       "statusActive": "Activo",
       "statusPaused": "En pausa",
@@ -2229,8 +2231,8 @@
       "emptyTitle": "Aún no hay flujos",
       "emptyDesc": "Crea tu primera conversación: un menú de bienvenida, una consulta de pedido, un bot de preguntas frecuentes. Los clientes tocan botones; el bot los lleva a la respuesta correcta (o al agente correcto).",
       "createFirst": "Crea tu primer flujo",
-      "createTitle": "Crear un nuevo flujo",
-      "createDesc": "Empieza desde una plantilla o desde cero.",
+      "createTitle": "Nueva automatización",
+      "createDesc": "Elige el canal y empieza con una plantilla o desde cero.",
       "startTemplate": "Empezar desde una plantilla",
       "nodeCount": "{count} {count, plural, =1 {nodo} other {nodos}}",
       "startBlank": "O empieza en blanco",
@@ -2270,7 +2272,12 @@
       "triggerIgLiveComment": "Se activa con: un comentario en tu directo",
       "triggerIgRef": "Se activa con: enlace ref {refs}",
       "triggerIgRefNone": "Se activa con: un enlace ref (todavía sin claves)",
-      "triggerIgShareToStory": "Se activa con: una publicación compartida en la historia de alguien"
+      "triggerIgShareToStory": "Se activa con: una publicación compartida en la historia de alguien",
+      "unifiedTitle": "Automatización",
+      "unifiedDescription": "Todas las automatizaciones de WhatsApp e Instagram en un solo lugar. Elige el canal al crear una.",
+      "channelFilterLabel": "Canal",
+      "allChannels": "Todos los canales",
+      "chooseChannel": "Canal de la nueva automatización"
     },
     "edit": {
       "notFound": "Flujo no encontrado.",

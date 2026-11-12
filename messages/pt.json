@@ -105,7 +105,8 @@
     "home": "Início",
     "basics": "Básicos",
     "sequences": "Sequências",
-    "subscription": "Inscrição"
+    "subscription": "Inscrição",
+    "automation": "Automação"
   },
   "Header": {
     "dashboard": "Painel",
@@ -145,7 +146,8 @@
     "home": "Início",
     "basics": "Básicos",
     "sequences": "Sequências",
-    "subscription": "Inscrição"
+    "subscription": "Inscrição",
+    "automation": "Automação"
   },
   "ModeToggle": {
     "switchMode": "Mudar para o modo {mode}"
@@ -2215,7 +2217,7 @@
       "title": "Fluxos",
       "beta": "Beta",
       "description": "Crie conversas de WhatsApp com ramificações e botões. Útil para menus, FAQs e triagem antes de um humano entrar.",
-      "newFlow": "Novo fluxo",
+      "newFlow": "Nova automação",
       "statusDraft": "Rascunho",
       "statusActive": "Ativo",
       "statusPaused": "Pausado",
@@ -2229,8 +2231,8 @@
       "emptyTitle": "Nenhum fluxo ainda",
       "emptyDesc": "Crie sua primeira conversa — um menu de boas-vindas, uma consulta de pedido, um bot de FAQ. Os clientes tocam em botões; o bot os leva à resposta certa (ou ao agente certo).",
       "createFirst": "Crie seu primeiro fluxo",
-      "createTitle": "Criar um novo fluxo",
-      "createDesc": "Comece a partir de um modelo ou do zero.",
+      "createTitle": "Nova automação",
+      "createDesc": "Escolha o canal e comece com um modelo ou do zero.",
       "startTemplate": "Começar a partir de um modelo",
       "nodeCount": "{count} {count, plural, =1 {nó} other {nós}}",
       "startBlank": "Ou comece em branco",
@@ -2270,7 +2272,12 @@
       "triggerIgLiveComment": "Dispara com: um comentário na sua live",
       "triggerIgRef": "Dispara com: link ref {refs}",
       "triggerIgRefNone": "Dispara com: um link ref (ainda sem chaves)",
-      "triggerIgShareToStory": "Dispara com: uma publicação compartilhada no story de alguém"
+      "triggerIgShareToStory": "Dispara com: uma publicação compartilhada no story de alguém",
+      "unifiedTitle": "Automação",
+      "unifiedDescription": "Todas as automações de WhatsApp e Instagram em um só lugar. Escolha o canal ao criar uma.",
+      "channelFilterLabel": "Canal",
+      "allChannels": "Todos os canais",
+      "chooseChannel": "Canal da nova automação"
     },
     "edit": {
       "notFound": "Fluxo não encontrado.",

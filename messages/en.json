@@ -105,7 +105,8 @@
     "home": "Home",
     "basics": "Basics",
     "sequences": "Sequences",
-    "subscription": "Subscription"
+    "subscription": "Subscription",
+    "automation": "Automation"
   },
   "Header": {
     "dashboard": "Dashboard",
@@ -145,7 +146,8 @@
     "home": "Home",
     "basics": "Basics",
     "sequences": "Sequences",
-    "subscription": "Subscription"
+    "subscription": "Subscription",
+    "automation": "Automation"
   },
   "ModeToggle": {
     "switchMode": "Switch to {mode} mode"
@@ -2215,7 +2217,7 @@
       "title": "Flows",
       "beta": "Beta",
       "description": "Build branching, button-driven WhatsApp conversations. Useful for menus, FAQs, and triage before a human steps in.",
-      "newFlow": "New flow",
+      "newFlow": "New automation",
       "statusDraft": "Draft",
       "statusActive": "Active",
       "statusPaused": "Paused",
@@ -2229,8 +2231,8 @@
       "emptyTitle": "No flows yet",
       "emptyDesc": "Build your first conversation — a welcome menu, an order lookup, an FAQ bot. Customers tap buttons; the bot routes them to the right answer (or the right agent).",
       "createFirst": "Create your first flow",
-      "createTitle": "Create a new flow",
-      "createDesc": "Start from a template or build from scratch.",
+      "createTitle": "New automation",
+      "createDesc": "Choose the channel, then start from a template or from scratch.",
       "startTemplate": "Start from a template",
       "nodeCount": "{count} {count, plural, =1 {node} other {nodes}}",
       "startBlank": "Or start blank",
@@ -2270,7 +2272,12 @@
       "triggerIgLiveComment": "Triggers on: a comment on your Live",
       "triggerIgRef": "Triggers on: ref link {refs}",
       "triggerIgRefNone": "Triggers on: a ref link (no keys yet)",
-      "triggerIgShareToStory": "Triggers on: a post shared to someone’s story"
+      "triggerIgShareToStory": "Triggers on: a post shared to someone’s story",
+      "unifiedTitle": "Automation",
+      "unifiedDescription": "Every automation for WhatsApp and Instagram in one place. Pick the channel when you create one.",
+      "channelFilterLabel": "Channel",
+      "allChannels": "All channels",
+      "chooseChannel": "Channel for the new automation"
     },
     "edit": {
       "notFound": "Flow not found.",

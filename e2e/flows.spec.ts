@@ -4,7 +4,7 @@ import { fixtures, login } from './fixtures';
 test('an agent adds a location question with a reply timeout to a new flow', async ({ page }) => {
   await login(page, fixtures().users.agent);
   await page.goto('/flows');
-  await page.getByRole('button', { name: 'New flow' }).first().click();
+  await page.getByRole('button', { name: 'New automation' }).first().click();
   const dialog = page.getByRole('dialog');
   await dialog.getByPlaceholder('e.g. Welcome menu').fill(`Location ${fixtures().runId}`);
   await dialog.getByRole('button', { name: 'Create blank flow' }).click();
@@ -26,7 +26,7 @@ test('an agent adds a location question with a reply timeout to a new flow', asy
 test('an agent starts from a gallery template, previews it, duplicates it and finds the copy', async ({ page }) => {
   await login(page, fixtures().users.agent);
   await page.goto('/flows');
-  await page.getByRole('button', { name: 'New flow' }).first().click();
+  await page.getByRole('button', { name: 'New automation' }).first().click();
   const dialog = page.getByRole('dialog');
   await dialog.getByLabel('Search templates').fill('welcome menu');
   // Pick the card by its exact name: other templates' descriptions can mention it
