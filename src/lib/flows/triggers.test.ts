@@ -21,6 +21,27 @@ describe("keyword triggers", () => {
     expect(await keywordTriggerMatches("a".repeat(40) + "!", { keywords: [], match_type: "regex", pattern: "(a+)+$" })).toBe(false);
     expect(Date.now() - started).toBeLessThan(2000);
   });
+
+  it("matches whole words in any script and treats keyword symbols literally", async () => {
+    const word = (text: string, keywords: string[]) => keywordTriggerMatches(text, { keywords, match_type: "word" });
+    expect(await word("What is the PRICE?", ["price"])).toBe(true);
+    expect(await word("priceless", ["price"])).toBe(false);
+    expect(await word("price_list", ["price"])).toBe(false);
+    expect(await word("दाम क्या है", ["दाम"])).toBe(true);
+    expect(await word("c++ course", ["c++"])).toBe(true);
+    expect(await word("cpp course", ["c++"])).toBe(false);
+    expect(await word("a.b", ["a.b"])).toBe(true);
+    expect(await word("axb", ["a.b"])).toBe(false);
+  });
+
+  it("matches at the start, and fires on none-of only when every keyword is absent", async () => {
+    expect(await keywordTriggerMatches("  Hi there", { keywords: ["hi"], match_type: "starts_with" })).toBe(true);
+    expect(await keywordTriggerMatches("oh hi", { keywords: ["hi"], match_type: "starts_with" })).toBe(false);
+    expect(await keywordTriggerMatches("book a table", { keywords: ["stop", "unsubscribe"], match_type: "not_contains" })).toBe(true);
+    expect(await keywordTriggerMatches("please STOP", { keywords: ["stop", "unsubscribe"], match_type: "not_contains" })).toBe(false);
+    expect(await keywordTriggerMatches("anything", { keywords: [""], match_type: "not_contains" })).toBe(false);
+    expect(await keywordTriggerMatches("", { keywords: ["stop"], match_type: "not_contains" })).toBe(false);
+  });
 });
 
 describe("template-reply triggers", () => {

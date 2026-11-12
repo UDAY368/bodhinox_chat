@@ -221,6 +221,12 @@ describe("Phase 4.3 triggers and fallback message", () => {
     expect(triggerErrors("keyword", { keywords: [], match_type: "regex" })).toEqual(["trigger_config.pattern"]);
   });
 
+  it("warns, without blocking, that a none-of keyword trigger fires on almost every message", () => {
+    const issues = validateFlowForActivation({ ...flow, trigger_type: "keyword", trigger_config: { keywords: ["stop"], match_type: "not_contains" } }, nodes);
+    expect(issues.filter((i) => i.severity === "error")).toEqual([]);
+    expect(issues.some((i) => i.severity === "warning" && i.field === "trigger_config.match_type")).toBe(true);
+  });
+
   it("requires a template for a template-reply trigger", () => {
     expect(triggerErrors("template_reply", { template_name: "order_update", buttons: ["Track"] })).toEqual([]);
     expect(triggerErrors("template_reply", { template_name: "" })).toEqual(["trigger_config.template_name"]);

@@ -581,6 +581,9 @@ function validateTrigger(
     let valid = typeof pattern === "string" && pattern.length > 0 && pattern.length <= 256;
     if (valid) { try { new RegExp(pattern as string, "u"); } catch { valid = false; } }
     if (!valid) at("trigger_config.pattern", "triggerBadPattern");
+  } else if (trigger_type === "keyword" && trigger_config.match_type === "not_contains") {
+    // Fires on almost every message, ahead of the default reply and first-message flows.
+    at("trigger_config.match_type", "triggerNotContainsBroad", "warning");
   } else if (trigger_type === "ad_click") {
     // Optional Meta ad ids (empty or absent = any ad); digits only, at most 50.
     const ids = trigger_config.ad_ids;

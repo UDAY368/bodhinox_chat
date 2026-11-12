@@ -132,6 +132,9 @@ export function KeywordTriggerFields({ config, onChange, t }: { config: Config; 
             <SelectContent>
               <SelectItem value="contains">{t("matchContains")}</SelectItem>
               <SelectItem value="exact">{t("matchExact")}</SelectItem>
+              <SelectItem value="word">{t("matchWord")}</SelectItem>
+              <SelectItem value="starts_with">{t("matchStartsWith")}</SelectItem>
+              <SelectItem value="not_contains">{t("matchNotContains")}</SelectItem>
               <SelectItem value="regex">{t("matchRegex")}</SelectItem>
             </SelectContent>
           </Select>
