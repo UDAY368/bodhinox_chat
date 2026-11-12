@@ -59,7 +59,10 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <Header showMenuToggle={flowEditor} menuExpanded={sidebarOpen} onOpenSidebar={() => setSidebarOpen(previous => !previous)} />
         {/* Thinner horizontal padding on mobile so cards have room to breathe. */}
-        <main className="studio-main flex-1 overflow-y-auto p-4 sm:p-6 xl:px-9 xl:py-8">
+        {/* relative: absolutely positioned content (screen-reader-only labels, badges) is placed and
+            clipped inside this scroll area; without it, one far down a long page made the whole
+            browser window scroll and left an empty band under the app. */}
+        <main className="studio-main relative flex-1 overflow-y-auto p-4 sm:p-6 xl:px-9 xl:py-8">
           {/* Above every page: writes are being rejected and here's why.
               Renders nothing unless the account/role failed to resolve. */}
           <AccountAccessAlert />
