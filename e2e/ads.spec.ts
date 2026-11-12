@@ -47,8 +47,8 @@ test.describe('ads with META_ADS_ENABLED unset', () => {
     await page.getByLabel('Ad IDs (optional)').press('Enter');
     await page.getByRole('button', { name: 'Save now', exact: true }).click();
     await expect(page.getByText('Saved.').first()).toBeVisible();
-    await page.getByRole('button', { name: 'Set live' }).click();
-    // Activating publishes v1; the header and the version bar both offer Pause.
+    await page.getByTestId('flow-version-bar').getByRole('button', { name: 'Publish', exact: true }).click();
+    // Publishing makes v1 live; the version bar then offers Pause.
     const versionBar = page.getByTestId('flow-version-bar');
     await expect(versionBar.getByText('Live v1')).toBeVisible();
     await expect(versionBar.getByRole('button', { name: 'Pause' })).toBeVisible();

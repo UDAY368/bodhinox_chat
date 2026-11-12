@@ -3,12 +3,13 @@
 /**
  * Editor top bar (Stage 5 layout).
  *
- * Left: back, breadcrumb (Automations › inline-editable name), status chip
- * (Draft / Live / Stopped) and the autosave state (Saving… / Saved / Not
- * saved with the reason). Right: Undo, Redo, Preview, the Canvas / Simple
- * builder switch, Settings, "Set live" (or Pause) and a more-actions menu
- * (Save now, Runs, Archive, Delete). The description stays as a subtle line
- * underneath.
+ * One row, so the canvas gets everything below it. Left: back, breadcrumb
+ * (Automations › inline-editable name) and the autosave state (Saving… /
+ * Saved / Not saved with the reason). Right: Undo, Redo, Preview, the Canvas /
+ * Simple builder switch, Settings, Save now, the version bar (status pill,
+ * Dry run, Versions, Pause, Archive, Publish) and a more menu (Runs, Delete).
+ * Labels fold into icons as the editor narrows (container queries). The
+ * description lives in Flow settings.
  *
  * Autosave saves 1.5 s after the last edit (use-autosave.ts); when someone
  * else saved a newer draft the bar opens the Reload / Overwrite choice and
@@ -24,20 +25,16 @@ import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import type { ReactNode } from "react";
 import {
-  Archive,
   ArrowLeft,
   Check,
   ChevronRight,
   CircleAlert,
-  CircleDot,
   GitFork,
   History,
   List,
   Loader2,
   MoreHorizontal,
-  PauseCircle,
   Redo2,
-  Rocket,
   Save,
   Smartphone,
   Trash2,
@@ -55,7 +52,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { channelPath } from "@/lib/channels/routes";
-import { useFlowEditor, type BuilderState } from "./flow-editor-state";
+import { useFlowEditor } from "./flow-editor-state";
 import type { AutosaveStatus } from "./use-autosave";
 
 /** What the save-state chip says (Flows.autosave keys), or null to show nothing. */
@@ -78,7 +75,7 @@ export function saveStateView(status: AutosaveStatus, dirty: boolean): { key: "s
 
 export type EditorView = "canvas" | "list";
 
-export function EditorHeader({ view, onViewChange, previewOpen, onTogglePreview, settings }: {
+export function EditorHeader({ view, onViewChange, previewOpen, onTogglePreview, settings, lifecycle }: {
   /** Canvas or the simple (list) builder; omitted on phones, where only the list exists. */
   view?: EditorView;
   onViewChange?: (view: EditorView) => void;
@@ -86,6 +83,8 @@ export function EditorHeader({ view, onViewChange, previewOpen, onTogglePreview,
   onTogglePreview?: () => void;
   /** The Settings popover (FlowEditorShell owns it). */
   settings?: ReactNode;
+  /** The version bar: status, dry run, versions and the publish / pause / archive actions. */
+  lifecycle?: ReactNode;
 } = {}) {
   const router = useRouter();
   const t = useTranslations("Flows.header");
@@ -98,10 +97,7 @@ export function EditorHeader({ view, onViewChange, previewOpen, onTogglePreview,
     state,
     setState,
     dirty,
-    activating,
-    canActivate,
     save,
-    setStatus,
     deleteFlow,
     section,
     history,
@@ -120,9 +116,11 @@ export function EditorHeader({ view, onViewChange, previewOpen, onTogglePreview,
   const backHref = channelPath(section, "flows");
 
   return (
-    <div className="flex flex-col gap-1.5 px-6 pt-5">
-      <div className="flex flex-wrap items-center gap-2">
-        {/* ---- left: back · breadcrumb › name · status · save state ---- */}
+    // One row (a size container, so labels fold into icons as the editor narrows):
+    // every pixel below it belongs to the canvas.
+    <div className="@container flex flex-wrap items-center gap-x-2 gap-y-1 px-2 py-1.5 sm:px-3">
+      {/* ---- left: back · breadcrumb › name · save state ---- */}
+      <div className="flex min-w-0 flex-1 items-center gap-1">
         {/* A link (not router.push) so the leave guard can hold it while a save is pending. */}
         <Link
           href={backHref}
@@ -132,117 +130,101 @@ export function EditorHeader({ view, onViewChange, previewOpen, onTogglePreview,
         >
           <ArrowLeft className="h-4 w-4" />
         </Link>
-        <nav aria-label={t("breadcrumb")} className="flex min-w-0 items-center gap-1">
-          <Link href={backHref} className="shrink-0 rounded px-1 text-sm text-muted-foreground hover:text-foreground focus-visible:outline-2 focus-visible:outline-primary">
+        <nav aria-label={t("breadcrumb")} className="flex min-w-0 flex-1 items-center gap-1">
+          <Link href={backHref} className="hidden shrink-0 rounded px-1 text-sm text-muted-foreground hover:text-foreground focus-visible:outline-2 focus-visible:outline-primary @7xl:inline">
             {t("automations")}
           </Link>
-          <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
+          <ChevronRight className="hidden h-3.5 w-3.5 shrink-0 text-muted-foreground @7xl:block" aria-hidden />
           <input
             value={state.name}
             onChange={(e) => setState((s) => ({ ...s, name: e.target.value }))}
             placeholder={t("namePlaceholder")}
             spellCheck={false}
             aria-label={t("namePlaceholder")}
-            className="min-w-[120px] max-w-[340px] rounded-lg border border-transparent bg-transparent px-2 py-1 text-lg font-bold leading-tight tracking-tight text-foreground outline-none transition-colors hover:bg-muted focus:border-primary focus:bg-transparent focus:shadow-[0_0_0_3px_var(--primary-soft)]"
+            className="w-full min-w-[6rem] max-w-[22rem] rounded-lg border border-transparent bg-transparent px-2 py-1 text-base font-bold leading-tight tracking-tight text-foreground outline-none transition-colors hover:bg-muted focus:border-primary focus:bg-transparent focus:shadow-[0_0_0_3px_var(--primary-soft)]"
           />
         </nav>
-        <StatusChip status={state.status} />
         {saveView && (
           <span
             role="status"
             aria-live="polite"
             data-save-state={saveView.key}
+            title={saveView.key === "notSavedReason"
+              ? tAuto("notSavedReason", { reason: saveView.message ?? tAuto(saveView.reason ?? "failed") })
+              : undefined}
             className={cn(
-              "inline-flex shrink-0 items-center gap-1.5 text-[11px] font-medium",
-              saveView.key === "saved" ? "text-muted-foreground" : saveView.key === "saving" ? "text-muted-foreground" : "text-amber-500",
+              "inline-flex min-w-0 max-w-[14rem] shrink items-center gap-1.5 text-[11px] font-medium",
+              saveView.key === "saved" || saveView.key === "saving" ? "text-muted-foreground" : "text-amber-500",
             )}
           >
-            {saveView.key === "saving" ? <Loader2 className="h-3 w-3 animate-spin" />
-              : saveView.key === "saved" ? <Check className="h-3 w-3" /> : <CircleAlert className="h-3 w-3" />}
-            {saveView.key === "notSavedReason"
-              ? tAuto("notSavedReason", { reason: saveView.message ?? tAuto(saveView.reason ?? "failed") })
-              : tAuto(saveView.key)}
+            {saveView.key === "saving" ? <Loader2 className="h-3 w-3 shrink-0 animate-spin" />
+              : saveView.key === "saved" ? <Check className="h-3 w-3 shrink-0" /> : <CircleAlert className="h-3 w-3 shrink-0" />}
+            <span className="truncate">
+              {saveView.key === "notSavedReason"
+                ? tAuto("notSavedReason", { reason: saveView.message ?? tAuto(saveView.reason ?? "failed") })
+                : tAuto(saveView.key)}
+            </span>
           </span>
         )}
-
-        {/* ---- right: undo · redo · preview · view · settings · set live · more ---- */}
-        <div className="ml-auto flex flex-wrap items-center gap-1.5">
-          <Button variant="ghost" size="icon-sm" onClick={history.undo} disabled={!history.canUndo}
-            aria-label={tHistory("undo")} title={history.canUndo ? tHistory("undoShortcut") : tHistory("nothingToUndo")}>
-            <Undo2 className="h-4 w-4" />
-          </Button>
-          <Button variant="ghost" size="icon-sm" onClick={history.redo} disabled={!history.canRedo}
-            aria-label={tHistory("redo")} title={history.canRedo ? tHistory("redoShortcut") : tHistory("nothingToRedo")}>
-            <Redo2 className="h-4 w-4" />
-          </Button>
-          {onTogglePreview && (
-            <Button variant="ghost" size="sm" onClick={onTogglePreview} aria-pressed={!!previewOpen}
-              className={cn(previewOpen && "bg-primary-soft text-primary")}>
-              <Smartphone className="h-3.5 w-3.5" />{tCanvas("preview")}
-            </Button>
-          )}
-          {view && onViewChange && (
-            <div role="group" aria-label={tBuilder("editorView")} className="inline-flex gap-0.5 rounded-lg border border-border bg-muted p-0.5">
-              {(["canvas", "list"] as const).map((v) => (
-                <button key={v} type="button" onClick={() => onViewChange(v)} aria-pressed={view === v}
-                  className={cn("inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-colors focus-visible:outline-2 focus-visible:outline-primary",
-                    view === v ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}>
-                  {v === "canvas" ? <GitFork className="h-3.5 w-3.5" /> : <List className="h-3.5 w-3.5" />}
-                  {v === "canvas" ? tCanvas("canvasBuilder") : tCanvas("simpleBuilder")}
-                </button>
-              ))}
-            </div>
-          )}
-          {settings}
-          {/* Autosave does the saving; "Save now" stays for anyone who wants it at once. */}
-          <Button variant="outline" size="sm" onClick={() => void save()} disabled={conflict}>
-            <Save className="h-3.5 w-3.5" />{tAuto("saveNow")}
-          </Button>
-          {state.status === "active" ? (
-            <Button variant="outline" size="sm" onClick={() => void setStatus("draft")} disabled={activating}>
-              {activating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <PauseCircle className="h-3.5 w-3.5" />}
-              {t("pause")}
-            </Button>
-          ) : (
-            // Publishing waits for a pending autosave (flush) instead of being disabled while one runs.
-            <Button size="sm" onClick={() => void setStatus("active")} disabled={activating || !canActivate || conflict}
-              title={!canActivate ? t("fixIssues") : undefined}>
-              {activating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Rocket className="h-3.5 w-3.5" />}
-              {tCanvas("setLive")}
-            </Button>
-          )}
-          <DropdownMenu>
-            <DropdownMenuTrigger aria-label={tCanvas("more")} title={tCanvas("more")}
-              className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-primary">
-              <MoreHorizontal className="h-4 w-4" />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="min-w-48">
-              <DropdownMenuItem onClick={() => void openRuns()}>
-                <History className="h-4 w-4" />{t("runs")}
-                <span className="ml-auto font-mono text-[11px] text-muted-foreground">{flow.execution_count}</span>
-              </DropdownMenuItem>
-              {state.status !== "archived" && (
-                <DropdownMenuItem onClick={() => void setStatus("archived")}>
-                  <Archive className="h-4 w-4" />{t("archive")}
-                </DropdownMenuItem>
-              )}
-              <DropdownMenuSeparator />
-              <DropdownMenuItem variant="destructive" onClick={() => void deleteFlow()}>
-                <Trash2 className="h-4 w-4" />{t("delete")}
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
       </div>
 
-      {/* ---- description note (subtle, inline-editable) ---- */}
-      <input
-        value={state.description}
-        onChange={(e) => setState((s) => ({ ...s, description: e.target.value }))}
-        placeholder={t("descriptionPlaceholder")}
-        aria-label={t("descriptionLabel")}
-        className="w-full max-w-[78ch] rounded-md border border-transparent bg-transparent px-2 py-1 text-[13px] text-muted-foreground outline-none transition-colors placeholder:text-muted-foreground/60 hover:bg-muted/50 focus:border-primary focus:bg-transparent focus:text-foreground"
-      />
+      {/* ---- right: undo · redo · preview · view · settings · save · version + publish · more ---- */}
+      <div className="flex shrink-0 items-center gap-1">
+        <Button variant="ghost" size="icon-sm" onClick={history.undo} disabled={!history.canUndo}
+          aria-label={tHistory("undo")} title={history.canUndo ? tHistory("undoShortcut") : tHistory("nothingToUndo")}>
+          <Undo2 className="h-4 w-4" />
+        </Button>
+        <Button variant="ghost" size="icon-sm" onClick={history.redo} disabled={!history.canRedo}
+          aria-label={tHistory("redo")} title={history.canRedo ? tHistory("redoShortcut") : tHistory("nothingToRedo")}>
+          <Redo2 className="h-4 w-4" />
+        </Button>
+        {onTogglePreview && (
+          <Button variant="ghost" size="sm" onClick={onTogglePreview} aria-pressed={!!previewOpen}
+            aria-label={tCanvas("preview")} title={tCanvas("preview")}
+            className={cn(previewOpen && "bg-primary-soft text-primary")}>
+            <Smartphone className="h-3.5 w-3.5" /><span className="hidden @6xl:inline">{tCanvas("preview")}</span>
+          </Button>
+        )}
+        {view && onViewChange && (
+          <div role="group" aria-label={tBuilder("editorView")} className="inline-flex gap-0.5 rounded-lg border border-border bg-muted p-0.5">
+            {(["canvas", "list"] as const).map((v) => {
+              const label = v === "canvas" ? tCanvas("canvasBuilder") : tCanvas("simpleBuilder");
+              return (
+                <button key={v} type="button" onClick={() => onViewChange(v)} aria-pressed={view === v}
+                  aria-label={label} title={label}
+                  className={cn("inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium transition-colors focus-visible:outline-2 focus-visible:outline-primary",
+                    view === v ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}>
+                  {v === "canvas" ? <GitFork className="h-3.5 w-3.5" /> : <List className="h-3.5 w-3.5" />}
+                  <span className="hidden @7xl:inline">{label}</span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+        {settings}
+        {/* Autosave does the saving; "Save now" stays for anyone who wants it at once. */}
+        <Button variant="ghost" size="icon-sm" onClick={() => void save()} disabled={conflict}
+          aria-label={tAuto("saveNow")} title={tAuto("saveNow")}>
+          <Save className="h-4 w-4" />
+        </Button>
+        {lifecycle}
+        <DropdownMenu>
+          <DropdownMenuTrigger aria-label={tCanvas("more")} title={tCanvas("more")}
+            className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-primary">
+            <MoreHorizontal className="h-4 w-4" />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="min-w-48">
+            <DropdownMenuItem onClick={() => void openRuns()}>
+              <History className="h-4 w-4" />{t("runs")}
+              <span className="ml-auto font-mono text-[11px] text-muted-foreground">{flow.execution_count}</span>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem variant="destructive" onClick={() => void deleteFlow()}>
+              <Trash2 className="h-4 w-4" />{t("delete")}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
 
       {/* Someone saved a newer draft: autosave stopped until the author picks. */}
       <Dialog open={conflict}>
@@ -261,21 +243,3 @@ export function EditorHeader({ view, onViewChange, previewOpen, onTogglePreview,
   );
 }
 
-function StatusChip({ status }: { status: BuilderState["status"] }) {
-  const t = useTranslations("Flows.header.status");
-  const cfg = {
-    draft: { cls: "border-border bg-muted text-muted-foreground", label: t("draft") },
-    active: { cls: "border-emerald-600/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-300", label: t("live") },
-    paused: { cls: "border-sky-600/40 bg-sky-500/10 text-sky-600 dark:text-sky-300", label: t("stopped") },
-    archived: { cls: "border-border bg-muted/50 text-muted-foreground", label: t("archived") },
-  }[status];
-  return (
-    <span
-      data-status={status}
-      className={cn("inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11.5px] font-medium", cfg.cls)}
-    >
-      <CircleDot className="h-3 w-3" />
-      {cfg.label}
-    </span>
-  );
-}

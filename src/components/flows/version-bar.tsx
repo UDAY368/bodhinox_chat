@@ -175,39 +175,42 @@ export function VersionBar({ toolbarExtra }: { toolbarExtra?: ReactNode }) {
     return { label: t('pill.draft'), cls: 'border-border bg-muted text-muted-foreground' };
   })();
 
-  const publishBlocked = dirty || !canActivate;
-  const publishTitle = dirty ? t('saveFirst') : !canActivate ? t('fixIssues') : undefined;
+  // publish() saves pending edits first and publishes exactly what was saved, so unsaved edits do not block it.
+  const publishBlocked = !canActivate;
+  const publishTitle = !canActivate ? t('fixIssues') : undefined;
   // Pause and Archive reload the editor afterwards, which would drop unsaved edits.
   const lifecycleTitle = dirty ? t('saveFirst') : undefined;
 
   return (
-    <div className="flex flex-wrap items-center gap-2 border-b border-border px-4 py-2" data-testid="flow-version-bar">
-      <span className={cn('inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11.5px] font-medium', pill.cls)}>
+    <div className="flex items-center gap-1" data-testid="flow-version-bar">
+      <span className={cn('inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-2 py-0.5 text-[11px] font-medium', pill.cls)}>
         <GitBranch className="h-3 w-3" />
         {pill.label}
       </span>
       {live && info?.has_unpublished_changes && (
-        <span className="rounded-full border border-amber-600/40 bg-amber-500/10 px-2 py-0.5 text-[11px] font-medium text-amber-300">
-          {t('unpublishedChanges')}
+        <span title={t('unpublishedChanges')} className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full border border-amber-600/40 bg-amber-500/10 px-2 py-0.5 text-[11px] font-medium text-amber-700 dark:text-amber-300">
+          <span className="h-1.5 w-1.5 rounded-full bg-amber-500" aria-hidden />
+          <span className="sr-only @6xl:not-sr-only">{t('unpublishedChanges')}</span>
         </span>
       )}
 
-      <div className="ml-auto flex flex-wrap items-center gap-1.5">
+      <div className="flex items-center gap-1">
         {toolbarExtra}
-        <Button variant="ghost" size="sm" onClick={() => setDrawerOpen(true)} disabled={!info?.versions.length}>
+        <Button variant="ghost" size="sm" onClick={() => setDrawerOpen(true)} disabled={!info?.versions.length}
+          aria-label={t('versionsButton', { count: info?.versions.length ?? 0 })} title={t('versionsButton', { count: info?.versions.length ?? 0 })}>
           <History className="h-3.5 w-3.5" />
-          {t('versionsButton', { count: info?.versions.length ?? 0 })}
+          <span className="hidden @[96rem]:inline">{t('versionsButton', { count: info?.versions.length ?? 0 })}</span>
         </Button>
         {status === 'active' && (
-          <Button variant="outline" size="sm" disabled={busy || dirty} title={lifecycleTitle} onClick={() => setConfirm({ kind: 'pause', cancel: false })}>
+          <Button variant="outline" size="sm" disabled={busy || dirty} title={lifecycleTitle ?? t('pause')} aria-label={t('pause')} onClick={() => setConfirm({ kind: 'pause', cancel: false })}>
             <PauseCircle className="h-3.5 w-3.5" />
-            {t('pause')}
+            <span className="hidden @6xl:inline">{t('pause')}</span>
           </Button>
         )}
         {status !== 'archived' && (
-          <Button variant="ghost" size="sm" disabled={busy || dirty} title={lifecycleTitle} onClick={() => setConfirm({ kind: 'archive', cancel: false })}>
+          <Button variant="ghost" size="sm" disabled={busy || dirty} title={lifecycleTitle ?? t('archive')} aria-label={t('archive')} onClick={() => setConfirm({ kind: 'archive', cancel: false })}>
             <Archive className="h-3.5 w-3.5" />
-            {t('archive')}
+            <span className="hidden @[96rem]:inline">{t('archive')}</span>
           </Button>
         )}
         <Button size="sm" disabled={busy || publishBlocked} title={publishTitle} onClick={() => void publish()}>

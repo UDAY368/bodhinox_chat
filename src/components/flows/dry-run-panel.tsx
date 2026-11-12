@@ -121,9 +121,9 @@ export function DryRunPanel() {
 
   return (
     <>
-      <Button variant="outline" size="sm" onClick={() => setOpen(true)} data-testid="dry-run-open">
+      <Button variant="ghost" size="sm" onClick={() => setOpen(true)} data-testid="dry-run-open" aria-label={t('open')} title={t('open')}>
         <FlaskConical className="h-3.5 w-3.5" />
-        {t('open')}
+        <span className="hidden @[96rem]:inline">{t('open')}</span>
       </Button>
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetContent side="right" className="flex w-full flex-col gap-0 overflow-hidden p-0 sm:max-w-md" data-testid="dry-run-panel">
