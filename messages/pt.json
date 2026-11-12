@@ -3028,7 +3028,8 @@
         "events": "Eventos",
         "services": "Serviços",
         "journeys": "Jornadas"
-      }
+      },
+      "details": "Detalhes"
     },
     "channel": {
       "runsOn": "Executa em",

@@ -3028,7 +3028,8 @@
         "events": "Events",
         "services": "Services",
         "journeys": "Journeys"
-      }
+      },
+      "details": "Details"
     },
     "channel": {
       "runsOn": "Runs on",
