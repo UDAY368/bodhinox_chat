@@ -146,7 +146,8 @@ export interface FlowEditorContextValue {
   // Node mutations. addNode returns the generated key so the caller
   // (a NodeCard "Add" button or canvas "+" button) can scroll to /
   // focus / open the new node.
-  addNode: (type: NodeType) => string;
+  /** `asEntry`: also make it the flow's first step when there is none, in the same undo step. */
+  addNode: (type: NodeType, options?: { asEntry?: boolean }) => string;
   updateNode: (key: string, patch: Partial<BuilderNode>) => void;
   updateNodeConfig: (key: string, patch: Record<string, unknown>) => void;
   updateNodePosition: (key: string, x: number, y: number) => void;
@@ -186,6 +187,8 @@ export interface FlowEditorContextValue {
    * view is currently mounted, without per-view plumbing.
    */
   flashKey: string | null;
+  /** Counts requestFlash calls, so a repeat jump to the same node is still seen. */
+  flashSeq: number;
   requestFlash: (key: string) => void;
 
   /**
@@ -623,12 +626,14 @@ export function FlowEditorProvider({
   // different issue cancels the previous timeout instead of letting
   // the first flash linger past the new one.
   const [flashKey, setFlashKey] = useState<string | null>(null);
+  const [flashSeq, setFlashSeq] = useState(0);
   const flashTimeoutRef = useRef<number | null>(null);
   const requestFlash = useCallback((key: string) => {
     if (flashTimeoutRef.current !== null) {
       window.clearTimeout(flashTimeoutRef.current);
     }
     setFlashKey(key);
+    setFlashSeq((n) => n + 1);
     flashTimeoutRef.current = window.setTimeout(() => {
       setFlashKey(null);
       flashTimeoutRef.current = null;
@@ -949,7 +954,7 @@ export function FlowEditorProvider({
   );
 
   const addNode = useCallback(
-    (type: NodeType): string => {
+    (type: NodeType, options?: { asEntry?: boolean }): string => {
       const meta = NODE_META[type];
       const base = slugify(meta.slugSeed, type);
       // Choose the key here, not inside the updater: React may defer
@@ -960,7 +965,10 @@ export function FlowEditorProvider({
         ...nodesRef.current,
         { node_key, node_type: type, config: {} },
       ];
-      setState((s) => appendNode(s, type, node_key), { key: null });
+      setState((s) => {
+        const next = appendNode(s, type, node_key);
+        return options?.asEntry && !next.entry_node_id ? { ...next, entry_node_id: node_key } : next;
+      }, { key: null });
       return node_key;
     },
     [setState],
@@ -1032,6 +1040,7 @@ export function FlowEditorProvider({
       publish,
       deleteFlow,
       flashKey,
+      flashSeq,
       requestFlash,
       triggerNumber,
       setTriggerNumber,
@@ -1069,6 +1078,7 @@ export function FlowEditorProvider({
       publish,
       deleteFlow,
       flashKey,
+      flashSeq,
       requestFlash,
       triggerNumber,
       channelScope,

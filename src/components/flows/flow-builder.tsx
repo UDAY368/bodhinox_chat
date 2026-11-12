@@ -1,23 +1,25 @@
 'use client';
 
 /**
- * Linear-list flow editor.
+ * The Simple builder: the flow as three columns.
  *
- * Renders the trigger panel, entry-node picker, and the per-node card
- * list. Header and validation panel are NOT owned here — they live
- * once in FlowEditorShell so they show in both views (lifted in PR 3
- * so canvas users can also save + see validator issues).
+ *   - Left: "When…" (the triggers), the steps a customer can reach in the
+ *     order they are reached, then the steps nothing leads to, and
+ *     "+ Add step". Each step row deletes from its hover tool.
+ *   - Middle: the selected trigger's or step's settings (the same forms
+ *     as the canvas side panel).
+ *   - Right (wide screens): the selected step in a phone, run through the
+ *     local preview engine from that step. Nothing is sent.
+ *
+ * Narrow screens stack the list above the editor. Header and validation
+ * panel live once in FlowEditorShell so they show in both views.
  *
  * State lives in the shared `useFlowEditor()` context — toggling
- * Canvas ⇄ List never loses edits, and a drag on the canvas updates
- * the same nodes the list view reads.
- *
- * What's still local: the `expanded` set (which cards are open) and
- * the scroll refs used when the validator's flashKey changes — those
- * are list-only and have no canvas analogue.
+ * Canvas ⇄ Simple never loses edits. Only the selection is local; a
+ * validator jump (flashKey) selects its step.
  */
 
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { paletteBlock, useWorkspaceCapabilities } from './palette';
 import {
@@ -27,6 +29,7 @@ import {
   ChevronDown,
   ChevronUp,
   CornerDownRight,
+  Zap,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -77,6 +80,9 @@ import { commentTriggerOf, useFlowEditor, type BuilderState } from './flow-edito
 import { VersionBar } from './version-bar';
 import { splitFlow } from './split-flow';
 import { DryRunPanel } from './dry-run-panel';
+import { groupSteps } from './basic-steps';
+import { Bubble } from './flow-preview';
+import { startPreview } from '@/lib/flows/preview';
 
 // ============================================================
 // Local state shape — mirrors the DB but the configs are typed
@@ -102,134 +108,210 @@ export function FlowBuilder() {
     nodeTypes,
     triggerTypes,
     flashKey,
+    flashSeq,
     addNode: addNodeCtx,
     updateNode,
     updateNodeConfig,
     removeNode: removeNodeCtx,
   } = useFlowEditor();
 
-  // List-only UI state: which cards are expanded + scroll refs for
-  // jump-to-node. The flash itself is read from context (flashKey)
-  // so canvas + list share the same source of truth.
-  const [expanded, setExpanded] = useState<Set<string>>(
-    () => new Set(state.nodes.map((n) => n.node_key))
-  );
-  const nodeRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+  const tb = useTranslations('Flows.builder.basic');
 
-  // Wrap addNode so the new node opens expanded in the list view
-  // (matches the previous behaviour where adding always revealed the
-  // new card so the user could start editing immediately).
-  const addNode = useCallback(
-    (type: NodeType) => {
-      const key = addNodeCtx(type);
-      setExpanded((prev) => new Set([...prev, key]));
-    },
-    [addNodeCtx]
-  );
+  // What the middle column edits: the trigger ("When…") or one step.
+  // A validator jump (flashKey) selects its step; a deleted step falls
+  // back to the trigger.
+  const [picked, setPicked] = useState<string | null>(null);
+  const [seenFlash, setSeenFlash] = useState(flashSeq);
+  if (flashSeq !== seenFlash) {
+    setSeenFlash(flashSeq);
+    if (flashKey) setPicked(flashKey);
+  }
+  const selected = picked ? state.nodes.find((n) => n.node_key === picked) ?? null : null;
 
-  const removeNode = useCallback(
-    (key: string) => {
-      removeNodeCtx(key);
-      setExpanded((prev) => {
-        const next = new Set(prev);
-        next.delete(key);
-        return next;
-      });
-    },
-    [removeNodeCtx]
-  );
+  // The first step added to a flow with no first step becomes it, so it lists under "Steps".
+  const addNode = useCallback((type: NodeType) => setPicked(addNodeCtx(type, { asEntry: true })), [addNodeCtx]);
+  const removeNode = useCallback((key: string) => {
+    removeNodeCtx(key);
+    setPicked((current) => (current === key ? null : current));
+  }, [removeNodeCtx]);
 
-  const toggleExpanded = useCallback((key: string) => {
-    setExpanded((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
-  }, []);
-
-  const setNodeRef = useCallback(
-    (key: string) => (el: HTMLDivElement | null) => {
-      if (el) nodeRefs.current.set(key, el);
-      else nodeRefs.current.delete(key);
-    },
-    []
-  );
-
-  // React to validator jumps via the shared flashKey. We DERIVE the
-  // expanded-with-flash set (avoids the "setState inside effect"
-  // smell of mutating `expanded` from a useEffect on flashKey), then
-  // run a side-effect-only effect to scroll the row into view. The
-  // flash class is rendered by NodeCard when its key matches
-  // flashKey; the flash auto-clears in the context so no timer here.
-  const expandedWithFlash = useMemo(() => {
-    if (!flashKey || expanded.has(flashKey)) return expanded;
-    return new Set([...expanded, flashKey]);
-  }, [expanded, flashKey]);
+  // A new selection starts at the top of its settings: the editor column
+  // scrolls by itself when the columns sit side by side; stacked (narrow),
+  // the page scrolls down to it instead. Not on first render.
+  const editorRef = useRef<HTMLDivElement>(null);
+  const firstRender = useRef(true);
   useEffect(() => {
-    if (!flashKey) return;
-    // requestAnimationFrame defers the scroll until after React has
-    // committed any expand-induced layout shift.
-    requestAnimationFrame(() => {
-      const el = nodeRefs.current.get(flashKey);
-      el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    });
-  }, [flashKey]);
+    const el = editorRef.current;
+    if (firstRender.current || !el) { firstRender.current = false; return; }
+    if (getComputedStyle(el).overflowY === 'auto') el.scrollTo?.({ top: 0 });
+    else el.scrollIntoView?.({ block: 'start', behavior: 'smooth' });
+  }, [picked, flashSeq]);
+
+  const { connected, unconnected } = useMemo(() => groupSteps(state.nodes, state.entry_node_id), [state.nodes, state.entry_node_id]);
+  const entryIsLocked = entryLocked(commentTriggerOf(state), state.nodes, state.entry_node_id);
+  const nodeIssues = (key: string) => issues.filter((i) => i.scope === 'node' && i.node_key === key);
+  const triggerIssues = issues.filter((i) => i.scope === 'trigger');
+  const row = (node: BuilderNode) => (
+    <StepRow key={node.node_key} node={node} active={picked === node.node_key} isEntry={state.entry_node_id === node.node_key}
+      hasError={nodeIssues(node.node_key).some((i) => i.severity === 'error')}
+      onSelect={() => setPicked(node.node_key)} onRemove={() => removeNode(node.node_key)} t={t} />
+  );
 
   return (
-    <div className="mx-auto flex max-w-3xl flex-col gap-6 px-6 py-7">
-      <ChannelScopePanel flowId={flow.id} scope={channelScope} published={!!flow.published_version_id}
-        dirty={dirty} section={section} onSaved={setChannelScope} />
+    // Sized by its own width (the shell's Preview panel can sit beside it), not the window's.
+    <div className="@container h-full">
+    <div className="flex min-h-full flex-col @3xl:h-full @3xl:flex-row" data-testid="basic-builder">
+      {/* Left: the steps, as the customer meets them. */}
+      <nav aria-label={tb('stepsNav')} className="border-border bg-card flex shrink-0 flex-col gap-4 border-b p-4 @3xl:w-80 @3xl:overflow-y-auto @3xl:border-r @3xl:border-b-0">
+        <StepGroup title={tb('startingStep')}>
+          <button type="button" onClick={() => setPicked(null)} aria-current={selected ? undefined : 'true'}
+            className={cn(STEP_ROW, 'w-full text-left', !selected && STEP_ROW_ACTIVE)}>
+            <span className="bg-primary-soft text-primary flex h-7 w-7 shrink-0 items-center justify-center rounded-md"><Zap className="h-3.5 w-3.5" /></span>
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-sm font-medium">{tb('when')}</span>
+              <span className="text-muted-foreground block truncate text-xs">{t(TRIGGER_TITLE_KEYS[state.trigger_type])}</span>
+            </span>
+            {triggerIssues.some((i) => i.severity === 'error') && <CircleAlert className="h-3.5 w-3.5 shrink-0 text-red-400" aria-label={tb('hasErrors')} />}
+          </button>
+        </StepGroup>
+        <StepGroup title={tb('connected', { count: connected.length })}>
+          {connected.length ? connected.map(row) : <p className="text-muted-foreground px-1 text-xs">{tb('connectedEmpty')}</p>}
+        </StepGroup>
+        {unconnected.length > 0 && (
+          <StepGroup title={tb('unconnected', { count: unconnected.length })} hint={tb('unconnectedHint')}>
+            {unconnected.map(row)}
+          </StepGroup>
+        )}
+        <AddNodeButton types={nodeTypes} onAdd={addNode} t={t} />
+      </nav>
 
-      <TriggerPanel
-        state={state}
-        setState={setState}
-        triggerTypes={triggerTypes}
-        triggerIssues={issues.filter((i) => i.scope === 'trigger')}
-        instagramOnly={channelScope === 'instagram'}
-        t={t}
-      />
-
-      <EntryPicker state={state} setState={setState} t={t} />
-
-      <section className="flex flex-col gap-3">
-        <div className="flex items-center justify-between">
-          <h2 className="text-foreground text-sm font-semibold">
-            {t('nodesTitle', { count: state.nodes.length })}
-          </h2>
-          <AddNodeButton types={nodeTypes} onAdd={addNode} t={t} />
-        </div>
-
-        {state.nodes.length === 0 ? (
-          <div className="border-border bg-card/50 text-muted-foreground rounded-lg border border-dashed p-8 text-center text-sm">
-            {t.rich('nodesEmpty', { strong: (chunks) => <strong>{chunks}</strong> })}
-          </div>
-        ) : (
-          state.nodes.map((node) => (
-            <NodeCard
-              key={node.node_key}
-              node={node}
+      {/* Middle: the selected trigger's or step's settings. */}
+      <div ref={editorRef} className="min-w-0 flex-1 scroll-mt-2 @3xl:overflow-y-auto">
+        <div className="mx-auto flex max-w-2xl flex-col gap-5 px-5 py-6">
+          {selected ? (
+            <StepEditor
+              // By position, not key: renaming the key keeps the form (and its open sections).
+              key={state.nodes.indexOf(selected)}
+              node={selected}
               allNodes={state.nodes}
-              expanded={expandedWithFlash.has(node.node_key)}
-              isEntry={state.entry_node_id === node.node_key}
-              isFlashed={flashKey === node.node_key}
-              cardRef={setNodeRef(node.node_key)}
-              issues={issues.filter(
-                (i) => i.scope === 'node' && i.node_key === node.node_key
-              )}
-              onToggle={() => toggleExpanded(node.node_key)}
-              onUpdate={(patch) => updateNode(node.node_key, patch)}
-              onUpdateConfig={(patch) => updateNodeConfig(node.node_key, patch)}
-              onRemove={() => removeNode(node.node_key)}
-              onSetEntry={entryLocked(commentTriggerOf(state), state.nodes, state.entry_node_id) ? undefined : () =>
-                setState((s) => ({ ...s, entry_node_id: node.node_key }))
-              }
+              isEntry={state.entry_node_id === selected.node_key}
+              isFlashed={flashKey === selected.node_key}
+              issues={nodeIssues(selected.node_key)}
+              onUpdate={(patch) => {
+                // A key another step already has would make two steps one; keep the old key.
+                if (patch.node_key && patch.node_key !== selected.node_key && state.nodes.some((n) => n.node_key === patch.node_key)) return;
+                updateNode(selected.node_key, patch);
+                // Renaming the key keeps the step selected.
+                if (patch.node_key) setPicked(patch.node_key);
+              }}
+              onUpdateConfig={(patch) => updateNodeConfig(selected.node_key, patch)}
+              onRemove={() => removeNode(selected.node_key)}
+              onSetEntry={entryIsLocked ? undefined : () => setState((s) => ({ ...s, entry_node_id: selected.node_key }))}
               t={t}
             />
-          ))
-        )}
-      </section>
+          ) : (
+            <>
+              <ChannelScopePanel flowId={flow.id} scope={channelScope} published={!!flow.published_version_id}
+                dirty={dirty} section={section} onSaved={setChannelScope} />
+              <TriggerPanel state={state} setState={setState} triggerTypes={triggerTypes} triggerIssues={triggerIssues}
+                instagramOnly={channelScope === 'instagram'} t={t} />
+              <EntryPicker state={state} setState={setState} t={t} />
+              {state.nodes.length === 0 && (
+                <div className="border-border bg-card/50 text-muted-foreground rounded-lg border border-dashed p-8 text-center text-sm">
+                  {t.rich('nodesEmpty', { strong: (chunks) => <strong>{chunks}</strong> })}
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Right: the selected step as the customer sees it (wide screens). */}
+      <StepPhone node={selected} nodes={state.nodes} instagram={channelScope === 'instagram'} />
     </div>
+    </div>
+  );
+}
+
+const STEP_ROW = 'flex items-center gap-2.5 rounded-lg border border-transparent px-2 py-2 transition-colors duration-150 hover:bg-muted focus-visible:outline-2 focus-visible:outline-primary';
+const STEP_ROW_ACTIVE = 'border-primary/40 bg-primary/10 hover:bg-primary/10';
+
+function StepGroup({ title, hint, children }: { title: string; hint?: string; children: React.ReactNode }) {
+  return (
+    <section className="flex flex-col gap-1">
+      <h3 className="text-muted-foreground px-1 text-[11px] font-semibold tracking-wider uppercase">{title}</h3>
+      {hint && <p className="text-muted-foreground px-1 pb-1 text-[11px] leading-snug">{hint}</p>}
+      {children}
+    </section>
+  );
+}
+
+/** One step in the list: select it, or delete it from its hover tool. */
+function StepRow({ node, active, isEntry, hasError, onSelect, onRemove, t }: {
+  node: BuilderNode;
+  active: boolean;
+  isEntry: boolean;
+  hasError: boolean;
+  onSelect: () => void;
+  onRemove: () => void;
+  t: ReturnType<typeof useTranslations>;
+}) {
+  const tSummary = useTranslations('Flows.summary');
+  const label = t(`nodes.${node.node_type}.label`);
+  const summary = summarizeNode(node, tSummary);
+  return (
+    <div className={cn('group relative', STEP_ROW, 'p-0', active && STEP_ROW_ACTIVE)} data-step={node.node_key}>
+      <button type="button" onClick={onSelect} aria-current={active ? 'true' : undefined}
+        className="flex min-w-0 flex-1 items-center gap-2.5 rounded-lg px-2 py-2 text-left focus-visible:outline-2 focus-visible:outline-primary">
+        <NodeIconChip type={node.node_type} size={28} iconSize={14} />
+        <span className="min-w-0 flex-1">
+          <span className="flex items-center gap-1.5">
+            <span className="truncate text-sm font-medium">{label}</span>
+            {isEntry && <Badge variant="outline" className="border-primary/40 bg-primary/10 text-primary h-4 px-1 text-[9px]">{t('badgeEntry')}</Badge>}
+          </span>
+          {summary && <span className="text-muted-foreground block truncate text-xs">{summary}</span>}
+        </span>
+        {hasError && <CircleAlert className="h-3.5 w-3.5 shrink-0 text-red-400" />}
+      </button>
+      {/* Floats over the row's end on hover or focus, so names keep their full width. Touch
+          screens have no hover, so they delete from the editor's footer instead. */}
+      <button type="button" onClick={onRemove} aria-label={`${t('removeNode')}: ${label}`} title={t('removeNode')}
+        className="bg-card text-muted-foreground pointer-events-none absolute top-1/2 right-1.5 -translate-y-1/2 rounded-md border border-border p-1.5 opacity-0 shadow-sm transition-opacity duration-150 group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100 hover:text-red-400 focus-visible:opacity-100 [@media(hover:none)]:hidden">
+        <Trash2 className="h-3.5 w-3.5" />
+      </button>
+    </div>
+  );
+}
+
+/**
+ * What the selected step sends, in a phone: the preview engine run from
+ * that step until it waits for the customer. Local only, never sends.
+ */
+function StepPhone({ node, nodes, instagram }: { node: BuilderNode | null; nodes: BuilderNode[]; instagram: boolean }) {
+  const t = useTranslations('Flows.builder.preview');
+  const tb = useTranslations('Flows.builder.basic');
+  const messages = useMemo(() => (node ? startPreview(nodes, node.node_key).messages : []), [node, nodes]);
+  return (
+    <aside aria-label={tb('phoneTitle')} className="border-border bg-card-2 hidden shrink-0 flex-col items-center gap-3 border-l px-5 py-6 @6xl:flex @6xl:w-[340px] @6xl:overflow-y-auto">
+      <p className="text-muted-foreground self-start text-[11px] font-semibold tracking-wider uppercase">{tb('phoneTitle')}</p>
+      {/* Themed screen, as in the Preview panel, so the bubbles keep their contrast in light and dark mode. */}
+      <div data-testid="step-phone" className={cn('flex w-[280px] flex-col overflow-hidden rounded-[36px] border-[8px] border-neutral-900 shadow-xl',
+        instagram ? 'bg-card' : 'bg-muted')}>
+        <div className="flex justify-center pt-2" aria-hidden><span className="bg-foreground/15 h-1.5 w-14 rounded-full" /></div>
+        <div className="flex min-h-[420px] flex-col gap-2 px-3 py-4">
+          {!node ? (
+            <p className="text-muted-foreground m-auto px-4 text-center text-xs">{tb('phonePick')}</p>
+          ) : messages.length === 0 ? (
+            <p className="text-muted-foreground m-auto px-4 text-center text-xs">{tb('phoneNothing')}</p>
+          ) : (
+            messages.map((m) => (
+              <Bubble key={m.id} message={m} active={false} listOpen={false} onToggleList={() => {}} onPickButton={() => {}} onPickRow={() => {}}
+                instagram={instagram} t={t} />
+            ))
+          )}
+        </div>
+      </div>
+    </aside>
   );
 }
 
@@ -540,18 +622,15 @@ function EntryPicker({
 }
 
 // ============================================================
-// Node card — collapsed summary + expanded config form
+// Step editor — the middle column of the Simple builder
 // ============================================================
 
-function NodeCard({
+function StepEditor({
   node,
   allNodes,
-  expanded,
   isEntry,
   isFlashed,
-  cardRef,
   issues,
-  onToggle,
   onUpdate,
   onUpdateConfig,
   onRemove,
@@ -560,12 +639,9 @@ function NodeCard({
 }: {
   node: BuilderNode;
   allNodes: BuilderNode[];
-  expanded: boolean;
   isEntry: boolean;
   isFlashed: boolean;
-  cardRef: (el: HTMLDivElement | null) => void;
   issues: ValidationIssue[];
-  onToggle: () => void;
   onUpdate: (patch: Partial<BuilderNode>) => void;
   onUpdateConfig: (patch: Record<string, unknown>) => void;
   onRemove: () => void;
@@ -574,105 +650,51 @@ function NodeCard({
   t: ReturnType<typeof useTranslations>;
 }) {
   const c = nodeColors(node.node_type);
-  const hasError = issues.some((i) => i.severity === 'error');
-  const tSummary = useTranslations('Flows.summary');
-  const preview = summarizeNode(node, tSummary);
   return (
-    <div
-      ref={cardRef}
+    <section
+      aria-label={t(`nodes.${node.node_type}.label`)}
+      data-testid="step-editor"
       className={cn(
         'bg-card relative overflow-hidden rounded-xl border transition-shadow duration-500',
-        hasError
-          ? 'border-red-500/40'
-          : isEntry
-            ? 'border-primary/50'
-            : 'border-border',
+        issues.some((i) => i.severity === 'error') ? 'border-red-500/40' : isEntry ? 'border-primary/50' : 'border-border',
         isFlashed && 'ring-primary ring-offset-background ring-2 ring-offset-2'
       )}
     >
-      {/* type-colored left rail, ties the list row to the canvas hue */}
-      <span
-        className="absolute inset-y-0 left-0 w-[3px]"
-        style={{ background: c.solid }}
-      />
-      <button
-        type="button"
-        onClick={onToggle}
-        className="flex w-full items-center gap-3 px-4 py-3 pl-5 text-left"
-      >
+      <div className="border-border flex items-center gap-3 border-b px-4 py-3" style={{ background: c.soft }}>
         <NodeIconChip type={node.node_type} size={32} iconSize={16} />
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <span
-              className="truncate text-[11px] font-semibold tracking-wider uppercase"
-              style={{ color: c.text }}
-            >
-              {t(`nodes.${node.node_type}.label`)}
-            </span>
-            <code className="bg-muted text-muted-foreground rounded px-1.5 py-0.5 text-[10px]">
-              {node.node_key}
-            </code>
+          <h2 className="flex items-center gap-2 text-sm font-semibold">
+            <span className="truncate" style={{ color: c.text }}>{t(`nodes.${node.node_type}.label`)}</span>
             {isEntry && (
-              <Badge
-                variant="outline"
-                className="border-primary/40 bg-primary/10 text-primary text-[10px]"
-              >
-                {t('badgeEntry')}
-              </Badge>
+              <Badge variant="outline" className="border-primary/40 bg-primary/10 text-primary text-[10px]">{t('badgeEntry')}</Badge>
             )}
-          </div>
-          {!expanded && preview && (
-            <p className="text-muted-foreground mt-0.5 truncate text-xs">
-              {preview}
-            </p>
-          )}
+          </h2>
+          <p className="text-muted-foreground truncate text-xs">{t(`nodes.${node.node_type}.blurb`)}</p>
         </div>
-        {hasError && (
-          <CircleAlert className="h-3.5 w-3.5 shrink-0 text-red-400" />
+        <code className="bg-muted text-muted-foreground rounded px-1.5 py-0.5 text-[10px]">{node.node_key}</code>
+      </div>
+      <div className="px-4 py-4">
+        <NodeConfigWithAdvanced node={node} allNodes={allNodes} onUpdate={onUpdate} onUpdateConfig={onUpdateConfig} t={t} />
+        {issues.length > 0 && (
+          <div className="mt-3 flex flex-col gap-1 rounded-md bg-red-500/5 p-2">
+            {issues.map((i, ix) => (
+              <IssueLine key={ix} issue={i} />
+            ))}
+          </div>
         )}
-        {expanded ? (
-          <ChevronUp className="text-muted-foreground h-4 w-4" />
+      </div>
+      <div className="border-border flex items-center justify-between border-t px-3 py-3">
+        {!isEntry && onSetEntry ? (
+          <Button variant="ghost" size="sm" onClick={onSetEntry}>{t('setAsEntry')}</Button>
         ) : (
-          <ChevronDown className="text-muted-foreground h-4 w-4" />
+          <span />
         )}
-      </button>
-      {expanded && (
-        <div className="border-border border-t px-4 py-4">
-          <NodeConfigWithAdvanced
-            node={node}
-            allNodes={allNodes}
-            onUpdate={onUpdate}
-            onUpdateConfig={onUpdateConfig}
-            t={t}
-          />
-          <div className="border-border mt-4 flex items-center justify-between border-t pt-3">
-            <div className="flex items-center gap-2">
-              {!isEntry && onSetEntry && (
-                <Button variant="ghost" size="sm" onClick={onSetEntry}>
-                  {t('setAsEntry')}
-                </Button>
-              )}
-            </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onRemove}
-              className="text-red-400 hover:bg-red-500/10 hover:text-red-300"
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-              {t('removeNode')}
-            </Button>
-          </div>
-          {issues.length > 0 && (
-            <div className="mt-3 flex flex-col gap-1 rounded-md bg-red-500/5 p-2">
-              {issues.map((i, ix) => (
-                <IssueLine key={ix} issue={i} />
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-    </div>
+        <Button variant="ghost" size="sm" onClick={onRemove} className="text-red-400 hover:bg-red-500/10 hover:text-red-300">
+          <Trash2 className="h-3.5 w-3.5" />
+          {t('removeNode')}
+        </Button>
+      </div>
+    </section>
   );
 }
 
@@ -696,6 +718,7 @@ function NodeConfigWithAdvanced({
   t: ReturnType<typeof useTranslations>;
 }) {
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const keyFieldId = useId();
   const hasReplyIds =
     node.node_type === 'send_buttons' || node.node_type === 'send_list';
   return (
@@ -722,10 +745,11 @@ function NodeConfigWithAdvanced({
         {showAdvanced && (
           <div className="mt-3 flex flex-col gap-3">
             <div>
-              <label className="text-muted-foreground mb-1 block text-xs">
+              <label htmlFor={keyFieldId} className="text-muted-foreground mb-1 block text-xs">
                 {t('nodeKeyLabel')}
               </label>
               <Input
+                id={keyFieldId}
                 value={node.node_key}
                 onChange={(e) =>
                   onUpdate({ node_key: slugify(e.target.value, node.node_key) })

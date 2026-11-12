@@ -2319,6 +2319,19 @@
       "openDetails": "Detalhes"
     },
     "builder": {
+      "basic": {
+        "stepsNav": "Etapas",
+        "startingStep": "Etapa inicial",
+        "when": "Quando…",
+        "hasErrors": "Tem erros",
+        "connected": "Etapas ({count})",
+        "connectedEmpty": "Ainda não há etapas. Adicione uma abaixo; a primeira que você adicionar inicia o fluxo.",
+        "unconnected": "Não conectadas ({count})",
+        "unconnectedHint": "Nenhuma etapa leva a estas, então elas nunca rodam. Conecte-as a partir de outra etapa ou exclua-as.",
+        "phoneTitle": "O que o cliente vê",
+        "phonePick": "Escolha uma etapa para vê-la como o cliente verá.",
+        "phoneNothing": "Esta etapa não envia nada visível ao cliente. Ela funciona nos bastidores."
+      },
       "triggerTitle": "Gatilho",
       "whenLabel": "Quando…",
       "triggerKeywordTitle": "Uma mensagem contém uma palavra-chave",
