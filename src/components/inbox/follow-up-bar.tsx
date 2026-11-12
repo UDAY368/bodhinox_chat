@@ -65,6 +65,8 @@ interface FollowUpBarProps {
   scheduleDisabled: boolean;
   /** The reply was stored as scheduled: the composer clears its text. */
   onScheduled: () => void;
+  /** More composer tools on the same row (pause automations, typing hints). */
+  trailing?: React.ReactNode;
 }
 
 /**
@@ -72,7 +74,7 @@ interface FollowUpBarProps {
  * decides everything (role, channel, window); this only collects the time and
  * shows what is queued.
  */
-export function FollowUpBar({ conversationId, channel, draftText, readOnly, scheduleDisabled, onScheduled }: FollowUpBarProps) {
+export function FollowUpBar({ conversationId, channel, draftText, readOnly, scheduleDisabled, onScheduled, trailing }: FollowUpBarProps) {
   const t = useTranslations("Inbox.reminders");
   const ts = useTranslations("Inbox.scheduled");
   const format = useFormatter();
@@ -169,8 +171,8 @@ export function FollowUpBar({ conversationId, channel, draftText, readOnly, sche
   const hasItems = visibleReminders.length > 0 || scheduled.length > 0;
 
   return (
-    <div className="px-3 pt-1" data-follow-up-bar>
-      <div className="flex items-center gap-1">
+    <div className="pb-1" data-follow-up-bar>
+      <div className="flex min-w-0 items-center gap-1">
         <Button type="button" variant="ghost" size="sm" disabled={readOnly} onClick={openReminder}
           className="text-muted-foreground hover:text-foreground h-7 gap-1 px-2 text-xs">
           <BellRing className="h-3.5 w-3.5" aria-hidden />
@@ -182,6 +184,7 @@ export function FollowUpBar({ conversationId, channel, draftText, readOnly, sche
           <CalendarClock className="h-3.5 w-3.5" aria-hidden />
           {ts("schedule")}
         </Button>
+        {trailing}
       </div>
 
       {hasItems && (

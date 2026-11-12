@@ -445,7 +445,8 @@
       "senderAi": "AI 어시스턴트",
       "senderAutomation": "자동화",
       "senderTeam": "우리 팀",
-      "senderFormerMember": "이전 멤버"
+      "senderFormerMember": "이전 멤버",
+      "moreActions": "더 보기"
     },
     "sessionTimer": {
       "expired": "만료됨",
@@ -459,7 +460,7 @@
       "templates": "템플릿",
       "readOnlyPlaceholder": "읽기 전용 — 뷰어는 열람만 가능하고 답장할 수 없습니다",
       "sessionExpiredPlaceholder": "세션 만료 - 템플릿을 사용하세요",
-      "typeMessagePlaceholder": "메시지를 입력하세요... (줄바꿈은 Shift+Enter)",
+      "typeMessagePlaceholder": "메시지를 입력하세요",
       "readOnlyTitle": "읽기 전용 — 현재 역할로는 메시지를 보낼 수 없습니다",
       "recording": "녹음 중… {current} / {max}",
       "cancel": "취소",
@@ -501,7 +502,8 @@
       "sendProducts": "상품 보내기",
       "sendPaymentLink": "결제 링크 보내기",
       "mediaLibrary": "미디어 라이브러리",
-      "sendStorefrontLink": "스토어 링크 보내기"
+      "sendStorefrontLink": "스토어 링크 보내기",
+      "newLineHint": "줄바꿈은 Shift+Enter"
     },
     "bubble": {
       "photo": "사진",

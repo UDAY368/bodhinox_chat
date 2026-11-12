@@ -53,13 +53,19 @@ async function openConversation(page: Page) {
   await expect(page.getByText(`my order ${needle} has not arrived`)).toBeVisible();
 }
 
+// Internal notes open from the thread header's More actions menu.
+async function showInternalNotes(page: Page) {
+  await page.getByRole('button', { name: label('More actions', 'Inbox.messageThread.moreActions') }).click();
+  await page.getByRole('menuitem', { name: label('Show internal notes', 'Inbox.messageThread.showNotes') }).click();
+}
+
 test.describe('inbox premium', () => {
   test('an agent adds an internal note that mentions a teammate', async ({ page }) => {
     const { users, accountA } = fixtures();
     await login(page, users.agent);
     await openConversation(page);
 
-    await page.getByRole('button', { name: label('Show internal notes', 'Inbox.messageThread.showNotes') }).click();
+    await showInternalNotes(page);
     const composer = page.getByRole('combobox', { name: label('Internal note', 'Inbox.notes.composerLabel') });
     await composer.click();
     await composer.pressSequentially('Please call back @E2E adm');
@@ -99,7 +105,7 @@ test.describe('inbox premium', () => {
     const { users, accountA, runId } = fixtures();
     await login(page, users.agent);
     await openConversation(page);
-    await page.getByRole('button', { name: label('Show internal notes', 'Inbox.messageThread.showNotes') }).click();
+    await showInternalNotes(page);
     const composer = page.getByRole('combobox', { name: label('Internal note', 'Inbox.notes.composerLabel') });
     await expect(composer).toBeVisible();
     const panel = page.locator('aside').filter({ has: composer });

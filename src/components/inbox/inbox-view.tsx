@@ -6,6 +6,7 @@
 // channel's conversations; realtime stays one subscription, filtered here by
 // channel. Each channel's connection banners show only in its own inbox.
 import { Suspense, useState, useCallback, useEffect, useRef, useMemo } from 'react';
+import { useMatchMedia } from '@/hooks/use-match-media';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { createClient } from '@/lib/data/client';
@@ -79,6 +80,7 @@ export function InboxView({ channel }: { channel: InboxScope }) {
 
 function InboxViewInner({ scope }: { scope: InboxScope }) {
   const t = useTranslations('Inbox.page');
+  const tThread = useTranslations('Inbox.messageThread');
   const tChannel = useTranslations('Inbox.channel');
   const tSearch = useTranslations('InboxSearch');
   const router = useRouter();
@@ -132,7 +134,23 @@ function InboxViewInner({ scope }: { scope: InboxScope }) {
     }
   }, []);
 
+  /**
+   * Below 1440px the three columns do not fit (the thread was crushed to a
+   * few words per line), so the contact panel becomes a slide-over over the
+   * thread: closed until asked for, tied to the conversation it was opened
+   * for (switching chats closes it), and never saved. Wide screens keep the
+   * saved side-panel preference above.
+   */
+  const widePanel = useMatchMedia('(min-width: 1440px)');
+  const [overlayFor, setOverlayFor] = useState<string | null>(null);
+  const activeConversationId = activeConversation?.id ?? null;
+  const panelShown = widePanel ? contactPanelOpen : overlayFor !== null && overlayFor === activeConversationId;
+
   const handleToggleContactPanel = useCallback(() => {
+    if (!widePanel) {
+      setOverlayFor((open) => (open ? null : activeConversationId));
+      return;
+    }
     setContactPanelOpen((prev) => {
       const next = !prev;
       try {
@@ -142,7 +160,17 @@ function InboxViewInner({ scope }: { scope: InboxScope }) {
       }
       return next;
     });
-  }, []);
+  }, [widePanel, activeConversationId]);
+
+  // Escape closes the slide-over.
+  useEffect(() => {
+    if (widePanel || !overlayFor) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setOverlayFor(null);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [widePanel, overlayFor]);
 
   // Fire the deep-link auto-select exactly once per URL — subsequent
   // list refreshes (realtime, manual refetch) must not snap the user
@@ -833,13 +861,14 @@ function InboxViewInner({ scope }: { scope: InboxScope }) {
         </div>
       ))}
 
-      <div className="flex flex-1 overflow-hidden">
+      <div className="relative flex min-h-0 flex-1 overflow-hidden">
         {/* Left panel: Conversation list.
             Hidden on mobile when a conversation is selected so the
             thread can occupy the full width. Always visible on lg+. */}
         <div
           className={cn(
-            'flex h-full flex-1 lg:flex-none',
+            // min-w-0: a long contact name must truncate, not widen the column past the screen.
+            'flex h-full min-w-0 flex-1 lg:flex-none',
             hasActiveConv ? 'hidden lg:flex' : 'flex'
           )}
         >
@@ -894,19 +923,33 @@ function InboxViewInner({ scope }: { scope: InboxScope }) {
             onBack={handleCloseConversation}
             resyncToken={resyncToken}
             onRefresh={handleManualRefresh}
-            contactPanelOpen={contactPanelOpen}
+            contactPanelOpen={panelShown}
             onToggleContactPanel={handleToggleContactPanel}
             jumpRequest={jumpRequestFor(jumpRequest, activeConversation?.id)}
             instagramHumanAgent={instagramHumanAgent}
           />
         </div>
 
-        {/* Right panel: Contact sidebar — desktop only, and only when the
-            agent hasn't collapsed it via the thread-header toggle (#258).
-            On mobile it's always hidden (the `lg:block` below), so the
-            toggle — which is itself desktop-only — never affects it. */}
-        {contactPanelOpen && (
-          <div className="hidden lg:block">
+        {/* Right panel: Contact sidebar. A side column from 1440px (the agent can
+            hide it, #258); below that a slide-over above the thread, closed by its
+            own collapse button, a click outside or Escape. */}
+        {panelShown && !widePanel && (
+          <button
+            type="button"
+            aria-label={tThread('hideContactPanel')}
+            onClick={() => setOverlayFor(null)}
+            className="absolute inset-0 z-20 bg-black/25"
+          />
+        )}
+        {panelShown && (widePanel || activeConversation) && (
+          <div
+            data-contact-panel={widePanel ? 'column' : 'overlay'}
+            className={cn(
+              widePanel
+                ? 'shrink-0'
+                : 'absolute inset-y-0 right-0 z-30 flex w-full max-w-sm shadow-2xl [&>aside]:w-full'
+            )}
+          >
             <ContactSidebar
               key={activeContact?.id}
               contact={activeContact}

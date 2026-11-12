@@ -38,7 +38,7 @@ import {
 import { matchesSessionFilter, type SessionFilter } from '@/lib/inbox/session';
 import { useSessionClock } from '@/hooks/use-session-clock';
 import { cn } from '@/lib/utils';
-import type { Conversation, ConversationStatus, Tag } from '@/types';
+import type { Conversation, Tag } from '@/types';
 import { Search, ChevronDown, X, Bot, Clock, AlertTriangle, Star } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { useTranslations } from 'next-intl';
@@ -113,12 +113,6 @@ interface ConversationListProps {
    */
   folders?: InboxFolders;
 }
-
-const STATUS_COLORS: Record<ConversationStatus, string> = {
-  open: 'bg-primary',
-  pending: 'bg-amber-500',
-  closed: 'bg-muted-foreground',
-};
 
 export function ConversationList({
   activeConversationId,
@@ -481,15 +475,15 @@ export function ConversationList({
     // w-full on mobile so the list occupies the whole viewport when it's
     // the single pane showing; fixed 320px on desktop where it shares the
     // row with the thread + contact sidebar.
-    <div className="studio-conversation-list border-border bg-card flex h-full w-full flex-col border-r lg:w-80 xl:w-88">
-      <div className="studio-chats-header flex items-center justify-between gap-2 px-5 py-4">
-        <h1 className="text-foreground text-xl leading-tight font-semibold tracking-tight">
+    <div className="studio-conversation-list border-border bg-card flex h-full w-full flex-col border-r lg:w-72 xl:w-80 2xl:w-88">
+      <div className="studio-chats-header flex items-center justify-between gap-2 px-4 py-2.5">
+        <h1 className="text-foreground text-lg leading-tight font-semibold tracking-tight">
           {t('chats')}
         </h1>
         {headerAction}
       </div>
       {/* Search + Filter */}
-      <div className="studio-chat-filters border-border space-y-2 border-b px-3 py-3">
+      <div className="studio-chat-filters border-border space-y-1.5 border-b px-3 py-2">
         <div className="relative">
           <Search className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
           <Input
@@ -501,7 +495,8 @@ export function ConversationList({
           />
         </div>
 
-        <div className="flex flex-wrap items-center gap-1">
+        {/* One row that scrolls sideways when the filters do not fit, instead of wrapping. */}
+        <div className="-mx-1 flex items-center gap-1 overflow-x-auto px-1 [scrollbar-width:none] *:shrink-0" data-filter-row>
           <DropdownMenu>
             <DropdownMenuTrigger className="text-muted-foreground hover:text-foreground hover:bg-muted inline-flex h-7 items-center justify-center gap-1 rounded-md px-2 text-xs">
               {activeFilter?.label ?? t('filterAll')}
@@ -1014,17 +1009,17 @@ function ConversationItem({
       aria-current={isActive ? 'true' : undefined}
       data-unread={conversation.unread_count > 0 || undefined}
       className={cn(
-        'studio-conversation hover:bg-muted/50 border-border flex w-full items-center gap-3 border-b px-4 py-3 text-left transition-colors',
+        'studio-conversation hover:bg-muted/50 border-border flex w-full min-w-0 items-center gap-3 border-b px-3 py-2.5 text-left transition-colors',
         isActive && 'bg-muted'
       )}
     >
       {/* Avatar */}
-      <div className="bg-muted text-foreground flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-sm font-medium">
+      <div className="bg-muted text-foreground flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-medium">
         {contact?.avatar_url ? (
           <img
             src={contact.avatar_url}
             alt={displayName}
-            className="h-11 w-11 rounded-full object-cover"
+            className="h-10 w-10 rounded-full object-cover"
           />
         ) : (
           initials
@@ -1048,22 +1043,13 @@ function ConversationItem({
           <p className="text-muted-foreground truncate text-xs">
             {conversation.last_message_text || t('noMessagesYet')}
           </p>
-          <div className="flex shrink-0 items-center gap-1.5">
-            {conversation.unread_count > 0 && (
-              <span className="studio-unread-count bg-primary text-primary-foreground flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[10px] font-bold">
-                {conversation.unread_count}
-              </span>
-            )}
-            <span
-              className={cn(
-                'h-2 w-2 rounded-full',
-                STATUS_COLORS[conversation.status]
-              )}
-              title={conversation.status}
-            />
-          </div>
+          {conversation.unread_count > 0 && (
+            <span className="studio-unread-count bg-primary text-primary-foreground flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full px-1 text-[10px] font-bold">
+              {conversation.unread_count}
+            </span>
+          )}
         </div>
-        <div className="mt-0.5 flex min-w-0 items-center gap-1.5">
+        <div className="mt-0.5 flex min-w-0 items-center gap-1.5 overflow-hidden">
           <LifecycleChip state={lifecycle} label={tl(lifecycle)} />
           {sla && <SlaBadge sla={sla} t={t} tl={tl} />}
           {multiChannel && <ChannelBadge channel={channel} showWhatsApp compact />}

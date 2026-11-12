@@ -445,7 +445,8 @@
       "senderAi": "AI assistant",
       "senderAutomation": "Automation",
       "senderTeam": "Your team",
-      "senderFormerMember": "Former member"
+      "senderFormerMember": "Former member",
+      "moreActions": "More actions"
     },
     "sessionTimer": {
       "expired": "Expired",
@@ -459,7 +460,7 @@
       "templates": "Templates",
       "readOnlyPlaceholder": "Read-only — viewers can browse but not reply",
       "sessionExpiredPlaceholder": "Session expired - use a template",
-      "typeMessagePlaceholder": "Type a message... (Shift+Enter for new line)",
+      "typeMessagePlaceholder": "Type a message",
       "readOnlyTitle": "Read-only — your role can't send messages",
       "recording": "Recording… {current} / {max}",
       "cancel": "Cancel",
@@ -501,7 +502,8 @@
       "sendProducts": "Send products",
       "sendPaymentLink": "Send payment link",
       "mediaLibrary": "Media library",
-      "sendStorefrontLink": "Send storefront link"
+      "sendStorefrontLink": "Send storefront link",
+      "newLineHint": "Shift+Enter for a new line"
     },
     "bubble": {
       "photo": "Photo",
