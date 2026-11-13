@@ -15574,6 +15574,26 @@
         "default": "now()",
         "reference": null,
         "definition": "updated_at timestamptz NOT NULL DEFAULT now()"
+      },
+      {
+        "name": "saved_report_id",
+        "type": "uuid",
+        "nullable": true,
+        "default": null,
+        "reference": {
+          "table": "analytics_saved_reports",
+          "column": "id",
+          "onDelete": "CASCADE"
+        },
+        "definition": "saved_report_id uuid"
+      },
+      {
+        "name": "minute_local",
+        "type": "smallint",
+        "nullable": false,
+        "default": "0",
+        "reference": null,
+        "definition": "minute_local smallint NOT NULL DEFAULT 0"
       }
     ],
     "report_shares": [
@@ -18676,6 +18696,116 @@
         "default": null,
         "reference": null,
         "definition": "payload jsonb NOT NULL"
+      },
+      {
+        "name": "created_by",
+        "type": "uuid",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "created_by uuid"
+      },
+      {
+        "name": "created_at",
+        "type": "timestamptz",
+        "nullable": false,
+        "default": "now()",
+        "reference": null,
+        "definition": "created_at timestamptz NOT NULL DEFAULT now()"
+      },
+      {
+        "name": "updated_at",
+        "type": "timestamptz",
+        "nullable": false,
+        "default": "now()",
+        "reference": null,
+        "definition": "updated_at timestamptz NOT NULL DEFAULT now()"
+      }
+    ],
+    "analytics_saved_reports": [
+      {
+        "name": "id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "gen_random_uuid()",
+        "reference": null,
+        "definition": "id uuid PRIMARY KEY DEFAULT gen_random_uuid()"
+      },
+      {
+        "name": "account_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "NULLIF(current_setting('app.account_id', true),'')::uuid ",
+        "reference": {
+          "table": "accounts",
+          "column": "id",
+          "onDelete": "CASCADE"
+        },
+        "definition": "account_id uuid NOT NULL DEFAULT NULLIF(current_setting('app.account_id', true),'')::uuid REFERENCES accounts(id) ON DELETE CASCADE"
+      },
+      {
+        "name": "name",
+        "type": "text",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "name text NOT NULL"
+      },
+      {
+        "name": "metrics",
+        "type": "text[]",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "metrics text[] NOT NULL"
+      },
+      {
+        "name": "group_by",
+        "type": "text",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "group_by text NOT NULL CHECK (group_by IN ('day','week','channel','agent','label'))"
+      },
+      {
+        "name": "channel",
+        "type": "text",
+        "nullable": false,
+        "default": "'all'",
+        "reference": null,
+        "definition": "channel text NOT NULL DEFAULT 'all' CHECK (channel IN ('all','whatsapp','instagram'))"
+      },
+      {
+        "name": "range_preset",
+        "type": "text",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "range_preset text NOT NULL"
+      },
+      {
+        "name": "from_day",
+        "type": "date",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "from_day date"
+      },
+      {
+        "name": "to_day",
+        "type": "date",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "to_day date"
+      },
+      {
+        "name": "format",
+        "type": "text",
+        "nullable": false,
+        "default": "'csv'",
+        "reference": null,
+        "definition": "format text NOT NULL DEFAULT 'csv' CHECK (format IN ('csv','pdf'))"
       },
       {
         "name": "created_by",
