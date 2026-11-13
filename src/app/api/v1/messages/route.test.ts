@@ -83,6 +83,14 @@ describe('POST /api/v1/messages phone_number_id', () => {
     expect(h.resolved[0][4]).toEqual({ whatsappConfigId: null });
   });
 
+  it("refuses type 'location' (not part of the v1 contract) before creating anything", async () => {
+    const res = await send({ to: '+15551234567', type: 'location', location: { latitude: 1, longitude: 2 } });
+    expect(res.status).toBe(400);
+    expect(JSON.stringify(await res.json())).toContain('Unsupported type');
+    expect(h.resolved).toHaveLength(0);
+    expect(h.sent).toBe(0);
+  });
+
   it("refuses another workspace's number or a malformed value before creating anything", async () => {
     expect((await send({ to: '+15551234567', text: 'hi', phone_number_id: '3000' })).status).toBe(400);
     expect((await send({ to: '+15551234567', text: 'hi', phone_number_id: 42 })).status).toBe(400);
