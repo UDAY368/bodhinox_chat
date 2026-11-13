@@ -33,7 +33,10 @@ beforeEach(() => { vi.clearAllMocks(); h.stages.clear(); h.contact = { blocked_a
 const text = (contentText: string) => ({ ...input, interactiveReplyId: null, contentType: 'text', contentText, wasContactCreated: false, isFirstInboundMessage: false });
 it.each([['STOP', 'opt_out'], ['start', 'opt_in']])('records a %s keyword without any automated response', async (word, kind) => {
   await processInboundActions(text(word));
-  expect(h.consentUpdates).toEqual([kind === 'opt_out' ? { opted_out_at: expect.any(String), opt_out_source: 'keyword' } : { opted_out_at: null, opt_out_source: null }]);
+  // START clears the opt-out and records the opt-in (when and how); STOP keeps the last opt-in as history.
+  expect(h.consentUpdates).toEqual([kind === 'opt_out'
+    ? { opted_out_at: expect.any(String), opt_out_source: 'keyword' }
+    : { opted_out_at: null, opt_out_source: null, opted_in_at: expect.any(String), opt_in_source: 'keyword' }]);
   expect(h.explicit).not.toHaveBeenCalled(); expect(h.flow).not.toHaveBeenCalled(); expect(h.automations).not.toHaveBeenCalled(); expect(h.ai).not.toHaveBeenCalled();
   expect(h.webhook).toHaveBeenCalledWith(expect.anything(), id, 'message.received', expect.anything());
   // STOP also cancels the contact's running flows (A15); START leaves them alone.
