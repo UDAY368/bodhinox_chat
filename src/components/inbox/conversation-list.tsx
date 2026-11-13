@@ -3,7 +3,6 @@
 import './inbox.css';
 import { avatarTone, initials } from '@/lib/ui/avatar-tone';
 import { SessionRail } from './session-rail';
-import { useMatchMedia } from '@/hooks/use-match-media';
 import { matchesConsentFilter, type ConsentFilter } from '@/lib/contacts/consent-view';
 import { contactHandle } from '@/lib/whatsapp/wa-identity';
 
@@ -30,7 +29,6 @@ import {
   useCallback,
   useMemo,
   useRef,
-  useSyncExternalStore,
   type ReactNode,
 } from 'react';
 import { createClient } from '@/lib/data/client';
@@ -45,16 +43,24 @@ import { matchesSessionFilter, type SessionFilter } from '@/lib/inbox/session';
 import { useSessionClock } from '@/hooks/use-session-clock';
 import { cn } from '@/lib/utils';
 import type { Conversation, Tag } from '@/types';
-import { createPortal } from 'react-dom';
+import { authFetch } from '@/lib/auth/client';
+import { splitSnippet } from '@/lib/inbox/search-snippet';
 import {
   Search,
+  SquarePen,
+  Bell,
+  Check,
+  RotateCcw,
+  UserPlus,
+  Mail,
+  MailOpen,
+  SlidersHorizontal,
   ChevronDown,
   X,
   Bot,
   Clock,
   AlertTriangle,
   Star,
-  MessageSquare,
   UserRound,
   Tag as TagIcon,
   Building2,
@@ -65,7 +71,7 @@ import {
 } from 'lucide-react';
 import { InboxFilterPicker, type FilterCategory } from '@/components/inbox/inbox-filter-picker';
 import { formatDistanceToNow } from 'date-fns';
-import { useTranslations } from 'next-intl';
+import { useFormatter, useTranslations } from 'next-intl';
 import { Input } from '@/components/ui/input';
 import {
   DropdownMenu,
@@ -87,7 +93,9 @@ import {
 } from '@/lib/inbox/lifecycle-view';
 import type { ConversationLifecycleState } from '@/types';
 import {
+  SavedFilterChips,
   SavedFiltersMenu,
+  useSavedFilters,
   type InboxFilters,
 } from '@/components/inbox/saved-filters/saved-filters-menu';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -122,13 +130,12 @@ interface ConversationListProps {
    * or the tab was throttled. Optional so existing callers keep working.
    */
   resyncToken?: number;
-  /** Extra control at the end of the toolbar (the page puts message search here). */
+  /** Extra control in the list header (the page puts message search here). */
   headerAction?: ReactNode;
-  /**
-   * Where the filter toolbar renders: a full-width row the page places above
-   * the list and the thread. Without it the toolbar sits on top of the list.
-   */
-  toolbarSlot?: HTMLElement | null;
+  /** Opens the New message dialog (list header and empty list). */
+  onNewMessage?: () => void;
+  /** A row's right-click (or Shift+F10) menu action. */
+  onRowAction?: (conversation: Conversation, action: RowAction) => void;
   /**
    * The inbox this list is in. A channel inbox loads only its channel's
    * conversations and has no channel filter; the All view loads every
@@ -142,6 +149,12 @@ interface ConversationListProps {
   folders?: InboxFolders;
 }
 
+/** What a row's context menu can do. */
+export type RowAction = 'read' | 'unread' | 'assign-me' | 'close' | 'reopen';
+
+/** The views offered as chips under the search, everyday first; the rest live in the More views menu. */
+const VIEW_CHIPS = ['all', 'open', 'mine', 'unassigned', 'closed'] as const;
+
 export function ConversationList({
   activeConversationId,
   onSelect,
@@ -152,7 +165,8 @@ export function ConversationList({
   headerAction,
   channel: scope = 'all',
   folders,
-  toolbarSlot = null,
+  onNewMessage,
+  onRowAction,
 }: ConversationListProps) {
   const t = useTranslations('Inbox.conversationList');
   const tFolders = useTranslations('Inbox.folders');
@@ -236,9 +250,34 @@ export function ConversationList({
   );
 
   const [search, setSearch] = useState('');
-  // The page header's middle slot (layout/header.tsx), where the conversation search goes.
-  const headerSlot = useSyncExternalStore(noSubscribe, findHeaderSlot, noHeaderSlot);
-  const inHeader = useMatchMedia('(min-width: 768px)') && headerSlot !== null;
+  // Searching also looks inside every message (the server's inbox search), so a
+  // chat whose older message matches is listed with the matching words marked.
+  const [messageHits, setMessageHits] = useState<{ q: string; hits: Map<string, string> } | null>(null);
+  useEffect(() => {
+    const q = search.trim();
+    if (q.length < 2) return;
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      try {
+        const params = new URLSearchParams({ q, limit: '50' });
+        if (scope !== 'all') params.set('channel', scope);
+        const res = await authFetch(`/api/inbox/search?${params}`, { cache: 'no-store' });
+        if (!res.ok || cancelled) return;
+        const data = (await res.json()) as { results?: { conversation_id: string; snippet: string }[] };
+        const hits = new Map<string, string>();
+        for (const hit of data.results ?? []) if (!hits.has(hit.conversation_id)) hits.set(hit.conversation_id, hit.snippet);
+        if (!cancelled) setMessageHits({ q, hits });
+      } catch {
+        // Names, numbers and last messages still match without it.
+      }
+    }, 350);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [search, scope]);
+  const searchHits = messageHits && messageHits.q === search.trim() ? messageHits.hits : null;
+  const savedStore = useSavedFilters();
   const searchParams = useSearchParams();
   const router = useRouter();
   const filter = parseInboxFilter(searchParams.get('filter'));
@@ -422,17 +461,27 @@ export function ConversationList({
         const name = c.contact?.name?.toLowerCase() ?? '';
         const phone = c.contact?.phone?.toLowerCase() ?? '';
         const lastMsg = c.last_message_text?.toLowerCase() ?? '';
-        return name.includes(q) || phone.includes(q) || lastMsg.includes(q);
+        return name.includes(q) || phone.includes(q) || lastMsg.includes(q) || !!searchHits?.has(c.id);
       });
     }
 
     return result;
-  }, [conversations, allChannels, scope, filter, search, selectedTagIds, selectedCompany, now, activeNumberFilter, activeChannelFilter, myTeam, folderContext, agentFilter.agent, agentFilter.handledIds, consentFilter]);
+  }, [conversations, allChannels, scope, filter, search, searchHits, selectedTagIds, selectedCompany, now, activeNumberFilter, activeChannelFilter, myTeam, folderContext, agentFilter.agent, agentFilter.handledIds, consentFilter]);
+
+  // Channel tabs (the All inbox): how many chats each channel holds in the current view.
+  const channelCounts = useMemo(() => {
+    const inView = conversations.filter((c) => matchesInboxFilter(c, filter, now, myTeam ?? undefined, folderContext));
+    return {
+      all: inView.length,
+      whatsapp: inView.filter((c) => conversationChannel(c) === 'whatsapp').length,
+      instagram: inView.filter((c) => conversationChannel(c) === 'instagram').length,
+    };
+  }, [conversations, filter, now, myTeam, folderContext]);
 
   // Quick views above the list, each with how many of this inbox's chats it holds.
   const quickViews = useMemo(() => {
     const inThisInbox = allChannels ? conversations : conversations.filter((c) => inScope(scope, c));
-    const values: InboxFilter[] = ['all', 'unread', 'unassigned', ...(folders ? (['mine'] as const) : []), 'closed'];
+    const values: InboxFilter[] = ['all', 'open', 'unread', 'unassigned', ...(folders ? (['mine'] as const) : []), 'closed'];
     return values.map((value) => ({
       value,
       label: (FILTER_OPTIONS.find((o) => o.value === value) ?? FOLDER_OPTIONS.find((o) => o.value === value))?.label ?? value,
@@ -526,10 +575,6 @@ export function ConversationList({
     selectFilter(next.filter);
   };
 
-  const pill =
-    'inline-flex h-8 shrink-0 items-center gap-1 rounded-full border px-2.5 text-[13px] font-medium whitespace-nowrap transition-colors duration-150';
-  const pillIdle = 'border-border text-foreground hover:bg-muted';
-  const pillOn = 'bg-primary/10 text-primary border-transparent';
   const chip =
     'bg-muted text-foreground hover:bg-muted/70 inline-flex h-7 shrink-0 items-center gap-1 rounded-full px-2.5 text-xs transition-colors duration-150';
 
@@ -646,242 +691,283 @@ export function ConversationList({
     (agentFilter.agent ? 1 : 0) +
     (consentFilter !== 'any' ? 1 : 0);
 
-  const searchBox = (className?: string) => (
-    <div className={cn('relative', className)}>
-      <Search className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
+  // Up / Down move through the list (not while typing, or with a menu or dialog open).
+  const filteredRef = useRef<Conversation[]>([]);
+  useEffect(() => {
+    filteredRef.current = filtered;
+  });
+  const listRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
+      if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey) return;
+      const target = event.target as HTMLElement | null;
+      // Only from the list itself or with nothing focused: elsewhere the arrows keep scrolling (the chat, menus, fields).
+      if (target && target !== document.body && !target.closest('.studio-conversation-list')) return;
+      if (target?.closest('input, textarea, select, [contenteditable="true"], [role="menu"], [role="listbox"], [role="dialog"], [role="tablist"]')) return;
+      if (document.querySelector('[role="dialog"], [role="menu"]')) return;
+      const rows = filteredRef.current;
+      if (rows.length === 0) return;
+      event.preventDefault();
+      const index = rows.findIndex((c) => c.id === activeConversationId);
+      const next = index < 0 ? 0 : Math.max(0, Math.min(rows.length - 1, index + (event.key === 'ArrowDown' ? 1 : -1)));
+      if (index >= 0 && next === index) return;
+      onSelect(rows[next]);
+      requestAnimationFrame(() => {
+        const row = listRef.current?.querySelector<HTMLElement>(`[data-conversation-id="${rows[next].id}"]`);
+        row?.scrollIntoView({ block: 'nearest' });
+        row?.focus({ preventScroll: true });
+      });
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [activeConversationId, onSelect]);
+
+  const [rowMenu, setRowMenu] = useState<{ conversation: Conversation; x: number; y: number } | null>(null);
+  const remindersById = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const r of folders?.reminders ?? []) {
+      if (r.kind !== 'reminder') continue;
+      const prev = map.get(r.conversation_id);
+      if (!prev || Date.parse(r.remind_at) < Date.parse(prev)) map.set(r.conversation_id, r.remind_at);
+    }
+    return map;
+  }, [folders?.reminders]);
+
+  const searchBox = (
+    <div className="relative min-w-0">
+      <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" aria-hidden />
       <Input
+        type="search"
         value={search}
         onChange={handleSearchChange}
         placeholder={t('searchPlaceholder')}
         aria-label={t('searchPlaceholder')}
-        className="border-border bg-muted text-foreground placeholder-muted-foreground focus:border-primary/50 h-8 rounded-full pl-9 text-[13px]"
+        className="border-border bg-muted text-foreground placeholder-muted-foreground focus:border-primary/50 h-9 rounded-full pl-9 text-[13px]"
       />
     </div>
   );
 
-  // The filter pills, active-filter chips and the page's action, shared by both layouts.
-  const filterBar = (
-    <>
-        <div className="-my-1 flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto py-1 [scrollbar-width:none]" data-filter-row>
-          {/* View: every inbox view, with counts on the everyday ones. */}
-          <DropdownMenu>
-            <DropdownMenuTrigger data-view-menu className={cn(pill, filter === 'all' || filter === 'unread' ? pillIdle : pillOn)}>
-              <MessageSquare className="size-3.5" aria-hidden />
-              {filter === 'unread' ? t('filterAll') : (activeFilter?.label ?? t('filterAll'))}
-              <ChevronDown className="size-3.5 opacity-60" aria-hidden />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="border-border bg-popover max-h-[70vh] w-60 overflow-y-auto">
-              {FILTER_OPTIONS.map((opt) => (
+  const chipClass = (on: boolean) =>
+    cn(
+      'inline-flex h-7 shrink-0 items-center gap-1 rounded-full px-2.5 text-xs font-medium whitespace-nowrap transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-offset-1',
+      on ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+    );
+  const viewChips = VIEW_CHIPS.filter((value) => value !== 'mine' || folders);
+  const chipLabel = (value: InboxFilter) =>
+    (FILTER_OPTIONS.find((o) => o.value === value) ?? FOLDER_OPTIONS.find((o) => o.value === value))?.label ?? value;
+  const inMoreMenu = !(viewChips as readonly string[]).includes(filter) && filter !== 'unread';
+
+  // Every view that is not a chip: waiting, my team, expiring soon, pending, folders, labels, lifecycle.
+  const moreViews = (
+    <DropdownMenu>
+      <DropdownMenuTrigger data-view-menu className={cn(chipClass(inMoreMenu), 'gap-1')}>
+        <span className="max-w-32 truncate">{inMoreMenu ? (activeFilter?.label ?? t('moreViews')) : t('moreViews')}</span>
+        <ChevronDown className="size-3.5 opacity-60" aria-hidden />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="border-border bg-popover max-h-[70vh] w-60 overflow-y-auto">
+        {FILTER_OPTIONS.filter((opt) => !(viewChips as readonly string[]).includes(opt.value) && opt.value !== 'unread').map((opt) => (
+          <DropdownMenuItem
+            key={opt.value}
+            onClick={() => selectFilter(opt.value)}
+            className={cn('gap-3 text-sm', filter === opt.value ? 'text-primary' : 'text-popover-foreground')}
+          >
+            <span className="flex-1">{opt.label}</span>
+          </DropdownMenuItem>
+        ))}
+        {FOLDER_OPTIONS.filter((opt) => opt.value !== 'mine').length > 0 && (
+          <>
+            <DropdownMenuSeparator className="bg-border" />
+            {FOLDER_OPTIONS.filter((opt) => opt.value !== 'mine').map((opt) => (
+              <DropdownMenuItem
+                key={opt.value}
+                onClick={() => selectFilter(opt.value)}
+                className={cn('gap-3 text-sm', filter === opt.value ? 'text-primary' : 'text-popover-foreground')}
+              >
+                <span className="flex-1">{opt.label}</span>
+              </DropdownMenuItem>
+            ))}
+          </>
+        )}
+        {LABEL_OPTIONS.length > 0 && (
+          <>
+            <DropdownMenuSeparator className="bg-border" />
+            <DropdownMenuGroup>
+              <DropdownMenuLabel>{tFolders('labels')}</DropdownMenuLabel>
+              {LABEL_OPTIONS.map((opt) => (
                 <DropdownMenuItem
                   key={opt.value}
                   onClick={() => selectFilter(opt.value)}
-                  className={cn('gap-3 text-sm', filter === opt.value ? 'text-primary' : 'text-popover-foreground')}
+                  className={cn('gap-2 text-sm', filter === opt.value ? 'text-primary' : 'text-popover-foreground')}
                 >
-                  <span className="flex-1">{opt.label}</span>
-                  {viewCount(opt.value) !== undefined && (
-                    <span className="text-muted-foreground text-xs tabular-nums">{viewCount(opt.value)}</span>
-                  )}
+                  <LabelDot color={opt.labelInfo.color} />
+                  <span className="truncate">{opt.label}</span>
                 </DropdownMenuItem>
               ))}
-              {FOLDER_OPTIONS.length > 0 && (
-                <>
-                  <DropdownMenuSeparator className="bg-border" />
-                  {FOLDER_OPTIONS.map((opt) => (
-                    <DropdownMenuItem
-                      key={opt.value}
-                      onClick={() => selectFilter(opt.value)}
-                      className={cn('gap-3 text-sm', filter === opt.value ? 'text-primary' : 'text-popover-foreground')}
-                    >
-                      <span className="flex-1">{opt.label}</span>
-                      {viewCount(opt.value) !== undefined && (
-                        <span className="text-muted-foreground text-xs tabular-nums">{viewCount(opt.value)}</span>
-                      )}
-                    </DropdownMenuItem>
-                  ))}
-                </>
-              )}
-              {LABEL_OPTIONS.length > 0 && (
-                <>
-                  <DropdownMenuSeparator className="bg-border" />
-                  <DropdownMenuGroup>
-                    <DropdownMenuLabel>{tFolders('labels')}</DropdownMenuLabel>
-                    {LABEL_OPTIONS.map((opt) => (
-                      <DropdownMenuItem
-                        key={opt.value}
-                        onClick={() => selectFilter(opt.value)}
-                        className={cn('gap-2 text-sm', filter === opt.value ? 'text-primary' : 'text-popover-foreground')}
-                      >
-                        <LabelDot color={opt.labelInfo.color} />
-                        <span className="truncate">{opt.label}</span>
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuGroup>
-                </>
-              )}
-              <DropdownMenuSeparator className="bg-border" />
-              <DropdownMenuGroup>
-                <DropdownMenuLabel>{t('lifecycle')}</DropdownMenuLabel>
-                {LIFECYCLE_OPTIONS.map((opt) => (
-                  <DropdownMenuItem
-                    key={opt.value}
-                    onClick={() => selectFilter(opt.value)}
-                    className={cn('text-sm', filter === opt.value ? 'text-primary' : 'text-popover-foreground')}
-                  >
-                    {opt.label}
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuGroup>
-            </DropdownMenuContent>
-          </DropdownMenu>
+            </DropdownMenuGroup>
+          </>
+        )}
+        <DropdownMenuSeparator className="bg-border" />
+        <DropdownMenuGroup>
+          <DropdownMenuLabel>{t('lifecycle')}</DropdownMenuLabel>
+          {LIFECYCLE_OPTIONS.map((opt) => (
+            <DropdownMenuItem
+              key={opt.value}
+              onClick={() => selectFilter(opt.value)}
+              className={cn('text-sm', filter === opt.value ? 'text-primary' : 'text-popover-foreground')}
+            >
+              {opt.label}
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
 
-          {/* Unread: one tap on, one tap off. */}
+  const pickedChips = (
+    <>
+      {agentFilter.agent && (
+        <button type="button" data-agent-filter onClick={() => agentFilter.setAgent(null)} className={chip}>
+          <span className="max-w-40 truncate">
+            {ta(agentFilter.agent.mode === 'handled' ? 'handledBy' : 'assignedTo', { name: agentName(agentFilter.agent.memberId) })}
+          </span>
+          <X className="h-3 w-3" aria-hidden />
+        </button>
+      )}
+      {selectedTagIds.map((id) => {
+        const tag = tagsById.get(id);
+        return (
+          <button type="button" key={id} onClick={() => toggleTag(id)} className={chip}>
+            <span className="size-1.5 shrink-0 rounded-full" style={{ backgroundColor: tag?.color ?? 'var(--muted-foreground)' }} />
+            <span className="max-w-28 truncate">{tag?.name ?? t('tags')}</span>
+            <X className="h-3 w-3" aria-hidden />
+          </button>
+        );
+      })}
+      {selectedCompany && (
+        <button type="button" onClick={() => setSelectedCompany(null)} className={chip}>
+          <span className="max-w-28 truncate">{selectedCompany}</span>
+          <X className="h-3 w-3" aria-hidden />
+        </button>
+      )}
+      {consentFilter !== 'any' && (
+        <button type="button" onClick={() => setConsentFilter('any')} className={chip} data-consent-filter={consentFilter}>
+          <ShieldCheck className="h-3 w-3" aria-hidden />
+          <span className="max-w-28 truncate">{consentLabel(consentFilter)}</span>
+          <X className="h-3 w-3" aria-hidden />
+        </button>
+      )}
+      {activeNumberFilter !== null && (
+        <button type="button" onClick={() => setNumberFilter(null)} className={chip}>
+          <span className="max-w-28 truncate">{numberFilterLabel}</span>
+          <X className="h-3 w-3" aria-hidden />
+        </button>
+      )}
+      {(pickedCount > 0 || hasContactFilters) && (
+        <button type="button" onClick={clearContactFilters} className="text-muted-foreground hover:text-foreground shrink-0 px-1 text-xs">
+          {t('clearAll')}
+        </button>
+      )}
+    </>
+  );
+  const hasPickedChips = pickedCount > 0 || hasContactFilters;
+
+  // The list's own head, as in the design: title and tools, search, channel tabs, views, saved views.
+  const listHead = (
+    <div data-inbox-toolbar className="studio-chat-filters border-border bg-card flex flex-col gap-2 border-b px-3 pt-3 pb-2">
+      <div className="flex min-w-0 items-center gap-0.5">
+        <h2 className="text-foreground min-w-0 flex-1 truncate text-base font-semibold">
+          {scope === 'all' ? t('title') : tc(scope)}
+        </h2>
+        <InboxFilterPicker categories={filterCategories} activeCount={pickedCount} iconOnly />
+        <SavedFiltersMenu current={currentFilters} onApply={applySavedFilters} scope={scope} store={savedStore} iconOnly />
+        {headerAction}
+        {onNewMessage && (
           <button
             type="button"
-            aria-pressed={filter === 'unread'}
-            onClick={() => selectFilter(filter === 'unread' ? 'all' : 'unread')}
-            className={cn(pill, filter === 'unread' ? pillOn : pillIdle)}
+            onClick={onNewMessage}
+            aria-label={t('newMessage')}
+            title={t('newMessage')}
+            data-new-message
+            className="text-muted-foreground hover:bg-muted hover:text-foreground inline-flex size-8 shrink-0 items-center justify-center rounded-lg transition-colors duration-150"
           >
-            {t('filterUnread')}
-            {unreadCount > 0 && (
-              <span className={cn('text-xs tabular-nums', filter === 'unread' ? 'text-primary' : 'text-muted-foreground')}>
-                {unreadCount}
-              </span>
-            )}
+            <SquarePen className="h-4 w-4" aria-hidden />
           </button>
-
-          {/* Channel: only the All inbox lists more than one channel. */}
-          {allChannels && (
-            <DropdownMenu>
-              <DropdownMenuTrigger
-                aria-label={`${tc('filterLabel')}: ${activeChannelFilter ? tc(activeChannelFilter) : tc('all')}`}
-                className={cn(pill, activeChannelFilter ? pillOn : pillIdle)}
-              >
-                {activeChannelFilter && <ChannelDot channel={activeChannelFilter} />}
-                {activeChannelFilter ? tc(activeChannelFilter) : tc('all')}
-                <ChevronDown className="size-3.5 opacity-60" aria-hidden />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="border-border bg-popover w-48">
-                <DropdownMenuRadioGroup
-                  value={activeChannelFilter ?? ''}
-                  onValueChange={(value) => setChannelFilter((value || null) as ConversationChannel | null)}
-                >
-                  <DropdownMenuRadioItem value="" className="text-sm">{tc('all')}</DropdownMenuRadioItem>
-                  {(['whatsapp', 'instagram'] as const).map((value) => (
-                    <DropdownMenuRadioItem key={value} value={value} className="gap-2 text-sm">
-                      <ChannelDot channel={value} />
-                      {tc(value)}
-                    </DropdownMenuRadioItem>
-                  ))}
-                </DropdownMenuRadioGroup>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
-
-          {/* Session: whether the 24-hour reply window is still open. */}
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              aria-label={`${t('session')}: ${sessionLabel}`}
-              className={cn(pill, sessionFilter === 'all' ? pillIdle : pillOn)}
-            >
-              <Timer className="size-3.5" aria-hidden />
-              {sessionLabel}
-              <ChevronDown className="size-3.5 opacity-60" aria-hidden />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="border-border bg-popover w-52">
-              <DropdownMenuRadioGroup value={sessionFilter} onValueChange={(value) => setSessionFilter(value as SessionFilter)}>
-                {sessionOptions.map((option) => (
-                  <DropdownMenuRadioItem key={option.value} value={option.value} className="gap-4 text-sm">
-                    {option.label}
-                    <span className="text-muted-foreground ml-auto text-xs tabular-nums">{sessionCounts[option.value]}</span>
-                  </DropdownMenuRadioItem>
-                ))}
-              </DropdownMenuRadioGroup>
-            </DropdownMenuContent>
-          </DropdownMenu>
-
-          <SavedFiltersMenu current={currentFilters} onApply={applySavedFilters} scope={scope} />
-
-          <InboxFilterPicker categories={filterCategories} activeCount={pickedCount} />
-
-          {/* What the picker has on, each removable. */}
-          {agentFilter.agent && (
-            <button type="button" data-agent-filter onClick={() => agentFilter.setAgent(null)} className={chip}>
-              <span className="max-w-40 truncate">
-                {ta(agentFilter.agent.mode === 'handled' ? 'handledBy' : 'assignedTo', { name: agentName(agentFilter.agent.memberId) })}
-              </span>
-              <X className="h-3 w-3" aria-hidden />
-            </button>
-          )}
-          {selectedTagIds.map((id) => {
-            const tag = tagsById.get(id);
+        )}
+      </div>
+      {searchBox}
+      {allChannels && (
+        <div role="tablist" aria-label={tc('filterLabel')} className="bg-muted grid grid-cols-3 gap-0.5 rounded-lg p-0.5" data-channel-tabs>
+          {([null, 'whatsapp', 'instagram'] as const).map((value) => {
+            const on = activeChannelFilter === value;
             return (
-              <button type="button" key={id} onClick={() => toggleTag(id)} className={chip}>
-                <span className="size-1.5 shrink-0 rounded-full" style={{ backgroundColor: tag?.color ?? 'var(--muted-foreground)' }} />
-                <span className="max-w-28 truncate">{tag?.name ?? t('tags')}</span>
-                <X className="h-3 w-3" aria-hidden />
+              <button
+                key={value ?? 'all'}
+                type="button"
+                role="tab"
+                aria-selected={on}
+                onClick={() => setChannelFilter(value)}
+                className={cn(
+                  'flex h-7 min-w-0 items-center justify-center gap-1 rounded-md px-1.5 text-xs font-medium transition-colors duration-150 focus-visible:outline-2',
+                  on ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+                )}
+              >
+                {value && <ChannelDot channel={value} />}
+                <span className="truncate">{value ? tc(value) : t('filterAll')}</span>
+                <span className="text-muted-foreground shrink-0 tabular-nums">{channelCounts[value ?? 'all']}</span>
               </button>
             );
           })}
-          {selectedCompany && (
-            <button type="button" onClick={() => setSelectedCompany(null)} className={chip}>
-              <span className="max-w-28 truncate">{selectedCompany}</span>
-              <X className="h-3 w-3" aria-hidden />
-            </button>
-          )}
-          {consentFilter !== 'any' && (
-            <button type="button" onClick={() => setConsentFilter('any')} className={chip} data-consent-filter={consentFilter}>
-              <ShieldCheck className="h-3 w-3" aria-hidden />
-              <span className="max-w-28 truncate">{consentLabel(consentFilter)}</span>
-              <X className="h-3 w-3" aria-hidden />
-            </button>
-          )}
-          {activeNumberFilter !== null && (
-            <button type="button" onClick={() => setNumberFilter(null)} className={chip}>
-              <span className="max-w-28 truncate">{numberFilterLabel}</span>
-              <X className="h-3 w-3" aria-hidden />
-            </button>
-          )}
-          {(pickedCount > 0 || hasContactFilters) && (
-            <button type="button" onClick={clearContactFilters} className="text-muted-foreground hover:text-foreground shrink-0 px-1 text-xs">
-              {t('clearAll')}
-            </button>
-          )}
         </div>
-        {headerAction && <div className="shrink-0">{headerAction}</div>}
-    </>
-  );
-
-  // Phones: its own two rows above the list (search, then the pills).
-  const toolbar = (
-    <div data-inbox-toolbar className="studio-chat-filters border-border bg-card border-b">
-      <div className="px-3 pt-3">{searchBox()}</div>
-      <div className="flex items-center gap-2 px-3 py-2.5 lg:px-4">
-        {filterBar}
+      )}
+      <div className="-mx-1 flex min-w-0 items-center gap-1 overflow-x-auto px-1 py-0.5 [scrollbar-width:none]" data-filter-row aria-label={t('views')} role="group">
+        {viewChips.map((value) => (
+          <button key={value} type="button" aria-pressed={filter === value} onClick={() => selectFilter(value)} className={chipClass(filter === value)}>
+            {chipLabel(value)}
+            <span className="tabular-nums opacity-70">{viewCount(value)}</span>
+          </button>
+        ))}
+        <button
+          type="button"
+          aria-pressed={filter === 'unread'}
+          onClick={() => selectFilter(filter === 'unread' ? 'all' : 'unread')}
+          className={chipClass(filter === 'unread')}
+        >
+          {t('filterUnread')}
+          {unreadCount > 0 && <span className="tabular-nums opacity-70">{unreadCount}</span>}
+        </button>
+        {moreViews}
+        <DropdownMenu>
+          <DropdownMenuTrigger aria-label={`${t('session')}: ${sessionLabel}`} title={`${t('session')}: ${sessionLabel}`} className={chipClass(sessionFilter !== 'all')}>
+            <Timer className="size-3.5" aria-hidden />
+            {sessionFilter !== 'all' && <span>{sessionLabel}</span>}
+            <ChevronDown className="size-3.5 opacity-60" aria-hidden />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="border-border bg-popover w-52">
+            <DropdownMenuRadioGroup value={sessionFilter} onValueChange={(value) => setSessionFilter(value as SessionFilter)}>
+              {sessionOptions.map((option) => (
+                <DropdownMenuRadioItem key={option.value} value={option.value} className="gap-4 text-sm">
+                  {option.label}
+                  <span className="text-muted-foreground ml-auto text-xs tabular-nums">{sessionCounts[option.value]}</span>
+                </DropdownMenuRadioItem>
+              ))}
+            </DropdownMenuRadioGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
-    </div>
-  );
-
-  // From 768px: one row inside the page header, next to the page title.
-  const headerBar = (
-    <div data-inbox-toolbar data-inbox-header-bar className="flex min-w-0 flex-1 items-center gap-2">
-      {searchBox('w-44 shrink-0 xl:w-56')}
-      <span aria-hidden className="bg-border h-5 w-px shrink-0" />
-      {filterBar}
+      <SavedFilterChips store={savedStore} current={currentFilters} onApply={applySavedFilters} scope={scope} />
+      {hasPickedChips && (
+        <div className="-mx-1 flex min-w-0 items-center gap-1.5 overflow-x-auto px-1 [scrollbar-width:none]">{pickedChips}</div>
+      )}
     </div>
   );
 
   return (
-    <>
-      {/* md and up: search and filters share the page header's row; phones keep their own rows. */}
-      {inHeader ? createPortal(headerBar, headerSlot!) : toolbarSlot && createPortal(toolbar, toolbarSlot)}
-      {/* w-full on mobile so the list occupies the whole viewport when it's
-          the single pane showing; a fixed column on desktop where it shares
-          the row with the thread + contact sidebar. */}
-      <div className="studio-conversation-list border-border bg-card flex h-full w-full flex-col border-r lg:w-72 xl:w-80 2xl:w-[340px]">
-        {!toolbarSlot && !inHeader && toolbar}
+    <div className="studio-conversation-list border-border bg-card flex h-full w-full min-w-0 flex-col border-r lg:w-72 xl:w-80 2xl:w-[340px]">
+      {listHead}
 
-        {/* Open 24-hour windows, closing first; a chat rolls out when its window ends. */}
-        <SessionRail conversations={baseFiltered} now={now} activeConversationId={activeConversationId} onSelect={handleSelect} />
+      {/* Open 24-hour windows, closing first; a chat rolls out when its window ends. */}
+      <SessionRail conversations={baseFiltered} now={now} activeConversationId={activeConversationId} onSelect={handleSelect} />
 
       {/* Conversation Items.
           `min-h-0` is load-bearing: a flex child defaults to
@@ -905,9 +991,35 @@ export function ConversationList({
                 ? tci(scope === 'instagram' ? 'emptyInstagram' : 'emptyWhatsapp')
                 : t('noConversations')}
             </p>
+            <div className="mt-3 flex flex-wrap justify-center gap-2">
+              {(filter !== 'all' || search || hasPickedChips || activeChannelFilter) && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSearch('');
+                    clearContactFilters();
+                    selectFilter('all');
+                  }}
+                  className="border-border hover:bg-muted inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-xs font-medium"
+                >
+                  <SlidersHorizontal className="size-3.5" aria-hidden />
+                  {t('clearFilters')}
+                </button>
+              )}
+              {onNewMessage && (
+                <button
+                  type="button"
+                  onClick={onNewMessage}
+                  className="border-border hover:bg-muted inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-xs font-medium"
+                >
+                  <SquarePen className="size-3.5" aria-hidden />
+                  {t('newMessage')}
+                </button>
+              )}
+            </div>
           </div>
         ) : (
-          <div className="flex flex-col gap-0.5 px-2 pt-1 pb-3">
+          <div ref={listRef} className="flex flex-col gap-0.5 px-2 pt-1 pb-3">
             {filtered.map((conv) => (
               <ConversationItem
                 key={conv.id}
@@ -923,19 +1035,131 @@ export function ConversationList({
                 labels={labelsFor(folderContext?.labelsByConversation?.get(conv.id), labelsById)}
                 favouriteLabel={tFolders('favourites')}
                 optedOutLabel={tConsent('optedOut')}
+                snippet={
+                  search.trim() && !(conv.contact?.name ?? '').toLowerCase().includes(search.trim().toLowerCase())
+                    ? (searchHits?.get(conv.id) ?? null)
+                    : null
+                }
+                reminderAt={remindersById.get(conv.id) ?? null}
+                onContextMenu={
+                  onRowAction
+                    ? (event) => {
+                        event.preventDefault();
+                        const rect = event.currentTarget.getBoundingClientRect();
+                        // A mouse right-click opens at the pointer; the keyboard (Shift+F10) at the row.
+                        const fromKeyboard = event.clientX === 0 && event.clientY === 0;
+                        setRowMenu({ conversation: conv, x: fromKeyboard ? rect.left + 16 : event.clientX, y: fromKeyboard ? rect.top + 16 : event.clientY });
+                      }
+                    : undefined
+                }
               />
             ))}
           </div>
         )}
       </ScrollArea>
-      </div>
-    </>
+      {rowMenu && onRowAction && (
+        <RowContextMenu
+          x={rowMenu.x}
+          y={rowMenu.y}
+          conversation={rowMenu.conversation}
+          onClose={() => setRowMenu(null)}
+          onAction={(action) => {
+            const target = rowMenu.conversation;
+            setRowMenu(null);
+            onRowAction(target, action);
+          }}
+        />
+      )}
+    </div>
   );
 }
 
-const noSubscribe = () => () => {};
-const findHeaderSlot = () => document.getElementById('studio-header-center');
-const noHeaderSlot = () => null;
+/**
+ * A row's right-click menu: mark read or unread, assign to me, close or
+ * reopen. Opens at the pointer (or the row, from the keyboard), keeps inside
+ * the window, takes focus, and closes on Escape, a click elsewhere or scroll.
+ */
+function RowContextMenu({
+  x,
+  y,
+  conversation,
+  onClose,
+  onAction,
+}: {
+  x: number;
+  y: number;
+  conversation: Conversation;
+  onClose: () => void;
+  onAction: (action: RowAction) => void;
+}) {
+  const t = useTranslations('Inbox.rowMenu');
+  const ref = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState({ left: x, top: y });
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const { width, height } = el.getBoundingClientRect();
+    setPos({ left: Math.max(8, Math.min(x, window.innerWidth - width - 8)), top: Math.max(8, Math.min(y, window.innerHeight - height - 8)) });
+    el.querySelector<HTMLElement>('[role="menuitem"]')?.focus();
+  }, [x, y]);
+  useEffect(() => {
+    const onDown = (event: MouseEvent) => {
+      if (!ref.current?.contains(event.target as Node)) onClose();
+    };
+    const onScroll = () => onClose();
+    document.addEventListener('mousedown', onDown, true);
+    window.addEventListener('scroll', onScroll, true);
+    window.addEventListener('resize', onScroll);
+    return () => {
+      document.removeEventListener('mousedown', onDown, true);
+      window.removeEventListener('scroll', onScroll, true);
+      window.removeEventListener('resize', onScroll);
+    };
+  }, [onClose]);
+  const unread = conversation.unread_count > 0;
+  const closed = conversation.status === 'closed';
+  const items: { action: RowAction; label: string; icon: ReactNode }[] = [
+    { action: unread ? 'read' : 'unread', label: unread ? t('markRead') : t('markUnread'), icon: unread ? <MailOpen className="size-4" /> : <Mail className="size-4" /> },
+    { action: 'assign-me', label: t('assignToMe'), icon: <UserPlus className="size-4" /> },
+    { action: closed ? 'reopen' : 'close', label: closed ? t('reopen') : t('close'), icon: closed ? <RotateCcw className="size-4" /> : <Check className="size-4" /> },
+  ];
+  const move = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    const buttons = Array.from(ref.current?.querySelectorAll<HTMLElement>('[role="menuitem"]') ?? []);
+    const index = buttons.indexOf(document.activeElement as HTMLElement);
+    if (event.key === 'Escape' || event.key === 'Tab') {
+      event.preventDefault();
+      onClose();
+    } else if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+      event.preventDefault();
+      const next = (index + (event.key === 'ArrowDown' ? 1 : buttons.length - 1)) % buttons.length;
+      buttons[next]?.focus();
+    }
+  };
+  return (
+    <div
+      ref={ref}
+      role="menu"
+      aria-label={t('label')}
+      onKeyDown={move}
+      style={{ left: pos.left, top: pos.top }}
+      className="border-border bg-popover text-popover-foreground fixed z-50 min-w-48 rounded-lg border p-1 shadow-lg"
+    >
+      {items.map((item) => (
+        <button
+          key={item.action}
+          type="button"
+          role="menuitem"
+          onClick={() => onAction(item.action)}
+          className="hover:bg-muted focus-visible:bg-muted flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm outline-none [&_svg]:text-muted-foreground"
+        >
+          {item.icon}
+          {item.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 
 function ChannelDot({ channel }: { channel: ConversationChannel }) {
   return <span aria-hidden className={cn('size-2 shrink-0 rounded-full', channel === 'whatsapp' ? 'bg-emerald-500' : 'bg-pink-500')} />;
@@ -960,6 +1184,12 @@ interface ConversationItemProps {
   favouriteLabel?: string;
   /** Accessible name of the opted-out mark. */
   optedOutLabel?: string;
+  /** A search hit inside an older message, its matches marked (search-snippet.ts). */
+  snippet?: string | null;
+  /** The member's next follow-up reminder on this chat (ISO), shown as a bell tag. */
+  reminderAt?: string | null;
+  /** Right-click (or Shift+F10) opens the row menu. */
+  onContextMenu?: (event: React.MouseEvent<HTMLButtonElement>) => void;
 }
 
 const NO_NUMBERS: WhatsAppNumberDto[] = [];
@@ -984,7 +1214,11 @@ function ConversationItem({
   labels = NO_LABELS,
   favouriteLabel,
   optedOutLabel,
+  snippet = null,
+  reminderAt = null,
+  onContextMenu,
 }: ConversationItemProps) {
+  const format = useFormatter();
   const contact = conversation.contact;
   const channel = conversationChannel(conversation);
   const lifecycle = lifecycleOf(conversation);
@@ -1008,6 +1242,8 @@ function ConversationItem({
     <button
       type="button"
       onClick={handleClick}
+      onContextMenu={onContextMenu}
+      data-conversation-id={conversation.id}
       aria-current={isActive ? 'true' : undefined}
       data-unread={conversation.unread_count > 0 || undefined}
       className={cn(
@@ -1054,7 +1290,15 @@ function ConversationItem({
         </div>
         <div className="mt-0.5 flex items-center justify-between gap-2">
           <p className={cn('truncate text-[13px]', conversation.unread_count > 0 ? 'text-foreground font-medium' : 'text-muted-foreground')}>
-            {conversation.last_message_text || t('noMessagesYet')}
+            {snippet
+              ? splitSnippet(snippet).map((part, i) =>
+                  part.match ? (
+                    <mark key={i} className="bg-primary/15 text-foreground rounded-sm px-0.5 font-semibold">{part.text}</mark>
+                  ) : (
+                    <Fragment key={i}>{part.text}</Fragment>
+                  )
+                )
+              : conversation.last_message_text || t('noMessagesYet')}
           </p>
           {conversation.unread_count > 0 && (
             <span className="studio-unread-count bg-primary text-primary-foreground flex h-[18px] min-w-[18px] shrink-0 items-center justify-center rounded-full px-1.5 text-[11px] font-semibold tabular-nums">
@@ -1068,6 +1312,16 @@ function ConversationItem({
           {multiChannel && <ChannelBadge channel={channel} showWhatsApp compact />}
           {channel === 'whatsapp' && (
             <ConversationNumberBadge conversation={conversation} numbers={numbers} className="min-w-0" />
+          )}
+          {reminderAt && (
+            <span
+              data-row-reminder
+              title={t('reminderTag', { when: format.dateTime(new Date(reminderAt), { dateStyle: 'medium', timeStyle: 'short' }) })}
+              className="studio-note inline-flex min-w-0 shrink-0 items-center gap-1 rounded-full px-2 py-px text-[11px] font-medium"
+            >
+              <Bell className="h-2.5 w-2.5 shrink-0" aria-hidden />
+              <span className="max-w-24 truncate">{format.dateTime(new Date(reminderAt), { weekday: 'short', hour: 'numeric', minute: '2-digit' })}</span>
+            </span>
           )}
           {labels.map((label) => (
             <span key={label.id} className="bg-muted text-muted-foreground inline-flex min-w-0 items-center gap-1 rounded-full px-2 py-px text-[11px] font-medium">

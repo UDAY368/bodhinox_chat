@@ -12,11 +12,7 @@ import {
 } from '@/lib/rate-limit';
 import { getT } from '@/lib/i18n/translate';
 import { manualRepliesBlocked } from '@/lib/platform/lifecycle';
-import { MetaApiError } from '@/lib/whatsapp/meta-api';
-import { instagramConfig } from '@/lib/instagram/config';
-import { InstagramError } from '@/lib/instagram/errors';
-import { instagramErrorResponse } from '@/lib/instagram/http';
-import { INSTAGRAM_REACTION, instagramReactionIntent, reactOnInstagram } from '@/lib/instagram/reactions';
+import { INSTAGRAM_REACTION, instagramReactionIntent } from '@/lib/instagram/reaction-emoji';
 
 const t = getT('Api');
 
@@ -101,6 +97,11 @@ export async function POST(request: Request) {
       if (!intent) {
         return NextResponse.json({ error: t('react.instagramHeartOnly'), code: 'channel_not_supported' }, { status: 409 });
       }
+      // Loaded only for Instagram conversations, so the WhatsApp path's module graph is unchanged.
+      const [{ instagramConfig }, { InstagramError }, { instagramErrorResponse }, { reactOnInstagram }, { MetaApiError }] = await Promise.all([
+        import('@/lib/instagram/config'), import('@/lib/instagram/errors'), import('@/lib/instagram/http'),
+        import('@/lib/instagram/reactions'), import('@/lib/whatsapp/meta-api'),
+      ]);
       if (!instagramConfig()) return instagramErrorResponse('instagram_not_enabled');
       try {
         await reactOnInstagram({ accountId, conversationId: conversation.id, mid: targetMessage.message_id, react: intent === 'react' });

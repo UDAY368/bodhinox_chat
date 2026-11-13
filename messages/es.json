@@ -414,7 +414,13 @@
       "filterMyTeam": "Mi equipo",
       "addFilter": "Filtro",
       "filterSearch": "Buscar filtros",
-      "noFilterMatches": "No hay filtros que coincidan"
+      "noFilterMatches": "No hay filtros que coincidan",
+      "title": "Bandeja de entrada",
+      "newMessage": "Nuevo mensaje",
+      "moreViews": "Más vistas",
+      "views": "Vistas",
+      "clearFilters": "Quitar filtros",
+      "reminderTag": "Seguimiento: {when}"
     },
     "messageThread": {
       "backToConversations": "Volver a las conversaciones",
@@ -462,7 +468,31 @@
       "senderAutomation": "Automatización",
       "senderTeam": "Tu equipo",
       "senderFormerMember": "Antiguo miembro",
-      "moreActions": "Más acciones"
+      "moreActions": "Más acciones",
+      "newMessage": "Nuevo mensaje",
+      "markedUnread": "Marcada como no leída",
+      "actionFailed": "No se pudo hacer. Inténtalo de nuevo.",
+      "exported": "Chat exportado como {name}",
+      "exportFailed": "No se pudo exportar este chat.",
+      "automationPausedToast": "Automatización pausada en este chat",
+      "automationResumedToast": "Automatización reanudada",
+      "blockedToast": "{name} bloqueado",
+      "unblockedToast": "{name} desbloqueado",
+      "markUnread": "Marcar como no leída",
+      "resumeAutomation": "Reanudar automatización",
+      "pauseAutomation": "Pausar automatización",
+      "exportChat": "Exportar chat",
+      "unblockContact": "Desbloquear contacto",
+      "blockContact": "Bloquear contacto",
+      "blockedBanner": "Contacto bloqueado.",
+      "blockedBannerHint": "No le llegan mensajes automáticos, flujos ni respuestas de IA, y las respuestas están desactivadas.",
+      "unblock": "Desbloquear",
+      "automationPausedBanner": "Automatización pausada en este chat.",
+      "automationPausedHint": "Los flujos y las respuestas de IA no se ejecutarán.",
+      "blockTitle": "¿Bloquear a {name}?",
+      "blockBody": "No le llegarán mensajes automáticos, flujos ni respuestas de IA y esta conversación se cerrará. Puedes desbloquearlo cuando quieras.",
+      "cancel": "Cancelar",
+      "blockConfirm": "Bloquear"
     },
     "sessionTimer": {
       "expired": "Expirada",
@@ -476,7 +506,7 @@
       "templates": "Plantillas",
       "readOnlyPlaceholder": "Solo lectura: los observadores pueden navegar, pero no responder",
       "sessionExpiredPlaceholder": "Sesión expirada - usa una plantilla",
-      "typeMessagePlaceholder": "Escribe un mensaje",
+      "typeMessagePlaceholder": "Escribe un mensaje, o / para respuestas rápidas",
       "readOnlyTitle": "Solo lectura: tu rol no puede enviar mensajes",
       "recording": "Grabando… {current} / {max}",
       "cancel": "Cancelar",
@@ -519,7 +549,18 @@
       "sendPaymentLink": "Enviar enlace de pago",
       "mediaLibrary": "Biblioteca de medios",
       "sendStorefrontLink": "Enviar enlace de la tienda",
-      "newLineHint": "Shift+Enter para una nueva línea"
+      "newLineHint": "Shift+Enter para una nueva línea",
+      "emoji": "Emoji",
+      "quickRepliesLoading": "Cargando respuestas rápidas…",
+      "slashNoMatch": "Ninguna respuesta rápida coincide con «{query}».",
+      "composeMode": "Respuesta o nota interna",
+      "tabReply": "Responder",
+      "tabNote": "Nota",
+      "noteLabel": "Nota interna",
+      "messageLabel": "Mensaje",
+      "notePlaceholder": "Escribe una nota para tu equipo (el cliente nunca la ve)",
+      "location": "Ubicación",
+      "addNote": "Añadir nota"
     },
     "bubble": {
       "photo": "Foto",
@@ -722,7 +763,10 @@
       "tooLong": "Las notas pueden tener hasta {max} caracteres.",
       "hint": "Ctrl+Enter para guardar",
       "cancel": "Cancelar",
-      "add": "Añadir nota"
+      "add": "Añadir nota",
+      "added": "Nota añadida",
+      "deleted": "Nota eliminada",
+      "internalNote": "Nota interna"
     },
     "savedFilters": {
       "views": "Vistas",
@@ -738,7 +782,11 @@
       "saveFailed": "No se pudo guardar la vista",
       "delete": "Eliminar la vista {name}",
       "deleteFailed": "No se pudo eliminar la vista",
-      "close": "Cerrar"
+      "close": "Cerrar",
+      "apply": "Mostrar «{name}»",
+      "deleteTitle": "¿Eliminar la vista guardada?",
+      "deleteBody": "«{name}» se quitará de tus vistas guardadas.",
+      "deleteConfirm": "Eliminar"
     },
     "quickReplyFavourites": {
       "add": "Añadir {title} a favoritos",
@@ -815,7 +863,13 @@
         "notFound": "Este recordatorio ya no existe.",
         "failed": "No se pudo guardar el recordatorio. Inténtalo de nuevo.",
         "forbidden": "Tu rol no puede crear recordatorios."
-      }
+      },
+      "changeTitle": "Cambiar recordatorio",
+      "followUp": "Seguimiento: {when}",
+      "done": "Hecho",
+      "change": "Cambiar",
+      "woken": "Conversación reactivada",
+      "cleared": "Recordatorio quitado"
     },
     "scheduled": {
       "title": "Respuestas programadas",
@@ -1056,6 +1110,65 @@
         "tooLarge": "Demasiado grande: usa enlaces más cortos o menos tarjetas.",
         "more": "(+{count} más)"
       }
+    },
+    "rowMenu": {
+      "label": "Acciones de la conversación",
+      "markRead": "Marcar como leída",
+      "markUnread": "Marcar como no leída",
+      "assignToMe": "Asignarme",
+      "close": "Cerrar",
+      "reopen": "Reabrir",
+      "markedUnread": "Marcada como no leída",
+      "markedRead": "Marcada como leída",
+      "assignedToYou": "Asignada a ti",
+      "closed": "Conversación cerrada",
+      "reopened": "Conversación reabierta",
+      "failed": "No se pudo hacer. Inténtalo de nuevo."
+    },
+    "location": {
+      "title": "Enviar una ubicación",
+      "description": "El cliente recibe un pin en el mapa que puede abrir en WhatsApp.",
+      "name": "Nombre del lugar (opcional)",
+      "namePlaceholder": "Por ejemplo, nuestra tienda del centro",
+      "address": "Dirección (opcional)",
+      "addressPlaceholder": "Calle, zona, ciudad",
+      "latitude": "Latitud",
+      "longitude": "Longitud",
+      "latitudeError": "Introduce una latitud entre -90 y 90.",
+      "longitudeError": "Introduce una longitud entre -180 y 180.",
+      "useCurrent": "Usar mi ubicación actual",
+      "locateUnsupported": "Este navegador no puede compartir tu ubicación.",
+      "locateFailed": "No se pudo leer tu ubicación. Permite el acceso o escribe las coordenadas.",
+      "cancel": "Cancelar",
+      "send": "Enviar ubicación"
+    },
+    "contactPanel": {
+      "aiSummary": "Resumen de IA",
+      "automation": "Automatización",
+      "automationHint": "Pausa los flujos y las respuestas de IA de este chat; siguen apagados hasta la hora elegida o hasta que los reanudes."
+    },
+    "newMessage": {
+      "title": "Nuevo mensaje",
+      "description": "Elige a quién escribir y por qué canal.",
+      "contact": "Contacto",
+      "searchPlaceholder": "Buscar contactos por nombre",
+      "searching": "Buscando…",
+      "noContacts": "Ningún contacto coincide.",
+      "unnamed": "Contacto sin nombre",
+      "channel": "Canal",
+      "hintPick": "Elige a quién quieres escribir.",
+      "hintWhatsapp": "Se envía a {to}. Un chat nuevo de WhatsApp empieza con una plantilla aprobada.",
+      "hintInstagram": "Abre tu chat de Instagram con esa persona. Los chats de Instagram empiezan cuando el cliente te escribe.",
+      "chooseContact": "Elige un contacto",
+      "noNumber": "{name} no tiene número de WhatsApp.",
+      "thisContact": "Este contacto",
+      "openedExisting": "Se abrió la conversación existente",
+      "instagramStartsWithCustomer": "Aún no hay un chat de Instagram con este contacto. Instagram solo permite que lo empiece el cliente.",
+      "failed": "No se pudo iniciar la conversación. Inténtalo de nuevo.",
+      "sendFailed": "La plantilla no se envió: {reason}",
+      "started": "Conversación con {name} iniciada",
+      "cancel": "Cancelar",
+      "start": "Iniciar conversación"
     }
   },
   "Contacts": {
@@ -7967,7 +8080,8 @@
       "unknownMetaError": "Error desconocido de la API de Meta",
       "metaError": "Error de la API de Meta: {message}",
       "dbDeleteFailed": "Reacción enviada a Meta, pero falló su eliminación en la base de datos",
-      "dbUpsertFailed": "Reacción enviada a Meta, pero falló al guardarla en la base de datos"
+      "dbUpsertFailed": "Reacción enviada a Meta, pero falló al guardarla en la base de datos",
+      "instagramHeartOnly": "Instagram solo permite reaccionar con un corazón."
     },
     "send": {
       "idsRequired": "Se requiere conversation_id o contact_id, además de message_type",

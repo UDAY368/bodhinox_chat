@@ -15,14 +15,7 @@ import {
 } from '@/lib/channels/sender';
 import { InstagramError } from './errors';
 
-/** The only emoji Instagram reactions carry (Meta's "love"). */
-export const INSTAGRAM_REACTION = '❤️';
-
-/** '❤️' (or the bare heart) reacts, '' removes; anything else is not available on Instagram. */
-export function instagramReactionIntent(emoji: string): 'react' | 'unreact' | null {
-  if (emoji === '') return 'unreact';
-  return emoji === INSTAGRAM_REACTION || emoji === '❤' ? 'react' : null;
-}
+export { INSTAGRAM_REACTION, instagramReactionIntent } from './reaction-emoji';
 
 export async function reactOnInstagram(input: {
   accountId: string;

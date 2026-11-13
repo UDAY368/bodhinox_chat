@@ -21,6 +21,8 @@ interface MessageActionsProps {
   onReply: () => void;
   onReact: (emoji: string) => void;
   children: ReactNode;
+  /** The reactions this channel accepts (Instagram: the heart only). */
+  emojis?: readonly string[];
 }
 
 /**
@@ -33,6 +35,7 @@ export function MessageActions({
   onReply,
   onReact,
   children,
+  emojis = QUICK_EMOJIS,
 }: MessageActionsProps) {
   const t = useTranslations("Inbox.actions");
 
@@ -115,7 +118,7 @@ export function MessageActions({
             className="flex w-auto flex-row gap-1 p-1.5"
             sideOffset={6}
           >
-            {QUICK_EMOJIS.map((e) => (
+            {emojis.map((e) => (
               <button
                 key={e}
                 type="button"

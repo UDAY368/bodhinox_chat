@@ -51,6 +51,8 @@ interface MessageBubbleProps {
   channel?: ConversationChannel;
   /** Instagram: this is the newest message the business sent, so it carries the Sent / Seen line. */
   receipt?: boolean;
+  /** Inside <MessageActions>, which owns the row alignment and width cap. */
+  wrapped?: boolean;
 }
 
 /** Instagram's words for a sent message's state (it shows no ticks); null where it shows nothing. */
@@ -500,6 +502,7 @@ export function MessageBubble({
   onOpenMedia,
   channel,
   receipt,
+  wrapped = false,
 }: MessageBubbleProps) {
   const t = useTranslations('Inbox.bubble');
   const tc = useTranslations('Inbox.channel');
@@ -514,7 +517,7 @@ export function MessageBubble({
     // and Sent / Seen under the newest outgoing message instead of ticks.
     const state = isAgent && receipt ? instagramReceipt(message.status) : null;
     return (
-      <div className={cn('flex max-w-[85%] flex-col @xl:max-w-[min(65%,40rem)]', isAgent ? 'ml-auto items-end' : 'mr-auto items-start')}>
+      <div className={cn('flex flex-col', !wrapped && 'max-w-[85%] @xl:max-w-[min(65%,40rem)]', isAgent ? 'ml-auto items-end' : 'mr-auto items-start')}>
         <div
           title={time}
           className={cn('ig-message relative px-3 py-2 leading-snug', isAgent ? 'ig-message-outgoing' : 'ig-message-incoming')}
