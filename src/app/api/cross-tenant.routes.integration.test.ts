@@ -66,6 +66,10 @@ export const CASES: Case[] = [
   { route: 'conversations/[id]/notes/[noteId]', method: 'PATCH', params: (b) => ({ id: b.conversationId, noteId: b.extra.note }), body: () => ({ body: 'p15 edit' }) },
   { route: 'conversations/[id]/notes/[noteId]', method: 'DELETE', params: (b) => ({ id: b.conversationId, noteId: b.extra.note }) },
   { route: 'conversations/[id]/ad-referral', method: 'GET', params: id('conversationId') },
+  // Inbox More menu: another workspace's conversation cannot be marked unread or exported.
+  { route: 'conversations/[id]/unread', method: 'POST', params: id('conversationId'), body: () => ({ unread: true }) },
+  { route: 'conversations/[id]/unread', method: 'POST', params: id('conversationId'), body: () => ({ unread: false }), as: 'agent' },
+  { route: 'conversations/[id]/export', method: 'GET', params: id('conversationId') },
   // Orders and payments
   { route: 'commerce/orders/[id]', method: 'GET', params: id('orderId') },
   { route: 'commerce/orders/[id]', method: 'PATCH', params: id('orderId'), body: () => ({ status: 'cancelled' }) },

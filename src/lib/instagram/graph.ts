@@ -357,6 +357,23 @@ function mediaRows(data: unknown): InstagramMedia[] {
 export interface SendOptions {
   /** Staff composer send between 24 h and 7 days, only with INSTAGRAM_HUMAN_AGENT_ENABLED (window.ts decides). */
   humanAgentTag?: boolean;
+  /** Quote this earlier message of the thread (Meta's mid) as an inline reply. */
+  replyToMid?: string;
+}
+
+/** A Meta message id (mid) as Instagram issues it: opaque, URL-safe text. */
+const MID = /^[A-Za-z0-9_=+/.:-]{1,512}$/;
+export function validMessageMid(value: unknown): value is string {
+  return typeof value === 'string' && MID.test(value);
+}
+function assertMid(value: string): string {
+  if (!validMessageMid(value)) throw new InstagramGraphInputError('Invalid Instagram message id');
+  return value;
+}
+
+/** Meta's reply_to object (Send API, "Send a reply"); nothing without a target. */
+function replyFields(options: SendOptions): Record<string, unknown> {
+  return options.replyToMid ? { reply_to: { mid: assertMid(options.replyToMid) } } : {};
 }
 export interface SentMessage { messageId: string; recipientId: string | null }
 
@@ -377,7 +394,22 @@ async function postMessage(igUserId: string, token: string, body: Record<string,
 export async function sendText(igUserId: string, token: string, igsid: string, text: string,
   options: SendOptions = {}): Promise<SentMessage> {
   return postMessage(igUserId, token, {
-    recipient: { id: assertId(igsid) }, ...tagFields(options), message: { text: assertText(text) },
+    recipient: { id: assertId(igsid) }, ...tagFields(options), ...replyFields(options), message: { text: assertText(text) },
+  });
+}
+
+/**
+ * React to a message with a heart, or remove the business's reaction
+ * (sender_action react / unreact). Instagram accepts only the "love" reaction.
+ * Meta answers with the recipient only; a non-2xx throws a sanitized MetaApiError.
+ */
+export async function sendReaction(igUserId: string, token: string, igsid: string, mid: string, react: boolean): Promise<void> {
+  await call<unknown>('POST', graph(`${assertId(igUserId)}/messages`), token, {
+    json: {
+      recipient: { id: assertId(igsid) },
+      sender_action: react ? 'react' : 'unreact',
+      payload: react ? { message_id: assertMid(mid), reaction: 'love' } : { message_id: assertMid(mid) },
+    },
   });
 }
 
@@ -390,7 +422,7 @@ export async function sendAttachment(igUserId: string, token: string, igsid: str
   try { parsed = new URL(attachment.url); } catch { throw new InstagramGraphInputError('Invalid attachment URL'); }
   if (parsed.protocol !== 'https:' || attachment.url.length > 2048) throw new InstagramGraphInputError('Invalid attachment URL');
   return postMessage(igUserId, token, {
-    recipient: { id: assertId(igsid) }, ...tagFields(options),
+    recipient: { id: assertId(igsid) }, ...tagFields(options), ...replyFields(options),
     message: { attachment: { type: attachment.type, payload: { url: attachment.url } } },
   });
 }

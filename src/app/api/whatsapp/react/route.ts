@@ -12,6 +12,11 @@ import {
 } from '@/lib/rate-limit';
 import { getT } from '@/lib/i18n/translate';
 import { manualRepliesBlocked } from '@/lib/platform/lifecycle';
+import { MetaApiError } from '@/lib/whatsapp/meta-api';
+import { instagramConfig } from '@/lib/instagram/config';
+import { InstagramError } from '@/lib/instagram/errors';
+import { instagramErrorResponse } from '@/lib/instagram/http';
+import { INSTAGRAM_REACTION, instagramReactionIntent, reactOnInstagram } from '@/lib/instagram/reactions';
 
 const t = getT('Api');
 
@@ -89,8 +94,28 @@ export async function POST(request: Request) {
       );
     }
 
-    // Reactions are WhatsApp only (Instagram reactions are deferred): never
-    // react from the default number on an Instagram conversation.
+    // Instagram: the heart only (Meta's single "love" reaction), through the
+    // Instagram sender; never from the default WhatsApp number.
+    if ((conversation as { channel?: string | null }).channel === 'instagram') {
+      const intent = instagramReactionIntent(emoji);
+      if (!intent) {
+        return NextResponse.json({ error: t('react.instagramHeartOnly'), code: 'channel_not_supported' }, { status: 409 });
+      }
+      if (!instagramConfig()) return instagramErrorResponse('instagram_not_enabled');
+      try {
+        await reactOnInstagram({ accountId, conversationId: conversation.id, mid: targetMessage.message_id, react: intent === 'react' });
+      } catch (err) {
+        if (err instanceof InstagramError) return instagramErrorResponse(err.code);
+        if (err instanceof MetaApiError) {
+          console.error('[instagram/react] Meta send failed');
+          return NextResponse.json({ error: t('react.metaError', { message: 'Instagram' }) }, { status: 502 });
+        }
+        throw err;
+      }
+      return mirrorReaction(db, targetMessage, userId, intent === 'react' ? INSTAGRAM_REACTION : '');
+    }
+
+    // WhatsApp: never react from the default number on another channel.
     try {
       assertWhatsAppConversation(conversation as { channel: string | null | undefined });
     } catch (error) {
@@ -155,50 +180,62 @@ export async function POST(request: Request) {
       );
     }
 
-    // Mirror into DB. Empty emoji = removal.
-    if (emoji === '') {
-      const { error: delError } = await db
-        .from('message_reactions')
-        .delete()
-        .eq('message_id', targetMessage.id)
-        .eq('actor_type', 'agent')
-        .eq('actor_id', userId);
-
-      if (delError) {
-        console.error('[whatsapp/react] DB delete failed:', delError.message);
-        return NextResponse.json(
-          { error: t('react.dbDeleteFailed') },
-          { status: 500 },
-        );
-      }
-    } else {
-      // Upsert. The unique constraint (message_id, actor_type, actor_id)
-      // lets us swap emoji in a single statement.
-      const { error: upsertError } = await db.from('message_reactions').upsert(
-        {
-          message_id: targetMessage.id,
-          conversation_id: targetMessage.conversation_id,
-          actor_type: 'agent',
-          actor_id: userId,
-          emoji,
-        },
-        { onConflict: 'message_id,actor_type,actor_id' },
-      );
-
-      if (upsertError) {
-        console.error('[whatsapp/react] DB upsert failed:', upsertError.message);
-        return NextResponse.json(
-          { error: t('react.dbUpsertFailed') },
-          { status: 500 },
-        );
-      }
-    }
-
-    return NextResponse.json({ success: true });
+    return mirrorReaction(db, targetMessage, userId, emoji);
   } catch (error) {
     // requireRole throws Unauthorized/Forbidden; toErrorResponse maps
     // those to 401/403 and collapses anything else to a generic 500.
     console.error('Error in WhatsApp react POST:', error);
     return toErrorResponse(error);
   }
+}
+
+type ReactDb = Awaited<ReturnType<typeof requireRole>>['db'];
+
+/** Mirror the member's reaction into message_reactions (empty emoji removes it). */
+async function mirrorReaction(
+  db: ReactDb,
+  targetMessage: { id: string; conversation_id: string },
+  userId: string,
+  emoji: string,
+) {
+  // Mirror into DB. Empty emoji = removal.
+  if (emoji === '') {
+    const { error: delError } = await db
+      .from('message_reactions')
+      .delete()
+      .eq('message_id', targetMessage.id)
+      .eq('actor_type', 'agent')
+      .eq('actor_id', userId);
+
+    if (delError) {
+      console.error('[whatsapp/react] DB delete failed:', delError.message);
+      return NextResponse.json(
+        { error: t('react.dbDeleteFailed') },
+        { status: 500 },
+      );
+    }
+  } else {
+    // Upsert. The unique constraint (message_id, actor_type, actor_id)
+    // lets us swap emoji in a single statement.
+    const { error: upsertError } = await db.from('message_reactions').upsert(
+      {
+        message_id: targetMessage.id,
+        conversation_id: targetMessage.conversation_id,
+        actor_type: 'agent',
+        actor_id: userId,
+        emoji,
+      },
+      { onConflict: 'message_id,actor_type,actor_id' },
+    );
+
+    if (upsertError) {
+      console.error('[whatsapp/react] DB upsert failed:', upsertError.message);
+      return NextResponse.json(
+        { error: t('react.dbUpsertFailed') },
+        { status: 500 },
+      );
+    }
+  }
+
+  return NextResponse.json({ success: true });
 }

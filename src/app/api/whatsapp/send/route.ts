@@ -90,6 +90,8 @@ export async function POST(request: Request) {
       template_message_params,
       interactive_payload,
       reply_to_message_id,
+      // message_type 'location' (WhatsApp only): { latitude, longitude, name?, address? }
+      location,
     } = body
     // A text that started as an AI suggested reply (inserted into the composer
     // by staff). Only used to record the suggestion after the send.
@@ -137,6 +139,7 @@ export async function POST(request: Request) {
         templateName: template_name,
         interactivePayload: interactive_payload,
         templateMessageParams: template_message_params,
+        location,
       })
     } catch (err) {
       if (err instanceof SendMessageError) {
@@ -242,6 +245,7 @@ export async function POST(request: Request) {
         templateParams: template_params,
         templateMessageParams: template_message_params,
         interactivePayload: interactive_payload,
+        location,
         replyToMessageId: reply_to_message_id,
         senderId: userId,
       })
@@ -350,6 +354,7 @@ async function sendInstagramMessage(args: {
       mediaUrl: body.media_url,
       filename: body.filename,
       templateId: body.template_id,
+      replyToMessageId: body.reply_to_message_id,
     })
     await claimOnAgentReply({ accountId: args.accountId, userId: args.userId, role: args.role }, args.conversationId).catch(() =>
       console.error('[send] conversation claim failed')

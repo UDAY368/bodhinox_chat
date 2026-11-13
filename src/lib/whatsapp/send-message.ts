@@ -31,6 +31,7 @@ import {
   sendTextMessage,
   sendTemplateMessage,
   sendMediaMessage,
+  sendLocationMessage,
   type MediaKind,
 } from '@/lib/whatsapp/meta-api';
 import {
@@ -67,8 +68,38 @@ export const VALID_MESSAGE_TYPES = [
   'text',
   'template',
   'interactive',
+  'location',
   ...MEDIA_KINDS,
 ] as const;
+
+/** A place shared from the inbox composer (`messageType === 'location'`). */
+export interface SendLocation {
+  latitude: number;
+  longitude: number;
+  name?: string | null;
+  address?: string | null;
+}
+
+/** Meta's location message: coordinates in range, name and address short. */
+export function parseSendLocation(value: unknown): SendLocation | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const v = value as Record<string, unknown>;
+  const latitude = typeof v.latitude === 'string' ? Number(v.latitude) : v.latitude;
+  const longitude = typeof v.longitude === 'string' ? Number(v.longitude) : v.longitude;
+  if (typeof latitude !== 'number' || typeof longitude !== 'number') return null;
+  if (!Number.isFinite(latitude) || latitude < -90 || latitude > 90) return null;
+  if (!Number.isFinite(longitude) || longitude < -180 || longitude > 180) return null;
+  const text = (field: unknown, max: number): string | null | undefined => {
+    if (field === undefined || field === null) return null;
+    if (typeof field !== 'string') return undefined;
+    const trimmed = field.trim();
+    return trimmed.length > max ? undefined : trimmed || null;
+  };
+  const name = text(v.name, 100);
+  const address = text(v.address, 300);
+  if (name === undefined || address === undefined) return null;
+  return { latitude, longitude, name, address };
+}
 
 /**
  * Typed failure with a machine `code` and a suggested HTTP `status`.
@@ -120,6 +151,8 @@ export interface SendMessageParams {
   templateMessageParams?: unknown;
   /** Structured payload for `messageType === 'interactive'`. */
   interactivePayload?: InteractiveMessagePayload | null;
+  /** The place for `messageType === 'location'`. */
+  location?: unknown;
   replyToMessageId?: string | null;
   /**
    * The signed-in member sending from the inbox, stored as messages.sender_id
@@ -159,6 +192,8 @@ export function validateSendMessageParams(params: {
   interactivePayload?: InteractiveMessagePayload | null;
   /** Structured template values; checked here so a bad shape 400s early. */
   templateMessageParams?: unknown;
+  /** The place for a location message. */
+  location?: unknown;
 }): void {
   const { messageType, contentText, mediaUrl, templateName, interactivePayload } =
     params;
@@ -207,6 +242,14 @@ export function validateSendMessageParams(params: {
     }
   }
 
+  if (messageType === 'location' && !parseSendLocation(params.location)) {
+    throw new SendMessageError(
+      'bad_request',
+      'location needs a latitude (-90..90) and longitude (-180..180); name up to 100 and address up to 300 characters',
+      400
+    );
+  }
+
   if (isMediaKind && !mediaUrl) {
     throw new SendMessageError(
       'bad_request',
@@ -249,6 +292,7 @@ export async function sendMessageToConversation(
     replyToMessageId,
     senderId,
   } = params;
+  const location = messageType === 'location' ? parseSendLocation(params.location) : null;
 
   if (!conversationId) {
     throw new SendMessageError(
@@ -266,6 +310,7 @@ export async function sendMessageToConversation(
     templateName,
     interactivePayload,
     templateMessageParams,
+    location: params.location,
   });
   // Validated just above; the typed copy is what reaches the builder.
   const parsedParams = parseSendTimeParams(templateMessageParams);
@@ -504,6 +549,22 @@ export async function sendMessageToConversation(
     if (messageType === 'interactive') {
       return interactiveDelivery!.send(phone);
     }
+    if (location) {
+      const result = await sendLocationMessage({
+        phoneNumberId: config.phone_number_id,
+        accessToken,
+        to: phone,
+        location: {
+          type: 'location',
+          latitude: location.latitude,
+          longitude: location.longitude,
+          ...(location.name ? { name: location.name } : {}),
+          ...(location.address ? { address: location.address } : {}),
+        },
+        contextMessageId,
+      });
+      return result.messageId;
+    }
     const result = await sendTextMessage({
       phoneNumberId: config.phone_number_id,
       accessToken,
@@ -574,6 +635,8 @@ export async function sendMessageToConversation(
   const persistedText =
     messageType === 'interactive'
       ? interactivePayload!.body
+      : location
+        ? [location.name, location.address].filter(Boolean).join(' · ') || null
       : messageType === 'template'
         ? templateContentText(
             templateRow,
@@ -592,8 +655,14 @@ export async function sendMessageToConversation(
       content_text: persistedText,
       media_url: mediaUrl || null,
       template_name: templateName || null,
+      // A location keeps the same shape an inbound one has (interactive_payload.location).
       interactive_payload:
-        messageType === 'interactive' ? interactivePayload : null,
+        messageType === 'interactive'
+          ? interactivePayload
+          : location
+            ? { location: { latitude: location.latitude, longitude: location.longitude,
+                name: location.name ?? undefined, address: location.address ?? undefined } }
+            : null,
       message_id: waMessageId,
       status: 'sent',
       reply_to_message_id: replyToMessageId || null,
