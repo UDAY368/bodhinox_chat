@@ -977,7 +977,8 @@
       "unassigned": "Não atribuídas",
       "favourites": "Favoritas",
       "reminders": "Lembretes",
-      "labels": "Etiquetas"
+      "labels": "Etiquetas",
+      "failed": "Com falha"
     },
     "history": {
       "title": "Histórico do chat",
@@ -8206,7 +8207,8 @@
       "savedReportNameTaken": "Já existe um relatório com este nome.",
       "savedReportNotFound": "Relatório não encontrado.",
       "tooManySavedReports": "Este espaço de trabalho já tem 50 relatórios salvos. Exclua um primeiro.",
-      "invalidSavedSchedule": "Escolha a frequência (diária, semanal ou mensal) e um horário."
+      "invalidSavedSchedule": "Escolha a frequência (diária, semanal ou mensal) e um horário.",
+      "scheduleFormatLocked": "Este agendamento envia um relatório salvo no tipo de arquivo do próprio relatório. Altere o tipo de arquivo no relatório salvo."
     },
     "meetings": {
       "not_configured": "O Zoom não está disponível nesta instalação.",

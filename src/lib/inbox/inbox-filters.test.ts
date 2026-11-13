@@ -58,3 +58,14 @@ describe('my-team filter', () => {
     expect(matchesInboxFilter({ ...base, assigned_agent_id: 'a' }, 'my-team', 0)).toBe(false);
   });
 });
+
+describe('the Failed folder', () => {
+  it('is a known filter and matches only the conversations whose last outbound message failed', () => {
+    expect(parseInboxFilter('failed')).toBe('failed');
+    const failedIds = new Set(['c1']);
+    expect(matchesInboxFilter({ ...conversation, id: 'c1' }, 'failed', now, undefined, { failedIds })).toBe(true);
+    expect(matchesInboxFilter({ ...conversation, id: 'c2' }, 'failed', now, undefined, { failedIds })).toBe(false);
+    // Before the list loads nothing matches.
+    expect(matchesInboxFilter({ ...conversation, id: 'c1' }, 'failed', now)).toBe(false);
+  });
+});

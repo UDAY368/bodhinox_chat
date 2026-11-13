@@ -14,6 +14,8 @@ export type InboxFilter =
   | 'mine'
   | 'favourites'
   | 'reminders'
+  /** Conversations whose latest agent or bot message failed (GET /api/inbox/failed). */
+  | 'failed'
   | `label-${string}`;
 const FILTERS: InboxFilter[] = [
   'all',
@@ -32,6 +34,7 @@ const FILTERS: InboxFilter[] = [
   'mine',
   'favourites',
   'reminders',
+  'failed',
 ];
 const LABEL_FILTER = /^label-([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i;
 export function parseInboxFilter(value: string | null): InboxFilter {
@@ -61,6 +64,8 @@ export interface FolderContext {
   reminderIds?: ReadonlySet<string>;
   /** Label ids per conversation id. */
   labelsByConversation?: ReadonlyMap<string, ReadonlySet<string>>;
+  /** Conversations whose latest agent or bot message failed, for 'failed'. */
+  failedIds?: ReadonlySet<string>;
 }
 type QueueConversation = Pick<
   Conversation,
@@ -78,6 +83,7 @@ export function matchesInboxFilter(
     return c.status !== 'closed' && !!folders?.userId && c.assigned_agent_id === folders.userId;
   if (filter === 'favourites') return !!c.id && !!folders?.favouriteIds?.has(c.id);
   if (filter === 'reminders') return !!c.id && !!folders?.reminderIds?.has(c.id);
+  if (filter === 'failed') return !!c.id && !!folders?.failedIds?.has(c.id);
   const label = labelOfFilter(filter);
   if (label) return !!c.id && !!folders?.labelsByConversation?.get(c.id)?.has(label);
   const inbound = Date.parse(c.last_customer_message_at ?? '');

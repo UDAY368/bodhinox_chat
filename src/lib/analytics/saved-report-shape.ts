@@ -58,6 +58,20 @@ export function spanDays(from: string, to: string): number {
   return Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000) + 1;
 }
 
+/** Today's date (YYYY-MM-DD) on this device's clock: the custom date inputs' max. */
+export function deviceToday(now: Date = new Date()): string {
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+}
+
+/**
+ * The latest calendar date anywhere on Earth at `now` (UTC+14): the server's "today" for a custom range, so
+ * a member whose local day is already tomorrow in UTC terms is never refused, and no later day passes.
+ */
+export function latestToday(now: Date = new Date()): string {
+  return new Date(now.getTime() + 14 * 3_600_000).toISOString().slice(0, 10);
+}
+
 /**
  * Why a custom range is refused, or null when it is fine: both days needed,
  * start not after end, end not after `today`, at most SAVED_RANGE_MAX_DAYS.
@@ -76,7 +90,7 @@ export function customRangeIssue(from: string | null | undefined, to: string | n
  * group, channel, preset, from?, to?, format }). Returns the definition or the
  * first problem found. Names are trimmed and whitespace-collapsed.
  */
-export function parseSavedReport(input: unknown): { ok: true; value: SavedReportDefinition } | { ok: false; issue: SavedReportIssue } {
+export function parseSavedReport(input: unknown, now: Date = new Date()): { ok: true; value: SavedReportDefinition } | { ok: false; issue: SavedReportIssue } {
   const body = input && typeof input === 'object' && !Array.isArray(input) ? (input as Record<string, unknown>) : {};
   const name = typeof body.name === 'string' ? body.name.replace(/\s+/g, ' ').trim() : '';
   if (!name || name.length > SAVED_REPORT_NAME_MAX) return { ok: false, issue: 'name' };
@@ -92,7 +106,7 @@ export function parseSavedReport(input: unknown): { ok: true; value: SavedReport
   if (!isOneOf(SAVED_FORMATS, format)) return { ok: false, issue: 'format' };
   let range: SavedReportDefinition['range'] = { preset: body.preset, from: null, to: null };
   if (body.preset === 'custom') {
-    if (customRangeIssue(body.from as string, body.to as string)) return { ok: false, issue: 'dates' };
+    if (customRangeIssue(body.from as string, body.to as string, latestToday(now))) return { ok: false, issue: 'dates' };
     range = { preset: 'custom', from: body.from as string, to: body.to as string };
   }
   return { ok: true, value: { name, metrics, group: body.group, channel, range, format } };

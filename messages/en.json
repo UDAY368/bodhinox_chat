@@ -977,7 +977,8 @@
       "unassigned": "Unassigned",
       "favourites": "Favourites",
       "reminders": "Reminders",
-      "labels": "Labels"
+      "labels": "Labels",
+      "failed": "Failed"
     },
     "history": {
       "title": "Chat history",
@@ -8206,7 +8207,8 @@
       "savedReportNameTaken": "A report with this name already exists.",
       "savedReportNotFound": "Report not found.",
       "tooManySavedReports": "This workspace already has 50 saved reports. Delete one first.",
-      "invalidSavedSchedule": "Choose how often (daily, weekly or monthly) and a time of day."
+      "invalidSavedSchedule": "Choose how often (daily, weekly or monthly) and a time of day.",
+      "scheduleFormatLocked": "This schedule sends a saved report in the report's own file type. Change the file type on the saved report instead."
     },
     "meetings": {
       "not_configured": "Zoom is not available on this deployment.",

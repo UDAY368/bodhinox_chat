@@ -41,7 +41,7 @@ export type PauseReason = 'manual' | 'creator_lost_access' | 'no_recipients';
 
 export class ScheduleError extends Error {
   constructor(
-    public readonly code: 'invalid' | 'invalid_recipients' | 'not_found' | 'too_many' | 'creator_lost_access',
+    public readonly code: 'invalid' | 'invalid_recipients' | 'not_found' | 'too_many' | 'creator_lost_access' | 'format_locked',
     public readonly status: number,
   ) {
     super(code);
@@ -235,6 +235,9 @@ export async function updateSchedule(actor: ScheduleActor, id: string, input: Sc
       WHERE s.account_id=${actor.accountId}::uuid AND s.id=${id}::uuid FOR UPDATE`);
     const current = rows[0];
     if (!current) throw new ScheduleError('not_found', 404);
+    // A saved report's schedule sends the report's own file type; it changes only with the report.
+    if (current.kind === SAVED_REPORT_KIND && input.format !== undefined && input.format !== current.format)
+      throw new ScheduleError('format_locked', 409);
     if (recipients) await assertAdminRecipients(tx, actor.accountId, recipients);
     const cadence = (input.cadence as ReportCadence | undefined) ?? current.cadence;
     const hour = (input.hourLocal as number | undefined) ?? current.hour_local;

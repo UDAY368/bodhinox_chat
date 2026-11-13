@@ -20,7 +20,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 import { Input } from '@/components/ui/input';
 import { authFetch } from '@/lib/auth/client';
 import {
-  customRangeIssue, DURATION_METRICS, SAVED_CHANNELS, SAVED_GROUPS, SAVED_METRICS, SAVED_RANGES, SAVED_REPORT_NAME_MAX,
+  customRangeIssue, deviceToday, DURATION_METRICS, SAVED_CHANNELS, SAVED_GROUPS, SAVED_METRICS, SAVED_RANGES, SAVED_REPORT_NAME_MAX,
   type SavedGroup, type SavedMetric, type SavedReportDefinition,
 } from '@/lib/analytics/saved-report-shape';
 import { quietSelect } from '@/components/dashboard/segmented';
@@ -290,11 +290,12 @@ function BuilderDialog({ report, taken, onClose, onSaved }: {
   const [fileFormat, setFileFormat] = useState(report?.format ?? 'csv');
   const [errors, setErrors] = useState<Partial<Record<'name' | 'metrics' | 'dates' | 'form', string>>>({});
   const [busy, setBusy] = useState(false);
+  const today = deviceToday();
 
   const save = async (event: React.FormEvent) => {
     event.preventDefault();
     const trimmed = name.replace(/\s+/g, ' ').trim();
-    const issue = preset === 'custom' ? customRangeIssue(from, to) : null;
+    const issue = preset === 'custom' ? customRangeIssue(from, to, deviceToday()) : null;
     const next = {
       name: !trimmed ? t('errors.name') : taken.some((x) => x.id !== report?.id && x.name.toLowerCase() === trimmed.toLowerCase()) ? t('errors.nameTaken') : undefined,
       metrics: metrics.length ? undefined : t('errors.metrics'),
@@ -378,8 +379,8 @@ function BuilderDialog({ report, taken, onClose, onSaved }: {
           </div>
           {preset === 'custom' && (
             <div className="grid gap-3 min-[480px]:grid-cols-2">
-              <label className={field}>{tr('from')}<Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} aria-invalid={Boolean(errors.dates)} /></label>
-              <label className={field}>{tr('to')}<Input type="date" value={to} onChange={(e) => setTo(e.target.value)} aria-invalid={Boolean(errors.dates)} /></label>
+              <label className={field}>{tr('from')}<Input type="date" value={from} max={to || today} onChange={(e) => setFrom(e.target.value)} aria-invalid={Boolean(errors.dates)} /></label>
+              <label className={field}>{tr('to')}<Input type="date" value={to} min={from || undefined} max={today} onChange={(e) => setTo(e.target.value)} aria-invalid={Boolean(errors.dates)} /></label>
               {errors.dates && <span role="alert" className="text-xs font-medium text-destructive min-[480px]:col-span-2">{errors.dates}</span>}
             </div>
           )}

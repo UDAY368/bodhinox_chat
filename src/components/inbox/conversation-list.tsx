@@ -230,6 +230,7 @@ export function ConversationList({
             { label: tFolders('mine'), value: 'mine' },
             { label: tFolders('favourites'), value: 'favourites' },
             { label: tFolders('reminders'), value: 'reminders' },
+            { label: tFolders('failed'), value: 'failed' },
           ]
         : [],
     [tFolders, folders]

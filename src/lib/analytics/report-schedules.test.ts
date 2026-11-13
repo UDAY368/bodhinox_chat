@@ -115,6 +115,18 @@ describe('admin routes library', () => {
     expect(h.calls.find((c) => c.sql.includes('INSERT INTO audit_logs'))!.values).toContain('analytics.report_schedule_created');
   });
 
+  it('keeps a saved report schedule on the report\'s own file type', async () => {
+    const at = new Date('2026-11-04T00:00:00Z');
+    const row = { id: S, kind: 'saved_report', format: 'csv', cadence: 'weekly', hour_local: 8, minute_local: 30, saved_report_id: RUN,
+      saved_report_name: 'Weekly', recipients: [U], created_by: U, paused_at: null, pause_reason: null, next_run_at: at, last_run_id: null, created_at: at };
+    h.respond = (sql) => (sql.includes('FROM report_schedules s') ? [row] : []);
+    await expect(updateSchedule(owner, S, { format: 'pdf' })).rejects.toMatchObject({ code: 'format_locked', status: 409 });
+    expect(h.calls.some((c) => c.sql.includes('UPDATE report_schedules'))).toBe(false);
+    // The same type, or no type, is fine (pause and resume still work).
+    await updateSchedule(owner, S, { format: 'csv', paused: true });
+    expect(h.calls.some((c) => c.sql.includes('UPDATE report_schedules'))).toBe(true);
+  });
+
   it('pauses and resumes with paused_at and pause_reason together, and keeps a lost-access pause while it is still true', async () => {
     const at = new Date('2026-11-04T00:00:00Z');
     const row = { id: S, kind: 'campaign_summary', format: 'csv', cadence: 'weekly', hour_local: 8, recipients: [U], created_by: V,
