@@ -2407,9 +2407,9 @@
       "channelFilterLabel": "Canal",
       "allChannels": "Todos os canais",
       "chooseChannel": "Canal da nova automação",
-      "triggerContactCreated": "Um novo contato é criado",
-      "triggerTagAdded": "Uma tag é adicionada",
-      "triggerOutsideHours": "Mensagem fora do horário de atendimento"
+      "triggerContactCreated": "Dispara com: a primeira mensagem de um novo contato",
+      "triggerTagAdded": "Dispara com: uma tag é adicionada",
+      "triggerOutsideHours": "Dispara com: uma mensagem fora do horário de atendimento"
     },
     "edit": {
       "notFound": "Fluxo não encontrado.",
@@ -13768,6 +13768,76 @@
       "loadFailed": "Não foi possível carregar estas configurações.",
       "retry": "Tentar novamente",
       "loading": "Carregando"
+    }
+  },
+  "AutomationList": {
+    "description": "Fluxos, regras e sequências para WhatsApp e Instagram em um só lugar.",
+    "kindFilterLabel": "Tipo de automação",
+    "tabs": {
+      "flow": "Fluxos",
+      "rule": "Regras",
+      "sequence": "Sequências"
+    },
+    "kinds": {
+      "flow": "Fluxo",
+      "rule": "Regra",
+      "sequence": "Sequência"
+    },
+    "anyStatus": "Qualquer status",
+    "searchPlaceholder": "Buscar automações",
+    "noMatches": "Nada encontrado. Tente outra busca ou limpe os filtros.",
+    "clearFilters": "Limpar filtros",
+    "typeColumn": "Tipo",
+    "startsWhen": "Começa quando",
+    "liveColumn": "Ativa",
+    "liveLabel": "{name} ativa",
+    "liveOn": "“{name}” está ativa",
+    "liveOff": "“{name}” está parada. Ninguém novo a inicia.",
+    "hasProblems": "“{name}” tem {count, plural, one {# problema} other {# problemas}}. Abra para corrigir.",
+    "openToFix": "Abrir",
+    "liveError": "Não foi possível alterar. Tente novamente.",
+    "working": "Salvando…",
+    "archivedNoSwitch": "Restaure primeiro para ativar.",
+    "subscribers": "Inscritos",
+    "sequenceStarts": "{count, plural, =0 {Ainda sem mensagens} one {# mensagem ao longo de dias} other {# mensagens ao longo de dias}}",
+    "logs": "Ver registros",
+    "createRuleError": "Não foi possível criar a regra.",
+    "duplicateRuleError": "Não foi possível duplicar a regra.",
+    "deleteError": "Não foi possível excluir.",
+    "ruleDeleted": "Regra excluída.",
+    "sequenceArchived": "Sequência arquivada. Os inscritos deixam de receber mensagens.",
+    "deleteRuleHint": "A regra e suas etapas são excluídas. Isso não pode ser desfeito.",
+    "deleteSequenceHint": "A sequência é arquivada e {count, plural, one {# inscrito deixa} other {# inscritos deixam}} de receber mensagens.",
+    "rename": {
+      "action": "Renomear",
+      "title": "Renomear automação",
+      "name": "Nome",
+      "required": "Dê um nome.",
+      "cancel": "Cancelar",
+      "save": "Salvar",
+      "error": "Não foi possível renomear.",
+      "done": "Renomeada"
+    },
+    "dialog": {
+      "scratch": "Começar do zero",
+      "scratchHint": "Escolha um tipo e um canal e monte do seu jeito.",
+      "scratchTitle": "Começar do zero",
+      "scratchDesc": "Dê um nome, escolha o tipo de automação e onde ela roda.",
+      "backToTemplates": "Modelos",
+      "name": "Nome",
+      "nameRequired": "Dê um nome.",
+      "type": "Tipo",
+      "channel": "Canal",
+      "hints": {
+        "flow": "Uma conversa com mensagens, perguntas e botões.",
+        "rule": "Quando algo acontece, faça algo. Sem precisar de conversa.",
+        "sequence": "Mensagens espaçadas ao longo de horas ou dias."
+      },
+      "sequenceInstagramOnly": "Sequências rodam no Instagram.",
+      "createRule": "Criar regra em branco",
+      "createSequence": "Criar sequência",
+      "templateKind": "{kind} · {channel}",
+      "flowTemplates": "Modelos de fluxo"
     }
   }
 }
