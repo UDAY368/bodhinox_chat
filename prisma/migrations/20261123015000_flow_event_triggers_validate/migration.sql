@@ -1,5 +1,5 @@
 -- Automation list: validate the trigger check that
--- 20261122003000_flow_event_triggers re-added NOT VALID. VALIDATE CONSTRAINT
+-- 20261123014000_flow_event_triggers re-added NOT VALID. VALIDATE CONSTRAINT
 -- holds SHARE UPDATE EXCLUSIVE, so flow reads and writes continue during the
 -- scan. Every existing row already passed the narrower check. Additive.
 SET LOCAL lock_timeout = '5s';

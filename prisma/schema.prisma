@@ -2959,7 +2959,7 @@ model ai_workspace_settings {
   updated_at DateTime @db.Timestamptz(6) @default(now())
   /// Stage 5 (20261118000800): at most 3 goals for the Instagram AI auto-reply.
   instagram_goals Json @db.JsonB @default(dbgenerated("'[]'::jsonb"))
-  /// 20261114006100_ai_assistant_features: auto-labelling, translation, route to staff and the budget pause switch.
+  /// 20261123006000_ai_assistant_features: auto-labelling, translation, route to staff and the budget pause switch.
   labelling_enabled Boolean @default(false)
   translation_enabled Boolean @default(false)
   translation_language String @default("en")
@@ -3437,7 +3437,7 @@ model deal_notes {
   @@index([account_id, deal_id, created_at(sort: Desc)], map: "deal_notes_deal_idx")
 }
 
-/// 20261114006000_ai_multi_agents: AI agents (channels, working hours, handoff rules); is_default reads the agent profile.
+/// 20261123005000_ai_multi_agents: AI agents (channels, working hours, handoff rules); is_default reads the agent profile.
 model ai_agents {
   id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
@@ -3460,7 +3460,7 @@ model ai_agents {
   @@index([account_id, position, created_at], map: "ai_agents_order_idx")
 }
 
-/// 20261121006100_ai_reply_ratings: one helpful / not helpful rating per member per AI reply.
+/// 20261123009000_ai_reply_ratings: one helpful / not helpful rating per member per AI reply.
 model ai_reply_ratings {
   id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))

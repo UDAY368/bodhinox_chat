@@ -13,7 +13,7 @@
 -- keeps the old behaviour (one agent on every channel, at every hour); the
 -- default row is created the first time an admin opens the agent list.
 --
--- ai_reply_events gains agent_id in 20261121006000_ai_reply_event_agents
+-- ai_reply_events gains agent_id in 20261123008000_ai_reply_event_agents
 -- (that table is created by a later migration).
 --
 -- Additive: a new table with forced row-level security (every member reads,

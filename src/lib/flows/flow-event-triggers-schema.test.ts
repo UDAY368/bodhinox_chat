@@ -12,8 +12,8 @@ import { FLOW_TRIGGER_TYPES } from './types';
 const MIGRATIONS = join(process.cwd(), 'prisma', 'migrations');
 const migrations = readdirSync(MIGRATIONS).filter((name) => /^\d{14}_/.test(name)).sort();
 const sql = (name: string) => readFileSync(join(MIGRATIONS, name, 'migration.sql'), 'utf8').replace(/--[^\n]*/g, '');
-const ADD = '20261122003000_flow_event_triggers';
-const VALIDATE = '20261122003100_flow_event_triggers_validate';
+const ADD = '20261123014000_flow_event_triggers';
+const VALIDATE = '20261123015000_flow_event_triggers_validate';
 
 const inList = (text: string): string[] => {
   const match = /trigger_type\s+IN\s*\(([^)]*)\)/.exec(text);

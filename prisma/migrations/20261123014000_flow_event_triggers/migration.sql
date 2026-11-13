@@ -12,7 +12,7 @@
 -- so on a fresh database the superset must apply after it.
 -- The check is a superset of the current one (20261117190300), so every
 -- existing row still passes. It is re-added NOT VALID and validated by
--- 20261122003100_flow_event_triggers_validate under SHARE UPDATE EXCLUSIVE.
+-- 20261123015000_flow_event_triggers_validate under SHARE UPDATE EXCLUSIVE.
 -- flow_versions.trigger_type has no check. Additive.
 SET LOCAL lock_timeout = '5s';
 
