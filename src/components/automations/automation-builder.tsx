@@ -11,6 +11,7 @@ import {
   createContext,
   useContext,
   useEffect,
+  useRef,
   useState,
   type ReactNode,
 } from 'react';
@@ -82,6 +83,7 @@ import {
   type StepPath,
 } from '@/lib/automations/builder-tree';
 import { cn } from '@/lib/utils';
+import { useIsolateOverlay } from '@/hooks/use-isolate-overlay';
 import type { ScheduledAudience } from '@/lib/automations/scheduled-contract';
 import { automationStepsFor, automationTriggersFor } from '@/lib/channels/capabilities';
 import { channelPath } from '@/lib/channels/routes';
@@ -841,6 +843,9 @@ export function AutomationBuilder({
 }) {
   const router = useRouter();
   const t = useTranslations('Automations.builder');
+  // Full-screen editor over the app shell: keep keyboard and screen readers inside it.
+  const overlayRef = useRef<HTMLDivElement>(null);
+  useIsolateOverlay(overlayRef);
   const tSection = useTranslations('Automations.channelSection');
   const tChannels = useTranslations('Channels.names');
   const tBasic = useTranslations('Flows.builder.basic');
@@ -942,7 +947,13 @@ export function AutomationBuilder({
   }
 
   return (
-    <div className="bg-background fixed inset-0 flex flex-col">
+    <div
+      ref={overlayRef}
+      role="dialog"
+      aria-modal="true"
+      aria-label={state.name.trim() || t('untitled')}
+      className="bg-background fixed inset-0 flex flex-col"
+    >
       {/* Top bar. At sub-sm widths the "Active" label is hidden and the
           switch moves to the right of the save button, so the name input
           gets maximum width. */}

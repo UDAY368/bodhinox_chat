@@ -83,6 +83,7 @@ export function InboxView({ channel }: { channel: InboxScope }) {
 function InboxViewInner({ scope }: { scope: InboxScope }) {
   const t = useTranslations('Inbox.page');
   const tThread = useTranslations('Inbox.messageThread');
+  const tSidebar = useTranslations('Inbox.sidebar');
   const tChannel = useTranslations('Inbox.channel');
   const tSearch = useTranslations('InboxSearch');
   const tRow = useTranslations('Inbox.rowMenu');
@@ -176,6 +177,25 @@ function InboxViewInner({ scope }: { scope: InboxScope }) {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [widePanel, overlayFor]);
+
+  // The slide-over is modal: the list and thread behind it leave the focus order and the
+  // accessibility tree, focus moves into the panel, and it returns to the toggle on close.
+  const overlayRef = useRef<HTMLDivElement>(null);
+  const overlayOpen = panelShown && !widePanel;
+  useEffect(() => {
+    const panel = overlayRef.current;
+    if (!overlayOpen || !panel?.parentElement) return;
+    const opener = document.activeElement as HTMLElement | null;
+    const behind = [...panel.parentElement.children].filter(
+      (el): el is HTMLElement => el !== panel && el instanceof HTMLElement && el.tagName !== 'BUTTON',
+    );
+    behind.forEach((el) => el.setAttribute('inert', ''));
+    panel.focus();
+    return () => {
+      behind.forEach((el) => el.removeAttribute('inert'));
+      if (opener?.isConnected) opener.focus();
+    };
+  }, [overlayOpen]);
 
   // Fire the deep-link auto-select exactly once per URL — subsequent
   // list refreshes (realtime, manual refetch) must not snap the user
@@ -1028,8 +1048,13 @@ function InboxViewInner({ scope }: { scope: InboxScope }) {
         )}
         {panelShown && (widePanel || activeConversation) && (
           <div
+            ref={overlayRef}
             data-contact-panel={widePanel ? 'column' : 'overlay'}
+            {...(widePanel
+              ? {}
+              : { role: 'dialog', 'aria-modal': true, 'aria-label': tSidebar('contactDetails'), tabIndex: -1 })}
             className={cn(
+              !widePanel && 'outline-none',
               widePanel
                 ? 'shrink-0'
                 : 'absolute inset-y-0 right-0 z-30 flex w-full max-w-sm shadow-2xl [&>aside]:w-full'
