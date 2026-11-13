@@ -19,8 +19,9 @@ export interface SlotQuery {
  * Staff slot preview for 14 local days from `from` (default: today in the
  * location's zone). Slots are a preview; booking re-checks them under locks.
  */
-export function useStaffSlots(query: SlotQuery | null, refresh = 0) {
-  const [from, setFrom] = useState<string | null>(null);
+export function useStaffSlots(query: SlotQuery | null, refresh = 0, startDay: string | null = null) {
+  // A future day picked on the week calendar starts the window there; a past or absent one starts today.
+  const [from, setFrom] = useState<string | null>(() => (startDay && startDay > new Date().toISOString().slice(0, 10) ? startDay : null));
   const [state, setState] = useState<{ timezone: string; slots: Slot[]; loading: boolean; failure: ApiFailure | null }>(
     // Loading until the first answer, so the picker never flashes "no free dates" before it asked.
     { timezone: 'UTC', slots: [], loading: true, failure: null },

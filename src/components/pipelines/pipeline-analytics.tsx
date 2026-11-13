@@ -129,6 +129,47 @@ export function PipelineAnalytics({ stages, deals }: PipelineAnalyticsProps) {
   );
 }
 
+/** Open, won and lost deals of a (filtered) board, for the three summary cards. Pure; tested. */
+export function summarizeDeals(deals: Pick<Deal, "status" | "value">[]) {
+  const sum = (list: typeof deals) => list.reduce((s, d) => s + Number(d.value || 0), 0);
+  const open = deals.filter((d) => !d.status || d.status === "open");
+  const won = deals.filter((d) => d.status === "won");
+  const lost = deals.filter((d) => d.status === "lost");
+  const closed = won.length + lost.length;
+  return {
+    openCount: open.length, openValue: sum(open), wonCount: won.length, wonValue: sum(won), lostCount: lost.length,
+    winRate: closed > 0 ? Math.round((won.length / closed) * 100) : null,
+  };
+}
+
+/** The Sales board's three summary cards: open deals value, won value and win rate (of the deals shown). */
+export function PipelineSummary({ deals }: { deals: Deal[] }) {
+  const t = useTranslations("Sales.pipeline");
+  const { defaultCurrency } = useAuth();
+  const s = useMemo(() => summarizeDeals(deals), [deals]);
+  const card = "flex min-w-0 flex-col gap-1 rounded-xl border border-border bg-card px-3 py-2.5 sm:px-4 sm:py-3.5";
+  const value = "truncate text-[17px] font-bold tracking-tight tabular-nums text-foreground sm:text-[22px]";
+  return (
+    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3">
+      <div className={card}>
+        <span className="text-xs font-medium text-muted-foreground">{t("openDeals")}</span>
+        <p className={value}>{formatCurrency(s.openValue, defaultCurrency)}</p>
+        <span className="text-xs text-muted-foreground">{t("dealsCount", { count: s.openCount })}</span>
+      </div>
+      <div className={card}>
+        <span className="text-xs font-medium text-muted-foreground">{t("won")}</span>
+        <p className={value}>{formatCurrency(s.wonValue, defaultCurrency)}</p>
+        <span className="text-xs text-muted-foreground">{t("dealsCount", { count: s.wonCount })}</span>
+      </div>
+      <div className={`${card} col-span-2 sm:col-span-1`}>
+        <span className="text-xs font-medium text-muted-foreground">{t("winRate")}</span>
+        <p className={value}>{s.winRate === null ? "–" : `${s.winRate}%`}</p>
+        <span className="text-xs text-muted-foreground">{t("lostCount", { count: s.lostCount })}</span>
+      </div>
+    </div>
+  );
+}
+
 function Metric({
   label,
   value,

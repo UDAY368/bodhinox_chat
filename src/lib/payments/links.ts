@@ -382,6 +382,13 @@ export async function paymentLinkStats(tx: TenantTransaction, accountId: string)
   }));
 }
 
+/** How many links are in each status (all currencies), for the status filter counts. */
+export async function paymentLinkStatusCounts(tx: TenantTransaction, accountId: string): Promise<Partial<Record<PaymentLinkStatus, number>>> {
+  const rows = await tx.$queryRaw<{ status: PaymentLinkStatus; n: number }[]>`
+    SELECT status, count(*)::int AS n FROM payment_links WHERE account_id=${accountId}::uuid GROUP BY status`;
+  return Object.fromEntries(rows.map((r) => [r.status, r.n]));
+}
+
 async function secretsOrThrow(accountId: string): Promise<RazorpaySecrets> {
   try {
     return await loadRazorpaySecrets(accountId);
