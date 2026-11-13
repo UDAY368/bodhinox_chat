@@ -25,7 +25,7 @@ describe('channel routes', () => {
 
   it('keeps WhatsApp tools on their old URLs and puts Instagram tools under /instagram', () => {
     expect(channelPath('whatsapp', 'broadcasts')).toBe('/broadcasts');
-    expect(channelPath('whatsapp', 'templates')).toBe('/settings?tab=templates');
+    expect(channelPath('whatsapp', 'templates')).toBe('/templates');
     expect(channelPath('whatsapp', 'forms')).toBe('/forms');
     expect(channelPath('whatsapp', 'ads')).toBe('/ads');
     expect(channelPath('instagram', 'comments')).toBe('/instagram/comments');
