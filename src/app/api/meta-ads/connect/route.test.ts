@@ -34,7 +34,7 @@ beforeEach(() => {
 
 it('answers 503 before any session or database work while disabled', async () => {
   h.enabled = false;
-  const res = await post({ code: 'abc' });
+  const res = await post({ accessToken: 'abc' });
   expect(res.status).toBe(503);
   expect(await res.json()).toMatchObject({ error: 'meta_ads_not_enabled' });
   expect(h.sessions).toBe(0);
@@ -42,18 +42,20 @@ it('answers 503 before any session or database work while disabled', async () =>
 
 it('checks the mutation origin and the admin role', async () => {
   h.mutationOk = false;
-  expect((await post({ code: 'abc' })).status).toBe(401);
+  expect((await post({ accessToken: 'abc' })).status).toBe(401);
   h.mutationOk = true;
   h.role = 'agent';
-  expect((await post({ code: 'abc' })).status).toBe(403);
+  expect((await post({ accessToken: 'abc' })).status).toBe(403);
   expect(h.codes).toEqual([]);
 });
 
-it('validates the code and starts the connection', async () => {
-  expect((await post({ code: '' })).status).toBe(400);
-  expect((await post({ code: 'x'.repeat(1025) })).status).toBe(400);
-  expect((await post({ code: 'abc', extra: 1 })).status).toBe(400);
-  const res = await post({ code: 'abc' });
+it('validates the login token and starts the connection', async () => {
+  expect((await post({ accessToken: '' })).status).toBe(400);
+  expect((await post({ accessToken: 'x'.repeat(4097) })).status).toBe(400);
+  expect((await post({ accessToken: 'abc', extra: 1 })).status).toBe(400);
+  // The old code body is refused: a JavaScript SDK code cannot be exchanged.
+  expect((await post({ code: 'abc' })).status).toBe(400);
+  const res = await post({ accessToken: 'abc' });
   expect(res.status).toBe(200);
   expect(res.headers.get('cache-control')).toBe('private, no-store');
   expect((await res.json()).connection).toEqual({ id: 'c1', status: 'pending' });
@@ -62,12 +64,12 @@ it('validates the code and starts the connection', async () => {
 
 it('maps connection errors to their codes', async () => {
   h.fail = new MetaAdsError('already_connected');
-  const res = await post({ code: 'abc' });
+  const res = await post({ accessToken: 'abc' });
   expect(res.status).toBe(409);
   expect((await res.json()).error).toBe('already_connected');
 });
 
 it('rate limits attempts per workspace', async () => {
-  for (let i = 0; i < 10; i++) expect((await post({ code: 'abc' })).status).toBe(200);
-  expect((await post({ code: 'abc' })).status).toBe(429);
+  for (let i = 0; i < 10; i++) expect((await post({ accessToken: 'abc' })).status).toBe(200);
+  expect((await post({ accessToken: 'abc' })).status).toBe(429);
 });
