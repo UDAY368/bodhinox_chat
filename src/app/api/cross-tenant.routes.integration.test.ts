@@ -20,7 +20,7 @@ const routeModules = import.meta.glob('/src/app/api/**/route.ts');
 const databases = fixtureDatabaseUrls();
 
 type Extra = Record<'list' | 'segment' | 'team' | 'paymentLink' | 'media' | 'note' | 'attribute' | 'schedule'
-  | 'savedFilter' | 'form' | 'mediaKey' | 'igTemplate', string>;
+  | 'savedFilter' | 'form' | 'mediaKey' | 'igTemplate' | 'aiAgent' | 'aiSource', string>;
 type Ids = TenantFixture & { extra: Extra };
 
 type Case = {
@@ -129,6 +129,15 @@ export const CASES: Case[] = [
   { route: 'ai/knowledge/[id]', method: 'GET', params: rid('ai_knowledge_documents') },
   { route: 'ai/knowledge/[id]', method: 'PATCH', params: rid('ai_knowledge_documents'), body: () => ({ title: 'p15 tamper' }) },
   { route: 'ai/knowledge/[id]', method: 'DELETE', params: rid('ai_knowledge_documents') },
+  { route: 'ai/agents/[id]', method: 'GET', params: extra('aiAgent') },
+  { route: 'ai/agents/[id]', method: 'PATCH', params: extra('aiAgent'), body: () => ({ name: 'p15 tamper' }) },
+  { route: 'ai/agents/[id]', method: 'DELETE', params: extra('aiAgent') },
+  { route: 'ai/agents/[id]/duplicate', method: 'POST', params: extra('aiAgent'), body: () => ({}) },
+  { route: 'ai/knowledge/sources/[id]', method: 'GET', params: extra('aiSource') },
+  { route: 'ai/knowledge/sources/[id]', method: 'POST', params: extra('aiSource'), body: () => ({}) },
+  { route: 'ai/knowledge/sources/[id]', method: 'PATCH', params: extra('aiSource'), body: () => ({ min_role: 'admin' }) },
+  { route: 'ai/knowledge/sources/[id]', method: 'PUT', params: extra('aiSource'), body: () => ({ title: 'p15 tamper', content: 'Tampered text' }) },
+  { route: 'ai/knowledge/sources/[id]', method: 'DELETE', params: extra('aiSource') },
   { route: 'whatsapp/forms/[id]', method: 'GET', params: extra('form') },
   { route: 'whatsapp/forms/[id]', method: 'DELETE', params: extra('form') },
   { route: 'whatsapp/forms/[id]/responses', method: 'GET', params: extra('form') },
@@ -178,7 +187,6 @@ export const KNOWN_UNMAPPED = [
   'ai/assist/suggestions/[id]/decision',
   'ai/autoreply/[conversationId]',
   'ai/insights/[id]',
-  'ai/knowledge/sources/[id]',
   'ai/unanswered/[id]',
   'analytics/reports/[id]/download',
   'analytics/reports/[id]/shares',
@@ -307,7 +315,7 @@ const TABLES = ['contacts', 'conversations', 'messages', 'tags', 'contact_tags',
   'contact_lists', 'contact_list_members', 'segments', 'teams', 'payment_links', 'media_objects', 'conversation_notes',
   'workspace_attributes', 'report_schedules', 'saved_filters', 'whatsapp_forms', 'webhook_endpoints', 'api_keys',
   'account_memberships', 'quick_replies', 'message_templates', 'ai_knowledge_documents', 'whatsapp_config', 'accounts',
-  'instagram_message_templates'];
+  'instagram_message_templates', 'ai_agents', 'ai_knowledge_sources'];
 
 async function existingTables(): Promise<string[]> {
   const rows = await fixtureOwnerPool().query<{ t: string }>(
@@ -350,6 +358,11 @@ async function addExtras(t: TenantFixture, tag: string): Promise<Extra> {
       [a, u, `p15 form ${tag}`, JSON.stringify({ screens: [] })]),
     igTemplate: await one("INSERT INTO instagram_message_templates(account_id,name,kind,payload,created_by) VALUES($1,$2,'button',$3::jsonb,$4)",
       [a, `p15 template ${tag}`, JSON.stringify({ text: 'Hello', buttons: [{ type: 'postback', title: 'Hi', payload: 'reply:Hi' }] }), u]),
+    // A non-default, switched-off agent (the default one cannot be deleted, which would be an own-row refusal).
+    aiAgent: await one("INSERT INTO ai_agents(account_id,name,role,instructions,channels) VALUES($1,$2,'support','Synthetic agent',ARRAY['whatsapp'])",
+      [a, `p15 agent ${tag}`]),
+    // A ready text source (a queued one would make the re-index case a 409 busy).
+    aiSource: await one("INSERT INTO ai_knowledge_sources(account_id,kind,title,status) VALUES($1,'text',$2,'ready')", [a, `p15 source ${tag}`]),
   };
 }
 

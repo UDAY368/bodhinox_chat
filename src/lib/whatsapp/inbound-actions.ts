@@ -24,6 +24,8 @@ import { parseHoldCodeMessage } from "@/lib/appointments/types";
 import { handleBookingCode } from "@/lib/appointments/inbound";
 import { aiDeploymentEnabled } from "@/lib/ai/gate";
 import { enqueueAssessmentForInbound } from "@/lib/ai/assess/enqueue";
+import { enqueueAutoLabelForInbound } from "@/lib/ai/auto-label";
+import { routeSensitiveInbound } from "@/lib/ai/route-to-staff";
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 function validatePayload(input: InboundActionsPayload): void {
@@ -139,7 +141,22 @@ export async function processInboundActions(input: InboundActionsPayload, assert
     // stage off the hot path when the deployment kill switch is off.
     if(!keyword&&!contact?.blocked_at&&input.contentType==="text"&&!input.interactiveReplyId&&text.trim()&&aiDeploymentEnabled())
       await stage("ai_assess",()=>enqueueAssessmentForInbound(input.accountId,input.conversationId));
+    if(!keyword&&!contact?.blocked_at&&input.contentType==="text"&&!input.interactiveReplyId&&text.trim()&&aiDeploymentEnabled())
+      await aiAssistantStages(input,text,stage);
   });
+}
+
+/**
+ * Assistant features that act on every conversation (both channels), after the
+ * bots had their turn: route a sensitive question to staff (deterministic, no
+ * provider call) and queue auto-labelling of a new conversation (one job per
+ * conversation). Each checks its own workspace switch and the token budget and never throws.
+ */
+async function aiAssistantStages(input:MessageInput,text:string,stage:Stage): Promise<void> {
+  await stage("ai_route_staff",()=>routeSensitiveInbound({accountId:input.accountId,conversationId:input.conversationId,
+    contactId:input.contactId,configOwnerUserId:input.userId,text}));
+  if(input.wasConversationCreated||input.isFirstInboundMessage)
+    await stage("ai_label",()=>enqueueAutoLabelForInbound(input.accountId,input.conversationId));
 }
 
 type Stage=<T>(name:string,action:()=>Promise<T>)=>Promise<T>;
@@ -238,6 +255,8 @@ async function processInstagramActions(db:Db,input:MessageInput,stage:Stage): Pr
     conversation_id:input.conversationId,contact_id:input.contactId,channel:"instagram",instagram_message_id:input.metaMessageId,
     content_type:input.contentType,content_text:input.contentText,
   },{channel:"instagram"}));
+  if(!keyword&&!contact?.blocked_at&&!unsubscribed&&input.contentType==="text"&&!input.interactiveReplyId&&text.trim()&&aiDeploymentEnabled())
+    await aiAssistantStages(input,text,stage);
 }
 
 /**

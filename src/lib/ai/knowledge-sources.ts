@@ -31,6 +31,12 @@
 // than the default needs admin plus the 'ai.knowledge' permission (checked by
 // the routes) and is audited. Below admin, an admin-only source is left out of
 // the list and its pages (the document policy hides its documents too).
+//
+// Question-and-answer sources (qa): a 'text' source whose title is the
+// question and whose one document holds the question and its answer
+// (qaDocument). Text and Q&A sources can be edited (updateSourceContent):
+// the document is replaced and re-indexed by a new run in the same
+// transaction, so the change is durable before the request is acknowledged.
 
 import { randomUUID } from 'node:crypto'
 import { z } from 'zod'
@@ -50,6 +56,10 @@ export const MAX_SOURCES_PER_ACCOUNT = 50
 export const DEFAULT_PAGE_LIMIT = 50
 export const MAX_PAGE_LIMIT = 500
 export const TEXT_SOURCE_MAX_CHARS = 100_000
+export const QA_QUESTION_MAX = 300
+export const QA_ANSWER_MAX = 4000
+/** Characters of a file source's stored text returned by getSource (a text source is returned whole, up to TEXT_SOURCE_MAX_CHARS, so it can be edited). */
+export const CONTENT_PREVIEW_CHARS = 20_000
 export const SOURCE_TITLE_MAX = 300
 /** A run with no progress for this long is considered dead and may be restarted. */
 export const STALE_RUN_MS = 30 * 60 * 1000
@@ -76,6 +86,8 @@ export interface SourceAccess {
 export interface KnowledgeSource extends SourceAccess {
   id: string
   kind: SourceKind
+  /** A 'text' source written as one question and its answer. */
+  qa: boolean
   url: string | null
   title: string
   status: SourceStatus
@@ -88,6 +100,25 @@ export interface KnowledgeSource extends SourceAccess {
 }
 
 export interface SourcePage { id: string; title: string; source_url: string | null; fetched_at: string | null }
+
+/** The stored text of a file, text or Q&A source (preview), or its question and answer. */
+export type SourceContent =
+  | { kind: 'text'; text: string; truncated: boolean }
+  | { kind: 'qa'; question: string; answer: string }
+
+/** The one document a Q&A source indexes: the question and its answer. */
+export function qaDocument(question: string, answer: string): string {
+  return `Question: ${question.trim()}\nAnswer: ${answer.trim()}`
+}
+
+/** At most `max` characters of a stored text, and whether it was cut. */
+export const previewOf = (text: string, max: number): SourceContent => ({ kind: 'text', text: text.slice(0, max), truncated: text.length > max })
+
+/** The question and answer of a stored Q&A document, or null when it is not one. */
+export function parseQaDocument(content: string): { question: string; answer: string } | null {
+  const match = /^Question: ([\s\S]*?)\nAnswer: ([\s\S]*)$/.exec(content)
+  return match ? { question: match[1].trim(), answer: match[2].trim() } : null
+}
 
 export type KnowledgeSourceErrorCode = 'forbidden' | 'invalid_input' | 'invalid_url' | 'not_found' | 'busy' | 'limit_reached'
 const STATUS: Record<KnowledgeSourceErrorCode, number> = {
@@ -118,6 +149,13 @@ export const sourceInputSchema = z.discriminatedUnion('kind', [
     kind: z.literal('text'),
     title,
     content: z.string().trim().min(1).max(TEXT_SOURCE_MAX_CHARS),
+    min_role: minRole.optional(),
+    customer_facing: z.boolean().optional(),
+  }).strict(),
+  z.object({
+    kind: z.literal('qa'),
+    question: z.string().trim().min(1).max(QA_QUESTION_MAX),
+    answer: z.string().trim().min(1).max(QA_ANSWER_MAX),
     min_role: minRole.optional(),
     customer_facing: z.boolean().optional(),
   }).strict(),
@@ -169,11 +207,11 @@ function assertRole(ctx: TenantContext, min: AccountRole): void {
   if (!ctx.role || !hasMinRole(ctx.role, min)) throw new KnowledgeSourceError('forbidden')
 }
 
-const SOURCE_COLUMNS = 'id::text, kind, url, title, status, page_limit, pages_indexed, last_crawled_at, error, min_role, customer_facing, created_by::text, current_run_id::text, created_at, updated_at'
+const SOURCE_COLUMNS = 'id::text, kind, qa, url, title, status, page_limit, pages_indexed, last_crawled_at, error, min_role, customer_facing, created_by::text, current_run_id::text, created_at, updated_at'
 type SourceRow = Omit<KnowledgeSource, 'last_crawled_at' | 'created_at' | 'updated_at'> &
   { last_crawled_at: Date | null; created_at: Date; updated_at: Date; created_by: string | null; current_run_id: string | null }
 const toSource = (r: SourceRow): KnowledgeSource => ({
-  id: r.id, kind: r.kind, url: r.url, title: r.title, status: r.status, page_limit: r.page_limit,
+  id: r.id, kind: r.kind, qa: r.qa === true, url: r.url, title: r.title, status: r.status, page_limit: r.page_limit,
   pages_indexed: r.pages_indexed, error: r.error,
   // Rows read before the Phase 13 columns existed (or a mocked row) keep the defaults.
   min_role: r.min_role === 'admin' ? 'admin' : 'agent', customer_facing: r.customer_facing !== false,
@@ -208,7 +246,7 @@ export async function listSources(ctx: TenantContext): Promise<KnowledgeSource[]
   )).map(toSource))
 }
 
-export async function getSource(ctx: TenantContext, id: string): Promise<{ source: KnowledgeSource; pages: SourcePage[] } | null> {
+export async function getSource(ctx: TenantContext, id: string): Promise<{ source: KnowledgeSource; pages: SourcePage[]; content: SourceContent | null } | null> {
   assertRole(ctx, 'viewer')
   if (!UUID.test(id)) return null
   return withTenant(ctx, async (tx) => {
@@ -217,9 +255,21 @@ export async function getSource(ctx: TenantContext, id: string): Promise<{ sourc
     const pages = await tx.$queryRaw<{ id: string; title: string; source_url: string | null; fetched_at: Date | null }[]>`
       SELECT id::text, title, source_url, fetched_at FROM ai_knowledge_documents
       WHERE account_id=${ctx.accountId}::uuid AND source_id=${id}::uuid ORDER BY source_url NULLS FIRST, title LIMIT 500`
+    // A file, text or Q&A source shows its stored text (a website lists its pages instead).
+    let content: SourceContent | null = null
+    if (row.kind === 'file' || row.kind === 'text') {
+      const [doc] = await tx.$queryRaw<{ content: string }[]>`
+        SELECT content FROM ai_knowledge_documents WHERE account_id=${ctx.accountId}::uuid AND source_id=${id}::uuid
+        ORDER BY created_at LIMIT 1`
+      const qa = row.qa && doc ? parseQaDocument(doc.content) : null
+      content = qa ? { kind: 'qa', ...qa }
+        : doc ? previewOf(doc.content, row.kind === 'text' ? TEXT_SOURCE_MAX_CHARS : CONTENT_PREVIEW_CHARS)
+        : null
+    }
     return {
       source: toSource(row),
       pages: pages.map((p) => ({ ...p, fetched_at: p.fetched_at ? p.fetched_at.toISOString() : null })),
+      content,
     }
   })
 }
@@ -240,6 +290,8 @@ export async function createSource(ctx: TenantContext, input: SourceInput): Prom
     const access = resolveAccess(input)
     if (input.kind === 'text') {
       row = await insertSourceWithDocument(tx, ctx, 'text', input.title, input.content, runId, access)
+    } else if (input.kind === 'qa') {
+      row = await insertSourceWithDocument(tx, ctx, 'text', input.question, qaDocument(input.question, input.answer), runId, access, true)
     } else {
       const name = input.title ?? new URL(input.url).hostname
       row = (await tx.$queryRawUnsafe<SourceRow[]>(
@@ -270,11 +322,11 @@ export async function createFileSource(ctx: TenantContext, input: { title: strin
 }
 
 async function insertSourceWithDocument(tx: TenantTransaction, ctx: TenantContext, kind: 'text' | 'file', name: string, content: string,
-  runId: string, access: SourceAccess = resolveAccess({})): Promise<SourceRow> {
+  runId: string, access: SourceAccess = resolveAccess({}), qa = false): Promise<SourceRow> {
   const row = (await tx.$queryRawUnsafe<SourceRow[]>(
-    `INSERT INTO ai_knowledge_sources(account_id, kind, title, status, created_by, current_run_id, min_role, customer_facing)
-     VALUES ($1::uuid, $2, $3, 'queued', $4::uuid, $5::uuid, $6, $7) RETURNING ${SOURCE_COLUMNS}`,
-    ctx.accountId, kind, name, ctx.userId ?? null, runId, access.min_role, access.customer_facing,
+    `INSERT INTO ai_knowledge_sources(account_id, kind, title, status, created_by, current_run_id, min_role, customer_facing, qa)
+     VALUES ($1::uuid, $2, $3, 'queued', $4::uuid, $5::uuid, $6, $7, $8) RETURNING ${SOURCE_COLUMNS}`,
+    ctx.accountId, kind, name.slice(0, SOURCE_TITLE_MAX), ctx.userId ?? null, runId, access.min_role, access.customer_facing, qa,
   ))[0]
   // content_hash is set only once the document is indexed.
   await tx.$executeRaw`INSERT INTO ai_knowledge_documents(account_id, created_by, title, content, source_id, fetched_at)
@@ -311,6 +363,45 @@ export async function updateSourceAccess(ctx: TenantContext, id: string, patch: 
     ))[0]
     await auditAccess(tx, ctx, id, next)
     return toSource(row)
+  })
+}
+
+const contentSchema = z.union([
+  z.object({ question: z.string().trim().min(1).max(QA_QUESTION_MAX), answer: z.string().trim().min(1).max(QA_ANSWER_MAX) }).strict(),
+  z.object({ title, content: z.string().trim().min(1).max(TEXT_SOURCE_MAX_CHARS) }).strict(),
+])
+export type SourceContentInput = z.infer<typeof contentSchema>
+
+/** A content edit body: { question, answer } for a Q&A source, { title, content } for a text source. Throws invalid_input. */
+export function parseContentInput(body: unknown): SourceContentInput {
+  const parsed = contentSchema.safeParse(body)
+  if (!parsed.success) throw new KnowledgeSourceError('invalid_input')
+  return parsed.data
+}
+
+/**
+ * Replaces the text of a text or Q&A source and queues its re-indexing in the
+ * same transaction (admin). A run in progress is superseded by the new one.
+ * Websites, sitemaps, files and learned answers are not edited here (invalid_input).
+ */
+export async function updateSourceContent(ctx: TenantContext, id: string, input: SourceContentInput): Promise<KnowledgeSource> {
+  assertRole(ctx, 'admin')
+  if (!UUID.test(id)) throw new KnowledgeSourceError('not_found')
+  return withTenant(ctx, async (tx) => {
+    const current = await selectSource(tx, ctx.accountId, id, true)
+    if (!current) throw new KnowledgeSourceError('not_found')
+    const isQa = 'question' in input
+    if (current.kind !== 'text' || current.qa !== isQa) throw new KnowledgeSourceError('invalid_input')
+    const name = (isQa ? input.question : input.title).slice(0, SOURCE_TITLE_MAX)
+    const text = isQa ? qaDocument(input.question, input.answer) : input.content
+    await tx.$executeRaw`UPDATE ai_knowledge_sources SET title=${name} WHERE account_id=${ctx.accountId}::uuid AND id=${id}::uuid`
+    // One document per text source: replace it (chunks cascade), then re-index from it.
+    await tx.$executeRaw`DELETE FROM ai_knowledge_documents WHERE account_id=${ctx.accountId}::uuid AND source_id=${id}::uuid`
+    await tx.$executeRaw`INSERT INTO ai_knowledge_documents(account_id, created_by, title, content, source_id, fetched_at)
+      VALUES (${ctx.accountId}::uuid, ${ctx.userId ?? null}::uuid, ${name}, ${text}, ${id}::uuid, now())`
+    await tx.$executeRaw`INSERT INTO audit_logs(account_id, user_id, action, resource_id, metadata)
+      VALUES (${ctx.accountId}::uuid, ${ctx.userId ?? null}::uuid, 'ai.knowledge_content_updated', ${id}, ${JSON.stringify({ qa: isQa })}::jsonb)`
+    return toSource(await startRun(tx, ctx.accountId, id))
   })
 }
 

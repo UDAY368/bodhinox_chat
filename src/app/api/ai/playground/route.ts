@@ -5,6 +5,7 @@ import { loadAiConfig } from '@/lib/ai/config'
 import { retrieveKnowledgeScored } from '@/lib/ai/knowledge'
 import { generateReply } from '@/lib/ai/generate'
 import { buildAgentSystemPrompt, loadAgentProfile, matchHandoffKeyword, type AgentProfile } from '@/lib/ai/agent-profile'
+import { agentProfileFor, getAgent, isAgentId } from '@/lib/ai/agents'
 import { assessConfidence } from '@/lib/ai/confidence'
 import { autoReplyThreshold } from '@/lib/ai/auto-reply'
 import { latestUserMessage } from '@/lib/ai/query'
@@ -32,6 +33,11 @@ const MAX_TURNS = 20
  * even when the master switch is off (requireActive:false) so you can
  * try it before going live. Stateless: the client sends the running
  * transcript each turn.
+ *
+ * `agent_id` (optional) tests one agent of the list: its instructions, tone
+ * and handoff rules, whatever its switch, channels and hours. 404 when it is
+ * not an agent of this workspace. The reply names the knowledge sources it
+ * was grounded in (`sources`: document titles) and the handoff `reason`.
  */
 export async function POST(request: Request) {
   const startedAt = performance.now()
@@ -91,7 +97,14 @@ export async function POST(request: Request) {
     }
 
     // The live auto-reply reads the profile best-effort; so does the playground.
-    const profile: AgentProfile | null = await loadAgentProfile({ accountId, userId, role }).catch(() => null)
+    const workspaceProfile: AgentProfile | null = await loadAgentProfile({ accountId, userId, role }).catch(() => null)
+    const agentId = body?.agent_id
+    if (agentId !== undefined && agentId !== null && !isAgentId(agentId)) {
+      return NextResponse.json({ error: t('common.invalidRequestBody') }, { status: 400 })
+    }
+    const agent = agentId ? await getAgent({ accountId, userId, role }, agentId) : null
+    if (agentId && !agent) return NextResponse.json({ error: t('common.notFound'), code: 'not_found' }, { status: 404 })
+    const profile = agent ? agentProfileFor(workspaceProfile, agent) : workspaceProfile
     const rules = profile?.handoff_rules
     const question = latestUserMessage(messages)
     const diagnostics = (timing: { knowledgeMatches: number; retrievalMs: number; generationMs: number }) => ({
@@ -109,20 +122,21 @@ export async function POST(request: Request) {
         : null
     if (ruleHandoff) {
       return NextResponse.json({
-        reply: '', handoff: true, reason: ruleHandoff, score: 0,
+        reply: '', handoff: true, reason: ruleHandoff, score: 0, sources: [],
         diagnostics: diagnostics({ knowledgeMatches: 0, retrievalMs: 0, generationMs: 0 }),
       })
     }
 
     const retrievalStartedAt = performance.now()
     // The playground previews the customer agent, so it retrieves what customers may be shown.
-    const { chunks, retrieval } = await retrieveKnowledgeScored(db, accountId, config, question, 5, 'customer')
+    const { chunks, retrieval, citations } = await retrieveKnowledgeScored(db, accountId, config, question, 5, 'customer')
     const knowledge = chunks.map((c) => c.content)
     const retrievalMs = Math.round(performance.now() - retrievalStartedAt)
     const systemPrompt = buildAgentSystemPrompt(profile, {
       mode: 'auto_reply',
       knowledge,
       legacyPrompt: config.systemPrompt,
+      agent: agent && !agent.is_default ? { name: agent.name, role: agent.role } : null,
     })
 
     const generationStartedAt = performance.now()
@@ -154,6 +168,8 @@ export async function POST(request: Request) {
       handoff: handingOff,
       reason: confidence.reason,
       score: confidence.score,
+      // The documents the answer was grounded in (titles only), as the live log keeps them.
+      sources: handingOff ? [] : [...new Set((citations ?? []).map((c) => c.title?.trim()).filter((v): v is string => !!v))].slice(0, 3),
       diagnostics: diagnostics({
         knowledgeMatches: knowledge.length,
         retrievalMs,

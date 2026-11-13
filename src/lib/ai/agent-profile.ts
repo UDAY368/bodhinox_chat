@@ -216,8 +216,19 @@ export async function saveAgentProfile(ctx: TenantContext, input: unknown): Prom
   if (!ctx.role || !hasMinRole(ctx.role, 'admin')) throw new AgentProfileError('Only admins can change the AI agent', 403)
   const parsed = agentProfileInputSchema.safeParse(input ?? {})
   if (!parsed.success) throw new AgentProfileError(parsed.error.issues[0]?.message ?? 'Invalid AI agent settings')
+  return withTenant(ctx, (tx) => saveAgentProfileTx(tx, ctx.accountId, parsed.data))
+}
+
+/**
+ * The same partial update inside the caller's admin transaction (the agent
+ * list saves the default agent's instructions, tone and handoff rules here).
+ */
+export async function saveAgentProfileTx(tx: TenantTransaction, accountId: string, input: unknown): Promise<AgentProfile> {
+  const parsed = agentProfileInputSchema.safeParse(input ?? {})
+  if (!parsed.success) throw new AgentProfileError(parsed.error.issues[0]?.message ?? 'Invalid AI agent settings')
   const v = parsed.data
-  return withTenant(ctx, async (tx) => {
+  const ctx = { accountId }
+  {
     const current = (await tx.$queryRaw<ProfileRow[]>`
       SELECT business_name, business_type, website_url, instructions, greeting, tone, handoff_rules,
         setup_completed_at, updated_at
@@ -240,7 +251,7 @@ export async function saveAgentProfile(ctx: TenantContext, input: unknown): Prom
       RETURNING business_name, business_type, website_url, instructions, greeting, tone, handoff_rules,
         setup_completed_at, updated_at`
     return toProfile(rows[0])
-  })
+  }
 }
 
 function stripUndefined<T extends object>(value: T): Partial<T> {
@@ -302,6 +313,8 @@ export function buildAgentSystemPrompt(
     legacyPrompt?: string | null
     /** Teach NO_ANSWER_SENTINEL (auto-reply only). Default: a saved profile with on_low_confidence. */
     noAnswerRule?: boolean
+    /** A named agent (not the default one): its name and role join the business profile. */
+    agent?: { name: string; role: string } | null
   } = {},
 ): string {
   const mode = opts.mode ?? 'auto_reply'
@@ -310,6 +323,7 @@ export function buildAgentSystemPrompt(
   }
   const p = profile
   const business: string[] = []
+  if (opts.agent) business.push(`You are ${oneLine(opts.agent.name)}, the business's ${oneLine(opts.agent.role)} assistant.`)
   if (p.business_name) business.push(`Business name: ${oneLine(p.business_name)}`)
   if (p.business_type) business.push(`Type of business: ${oneLine(p.business_type)}`)
   if (p.website_url) business.push(`Website: ${oneLine(p.website_url)}`)

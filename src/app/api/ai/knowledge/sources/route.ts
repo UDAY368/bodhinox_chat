@@ -4,6 +4,7 @@
 // POST /api/ai/knowledge/sources — add a source and queue its first crawl or indexing (admin, rate limited).
 //   { kind: 'website' | 'sitemap', url, title?, page_limit? (1-500, default 50) }
 //   { kind: 'text', title, content (≤ 100,000 chars) }
+//   { kind: 'qa', question (≤ 300 chars), answer (≤ 4,000 chars) }
 //   Either kind may also set access: min_role ('agent' | 'admin', default 'agent') and
 //   customer_facing (default true; false for an admin-only source). Setting either needs the
 //   'ai.knowledge' permission (403 otherwise); an admin-only source used in customer replies is 400.

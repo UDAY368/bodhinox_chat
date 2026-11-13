@@ -73,6 +73,7 @@ describe('GET /api/ai/usage', () => {
     expect(body.by_mode).toEqual({
       auto_reply: { calls: 1, tokens: 10 }, draft: { calls: 2, tokens: 20 }, summary: { calls: 1, tokens: 30 },
       suggest: { calls: 1, tokens: 40 }, assess: { calls: 1, tokens: 50 }, insights: { calls: 1, tokens: 60 },
+      label: { calls: 0, tokens: 0 }, translate: { calls: 0, tokens: 0 },
     })
     expect(body.by_model).toEqual([
       { model: 'gpt-x', provider: 'openai', calls: 7, tokens: 155 },
