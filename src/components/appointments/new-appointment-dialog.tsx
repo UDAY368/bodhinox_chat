@@ -8,7 +8,7 @@
  */
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
-import { useTranslations } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -33,9 +33,15 @@ export function offeringChoices(config: Pick<AppointmentConfig, 'offerings' | 'l
 }
 
 export function NewAppointmentDialog({
-  open, onOpenChange, config, onBooked,
-}: { open: boolean; onOpenChange: (open: boolean) => void; config: AppointmentConfig; onBooked: (id: string) => void }) {
+  open, onOpenChange, config, onBooked, preferred,
+}: {
+  open: boolean; onOpenChange: (open: boolean) => void; config: AppointmentConfig; onBooked: (id: string) => void;
+  /** A day and time clicked on the week calendar: offered first once a service and location are chosen. */
+  preferred?: { date: string; time: string } | null;
+}) {
   const t = useTranslations('Appointments');
+  const ts = useTranslations('Sales.appointments');
+  const locale = useLocale();
   const failureText = useFailureText();
   const [search, setSearch] = useState('');
   const [contacts, setContacts] = useState<ContactOption[]>([]);
@@ -135,8 +141,17 @@ export function NewAppointmentDialog({
               </select>
             </div>
           </div>
+          {preferred && (
+            <p className="rounded-lg bg-muted px-3 py-2 text-xs text-muted-foreground">
+              {ts('requestedTime', {
+                when: new Intl.DateTimeFormat(locale, { weekday: 'long', day: 'numeric', month: 'long', hour: 'numeric', minute: '2-digit', timeZone: 'UTC' })
+                  .format(new Date(`${preferred.date}T${preferred.time}:00Z`)),
+              })}
+            </p>
+          )}
           {serviceId && locationId && (
-            <SlotSelector query={{ serviceId, locationId, staffId }} value={slot} onChange={setSlot} disabled={busy} />
+            <SlotSelector key={`${serviceId}|${locationId}|${staffId}`} query={{ serviceId, locationId, staffId }} value={slot} onChange={setSlot}
+              disabled={busy} preferred={preferred} />
           )}
         </div>
         <DialogFooter>

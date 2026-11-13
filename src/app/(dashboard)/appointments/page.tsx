@@ -50,6 +50,8 @@ function AppointmentsContent() {
   const { config, reload } = useAppointmentConfig();
   const [refreshKey, setRefreshKey] = useState(0);
   const [creating, setCreating] = useState(false);
+  // A day and time clicked on the week calendar, offered first in the booking dialog.
+  const [preferred, setPreferred] = useState<{ date: string; time: string } | null>(null);
 
   const rawTab = params.get('tab');
   const tab: Tab = (APPOINTMENT_TABS as readonly string[]).includes(rawTab ?? '') ? (rawTab as Tab) : 'schedule';
@@ -99,7 +101,9 @@ function AppointmentsContent() {
             </TabsList>
             <TabsContent value="schedule" className="pt-4">
               <ScheduleView config={config.config} abilities={abilities} refreshKey={refreshKey}
-                onOpen={(id) => navigate({ id })} onNew={() => setCreating(true)} />
+                onOpen={(id) => navigate({ id })} onNew={() => { setPreferred(null); setCreating(true); }}
+                onSlot={(date, time) => { setPreferred({ date, time }); setCreating(true); }}
+                onOpenTab={(next) => navigate({ tab: next })} />
             </TabsContent>
             <TabsContent value="tasks" className="pt-4">
               <TasksPanel canManage={abilities.manage} onOpenAppointment={(id) => navigate({ id })} />
@@ -127,7 +131,7 @@ function AppointmentsContent() {
           <AppointmentSheet id={openId} config={config.config} abilities={abilities}
             onClose={() => navigate({ id: null })} onChanged={changed} />
           {abilities.manage && (
-            <NewAppointmentDialog open={creating} onOpenChange={setCreating} config={config.config}
+            <NewAppointmentDialog open={creating} onOpenChange={setCreating} config={config.config} preferred={preferred}
               onBooked={(id) => { changed(); navigate({ id }); }} />
           )}
         </>

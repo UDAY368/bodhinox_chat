@@ -1,14 +1,15 @@
 'use client';
 
 /**
- * Schedule tab: an agenda of appointments grouped by local date, with a day or
- * week window, filters and the period's counts. Each time is shown in the
+ * Schedule tab: a week calendar (time grid, click an empty slot to book) or an
+ * agenda grouped by local date for a day or a week, with filters and the
+ * period's counts. Each time is shown in the
  * appointment's own zone with its label; the window follows the filtered
  * location's zone (else the first location's).
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { ChevronLeft, ChevronRight, Loader2, Plus } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Clock, Link2, Loader2, Plus } from 'lucide-react';
 import { useLocale, useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
@@ -18,6 +19,7 @@ import {
   type Abilities, type AppointmentConfig,
 } from './shared';
 import { addDays, localDay, zoneLabel } from '@/lib/appointments/time';
+import { WeekGrid, type HoursRow } from './week-grid';
 import type { AppointmentStatus } from '@/lib/appointments/types';
 
 export interface ScheduleItem {
@@ -42,8 +44,10 @@ interface Totals { booked: number; confirmed: number; cancelled: number; complet
 interface Filters { status: string; staffId: string; locationId: string; serviceId: string; needsOutcome: boolean }
 const NO_FILTERS: Filters = { status: '', staffId: '', locationId: '', serviceId: '', needsOutcome: false };
 
+type View = 'grid' | 'day' | 'week';
+
 export function ScheduleView({
-  config, abilities, onOpen, onNew, refreshKey,
+  config, abilities, onOpen, onNew, refreshKey, onSlot, onOpenTab,
 }: {
   config: AppointmentConfig;
   abilities: Abilities;
@@ -51,10 +55,21 @@ export function ScheduleView({
   onNew: () => void;
   /** Bumped by the page after a change, to reload. */
   refreshKey: number;
+  /** Week calendar: book at a picked day and time (members who can book). */
+  onSlot?: (day: string, hhmm: string) => void;
+  /** Jump to a configuration tab (booking pages, services). */
+  onOpenTab?: (tab: 'pages' | 'services') => void;
 }) {
   const t = useTranslations('Appointments');
+  const ts = useTranslations('Sales.appointments');
   const locale = useLocale();
-  const [view, setView] = useState<'day' | 'week'>('week');
+  // The calendar on wide screens, the list on phones (the grid scrolls sideways there).
+  const [view, setView] = useState<View>('grid');
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- the first view depends on the screen, known only in the browser
+    if (window.matchMedia('(max-width: 699px)').matches) setView('week');
+  }, []);
+  const [hours, setHours] = useState<HoursRow[]>([]);
   const [filters, setFilters] = useState<Filters>(NO_FILTERS);
   const zone = useMemo(() => {
     const chosen = config.locations.find((l) => l.id === filters.locationId);
@@ -65,7 +80,23 @@ export function ScheduleView({
   const [totals, setTotals] = useState<Totals | null>(null);
   const [failed, setFailed] = useState(false);
 
-  const range = useMemo(() => scheduleWindow(view, anchor, zone), [view, anchor, zone]);
+  // The calendar always shows Monday to Sunday; the agenda starts at the anchor day.
+  const range = useMemo(() => {
+    if (view !== 'grid') return scheduleWindow(view, anchor, zone);
+    const weekday = new Date(`${anchor}T12:00:00Z`).getUTCDay();
+    return scheduleWindow('week', addDays(anchor, -((weekday + 6) % 7)), zone);
+  }, [view, anchor, zone]);
+
+  useEffect(() => {
+    if (view !== 'grid') return;
+    let live = true;
+    void apiRequest<{ hours: HoursRow[] }>('/api/appointments/hours').then((r) => {
+      if (live && r.ok) setHours(r.data.hours ?? []);
+    });
+    return () => {
+      live = false;
+    };
+  }, [view, refreshKey]);
 
   const load = useCallback(async () => {
     setFailed(false);
@@ -104,18 +135,19 @@ export function ScheduleView({
   const locationName = useMemo(() => new Map(config.locations.map((l) => [l.id, l.name])), [config.locations]);
   const set = <K extends keyof Filters>(key: K) => (value: Filters[K]) => setFilters((f) => ({ ...f, [key]: value }));
   const step = view === 'day' ? 1 : 7;
+  const today = localDay(new Date(), zone);
   const groups = useMemo(() => groupByLocalDate(rows ?? []), [rows]);
 
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
         <div className="inline-flex rounded-xl bg-muted p-[3px]">
-          {(['day', 'week'] as const).map((v) => (
+          {(['grid', 'day', 'week'] as const).map((v) => (
             <button key={v} type="button" aria-pressed={view === v} onClick={() => setView(v)}
               className={`h-[26px] rounded-[9px] px-3 text-[13px] font-medium transition-[background-color,color,box-shadow] duration-150 ${
                 view === v ? 'bg-card text-foreground shadow-[0_1px_3px_rgb(0_0_0/0.12)] dark:bg-input' : 'text-muted-foreground hover:text-foreground'
               }`}>
-              {t(`schedule.${v}`)}
+              {v === 'grid' ? ts('viewWeek') : v === 'day' ? t('schedule.day') : ts('viewList')}
             </button>
           ))}
         </div>
@@ -126,10 +158,16 @@ export function ScheduleView({
         <Button type="button" variant="ghost" size="icon" aria-label={t('schedule.next')} onClick={() => setAnchor((d) => addDays(d, step))}>
           <ChevronRight className="h-4 w-4" />
         </Button>
-        <span className="text-[13px] font-semibold tabular-nums">
-          {formatDay(range.days[0], locale)}{view === 'week' ? ` – ${formatDay(range.days[6], locale)}` : ''}
+        <span className="min-w-0 text-[13px] font-semibold tabular-nums">
+          {formatDay(range.days[0], locale)}{view !== 'day' ? ` – ${formatDay(range.days[range.days.length - 1], locale)}` : ''}
         </span>
-        <div className="ml-auto">
+        <div className="ml-auto flex flex-wrap items-center gap-2">
+          {onOpenTab && (
+            <>
+              <Button type="button" variant="ghost" size="sm" onClick={() => onOpenTab('pages')}><Link2 className="h-4 w-4" /> {ts('bookingLink')}</Button>
+              <Button type="button" variant="ghost" size="sm" onClick={() => onOpenTab('services')}><Clock className="h-4 w-4" /> {ts('servicesHours')}</Button>
+            </>
+          )}
           {abilities.manage && (
             <Button type="button" size="sm" onClick={onNew}><Plus className="h-4 w-4" /> {t('schedule.newAppointment')}</Button>
           )}
@@ -184,10 +222,14 @@ export function ScheduleView({
           <Button type="button" variant="outline" size="sm" onClick={() => void load()}>{t('retry')}</Button>
         </div>
       )}
-      {rows && !failed && rows.length === 0 && (
+      {rows && !failed && view === 'grid' && !filters.needsOutcome && (
+        <WeekGrid days={range.days} rows={rows} hours={hours} locationId={filters.locationId} today={today} staffName={staffName}
+          onOpen={onOpen} onSlot={abilities.manage ? onSlot : undefined} />
+      )}
+      {rows && !failed && (view !== 'grid' || filters.needsOutcome) && rows.length === 0 && (
         <p className="rounded-xl border border-dashed border-border px-4 py-12 text-center text-sm text-muted-foreground">{t('schedule.empty')}</p>
       )}
-      {groups.map(([day, items]) => (
+      {(view !== 'grid' || filters.needsOutcome) && groups.map(([day, items]) => (
         <section key={day} className="space-y-2">
           <h3 className="text-[13px] font-semibold text-muted-foreground">{formatDay(day, locale)}</h3>
           <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-card">

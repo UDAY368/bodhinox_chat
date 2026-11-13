@@ -75,6 +75,11 @@ export async function unpublishShopProduct(id: string): Promise<ApiResult<ShopPr
   return result(await send(`${productUrl(id)}/publish`, "DELETE"), asProduct);
 }
 
+/** Copy a product as a new draft (same content, images and variants with suffixed SKUs; no stock). */
+export async function duplicateShopProduct(id: string, name?: string): Promise<ApiResult<ShopProduct>> {
+  return result(await send(`${productUrl(id)}/duplicate`, "POST", name ? { name } : {}), asProduct);
+}
+
 export async function archiveShopProduct(id: string, archived: boolean): Promise<ApiResult<ShopProduct>> {
   return result(await send(`${productUrl(id)}/archive`, "POST", { archived }), asProduct);
 }

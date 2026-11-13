@@ -23,11 +23,13 @@ const TRACKING_MAX = 200;
  * feedback score, and "Cancel and refund" for a paid order that has not left.
  * The server re-checks every rule; this only offers what the status allows.
  */
-export function OrderFulfilmentPanel({ order, canAct, canRefund, onChanged }: {
+export function OrderFulfilmentPanel({ order, canAct, canRefund, onChanged, hideSteps = false }: {
   order: OrderDetail;
   canAct: boolean;
   canRefund: boolean;
   onChanged: () => Promise<void>;
+  /** The Sales order drawer shows dispatch and delivery as its footer step button instead. */
+  hideSteps?: boolean;
 }) {
   const t = useTranslations("Commerce.orders.lifecycle");
   const tEvidence = useTranslations("Commerce.evidence");
@@ -42,8 +44,8 @@ export function OrderFulfilmentPanel({ order, canAct, canRefund, onChanged }: {
   const unpaidCod = order.payment_method === "cod" && !order.paid_at && priced;
   // Refunded in full before it left: the goods must not ship (the refund may also have restocked them).
   const refundedBeforeDispatch = order.refund_state === "full" && order.status !== "dispatched" && order.status !== "fulfilled";
-  const canDispatch = !refundedBeforeDispatch && canTransition(order.status, "dispatched", { priced, unpaidCod });
-  const canDeliver = !refundedBeforeDispatch && canTransition(order.status, "fulfilled", { priced, unpaidCod });
+  const canDispatch = !hideSteps && !refundedBeforeDispatch && canTransition(order.status, "dispatched", { priced, unpaidCod });
+  const canDeliver = !hideSteps && !refundedBeforeDispatch && canTransition(order.status, "fulfilled", { priced, unpaidCod });
   const delivered = order.status === "fulfilled";
   const canCancelRefund = order.status === "paid" && canRefund;
   const shipment = order.shipment ?? null;

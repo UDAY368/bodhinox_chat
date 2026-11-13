@@ -3345,3 +3345,15 @@ model sequence_message_sends {
   @@unique([account_id, subscription_id, round_started_at, sequence_message_id])
   @@index([account_id, sequence_id, sequence_message_id], map: "sequence_message_sends_stats_idx")
 }
+
+/// Sales (20261122000000): author-stamped team notes on a deal (FORCE RLS; author or admin deletes).
+model deal_notes {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  deal_id String @db.Uuid
+  body String
+  created_by String? @db.Uuid
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  @@unique([account_id, id])
+  @@index([account_id, deal_id, created_at(sort: Desc)], map: "deal_notes_deal_idx")
+}

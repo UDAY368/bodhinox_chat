@@ -117,7 +117,9 @@ async function setStatus(tx: TenantTransaction, accountId: string, order: Locked
  * paid; a payment that still arrives is recorded as payment_on_closed_order).
  */
 async function closeOrderTx(tx: TenantTransaction, accountId: string, order: LockedOrder): Promise<void> {
-  if ((order.status === 'awaiting_payment' && order.priced) || order.unpaidCod) {
+  // A priced order not yet paid holds its stock: awaiting payment (checkout), or a staff-made manual order
+  // (confirmed, held with no expiry until paid). releaseTx is a no-op when nothing is held.
+  if ((order.priced && ['awaiting_payment', 'new', 'confirmed'].includes(order.status)) || order.unpaidCod) {
     await releaseTx(tx, accountId, order.id, 'cancelled');
     await tx.$executeRaw`UPDATE coupon_redemptions SET status='released'
       WHERE account_id=${accountId}::uuid AND order_id=${order.id}::uuid AND status='reserved'`;

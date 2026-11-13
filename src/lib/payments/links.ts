@@ -322,7 +322,12 @@ export interface ListLinksFilter {
   /** created_at of the last row of the previous page. */
   before?: Date;
   limit?: number;
+  /** Matches the description or the customer's name (LIKE-escaped). */
+  q?: string;
 }
+
+/** A LIKE pattern matching `q` anywhere, with the LIKE wildcards and the escape character escaped. */
+const likeAnywhere = (q: string) => `%${q.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
 
 /** Newest first. `tx` is an app-role tenant transaction (agent and above see rows). */
 export async function listPaymentLinks(tx: TenantTransaction, accountId: string, filter: ListLinksFilter = {}): Promise<PaymentLinkView[]> {
@@ -335,12 +340,53 @@ export async function listPaymentLinks(tx: TenantTransaction, accountId: string,
   if (filter.orderId) add('order_id=?::uuid', filter.orderId);
   if (filter.contactId) add('contact_id=?::uuid', filter.contactId);
   if (filter.before) add('created_at<?', filter.before);
+  const q = filter.q?.trim().slice(0, 100);
+  if (q) {
+    params.push(likeAnywhere(q));
+    const n = params.length;
+    clauses.push(`(description ILIKE $${n} OR contact_id IN (SELECT c.id FROM contacts c WHERE c.account_id=$1::uuid AND c.name ILIKE $${n}))`);
+  }
   params.push(limit);
   const rows = await tx.$queryRawUnsafe<LinkRow[]>(
     `SELECT ${LINK_COLUMNS} FROM payment_links WHERE ${clauses.join(' AND ')} ORDER BY created_at DESC, id DESC LIMIT $${params.length}`,
     ...params,
   );
   return rows.map(toView);
+}
+
+/** Totals by state for the Payments summary cards: paid, waiting (live) and closed unpaid, per currency. */
+export interface PaymentLinkStatsRow {
+  currency: string;
+  paid: { count: number; amount_minor: number };
+  pending: { count: number; amount_minor: number };
+  expired: { count: number; amount_minor: number };
+}
+
+/** Every link of the workspace, grouped by currency. `tx` is an app-role tenant transaction (agent and above). */
+export async function paymentLinkStats(tx: TenantTransaction, accountId: string): Promise<PaymentLinkStatsRow[]> {
+  const rows = await tx.$queryRaw<{ currency: string; paid_n: number; paid_sum: bigint; pending_n: number; pending_sum: bigint;
+    expired_n: number; expired_sum: bigint }[]>`
+    SELECT currency,
+      count(*) FILTER (WHERE status='paid')::int AS paid_n,
+      COALESCE(sum(amount_minor) FILTER (WHERE status='paid'), 0)::bigint AS paid_sum,
+      count(*) FILTER (WHERE status IN ('creating','created','partially_paid','unknown'))::int AS pending_n,
+      COALESCE(sum(amount_minor) FILTER (WHERE status IN ('creating','created','partially_paid','unknown')), 0)::bigint AS pending_sum,
+      count(*) FILTER (WHERE status IN ('expired','cancelled','failed'))::int AS expired_n,
+      COALESCE(sum(amount_minor) FILTER (WHERE status IN ('expired','cancelled','failed')), 0)::bigint AS expired_sum
+    FROM payment_links WHERE account_id=${accountId}::uuid GROUP BY currency ORDER BY count(*) DESC, currency`;
+  return rows.map((r) => ({
+    currency: r.currency,
+    paid: { count: r.paid_n, amount_minor: minorFromDb(r.paid_sum) ?? 0 },
+    pending: { count: r.pending_n, amount_minor: minorFromDb(r.pending_sum) ?? 0 },
+    expired: { count: r.expired_n, amount_minor: minorFromDb(r.expired_sum) ?? 0 },
+  }));
+}
+
+/** How many links are in each status (all currencies), for the status filter counts. */
+export async function paymentLinkStatusCounts(tx: TenantTransaction, accountId: string): Promise<Partial<Record<PaymentLinkStatus, number>>> {
+  const rows = await tx.$queryRaw<{ status: PaymentLinkStatus; n: number }[]>`
+    SELECT status, count(*)::int AS n FROM payment_links WHERE account_id=${accountId}::uuid GROUP BY status`;
+  return Object.fromEntries(rows.map((r) => [r.status, r.n]));
 }
 
 async function secretsOrThrow(accountId: string): Promise<RazorpaySecrets> {
