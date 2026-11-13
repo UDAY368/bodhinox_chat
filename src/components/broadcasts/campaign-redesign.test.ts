@@ -20,7 +20,7 @@ describe('campaign actions by status', () => {
 
   it('never offers a sending action to a member without campaigns.send', () => {
     for (const status of ['draft', 'scheduled', 'sending', 'paused', 'sent'] as const)
-      expect(availableActions(row(status, { failed_count: 2 }), { canSend: false })).toEqual(['open', 'delete']);
+      expect(availableActions(row(status, { failed_count: 2 }), { canSend: false })).toEqual(['open']);
     expect(primaryAction(row('scheduled'), false)).toBeNull();
   });
 

@@ -338,7 +338,7 @@ model broadcasts {
   click_count Int @default(0)
   whatsapp_config_id String? @db.Uuid
   retry_request_id String? @db.Uuid
-  /// 20261114004000: 'whatsapp' (template) or 'instagram' (free text inside the 24-hour window).
+  /// 20261121000200: 'whatsapp' (template) or 'instagram' (free text inside the 24-hour window).
   channel String @default("whatsapp")
   message_text String?
   paused_at DateTime? @db.Timestamptz(6)
@@ -363,7 +363,7 @@ model broadcast_recipients {
   account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
   retry_generation Int @default(0)
   outcome_uncertain_at DateTime? @db.Timestamptz(6)
-  /// 20261114004000: the Instagram conversation an Instagram broadcast row is sent through.
+  /// 20261121000200: the Instagram conversation an Instagram broadcast row is sent through.
   conversation_id String? @db.Uuid
   @@unique([account_id, id])
 }

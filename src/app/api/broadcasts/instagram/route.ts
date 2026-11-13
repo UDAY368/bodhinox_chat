@@ -9,6 +9,7 @@ import { requireRole, toErrorResponse } from '@/lib/auth/account';
 import { tenantOf } from '@/lib/audience/http';
 import { requirePermission } from '@/lib/auth/permissions';
 import { createInstagramBroadcast } from '@/lib/broadcasts/instagram';
+import { readBoundedJson } from '@/lib/broadcasts/read-body';
 import { InstagramError } from '@/lib/instagram/errors';
 
 export const runtime = 'nodejs';
@@ -17,7 +18,7 @@ export async function POST(request: Request) {
   try {
     const ctx = await requireRole('agent');
     await requirePermission(tenantOf(ctx), 'campaigns.send');
-    const body = await request.json().catch(() => null);
+    const body = await readBoundedJson(request);
     const result = await createInstagramBroadcast(tenantOf(ctx), body);
     return NextResponse.json(result, { status: 202, headers: { 'Cache-Control': 'no-store' } });
   } catch (error) {

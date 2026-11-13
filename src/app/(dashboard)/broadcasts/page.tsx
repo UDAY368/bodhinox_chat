@@ -246,6 +246,8 @@ export default function BroadcastsPage() {
       {/* Status filter (segmented) + name search */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <SegmentedTabs
+          // Eight tabs are wider than a tablet row: shrink and scroll instead of pushing the search off-screen.
+          className="min-w-0"
           ariaLabel={t('tabsLabel')}
           value={tab}
           onChange={(key) => { setTab(key); setPage(0); }}

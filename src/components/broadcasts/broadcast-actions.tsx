@@ -42,8 +42,9 @@ export function availableActions(b: ActionRow, opts: { inDetail?: boolean; canSe
     if (b.status === 'paused') list.push('resume');
     if ((b.status === 'sent' || b.status === 'failed') && (b.failed_count ?? 0) > 0) list.push('retryFailed');
     if (b.kind !== 'api') list.push('duplicate');
+    // Deleting is an agent write (data contract); a viewer gets no dead menu item.
+    list.push('delete');
   }
-  list.push('delete');
   return list;
 }
 
@@ -195,6 +196,7 @@ export function BroadcastActionsMenu({ broadcast, actions, inDetail, exclude = [
   const t = useTranslations('Campaigns.actions');
   const items = availableActions(broadcast, { inDetail, canSend: actions.canSend }).filter((a) => !exclude.includes(a));
   const working = actions.busy === broadcast.id;
+  if (!items.length) return null;
   return (
     <DropdownMenu>
       <DropdownMenuTrigger

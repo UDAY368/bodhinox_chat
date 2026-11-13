@@ -70,6 +70,17 @@ function NewBroadcastWizard() {
   const [text, setText] = useState('');
   const [igSending, setIgSending] = useState(false);
 
+  // An Instagram-only workspace starts on Instagram (and a WhatsApp-only one on WhatsApp),
+  // so the Details step never leads into a channel the workspace cannot send on.
+  const whatsappOn = enabled.includes('whatsapp');
+  const instagramOn = enabled.includes('instagram');
+  const channelsKnown = !!channelState;
+  useEffect(() => {
+    if (!channelsKnown) return;
+    if (channel === 'whatsapp' && !whatsappOn && instagramOn) setChannel('instagram');
+    if (channel === 'instagram' && !instagramOn && whatsappOn) setChannel('whatsapp');
+  }, [channelsKnown, channel, whatsappOn, instagramOn]);
+
   const steps = channel === 'instagram' ? INSTAGRAM_STEPS : WHATSAPP_STEPS;
   const step = steps[Math.min(currentStep, steps.length - 1)];
   const go = (key: StepKey) => setCurrentStep(Math.max(0, steps.indexOf(key)));
@@ -327,8 +338,8 @@ function NewBroadcastWizard() {
                 // Instagram campaigns cannot use a CSV audience.
                 if (next === 'instagram' && audience.type === 'csv') setAudience({ type: 'all' });
               }}
-              whatsappAvailable={enabled.includes('whatsapp')}
-              instagramAvailable={enabled.includes('instagram')}
+              whatsappAvailable={whatsappOn}
+              instagramAvailable={instagramOn}
               onNext={() => setCurrentStep(1)}
               onBack={() => router.push('/broadcasts')}
             />

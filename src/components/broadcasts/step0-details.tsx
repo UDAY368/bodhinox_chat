@@ -91,6 +91,7 @@ export function Step0Details({
         </Button>
         <Button
           onClick={() => { setTouched(true); if (name.trim()) onNext(); }}
+          disabled={!options.find((o) => o.value === channel)?.available}
           className="bg-primary text-primary-foreground hover:bg-primary/90"
         >
           {t('next')}

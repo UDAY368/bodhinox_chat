@@ -61,4 +61,11 @@ describe('POST /api/broadcasts/instagram', () => {
     expect(await res.json()).toEqual({ onInstagram: 5, eligible: 3 });
     expect(h.counted).toEqual([[tenant, body]]);
   });
+
+  it('refuses an oversized body before creating anything', async () => {
+    const big = JSON.stringify({ ...body, text: 'x'.repeat(6_000_000) });
+    const res = await POST(new Request('http://localhost/api/broadcasts/instagram', { method: 'POST', body: big }));
+    expect(res.status).toBe(413);
+    expect(h.created).toEqual([]);
+  });
 });
