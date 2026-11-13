@@ -8,6 +8,7 @@ const h = vi.hoisted(() => ({
   rescheduled: [] as unknown[][],
   startedNow: [] as unknown[][],
   cancelResult: true,
+  startError: null as Error | null,
 }));
 
 vi.mock('@/lib/auth/account', () => ({
@@ -23,7 +24,7 @@ vi.mock('@/lib/auth/permissions', () => ({
 vi.mock('@/lib/broadcasts/schedule', () => ({
   cancelScheduledBroadcast: async (...args: unknown[]) => { h.cancelled.push(args); return h.cancelResult; },
   rescheduleBroadcast: async (...args: unknown[]) => { h.rescheduled.push(args); },
-  startScheduledNow: async (...args: unknown[]) => { h.startedNow.push(args); },
+  startScheduledNow: async (...args: unknown[]) => { h.startedNow.push(args); if (h.startError) throw h.startError; },
 }));
 
 import { DELETE, PATCH } from './route';
@@ -37,7 +38,7 @@ const tenant = { accountId: 'acct', userId: 'u-1', role: 'agent' };
 
 describe('/api/broadcasts/[id]/schedule', () => {
   beforeEach(() => {
-    h.permissionDenied = false; h.permissionChecks = []; h.cancelled = []; h.rescheduled = []; h.startedNow = []; h.cancelResult = true;
+    h.permissionDenied = false; h.permissionChecks = []; h.cancelled = []; h.rescheduled = []; h.startedNow = []; h.cancelResult = true; h.startError = null;
   });
 
   it('DELETE requires campaigns.send and cancels nothing when it is turned off', async () => {
@@ -75,6 +76,14 @@ describe('/api/broadcasts/[id]/schedule', () => {
     expect(res.status).toBe(200);
     expect(h.startedNow).toEqual([[tenant, ID]]);
     expect(h.rescheduled).toEqual([]);
+  });
+
+  it('PATCH { sendNow: true } answers a refused start with its reason code', async () => {
+    const { AuthError } = await import('@/lib/auth/errors');
+    h.startError = new AuthError('Campaigns are on hold while this workspace is suspended', 409, 'workspace_held');
+    const res = await PATCH(new Request(`http://localhost/api/broadcasts/${ID}/schedule`, { method: 'PATCH', body: JSON.stringify({ sendNow: true }) }), params);
+    expect(res.status).toBe(409);
+    expect(await res.json()).toEqual({ error: 'Campaigns are on hold while this workspace is suspended', code: 'workspace_held' });
   });
 
   it('PATCH { sendNow: true } starts nothing without campaigns.send', async () => {

@@ -88,8 +88,24 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('contacts redesign', { timeo
     const listed = await listCustomFields(asViewer);
     expect(listed.find((f) => f.id === plan.id)).toMatchObject({ field_type: 'choice', choices: ['Starter', 'Growth'], filled: 1 });
 
+    // A saved segment on a choice being dropped: warned first, then its condition goes with the choice.
+    const growth = (await q("INSERT INTO segments(account_id,user_id,name,filter) VALUES($1,$2,$3,$4::jsonb) RETURNING id",
+      [A, ownerA, `Growth ${seed}`, JSON.stringify({ conditions: [{ field: 'name', op: 'is_not_empty' }, { field: 'custom_field', fieldId: plan.id, op: 'is', value: 'Growth' }] })])).rows[0].id;
+    await expect(updateCustomField(asOwner, plan.id, { choices: ['Starter', 'Annual'] }))
+      .rejects.toMatchObject({ code: 'choice_in_segment', segments: [`Growth ${seed}`] });
+    expect((await listCustomFields(asViewer)).find((f) => f.id === plan.id)?.choices).toEqual(['Starter', 'Growth']);
     // Dropping a choice clears the values that used it.
-    expect(await updateCustomField(asOwner, plan.id, { choices: ['Starter', 'Annual'] })).toMatchObject({ filled: 0 });
+    expect(await updateCustomField(asOwner, plan.id, { choices: ['Starter', 'Annual'], confirm: true })).toMatchObject({ filled: 0 });
+    expect((await q('SELECT filter FROM segments WHERE id=$1', [growth])).rows[0].filter).toEqual({ conditions: [{ field: 'name', op: 'is_not_empty' }] });
+    await q('DELETE FROM segments WHERE id=$1', [growth]);
+
+    // Two creates of the same name (any case) at once: one wins, the other is told the name is taken.
+    const raced = await Promise.allSettled([
+      createCustomField(asOwner, { name: `Race ${seed}`, type: 'text' }),
+      createCustomField(asOwner, { name: `RACE ${seed}`, type: 'text' }),
+    ]);
+    expect(raced.filter((r) => r.status === 'fulfilled')).toHaveLength(1);
+    expect(raced.find((r) => r.status === 'rejected')).toMatchObject({ reason: { code: 'name_taken' } });
 
     const segment = (await q("INSERT INTO segments(account_id,user_id,name,filter) VALUES($1,$2,$3,$4::jsonb) RETURNING id",
       [A, ownerA, `Only seats ${seed}`, JSON.stringify({ conditions: [{ field: 'custom_field', fieldId: seats.id, op: 'is_not_empty' }] })])).rows[0].id;

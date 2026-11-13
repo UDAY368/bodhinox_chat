@@ -977,7 +977,8 @@
       "unassigned": "Unassigned",
       "favourites": "Favourites",
       "reminders": "Reminders",
-      "labels": "Labels"
+      "labels": "Labels",
+      "failed": "Failed"
     },
     "history": {
       "title": "Chat history",
@@ -1888,7 +1889,10 @@
           "too_few": "Add at least two choices.",
           "too_many": "A field has at most 50 choices.",
           "too_long": "Each choice is at most 100 characters."
-        }
+        },
+        "choiceInSegment": "These saved segments filter on a choice you removed: {names}. Saving removes those conditions from them.",
+        "choiceSegmentNeedsField": "These segments only filter on removed choices: {names}. Edit them first.",
+        "saveAndUpdateSegments": "Save and update segments"
       },
       "importMap": {
         "desc": "Choose a CSV file, then match its columns to contact fields. A phone column is required.",
@@ -8203,7 +8207,8 @@
       "savedReportNameTaken": "A report with this name already exists.",
       "savedReportNotFound": "Report not found.",
       "tooManySavedReports": "This workspace already has 50 saved reports. Delete one first.",
-      "invalidSavedSchedule": "Choose how often (daily, weekly or monthly) and a time of day."
+      "invalidSavedSchedule": "Choose how often (daily, weekly or monthly) and a time of day.",
+      "scheduleFormatLocked": "This schedule sends a saved report in the report's own file type. Change the file type on the saved report instead."
     },
     "meetings": {
       "not_configured": "Zoom is not available on this deployment.",
@@ -14669,7 +14674,8 @@
       "sending": "Started {when}",
       "paused": "Paused",
       "cancelled": "Cancelled",
-      "sent": "Sent {when}"
+      "sent": "Sent {when}",
+      "failed": "Failed {when}"
     },
     "channels": {
       "whatsapp": "WhatsApp",
@@ -14702,7 +14708,14 @@
       "confirmDeleteTitle": "Delete broadcast?",
       "confirmDeleteBody": "\"{name}\" and its report will be removed.",
       "confirmSendTitle": "Send now?",
-      "confirmSendBody": "\"{name}\" will start sending to {count, plural, one {# person} other {# people}} right away."
+      "confirmSendBody": "\"{name}\" will start sending to {count, plural, one {# person} other {# people}} right away.",
+      "errors": {
+        "not_scheduled": "This campaign is no longer scheduled, so it cannot be started now.",
+        "already_starting": "This campaign is already starting.",
+        "workspace_held": "Campaigns are on hold while this workspace is suspended. It sends once the workspace is active again.",
+        "job_missing": "This campaign can no longer be started from its schedule. Duplicate it to send it now.",
+        "resume_paused_first": "Resume this paused campaign first, then retry its failed recipients."
+      }
     },
     "recipients": {
       "search": "Search recipients",
@@ -15160,7 +15173,8 @@
         "name_taken": "Another agent already has this name.",
         "limit_reached": "A workspace can have up to 20 agents.",
         "default_agent": "The default agent cannot be deleted. Turn it off instead."
-      }
+      },
+      "legacyHint": "This is the agent that answers your customers today, on every channel at every hour. An admin can turn it into an editable agent by opening this page."
     },
     "editor": {
       "newTitle": "New agent",
@@ -15196,7 +15210,8 @@
         "channels": "Pick at least one channel.",
         "maxTurns": "Enter a number from 0 to 50.",
         "hours": "The start time must be before the end time."
-      }
+      },
+      "overnightHint": "The start must be before the end. For overnight cover (for example 22:00 to 06:00), choose \"Only outside these hours\" and enter 06:00 to 22:00."
     },
     "test": {
       "panelLabel": "Test {name}",

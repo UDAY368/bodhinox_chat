@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { copyName, customRangeIssue, fileStem, parseSavedReport, parseSnapshot, SAVED_REPORT_NAME_MAX } from './saved-report-shape';
+import { copyName, customRangeIssue, deviceToday, fileStem, latestToday, parseSavedReport, parseSnapshot, SAVED_REPORT_NAME_MAX } from './saved-report-shape';
 
 const valid = { name: '  Weekly   support ', metrics: ['resolved', 'new'], group: 'day', channel: 'whatsapp', preset: '7d', format: 'pdf' };
 
@@ -41,6 +41,16 @@ describe('saved report definitions', () => {
       .toMatchObject({ ok: true, value: { range: { preset: '7d', from: null, to: null } } });
     expect(parseSavedReport(null)).toEqual({ ok: false, issue: 'name' });
     expect(parseSavedReport([valid])).toEqual({ ok: false, issue: 'name' });
+  });
+
+  it('refuses a custom range that ends after the latest today anywhere, on the server', () => {
+    const now = new Date('2026-11-13T12:00:00Z');
+    const body = { ...valid, preset: 'custom', from: '2026-11-01' };
+    // 12:00 UTC is already 14 Nov in UTC+14, so the 14th is allowed; the 15th is not.
+    expect(parseSavedReport({ ...body, to: '2026-11-14' }, now)).toMatchObject({ ok: true });
+    expect(parseSavedReport({ ...body, to: '2026-11-15' }, now)).toEqual({ ok: false, issue: 'dates' });
+    expect(latestToday(now)).toBe('2026-11-14');
+    expect(deviceToday(new Date(2026, 10, 13, 23, 59))).toBe('2026-11-13');
   });
 
   it('explains why a custom range is refused', () => {

@@ -11,6 +11,7 @@ const MESSAGES = {
   not_found: 'scheduleNotFound',
   too_many: 'tooManySchedules',
   creator_lost_access: 'scheduleCreatorLostAccess',
+  format_locked: 'scheduleFormatLocked',
 } as const;
 
 /** Maps a ScheduleError (or the 'invalid' shorthand) to its translated response; rethrows anything else. */

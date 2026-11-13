@@ -24,7 +24,7 @@ import { createClient } from "@/lib/data/client";
 import { formatMoney } from "@/lib/commerce/money";
 import { createManualOrder, listSellableVariants, type OrderDetail, type SellableVariant } from "./order-api";
 import { sendOrderPaymentLink } from "./order-actions";
-import { orderRef } from "./order-state";
+import { orderRef, withChosenOption } from "./order-state";
 
 const selectClass = "h-9 w-full min-w-0 rounded-lg border border-border bg-card px-2.5 text-sm text-foreground outline-none transition-[border-color,box-shadow] duration-150 focus:border-primary focus:ring-3 focus:ring-ring/30 disabled:opacity-60";
 const MAX_QTY = 99;
@@ -43,6 +43,8 @@ export function NewOrderDialog({ open, onOpenChange, onCreated }: {
   const [search, setSearch] = useState("");
   const [contacts, setContacts] = useState<ContactOption[]>([]);
   const [contactId, setContactId] = useState("");
+  /** The chosen customer, kept so a later search that does not return them still shows them in the select. */
+  const [chosenContact, setChosenContact] = useState<ContactOption | null>(null);
   const [catalogue, setCatalogue] = useState<{ variants: SellableVariant[]; currency: string | null } | null>(null);
   const [lines, setLines] = useState<Line[]>([]);
   const [note, setNote] = useState("");
@@ -59,6 +61,7 @@ export function NewOrderDialog({ open, onOpenChange, onCreated }: {
      
     setRequestId(crypto.randomUUID());
     setContactId("");
+    setChosenContact(null);
     setSearch("");
     setNote("");
     setSendLink(true);
@@ -170,6 +173,7 @@ export function NewOrderDialog({ open, onOpenChange, onCreated }: {
   }
 
   const noProducts = catalogue !== null && known.size === 0;
+  const contactOptions = withChosenOption(contacts, chosenContact);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -182,9 +186,13 @@ export function NewOrderDialog({ open, onOpenChange, onCreated }: {
           <div className="space-y-1.5">
             <Label htmlFor="new-order-customer-search">{t("customer")}</Label>
             <Input id="new-order-customer-search" placeholder={t("customerSearch")} value={search} onChange={(e) => setSearch(e.target.value)} />
-            <select aria-label={t("customer")} aria-invalid={!!errors.contact} className={selectClass} value={contactId} onChange={(e) => setContactId(e.target.value)}>
+            <select aria-label={t("customer")} aria-invalid={!!errors.contact} className={selectClass} value={contactId} onChange={(e) => {
+                const id = e.target.value;
+                setContactId(id);
+                setChosenContact(contactOptions.find((c) => c.id === id) ?? null);
+              }}>
               <option value="">{t("chooseCustomer")}</option>
-              {contacts.map((c) => <option key={c.id} value={c.id}>{c.name || c.phone || c.id.slice(0, 8)}</option>)}
+              {contactOptions.map((c) => <option key={c.id} value={c.id}>{c.name || c.phone || c.id.slice(0, 8)}</option>)}
             </select>
             {errors.contact && <p className="text-xs font-medium text-destructive">{errors.contact}</p>}
           </div>

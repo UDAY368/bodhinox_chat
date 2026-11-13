@@ -977,7 +977,8 @@
       "unassigned": "Não atribuídas",
       "favourites": "Favoritas",
       "reminders": "Lembretes",
-      "labels": "Etiquetas"
+      "labels": "Etiquetas",
+      "failed": "Com falha"
     },
     "history": {
       "title": "Histórico do chat",
@@ -1888,7 +1889,10 @@
           "too_few": "Adicione pelo menos duas opções.",
           "too_many": "Um campo tem no máximo 50 opções.",
           "too_long": "Cada opção tem no máximo 100 caracteres."
-        }
+        },
+        "choiceInSegment": "Estes segmentos salvos filtram por uma opção que você removeu: {names}. Ao salvar, essas condições serão removidas deles.",
+        "choiceSegmentNeedsField": "Estes segmentos só filtram por opções removidas: {names}. Edite-os primeiro.",
+        "saveAndUpdateSegments": "Salvar e atualizar segmentos"
       },
       "importMap": {
         "desc": "Escolha um arquivo CSV e relacione as colunas aos campos do contato. É preciso ter uma coluna de telefone.",
@@ -8203,7 +8207,8 @@
       "savedReportNameTaken": "Já existe um relatório com este nome.",
       "savedReportNotFound": "Relatório não encontrado.",
       "tooManySavedReports": "Este espaço de trabalho já tem 50 relatórios salvos. Exclua um primeiro.",
-      "invalidSavedSchedule": "Escolha a frequência (diária, semanal ou mensal) e um horário."
+      "invalidSavedSchedule": "Escolha a frequência (diária, semanal ou mensal) e um horário.",
+      "scheduleFormatLocked": "Este agendamento envia um relatório salvo no tipo de arquivo do próprio relatório. Altere o tipo de arquivo no relatório salvo."
     },
     "meetings": {
       "not_configured": "O Zoom não está disponível nesta instalação.",
@@ -14669,7 +14674,8 @@
       "sending": "Iniciada {when}",
       "paused": "Pausada",
       "cancelled": "Cancelada",
-      "sent": "Enviada {when}"
+      "sent": "Enviada {when}",
+      "failed": "Falhou {when}"
     },
     "channels": {
       "whatsapp": "WhatsApp",
@@ -14702,7 +14708,14 @@
       "confirmDeleteTitle": "Excluir transmissão?",
       "confirmDeleteBody": "\"{name}\" e o relatório dela serão removidos.",
       "confirmSendTitle": "Enviar agora?",
-      "confirmSendBody": "\"{name}\" começará a ser enviada para {count, plural, one {# pessoa} other {# pessoas}} imediatamente."
+      "confirmSendBody": "\"{name}\" começará a ser enviada para {count, plural, one {# pessoa} other {# pessoas}} imediatamente.",
+      "errors": {
+        "not_scheduled": "Esta campanha não está mais agendada, então não pode ser iniciada agora.",
+        "already_starting": "Esta campanha já está sendo iniciada.",
+        "workspace_held": "As campanhas ficam em espera enquanto este espaço de trabalho estiver suspenso. Ela será enviada quando o espaço voltar a ficar ativo.",
+        "job_missing": "Esta campanha não pode mais ser iniciada pelo agendamento. Duplique-a para enviá-la agora.",
+        "resume_paused_first": "Primeiro retome esta campanha pausada e depois tente novamente os destinatários que falharam."
+      }
     },
     "recipients": {
       "search": "Buscar destinatários",
@@ -15160,7 +15173,8 @@
         "name_taken": "Outro agente já tem este nome.",
         "limit_reached": "Um espaço de trabalho pode ter até 20 agentes.",
         "default_agent": "O agente padrão não pode ser excluído. Desligue-o."
-      }
+      },
+      "legacyHint": "Este é o agente que responde aos seus clientes hoje, em todos os canais e a qualquer hora. Um administrador pode transformá-lo em um agente editável ao abrir esta página."
     },
     "editor": {
       "newTitle": "Novo agente",
@@ -15196,7 +15210,8 @@
         "channels": "Escolha pelo menos um canal.",
         "maxTurns": "Digite um número de 0 a 50.",
         "hours": "O horário de início deve ser antes do horário de término."
-      }
+      },
+      "overnightHint": "O início deve ser antes do fim. Para cobrir a noite (por exemplo, das 22:00 às 06:00), escolha \"Somente fora deste horário\" e informe das 06:00 às 22:00."
     },
     "test": {
       "panelLabel": "Testar {name}",

@@ -18,7 +18,7 @@ vi.mock('@/lib/inbox/masking-apply', async (importOriginal) => ({
 import { validateWrite } from '@/lib/data/contracts';
 import { bulkContactAction, scopeFromQuery, sortFromQuery, sortSql } from './bulk';
 import { checkChoices, fieldChoices, isValidDate, normalizeFieldValue, parseChoices } from './custom-field-types';
-import { createCustomField, deleteCustomField, updateCustomField } from './custom-fields';
+import { createCustomField, deleteCustomField, staleChoiceConditions, updateCustomField } from './custom-fields';
 import { guessImportTargets, mappingProblem, readCsvTable, rowsFromMapping } from './import-mapping';
 import { ProfileError, setContactCustomValue, updateContactField } from './profile';
 
@@ -244,9 +244,47 @@ describe('custom field rules', () => {
     expect(h.tenant).not.toHaveBeenCalled();
   });
 
-  it('refuses a name another field has', async () => {
-    fakeTx([[{ ok: 1 }]]);
+  it('refuses a name another field has, checked under a per-workspace lock and without regard to case', async () => {
+    const { statements } = fakeTx([1, [{ ok: 1 }]]);
     await expect(createCustomField(ctx, { name: 'Plan', type: 'text' })).rejects.toMatchObject({ code: 'name_taken', status: 409 });
+    expect(statements[0]).toContain('pg_advisory_xact_lock');
+    expect(statements[1]).toContain('lower(field_name)=lower(');
+  });
+
+  it('locks before checking a renamed field\'s name', async () => {
+    const { statements } = fakeTx([1, [{ field_type: 'text' }], [{ ok: 1 }]]);
+    await expect(updateCustomField(ctx, FIELD, { name: 'plan' })).rejects.toMatchObject({ code: 'name_taken' });
+    expect(statements[0]).toContain('pg_advisory_xact_lock');
+  });
+
+  it('finds the segment conditions that test a removed choice', () => {
+    const conditions = [
+      { field: 'custom_field', fieldId: FIELD, op: 'is', value: 'Growth' },
+      { field: 'custom_field', fieldId: FIELD, op: 'is_not', value: 'Starter' },
+      { field: 'custom_field', fieldId: FIELD, op: 'contains', value: 'Gro' },
+      { field: 'custom_field', fieldId: FIELD, op: 'is_empty' },
+      { field: 'custom_field', fieldId: 'other', op: 'is', value: 'Growth' },
+    ];
+    expect(staleChoiceConditions({ conditions }, FIELD, ['Starter', 'Annual'])).toEqual([conditions[0]]);
+    expect(staleChoiceConditions(null, FIELD, ['Starter'])).toEqual([]);
+  });
+
+  it('warns before removing a choice a saved segment filters on, then removes those conditions once confirmed', async () => {
+    const mixed = { id: 's', name: 'Growth leads', filter: { conditions: [{ field: 'name', op: 'is_not_empty' }, { field: 'custom_field', fieldId: FIELD, op: 'is', value: 'Growth' }] } };
+    fakeTx([[{ field_type: 'choice' }], [mixed]]);
+    await expect(updateCustomField(ctx, FIELD, { choices: ['Starter', 'Annual'] }))
+      .rejects.toMatchObject({ code: 'choice_in_segment', status: 409, segments: ['Growth leads'] });
+
+    const { tx } = fakeTx([[{ field_type: 'choice' }], [structuredClone(mixed)], 1, 1, 0, [{ id: FIELD, field_name: 'Plan', field_type: 'choice', field_options: ['Starter', 'Annual'], filled: 0, segments: 0, created_at: null }]]);
+    await expect(updateCustomField(ctx, FIELD, { choices: ['Starter', 'Annual'], confirm: true })).resolves.toMatchObject({ choices: ['Starter', 'Annual'] });
+    const saved = JSON.stringify(tx.$executeRaw.mock.calls[0]);
+    expect(saved).toContain('is_not_empty');
+    expect(saved).not.toContain('Growth');
+
+    const only = { id: 'o', name: 'Only growth', filter: { conditions: [{ field: 'custom_field', fieldId: FIELD, op: 'is', value: 'Growth' }] } };
+    fakeTx([[{ field_type: 'choice' }], [only]]);
+    await expect(updateCustomField(ctx, FIELD, { choices: ['Starter', 'Annual'], confirm: true }))
+      .rejects.toMatchObject({ code: 'segment_needs_field', segments: ['Only growth'] });
   });
 
   it('will not leave a segment without conditions, and strips the field from the others', async () => {

@@ -137,7 +137,7 @@ const ATTENTION = [
   { key: 'unread', icon: Inbox, tone: '', href: '/inbox?filter=unread' },
   { key: 'closingSoon', icon: Clock, tone: 'warn', href: '/inbox?filter=expiring-soon' },
   { key: 'needsTemplate', icon: Lock, tone: '', href: '/inbox?filter=waiting' },
-  { key: 'failedToday', icon: AlertTriangle, tone: 'bad', href: '/inbox' },
+  { key: 'failedToday', icon: AlertTriangle, tone: 'bad', href: '/inbox?filter=failed' },
   { key: 'switchedOff', icon: Workflow, tone: '', href: '/automation' },
 ] as const;
 

@@ -186,7 +186,7 @@ export function AgentsPanel({ canEdit, canTest, newRequest }: {
                         </small>
                       </div>
                     </div>
-                    <Switch checked={a.enabled} disabled={!canEdit || pending === a.id} aria-label={t('agents.toggleLabel', { name: a.name })}
+                    <Switch checked={a.enabled} disabled={!canEdit || a.synthetic || pending === a.id} aria-label={t('agents.toggleLabel', { name: a.name })}
                       onCheckedChange={(v: boolean) => void patch(a, { enabled: v }, t(v ? 'agents.toasts.on' : 'agents.toasts.off', { name: a.name }))} />
                   </div>
                   <p className="line-clamp-2 min-h-[2.5rem] text-[13px] text-muted-foreground">{a.instructions || t('agents.noGoal')}</p>
@@ -199,6 +199,7 @@ export function AgentsPanel({ canEdit, canTest, newRequest }: {
                     <Badge variant="outline" className="rounded-full"><Clock aria-hidden />{hoursText(a)}</Badge>
                     {a.is_default && <Badge variant="secondary" className="rounded-full">{t('agents.defaultBadge')}</Badge>}
                   </div>
+                  {a.synthetic && <p className="text-xs text-muted-foreground">{t('agents.legacyHint')}</p>}
                   {a.stats && (
                     <div className="grid grid-cols-2 gap-2.5 rounded-lg bg-muted px-3 py-2.5 text-xs text-muted-foreground">
                       <span><b className="block text-[17px] font-bold tabular-nums text-foreground">{a.stats.handled.toLocaleString()}</b>{t('agents.handled')}</span>
@@ -213,8 +214,8 @@ export function AgentsPanel({ canEdit, canTest, newRequest }: {
                           <MessageSquare aria-hidden />{t('agents.test')}
                         </Button>
                       )}
-                      {canEdit && <Button type="button" size="sm" variant="ghost" onClick={() => setEditing({ agent: a, key: a.id })}>{t('agents.edit')}</Button>}
-                      {canEdit && (
+                      {canEdit && !a.synthetic && <Button type="button" size="sm" variant="ghost" onClick={() => setEditing({ agent: a, key: a.id })}>{t('agents.edit')}</Button>}
+                      {canEdit && !a.synthetic && (
                         <DropdownMenu>
                           <DropdownMenuTrigger aria-label={t('agents.more', { name: a.name })}
                             className="inline-flex size-8 items-center justify-center rounded-full text-muted-foreground transition-colors duration-150 hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 data-[popup-open]:bg-muted">

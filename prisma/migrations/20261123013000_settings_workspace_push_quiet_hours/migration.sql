@@ -11,6 +11,9 @@
 --   notification_push_queue         entries written by createNotification beside the
 --                                    in-app row; the worker claims (sent_at) before it
 --                                    sends, so a retry never pushes the same entry twice.
+--                                    An entry inside the member's quiet hours is held
+--                                    (not_before = when they end) and sent then, unless
+--                                    it would be more than 12 hours old.
 --                                    A push carries no payload: no title or customer
 --                                    content reaches the push service.
 --
@@ -87,7 +90,9 @@ CREATE TABLE notification_push_queue (
   dedupe_key text CHECK (dedupe_key IS NULL OR char_length(dedupe_key) <= 200),
   created_at timestamptz NOT NULL DEFAULT now(),
   sent_at timestamptz,
-  -- sent, quiet (held back by quiet hours), skipped (read, switched off, stale or no device), failed
+  -- Held by quiet hours until this time; the worker leaves it unclaimed until then.
+  not_before timestamptz,
+  -- sent, quiet (dropped: quiet hours outlasted 12 hours), skipped (read, switched off, stale or no device), failed
   outcome text CHECK (outcome IS NULL OR outcome IN ('sent', 'quiet', 'skipped', 'failed')),
   UNIQUE (account_id, id),
   FOREIGN KEY (account_id, user_id) REFERENCES account_memberships(account_id, user_id) ON DELETE CASCADE,
@@ -113,7 +118,8 @@ DO $$ BEGIN
 END $$;
 CREATE FUNCTION crm_accounts_with_pending_notification_push() RETURNS TABLE(account_id uuid)
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path=public,pg_temp AS $$
-  SELECT DISTINCT q.account_id FROM notification_push_queue q WHERE q.sent_at IS NULL
+  SELECT DISTINCT q.account_id FROM notification_push_queue q
+  WHERE q.sent_at IS NULL AND (q.not_before IS NULL OR q.not_before <= now())
 $$;
 REVOKE ALL ON FUNCTION crm_accounts_with_pending_notification_push() FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION crm_accounts_with_pending_notification_push() TO bodhinox_worker;

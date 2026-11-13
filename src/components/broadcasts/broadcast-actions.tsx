@@ -88,7 +88,9 @@ export function useBroadcastActions({ onChanged, afterDelete }: { onChanged: () 
       toast.success(done);
       await onChanged();
     } catch (error) {
-      toast.error(t('actionFailed', { error: error instanceof Error ? error.message : '' }));
+      const code = (error as { code?: unknown } | null)?.code;
+      if (typeof code === 'string' && t.has(`errors.${code}`)) toast.error(t(`errors.${code}`));
+      else toast.error(t('actionFailed', { error: error instanceof Error ? error.message : '' }));
     } finally {
       setBusy(null);
     }

@@ -13,7 +13,8 @@
 // Body:
 //   {
 //     "to": "+14155550123",                 // required, E.164
-//     "type": "text",                        // text|template|image|video|document|audio (default: text)
+//     "type": "text",                        // text|template|interactive|image|video|document|audio (default: text)
+//                                            // ('location' is an inbox composer type only; the public API refuses it)
 //     "text": "Hello!",                      // text body, or media caption
 //     "media_url": "https://…/file.pdf",     // required for image/video/document/audio
 //     "filename": "invoice.pdf",             // optional, document filename
@@ -39,7 +40,14 @@ import {
   sendMessageToConversation,
   validateSendMessageParams,
   SendMessageError,
+  VALID_MESSAGE_TYPES,
 } from '@/lib/whatsapp/send-message';
+
+/**
+ * The message types the public API accepts: the send core's types except 'location', which only the inbox
+ * composer sends (its coordinates are not part of the v1 contract). The contract stays closed.
+ */
+const V1_MESSAGE_TYPES: readonly string[] = VALID_MESSAGE_TYPES.filter((t) => t !== 'location');
 import type { InteractiveMessagePayload } from '@/lib/whatsapp/interactive';
 import { NoNumberError } from '@/lib/whatsapp/numbers';
 import { loadSenderConfigByPhoneNumberId, numberErrorText } from '@/lib/whatsapp/sender-config';
@@ -63,6 +71,9 @@ export async function POST(request: Request) {
     }
 
     const type = typeof body.type === 'string' ? body.type : 'text';
+    if (!V1_MESSAGE_TYPES.includes(type)) {
+      return fail('bad_request', `Unsupported type "${type.slice(0, 40)}"`, 400);
+    }
 
     // Unpack the optional `template` object into the flat params the
     // send core expects. `params` as an array → legacy positional body

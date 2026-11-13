@@ -21,6 +21,8 @@ export interface AgentView {
   is_default: boolean
   position: number
   stats: { handled: number; solved: number } | null
+  /** The read-only stand-in for the legacy agent (no row yet): no switch, edit or menu; tested without an id. */
+  synthetic?: boolean
 }
 
 export type AgentFilter = 'all' | 'on' | 'off'

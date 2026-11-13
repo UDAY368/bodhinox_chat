@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  canCancelUnpaid, canTakeLinkPayment, csvCell, fulfilmentState, nextStep, orderRef, paymentState, toCsv, updateTextKey,
+  canCancelUnpaid, canTakeLinkPayment, csvCell, fulfilmentState, nextStep, orderRef, paymentState, toCsv, updateTextKey, withChosenOption,
 } from "./order-state";
 
 describe("paymentState", () => {
@@ -74,5 +74,16 @@ describe("CSV export", () => {
     expect(csvCell("+91 98")).toBe(`"'+91 98"`);
     expect(csvCell(null)).toBe('""');
     expect(toCsv([["a", 1], ["b", 2]])).toBe('"a","1"\r\n"b","2"');
+  });
+});
+
+describe("withChosenOption", () => {
+  const a = { id: "a", name: "Ann" }, b = { id: "b", name: "Bo" };
+  it("keeps the chosen customer when a new search drops them", () => {
+    expect(withChosenOption([b], a)).toEqual([a, b]);
+  });
+  it("does not duplicate a chosen customer still in the results, and adds nothing without a choice", () => {
+    expect(withChosenOption([a, b], a)).toEqual([a, b]);
+    expect(withChosenOption([b], null)).toEqual([b]);
   });
 });

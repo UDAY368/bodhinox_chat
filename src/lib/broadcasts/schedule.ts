@@ -108,23 +108,87 @@ export async function cancelScheduledBroadcast(scope: TenantContext, broadcastId
   }, getWorkerPrisma());
 }
 
+/** What Send now does with a scheduled campaign, from its initial job and its workspace (pure; unit-tested). */
+export type SendNowPlan =
+  | { kind: 'move' }
+  | { kind: 'requeue' }
+  | { kind: 'insert' }
+  | { kind: 'refuse'; code: 'already_starting' | 'workspace_held' | 'job_missing'; message: string };
+
+export function planSendNow(input: {
+  /** The initial job's status, or null when the row is gone (data retention removes finished jobs). */
+  jobStatus: string | null;
+  /** The workspace is suspended (billing), admin-suspended or closing: the dispatcher would hold it again. */
+  held: boolean;
+  /** A new job can be written without losing anything the old one carried (no header media to restore). */
+  canRebuildJob: boolean;
+}): SendNowPlan {
+  if (input.held) {
+    return { kind: 'refuse', code: 'workspace_held', message: 'Campaigns are on hold while this workspace is suspended; it sends once the workspace is active again' };
+  }
+  if (input.jobStatus === 'pending') return { kind: 'move' };
+  // The job finished without starting the campaign (it was held then), so it is queued again: still one job.
+  if (input.jobStatus === 'done' || input.jobStatus === 'failed') return { kind: 'requeue' };
+  if (input.jobStatus !== null) return { kind: 'refuse', code: 'already_starting', message: 'This campaign is already starting' };
+  if (input.canRebuildJob) return { kind: 'insert' };
+  return {
+    kind: 'refuse', code: 'job_missing',
+    message: 'This campaign can no longer be started from its schedule; duplicate it to send it now',
+  };
+}
+
 /**
- * Start a scheduled campaign now: its time and its waiting job move to now, in
- * one transaction, so the same single job sends it (never a second one).
- * Refused once the job has started or when it is not scheduled.
+ * Start a scheduled campaign now: its time and its initial job move to now, in
+ * one transaction, so the same single job sends it (never a second one). A
+ * campaign whose job already ran without starting it (held while the workspace
+ * was suspended) gets that job queued again; one whose job row is gone gets a
+ * new one under the same dedupe key when nothing the old job carried would be
+ * lost (Instagram, or a template without header media). Refused while the job
+ * is running, while the workspace is held, or when it is not scheduled.
  */
 export async function startScheduledNow(scope: TenantContext, broadcastId: string): Promise<void> {
   await withTenant(scope, async (tx) => {
-    const rows = await tx.$queryRaw<{ id: string }[]>`
+    const rows = await tx.$queryRaw<{ id: string; channel: string; template_name: string; template_language: string | null }[]>`
       UPDATE broadcasts SET scheduled_at=now(), updated_at=now()
-      WHERE account_id=${scope.accountId}::uuid AND id=${broadcastId}::uuid AND status='scheduled' RETURNING id`;
+      WHERE account_id=${scope.accountId}::uuid AND id=${broadcastId}::uuid AND status='scheduled'
+      RETURNING id, channel, template_name, template_language`;
     if (!rows.length) {
       await assertBroadcastInWorkspace(tx, scope.accountId, broadcastId);
-      throw new AuthError('Only scheduled campaigns can be started now', 409, 'conflict');
+      throw new AuthError('Only scheduled campaigns can be started now', 409, 'not_scheduled');
     }
-    const moved = await tx.$executeRaw`UPDATE jobs SET run_at=now(), updated_at=now()
-      WHERE tenant_id=${scope.accountId}::uuid AND dedupe_key=${initialJob(broadcastId)} AND status='pending'`;
-    if (!moved) throw new AuthError('This campaign is already starting', 409, 'conflict');
+    // Locked so a worker cannot claim the job between this read and the update below.
+    const [job] = await tx.$queryRaw<{ status: string }[]>`
+      SELECT status FROM jobs WHERE tenant_id=${scope.accountId}::uuid AND dedupe_key=${initialJob(broadcastId)} FOR UPDATE`;
+    const [hold] = await tx.$queryRaw<{ held: boolean }[]>`
+      SELECT (EXISTS (SELECT 1 FROM account_subscriptions s WHERE s.account_id=${scope.accountId}::uuid AND s.status='suspended')
+        OR EXISTS (SELECT 1 FROM account_lifecycle l WHERE l.account_id=${scope.accountId}::uuid AND l.status IN ('admin_suspended','closing'))) AS held`;
+    const jobStatus = job?.status ?? null;
+    let canRebuildJob = false;
+    if (jobStatus === null) {
+      if (rows[0].channel === 'instagram') canRebuildJob = true;
+      else {
+        // The old job may have carried header media chosen at creation; only a template without media can be rebuilt.
+        const [template] = await tx.$queryRaw<{ header_type: string | null }[]>`
+          SELECT header_type FROM message_templates
+          WHERE account_id=${scope.accountId}::uuid AND name=${rows[0].template_name}
+            AND language IS NOT DISTINCT FROM ${rows[0].template_language}
+          ORDER BY updated_at DESC NULLS LAST LIMIT 1`;
+        canRebuildJob = Boolean(template) && !['IMAGE', 'VIDEO', 'DOCUMENT'].includes((template.header_type ?? '').toUpperCase());
+      }
+    }
+    const plan = planSendNow({ jobStatus, held: hold?.held === true, canRebuildJob });
+    if (plan.kind === 'refuse') throw new AuthError(plan.message, 409, plan.code);
+    if (plan.kind === 'move') {
+      await tx.$executeRaw`UPDATE jobs SET run_at=now(), updated_at=now()
+        WHERE tenant_id=${scope.accountId}::uuid AND dedupe_key=${initialJob(broadcastId)} AND status='pending'`;
+    } else if (plan.kind === 'requeue') {
+      await tx.$executeRaw`UPDATE jobs SET status='pending', run_at=now(), attempts=0, lease_until=NULL, lease_token=NULL,
+          last_error=NULL, updated_at=now()
+        WHERE tenant_id=${scope.accountId}::uuid AND dedupe_key=${initialJob(broadcastId)} AND status IN ('done','failed')`;
+    } else {
+      await tx.$executeRaw`INSERT INTO jobs(type,tenant_id,payload,dedupe_key,run_at)
+        VALUES('broadcast.dispatch',${scope.accountId}::uuid,${JSON.stringify({ broadcastId, scope: 'pending' })}::jsonb,${initialJob(broadcastId)},now())`;
+    }
   }, getWorkerPrisma());
 }
 

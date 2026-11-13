@@ -23,6 +23,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     // A draft was never sent: it must go through create/schedule, not resume.
     if ((data.status === 'scheduled' && !due) || data.status === 'cancelled' || data.status === 'draft')
       return NextResponse.json({ error: 'Draft, scheduled or cancelled campaigns cannot be resumed' }, { status: 409 })
+    // Retrying failed rows of a paused campaign would unpause it with only a retry pass queued, leaving its
+    // pending rows stalled: resume it (scope 'pending') first, then retry its failed recipients.
+    if (data.status === 'paused' && scope !== 'pending')
+      return NextResponse.json({ error: 'Resume this paused campaign first, then retry its failed recipients', code: 'resume_paused_first' }, { status: 409 })
     const instagram = data.channel === 'instagram'
     // Its own number (the default when it has none) must be connected: a held
     // campaign stays held, never moved to another number. Instagram campaigns

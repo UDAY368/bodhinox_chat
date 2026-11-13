@@ -523,7 +523,7 @@ export default function PipelinesPage() {
           <PipelineBoard
             stages={stages}
             deals={visibleDeals}
-            onDealMoved={handleDealMoved}
+            onDealMoved={canCreateDeals ? handleDealMoved : undefined}
             onAddDeal={handleAddDeal}
             onEditDeal={handleEditDeal}
             onDeleteDeal={canCreateDeals ? setDeletingDeal : undefined}

@@ -44,7 +44,11 @@ export function labelsByConversation(links: readonly LabelLink[]): Map<string, S
   return map;
 }
 
-export function useInboxFolders(scope: InboxScope, resyncToken: number): InboxFolders {
+/**
+ * `loadFailed` reads the "Failed" folder's conversations (only while that filter is on, so the inbox does
+ * not run the query otherwise).
+ */
+export function useInboxFolders(scope: InboxScope, resyncToken: number, loadFailed = false): InboxFolders {
   const { user } = useAuth();
   const userId = user?.id ?? null;
   const [labels, setLabels] = useState<ConversationLabel[]>([]);
@@ -52,6 +56,22 @@ export function useInboxFolders(scope: InboxScope, resyncToken: number): InboxFo
   const [favourites, setFavourites] = useState<string[]>([]);
   const [reminders, setReminders] = useState<PendingReminder[]>([]);
   const [labelsVersion, setLabelsVersion] = useState(0);
+  const [failed, setFailed] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (!loadFailed) return;
+    let cancelled = false;
+    authFetch('/api/inbox/failed', { cache: 'no-store' })
+      .then(async (res) => {
+        if (!res.ok) return;
+        const body = (await res.json()) as { conversationIds?: string[] };
+        if (!cancelled && Array.isArray(body.conversationIds)) setFailed(body.conversationIds);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [loadFailed, resyncToken]);
 
   useEffect(() => {
     let cancelled = false;
@@ -114,7 +134,8 @@ export function useInboxFolders(scope: InboxScope, resyncToken: number): InboxFo
     favouriteIds,
     reminderIds: new Set(reminders.map((r) => r.conversation_id)),
     labelsByConversation: labelsByConversation(links),
-  }), [userId, favouriteIds, reminders, links]);
+    failedIds: new Set(failed),
+  }), [userId, favouriteIds, reminders, links, failed]);
 
   const reloadLabels = useCallback(() => setLabelsVersion((v) => v + 1), []);
 

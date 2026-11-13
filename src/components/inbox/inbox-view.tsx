@@ -375,8 +375,8 @@ function InboxViewInner({ scope }: { scope: InboxScope }) {
   }, [scope]);
 
   // Stage 5 folders (labels, favourites, the member's pending reminders and snoozes).
-  const folders = useInboxFolders(scope, resyncToken);
   const folderFilter = parseInboxFilter(searchParams.get('filter'));
+  const folders = useInboxFolders(scope, resyncToken, folderFilter === 'failed');
   // The member's own pending snoozes: a snoozed conversation leaves their list until the time passes
   // (or they wake it) and comes back by itself. Personal; nobody else's list changes. The Reminders
   // folder lists snoozed conversations too.

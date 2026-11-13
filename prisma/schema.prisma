@@ -356,6 +356,9 @@ model broadcasts {
   channel String @default("whatsapp")
   message_text String?
   paused_at DateTime? @db.Timestamptz(6)
+  /// 20261123016500: first move into 'sending' and last move into 'sent'/'failed' (set by a trigger).
+  started_at DateTime? @db.Timestamptz(6)
+  finished_at DateTime? @db.Timestamptz(6)
   @@unique([account_id, id])
 }
 
@@ -1428,6 +1431,8 @@ model notification_push_queue {
   dedupe_key String?
   created_at DateTime @db.Timestamptz(6) @default(now())
   sent_at DateTime? @db.Timestamptz(6)
+  /// Held by the member's quiet hours until this time.
+  not_before DateTime? @db.Timestamptz(6)
   outcome String?
   @@unique([account_id, id])
 }

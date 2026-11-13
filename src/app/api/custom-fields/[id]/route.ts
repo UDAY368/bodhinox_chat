@@ -1,6 +1,8 @@
 // /api/custom-fields/[id] (admin+) — src/lib/contacts/custom-fields.ts.
-//   PATCH  { name?, choices? } — rename; replace a choice field's choices (values that are
-//          no longer a choice are cleared). The type never changes.
+//   PATCH  { name?, choices?, confirm? } — rename; replace a choice field's choices (values that are
+//          no longer a choice are cleared). 409 { error: 'choice_in_segment', segments } while saved
+//          segments filter on a removed choice; with confirm: true those conditions are removed.
+//          The type never changes.
 //   DELETE — removes the field, its values and its conditions in saved segments; 409
 //          { segments } when a segment has no other condition.
 // Another workspace's field is 404. The proxy enforces Origin and CSRF on every mutation.

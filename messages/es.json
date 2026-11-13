@@ -977,7 +977,8 @@
       "unassigned": "Sin asignar",
       "favourites": "Favoritas",
       "reminders": "Recordatorios",
-      "labels": "Etiquetas"
+      "labels": "Etiquetas",
+      "failed": "Fallidos"
     },
     "history": {
       "title": "Historial del chat",
@@ -1888,7 +1889,10 @@
           "too_few": "Agrega al menos dos opciones.",
           "too_many": "Un campo tiene como máximo 50 opciones.",
           "too_long": "Cada opción tiene como máximo 100 caracteres."
-        }
+        },
+        "choiceInSegment": "Estos segmentos guardados filtran por una opción que eliminaste: {names}. Al guardar se quitarán esas condiciones.",
+        "choiceSegmentNeedsField": "Estos segmentos solo filtran por opciones eliminadas: {names}. Edítalos primero.",
+        "saveAndUpdateSegments": "Guardar y actualizar segmentos"
       },
       "importMap": {
         "desc": "Elige un archivo CSV y relaciona sus columnas con los campos del contacto. Se necesita una columna de teléfono.",
@@ -8203,7 +8207,8 @@
       "savedReportNameTaken": "Ya existe un informe con este nombre.",
       "savedReportNotFound": "No se encontró el informe.",
       "tooManySavedReports": "Este espacio de trabajo ya tiene 50 informes guardados. Elimina uno primero.",
-      "invalidSavedSchedule": "Elige la frecuencia (diaria, semanal o mensual) y una hora del día."
+      "invalidSavedSchedule": "Elige la frecuencia (diaria, semanal o mensual) y una hora del día.",
+      "scheduleFormatLocked": "Esta programación envía un informe guardado con el tipo de archivo del propio informe. Cambia el tipo de archivo en el informe guardado."
     },
     "meetings": {
       "not_configured": "Zoom no está disponible en esta instalación.",
@@ -14669,7 +14674,8 @@
       "sending": "Iniciada {when}",
       "paused": "En pausa",
       "cancelled": "Cancelada",
-      "sent": "Enviada {when}"
+      "sent": "Enviada {when}",
+      "failed": "Fallida {when}"
     },
     "channels": {
       "whatsapp": "WhatsApp",
@@ -14702,7 +14708,14 @@
       "confirmDeleteTitle": "¿Eliminar la difusión?",
       "confirmDeleteBody": "Se eliminarán «{name}» y su informe.",
       "confirmSendTitle": "¿Enviar ahora?",
-      "confirmSendBody": "«{name}» empezará a enviarse a {count, plural, one {# persona} other {# personas}} de inmediato."
+      "confirmSendBody": "«{name}» empezará a enviarse a {count, plural, one {# persona} other {# personas}} de inmediato.",
+      "errors": {
+        "not_scheduled": "Esta campaña ya no está programada, así que no se puede iniciar ahora.",
+        "already_starting": "Esta campaña ya se está iniciando.",
+        "workspace_held": "Las campañas están en espera mientras este espacio de trabajo esté suspendido. Se enviará cuando vuelva a estar activo.",
+        "job_missing": "Esta campaña ya no se puede iniciar desde su programación. Duplícala para enviarla ahora.",
+        "resume_paused_first": "Primero reanuda esta campaña en pausa y luego reintenta sus destinatarios fallidos."
+      }
     },
     "recipients": {
       "search": "Buscar destinatarios",
@@ -15160,7 +15173,8 @@
         "name_taken": "Otro agente ya tiene este nombre.",
         "limit_reached": "Un espacio de trabajo puede tener hasta 20 agentes.",
         "default_agent": "El agente predeterminado no se puede eliminar. Desactívalo en su lugar."
-      }
+      },
+      "legacyHint": "Este es el agente que responde hoy a tus clientes, en todos los canales y a cualquier hora. Un administrador puede convertirlo en un agente editable al abrir esta página."
     },
     "editor": {
       "newTitle": "Nuevo agente",
@@ -15196,7 +15210,8 @@
         "channels": "Elige al menos un canal.",
         "maxTurns": "Escribe un número del 0 al 50.",
         "hours": "La hora de inicio debe ser anterior a la hora de fin."
-      }
+      },
+      "overnightHint": "El inicio debe ser anterior al fin. Para cubrir la noche (por ejemplo, de 22:00 a 06:00), elige \"Solo fuera de este horario\" e introduce de 06:00 a 22:00."
     },
     "test": {
       "panelLabel": "Probar {name}",

@@ -23,16 +23,43 @@ export function sentPercent(b: Pick<Broadcast, 'sent_count' | 'failed_count' | '
 
 const when = (iso: string | null | undefined) => (iso ? new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) : '');
 
-/** "Sends 14 Nov, 9:00", "Started ...", "Paused", "Not sent yet", "Sent ...". `t` is the Campaigns namespace. */
-export function broadcastWhen(b: Pick<Broadcast, 'status' | 'scheduled_at' | 'created_at'>, t: Translate): string {
+type WhenFields = Pick<Broadcast, 'status' | 'scheduled_at' | 'created_at'> & Partial<Pick<Broadcast, 'started_at' | 'finished_at'>>;
+
+/**
+ * "Sends 14 Nov, 9:00", "Started ...", "Paused", "Not sent yet", "Sent ...", "Failed ...". `t` is the Campaigns
+ * namespace. Started and finished times come from the send itself (started_at / finished_at); rows from before
+ * those columns fall back to the schedule time, then the creation time.
+ */
+export function broadcastWhen(b: WhenFields, t: Translate): string {
+  const started = b.started_at ?? b.scheduled_at ?? b.created_at;
   switch (b.status) {
     case 'draft': return t('when.draft');
     case 'scheduled': return t('when.scheduled', { when: when(b.scheduled_at) });
-    case 'sending': return t('when.sending', { when: when(b.created_at) });
+    case 'sending': return t('when.sending', { when: when(started) });
     case 'paused': return t('when.paused');
     case 'cancelled': return t('when.cancelled');
-    default: return t('when.sent', { when: when(b.created_at) });
+    case 'failed': return t('when.failed', { when: when(b.finished_at ?? started) });
+    default: return t('when.sent', { when: when(b.finished_at ?? started) });
   }
+}
+
+/** How often the list's per-status tab counts are re-read while it polls a sending campaign. */
+export const COUNTS_REFRESH_MS = 30_000;
+
+/** A page of rows reduced to what the tab counts depend on: each row's id and status. */
+export function statusSignature(rows: ReadonlyArray<Pick<Broadcast, 'id' | 'status'>>): string {
+  return rows.map((r) => `${r.id}:${r.status}`).join(',');
+}
+
+/**
+ * Whether a list fetch should also re-read the per-status counts (eight head-only queries): always for a fetch
+ * the member caused (load, tab, search, page, an action), and on a poll only when a listed campaign changed
+ * status or the counts are COUNTS_REFRESH_MS old.
+ */
+export function shouldRefreshCounts(input: { poll: boolean; prevSignature: string | null; nextSignature: string; lastAt: number | null; now: number }): boolean {
+  if (!input.poll || input.lastAt === null || input.prevSignature === null) return true;
+  if (input.prevSignature !== input.nextSignature) return true;
+  return input.now - input.lastAt >= COUNTS_REFRESH_MS;
 }
 
 export function ChannelDot({ channel, className }: { channel: 'whatsapp' | 'instagram'; className?: string }) {

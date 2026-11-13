@@ -182,6 +182,9 @@ function FieldDialog({ field, onClose, onSaved }: { field: CustomFieldSummary | 
   const [choices, setChoices] = useState(field?.choices.join('\n') ?? '');
   const [errors, setErrors] = useState<{ name?: string; choices?: string }>({});
   const [saving, setSaving] = useState(false);
+  /** Saved segments that filter on a removed choice: shown before the change is saved, which then needs a confirm. */
+  const [affected, setAffected] = useState<{ choices: string; segments: string[] } | null>(null);
+  const confirming = affected !== null && affected.choices === choices;
 
   async function save() {
     const list = parseChoices(choices);
@@ -197,11 +200,19 @@ function FieldDialog({ field, onClose, onSaved }: { field: CustomFieldSummary | 
       method: field ? 'PATCH' : 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(field
-        ? { name: name.trim(), ...(field.field_type === 'choice' ? { choices: list } : {}) }
+        ? { name: name.trim(), ...(field.field_type === 'choice' ? { choices: list, ...(confirming ? { confirm: true } : {}) } : {}) }
         : { name: name.trim(), type, ...(type === 'choice' ? { choices: list } : {}) }),
     }).catch(() => null);
-    const payload = (await res?.json().catch(() => null)) as { error?: string } | null;
+    const payload = (await res?.json().catch(() => null)) as { error?: string; segments?: string[] } | null;
     setSaving(false);
+    if (res?.status === 409 && payload?.error === 'choice_in_segment' && payload.segments) {
+      setAffected({ choices, segments: payload.segments });
+      return;
+    }
+    if (res?.status === 409 && payload?.error === 'segment_needs_field' && payload.segments) {
+      setErrors({ choices: t('fieldsTab.choiceSegmentNeedsField', { names: payload.segments.join(', ') }) });
+      return;
+    }
     if (!res?.ok) {
       const code = (SERVER_ERRORS as readonly string[]).includes(payload?.error ?? '') ? payload!.error! : null;
       if (code && ['too_few', 'too_many', 'too_long'].includes(code)) setErrors({ choices: t(`fieldsTab.errors.${code}`) });
@@ -252,13 +263,18 @@ function FieldDialog({ field, onClose, onSaved }: { field: CustomFieldSummary | 
               <p id="field-choices-hint" className={cn('text-xs', errors.choices ? 'font-medium text-destructive' : 'text-muted-foreground')}>
                 {errors.choices ?? (field ? t('fieldsTab.choicesEditHint') : t('fieldsTab.choicesHint'))}
               </p>
+              {confirming && affected && (
+                <p role="alert" className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-foreground">
+                  {t('fieldsTab.choiceInSegment', { names: affected.segments.join(', ') })}
+                </p>
+              )}
             </div>
           )}
           <DialogFooter className="bg-popover border-border">
             <Button type="button" variant="outline" onClick={onClose}>{t('cancel')}</Button>
             <Button type="submit" disabled={saving}>
               {saving && <Loader2 className="size-4 animate-spin" />}
-              {field ? t('fieldsTab.save') : t('fieldsTab.create')}
+              {confirming ? t('fieldsTab.saveAndUpdateSegments') : field ? t('fieldsTab.save') : t('fieldsTab.create')}
             </Button>
           </DialogFooter>
         </form>

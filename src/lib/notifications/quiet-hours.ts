@@ -96,6 +96,17 @@ export function inQuietWindow(quiet: Pick<QuietHours, 'enabled' | 'start' | 'end
   return quiet.start < quiet.end ? at >= quiet.start && at < quiet.end : at >= quiet.start || at < quiet.end;
 }
 
+/**
+ * When the quiet window that contains `now` ends (to the minute), or null when `now` is not inside one.
+ * Pushes held during quiet hours are released then.
+ */
+export function quietEndsAt(quiet: Pick<QuietHours, 'enabled' | 'start' | 'end' | 'time_zone'>, now: Date): Date | null {
+  if (!inQuietWindow(quiet, now)) return null;
+  const at = localMinutes(now, quiet.time_zone);
+  const minutes = (quiet.end - at + 1440) % 1440 || 1440;
+  return new Date(Math.floor(now.getTime() / 60_000) * 60_000 + minutes * 60_000);
+}
+
 /** Whether email and push for `event` are held back at `now`. */
 export function isQuietFor(quiet: QuietHours | null | undefined, event: NotificationEvent | string, now: Date): boolean {
   if (!quiet || !inQuietWindow(quiet, now)) return false;

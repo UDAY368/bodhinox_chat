@@ -14,6 +14,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { disconnectDatabases, getPrisma, getWorkerPrisma } from '@/lib/db/prisma';
 import { withTenant } from '@/lib/db/tenant';
 import { ConversationNotFoundError, conversationHandlingHistory, conversationsHandledBy } from './handling-history';
+import { conversationsWithFailedLastOutbound } from './failed-outbound';
 
 const configured = config({ path: '.env.test', quiet: true }).parsed;
 const ownerUrl = process.env.TEST_DATABASE_URL;
@@ -136,6 +137,23 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl || !authUrl)('who handled whi
     expect(ids).toEqual(expect.arrayContaining([before, sent]));
     expect(ids).not.toContain(untouched);
     expect(await conversationsHandledBy(as(admin, 'owner'), 'not-a-uuid')).toEqual([]);
+  });
+
+  it('"Failed" lists chats whose latest team message failed, inside the workspace only', async () => {
+    const failed = await conversation(), recovered = await conversation(), customerLast = await conversation();
+    const say = (c: string, sender: string, status: string, at: string) => q(`INSERT INTO messages(account_id,conversation_id,sender_type,content_type,content_text,status,created_at)
+      VALUES($1,$2,$3,'text','x',$4,$5::timestamptz)`, [A, c, sender, status, at]);
+    await say(failed, 'agent', 'sent', '2026-01-01T00:00:00Z');
+    await say(failed, 'agent', 'failed', '2026-01-01T00:01:00Z');
+    await say(recovered, 'agent', 'failed', '2026-01-01T00:00:00Z');
+    await say(recovered, 'bot', 'sent', '2026-01-01T00:01:00Z');
+    await say(customerLast, 'agent', 'failed', '2026-01-01T00:00:00Z');
+    await say(customerLast, 'customer', 'read', '2026-01-01T00:01:00Z');
+    await q('UPDATE conversations SET last_message_at=now() WHERE id = ANY($1::uuid[])', [[failed, recovered, customerLast]]);
+    const ids = await conversationsWithFailedLastOutbound(as(admin, 'owner'));
+    expect(ids).toEqual(expect.arrayContaining([failed, customerLast]));
+    expect(ids).not.toContain(recovered);
+    expect(await conversationsWithFailedLastOutbound(as(other, 'owner', B))).not.toContain(failed);
   });
 
   it('unassigns a removed member\'s chats, and still credits them in the history and resolved_by', async () => {

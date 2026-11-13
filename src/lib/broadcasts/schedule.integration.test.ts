@@ -7,7 +7,8 @@ import type { TenantContext } from '@/lib/db/tenant';
 import { createCampaign, parseSchedule } from './create-campaign';
 import { handleJob } from '@/lib/jobs/handlers';
 import {
-  broadcastDispatchable, cancelScheduledBroadcast, claimBroadcastStart, lockBroadcastDelivery, rescheduleBroadcast, unlockBroadcastDelivery,
+  broadcastDispatchable, cancelScheduledBroadcast, claimBroadcastStart, lockBroadcastDelivery, rescheduleBroadcast, startScheduledNow,
+  unlockBroadcastDelivery,
 } from './schedule';
 
 const configured = config({ path: '.env.test', quiet: true }).parsed;
@@ -167,6 +168,39 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('scheduled and large campaig
     await owner.query(`UPDATE account_lifecycle SET status='active' WHERE account_id=$1`, [account]);
     expect(await broadcastDispatchable(account, id)).toBe(true);
     await owner.query('DELETE FROM account_lifecycle WHERE account_id=$1', [account]);
+  });
+
+  it('Send now re-queues a held campaign whose job already ran, and rebuilds a missing job for a template without media', async () => {
+    const { id } = await createCampaign(a, campaign(inMinutes(10)));
+    // The job ran while the campaign was held and finished without starting it.
+    await owner.query("UPDATE jobs SET status='done', attempts=1 WHERE dedupe_key=$1", [`broadcast:${id}:initial`]);
+    await startScheduledNow(a, id);
+    const requeued = await job(id);
+    expect(requeued.status).toBe('pending');
+    expect(requeued.run_at.getTime()).toBeLessThanOrEqual(Date.now() + 1000);
+    expect(Number((await owner.query('SELECT count(*)::int AS n FROM jobs WHERE dedupe_key LIKE $1', [`broadcast:${id}:%`])).rows[0].n)).toBe(1);
+
+    const { id: gone } = await createCampaign(a, campaign(inMinutes(10)));
+    await owner.query('DELETE FROM jobs WHERE dedupe_key=$1', [`broadcast:${gone}:initial`]);
+    await startScheduledNow(a, gone);
+    expect((await job(gone)).status).toBe('pending');
+
+    // A running job: already starting, and the schedule is left as it was.
+    const { id: running } = await createCampaign(a, campaign(inMinutes(10)));
+    await owner.query("UPDATE jobs SET status='running' WHERE dedupe_key=$1", [`broadcast:${running}:initial`]);
+    await expect(startScheduledNow(a, running)).rejects.toMatchObject({ status: 409, code: 'already_starting' });
+    expect((await row(running)).scheduled_at.getTime()).toBeGreaterThan(Date.now());
+  });
+
+  it('Send now says a held workspace holds the campaign instead of claiming it is starting', async () => {
+    const { id } = await createCampaign(a, campaign(inMinutes(10)));
+    await owner.query(`INSERT INTO account_lifecycle(account_id,status,suspended_at,suspend_reason) VALUES($1,'admin_suspended',now(),'abuse review')`, [account]);
+    try {
+      await expect(startScheduledNow(a, id)).rejects.toMatchObject({ status: 409, code: 'workspace_held' });
+      expect((await job(id)).status).toBe('pending');
+    } finally {
+      await owner.query('DELETE FROM account_lifecycle WHERE account_id=$1', [account]);
+    }
   });
 
   it('refuses to reschedule once the dispatch job has started', async () => {

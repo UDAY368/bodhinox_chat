@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { availableActions, primaryAction } from './broadcast-actions';
 import { bodySamples } from './broadcast-message-card';
-import { broadcastStarted, broadcastWhen, sentPercent } from './broadcast-display';
+import { COUNTS_REFRESH_MS, broadcastStarted, broadcastWhen, sentPercent, shouldRefreshCounts, statusSignature } from './broadcast-display';
 import { prefillFromBroadcast } from './wizard-prefill';
 import type { Broadcast } from '@/types';
 
@@ -53,7 +53,34 @@ describe('campaign row display', () => {
     expect(broadcastWhen({ status: 'draft', created_at: '2026-11-01T10:00:00Z' }, t)).toBe('when.draft');
     expect(broadcastWhen({ status: 'scheduled', scheduled_at: '2026-11-14T09:00:00Z', created_at: '' }, t)).toBe('when.scheduled:when');
     expect(broadcastWhen({ status: 'paused', created_at: '' }, t)).toBe('when.paused');
-    expect(broadcastWhen({ status: 'failed', created_at: '2026-11-01T10:00:00Z' }, t)).toBe('when.sent:when');
+    expect(broadcastWhen({ status: 'failed', created_at: '2026-11-01T10:00:00Z' }, t)).toBe('when.failed:when');
+    expect(broadcastWhen({ status: 'sent', created_at: '2026-11-01T10:00:00Z' }, t)).toBe('when.sent:when');
+  });
+
+  it('dates sending and finished campaigns by the send, not by when the row was made', () => {
+    const t = (key: string, values?: Record<string, string | number>) => `${key}=${values?.when ?? ''}`;
+    const fmt = (iso: string) => new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+    const base = { created_at: '2026-11-01T10:00:00Z', scheduled_at: '2026-11-05T09:00:00Z' };
+    expect(broadcastWhen({ ...base, status: 'sending', started_at: '2026-11-05T09:01:00Z' }, t)).toBe(`when.sending=${fmt('2026-11-05T09:01:00Z')}`);
+    expect(broadcastWhen({ ...base, status: 'sent', started_at: '2026-11-05T09:01:00Z', finished_at: '2026-11-05T09:30:00Z' }, t))
+      .toBe(`when.sent=${fmt('2026-11-05T09:30:00Z')}`);
+    expect(broadcastWhen({ ...base, status: 'failed', finished_at: '2026-11-05T09:30:00Z' }, t)).toBe(`when.failed=${fmt('2026-11-05T09:30:00Z')}`);
+    // A row from before the send-time columns: the schedule time, not the creation time.
+    expect(broadcastWhen({ ...base, status: 'sent' }, t)).toBe(`when.sent=${fmt('2026-11-05T09:00:00Z')}`);
+  });
+});
+
+describe('campaign list tab counts while polling', () => {
+  const sig = statusSignature([{ id: 'a', status: 'sending' }]);
+  it('always re-reads counts for a fetch the member caused', () => {
+    expect(shouldRefreshCounts({ poll: false, prevSignature: sig, nextSignature: sig, lastAt: 1000, now: 1001 })).toBe(true);
+    expect(shouldRefreshCounts({ poll: true, prevSignature: null, nextSignature: sig, lastAt: null, now: 1 })).toBe(true);
+  });
+  it('re-reads on a poll only when a status changed or the counts are 30 seconds old', () => {
+    expect(shouldRefreshCounts({ poll: true, prevSignature: sig, nextSignature: sig, lastAt: 1000, now: 6000 })).toBe(false);
+    const done = statusSignature([{ id: 'a', status: 'sent' }]);
+    expect(shouldRefreshCounts({ poll: true, prevSignature: sig, nextSignature: done, lastAt: 1000, now: 6000 })).toBe(true);
+    expect(shouldRefreshCounts({ poll: true, prevSignature: sig, nextSignature: sig, lastAt: 1000, now: 1000 + COUNTS_REFRESH_MS })).toBe(true);
   });
 });
 
