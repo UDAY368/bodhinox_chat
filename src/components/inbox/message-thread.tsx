@@ -1503,7 +1503,7 @@ export function MessageThread({
               </span>
             </span>
           </button>
-          <div className="flex min-w-0 flex-1 items-center gap-1.5 self-end pb-0.5 text-xs">
+          <div className="flex h-5 min-w-0 flex-1 flex-wrap content-start items-center gap-x-1.5 self-end overflow-hidden text-xs">
               {!isInstagram && (
                 <span className="hidden shrink-0 @2xl:inline-flex">
                   <ConversationNumberBadge conversation={conversation} numbers={whatsappNumbers} />

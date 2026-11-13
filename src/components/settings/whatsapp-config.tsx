@@ -641,7 +641,7 @@ export function WhatsAppConfig() {
   return (
     <section className="animate-in fade-in-50 duration-200">
       <SettingsPanelHead title={t('title')} description={t('description')} />
-      <div className="grid gap-6 lg:grid-cols-[1fr_380px]">
+      <div className="grid grid-cols-1 gap-6 min-[1400px]:grid-cols-[minmax(0,1fr)_380px]">
         {/* Main config form */}
         <div className="space-y-6">
           {canEditSettings && <div className="flex justify-end"><EmbeddedSignupButton canEdit onConnected={() => void reloadNumbers()} /></div>}

@@ -114,7 +114,7 @@ export function SharePanel({ reportId, kind }: { reportId: string; kind: RunKind
   return (
     <div className="space-y-3 rounded-xl bg-muted/60 p-3.5">
       <p className="text-xs text-muted-foreground">{t("explain")}</p>
-      <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
         <div className="space-y-1.5">
           <Label htmlFor={`share-role-${reportId}`}>{t("minRole")}</Label>
           <select id={`share-role-${reportId}`} value={minRole} onChange={(e) => setMinRole(e.target.value as ShareRole)} className={selectClass}>

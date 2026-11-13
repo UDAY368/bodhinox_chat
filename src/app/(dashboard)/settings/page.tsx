@@ -193,7 +193,7 @@ function SettingsPageInner() {
         <p className="text-muted-foreground mt-1 text-sm">{t('pageDesc')}</p>
       </div>
 
-      <div className="mt-6 grid gap-6 lg:grid-cols-[224px_minmax(0,1fr)] lg:items-start lg:gap-8 xl:grid-cols-[232px_minmax(0,1fr)]">
+      <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-[224px_minmax(0,1fr)] lg:items-start lg:gap-8 xl:grid-cols-[232px_minmax(0,1fr)]">
         <div className="min-w-0 lg:sticky lg:top-0 lg:self-start lg:border-r lg:border-border lg:pr-3">
           <SettingsRail active={showAi ? AI_SECTION : railSection(section)} onSelect={go} hints={hints}
             extraItems={aiItems} onSelectExtra={() => go(AI_SECTION)} hidden={hidden} unsaved={unsaved} />

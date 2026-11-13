@@ -137,7 +137,7 @@ export function ReportsTab({ canManage }: { canManage: boolean }) {
           <CardDescription className="text-muted-foreground">{t("description")}</CardDescription>
         </CardHeader>
         <CardContent>
-          <form className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[1.5fr_1fr_1fr_auto_auto] lg:items-end" onSubmit={submit}>
+          <form className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-[1.5fr_1fr_1fr_auto_auto] lg:items-end" onSubmit={submit}>
             <div className="space-y-1.5">
               <Label htmlFor="report-kind">{t("kind")}</Label>
               <select id="report-kind" value={kind} onChange={(e) => setKind(e.target.value as Kind)} className={selectClass}>

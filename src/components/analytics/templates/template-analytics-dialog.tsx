@@ -61,7 +61,7 @@ export function TemplateAnalyticsDialog({
         </DialogHeader>
         {/* Mount the report only while open so a closed dialog never queries. */}
         {open && (
-          <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_16rem]">
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_16rem]">
             <TemplateAnalyticsView templateId={template.id} />
             <aside className="space-y-4 lg:border-l lg:border-border lg:pl-4">
               <section className="space-y-2">

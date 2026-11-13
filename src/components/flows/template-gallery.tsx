@@ -285,7 +285,7 @@ function TemplateDetail({ template, creating, onBack, onUse }: {
   // An Instagram-only template shows Instagram Direct; anything WhatsApp can run shows WhatsApp.
   const channel: PhoneChannel = template.channels?.length && !template.channels.includes("whatsapp") ? "instagram" : "whatsapp";
   return (
-    <div className="grid gap-6 md:grid-cols-[minmax(0,1fr)_auto]" data-template-detail={template.slug}>
+    <div className="grid grid-cols-1 gap-6 md:grid-cols-[minmax(0,1fr)_auto]" data-template-detail={template.slug}>
       <div className="flex min-w-0 flex-col gap-4">
         <div className="min-h-0 space-y-4 md:max-h-[32rem] md:overflow-y-auto md:pr-2">
           <p className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">

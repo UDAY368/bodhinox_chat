@@ -282,7 +282,7 @@ function TemplateEditor({ draft, onChange }: { draft: Draft; onChange: (draft: D
     set({ cards: draft.cards.map((c, i) => (i === index ? { ...c, ...patch } : c)) });
 
   return (
-    <div className="grid gap-5 md:grid-cols-[minmax(0,1fr)_240px]">
+    <div className="grid grid-cols-1 gap-5 md:grid-cols-[minmax(0,1fr)_240px]">
       <div className="space-y-4">
         <label className="block space-y-1.5 text-xs font-medium">
           {t('name')}

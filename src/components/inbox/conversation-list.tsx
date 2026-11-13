@@ -1307,7 +1307,7 @@ function ConversationItem({
             </span>
           )}
         </div>
-        <div className="mt-1.5 flex min-w-0 items-center gap-1.5 overflow-hidden">
+        <div className="mt-1.5 flex h-5 min-w-0 flex-wrap content-start items-center gap-x-1.5 overflow-hidden">
           <LifecycleChip state={lifecycle} label={tl(lifecycle)} />
           {sla && <SlaBadge sla={sla} t={t} tl={tl} />}
           {multiChannel && <ChannelBadge channel={channel} showWhatsApp compact />}

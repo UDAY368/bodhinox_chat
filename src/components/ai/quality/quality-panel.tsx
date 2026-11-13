@@ -103,7 +103,7 @@ export function QualityPanel({ onWriteAnswer }: { onWriteAnswer?: (question: str
         ))}
       </div>
 
-      <div className="grid gap-3.5 lg:grid-cols-[minmax(0,1.6fr)_minmax(280px,1fr)] lg:items-start">
+      <div className="grid grid-cols-1 gap-3.5 lg:grid-cols-[minmax(0,1.6fr)_minmax(280px,1fr)] lg:items-start">
         <section className="min-w-0 rounded-xl border border-border bg-card p-4" aria-labelledby="ai-q-chart">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h2 id="ai-q-chart" className="text-base font-semibold">{chart === 'day' ? t('chartDay') : t('chartOutcome')}</h2>

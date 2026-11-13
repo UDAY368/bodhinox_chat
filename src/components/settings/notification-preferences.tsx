@@ -262,7 +262,7 @@ export function NotificationPreferences({ className }: { className?: string }) {
                 control={<Switch checked={draft.quiet.enabled} disabled={saving} aria-label={tr('quietTitle')} onCheckedChange={(enabled) => setQuiet({ enabled })} />} />
               {draft.quiet.enabled && (
                 <>
-                  <div className="grid gap-2 px-4 py-3.5 sm:grid-cols-[minmax(0,13rem)_minmax(0,1fr)] sm:items-center sm:gap-6">
+                  <div className="grid grid-cols-1 gap-2 px-4 py-3.5 sm:grid-cols-[minmax(0,13rem)_minmax(0,1fr)] sm:items-center sm:gap-6">
                     <div>
                       <p className="text-sm font-medium text-foreground">{tr('quietBetween')}</p>
                       <p className="mt-0.5 text-xs text-muted-foreground">{tr('quietZone', { zone: browserZone() })}</p>

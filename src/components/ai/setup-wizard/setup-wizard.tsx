@@ -298,7 +298,7 @@ export function AgentSetupWizard({ canEdit, knowledgeSlot, onOpenKnowledge, onOp
 
         {step === 'review' && (
           <div className="space-y-4 text-sm">
-            <dl className="grid gap-x-4 gap-y-2 sm:grid-cols-[10rem_1fr]">
+            <dl className="grid grid-cols-1 gap-x-4 gap-y-2 sm:grid-cols-[10rem_1fr]">
               <ReviewRow label={t('business.name')} value={draft.business_name} empty={t('review.notSet')} />
               <ReviewRow label={t('business.type')} value={draft.business_type} empty={t('review.notSet')} />
               <ReviewRow label={t('business.website')} value={draft.website_url} empty={t('review.notSet')} />

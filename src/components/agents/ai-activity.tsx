@@ -221,7 +221,7 @@ export function ActivityResults({ state, onRetry, onLoadMore, onOpen }: {
                 type="button"
                 onClick={() => onOpen(event.id)}
                 aria-label={`${t('openDetails')}: ${contactLabel(event.contact)}`}
-                className="grid w-full gap-1 px-4 py-3 text-left text-sm transition-colors duration-150 hover:bg-muted/60 focus-visible:bg-muted/60 focus-visible:outline-none sm:grid-cols-[9rem_10rem_minmax(0,1fr)] sm:gap-3"
+                className="grid grid-cols-1 w-full gap-1 px-4 py-3 text-left text-sm transition-colors duration-150 hover:bg-muted/60 focus-visible:bg-muted/60 focus-visible:outline-none sm:grid-cols-[9rem_10rem_minmax(0,1fr)] sm:gap-3"
               >
                 <span className="text-xs text-muted-foreground sm:text-sm">
                   {format.dateTime(new Date(event.created_at), { dateStyle: 'medium', timeStyle: 'short' })}

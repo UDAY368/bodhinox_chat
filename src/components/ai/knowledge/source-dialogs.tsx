@@ -125,7 +125,7 @@ export function SourceDialog({ state, onClose, onSaved }: {
                   placeholder={mode === 'website' ? 'https://yourshop.com/help' : 'https://yourshop.com/sitemap.xml'} />
                 <p className="text-xs text-muted-foreground">{tk(mode === 'website' ? 'hints.website' : 'hints.sitemap')}</p>
               </div>
-              <div className="grid gap-3 sm:grid-cols-[1fr_8rem]">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_8rem]">
                 <div className="space-y-1">
                   <Label htmlFor="src-name">{t('add.name')}</Label>
                   <Input id="src-name" maxLength={300} value={name} onChange={(e) => setName(e.target.value)} placeholder={t('add.namePlaceholder')} />

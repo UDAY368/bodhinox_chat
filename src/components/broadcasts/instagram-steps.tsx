@@ -45,7 +45,7 @@ export function InstagramMessageStep({ text, onTextChange, onNext, onBack }: {
         <h2 className="text-base font-semibold text-foreground">{t('messageTitle')}</h2>
         <p className="mt-1 text-sm text-muted-foreground">{t('messageSubtitle')}</p>
       </div>
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_280px]">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_280px]">
         <div className="min-w-0 space-y-1.5">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <Label htmlFor="ig-message">{t('messageLabel')}</Label>
@@ -120,7 +120,7 @@ export function InstagramReviewStep({ name, text, audience, audienceLabel, sendi
         <h2 className="text-base font-semibold text-foreground">{t('reviewTitle')}</h2>
         <p className="mt-1 text-sm text-muted-foreground">{t('reviewSubtitle')}</p>
       </div>
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_280px]">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_280px]">
         <div className="min-w-0 space-y-4">
           <dl className="grid grid-cols-[minmax(0,7rem)_minmax(0,1fr)] gap-x-4 gap-y-2 text-sm">
             <dt className="text-muted-foreground">{t('reviewName')}</dt><dd className="break-words text-foreground">{name}</dd>

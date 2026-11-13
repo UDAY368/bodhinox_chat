@@ -417,7 +417,7 @@ export function FormBuilder({
         </TabsList>
 
         <TabsContent value="build" className="mt-4">
-          <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
             <div className="space-y-4">
               <section aria-label={t("screens")} className="space-y-2">
                 <div className="flex items-center justify-between">

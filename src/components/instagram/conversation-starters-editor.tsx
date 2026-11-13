@@ -130,7 +130,7 @@ export function ConversationStartersEditor({ accountId, flows, canEdit }: {
       {!view.managed && <p className="text-muted-foreground text-xs">{t('replacesExisting')}</p>}
       {flows.length === 0 && <p className="text-muted-foreground text-sm">{t('noFlows')}</p>}
       {rows.map((row, index) => (
-        <div key={index} className="grid gap-2 rounded-md border p-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
+        <div key={index} className="grid grid-cols-1 gap-2 rounded-md border p-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
           <div className="space-y-1">
             <Label htmlFor={`ig-starter-q-${accountId}-${index}`}>{t('question')}</Label>
             <Input id={`ig-starter-q-${accountId}-${index}`} value={row.question} maxLength={MAX_CHARS * 2}

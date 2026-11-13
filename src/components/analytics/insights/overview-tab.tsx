@@ -147,7 +147,7 @@ function AttentionList({ counts }: { counts: AttentionCounts }) {
   const items = ATTENTION.filter((a) => counts[a.key] > 0);
   if (!items.length) return <p className="py-5 text-center text-sm text-muted-foreground">{t('allClear')}</p>;
   return (
-    <ul className="-mx-1.5 -my-1 grid gap-0.5">
+    <ul className="-mx-1.5 -my-1 grid grid-cols-1 gap-0.5">
       {items.map((a) => {
         const count = counts[a.key];
         const shown = count > 999 ? '999+' : format.number(count);

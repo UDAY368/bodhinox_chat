@@ -139,7 +139,7 @@ export function PersistentMenuEditor({ accountId, flows, canEdit }: {
       {!view.managed && <p className="text-muted-foreground text-xs">{ts('replacesExisting')}</p>}
       {view.syncedAt && <p className="text-muted-foreground text-xs">{t('lastSynced', { time: new Date(view.syncedAt).toLocaleString() })}</p>}
       {rows.map((row, index) => (
-        <div key={index} className="grid gap-2 rounded-md border p-3 sm:grid-cols-[1fr_1fr_1.5fr_auto] sm:items-end">
+        <div key={index} className="grid grid-cols-1 gap-2 rounded-md border p-3 sm:grid-cols-[1fr_1fr_1.5fr_auto] sm:items-end">
           <div className="space-y-1">
             <Label htmlFor={`ig-menu-t-${accountId}-${index}`}>{t('itemTitle')}</Label>
             <Input id={`ig-menu-t-${accountId}-${index}`} value={row.title} maxLength={MAX_CHARS * 2}

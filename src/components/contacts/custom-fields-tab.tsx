@@ -23,7 +23,7 @@ import { cn } from '@/lib/utils';
 import { useCustomFields, type CustomFieldSummary } from './contacts-client';
 import { FIELD_SELECT } from './custom-field-input';
 
-const ROW = 'grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 px-4 py-2.5 sm:grid-cols-[minmax(0,1.3fr)_100px_minmax(0,1.6fr)_120px_76px] sm:gap-x-4';
+const ROW = 'grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 px-4 py-2.5 @xl:grid-cols-[minmax(0,1.3fr)_100px_minmax(0,1.6fr)_120px_76px] @xl:gap-x-4';
 
 export function CustomFieldsTab({ createOpen, onCreateOpenChange, onCount }: {
   /** The new-field dialog, opened by the page header's button; without these the tab shows its own button. */
@@ -99,8 +99,8 @@ export function CustomFieldsTab({ createOpen, onCreateOpenChange, onCount }: {
       ) : (
         <>
           <p className="text-[13px] text-muted-foreground">{t('fieldsTab.hint')}</p>
-          <div role="table" aria-label={t('tabs.fields')} className="overflow-hidden rounded-2xl border border-border bg-card text-[13px] shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
-            <div role="row" className={cn(ROW, 'hidden bg-muted/50 text-xs font-semibold text-muted-foreground sm:grid')}>
+          <div role="table" aria-label={t('tabs.fields')} className="@container overflow-hidden rounded-2xl border border-border bg-card text-[13px] shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+            <div role="row" className={cn(ROW, 'hidden bg-muted/50 text-xs font-semibold text-muted-foreground @xl:grid')}>
               <span role="columnheader">{t('fieldsTab.name')}</span>
               <span role="columnheader">{t('fieldsTab.type')}</span>
               <span role="columnheader">{t('fieldsTab.choices')}</span>
@@ -108,12 +108,12 @@ export function CustomFieldsTab({ createOpen, onCreateOpenChange, onCount }: {
               <span role="columnheader"><span className="sr-only">{t('columns.actions')}</span></span>
             </div>
             {fields.map((f) => (
-              <div role="row" key={f.id} className={cn(ROW, 'border-t border-border hover:bg-muted/30 max-sm:[&:nth-child(2)]:border-t-0')}>
+              <div role="row" key={f.id} className={cn(ROW, 'border-t border-border hover:bg-muted/30 @max-xl:[&:nth-child(2)]:border-t-0')}>
                 <span role="cell" className="min-w-0 truncate font-semibold text-foreground">{f.field_name}</span>
-                <span role="cell" className="sm:order-none">
+                <span role="cell" className="@xl:order-none">
                   <span className="inline-flex rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">{typeName(f.field_type)}</span>
                 </span>
-                <span role="cell" className="col-span-2 min-w-0 truncate text-muted-foreground sm:col-span-1" title={f.choices.join(', ')}>
+                <span role="cell" className="col-span-2 min-w-0 truncate text-muted-foreground @xl:col-span-1" title={f.choices.join(', ')}>
                   {f.field_type === 'choice' ? f.choices.join(', ') : t('fieldsTab.anyValue', { type: typeName(f.field_type).toLowerCase() })}
                 </span>
                 <span role="cell" className="text-muted-foreground tabular-nums">

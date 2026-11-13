@@ -724,7 +724,7 @@ export default function BroadcastDetailPage() {
         </div>
       )}
 
-      <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_320px]">
+      <div className="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1fr)_320px]">
         <FunnelChart steps={funnelSteps} />
         <BroadcastMessageCard broadcast={broadcast} />
       </div>

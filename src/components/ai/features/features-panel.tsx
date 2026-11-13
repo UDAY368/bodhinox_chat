@@ -130,7 +130,7 @@ export function FeaturesPanel() {
           {!view.deployment_enabled ? ts('status.deploymentOff') : ts('status.notConfigured')}
         </p>
       )}
-      <div className="grid gap-3.5 lg:grid-cols-[minmax(0,1.6fr)_minmax(280px,1fr)] lg:items-start">
+      <div className="grid grid-cols-1 gap-3.5 lg:grid-cols-[minmax(0,1.6fr)_minmax(280px,1fr)] lg:items-start">
         <section className="min-w-0 rounded-xl border border-border bg-card p-4 pb-1" aria-labelledby="ai-features-title">
           <div className="flex items-start justify-between gap-3 pb-3.5">
             <div className="min-w-0">

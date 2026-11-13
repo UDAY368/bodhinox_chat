@@ -378,7 +378,7 @@ export function TemplateManager({ variant = 'settings' }: { variant?: 'settings'
         </Card>
       ) : (
         <>
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
             <div className="flex flex-wrap gap-1.5" role="tablist" aria-label={t('tabsLabel')}>
               {TEMPLATE_TABS.map((key) => (
                 <Button

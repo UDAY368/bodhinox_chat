@@ -159,7 +159,7 @@ export function AuditLogTable({ canView, showHeader = true }: { canView: boolean
         <div className="flex justify-end">{exportButton}</div>
       )}
 
-      <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,14rem)]">
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,14rem)]">
         <label className="relative block min-w-0">
           <span className="sr-only">{tr("search")}</span>
           <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
@@ -220,7 +220,7 @@ export function AuditLogTable({ canView, showHeader = true }: { canView: boolean
         ) : (
           <ul className="divide-y divide-border">
             {entries.map((entry) => (
-              <li key={entry.id} className="grid gap-2 px-4 py-3 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,11rem)] sm:items-center sm:gap-4">
+              <li key={entry.id} className="grid grid-cols-1 gap-2 px-4 py-3 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,11rem)] sm:items-center sm:gap-4">
                 <div className="min-w-0">
                   <p className="truncate font-mono text-[13px] font-medium text-foreground">{entry.action}</p>
                   <p className="text-xs break-all text-muted-foreground">{details(entry) || entry.resource_id || "-"}</p>
