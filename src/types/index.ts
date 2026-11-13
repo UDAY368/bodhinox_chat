@@ -128,6 +128,12 @@ export interface Contact {
   name?: string;
   email?: string;
   company?: string;
+  /** Contacts redesign (20261121000200). */
+  city?: string | null;
+  /** The member responsible for the contact; set through PATCH /api/contacts/[id] only. */
+  owner_id?: string | null;
+  /** Instagram-only subscription (Stage 5); opted_out_at stays the WhatsApp STOP. */
+  instagram_opted_out_at?: string | null;
   avatar_url?: string;
   created_at: string;
   updated_at: string;

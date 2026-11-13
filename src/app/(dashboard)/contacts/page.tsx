@@ -1,9 +1,17 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+// Contacts > People: the contact table with search, filters (segment, list,
+// labels, owner, channel, consent), sorting, bulk actions and 25-per-page
+// pagination. Every row lists through GET /api/contacts/bulk/view, so the
+// count shown is the count a bulk action on "every matching contact" checks.
+// A row opens the full-page profile at /contacts/[id].
+
+import { Suspense, useState, useEffect, useCallback, useRef } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import Link from 'next/link';
 import { createClient } from '@/lib/data/client';
 import { toast } from 'sonner';
-import type { Contact, Tag, ContactTag, CustomField } from '@/types';
+import type { Contact, Tag, ContactTag } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -21,6 +29,8 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
 } from '@/components/ui/dropdown-menu';
 import {
   Dialog,
@@ -46,19 +56,23 @@ import {
   Users,
   SlidersHorizontal,
   Filter,
-  ListFilter,
   Download,
   List,
   X,
   Tag as TagIcon,
   PauseCircle,
   BellOff,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
+  UserRound,
+  Send,
+  UserPlus,
 } from 'lucide-react';
 import { authFetch } from '@/lib/auth/client';
 import { cn } from '@/lib/utils';
 import { changeListMembers, fetchLists, fetchSegments, type ListSummary, type SegmentSummary } from '@/lib/audience/client';
 import { groupTagsByCategory } from '@/lib/contacts/tag-groups';
-import { contactSearchFilter } from '@/lib/contacts/search-term';
 import { Label } from '@/components/ui/label';
 import { planAllows, usePlan } from '@/lib/billing/client';
 import { UpgradeBadge } from '@/components/ui/upgrade-badge';
@@ -66,18 +80,22 @@ import { TablePagination } from '@/components/ui/table-pagination';
 import { avatarTone, initials } from '@/lib/ui/avatar-tone';
 import { SegmentBuilderDialog } from '@/components/contacts/segment-builder-dialog';
 import { ContactForm } from '@/components/contacts/contact-form';
-import { ContactDetailView } from '@/components/contacts/contact-detail-view';
 import { ImportModal } from '@/components/contacts/import-modal';
-import { CustomFieldsManager } from '@/components/contacts/custom-fields-manager';
 import { LeadScoreCell, useLeadScores } from '@/components/contacts/lead-score-cell';
+import { ContactsHeader } from '@/components/contacts/contacts-header';
+import { CustomFieldInput, FIELD_SELECT } from '@/components/contacts/custom-field-input';
+import { downloadContactsCsv, useContactMembers, useCustomFields } from '@/components/contacts/contacts-client';
+import { formatLastSeen } from '@/components/contacts/format';
 import { useCan } from '@/hooks/use-can';
 import { useWorkspaceChannels } from '@/hooks/use-workspace-channels';
 import { GatedButton } from '@/components/ui/gated-button';
 import { Switch } from '@/components/ui/switch';
-import { useTranslations } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 import { PAUSE_MINUTES_CHOICES } from '@/lib/flows/types';
+import type { ContactSort } from '@/lib/contacts/bulk';
 
 const PAGE_SIZE = 25;
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /** A filter rendered as a soft chip (a native select or a popover trigger). */
 const CHIP =
@@ -85,32 +103,54 @@ const CHIP =
 const CHIP_ON = 'border-transparent bg-primary/10 font-semibold text-primary hover:bg-primary/15';
 const TH = 'h-11 text-xs font-medium text-muted-foreground';
 
-
-
-interface ContactWithTags extends Contact {
+/** A row of the table: the contact, its tags and the columns the list endpoint adds. */
+interface ContactRow extends Contact {
   tags?: Tag[];
+  owner_name?: string | null;
+  last_seen_at?: string | null;
+  instagram_username?: string | null;
 }
 
 /** Stage 5: the contacts page's channel filter ('' is every contact). */
 type ChannelView = '' | 'whatsapp' | 'instagram';
 type InstagramStatus = 'subscribed' | 'unsubscribed' | 'none';
+type OwnerFilter = '' | 'none' | string;
+type ConsentFilter = '' | 'opted_in' | 'opted_out';
 
 /** The Stage 5 bulk actions (POST /api/contacts/bulk, src/lib/contacts/bulk.ts). */
 type Stage5BulkAction =
   | { type: 'remove_tag'; tagId: string }
   | { type: 'unsubscribe_instagram' }
   | { type: 'pause_automations'; minutes: number | null }
-  | { type: 'set_field'; fieldId: string; value: string };
+  | { type: 'set_field'; fieldId: string; value: string }
+  | { type: 'assign_owner'; ownerId: string | null };
+
+const SORTS: ContactSort[] = ['name', 'city', 'owner', 'seen', 'created'];
+const defaultDir = (sort: ContactSort): 'asc' | 'desc' => (sort === 'created' || sort === 'seen' ? 'desc' : 'asc');
 
 export default function ContactsPage() {
+  return (
+    <Suspense fallback={null}>
+      <ContactsPeople />
+    </Suspense>
+  );
+}
+
+function ContactsPeople() {
   const t = useTranslations('Contacts.page');
+  const tr = useTranslations('Contacts.redesign');
   const tGate = useTranslations('GatedButton');
+  const locale = useLocale();
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const db = createClient();
   const canEdit = useCan('send-messages');
   const canEditSettings = useCan('edit-settings');
   const canExport = planAllows(usePlan(), 'contact_export');
+  const members = useContactMembers();
+  const { fields: customFields } = useCustomFields();
 
-  const [contacts, setContacts] = useState<ContactWithTags[]>([]);
+  const [contacts, setContacts] = useState<ContactRow[]>([]);
   // Advisory AI lead scores for the contacts on screen (agents and above).
   const leadScores = useLeadScores(contacts.map((c) => c.id));
   const [loading, setLoading] = useState(true);
@@ -119,9 +159,12 @@ export default function ContactsPage() {
   const [totalCount, setTotalCount] = useState(0);
   // Tag filter — contacts shown must have ANY of these tags (OR).
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
-  // Saved segment view; replaces the tag filter while active.
+  // Saved segment view; replaces the tag filter while active. ?segment= comes from the Segments tab.
   const [segments, setSegments] = useState<SegmentSummary[]>([]);
-  const [segmentId, setSegmentId] = useState('');
+  const [segmentId, setSegmentId] = useState(() => {
+    const id = searchParams.get('segment') ?? '';
+    return UUID.test(id) ? id : '';
+  });
   const [builderOpen, setBuilderOpen] = useState(false);
   const [editingSegment, setEditingSegment] = useState<SegmentSummary | null>(null);
   // Static list view; like a segment, it replaces the tag filter.
@@ -130,18 +173,18 @@ export default function ContactsPage() {
   const [newListOpen, setNewListOpen] = useState(false);
   const [newListName, setNewListName] = useState('');
   const [listBusy, setListBusy] = useState(false);
-  const [customFields, setCustomFields] = useState<CustomField[]>([]);
   const [campaigns, setCampaigns] = useState<{ id: string; name: string }[]>([]);
   const [exporting, setExporting] = useState(false);
+  // Contacts redesign: owner and consent filters, and the table's sort.
+  const [ownerFilter, setOwnerFilter] = useState<OwnerFilter>('');
+  const [consentFilter, setConsentFilter] = useState<ConsentFilter>('');
+  const [sort, setSort] = useState<{ key: ContactSort; dir: 'asc' | 'desc' }>({ key: 'created', dir: 'desc' });
 
   // Modals
   const [formOpen, setFormOpen] = useState(false);
   const [editContact, setEditContact] = useState<Contact | null>(null);
   const [editContactTags, setEditContactTags] = useState<ContactTag[]>([]);
-  const [detailOpen, setDetailOpen] = useState(false);
-  const [detailContactId, setDetailContactId] = useState<string | null>(null);
   const [importOpen, setImportOpen] = useState(false);
-  const [customFieldsOpen, setCustomFieldsOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Contact | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -152,7 +195,7 @@ export default function ContactsPage() {
   const [allMatching, setAllMatching] = useState(false);
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
 
-  // Stage 5: channel filter, "subscribed only" and the Instagram status column, offered
+  // Stage 5: channel filter, "subscribed only" and the Instagram status, offered
   // only while Instagram is on (a WhatsApp-only workspace sees the page it had).
   const tc = useTranslations('Contacts.filters');
   const tcs = useTranslations('Contacts.channelStatus');
@@ -172,9 +215,14 @@ export default function ContactsPage() {
 
   // Guards against out-of-order fetch responses: each fetchContacts run
   // claims a sequence number and only the latest is allowed to commit its
-  // results. Without this, rapidly toggling tag filters could let a slower
-  // earlier request resolve last and render stale rows.
+  // results, so a slower earlier request can never render stale rows.
   const fetchSeq = useRef(0);
+
+  // "View contact" from the inbox links here with ?contact=<id>: open that contact's page.
+  useEffect(() => {
+    const id = searchParams.get('contact');
+    if (id && UUID.test(id)) router.replace(`/contacts/${id}`);
+  }, [searchParams, router]);
 
   const fetchTags = useCallback(async () => {
     const { data } = await db.from('tags').select('*');
@@ -200,97 +248,35 @@ export default function ContactsPage() {
     setSelected(new Set());
     setAllMatching(false);
 
-    const from = page * PAGE_SIZE;
-    const to = from + PAGE_SIZE - 1;
     const term = search.trim();
-
-    let contactRows: Contact[];
-    let count: number;
-
-    if (channelView || subscribedOnly) {
-      // Stage 5: the channel filter lists exactly what a bulk action on this view reaches.
-      const query = new URLSearchParams({ offset: String(from), limit: String(PAGE_SIZE) });
-      if (segmentId) query.set('segmentId', segmentId);
-      else if (listId) query.set('listId', listId);
-      else if (selectedTagIds.length) query.set('tagIds', selectedTagIds.join(','));
-      if (term) query.set('search', term.slice(0, 200));
-      if (channelView) query.set('channel', channelView);
-      if (subscribedOnly) query.set('subscribed', '1');
-      const res = await authFetch(`/api/contacts/bulk/view?${query}`, { cache: 'no-store' }).catch(() => null);
-      if (seq !== fetchSeq.current) return;
-      if (!res?.ok) {
-        toast.error(t('toastFailedLoad'));
-        setLoading(false);
-        return;
-      }
-      const payload = (await res.json()) as { contacts: Contact[]; total: number };
-      if (seq !== fetchSeq.current) return;
-      contactRows = payload.contacts;
-      count = payload.total;
-    } else if (segmentId || listId) {
-      const query = new URLSearchParams({ offset: String(from), limit: String(PAGE_SIZE), search: term });
-      const path = segmentId ? `/api/segments/${segmentId}/contacts` : `/api/lists/${listId}/contacts`;
-      const res = await authFetch(`${path}?${query}`, { cache: 'no-store' }).catch(() => null);
-      if (seq !== fetchSeq.current) return; // superseded by a newer fetch
-      if (!res?.ok) {
-        toast.error(t('toastFailedLoad'));
-        setLoading(false);
-        return;
-      }
-      const payload = (await res.json()) as { contacts: Contact[]; total: number };
-      if (seq !== fetchSeq.current) return;
-      contactRows = payload.contacts;
-      count = payload.total;
-    } else if (selectedTagIds.length > 0) {
-      // Tag filter active — resolve it server-side (join + distinct +
-      // windowed total count + pagination) so a tag covering many
-      // contacts can't silently truncate the result or overflow an IN
-      // clause. See migration 025_filter_contacts_by_tags.
-      const { data, error } = await db.rpc('filter_contacts_by_tags', {
-        p_tag_ids: selectedTagIds,
-        p_search: term || null,
-        p_limit: PAGE_SIZE,
-        p_offset: from,
-      });
-      if (seq !== fetchSeq.current) return; // superseded by a newer fetch
-      if (error) {
-        toast.error(t('toastFailedLoad'));
-        setLoading(false);
-        return;
-      }
-      const rows = (data ?? []) as { contact: Contact; total_count: number }[];
-      contactRows = rows.map((r) => r.contact);
-      count = rows.length > 0 ? Number(rows[0].total_count) : 0;
-    } else {
-      let query = db
-        .from('contacts')
-        .select('*', { count: 'exact' })
-        .order('created_at', { ascending: false })
-        .range(from, to);
-
-      if (term) query = query.or(contactSearchFilter(term));
-
-      const { data, count: exactCount, error } = await query;
-      if (seq !== fetchSeq.current) return; // superseded by a newer fetch
-      if (error) {
-        toast.error(t('toastFailedLoad'));
-        setLoading(false);
-        return;
-      }
-      contactRows = data ?? [];
-      count = exactCount ?? 0;
+    const query = new URLSearchParams({ offset: String(page * PAGE_SIZE), limit: String(PAGE_SIZE), sort: sort.key, dir: sort.dir });
+    if (segmentId) query.set('segmentId', segmentId);
+    else if (listId) query.set('listId', listId);
+    else if (selectedTagIds.length) query.set('tagIds', selectedTagIds.join(','));
+    if (term) query.set('search', term.slice(0, 200));
+    if (channelView) query.set('channel', channelView);
+    if (subscribedOnly) query.set('subscribed', '1');
+    if (ownerFilter) query.set('ownerId', ownerFilter);
+    if (consentFilter) query.set('consent', consentFilter);
+    const res = await authFetch(`/api/contacts/bulk/view?${query}`, { cache: 'no-store' }).catch(() => null);
+    if (seq !== fetchSeq.current) return;
+    if (!res?.ok) {
+      toast.error(t('toastFailedLoad'));
+      setLoading(false);
+      return;
     }
+    const payload = (await res.json()) as { contacts: ContactRow[]; total: number };
+    if (seq !== fetchSeq.current) return;
+    setTotalCount(payload.total);
 
-    setTotalCount(count);
-
-    if (contactRows.length === 0) {
+    if (payload.contacts.length === 0) {
       setContacts([]);
       setLoading(false);
       return;
     }
 
-    // Fetch tags for these contacts
-    const contactIds = contactRows.map((c) => c.id);
+    // Tags for these contacts
+    const contactIds = payload.contacts.map((c) => c.id);
     const { data: contactTags } = await db
       .from('contact_tags')
       .select('contact_id, tag_id')
@@ -303,16 +289,12 @@ export default function ContactsPage() {
       tagsByContact[ct.contact_id].push(ct.tag_id);
     });
 
-    const enriched: ContactWithTags[] = contactRows.map((c) => ({
+    setContacts(payload.contacts.map((c) => ({
       ...c,
-      tags: (tagsByContact[c.id] ?? [])
-        .map((tid) => tagsMap[tid])
-        .filter(Boolean),
-    }));
-
-    setContacts(enriched);
+      tags: (tagsByContact[c.id] ?? []).map((tid) => tagsMap[tid]).filter(Boolean),
+    })));
     setLoading(false);
-  }, [db, page, search, selectedTagIds, segmentId, listId, tagsMap, t, channelView, subscribedOnly]);
+  }, [db, page, search, selectedTagIds, segmentId, listId, tagsMap, t, channelView, subscribedOnly, ownerFilter, consentFilter, sort]);
 
   // Stage 5: the Instagram status of the rows on screen, read from stored state.
   const contactIdsKey = contacts.map((c) => c.id).join(',');
@@ -325,7 +307,7 @@ export default function ContactsPage() {
         if (live && body) setIgStatus(body.statuses);
       })
       .catch(() => {
-        // The column is informational; it shows a dash without it.
+        // The status is informational; the row shows none without it.
       });
     return () => {
       live = false;
@@ -403,6 +385,19 @@ export default function ContactsPage() {
     loadLists();
   }
 
+  /** The current view as a bulk scope (POST /api/contacts/bulk). */
+  function viewScope() {
+    const term = search.trim();
+    return {
+      ...(segmentId ? { segmentId } : listId ? { listId } : selectedTagIds.length ? { tagIds: selectedTagIds } : {}),
+      ...(term ? { search: term.slice(0, 200) } : {}),
+      ...(channelView ? { channel: channelView } : {}),
+      ...(subscribedOnly ? { subscribedOnly: true } : {}),
+      ...(ownerFilter ? { ownerId: ownerFilter } : {}),
+      ...(consentFilter ? { consent: consentFilter } : {}),
+    };
+  }
+
   /**
    * Run a bulk action on every contact matching the current view. Returns
    * null (after telling the user) when it did not run; the server refuses
@@ -410,18 +405,10 @@ export default function ContactsPage() {
    */
   async function runBulk(
     action: { type: 'add_to_list' | 'remove_from_list'; listId: string } | { type: 'add_tag'; tagId: string } | { type: 'delete' } | Stage5BulkAction,
-    /** Stage 5: act on these ticked rows instead of the whole view. */
+    /** Act on these ticked rows instead of the whole view. */
     contactIds?: string[],
   ) {
-    const term = search.trim();
-    const scope = contactIds
-      ? { contactIds }
-      : {
-          ...(segmentId ? { segmentId } : listId ? { listId } : selectedTagIds.length ? { tagIds: selectedTagIds } : {}),
-          ...(term ? { search: term.slice(0, 200) } : {}),
-          ...(channelView ? { channel: channelView } : {}),
-          ...(subscribedOnly ? { subscribedOnly: true } : {}),
-        };
+    const scope = contactIds ? { contactIds } : viewScope();
     const res = await authFetch('/api/contacts/bulk', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -463,10 +450,6 @@ export default function ContactsPage() {
   }
 
   async function openSegmentBuilder(segment: SegmentSummary | null) {
-    if (customFields.length === 0) {
-      const { data } = await db.from('custom_fields').select('*').order('field_name');
-      setCustomFields(data ?? []);
-    }
     // Recent campaigns that actually went out, for retargeting conditions.
     const { data: sent } = await db.from('broadcasts').select('id,name')
       .in('status', ['sending', 'sent', 'failed']).order('created_at', { ascending: false }).limit(200);
@@ -486,32 +469,16 @@ export default function ContactsPage() {
     loadSegments();
   }
 
-  async function exportCsv() {
+  async function exportCsv(query: string) {
     setExporting(true);
     try {
-      const res = await authFetch(`/api/contacts/export${segmentId ? `?segmentId=${segmentId}` : listId ? `?listId=${listId}` : ''}`);
-      if (!res.ok) {
-        const payload = await res.json().catch(() => ({}));
-        toast.error(payload.error || t('segments.exportFailed'));
-        return;
-      }
-      const url = URL.createObjectURL(await res.blob());
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = /filename="([^"]+)"/.exec(res.headers.get('Content-Disposition') ?? '')?.[1] ?? 'contacts.csv';
-      link.click();
-      URL.revokeObjectURL(url);
-    } catch {
-      toast.error(t('segments.exportFailed'));
+      const done = await downloadContactsCsv(query);
+      if (!done.ok) toast.error(done.error || t('segments.exportFailed'));
     } finally {
       setExporting(false);
     }
   }
 
-  // Load-once-on-mount-ish data fetches. Each setter inside runs
-  // inside an async promise completion (Supabase await), not
-  // synchronously in the effect body, so the cascade the lint rule
-  // warns about doesn't apply here.
   useEffect(() => {
     fetchTags();
   }, [fetchTags]);
@@ -535,21 +502,6 @@ export default function ContactsPage() {
     setEditContactTags(data ?? []);
     setFormOpen(true);
   }
-
-  function openDetail(contactId: string) {
-    setDetailContactId(contactId);
-    setDetailOpen(true);
-  }
-
-  // "View contact" from the inbox links here with ?contact=<id>: open that contact once.
-  // The detail view loads it through the tenant-scoped API, so another workspace's id shows nothing.
-  useEffect(() => {
-    const id = new URLSearchParams(window.location.search).get('contact');
-    if (id && /^[0-9a-f-]{36}$/i.test(id)) {
-      setDetailContactId(id);
-      setDetailOpen(true);
-    }
-  }, []);
 
   function confirmDelete(contact: Contact) {
     setDeleteTarget(contact);
@@ -686,9 +638,9 @@ export default function ContactsPage() {
   const selectionCount = allMatching ? totalCount : selected.size;
 
   /**
-   * Stage 5 bulk actions (remove a tag, unsubscribe from Instagram, pause
-   * automations, set a custom field): every matching contact, or the ticked
-   * rows. Always server-side, with the same count check as the others.
+   * Server-side bulk actions (remove a tag, unsubscribe from Instagram, pause
+   * automations, set a custom field, assign an owner): every matching contact,
+   * or the ticked rows, with the same count check as the others.
    */
   async function runStage5Bulk(action: Stage5BulkAction, confirmed = false): Promise<boolean> {
     if (!confirmed && !window.confirm(tb('confirm', { count: selectionCount }))) return false;
@@ -709,17 +661,14 @@ export default function ContactsPage() {
     }
   }
 
-  async function openSetField() {
-    if (customFields.length === 0) {
-      const { data } = await db.from('custom_fields').select('*').order('field_name');
-      setCustomFields(data ?? []);
-    }
+  function openSetField() {
     setBulkFieldId('');
     setBulkFieldValue('');
     setSetFieldOpen(true);
   }
 
   const totalPages = Math.ceil(totalCount / PAGE_SIZE);
+  const bulkField = customFields.find((f) => f.id === bulkFieldId);
 
   // Tag filter helpers. Every change resets to page 0 — the result set
   // shrinks/grows so page N may no longer be valid (mirrors the search box).
@@ -727,8 +676,9 @@ export default function ContactsPage() {
     a.name.localeCompare(b.name)
   );
   const tagGroups = groupTagsByCategory(allTags);
-  const hasActiveFilters = search.trim().length > 0 || selectedTagIds.length > 0 || segmentId !== '' || listId !== ''
-    || channelView !== '' || subscribedOnly;
+  const filtersOn = selectedTagIds.length > 0 || segmentId !== '' || listId !== ''
+    || channelView !== '' || subscribedOnly || ownerFilter !== '' || consentFilter !== '';
+  const hasActiveFilters = search.trim().length > 0 || filtersOn;
   const showChannelFilters = instagramOn || channelView !== '' || subscribedOnly;
   const selectedSegment = segments.find((s) => s.id === segmentId) ?? null;
 
@@ -746,79 +696,97 @@ export default function ContactsPage() {
     setPage(0);
   }
 
+  function clearFilters() {
+    setSelectedTagIds([]);
+    setSegmentId('');
+    setListId('');
+    setChannelView('');
+    setSubscribedOnly(false);
+    setOwnerFilter('');
+    setConsentFilter('');
+    setPage(0);
+  }
+
+  function sortBy(key: ContactSort, dir?: 'asc' | 'desc') {
+    setSort((prev) => ({ key, dir: dir ?? (prev.key === key ? (prev.dir === 'asc' ? 'desc' : 'asc') : defaultDir(key)) }));
+    setPage(0);
+  }
+
+  const sortLabel = (key: ContactSort) => tr(`sort.${key}`);
+
+  /** A sortable column header (aria-sort names the order). */
+  function sortHead(id: ContactSort, label: string, className?: string) {
+    const on = sort.key === id;
+    return (
+      <TableHead className={cn(TH, className)} aria-sort={on ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}>
+        <button
+          type="button"
+          onClick={() => sortBy(id)}
+          className={cn('inline-flex max-w-full items-center gap-1 rounded-md hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50', on && 'text-foreground')}
+        >
+          <span className="truncate">{label}</span>
+          {on && (sort.dir === 'asc' ? <ArrowUp className="size-3 shrink-0" aria-hidden /> : <ArrowDown className="size-3 shrink-0" aria-hidden />)}
+        </button>
+      </TableHead>
+    );
+  }
+
+  const exportQuery = segmentId ? `segmentId=${segmentId}` : listId ? `listId=${listId}` : '';
+
   return (
-    <div className="space-y-5">
-      {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div className="min-w-0">
-          <h1 className="text-[22px] font-bold tracking-tight text-foreground">{t('title')}</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {totalCount > 0 ? t('subtitle', { count: totalCount }) : t('subtitleZero')}
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {canEditSettings && !canExport && <UpgradeBadge />}
-          {canEdit && (
-            <>
-              <Button variant="ghost" onClick={() => openSegmentBuilder(null)} className="text-muted-foreground">
-                <ListFilter className="size-4" />
-                {t('segments.newSegment')}
-              </Button>
+    <div className="min-w-0 space-y-5">
+      <ContactsHeader
+        tab="people"
+        known={{ people: loading || filtersOn || search.trim() ? null : totalCount }}
+        actions={
+          <>
+            {canEditSettings && !canExport && <UpgradeBadge />}
+            {canEdit && (
               <Button variant="ghost" onClick={() => setNewListOpen(true)} className="text-muted-foreground">
                 <List className="size-4" />
                 {t('lists.newList')}
               </Button>
-            </>
-          )}
-          {canEditSettings && (
-            <Button
-              variant="ghost"
-              onClick={() => setCustomFieldsOpen(true)}
-              className="text-muted-foreground"
-            >
-              <SlidersHorizontal className="size-4" />
-              {t('customFieldsBtn')}
-            </Button>
-          )}
-          <GatedButton
-            variant="outline"
-            canAct={canEdit}
-            gateReason={tGate('reasons.addOrImportContacts')}
-            onClick={() => setImportOpen(true)}
-          >
-            <Upload className="size-4" />
-            {t('importBtn')}
-          </GatedButton>
-          {canEditSettings && (
-            <Button
+            )}
+            <GatedButton
               variant="outline"
-              onClick={exportCsv}
-              disabled={exporting || !canExport}
+              canAct={canEdit}
+              gateReason={tGate('reasons.addOrImportContacts')}
+              onClick={() => setImportOpen(true)}
             >
-              {exporting ? <Loader2 className="size-4 animate-spin" /> : <Download className="size-4" />}
-              {segmentId ? t('segments.exportSegment') : listId ? t('lists.exportList') : t('segments.exportAll')}
-            </Button>
-          )}
-          <GatedButton
-            canAct={canEdit}
-            gateReason={tGate('reasons.addOrImportContacts')}
-            onClick={openAddForm}
-            size="lg"
-          >
-            <Plus className="size-4" />
-            {t('addContactBtn')}
-          </GatedButton>
-        </div>
-      </div>
+              <Upload className="size-4" />
+              {t('importBtn')}
+            </GatedButton>
+            {canEditSettings && (
+              <Button
+                variant="outline"
+                onClick={() => exportCsv(exportQuery)}
+                disabled={exporting || !canExport}
+              >
+                {exporting ? <Loader2 className="size-4 animate-spin" /> : <Download className="size-4" />}
+                {segmentId ? t('segments.exportSegment') : listId ? t('lists.exportList') : t('segments.exportAll')}
+              </Button>
+            )}
+            <GatedButton
+              canAct={canEdit}
+              gateReason={tGate('reasons.addOrImportContacts')}
+              onClick={openAddForm}
+            >
+              <Plus className="size-4" />
+              {t('addContactBtn')}
+            </GatedButton>
+          </>
+        }
+      />
 
-      {/* Search + filter chips */}
+      {/* Search + filter chips + sort */}
       <div className="space-y-2">
         <div className="flex flex-wrap items-center gap-2">
-          <div className="relative w-full sm:w-80">
+          <div className="relative w-full sm:w-72">
             <Search className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               type="search"
               value={search}
+              aria-label={t('searchPlaceholder')}
               onChange={(e) => {
                 setSearch(e.target.value);
                 // Reset pagination when the query changes — the result
@@ -960,37 +928,94 @@ export default function ContactsPage() {
             </PopoverContent>
           </Popover>
 
+          <select
+            aria-label={tr('filters.owner')}
+            value={ownerFilter}
+            onChange={(e) => {
+              setOwnerFilter(e.target.value);
+              setPage(0);
+            }}
+            className={cn(CHIP, ownerFilter && CHIP_ON)}
+          >
+            <option value="">{tr('filters.anyOwner')}</option>
+            {members.map((m) => (
+              <option key={m.user_id} value={m.user_id}>{m.full_name || tr('owner.unnamedMember')}</option>
+            ))}
+            <option value="none">{tr('owner.noOne')}</option>
+          </select>
+
           {showChannelFilters && (
-            <>
-              <select
-                aria-label={tc('channel')}
-                value={channelView}
-                onChange={(e) => {
-                  setChannelView(e.target.value as ChannelView);
-                  setPage(0);
-                }}
-                className={cn(CHIP, channelView && CHIP_ON)}
-              >
-                <option value="">{tc('allChannels')}</option>
-                <option value="whatsapp">{tc('hasWhatsApp')}</option>
-                <option value="instagram">{tc('hasInstagram')}</option>
-              </select>
-              <div className="flex h-8 shrink-0 items-center gap-2 rounded-full border border-border bg-card pl-1.5 pr-3">
-                <Switch
-                  id="contacts-subscribed-only"
-                  checked={subscribedOnly}
-                  onCheckedChange={(checked) => {
-                    setSubscribedOnly(checked === true);
-                    setPage(0);
-                  }}
-                />
-                <Label htmlFor="contacts-subscribed-only" className="text-[13px] font-normal text-muted-foreground">
-                  {tc('subscribedOnly')}
-                </Label>
-              </div>
-            </>
+            <select
+              aria-label={tc('channel')}
+              value={channelView}
+              onChange={(e) => {
+                setChannelView(e.target.value as ChannelView);
+                setPage(0);
+              }}
+              className={cn(CHIP, channelView && CHIP_ON)}
+            >
+              <option value="">{tc('allChannels')}</option>
+              <option value="whatsapp">{tc('hasWhatsApp')}</option>
+              <option value="instagram">{tc('hasInstagram')}</option>
+            </select>
           )}
 
+          <select
+            aria-label={tr('filters.consent')}
+            value={consentFilter}
+            onChange={(e) => {
+              setConsentFilter(e.target.value as ConsentFilter);
+              setPage(0);
+            }}
+            className={cn(CHIP, consentFilter && CHIP_ON)}
+          >
+            <option value="">{tr('filters.anyConsent')}</option>
+            <option value="opted_in">{tr('filters.optedIn')}</option>
+            <option value="opted_out">{tr('filters.optedOut')}</option>
+          </select>
+
+          {showChannelFilters && (
+            <div className="flex h-8 shrink-0 items-center gap-2 rounded-full border border-border bg-card pl-1.5 pr-3">
+              <Switch
+                id="contacts-subscribed-only"
+                checked={subscribedOnly}
+                onCheckedChange={(checked) => {
+                  setSubscribedOnly(checked === true);
+                  setPage(0);
+                }}
+              />
+              <Label htmlFor="contacts-subscribed-only" className="text-[13px] font-normal text-muted-foreground">
+                {tc('subscribedOnly')}
+              </Label>
+            </div>
+          )}
+
+          {filtersOn && (
+            <button type="button" onClick={clearFilters} className="rounded-md px-1.5 text-[13px] text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50">
+              {tr('filters.clear')}
+            </button>
+          )}
+
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={<button type="button" className={cn(CHIP, 'ml-auto inline-flex items-center gap-1.5')} aria-label={tr('sort.label', { order: sortLabel(sort.key) })} />}
+            >
+              <ArrowUpDown className="size-3.5" aria-hidden />
+              {sortLabel(sort.key)}
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="bg-popover border-border">
+              <DropdownMenuRadioGroup value={sort.key} onValueChange={(value) => sortBy(value as ContactSort, defaultDir(value as ContactSort))}>
+                {SORTS.map((key) => (
+                  <DropdownMenuRadioItem key={key} value={key}>{sortLabel(key)}</DropdownMenuRadioItem>
+                ))}
+              </DropdownMenuRadioGroup>
+              <DropdownMenuSeparator className="bg-border" />
+              <DropdownMenuItem onClick={() => sortBy(sort.key, sort.dir === 'asc' ? 'desc' : 'asc')}>
+                <ArrowUpDown className="size-4" />
+                {tr('sort.reverse')}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           </div>
         </div>
 
@@ -1081,6 +1106,32 @@ export default function ContactsPage() {
                 </DropdownMenuContent>
               </DropdownMenu>
             )}
+            {canEdit && (
+              <DropdownMenu>
+                <DropdownMenuTrigger render={<Button variant="outline" size="sm" disabled={listBusy} />}>
+                  <UserPlus className="size-4" />
+                  {tr('bulk.assignOwner')}
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="max-h-72 overflow-y-auto bg-popover border-border">
+                  {members.map((m) => (
+                    <DropdownMenuItem key={m.user_id} onClick={() => void runStage5Bulk({ type: 'assign_owner', ownerId: m.user_id })}>
+                      <UserRound className="size-4" />
+                      {m.full_name || tr('owner.unnamedMember')}
+                    </DropdownMenuItem>
+                  ))}
+                  <DropdownMenuSeparator className="bg-border" />
+                  <DropdownMenuItem onClick={() => void runStage5Bulk({ type: 'assign_owner', ownerId: null })}>
+                    {tr('owner.noOne')}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+            {canEditSettings && canExport && !allMatching && (
+              <Button variant="outline" size="sm" disabled={exporting} onClick={() => exportCsv(`ids=${[...selected].join(',')}`)}>
+                <Download className="size-4" />
+                {tr('bulk.export')}
+              </Button>
+            )}
             {canEdit && allTags.length > 0 && (
               <DropdownMenu>
                 <DropdownMenuTrigger render={<Button variant="outline" size="sm" disabled={listBusy} />}>
@@ -1113,7 +1164,7 @@ export default function ContactsPage() {
               </DropdownMenu>
             )}
             {canEdit && (
-              <Button variant="outline" size="sm" disabled={listBusy} onClick={() => void openSetField()}>
+              <Button variant="outline" size="sm" disabled={listBusy} onClick={openSetField}>
                 <SlidersHorizontal className="size-4" />
                 {tb('setField')}
               </Button>
@@ -1162,7 +1213,7 @@ export default function ContactsPage() {
       {/* Table */}
       <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
         <div className="overflow-x-auto">
-        <Table>
+        <Table className="table-fixed">
           <TableHeader>
             <TableRow className="border-border bg-muted/50 hover:bg-muted/50">
               <TableHead className="h-11 w-12 pl-5">
@@ -1174,22 +1225,19 @@ export default function ContactsPage() {
                   aria-label={t('selectAllOnPage')}
                 />
               </TableHead>
-              <TableHead className={TH}>{t('tableColumns.name')}</TableHead>
-              <TableHead className={TH}>{t('tableColumns.phone')}</TableHead>
-              <TableHead className={cn(TH, 'hidden md:table-cell')}>{t('tableColumns.email')}</TableHead>
-              <TableHead className={cn(TH, 'hidden lg:table-cell')}>{t('tableColumns.company')}</TableHead>
-              {instagramOn && (
-                <TableHead className={cn(TH, 'hidden md:table-cell')}>{tcs('instagram')}</TableHead>
-              )}
-              <TableHead className={cn(TH, 'hidden md:table-cell')}>{t('tableColumns.tags')}</TableHead>
-              <TableHead className={cn(TH, 'hidden lg:table-cell')}>{t('tableColumns.createdAt')}</TableHead>
-              <TableHead className="w-12" />
+              {sortHead('name', t('tableColumns.name'))}
+              <TableHead className={cn(TH, 'hidden w-[20%] truncate sm:table-cell')}>{tr('columns.channels')}</TableHead>
+              <TableHead className={cn(TH, 'hidden w-[15%] truncate md:table-cell')}>{t('tableColumns.tags')}</TableHead>
+              {sortHead('owner', tr('columns.owner'), 'hidden w-[12%] lg:table-cell')}
+              {sortHead('city', tr('columns.city'), 'hidden w-[10%] xl:table-cell')}
+              {sortHead('seen', tr('columns.lastSeen'), 'hidden w-[10%] xl:table-cell')}
+              <TableHead className="w-12"><span className="sr-only">{tr('columns.actions')}</span></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
               <TableRow className="border-border hover:bg-transparent">
-                <TableCell colSpan={instagramOn ? 9 : 8} className="py-16 text-center">
+                <TableCell colSpan={8} className="py-16 text-center">
                   <div className="flex flex-col items-center gap-2">
                     <Loader2 className="size-5 animate-spin text-muted-foreground" />
                     <p className="text-sm text-muted-foreground">{t('loading')}</p>
@@ -1198,7 +1246,7 @@ export default function ContactsPage() {
               </TableRow>
             ) : contacts.length === 0 ? (
               <TableRow className="border-border hover:bg-transparent">
-                <TableCell colSpan={instagramOn ? 9 : 8} className="py-16 text-center whitespace-normal">
+                <TableCell colSpan={8} className="py-16 text-center whitespace-normal">
                   <div className="flex flex-col items-center gap-3">
                     <span className="flex size-12 items-center justify-center rounded-xl bg-muted text-muted-foreground">
                       {hasActiveFilters ? <Search className="size-5" /> : <Users className="size-5" />}
@@ -1208,7 +1256,11 @@ export default function ContactsPage() {
                         ? t('noContactsMatch')
                         : t('noContactsYet')}
                     </p>
-                    {!hasActiveFilters && (
+                    {hasActiveFilters ? (
+                      <Button variant="outline" onClick={() => { clearFilters(); setSearch(''); }}>
+                        {tr('filters.clearAll')}
+                      </Button>
+                    ) : (
                       <GatedButton
                         canAct={canEdit}
                         gateReason={tGate('reasons.addOrImportContacts')}
@@ -1223,64 +1275,108 @@ export default function ContactsPage() {
                 </TableCell>
               </TableRow>
             ) : (
-              contacts.map((contact) => (
+              contacts.map((contact) => {
+                const label = contact.name || contact.phone || contact.instagram_username || '';
+                const sub = contact.email || contact.city || '';
+                return (
                 <TableRow
                   key={contact.id}
                   data-state={selected.has(contact.id) ? 'selected' : undefined}
                   className="h-16 cursor-pointer border-border transition-colors duration-150 hover:bg-muted/40 data-[state=selected]:bg-primary/5"
-                  onClick={() => openDetail(contact.id)}
+                  onClick={() => router.push(`/contacts/${contact.id}`)}
                 >
                   <TableCell className="pl-5" onClick={(e) => e.stopPropagation()}>
                     <Checkbox
                       checked={selected.has(contact.id)}
                       onCheckedChange={() => toggleSelect(contact.id)}
-                      aria-label={t('selectContact', { name: contact.name || contact.phone })}
+                      aria-label={t('selectContact', { name: label })}
                     />
                   </TableCell>
-                  <TableCell className="font-medium text-foreground">
-                    <div className="flex min-w-0 items-center gap-3">
+                  <TableCell className="min-w-0 font-medium text-foreground">
+                    <Link
+                      href={`/contacts/${contact.id}`}
+                      onClick={(e) => e.stopPropagation()}
+                      className="flex min-w-0 items-center gap-3 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+                    >
                       <span
                         aria-hidden
-                        className={cn('flex size-9 shrink-0 items-center justify-center rounded-full text-xs font-semibold', avatarTone(contact.name || contact.phone))}
+                        className={cn('flex size-9 shrink-0 items-center justify-center rounded-full text-xs font-semibold', avatarTone(label))}
                       >
                         {initials(contact.name)}
                       </span>
-                      <span className="min-w-0 truncate text-[14px] font-semibold">
-                        {contact.name || <span className="font-normal italic text-muted-foreground">{t('unnamed')}</span>}
-                        <LeadScoreCell entry={leadScores[contact.id]} />
+                      <span className="flex min-w-0 flex-col">
+                        <span className="flex min-w-0 items-center gap-1.5">
+                          <span className="truncate text-[14px] font-semibold">
+                            {contact.name || <span className="font-normal italic text-muted-foreground">{t('unnamed')}</span>}
+                          </span>
+                          <LeadScoreCell entry={leadScores[contact.id]} />
+                        </span>
+                        {sub && <span className="truncate text-xs font-normal text-muted-foreground">{sub}</span>}
+                        {/* Narrow screens: the hidden Channels and Labels columns, stacked under the name. */}
+                        {(contact.phone || contact.instagram_username || contact.opted_out_at || contact.blocked_at) && (
+                          <span className="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 text-xs font-normal text-muted-foreground sm:hidden">
+                            {(contact.phone || contact.instagram_username) && (
+                              <span className="min-w-0 truncate tabular-nums">{contact.phone || `@${contact.instagram_username}`}</span>
+                            )}
+                            {contact.opted_out_at && <span className="text-amber-700 dark:text-amber-300">{tr('badges.optedOut')}</span>}
+                            {contact.blocked_at && <span className="text-destructive">{tr('badges.blocked')}</span>}
+                          </span>
+                        )}
+                        {contact.tags && contact.tags.length > 0 && (
+                          <span className="mt-1 flex min-w-0 flex-wrap gap-1 md:hidden">
+                            {contact.tags.slice(0, 2).map((tag) => (
+                              <span key={tag.id} className="max-w-[9rem] truncate rounded-full px-2 py-px text-[11px] font-medium" style={{ backgroundColor: tag.color + '20', color: tag.color }}>
+                                {tag.name}
+                              </span>
+                            ))}
+                            {contact.tags.length > 2 && <span className="text-[11px] tabular-nums text-muted-foreground">+{contact.tags.length - 2}</span>}
+                          </span>
+                        )}
+                      </span>
+                    </Link>
+                  </TableCell>
+                  <TableCell className="hidden min-w-0 sm:table-cell">
+                    <div className="flex min-w-0 flex-col gap-1 text-[13px] text-foreground/80">
+                      {contact.phone && (
+                        <span className="inline-flex min-w-0 items-center gap-2 tabular-nums">
+                          <span aria-hidden className="size-1.5 shrink-0 rounded-full bg-emerald-500" />
+                          <span className="truncate">{contact.phone}</span>
+                        </span>
+                      )}
+                      {contact.instagram_username && (
+                        <span className="inline-flex min-w-0 items-center gap-2">
+                          <span aria-hidden className="size-1.5 shrink-0 rounded-full bg-pink-500" />
+                          <span className="truncate">@{contact.instagram_username}</span>
+                        </span>
+                      )}
+                      <span className="flex flex-wrap gap-1">
+                        {contact.opted_out_at && (
+                          <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[11px] font-medium text-amber-700 dark:text-amber-300">{tr('badges.optedOut')}</span>
+                        )}
+                        {contact.blocked_at && (
+                          <span className="rounded-full bg-destructive/10 px-2 py-0.5 text-[11px] font-medium text-destructive">{tr('badges.blocked')}</span>
+                        )}
+                        {instagramOn && igStatus[contact.id] && igStatus[contact.id] !== 'none' && (
+                          <span
+                            data-testid="contact-instagram-status"
+                            className={cn('rounded-full px-2 py-0.5 text-[11px] font-medium',
+                              igStatus[contact.id] === 'subscribed'
+                                ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
+                                : 'bg-muted text-muted-foreground')}
+                          >
+                            {tcs('instagram')}: {igStatus[contact.id] === 'subscribed' ? tcs('subscribed') : tcs('unsubscribed')}
+                          </span>
+                        )}
                       </span>
                     </div>
                   </TableCell>
-                  <TableCell className="text-[13px] tabular-nums text-foreground/80">
-                    <span className="inline-flex items-center gap-2">
-                      <span aria-hidden className="size-1.5 shrink-0 rounded-full bg-emerald-500" />
-                      {contact.phone}
-                    </span>
-                  </TableCell>
-                  <TableCell className="hidden text-[13px] text-muted-foreground md:table-cell">
-                    {contact.email || <span aria-hidden>—</span>}
-                  </TableCell>
-                  <TableCell className="hidden text-[13px] text-muted-foreground lg:table-cell">
-                    {contact.company || <span aria-hidden>—</span>}
-                  </TableCell>
-                  {instagramOn && (
-                    <TableCell className="hidden text-xs md:table-cell" data-testid="contact-instagram-status">
-                      {igStatus[contact.id] === 'subscribed' ? (
-                        <span className="inline-flex items-center rounded-full bg-emerald-500/10 px-2 py-0.5 font-medium text-emerald-700 dark:text-emerald-300">{tcs('subscribed')}</span>
-                      ) : igStatus[contact.id] === 'unsubscribed' ? (
-                        <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-muted-foreground">{tcs('unsubscribed')}</span>
-                      ) : (
-                        <span className="text-muted-foreground">{tcs('none')}</span>
-                      )}
-                    </TableCell>
-                  )}
                   <TableCell className="hidden md:table-cell">
                     <div className="flex flex-wrap items-center gap-1">
                       {contact.tags && contact.tags.length > 0 ? (
                         contact.tags.slice(0, 3).map((tag) => (
                           <span
                             key={tag.id}
-                            className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium"
+                            className="inline-flex max-w-full items-center truncate rounded-full px-2.5 py-0.5 text-xs font-medium"
                             style={{
                               backgroundColor: tag.color + '20',
                               color: tag.color,
@@ -1299,14 +1395,25 @@ export default function ContactsPage() {
                       )}
                     </div>
                   </TableCell>
-                  <TableCell className="hidden text-[13px] tabular-nums text-muted-foreground lg:table-cell">
-                    {new Date(contact.created_at).toLocaleDateString('en-US', {
-                      month: 'short',
-                      day: 'numeric',
-                      year: 'numeric',
-                    })}
+                  <TableCell className="hidden text-[13px] lg:table-cell">
+                    {contact.owner_id ? (
+                      <span className="inline-flex min-w-0 max-w-full items-center gap-1.5">
+                        <span aria-hidden className={cn('flex size-5 shrink-0 items-center justify-center rounded-full text-[9px] font-semibold', avatarTone(contact.owner_name || contact.owner_id))}>
+                          {initials(contact.owner_name || '')}
+                        </span>
+                        <span className="truncate">{contact.owner_name || tr('owner.formerMember')}</span>
+                      </span>
+                    ) : (
+                      <span className="text-muted-foreground">{tr('owner.noOne')}</span>
+                    )}
                   </TableCell>
-                  <TableCell className="pr-3 text-right">
+                  <TableCell className="hidden truncate text-[13px] text-muted-foreground xl:table-cell">
+                    {contact.city || <span aria-hidden>—</span>}
+                  </TableCell>
+                  <TableCell className="hidden truncate text-[13px] tabular-nums text-muted-foreground xl:table-cell">
+                    {contact.last_seen_at ? formatLastSeen(contact.last_seen_at, locale, tr) : <span aria-hidden>—</span>}
+                  </TableCell>
+                  <TableCell className="pr-3 text-right" onClick={(e) => e.stopPropagation()}>
                     <DropdownMenu>
                       <DropdownMenuTrigger
                         render={
@@ -1314,8 +1421,7 @@ export default function ContactsPage() {
                             variant="ghost"
                             size="icon-sm"
                             className="text-muted-foreground hover:text-foreground"
-                            onClick={(e) => e.stopPropagation()}
-                            aria-label={t('rowActions', { name: contact.name || contact.phone })}
+                            aria-label={t('rowActions', { name: label })}
                           />
                         }
                       >
@@ -1325,11 +1431,18 @@ export default function ContactsPage() {
                         align="end"
                         className="bg-popover border-border"
                       >
+                        <DropdownMenuItem onClick={() => router.push(`/contacts/${contact.id}`)}>
+                          <UserRound className="size-4" />
+                          {tr('row.open')}
+                        </DropdownMenuItem>
+                        {canEdit && (
+                          <DropdownMenuItem onClick={() => router.push(`/contacts/${contact.id}?message=1`)}>
+                            <Send className="size-4" />
+                            {tr('row.message')}
+                          </DropdownMenuItem>
+                        )}
                         <DropdownMenuItem
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            openEditForm(contact);
-                          }}
+                          onClick={() => openEditForm(contact)}
                           className="text-popover-foreground focus:bg-muted focus:text-foreground"
                         >
                           <Pencil className="size-4" />
@@ -1338,10 +1451,7 @@ export default function ContactsPage() {
                         <DropdownMenuSeparator className="bg-border" />
                         <DropdownMenuItem
                           variant="destructive"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            confirmDelete(contact);
-                          }}
+                          onClick={() => confirmDelete(contact)}
                         >
                           <Trash2 className="size-4" />
                           {t('deleteAction')}
@@ -1350,7 +1460,8 @@ export default function ContactsPage() {
                     </DropdownMenu>
                   </TableCell>
                 </TableRow>
-              ))
+                );
+              })
             )}
           </TableBody>
         </Table>
@@ -1388,16 +1499,8 @@ export default function ContactsPage() {
         }}
         onViewExisting={(id) => {
           setFormOpen(false);
-          openDetail(id);
+          router.push(`/contacts/${id}`);
         }}
-      />
-
-      {/* Contact Detail Sheet */}
-      <ContactDetailView
-        open={detailOpen}
-        onOpenChange={setDetailOpen}
-        contactId={detailContactId}
-        onUpdated={fetchContacts}
       />
 
       {/* Import Modal */}
@@ -1414,21 +1517,13 @@ export default function ContactsPage() {
         tags={allTags}
         lists={lists}
         campaigns={campaigns}
-        customFields={customFields}
+        customFields={customFields.map((f) => ({ id: f.id, field_name: f.field_name, field_type: f.field_type, user_id: '', account_id: '', created_at: f.created_at }))}
         onSaved={(saved) => {
           loadSegments();
           if (saved.id === segmentId) fetchContacts();
           else selectSegment(saved.id);
         }}
       />
-
-      {/* Custom Fields Manager (admin+) */}
-      {canEditSettings && (
-        <CustomFieldsManager
-          open={customFieldsOpen}
-          onOpenChange={setCustomFieldsOpen}
-        />
-      )}
 
       {/* New static list */}
       <Dialog open={newListOpen} onOpenChange={setNewListOpen}>
@@ -1497,7 +1592,7 @@ export default function ContactsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Stage 5: set a custom field on the selection */}
+      {/* Set a custom field on the selection (checked against the field's type) */}
       <Dialog open={setFieldOpen} onOpenChange={setSetFieldOpen}>
         <DialogContent className="bg-popover border-border text-popover-foreground sm:max-w-sm">
           <DialogHeader>
@@ -1512,8 +1607,11 @@ export default function ContactsPage() {
               <select
                 id="bulk-field"
                 value={bulkFieldId}
-                onChange={(e) => setBulkFieldId(e.target.value)}
-                className="h-9 w-full rounded-md border border-border bg-card px-2 text-sm text-foreground"
+                onChange={(e) => {
+                  setBulkFieldId(e.target.value);
+                  setBulkFieldValue('');
+                }}
+                className={FIELD_SELECT}
               >
                 <option value="">{tb('chooseField')}</option>
                 {customFields.map((f) => (
@@ -1523,11 +1621,13 @@ export default function ContactsPage() {
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="bulk-field-value" className="text-muted-foreground">{tb('value')}</Label>
-              <Input
+              <CustomFieldInput
                 id="bulk-field-value"
+                type={bulkField?.field_type ?? 'text'}
+                choices={bulkField?.choices ?? []}
                 value={bulkFieldValue}
-                maxLength={1000}
-                onChange={(e) => setBulkFieldValue(e.target.value)}
+                onChange={setBulkFieldValue}
+                disabled={!bulkField}
               />
             </div>
           </div>

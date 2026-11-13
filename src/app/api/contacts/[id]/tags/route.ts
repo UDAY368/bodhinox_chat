@@ -7,6 +7,7 @@ import {
   removeContactTag,
 } from '@/lib/contacts/tag-write';
 import { getT } from '@/lib/i18n/translate';
+import { logContactActivity } from '@/lib/contacts/profile';
 
 const t = getT('Api');
 
@@ -63,11 +64,16 @@ export async function DELETE(
       return NextResponse.json({ error: t('contacts.tagIdRequired') }, { status: 400 });
     }
 
-    await removeContactTag(ctx.db, {
+    const removed = await removeContactTag(ctx.db, {
       accountId: ctx.accountId,
       contactId,
       tagId,
     });
+    // The contact's timeline (tag additions come from contact_tags itself). Best effort:
+    // the tag is already removed, so a failed log must not fail the request.
+    if (removed)
+      await logContactActivity({ accountId: ctx.accountId, userId: ctx.userId, role: ctx.role }, contactId, 'tag_removed', { tag_id: tagId })
+        .catch(() => console.error('[contacts] tag removal not added to the timeline'));
 
     return NextResponse.json({ ok: true });
   } catch (error) {

@@ -20,7 +20,7 @@ const routeModules = import.meta.glob('/src/app/api/**/route.ts');
 const databases = fixtureDatabaseUrls();
 
 type Extra = Record<'list' | 'segment' | 'team' | 'paymentLink' | 'media' | 'note' | 'attribute' | 'schedule'
-  | 'savedFilter' | 'form' | 'mediaKey' | 'igTemplate', string>;
+  | 'savedFilter' | 'form' | 'mediaKey' | 'igTemplate' | 'customField', string>;
 type Ids = TenantFixture & { extra: Extra };
 
 type Case = {
@@ -57,6 +57,16 @@ export const CASES: Case[] = [
   // WhatsApp consent: another workspace's contact is not found and keeps its consent.
   { route: 'contacts/[id]/consent', method: 'POST', params: id('contactId'), body: () => ({ state: 'opted_out' }) },
   { route: 'contacts/[id]/consent', method: 'POST', params: id('contactId'), body: () => ({ state: 'opted_in' }), as: 'agent' },
+  { route: 'contacts/[id]/consent', method: 'POST', params: id('contactId'), body: () => ({ state: 'opted_out', channel: 'instagram' }), as: 'agent' },
+  // Contact profile: another workspace's contact is not found, its fields, owner and values stay as they are.
+  { route: 'contacts/[id]', method: 'GET', params: id('contactId') },
+  { route: 'contacts/[id]', method: 'PATCH', params: id('contactId'), body: () => ({ field: 'city', value: 'p15 taken over' }), as: 'agent' },
+  { route: 'contacts/[id]', method: 'PATCH', params: id('contactId'), body: () => ({ field: 'blocked', value: true }) },
+  { route: 'contacts/[id]', method: 'PATCH', params: id('contactId'), body: (a) => ({ field: 'owner_id', value: a.users.owner.userId }) },
+  { route: 'contacts/[id]', method: 'PATCH', params: id('contactId'), body: (_a, b) => ({ customFieldId: b.extra.customField, value: 'Growth' }) },
+  // Custom fields: another workspace's field cannot be renamed, re-choiced or deleted.
+  { route: 'custom-fields/[id]', method: 'PATCH', params: extra('customField'), body: () => ({ name: 'p15 taken over', choices: ['A', 'B'] }) },
+  { route: 'custom-fields/[id]', method: 'DELETE', params: extra('customField') },
   // Saved Instagram templates: another workspace's template cannot be edited or deleted.
   { route: 'instagram/message-templates/[id]', method: 'PATCH', params: extra('igTemplate'), env: INSTAGRAM_ON,
     body: () => ({ name: 'p15 taken over', kind: 'button', payload: { text: 'x', buttons: [{ type: 'reply', title: 'Hi' }] } }) },
@@ -311,7 +321,7 @@ const TABLES = ['contacts', 'conversations', 'messages', 'tags', 'contact_tags',
   'contact_lists', 'contact_list_members', 'segments', 'teams', 'payment_links', 'media_objects', 'conversation_notes',
   'workspace_attributes', 'report_schedules', 'saved_filters', 'whatsapp_forms', 'webhook_endpoints', 'api_keys',
   'account_memberships', 'quick_replies', 'message_templates', 'ai_knowledge_documents', 'whatsapp_config', 'accounts',
-  'instagram_message_templates'];
+  'instagram_message_templates', 'custom_fields', 'contact_custom_values', 'contact_activity'];
 
 async function existingTables(): Promise<string[]> {
   const rows = await fixtureOwnerPool().query<{ t: string }>(
@@ -354,6 +364,8 @@ async function addExtras(t: TenantFixture, tag: string): Promise<Extra> {
       [a, u, `p15 form ${tag}`, JSON.stringify({ screens: [] })]),
     igTemplate: await one("INSERT INTO instagram_message_templates(account_id,name,kind,payload,created_by) VALUES($1,$2,'button',$3::jsonb,$4)",
       [a, `p15 template ${tag}`, JSON.stringify({ text: 'Hello', buttons: [{ type: 'postback', title: 'Hi', payload: 'reply:Hi' }] }), u]),
+    customField: await one("INSERT INTO custom_fields(account_id,user_id,field_name,field_type,field_options) VALUES($1,$2,$3,'choice',$4::jsonb)",
+      [a, u, `p15 plan ${tag}`, JSON.stringify(['Starter', 'Growth'])]),
   };
 }
 

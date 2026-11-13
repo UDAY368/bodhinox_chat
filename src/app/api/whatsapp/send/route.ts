@@ -26,6 +26,7 @@ import { instagramErrorResponse, NO_STORE } from '@/lib/instagram/http'
 import { recordSuggestionUse } from '@/lib/ai/assist/suggestions'
 import { logAiEvent } from '@/lib/ai/log'
 import { manualRepliesBlocked } from '@/lib/platform/lifecycle'
+import { logContactActivity } from '@/lib/contacts/profile'
 
 const t = getT('Api')
 const tForm = getT('Validation.formSend')
@@ -256,6 +257,13 @@ export async function POST(request: Request) {
       )
       if (aiSuggestionId && message_type === 'text') {
         await noteSuggestionUse({ accountId, userId, role }, aiSuggestionId, conversationId, result.messageId, content_text)
+      }
+      // A template started from the contact profile goes on its timeline
+      // (the template's name only). Best effort: the message is already sent.
+      if (message_type === 'template' && typeof contact_id === 'string' && !conversationIdInput) {
+        await logContactActivity({ accountId, userId, role }, contact_id, 'template_sent', {
+          template: typeof template_name === 'string' ? template_name.slice(0, 512) : null,
+        }).catch(() => console.error('[send] contact timeline row failed'))
       }
 
       return NextResponse.json({

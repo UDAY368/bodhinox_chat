@@ -240,7 +240,7 @@ export function ContactSidebar({
             )}
             <div className="mt-3 flex justify-center">
               <Link
-                href={`/contacts?contact=${encodeURIComponent(contact.id)}`}
+                href={`/contacts/${encodeURIComponent(contact.id)}`}
                 className="border-border hover:bg-muted inline-flex h-8 items-center gap-1.5 rounded-full border px-3.5 text-[13px] font-semibold transition-colors duration-150"
               >
                 <UserRound className="size-3.5" aria-hidden />

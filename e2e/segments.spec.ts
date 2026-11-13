@@ -6,8 +6,9 @@ test.describe('segments and export', () => {
   test('an agent builds a segment, sees its live count and filters contacts by it', async ({ page }) => {
     const { contact, runId } = fixtures();
     await login(page, fixtures().users.agent);
-    await page.goto('/contacts');
-    await page.getByRole('button', { name: 'New segment' }).click();
+    // Segments live on their own tab (Contacts > Segments) as cards.
+    await page.goto('/contacts/segments');
+    await page.getByRole('button', { name: 'New segment' }).first().click();
 
     const dialog = page.getByRole('dialog');
     await dialog.getByLabel('Name', { exact: true }).fill(`Consent contacts ${runId}`);
@@ -17,6 +18,12 @@ test.describe('segments and export', () => {
     await expect(dialog.getByTestId('segment-count')).toHaveText(/1 contacts match · 1 can receive marketing/);
     await dialog.getByRole('button', { name: 'Save segment' }).click();
     await expect(dialog).toBeHidden();
+
+    // The card shows the live count; View people opens the People tab filtered by it.
+    const card = page.locator('article').filter({ hasText: `Consent contacts ${runId}` });
+    await expect(card.getByText('1', { exact: true })).toBeVisible();
+    await card.getByRole('button', { name: 'View people' }).click();
+    await expect(page).toHaveURL(/\/contacts\?segment=/);
 
     const selector = page.getByLabel('Segment', { exact: true });
     await expect(selector).toHaveValue(/.+/);
@@ -31,6 +38,8 @@ test.describe('segments and export', () => {
     await login(page, fixtures().users.viewer);
     await page.goto('/contacts');
     await expect(page.getByLabel('Segment', { exact: true })).toBeVisible();
+    await page.goto('/contacts/segments');
+    await expect(page.getByRole('heading', { name: 'Contacts' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'New segment' })).toHaveCount(0);
   });
 

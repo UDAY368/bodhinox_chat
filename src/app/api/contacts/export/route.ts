@@ -1,11 +1,11 @@
-// GET /api/contacts/export[?segmentId=|?listId=] — download contacts as CSV.
+// GET /api/contacts/export[?segmentId=|?listId=|?ids=a,b] — download contacts as CSV.
 // Admin+ only (bulk personal data), rate limited and audit-logged.
 
 import { NextResponse } from 'next/server';
 
 import { requireRole } from '@/lib/auth/account';
 import { requirePermission } from '@/lib/auth/permissions';
-import { exportContactsCsv } from '@/lib/audience/export';
+import { exportContactsCsv, MAX_EXPORT_IDS } from '@/lib/audience/export';
 import { audienceError, tenantOf } from '@/lib/audience/http';
 import { checkRateLimit, rateLimitResponse, RATE_LIMITS } from '@/lib/rate-limit';
 import { resolvePhoneMask } from '@/lib/inbox/masking-apply';
@@ -23,9 +23,13 @@ export async function GET(request: Request) {
     const query = new URL(request.url).searchParams;
     const segmentId = query.get('segmentId');
     const listId = query.get('listId');
+    // ?ids=a,b: the ticked rows or one contact's profile (at most MAX_EXPORT_IDS, this workspace's only).
+    const ids = query.get('ids')?.split(',').filter(Boolean) ?? null;
     if ((segmentId && !UUID.test(segmentId)) || (listId && !UUID.test(listId)))
       return NextResponse.json({ error: 'Not found' }, { status: 404 });
-    const { csv } = await exportContactsCsv(tenantOf(ctx), segmentId ? { segmentId } : listId ? { listId } : null);
+    if (ids && (!ids.length || ids.length > MAX_EXPORT_IDS || ids.some((id) => !UUID.test(id))))
+      return NextResponse.json({ error: 'Choose between 1 and 100 contacts' }, { status: 400 });
+    const { csv } = await exportContactsCsv(tenantOf(ctx), segmentId ? { segmentId } : listId ? { listId } : ids ? { contactIds: ids } : null);
     return new NextResponse(csv, {
       headers: {
         'Content-Type': 'text/csv; charset=utf-8',

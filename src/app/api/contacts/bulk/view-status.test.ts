@@ -46,9 +46,9 @@ describe('contacts bulk view', () => {
     const res = await VIEW(new Request(`http://localhost/api/contacts/bulk/view?segmentId=${SEGMENT}&channel=instagram&subscribed=1&offset=50&limit=500`));
     expect(res.status).toBe(200);
     expect(res.headers.get('Cache-Control')).toContain('no-store');
-    expect(h.scope).toHaveBeenCalledWith(tenant, { segmentId: SEGMENT, channel: 'instagram', subscribedOnly: true }, { offset: 50, limit: 100 });
+    expect(h.scope).toHaveBeenCalledWith(tenant, { segmentId: SEGMENT, channel: 'instagram', subscribedOnly: true }, { offset: 50, limit: 100, sort: 'created', dir: 'desc' });
     await VIEW(new Request('http://localhost/api/contacts/bulk/view?offset=-3'));
-    expect(h.scope).toHaveBeenLastCalledWith(tenant, {}, { offset: 0, limit: 25 });
+    expect(h.scope).toHaveBeenLastCalledWith(tenant, {}, { offset: 0, limit: 25, sort: 'created', dir: 'desc' });
   });
 
   it('answers 400 for an invalid view', async () => {

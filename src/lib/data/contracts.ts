@@ -585,6 +585,13 @@ export function validateWrite(
     // (/api/contacts/[id]/consent), so a browser cannot forge an opt-in or its source.
     if (browser && name === 'contacts' && ['instagram_opted_out_at', 'instagram_opted_in_at', 'opted_out_at', 'opt_out_source', 'opted_in_at', 'opt_in_source'].includes(field))
       throw new ContractError(`Field ${field} is server-managed`);
+    // A contact's owner must be a member of the workspace, which PATCH /api/contacts/[id]
+    // and the bulk "assign owner" action check (src/lib/contacts/profile.ts, bulk.ts).
+    if (browser && name === 'contacts' && field === 'owner_id')
+      throw new ContractError(`Field ${field} is server-managed`);
+    // A custom field's type and choices are checked by /api/custom-fields (custom-field-types.ts).
+    if (browser && name === 'custom_fields' && ['field_type', 'field_options'].includes(field) && !(operation === 'insert' && field === 'field_type' && value === 'text'))
+      throw new ContractError(`Field ${field} is server-managed`);
     // An automation's channel is chosen once by the automation routes (its section)
     // and never changes; the engine matches it against the conversation's channel.
     if (browser && name === 'automations' && field === 'channel')
