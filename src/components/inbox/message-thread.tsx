@@ -1882,7 +1882,7 @@ export function MessageThread({
                       {/* React (Instagram: the heart only), reply and copy on both channels. */}
                       <MessageActions
                         message={msg}
-                        onReply={() => handleStartReply(msg)}
+                        onReply={contactBlocked ? undefined : () => handleStartReply(msg)}
                         onReact={(emoji) => {
                           if (emoji) void postReaction(msg.id, emoji);
                         }}

@@ -29,11 +29,13 @@ const SECURITY_HEADERS = [
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
   {
     // Microphone is allowed for same-origin (`self`) so the inbox
-    // composer can record voice notes via MediaRecorder. Everything
+    // composer can record voice notes via MediaRecorder, and geolocation
+    // for same-origin so the composer's Location dialog can fill "Use my
+    // current location" (the browser still asks the member). Everything
     // else stays denied — a compromised dependency can't silently grab
-    // the camera / geolocation / etc.
+    // the camera / payment / etc.
     key: "Permissions-Policy",
-    value: "camera=(), microphone=(self), geolocation=(), payment=(), usb=()",
+    value: "camera=(), microphone=(self), geolocation=(self), payment=(), usb=()",
   },
   {
     key: "Content-Security-Policy-Report-Only",

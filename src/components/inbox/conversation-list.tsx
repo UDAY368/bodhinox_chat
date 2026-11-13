@@ -702,8 +702,8 @@ export function ConversationList({
       if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
       if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey) return;
       const target = event.target as HTMLElement | null;
-      // Only from the list itself or with nothing focused: elsewhere the arrows keep scrolling (the chat, menus, fields).
-      if (target && target !== document.body && !target.closest('.studio-conversation-list')) return;
+      // Only from the list itself: elsewhere (the chat after a click, menus, fields) the arrows keep scrolling.
+      if (!target?.closest('.studio-conversation-list')) return;
       if (target?.closest('input, textarea, select, [contenteditable="true"], [role="menu"], [role="listbox"], [role="dialog"], [role="tablist"]')) return;
       if (document.querySelector('[role="dialog"], [role="menu"]')) return;
       const rows = filteredRef.current;

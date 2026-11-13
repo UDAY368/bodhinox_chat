@@ -18,7 +18,8 @@ const QUICK_EMOJIS = ["👍", "❤️", "😂", "😮", "😢", "🙏"];
 
 interface MessageActionsProps {
   message: Message;
-  onReply: () => void;
+  /** Omitted when there is no composer to reply from (a blocked contact). */
+  onReply?: () => void;
   onReact: (emoji: string) => void;
   children: ReactNode;
   /** The reactions this channel accepts (Instagram: the heart only). */
@@ -75,7 +76,7 @@ export function MessageActions({
   };
 
   const handleReply = () => {
-    onReply();
+    onReply?.();
     setTouchOpen(false);
   };
 
@@ -131,14 +132,14 @@ export function MessageActions({
             ))}
           </PopoverContent>
         </Popover>
-        <button
+        {onReply && <button
           type="button"
           onClick={handleReply}
           className="flex h-5 w-5 items-center justify-center rounded-full text-popover-foreground hover:bg-muted hover:text-foreground"
           aria-label={t("reply")}
         >
           <CornerUpLeft className="h-3.5 w-3.5" />
-        </button>
+        </button>}
         <button
           type="button"
           onClick={handleCopy}
