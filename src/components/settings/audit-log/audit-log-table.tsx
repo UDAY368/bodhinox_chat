@@ -9,7 +9,7 @@
  * only, never secrets or message content.
  */
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Download, Loader2, Search } from "lucide-react";
 import { useFormatter, useTranslations } from "next-intl";
 import { toast } from "sonner";
@@ -72,20 +72,24 @@ export function AuditLogTable({ canView, showHeader = true }: { canView: boolean
     return () => window.clearTimeout(id);
   }, [filters, query.q]);
 
+  // Only the latest request may update the list (a slower answer for an older search is dropped).
+  const latest = useRef(0);
   const fetchPage = useCallback(async (f: AuditFilters, after: string | null) => {
+    const request = ++latest.current;
     setLoading(true);
     try {
       const res = await authFetch(`/api/audit-log?${auditQuery(f, after)}`, { cache: "no-store" });
       if (!res.ok) throw new Error();
       const page = (await res.json()) as Page;
+      if (request !== latest.current) return;
       setEntries((list) => (after ? [...list, ...page.entries] : page.entries));
       if (page.actions) setActions(page.actions);
       setCursor(page.next_cursor);
       setFailed(false);
     } catch {
-      setFailed(true);
+      if (request === latest.current) setFailed(true);
     } finally {
-      setLoading(false);
+      if (request === latest.current) setLoading(false);
     }
   }, []);
 

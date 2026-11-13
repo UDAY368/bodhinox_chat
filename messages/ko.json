@@ -13866,7 +13866,6 @@
       "notConnected": "연결 안 됨",
       "manage": "관리",
       "setUp": "설정",
-      "manageApp": "{app} 관리",
       "apps": {
         "shopify": {
           "name": "Shopify",

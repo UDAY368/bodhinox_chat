@@ -28,6 +28,13 @@ function keyBytes(base64url: string): Uint8Array<ArrayBuffer> {
   return bytes;
 }
 
+/** Whether a subscription's application server key is this key (an unknown key counts as the same). */
+function sameKey(current: ArrayBuffer | null | undefined, key: Uint8Array): boolean {
+  if (!current) return true;
+  const bytes = new Uint8Array(current);
+  return bytes.length === key.length && bytes.every((byte, i) => byte === key[i]);
+}
+
 async function registration(labels: { title: string; body: string }): Promise<ServiceWorkerRegistration> {
   const url = `/sw.js?${new URLSearchParams({ title: labels.title, body: labels.body }).toString()}`;
   return navigator.serviceWorker.register(url, { scope: '/' });
@@ -50,8 +57,14 @@ export async function enablePush(publicKey: string, labels: { title: string; bod
   try {
     const reg = await registration(labels);
     await navigator.serviceWorker.ready;
-    const existing = await reg.pushManager.getSubscription();
-    const subscription = existing ?? await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: keyBytes(publicKey) });
+    const serverKey = keyBytes(publicKey);
+    let existing = await reg.pushManager.getSubscription();
+    // A subscription made with an older VAPID key would be refused by the push service: replace it.
+    if (existing && !sameKey(existing.options.applicationServerKey, serverKey)) {
+      await existing.unsubscribe().catch(() => false);
+      existing = null;
+    }
+    const subscription = existing ?? await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: serverKey });
     const response = await authFetch(PUSH_ENDPOINT, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

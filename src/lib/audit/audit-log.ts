@@ -152,6 +152,8 @@ function auditRowsSql(tenant: TenantContext, query: AuditQuery, limit: number): 
   const exact = query.action && !prefix ? query.action : null;
   const search = query.q ? containsPattern(query.q) : null;
   const patterns = query.category ? AUDIT_CATEGORIES[query.category].map((p) => p.replace(/_/g, '\\_')) : null;
+  // A category leaves actions to a more specific one, as categoryOf does (settings.billing is Billing).
+  const excludes = query.category === 'settings' ? ['settings.billing%'] : null;
   return Prisma.sql`SELECT a.id::text AS id,a.created_at::text AS at_key,a.action,a.user_id::text AS user_id,a.resource_id,a.metadata,a.created_at,
         pn.name
       FROM audit_logs a
@@ -159,6 +161,7 @@ function auditRowsSql(tenant: TenantContext, query: AuditQuery, limit: number): 
       WHERE a.account_id=${tenant.accountId}::uuid
         AND (${search}::text IS NULL OR a.action ILIKE ${search} OR pn.name ILIKE ${search} OR a.resource_id ILIKE ${search})
         AND (${patterns}::text[] IS NULL OR a.action LIKE ANY(${patterns}::text[]))
+        AND (${excludes}::text[] IS NULL OR NOT (a.action LIKE ANY(${excludes}::text[])))
         AND (${query.actor ?? null}::uuid IS NULL OR a.user_id=${query.actor ?? null}::uuid)
         AND (${exact}::text IS NULL OR a.action=${exact})
         AND (${prefix}::text IS NULL OR a.action LIKE ${prefix})

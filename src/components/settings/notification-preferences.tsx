@@ -124,12 +124,15 @@ export function NotificationPreferences({ className }: { className?: string }) {
       toast.error(tr('checkFields'));
       return false;
     }
+    // Switched off, the (hidden) times are not checked on screen; keep the stored ones if they are not valid.
+    const timesValid = Boolean(draft.quiet.start && draft.quiet.end && draft.quiet.start !== draft.quiet.end);
+    const quiet = timesValid || !loaded ? draft.quiet : { ...draft.quiet, start: loaded.quiet.start, end: loaded.quiet.end };
     setSaving(true);
     try {
       const response = await authFetch(ENDPOINT, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ preferences: draft.preferences, quiet_hours: { ...draft.quiet, time_zone: browserZone() } }),
+        body: JSON.stringify({ preferences: draft.preferences, quiet_hours: { ...quiet, time_zone: browserZone() } }),
       });
       if (!response.ok) throw new Error('save');
       const data = (await response.json()) as { preferences: NotificationPreference[]; email_available: boolean; push_available: boolean; quiet_hours: QuietView };
@@ -143,7 +146,7 @@ export function NotificationPreferences({ className }: { className?: string }) {
     } finally {
       setSaving(false);
     }
-  }, [draft, apply, t, tr]);
+  }, [draft, loaded, apply, t, tr]);
 
   const discard = useCallback(() => {
     if (loaded) setDraft({ preferences: loaded.preferences, quiet: loaded.quiet });

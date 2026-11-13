@@ -50,6 +50,8 @@ export async function notifySlaBreaches(tx: TenantTransaction, accountId: string
         AND n.dedupe_key='sla_breach:' || c.id::text || ':' || c.reopened_count::text)
       AND NOT EXISTS(SELECT 1 FROM notification_email_queue q WHERE q.account_id=c.account_id AND q.event='sla_breach'
         AND q.dedupe_key='sla_breach:' || c.id::text || ':' || c.reopened_count::text)
+      AND NOT EXISTS(SELECT 1 FROM notification_push_queue q WHERE q.account_id=c.account_id AND q.event='sla_breach'
+        AND q.dedupe_key='sla_breach:' || c.id::text || ':' || c.reopened_count::text)
     ORDER BY c.first_response_due_at DESC LIMIT ${SLA_BATCH}`;
   if (!breaches.length) return 0;
   const admins = await tx.$queryRaw<{ user_id: string }[]>`SELECT user_id::text AS user_id FROM account_memberships

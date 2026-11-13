@@ -116,6 +116,12 @@ function SettingsPageInner() {
     router.replace(`/settings?${params.toString()}`, { scroll: false });
   };
 
+  // The Integrations grid's Webhooks card opens API & webhooks at the webhooks list.
+  const openWebhooks = () => {
+    go('api');
+    window.setTimeout(() => document.getElementById('webhooks')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 150);
+  };
+
   // Cheap, fetch-free rail hints. The Overview landing carries the
   // full live status/counts; the rail just surfaces the two that are
   // already in context.
@@ -163,9 +169,9 @@ function SettingsPageInner() {
       </div>
     ),
     // One Integrations card grid; old Payments and Meetings & shipping links land on their card.
-    integrations: <IntegrationsSection onOpenApi={() => go('api')} />,
-    payments: <IntegrationsSection focus="payments" onOpenApi={() => go('api')} />,
-    connections: <IntegrationsSection focus="connections" onOpenApi={() => go('api')} />,
+    integrations: <IntegrationsSection onOpenApi={openWebhooks} />,
+    payments: <IntegrationsSection focus="payments" onOpenApi={openWebhooks} />,
+    connections: <IntegrationsSection focus="connections" onOpenApi={openWebhooks} />,
     'audit-log': <AuditLogTable key={accountId} canView={canManageMembers} />,
     ads: <MetaAdsCard key={accountId} />,
     plan: (

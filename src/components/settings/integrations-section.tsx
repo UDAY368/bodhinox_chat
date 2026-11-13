@@ -104,9 +104,10 @@ export function IntegrationsSection({ focus, onOpenApi }: { focus?: 'payments' |
                   <p className="mt-0.5 text-xs text-muted-foreground">{t(`apps.${id}.text`)}</p>
                 </div>
                 <div>
-                  <Button type="button" variant={state ? 'outline' : 'default'} size="sm" onClick={() => open(id)}
-                    aria-label={t('manageApp', { app: t(`apps.${id}.name`) })}>
+                  {/* The accessible name starts with the visible label (WCAG 2.5.3), then names the app. */}
+                  <Button type="button" variant={state ? 'outline' : 'default'} size="sm" onClick={() => open(id)}>
                     {state || id === 'webhooks' || id === 'sheets' ? t('manage') : t('setUp')}
+                    <span className="sr-only">: {t(`apps.${id}.name`)}</span>
                   </Button>
                 </div>
               </li>

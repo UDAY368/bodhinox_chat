@@ -13866,7 +13866,6 @@
       "notConnected": "Not connected",
       "manage": "Manage",
       "setUp": "Set up",
-      "manageApp": "Manage {app}",
       "apps": {
         "shopify": {
           "name": "Shopify",
