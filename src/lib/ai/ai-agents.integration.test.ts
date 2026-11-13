@@ -53,10 +53,14 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('AI agents and reply ratings
   it('keeps the legacy single agent answering until an admin opens the list, then migrates it as the default', async () => {
     expect(await worker((tx) => pickAgentTx(tx, accountA, 'whatsapp', conversationA))).toEqual({ kind: 'legacy' });
     // A member below admin never creates rows.
-    expect((await listAgents(agentA)).agents).toEqual([]);
+    // Before any row exists a member who is not an admin sees the legacy agent as a read-only stand-in.
+    expect((await listAgents(agentA)).agents).toMatchObject([{ id: 'legacy', synthetic: true, is_default: true, enabled: true, stats: null }]);
+    expect(await owner.query('SELECT count(*)::int AS n FROM ai_agents WHERE account_id=$1', [accountA]).then((r) => r.rows[0].n)).toBe(0);
     const { agents } = await listAgents(adminA);
     expect(agents).toHaveLength(1);
     expect(agents[0]).toMatchObject({ is_default: true, enabled: true, channels: ['whatsapp', 'instagram'] });
+    expect(agents[0].synthetic).toBeUndefined();
+    expect((await listAgents(agentA)).agents[0].id).toBe(agents[0].id);
     // A second visit does not add another default.
     expect((await listAgents(adminA)).agents).toHaveLength(1);
   });

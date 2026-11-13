@@ -15173,7 +15173,8 @@
         "name_taken": "Another agent already has this name.",
         "limit_reached": "A workspace can have up to 20 agents.",
         "default_agent": "The default agent cannot be deleted. Turn it off instead."
-      }
+      },
+      "legacyHint": "This is the agent that answers your customers today, on every channel at every hour. An admin can turn it into an editable agent by opening this page."
     },
     "editor": {
       "newTitle": "New agent",
@@ -15209,7 +15210,8 @@
         "channels": "Pick at least one channel.",
         "maxTurns": "Enter a number from 0 to 50.",
         "hours": "The start time must be before the end time."
-      }
+      },
+      "overnightHint": "The start must be before the end. For overnight cover (for example 22:00 to 06:00), choose \"Only outside these hours\" and enter 06:00 to 22:00."
     },
     "test": {
       "panelLabel": "Test {name}",

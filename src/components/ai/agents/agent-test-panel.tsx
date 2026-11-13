@@ -61,7 +61,8 @@ export function AgentTestPanel({ agent, onClose }: { agent: AgentView; onClose: 
       const res = await authFetch('/api/ai/playground', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          agent_id: agent.id,
+          // The legacy stand-in has no row: the playground then tests the workspace's own (legacy) agent.
+          agent_id: agent.synthetic ? null : agent.id,
           messages: history.filter((m) => m.kind !== 'event' && m.text).map((m) => ({ role: m.kind === 'me' ? 'user' : 'assistant', content: m.text })),
         }),
       });

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-  AgentError, AGENT_NAME_MAX, agentProfileFor, chooseAgent, copyName, localMinutes, parseAgentInput, withinHours,
+  AgentError, AGENT_NAME_MAX, agentProfileFor, chooseAgent, copyName, isAgentId, legacyAgent, LEGACY_AGENT_ID, localMinutes, parseAgentInput, withinHours,
   type AgentChoice,
 } from './agents'
 import type { AgentProfile } from './agent-profile'
@@ -89,6 +89,17 @@ describe('agentProfileFor', () => {
   it('gives the default agent the workspace profile unchanged', () => {
     expect(agentProfileFor(profile, { is_default: true, instructions: 'x', tone: 'concise', handoff_rules: rules })).toBe(profile)
     expect(agentProfileFor(null, { is_default: true, instructions: 'x', tone: null, handoff_rules: rules })).toBeNull()
+  })
+
+  it('shows the legacy agent before any row exists as a read-only default on every channel and hour', () => {
+    const legacy = legacyAgent(profile, new Date('2026-11-13T00:00:00Z'))
+    expect(legacy).toMatchObject({
+      id: LEGACY_AGENT_ID, synthetic: true, is_default: true, enabled: true, channels: ['whatsapp', 'instagram'],
+      hours: { mode: 'always', from: null, to: null }, instructions: 'Workspace', tone: 'formal', handoff_rules: rules,
+    })
+    // No agent route accepts its id, so it can never be edited, switched or deleted by mistake.
+    expect(isAgentId(legacy.id)).toBe(false)
+    expect(legacyAgent(null)).toMatchObject({ instructions: null, tone: null })
   })
 
   it('keeps business details and swaps instructions, tone and rules for other agents', () => {

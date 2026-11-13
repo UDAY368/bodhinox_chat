@@ -168,6 +168,7 @@ export function AgentDialog({ open, agent, takenNames, onOpenChange, onSaved }: 
               </div>
             )}
             {err('hours', t('editor.errors.hours'))}
+            <p className="text-xs text-muted-foreground">{t('editor.overnightHint')}</p>
             <p className="text-xs text-muted-foreground">{t('editor.timezone')}</p>
           </fieldset>
           <DialogFooter>

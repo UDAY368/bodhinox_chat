@@ -15173,7 +15173,8 @@
         "name_taken": "Outro agente já tem este nome.",
         "limit_reached": "Um espaço de trabalho pode ter até 20 agentes.",
         "default_agent": "O agente padrão não pode ser excluído. Desligue-o."
-      }
+      },
+      "legacyHint": "Este é o agente que responde aos seus clientes hoje, em todos os canais e a qualquer hora. Um administrador pode transformá-lo em um agente editável ao abrir esta página."
     },
     "editor": {
       "newTitle": "Novo agente",
@@ -15209,7 +15210,8 @@
         "channels": "Escolha pelo menos um canal.",
         "maxTurns": "Digite um número de 0 a 50.",
         "hours": "O horário de início deve ser antes do horário de término."
-      }
+      },
+      "overnightHint": "O início deve ser antes do fim. Para cobrir a noite (por exemplo, das 22:00 às 06:00), escolha \"Somente fora deste horário\" e informe das 06:00 às 22:00."
     },
     "test": {
       "panelLabel": "Testar {name}",

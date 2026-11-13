@@ -65,6 +65,29 @@ export interface AiAgent {
   position: number
   created_at: string
   updated_at: string
+  /**
+   * True for the stand-in a member who is not an admin sees before any ai_agents row exists: the legacy
+   * single agent that answers today. It has no row, so it cannot be edited, switched, tested by id or deleted.
+   */
+  synthetic?: boolean
+}
+
+/** The id of the read-only stand-in for the legacy agent (not a UUID, so no agent route accepts it). */
+export const LEGACY_AGENT_ID = 'legacy'
+
+/**
+ * The legacy single agent as a read-only card: every channel, every hour, the workspace profile's
+ * instructions, tone and handover rules (exactly what pickAgent falls back to with no rows).
+ */
+export function legacyAgent(profile: AgentProfile | null, now: Date = new Date()): AiAgent {
+  const at = now.toISOString()
+  return {
+    id: LEGACY_AGENT_ID, name: DEFAULT_AGENT_NAME, role: 'general',
+    instructions: profile?.instructions ?? null, tone: profile?.tone ?? null,
+    handoff_rules: profile?.handoff_rules ?? { ...DEFAULT_HANDOFF_RULES },
+    channels: [...AGENT_CHANNELS], hours: { mode: 'always', from: null, to: null },
+    enabled: true, is_default: true, position: 0, created_at: at, updated_at: at, synthetic: true,
+  }
 }
 
 export interface AgentStats {
@@ -263,13 +286,18 @@ export interface AgentListView {
   profile_saved: boolean
 }
 
-/** Every agent in list order (any member); an admin's first visit creates the default agent. */
+/**
+ * Every agent in list order (any member); an admin's first visit creates the default agent. Before that,
+ * other members see the legacy agent that answers today as a read-only stand-in (legacyAgent), not an
+ * empty list.
+ */
 export async function listAgents(ctx: TenantContext): Promise<AgentListView> {
   if (!ctx.role) throw new AgentError('forbidden')
   return withTenant(ctx, async (tx) => {
     if (isAdmin(ctx)) await ensureDefaultAgent(tx, ctx.accountId, ctx.userId ?? null)
     const profile = await loadAgentProfileTx(tx, ctx.accountId)
     const rows = await selectAgents(tx, ctx.accountId)
+    if (rows.length === 0) return { agents: [{ ...legacyAgent(profile), stats: null }], profile_saved: profile !== null }
     const defaultId = rows.find((r) => r.is_default)?.id ?? null
     const stats = isAdmin(ctx) ? await agentStats(tx, ctx.accountId, defaultId) : null
     return {
