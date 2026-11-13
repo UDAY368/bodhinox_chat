@@ -65,7 +65,7 @@ export function EventsAttention() {
   const reasonText = (reason: string | null) => (reason && tReason.has(reason) ? tReason(reason) : t("failedGeneric"));
 
   return (
-    <section className="mx-4 mt-4 rounded-lg border border-amber-500/40 bg-amber-500/5 p-4 sm:mx-6" aria-labelledby="events-attention-title">
+    <section className="mb-4 rounded-xl border border-amber-500/40 bg-amber-500/5 p-4" aria-labelledby="events-attention-title">
       <div className="flex items-start gap-2">
         <AlertTriangle className="mt-0.5 size-4 shrink-0 text-amber-600" aria-hidden />
         <div className="min-w-0">

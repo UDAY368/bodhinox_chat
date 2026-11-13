@@ -4,7 +4,6 @@ import { authFetch } from "@/lib/auth/client";
 import { useEffect, useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { Sparkles, Settings2, BarChart3, BookOpen, GraduationCap, History, SlidersHorizontal } from 'lucide-react';
-import Image from 'next/image';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { AiPlayground } from '@/components/agents/ai-playground';
 import { AiUsageCard } from '@/components/agents/ai-usage';
@@ -66,44 +65,37 @@ export default function AgentsPage() {
   }, []);
 
   return (
-    <div className="studio-khaga mx-auto max-w-6xl">
-      <div className="relative flex items-center justify-between gap-5 overflow-hidden rounded-[1.5rem] bg-[#111110] px-6 py-8 text-[#f8f7f5] sm:px-9 sm:py-10">
-        <div className="relative z-10 max-w-xl">
-          <p className="text-[9px] font-semibold uppercase tracking-[0.22em] text-[#e4a36e]">{t('studioEyebrow')}</p>
-          <h1 className="mt-4 text-4xl font-medium tracking-[-0.055em] sm:text-5xl">{t('studioTitle')}</h1>
-          <p className="mt-3 max-w-md text-sm leading-relaxed text-[#c2bfb8]">{t('studioDescription')}</p>
+    <div className="mx-auto max-w-6xl">
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <h1 className="text-[22px] font-bold tracking-tight text-foreground">{t('title')}</h1>
+          <p className="mt-1 max-w-3xl text-sm leading-relaxed text-muted-foreground">{t('description')}</p>
         </div>
-        <Image src="/brand/khaga-sun-orange.webp" alt="" aria-hidden="true"
-          width={640} height={640} sizes="(max-width: 640px) 96px, 224px"
-          className="pointer-events-none -my-4 h-auto w-56 shrink-0 object-contain max-sm:w-24" />
       </div>
-      <p className="mt-5 max-w-3xl text-sm leading-relaxed text-muted-foreground">
-        {t('description')}
-      </p>
 
       {decided && (
         <Tabs
           // A tab this role cannot see (an old link) falls back to the playground.
           value={visible.includes(tab) ? tab : 'playground'}
           onValueChange={(v) => setTab(v as Tab)}
-          className="mt-6"
+          className="mt-5"
         >
-          <TabsList className="max-w-full flex-wrap justify-start gap-1 rounded-xl border border-border bg-card p-1 group-data-horizontal/tabs:h-auto">
+          <TabsList className="max-w-full justify-start gap-1 overflow-x-auto rounded-xl bg-muted p-[3px] [scrollbar-width:none] group-data-horizontal/tabs:h-auto">
             {visible.map((value) => {
               const { icon: Icon, label } = TAB_TRIGGERS[value];
               return (
-                <TabsTrigger key={value} value={value} className="h-auto px-3 py-2 text-xs">
-                  <Icon className="mr-1.5 h-4 w-4" /> {t(label)}
+                <TabsTrigger key={value} value={value} className="h-[30px] flex-none rounded-[9px] px-3 text-[13px] text-muted-foreground transition-colors duration-150 data-active:bg-card data-active:text-foreground data-active:shadow-sm dark:data-active:border-transparent dark:data-active:bg-card">
+                  <Icon className="h-4 w-4" /> {t(label)}
                 </TabsTrigger>
               );
             })}
           </TabsList>
 
-          <TabsContent value="playground" className="mt-4">
+          <TabsContent value="playground" className="mt-5">
             <AiPlayground onGoToSetup={() => setTab('setup')} />
           </TabsContent>
 
-          <TabsContent value="setup" className="mt-4 space-y-6">
+          <TabsContent value="setup" className="mt-5 space-y-6">
             <AgentSetupWizard
               canEdit={canEdit}
               knowledgeSlot={<KnowledgePanel canEdit={canEdit} hasEmbeddingsKey={hasEmbeddingsKey} />}
@@ -117,34 +109,34 @@ export default function AgentsPage() {
             </div>
           </TabsContent>
 
-          <TabsContent value="knowledge" className="mt-4">
+          <TabsContent value="knowledge" className="mt-5">
             {/* Websites, sitemaps, files and text with crawl status. Editing a document's text and
                 re-indexing everything stay in the knowledge card under Setup (AI provider settings). */}
             <KnowledgePanel canEdit={canEdit} hasEmbeddingsKey={hasEmbeddingsKey} />
           </TabsContent>
 
           {visible.includes('learnings') && (
-            <TabsContent value="learnings" className="mt-4">
+            <TabsContent value="learnings" className="mt-5">
               <AgentLearnings canPromote={canEdit} />
             </TabsContent>
           )}
 
           {/* Summaries, suggested replies, lead assessment, insights and the monthly cap (admins). */}
           {visible.includes('features') && (
-            <TabsContent value="features" className="mt-4">
+            <TabsContent value="features" className="mt-5">
               <AiAssistantSettings />
             </TabsContent>
           )}
 
           {visible.includes('usage') && (
-            <TabsContent value="usage" className="mt-4">
+            <TabsContent value="usage" className="mt-5">
               <AiUsageCard />
             </TabsContent>
           )}
 
           {/* What the auto-reply agent did with each customer message (admins: it holds customer text). */}
           {visible.includes('activity') && (
-            <TabsContent value="activity" className="mt-4">
+            <TabsContent value="activity" className="mt-5">
               <AiActivity />
             </TabsContent>
           )}

@@ -71,9 +71,9 @@ function AppointmentsContent() {
   }, [reload, changed]);
 
   return (
-    <div className="space-y-6 p-4 sm:p-6">
+    <div className="space-y-5">
       <div>
-        <h1 className="text-2xl font-semibold text-foreground">{t('title')}</h1>
+        <h1 className="text-[22px] font-bold tracking-tight text-foreground">{t('title')}</h1>
         <p className="mt-1 text-sm text-muted-foreground">{t('description')}</p>
       </div>
 
@@ -85,7 +85,7 @@ function AppointmentsContent() {
         </div>
       )}
       {config.state === 'unavailable' && (
-        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-card p-6 text-sm text-muted-foreground">
+        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border bg-card p-6 text-sm text-muted-foreground">
           {t('upgrade')} <UpgradeBadge />
         </div>
       )}
@@ -94,7 +94,7 @@ function AppointmentsContent() {
         <>
           {!abilities.manage && <p className="text-xs text-muted-foreground">{t('readOnly')}</p>}
           <Tabs value={tab} onValueChange={(v) => navigate({ tab: v as Tab })}>
-            <TabsList className="h-auto flex-wrap">
+            <TabsList className="max-w-full justify-start overflow-x-auto bg-muted [scrollbar-width:none] *:flex-none">
               {APPOINTMENT_TABS.map((key) => <TabsTrigger key={key} value={key}>{t(`tabs.${key}`)}</TabsTrigger>)}
             </TabsList>
             <TabsContent value="schedule" className="pt-4">

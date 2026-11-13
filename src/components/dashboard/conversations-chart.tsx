@@ -5,7 +5,7 @@ import { MessageSquare } from 'lucide-react'
 import type { ConversationsSeriesPoint } from '@/lib/dashboard/types'
 import { EmptyState } from './empty-state'
 import { Skeleton } from './skeleton'
-import { cn } from '@/lib/utils'
+import { segmentedItem, segmentedTrack } from './segmented'
 
 type RangeDays = 7 | 30 | 90
 
@@ -49,25 +49,20 @@ export function ConversationsChart({ series, loading, range, onRangeChange }: Co
   }, [data])
 
   return (
-    <section className="studio-panel flex h-full flex-col rounded-xl border border-border bg-card">
-      <header className="flex items-center justify-between border-b border-border px-5 py-4">
+    <section className="flex h-full flex-col rounded-xl border border-border bg-card">
+      <header className="flex flex-wrap items-start justify-between gap-3 px-5 pt-5">
         <div>
-          <h2 className="text-sm font-semibold text-foreground">{t('title')}</h2>
+          <h2 className="text-[15px] font-semibold tracking-tight text-foreground">{t('title')}</h2>
           <p className="mt-0.5 text-xs text-muted-foreground">{t('description')}</p>
         </div>
-        <div className="flex items-center gap-1 rounded-lg bg-muted/60 p-1">
+        <div className={segmentedTrack}>
           {[7, 30, 90].map((r) => (
             <button
               key={r}
               type="button"
               aria-pressed={range === r}
               onClick={() => onRangeChange(r as RangeDays)}
-              className={cn(
-                'rounded-md px-2.5 py-1 text-xs font-medium transition-colors',
-                range === r
-                  ? 'bg-secondary text-secondary-foreground'
-                  : 'text-muted-foreground hover:text-foreground',
-              )}
+              className={segmentedItem(range === r, 'h-[26px] px-2.5 text-xs')}
             >
               {t('days', { count: r })}
             </button>
@@ -75,7 +70,7 @@ export function ConversationsChart({ series, loading, range, onRangeChange }: Co
         </div>
       </header>
 
-      <div className="p-5">
+      <div className="flex-1 px-5 pt-4 pb-3">
         {loading || !data ? (
           <Skeleton className="h-[240px] w-full" />
         ) : data.every((p) => p.incoming === 0 && p.outgoing === 0) ? (
@@ -89,9 +84,9 @@ export function ConversationsChart({ series, loading, range, onRangeChange }: Co
         )}
       </div>
 
-      <footer className="flex items-center gap-4 border-t border-border px-5 py-3 text-xs text-muted-foreground">
-        <LegendDot color="var(--primary)" label={t('incoming')} />
-        <LegendDot color="#58816d" label={t('outgoing')} />
+      <footer className="flex flex-wrap items-center gap-2 px-5 pb-5 text-xs text-muted-foreground">
+        <LegendDot color="var(--chart-1)" label={t('incoming')} />
+        <LegendDot color="var(--muted-foreground)" label={t('outgoing')} dashed />
       </footer>
     </section>
   )
@@ -214,7 +209,6 @@ function LineSvg({
                 y1={y}
                 y2={y}
                 stroke="var(--border)"
-                strokeDasharray="3 3"
               />
               <text
                 x={PADDING.left - 8}
@@ -244,11 +238,20 @@ function LineSvg({
           ) : null,
         )}
 
+        {/* Soft area under the incoming line */}
+        {data.length > 1 && (
+          <path
+            d={`${incomingPath} L${xFor(data.length - 1)},${PADDING.top + chartH} L${xFor(0)},${PADDING.top + chartH} Z`}
+            fill="var(--chart-1)"
+            fillOpacity={0.1}
+            stroke="none"
+          />
+        )}
         {/* Outgoing polyline */}
         <path
           d={outgoingPath}
           fill="none"
-          stroke="#58816d"
+          stroke="var(--muted-foreground)"
           strokeWidth={2}
           strokeLinecap="round"
           strokeLinejoin="round"
@@ -258,7 +261,7 @@ function LineSvg({
         <path
           d={incomingPath}
           fill="none"
-          stroke="var(--primary)"
+          stroke="var(--chart-1)"
           strokeWidth={2}
           strokeLinecap="round"
           strokeLinejoin="round"
@@ -275,8 +278,8 @@ function LineSvg({
               stroke="var(--muted-foreground)"
               strokeDasharray="3 3"
             />
-            <circle cx={hoverX} cy={yFor(data[hover.idx].incoming)} r={3.5} fill="var(--primary)" />
-            <circle cx={hoverX} cy={yFor(data[hover.idx].outgoing)} r={3.5} fill="#58816d" />
+            <circle cx={hoverX} cy={yFor(data[hover.idx].incoming)} r={4} fill="var(--chart-1)" stroke="var(--card)" strokeWidth={2} />
+            <circle cx={hoverX} cy={yFor(data[hover.idx].outgoing)} r={4} fill="var(--muted-foreground)" stroke="var(--card)" strokeWidth={2} />
           </g>
         )}
       </svg>
@@ -287,17 +290,17 @@ function LineSvg({
           letterboxed viewBox percentage. */}
       {hovered && hover !== null && (
         <div
-          className="pointer-events-none absolute top-0 z-10 -translate-x-1/2 rounded-md border border-border bg-popover px-2.5 py-1.5 text-[11px] shadow-lg"
+          className="pointer-events-none absolute top-0 z-10 -translate-x-1/2 rounded-lg border border-border bg-popover px-2.5 py-1.5 text-xs shadow-sm"
           style={{ left: `${hover.tooltipLeftPx}px` }}
         >
           <div className="font-medium text-popover-foreground">{longDayLabel(hovered.day)}</div>
           <div className="mt-1 flex flex-col gap-0.5">
-            <span className="flex items-center gap-1.5 text-primary">
-              <span className="inline-block h-1.5 w-1.5 rounded-full bg-primary" />
+            <span className="flex items-center gap-1.5 text-muted-foreground">
+              <span className="inline-block h-2 w-2 rounded-full bg-chart-1" />
               {t('tooltipIncoming', { count: hovered.incoming })}
             </span>
-            <span className="flex items-center gap-1.5 text-emerald-700 dark:text-emerald-400">
-              <span className="inline-block h-1.5 w-1.5 rounded-full bg-[#58816d]" />
+            <span className="flex items-center gap-1.5 text-muted-foreground">
+              <span className="inline-block h-2 w-2 rounded-full bg-muted-foreground" />
               {t('tooltipOutgoing', { count: hovered.outgoing })}
             </span>
           </div>
@@ -307,10 +310,13 @@ function LineSvg({
   )
 }
 
-function LegendDot({ color, label }: { color: string; label: string }) {
+function LegendDot({ color, label, dashed = false }: { color: string; label: string; dashed?: boolean }) {
   return (
-    <span className="flex items-center gap-1.5">
-      <span className="inline-block h-1.5 w-1.5 rounded-full" style={{ background: color }} />
+    <span className="inline-flex h-7 items-center gap-1.5 rounded-full border border-border px-2.5 font-medium">
+      <span
+        className="inline-block h-0.5 w-3"
+        style={dashed ? { borderTop: `2px dashed ${color}` } : { background: color, borderRadius: 2 }}
+      />
       {label}
     </span>
   )

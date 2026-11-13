@@ -23,18 +23,16 @@ interface MetricCardProps {
 
 export function MetricCard({ title, value, icon: Icon, delta, subtitle }: MetricCardProps) {
   return (
-    <div className="studio-metric rounded-2xl border border-border bg-card p-6 shadow-[0_4px_20px_rgba(60,37,14,0.02)]">
-      <div className="flex items-start justify-between">
-        <p className="text-xs font-medium text-muted-foreground">{title}</p>
-        <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/7 text-primary">
-          <Icon className="h-3.5 w-3.5" />
-        </div>
+    <div className="flex min-w-0 flex-col gap-1 rounded-xl border border-border bg-card p-4">
+      <div className="flex items-center justify-between gap-2">
+        <p className="truncate text-xs font-medium text-muted-foreground">{title}</p>
+        <Icon className="h-3.5 w-3.5 shrink-0 text-muted-foreground/70" aria-hidden />
       </div>
-      <p className="mt-5 text-[32px] leading-none font-semibold tracking-[-1px] tabular-nums text-foreground">
+      <p className="text-xl leading-tight font-bold tracking-tight tabular-nums text-foreground [overflow-wrap:anywhere] sm:text-2xl">
         {value}
       </p>
       {delta ? <DeltaRow sign={delta.sign} label={delta.label} /> : subtitle ? (
-        <p className="mt-3 text-xs text-muted-foreground">{subtitle}</p>
+        <p className="text-xs text-muted-foreground">{subtitle}</p>
       ) : null}
     </div>
   )
@@ -43,13 +41,13 @@ export function MetricCard({ title, value, icon: Icon, delta, subtitle }: Metric
 function DeltaRow({ sign, label }: { sign: number; label: string }) {
   const tone =
     sign > 0
-      ? 'text-emerald-700 dark:text-emerald-400'
+      ? 'text-emerald-600 dark:text-emerald-400'
       : sign < 0
-      ? 'text-red-700 dark:text-red-400'
+      ? 'text-red-600 dark:text-red-400'
       : 'text-muted-foreground'
   const Arrow = sign > 0 ? ArrowUp : sign < 0 ? ArrowDown : Minus
   return (
-    <div className={cn('mt-3 flex items-center gap-1 text-xs', tone)}>
+    <div className={cn('flex items-center gap-1 text-xs font-semibold', tone)}>
       <Arrow className="h-3 w-3" aria-hidden />
       <span className="tabular-nums">{label}</span>
     </div>

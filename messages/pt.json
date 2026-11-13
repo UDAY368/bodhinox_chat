@@ -47,6 +47,12 @@
     }
   },
   "Sidebar": {
+    "campaigns": "Campanhas",
+    "sales": "Vendas",
+    "overview": "Visão geral",
+    "reports": "Relatórios",
+    "rules": "Regras",
+    "instagramTools": "Ferramentas do Instagram",
     "title": "BODHINOX",
     "primaryNav": "Principal",
     "dashboard": "Painel",
@@ -112,6 +118,7 @@
     "expandSidebar": "Expandir"
   },
   "Header": {
+    "notificationsUnread": "{count, plural, =1 {Notificações, 1 não lida} other {Notificações, # não lidas}}",
     "dashboard": "Painel",
     "inbox": "Caixa de entrada",
     "notifications": "Notificações",
@@ -404,7 +411,10 @@
       "lifecycle": "Ciclo de vida",
       "slaDueIn": "Responder em {value}{unit, select, m {min} h {h} other {d}}",
       "slaOverdue": "Atrasada há {value}{unit, select, m {min} h {h} other {d}}",
-      "filterMyTeam": "Minha equipe"
+      "filterMyTeam": "Minha equipe",
+      "addFilter": "Filtro",
+      "filterSearch": "Buscar filtros",
+      "noFilterMatches": "Nenhum filtro encontrado"
     },
     "messageThread": {
       "backToConversations": "Voltar às conversas",
@@ -635,7 +645,12 @@
       "noFlowAnswers": "Nenhuma resposta salva para este contato.",
       "addNote": "Adicionar nota",
       "copyPhone": "Copiar número",
-      "copyError": "Não foi possível copiar o número."
+      "copyError": "Não foi possível copiar o número.",
+      "viewContact": "Ver contato",
+      "editDetails": "Editar dados",
+      "channel": "Canal",
+      "phone": "Telefone",
+      "firstSeen": "Primeiro contato"
     },
     "aiBanner": {
       "pausedTitle": "O assistente de IA está pausado aqui",
@@ -934,6 +949,113 @@
       "handledHelp": "Atribuídos a essa pessoa em algum momento, ou com uma mensagem dela",
       "sectionAssigned": "Atribuídos agora a",
       "sectionHandled": "Atendidos alguma vez por"
+    },
+    "sessionRail": {
+      "title": "Janelas abertas",
+      "closingSoon": "{count} fechando em breve",
+      "item": "{name}, a janela fecha em {time}"
+    },
+    "consent": {
+      "title": "Consentimento",
+      "optedIn": "Inscrito",
+      "optedOut": "Descadastrado",
+      "none": "Sem consentimento",
+      "since": "Desde {when} · {how}",
+      "noneYet": "Nenhum consentimento de WhatsApp registrado ainda.",
+      "hint": {
+        "opted_in": "Modelos e transmissões são permitidos. O cliente pode responder STOP a qualquer momento.",
+        "opted_out": "Sem modelos nem transmissões. Você ainda pode responder dentro da janela de 24 horas.",
+        "none": "Obtenha a concordância do cliente antes de enviar modelos ou transmissões."
+      },
+      "source": {
+        "in": {
+          "keyword": "cliente respondeu START",
+          "agent": "registrado por um colega",
+          "api": "registrado pela API",
+          "import": "importado"
+        },
+        "out": {
+          "keyword": "cliente respondeu STOP",
+          "agent": "definido por um colega",
+          "api": "definido pela API",
+          "import": "importado"
+        },
+        "unknown": "origem não registrada"
+      },
+      "recordOptIn": "Registrar consentimento",
+      "optOut": "Descadastrar",
+      "confirmOptIn": "Registre o consentimento apenas se este cliente concordou em receber mensagens de WhatsApp da sua empresa.",
+      "confirm": "Sim, concordou",
+      "cancel": "Cancelar",
+      "failed": "Não foi possível atualizar o consentimento. Tente novamente.",
+      "banner": "Descadastrado em {when} ({how}). Modelos e transmissões bloqueados; você ainda pode responder dentro da janela de 24 horas.",
+      "filter": "Consentimento",
+      "any": "Qualquer consentimento",
+      "updated": "Consentimento atualizado: {status}"
+    },
+    "igTemplates": {
+      "title": "Modelos do Instagram",
+      "newTitle": "Novo modelo do Instagram",
+      "editTitle": "Editar modelo do Instagram",
+      "back": "Voltar aos modelos",
+      "description": "Mensagens salvas com cartões e botões para o Instagram. A Meta aprova modelos só para o WhatsApp, então estes são enviados como qualquer mensagem dentro da janela de 24 horas.",
+      "empty": "Ainda não há modelos do Instagram. Salve uma galeria de cartões ou uma mensagem com botões e envie de qualquer conversa do Instagram.",
+      "kindCards": "Cartões",
+      "kindButton": "Mensagem com botões",
+      "kind": "Tipo de modelo",
+      "edit": "Editar {name}",
+      "delete": "Excluir {name}",
+      "send": "Enviar",
+      "new": "Novo modelo",
+      "save": "Salvar modelo",
+      "saved": "Modelo salvo",
+      "windowHint": "Só é enviado enquanto a janela de 24 horas está aberta.",
+      "limitsHint": "Até 10 cartões e 3 botões cada; títulos de até 80 e botões de até 20 caracteres.",
+      "name": "Nome do modelo",
+      "namePlaceholder": "ex.: Oferta de festas",
+      "cardN": "Cartão {n}",
+      "removeCard": "Remover cartão {n}",
+      "cardTitle": "Título",
+      "cardSubtitle": "Subtítulo (opcional)",
+      "imageUrl": "Link da imagem",
+      "imageUrlPlaceholder": "Link da imagem (https://, opcional)",
+      "addCard": "Adicionar cartão",
+      "text": "Texto da mensagem",
+      "preview": "Prévia",
+      "buttonType": "Tipo de botão",
+      "buttonReply": "Resposta",
+      "buttonLink": "Link",
+      "buttonTitle": "Texto do botão",
+      "buttonUrl": "Endereço do link",
+      "removeButton": "Remover botão",
+      "addButton": "Adicionar botão",
+      "errors": {
+        "duplicate_name": "Já existe um modelo com este nome.",
+        "too_many": "Este espaço de trabalho já tem o máximo de 100 modelos do Instagram.",
+        "invalid_template": "O Instagram não aceitaria este modelo. Verifique títulos, textos dos botões e links https.",
+        "failed": "Não foi possível salvar. Tente novamente.",
+        "too_large": "O modelo é grande demais. Use links mais curtos ou menos cartões.",
+        "deleteFailed": "Não foi possível excluir. Tente novamente."
+      },
+      "deleted": "{name} excluído",
+      "confirmDelete": "Excluir “{name}” para todo o espaço de trabalho?",
+      "deleteConfirm": "Excluir",
+      "cancel": "Cancelar",
+      "gallery": "{count, plural, one {# cartão} other {# cartões}}",
+      "problems": {
+        "name": "Dê um nome ao modelo.",
+        "text": "Adicione o texto da mensagem.",
+        "textLong": "O texto passa de {max} caracteres.",
+        "buttonLabel": "Todo botão precisa de um texto.",
+        "buttonLabelLong": "O texto do botão pode ter até {max} caracteres.",
+        "buttonUrl": "Botões de link precisam de um endereço https://.",
+        "cardTitle": "O cartão {n} precisa de um título.",
+        "cardTitleLong": "O título do cartão {n} passa de {max} caracteres.",
+        "cardSubtitleLong": "O subtítulo do cartão {n} passa de {max} caracteres.",
+        "imageUrl": "O link da imagem do cartão {n} deve começar com https://.",
+        "tooLarge": "Grande demais: use links mais curtos ou menos cartões.",
+        "more": "(+{count})"
+      }
     }
   },
   "Contacts": {
@@ -1031,7 +1153,9 @@
       },
       "rowActions": "Ações para {name}",
       "previousPage": "Página anterior",
-      "nextPage": "Próxima página"
+      "nextPage": "Próxima página",
+      "paginationLabel": "Paginação",
+      "goToPage": "Página {page}"
     },
     "form": {
       "addTitle": "Adicionar contato",

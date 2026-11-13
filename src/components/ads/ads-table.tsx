@@ -118,7 +118,7 @@ export function AdsTable({ canManage, canSegment }: AdsTableProps) {
             id="ads-level"
             value={level}
             onChange={(e) => setLevel(e.target.value === 'ad' ? 'ad' : 'campaign')}
-            className="border-border bg-card text-foreground h-9 rounded-md border px-2 text-sm"
+            className="h-9 rounded-lg border border-border bg-card px-2.5 text-sm text-foreground outline-none transition-shadow duration-150 focus-visible:ring-2 focus-visible:ring-ring"
           >
             <option value="campaign">{t('levelCampaign')}</option>
             <option value="ad">{t('levelAd')}</option>
@@ -149,39 +149,39 @@ export function AdsTable({ canManage, canSegment }: AdsTableProps) {
           <Button type="button" variant="outline" size="sm" onClick={() => void load()}>{tAds('retry')}</Button>
         </div>
       )}
-      {rows && rows.length === 0 && <p className="text-sm text-muted-foreground">{t('empty')}</p>}
+      {rows && rows.length === 0 && <p className="rounded-xl border border-border bg-card px-4 py-12 text-center text-sm text-muted-foreground">{t('empty')}</p>}
       {rows && rows.length > 0 && (
-        <div className="overflow-x-auto rounded-lg border border-border">
+        <div className="overflow-x-auto rounded-xl border border-border bg-card">
           <table className="w-full min-w-[760px] text-sm">
-            <thead className="bg-muted/50 text-left text-xs text-muted-foreground">
+            <thead className="bg-muted text-left text-xs text-muted-foreground">
               <tr>
-                <th className="px-3 py-2 font-medium">{nameHeader}</th>
-                <th className="px-3 py-2 font-medium">{t('status')}</th>
-                <th className="px-3 py-2 text-right font-medium">{t('spend')}</th>
-                <th className="px-3 py-2 text-right font-medium">{t('impressions')}</th>
-                <th className="px-3 py-2 text-right font-medium">{t('clicks')}</th>
-                <th className="px-3 py-2 text-right font-medium">{t('conversationsStarted')}</th>
-                <th className="px-3 py-2 text-right font-medium">{t('conversationsInBodhinox')}</th>
-                <th className="px-3 py-2 text-right font-medium">{t('purchases')}</th>
+                <th className="px-3.5 py-2.5 font-semibold">{nameHeader}</th>
+                <th className="px-3.5 py-2.5 font-semibold">{t('status')}</th>
+                <th className="px-3.5 py-2.5 text-right font-semibold">{t('spend')}</th>
+                <th className="px-3.5 py-2.5 text-right font-semibold">{t('impressions')}</th>
+                <th className="px-3.5 py-2.5 text-right font-semibold">{t('clicks')}</th>
+                <th className="px-3.5 py-2.5 text-right font-semibold">{t('conversationsStarted')}</th>
+                <th className="px-3.5 py-2.5 text-right font-semibold">{t('conversationsInBodhinox')}</th>
+                <th className="px-3.5 py-2.5 text-right font-semibold">{t('purchases')}</th>
                 {level === 'ad' && canSegment && <th className="px-3 py-2"><span className="sr-only">{tAds('retarget')}</span></th>}
               </tr>
             </thead>
             <tbody>
               {rows.map((row) => (
-                <tr key={row.id} className="border-t border-border">
-                  <td className="px-3 py-2">
-                    <div className="font-medium text-foreground">{row.name ?? row.id}</div>
+                <tr key={row.id} className="border-t border-border/70 transition-colors duration-150 hover:bg-muted/60">
+                  <td className="px-3.5 py-3">
+                    <div className="font-semibold text-foreground">{row.name ?? row.id}</div>
                     <div className="text-xs text-muted-foreground">{row.id}</div>
                   </td>
-                  <td className="px-3 py-2 text-muted-foreground">{row.status ?? '-'}</td>
-                  <td className="px-3 py-2 text-right tabular-nums">{row.spend == null ? formatCount(null) : formatSpend(row.spend, row.currency)}</td>
-                  <td className="px-3 py-2 text-right tabular-nums">{formatCount(row.impressions)}</td>
-                  <td className="px-3 py-2 text-right tabular-nums">{formatCount(row.clicks)}</td>
-                  <td className="px-3 py-2 text-right tabular-nums">{formatCount(row.conversationsStarted)}</td>
-                  <td className="px-3 py-2 text-right tabular-nums">{row.conversationsInBodhinox.toLocaleString()}</td>
-                  <td className="px-3 py-2 text-right tabular-nums">{row.purchases.toLocaleString()}</td>
+                  <td className="px-3.5 py-3 text-muted-foreground">{row.status ?? '-'}</td>
+                  <td className="px-3.5 py-3 text-right tabular-nums">{row.spend == null ? formatCount(null) : formatSpend(row.spend, row.currency)}</td>
+                  <td className="px-3.5 py-3 text-right tabular-nums">{formatCount(row.impressions)}</td>
+                  <td className="px-3.5 py-3 text-right tabular-nums">{formatCount(row.clicks)}</td>
+                  <td className="px-3.5 py-3 text-right tabular-nums">{formatCount(row.conversationsStarted)}</td>
+                  <td className="px-3.5 py-3 text-right tabular-nums">{row.conversationsInBodhinox.toLocaleString()}</td>
+                  <td className="px-3.5 py-3 text-right tabular-nums">{row.purchases.toLocaleString()}</td>
                   {level === 'ad' && canSegment && (
-                    <td className="px-3 py-2 text-right">
+                    <td className="px-3.5 py-3 text-right">
                       <Button
                         type="button"
                         variant="ghost"

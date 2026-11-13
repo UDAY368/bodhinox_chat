@@ -42,7 +42,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
 import { TemplateGallery, type TemplateSummary } from "@/components/flows/template-gallery";
 import { AiGenerateFlowButton } from "@/components/flows/ai-generate-dialog";
 import type { AccountMember, Channel } from "@/types";
@@ -52,7 +51,6 @@ import { channelPath } from "@/lib/channels/routes";
 import { effectiveTriggers } from "@/lib/flows/flow-triggers";
 import type { FlowChannelScope, FlowTriggerConfig, FlowTriggerType } from "@/lib/flows/types";
 import { splitFlow } from "./split-flow";
-import { ChannelBadge } from "@/components/inbox/channel-badge";
 import { navChannels } from "@/components/layout/page-search-navigation";
 import { useWorkspaceChannels } from "@/hooks/use-workspace-channels";
 import { useSearchParams } from "next/navigation";
@@ -504,13 +502,16 @@ export function FlowList({ channel }: { channel: Channel | "all" }) {
     );
   }
 
+  const statusCount = (status: StatusFilter) =>
+    status === "all" ? flows.length : flows.filter((flow) => displayStatus(flow) === status).length;
+
   const list = (
-    <div className="min-w-0 flex-1 space-y-6">
-      <header className="flex flex-wrap items-end justify-between gap-3">
-        <div>
+    <div className="min-w-0 flex-1">
+      <header className="flex flex-wrap items-start justify-between gap-4">
+        <div className="min-w-0">
           <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-semibold text-foreground">{unified ? t("unifiedTitle") : tSection(channel === "instagram" ? "instagramTitle" : "whatsappTitle")}</h1>
-            <span className="inline-flex items-center rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-300">
+            <h1 className="text-[22px] font-bold tracking-tight text-foreground">{unified ? t("unifiedTitle") : tSection(channel === "instagram" ? "instagramTitle" : "whatsappTitle")}</h1>
+            <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
               {t("beta")}
             </span>
           </div>
@@ -529,23 +530,77 @@ export function FlowList({ channel }: { channel: Channel | "all" }) {
       </header>
 
       {flows.length === 0 && folders.length === 0 ? (
-        <EmptyState
-          onCreate={() => setCreateOpen(true)}
-          canCreate={canCreate}
-          t={t}
-        />
+        <div className="mt-6">
+          <EmptyState
+            onCreate={() => setCreateOpen(true)}
+            canCreate={canCreate}
+            t={t}
+          />
+        </div>
       ) : (
         <>
-          {unified && enabledChannels.length > 1 && (
-            <div role="group" aria-label={t("channelFilterLabel")} className="flex flex-wrap items-center gap-1.5" data-testid="channel-filter">
-              {(["all", ...enabledChannels] as const).map((value) => (
-                <FolderChip key={value} active={channelFilter === value} onClick={() => setChannelFilter(value)}
-                  label={value === "all" ? t("allChannels") : tChannelName(value)} />
+          <div className="mb-3.5 mt-6 flex flex-wrap items-center justify-between gap-3">
+            <div
+              role="group"
+              aria-label={t("statusFilterLabel")}
+              className="flex max-w-full shrink-0 gap-0.5 overflow-x-auto rounded-xl bg-muted p-[3px] [scrollbar-width:none]"
+            >
+              {STATUS_FILTERS.map((status) => (
+                <button
+                  key={status}
+                  type="button"
+                  aria-pressed={statusFilter === status}
+                  onClick={() => setStatusFilter(status)}
+                  className={cn(
+                    "inline-flex h-[30px] shrink-0 items-center gap-1.5 whitespace-nowrap rounded-[9px] px-3 text-[13px] font-medium transition-[background-color,color,box-shadow] duration-150",
+                    statusFilter === status
+                      ? "bg-card text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  {status === "all" ? t("filterAll") : status === "testing" ? t("statusTesting") : tRow(`status.${CHIP[status].key}`)}
+                  <span className="font-medium tabular-nums text-muted-foreground">{statusCount(status)}</span>
+                </button>
               ))}
             </div>
-          )}
+            <div className="flex min-w-0 flex-wrap items-center gap-2">
+              {unified && enabledChannels.length > 1 && (
+                <div role="group" aria-label={t("channelFilterLabel")} className="flex flex-wrap items-center gap-1.5" data-testid="channel-filter">
+                  {(["all", ...enabledChannels] as const).map((value) => (
+                    <FolderChip key={value} active={channelFilter === value} onClick={() => setChannelFilter(value)}
+                      label={value === "all" ? t("allChannels") : tChannelName(value)} />
+                  ))}
+                </div>
+              )}
+              <select
+                aria-label={tRow("triggerFilter")}
+                value={triggerFilter}
+                onChange={(e) => setTriggerFilter(e.target.value as FlowTriggerType | "all")}
+                className={cn(
+                  "h-8 rounded-full border border-border px-3 text-[13px] transition-colors duration-150 hover:bg-muted",
+                  triggerFilter === "all" ? "bg-card text-muted-foreground" : "border-transparent bg-primary/10 font-semibold text-primary",
+                )}
+              >
+                <option value="all">{tRow("anyTrigger")}</option>
+                {triggerTypes.map((type) => (
+                  <option key={type} value={type}>{triggerTypeLabel(type, tRow)}</option>
+                ))}
+              </select>
+              <div className="relative w-full sm:w-[260px]">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder={t("searchPlaceholder")}
+                  aria-label={t("searchPlaceholder")}
+                  className="h-9 rounded-xl border-transparent bg-muted pl-9 shadow-none"
+                />
+              </div>
+            </div>
+          </div>
+
           {!unified && (
-          <div role="group" aria-label={tFolders("filterLabel")} className="flex flex-wrap items-center gap-1.5">
+          <div role="group" aria-label={tFolders("filterLabel")} className="mb-3.5 flex flex-wrap items-center gap-1.5">
             <FolderChip active={folderFilter === "all"} onClick={() => setFolderFilter("all")} label={tFolders("all")} />
             {folders.length > 0 && (
               <FolderChip active={folderFilter === "none"} onClick={() => setFolderFilter("none")} label={tFolders("noFolder")} />
@@ -561,7 +616,7 @@ export function FlowList({ channel }: { channel: Channel | "all" }) {
                 />
                 {canCreate && (
                   <DropdownMenu>
-                    <DropdownMenuTrigger className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50" aria-label={`${tRow("actions")}: ${folder.name}`}>
+                    <DropdownMenuTrigger className="inline-flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground transition-colors duration-150 hover:bg-muted hover:text-foreground disabled:opacity-50" aria-label={`${tRow("actions")}: ${folder.name}`}>
                       <MoreHorizontal className="h-3.5 w-3.5" />
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="start">
@@ -587,56 +642,24 @@ export function FlowList({ channel }: { channel: Channel | "all" }) {
           </div>
           )}
 
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="relative w-full sm:max-w-xs">
-              <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder={t("searchPlaceholder")}
-                aria-label={t("searchPlaceholder")}
-                className="bg-muted pl-8"
-              />
-            </div>
-            <select
-              aria-label={tRow("triggerFilter")}
-              value={triggerFilter}
-              onChange={(e) => setTriggerFilter(e.target.value as FlowTriggerType | "all")}
-              className="h-9 rounded-md border border-input bg-background px-2 text-sm text-foreground"
-            >
-              <option value="all">{tRow("anyTrigger")}</option>
-              {triggerTypes.map((type) => (
-                <option key={type} value={type}>{triggerTypeLabel(type, tRow)}</option>
-              ))}
-            </select>
-            <div className="flex flex-wrap gap-1" role="group" aria-label={t("statusFilterLabel")}>
-              {STATUS_FILTERS.map((status) => (
-                <Button
-                  key={status}
-                  size="sm"
-                  variant={statusFilter === status ? "secondary" : "ghost"}
-                  aria-pressed={statusFilter === status}
-                  onClick={() => setStatusFilter(status)}
-                >
-                  {status === "all" ? t("filterAll") : status === "testing" ? t("statusTesting") : tRow(`status.${CHIP[status].key}`)}
-                </Button>
-              ))}
-            </div>
-          </div>
           {visibleFlows.length === 0 ? (
-            <p className="rounded-lg border border-dashed border-border px-6 py-10 text-center text-sm text-muted-foreground">
-              {t("noMatches")}
-            </p>
+            <div className="flex flex-col items-center gap-2 rounded-xl border border-border px-4 py-12 text-center">
+              <span className="mb-2 inline-flex h-[52px] w-[52px] items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                <Search className="h-6 w-6" aria-hidden />
+              </span>
+              <p className="text-sm text-muted-foreground">{t("noMatches")}</p>
+            </div>
           ) : (
-            <div className="overflow-hidden rounded-lg border border-border">
-              <div className="hidden grid-cols-[minmax(0,1fr)_5rem_5rem_9rem_2.5rem] gap-3 border-b border-border bg-muted/40 px-4 py-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground md:grid">
+            <div className="overflow-hidden rounded-xl border border-border bg-card">
+              <div className={cn("hidden gap-3.5 bg-muted px-4 py-2.5 text-xs font-semibold text-muted-foreground lg:grid", ROW_GRID)}>
                 <span>{tRow("nameColumn")}</span>
+                <span>{tRow("triggerFilter")}</span>
                 <span className="text-right">{tRow("runs")}</span>
                 <span className="text-right" title={tRow("ctrHelp")}>{tRow("ctr")}</span>
-                <span>{tRow("modifiedColumn")}</span>
+                <span>{tRow("stateFilter")}</span>
                 <span className="sr-only">{tRow("actions")}</span>
               </div>
-              <ul className="divide-y divide-border">
+              <ul className="divide-y divide-border/60">
                 {visibleFlows.map((flow) => (
                   <FlowListRow
                     key={flow.id}
@@ -674,19 +697,19 @@ export function FlowList({ channel }: { channel: Channel | "all" }) {
           </DialogHeader>
 
           {unified && enabledChannels.length > 1 && (
-            <div role="tablist" aria-label={t("chooseChannel")} className="inline-flex w-fit gap-1 rounded-lg border border-border bg-muted p-1" data-testid="create-channel">
+            <div role="tablist" aria-label={t("chooseChannel")} className="inline-flex w-fit max-w-full gap-0.5 overflow-x-auto rounded-xl bg-muted p-[3px]" data-testid="create-channel">
               {enabledChannels.map((value) => (
                 <button key={value} type="button" role="tab" aria-selected={createChannel === value} onClick={() => setChosenChannel(value)}
-                  className={cn("inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
+                  className={cn("inline-flex h-[30px] items-center gap-2 whitespace-nowrap rounded-[9px] px-3 text-[13px] font-medium transition-[background-color,color,box-shadow] duration-150",
                     createChannel === value ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}>
-                  <span aria-hidden><ChannelBadge channel={value} showWhatsApp compact /></span>
+                  <span aria-hidden className={cn("h-2 w-2 shrink-0 rounded-full", value === "instagram" ? "bg-gradient-to-br from-amber-400 via-pink-500 to-violet-600" : "bg-emerald-500")} />
                   {tChannelName(value)}
                 </button>
               ))}
             </div>
           )}
           <div className="space-y-2">
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">
+            <p className="text-[13px] font-semibold text-foreground">
               {t("startBlank")}
             </p>
             <div className="flex gap-2">
@@ -695,7 +718,7 @@ export function FlowList({ channel }: { channel: Channel | "all" }) {
                 onChange={(e) => setNewName(e.target.value)}
                 placeholder={t("placeholderName")}
                 aria-label={t("placeholderName")}
-                className="bg-muted"
+                className="rounded-xl border-transparent bg-muted shadow-none"
                 onKeyDown={(e) => {
                   if (e.key === "Enter") handleCreate();
                 }}
@@ -709,7 +732,7 @@ export function FlowList({ channel }: { channel: Channel | "all" }) {
 
           {galleryTemplates.length > 0 && (
             <div className="space-y-3 border-t border-border pt-4">
-              <p className="text-xs uppercase tracking-wide text-muted-foreground">
+              <p className="text-[13px] font-semibold text-foreground">
                 {t("startTemplate")}
               </p>
               <TemplateGallery key={createChannel} templates={galleryTemplates} creating={creating} onUse={handleUseTemplate} />
@@ -740,14 +763,17 @@ export function FlowList({ channel }: { channel: Channel | "all" }) {
   );
 
   return channel === "instagram" || (unified && enabledChannels.includes("instagram")) ? (
-    <div className="flex flex-col gap-6 p-6 md:flex-row">
+    <div className="flex flex-col gap-6 md:flex-row">
       <AutomationHubRail active="flows" />
       {list}
     </div>
   ) : (
-    <div className="p-6">{list}</div>
+    <div>{list}</div>
   );
 }
+
+/** The list's columns: name, trigger, runs, CTR, state, menu (name, state and menu below lg). */
+const ROW_GRID = "lg:grid-cols-[minmax(0,2.2fr)_minmax(0,1.6fr)_72px_64px_96px_34px]";
 
 function FolderChip({ active, onClick, label, count, icon = false }: {
   active: boolean; onClick: () => void; label: string; count?: number; icon?: boolean;
@@ -758,8 +784,8 @@ function FolderChip({ active, onClick, label, count, icon = false }: {
       aria-pressed={active}
       onClick={onClick}
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors",
-        active ? "border-primary bg-primary text-primary-foreground" : "border-border bg-background text-muted-foreground hover:bg-muted hover:text-foreground",
+        "inline-flex h-8 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 text-[13px] transition-colors duration-150",
+        active ? "border-transparent bg-primary/10 font-semibold text-primary" : "border-border bg-card text-muted-foreground hover:bg-muted hover:text-foreground",
       )}
     >
       {icon && <Folder className="h-3 w-3" aria-hidden />}
@@ -780,26 +806,52 @@ function EmptyState({
 }) {
   const tGate = useTranslations("GatedButton");
   return (
-    <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border bg-card/50 px-6 py-16 text-center">
-      <div className="flex h-14 w-14 items-center justify-center rounded-full bg-muted">
-        <Workflow className="h-6 w-6 text-muted-foreground" />
-      </div>
-      <h2 className="mt-4 text-base font-medium text-foreground">
+    <div className="flex flex-col items-center justify-center gap-2 rounded-xl border border-border bg-card px-6 py-14 text-center">
+      <span className="mb-2 inline-flex h-[52px] w-[52px] items-center justify-center rounded-2xl bg-primary/10 text-primary">
+        <Workflow className="h-6 w-6" />
+      </span>
+      <h2 className="text-[15px] font-semibold text-foreground">
         {t("emptyTitle")}
       </h2>
-      <p className="mt-1 max-w-md text-sm text-muted-foreground">
+      <p className="max-w-md text-sm text-muted-foreground">
         {t("emptyDesc")}
       </p>
       <GatedButton
         canAct={canCreate}
         gateReason={tGate("reasons.createFlows")}
         onClick={onCreate}
-        className="mt-5"
+        className="mt-3"
       >
         <Plus className="h-4 w-4" />
         {t("createFirst")}
       </GatedButton>
     </div>
+  );
+}
+
+/** The state pill's look: Live green, Testing accent, the rest neutral. */
+const STATE_PILL: Record<Exclude<StatusFilter, "all">, string> = {
+  active: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
+  testing: "bg-primary/10 text-primary",
+  draft: "bg-muted text-muted-foreground",
+  paused: "border border-border text-muted-foreground",
+  archived: "bg-muted text-muted-foreground",
+};
+
+/** A channel mark: the WhatsApp or Instagram dot, named for screen readers. */
+function ChannelDot({ channel }: { channel: Channel }) {
+  const tChannelName = useTranslations("Inbox.channel");
+  return (
+    <span
+      role="img"
+      aria-label={tChannelName(channel)}
+      title={tChannelName(channel)}
+      data-flow-channel={channel}
+      className={cn(
+        "inline-block h-2 w-2 shrink-0 rounded-full",
+        channel === "instagram" ? "bg-gradient-to-br from-amber-400 via-pink-500 to-violet-600" : "bg-emerald-500",
+      )}
+    />
   );
 }
 
@@ -828,69 +880,102 @@ function FlowListRow({
   const both = flow.channel_scope === "any";
   const triggers = effectiveTriggers(flow);
   const chip = CHIP[flow.status];
+  const shown = displayStatus(flow);
+  const stateLabel = shown === "testing" ? t("statusTesting") : tRow(`status.${chip.key}`);
   const ctr = flow.ctr ?? null;
+  const singleChannel = !both && (flow.channel_scope === "whatsapp" || flow.channel_scope === "instagram") ? flow.channel_scope : null;
   return (
-    <li className="grid grid-cols-1 gap-2 px-4 py-3 md:grid-cols-[minmax(0,1fr)_5rem_5rem_9rem_2.5rem] md:items-center md:gap-3" data-flow-row={flow.id}>
-      <div className="min-w-0 space-y-1">
-        <div className="flex min-w-0 flex-wrap items-center gap-2">
-          <Badge variant="outline" className={cn("shrink-0 text-[10px] uppercase", chip.className)}>
-            {displayStatus(flow) === "testing" ? t("statusTesting") : tRow(`status.${chip.key}`)}
-          </Badge>
-          <button type="button" onClick={onEdit} className="min-w-0 truncate text-left text-sm font-semibold text-foreground hover:text-primary hover:underline">
-            {flow.name}
-          </button>
-          {showChannel && !both && (flow.channel_scope === "whatsapp" || flow.channel_scope === "instagram") && (
-            <span className="w-fit" data-flow-channel={flow.channel_scope}><ChannelBadge channel={flow.channel_scope} showWhatsApp compact /></span>
-          )}
-          {both && (
-            <Badge
-              variant="outline"
-              title={tSection("bothChannelsHelp")}
-              data-flow-channel="any"
-              className="w-fit border-amber-500/40 bg-amber-500/10 text-[10px] text-amber-700 dark:text-amber-300"
-            >
-              {tSection("bothChannels")}
-            </Badge>
-          )}
-          {folder && (
-            <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
-              <Folder className="h-3 w-3" aria-hidden />
-              {folder}
+    <li
+      className={cn("grid grid-cols-[minmax(0,1fr)_auto_34px] items-center gap-3.5 px-4 py-3 transition-colors duration-150 hover:bg-muted/50", ROW_GRID)}
+      data-flow-row={flow.id}
+    >
+      <div className="flex min-w-0 items-center gap-3">
+        <span className="inline-flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-[10px] bg-primary/10 text-primary" aria-hidden>
+          <Workflow className="h-4 w-4" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="flex min-w-0 items-center gap-2">
+            <button type="button" onClick={onEdit} className="min-w-0 truncate text-left text-sm font-semibold text-foreground transition-colors duration-150 hover:text-primary">
+              {flow.name}
+            </button>
+            {both && (
+              <span
+                title={tSection("bothChannelsHelp")}
+                data-flow-channel="any"
+                className="inline-flex shrink-0 items-center rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground"
+              >
+                {tSection("bothChannels")}
+              </span>
+            )}
+          </div>
+          <p className="flex min-w-0 items-center gap-1 truncate text-xs text-muted-foreground">
+            <span className="shrink-0">{stateLabel}</span>
+            <span aria-hidden>·</span>
+            <span className="shrink-0">{tRow("modified", { time: format.relativeTime(new Date(flow.updated_at)) })}</span>
+            {folder && (
+              <>
+                <span aria-hidden>·</span>
+                <span className="inline-flex shrink-0 items-center gap-1">
+                  <Folder className="h-3 w-3" aria-hidden />
+                  {folder}
+                </span>
+              </>
+            )}
+            {creator && (
+              <>
+                <span aria-hidden>·</span>
+                <span className="truncate">
+                  {t("createdBy", {
+                    name: creator.kind === "name" ? creator.name : creator.kind === "teammate" ? t("creatorTeammate") : t("creatorUnknown"),
+                  })}
+                </span>
+              </>
+            )}
+          </p>
+          {flow.description && <p className="line-clamp-1 text-xs text-muted-foreground/80">{flow.description}</p>}
+          <p className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground lg:hidden">
+            {showChannel && singleChannel && <ChannelDot channel={singleChannel} />}
+            <span className="truncate">
+              {triggers.length === 0 ? tRow("noTrigger") : describeTrigger(triggers[0], t)}
+              {triggers.length > 1 && ` ${tRow("moreTriggers", { count: triggers.length - 1 })}`}
+              {" · "}
+              {tRow("runs")} {format.number(flow.execution_count)}
             </span>
-          )}
+          </p>
         </div>
-        <ul className="space-y-0.5" aria-label={tRow("triggerFilter")}>
+      </div>
+      <div className="hidden min-w-0 items-center gap-2 text-[13px] text-muted-foreground lg:flex">
+        {showChannel && singleChannel && <ChannelDot channel={singleChannel} />}
+        <ul className="min-w-0" aria-label={tRow("triggerFilter")}>
           {triggers.length === 0 ? (
-            <li className="text-xs text-muted-foreground">{tRow("noTrigger")}</li>
+            <li className="truncate">{tRow("noTrigger")}</li>
           ) : (
-            triggers.map((trigger, index) => (
-              <li key={index} className="truncate text-xs text-muted-foreground">{describeTrigger(trigger, t)}</li>
-            ))
+            <>
+              <li className="truncate">{describeTrigger(triggers[0], t)}</li>
+              {triggers.length > 1 && (
+                <li className="truncate text-xs" title={triggers.slice(1).map((trigger) => describeTrigger(trigger, t)).join("\n")}>
+                  {tRow("moreTriggers", { count: triggers.length - 1 })}
+                </li>
+              )}
+            </>
           )}
         </ul>
-        {flow.description && <p className="line-clamp-1 text-xs text-muted-foreground/80">{flow.description}</p>}
-        {creator && (
-          <p className="truncate text-[11px] text-muted-foreground/80">
-            {t("createdBy", {
-              name: creator.kind === "name" ? creator.name : creator.kind === "teammate" ? t("creatorTeammate") : t("creatorUnknown"),
-            })}
-          </p>
-        )}
       </div>
-      <div className="flex gap-4 text-xs text-muted-foreground md:contents">
-        <span className="tabular-nums md:text-right">
-          <span className="md:sr-only">{tRow("runs")}: </span>
-          {format.number(flow.execution_count)}
-        </span>
-        <span className="tabular-nums md:text-right" title={tRow("ctrHelp")} data-flow-ctr={ctr ?? ""}>
-          <span className="md:sr-only">{tRow("ctr")}: </span>
-          {ctr === null ? tRow("noCtr") : tRow("ctrValue", { value: ctr })}
-        </span>
-        <span>{tRow("modified", { time: format.relativeTime(new Date(flow.updated_at)) })}</span>
-      </div>
+      <span className="hidden text-right text-[13px] tabular-nums text-foreground lg:block">
+        <span className="sr-only">{tRow("runs")}: </span>
+        {format.number(flow.execution_count)}
+      </span>
+      <span className="hidden text-right text-[13px] tabular-nums text-foreground lg:block" title={tRow("ctrHelp")} data-flow-ctr={ctr ?? ""}>
+        <span className="sr-only">{tRow("ctr")}: </span>
+        {ctr === null ? <span className="text-muted-foreground">{tRow("noCtr")}</span> : tRow("ctrValue", { value: ctr })}
+      </span>
+      <span className={cn("inline-flex w-fit items-center gap-1.5 justify-self-start rounded-full px-2.5 py-0.5 text-xs font-medium", STATE_PILL[shown])}>
+        {shown === "active" && <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" aria-hidden />}
+        {stateLabel}
+      </span>
       <div className="flex justify-end">
         <DropdownMenu>
-          <DropdownMenuTrigger className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50" aria-label={`${tRow("actions")}: ${flow.name}`} disabled={busy}>
+          <DropdownMenuTrigger className="inline-flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground transition-colors duration-150 hover:bg-muted hover:text-foreground disabled:opacity-50" aria-label={`${tRow("actions")}: ${flow.name}`} disabled={busy}>
             {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <MoreHorizontal className="h-4 w-4" />}
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">

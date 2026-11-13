@@ -249,7 +249,7 @@ export function SettingsOverview({
   return (
     <section className="animate-in fade-in-50 duration-200">
       {/* Identity */}
-      <Card className="flex-row items-center gap-4 px-5 py-5">
+      <Card className="flex-row items-center gap-4 px-4 py-4">
         <Avatar size="lg" className="size-14">
           {profile?.avatar_url ? (
             <AvatarImage src={profile.avatar_url} alt={displayName} />
@@ -289,12 +289,12 @@ export function SettingsOverview({
               type="button"
               onClick={() => onSelect(section)}
               className={cn(
-                'group flex items-start gap-3.5 rounded-xl border border-border bg-card p-4 text-left transition-colors',
-                'hover:border-primary-soft-2 hover:bg-card-2',
+                'group flex items-center gap-3 rounded-xl border border-border bg-card p-4 text-left transition-colors duration-150',
+                'hover:bg-muted/50',
               )}
             >
-              <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary-soft text-primary">
-                <Icon className="size-4" />
+              <span className="flex size-9 shrink-0 items-center justify-center rounded-[10px] bg-muted text-muted-foreground transition-colors duration-150 group-hover:text-primary">
+                <Icon className="size-[18px]" />
               </span>
               <span className="min-w-0 flex-1">
                 <span className="block text-sm font-semibold text-foreground">

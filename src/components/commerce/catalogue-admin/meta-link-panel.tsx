@@ -61,9 +61,9 @@ export function MetaLinkPanel({ canManage }: { canManage: boolean }) {
       <p className="max-w-2xl text-sm text-muted-foreground">{t("description")}</p>
 
       <div className="space-y-2">
-        <h2 className="text-base font-medium text-foreground">{t("linked", { count: report.linked.length })}</h2>
+        <h2 className="text-base font-semibold tracking-tight text-foreground">{t("linked", { count: report.linked.length })}</h2>
         {report.linked.length === 0 ? <p className="text-sm text-muted-foreground">{t("none")}</p> : (
-          <ul className="divide-y divide-border rounded-lg border border-border bg-card text-sm">
+          <ul className="divide-y divide-border rounded-xl border border-border bg-card text-sm">
             {report.linked.map((l) => (
               <li key={l.variant_id} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2">
                 <span className="font-mono text-xs text-muted-foreground">{l.sku}</span>
@@ -78,7 +78,7 @@ export function MetaLinkPanel({ canManage }: { canManage: boolean }) {
       </div>
 
       <div className="space-y-2">
-        <h2 className="text-base font-medium text-foreground">{t("variantsWithout", { count: report.variants_without_meta.length })}</h2>
+        <h2 className="text-base font-semibold tracking-tight text-foreground">{t("variantsWithout", { count: report.variants_without_meta.length })}</h2>
         {report.variants_without_meta.length === 0 ? <p className="text-sm text-muted-foreground">{t("none")}</p> : (
           <ul className="flex flex-wrap gap-2 text-xs">
             {report.variants_without_meta.map((v) => (
@@ -90,7 +90,7 @@ export function MetaLinkPanel({ canManage }: { canManage: boolean }) {
 
       <div className="space-y-2">
         <div className="flex flex-wrap items-center gap-2">
-          <h2 className="text-base font-medium text-foreground">{t("metaWithout", { count: report.meta_without_variant.length })}</h2>
+          <h2 className="text-base font-semibold tracking-tight text-foreground">{t("metaWithout", { count: report.meta_without_variant.length })}</h2>
           {canManage && importable.length > 0 && (
             <>
               <Button size="sm" variant="ghost" onClick={() => setSelected(new Set(importable.slice(0, IMPORT_MAX).map((m) => m.meta_product_id)))}>
@@ -104,7 +104,7 @@ export function MetaLinkPanel({ canManage }: { canManage: boolean }) {
         </div>
         <p className="text-xs text-muted-foreground">{t("importHint")}</p>
         {report.meta_without_variant.length === 0 ? <p className="text-sm text-muted-foreground">{t("none")}</p> : (
-          <ul className="divide-y divide-border rounded-lg border border-border bg-card text-sm">
+          <ul className="divide-y divide-border rounded-xl border border-border bg-card text-sm">
             {report.meta_without_variant.map((m) => (
               <li key={m.meta_product_id} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2">
                 {canManage && (

@@ -286,7 +286,7 @@ export function AppointmentSheet({
               )}
 
               {mode === 'reschedule' && (
-                <div className="space-y-3 rounded-lg border border-border p-3">
+                <div className="space-y-3 rounded-xl border border-border p-3">
                   <div className="font-medium">{t('sheet.reschedule')}</div>
                   {a.staff_id && staffOptions.length > 1 && (
                     <div className="space-y-1">
@@ -310,7 +310,7 @@ export function AppointmentSheet({
               )}
 
               {mode === 'cancel' && (
-                <div className="space-y-3 rounded-lg border border-destructive/40 p-3">
+                <div className="space-y-3 rounded-xl border border-destructive/40 p-3">
                   <p>{t('sheet.cancelConfirm')}</p>
                   <div className="space-y-1">
                     <Label htmlFor="appt-cancel-reason">{t('sheet.cancelReason')}</Label>

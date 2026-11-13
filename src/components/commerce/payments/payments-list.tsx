@@ -40,11 +40,11 @@ export function PaymentsList() {
   return (
     <div>
       <div>
-        <h1 className="text-2xl font-bold tracking-tight text-foreground">{t("title")}</h1>
+        <h1 className="text-[22px] font-bold tracking-tight text-foreground">{t("title")}</h1>
         <p className="mt-1 text-sm text-muted-foreground">{t("description")}</p>
       </div>
-      <Tabs value={tab} onValueChange={(v) => setTab(String(v))} className="mt-6">
-        <TabsList>
+      <Tabs value={tab} onValueChange={(v) => setTab(String(v))} className="mt-5">
+        <TabsList className="max-w-full justify-start overflow-x-auto [scrollbar-width:none] *:flex-none">
           <TabsTrigger value="links">{tTabs("links")}</TabsTrigger>
           <TabsTrigger value="payments">{tTabs("payments")}</TabsTrigger>
           {isAdmin && <TabsTrigger value="exceptions">{tTabs("exceptions")}</TabsTrigger>}
@@ -145,18 +145,18 @@ export function PaymentLinksList() {
         )}
       </div>
 
-      <div className="mt-4 rounded-lg border border-border">
+      <div className="mt-4 overflow-x-auto rounded-xl border border-border bg-card">
         {loading ? (
           <div className="flex justify-center p-10"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
         ) : links.length === 0 ? (
-          <div className="flex flex-col items-center gap-2 p-10 text-center text-sm text-muted-foreground">
-            <CreditCard className="h-6 w-6" />
+          <div className="flex flex-col items-center gap-2 px-4 py-12 text-center text-sm text-muted-foreground">
+            <span className="mb-1 flex size-[52px] items-center justify-center rounded-2xl bg-primary/10 text-primary"><CreditCard className="size-6" /></span>
             <p>{t("empty")}</p>
             <p className="text-xs">{t("emptyHelp")}</p>
           </div>
         ) : (
-          <Table>
-            <TableHeader>
+          <Table className="[&_td]:px-3.5 [&_td]:py-2.5">
+            <TableHeader className="bg-muted [&_th]:h-9 [&_th]:px-3.5 [&_th]:text-xs [&_th]:font-semibold [&_th]:text-muted-foreground">
               <TableRow>
                 <TableHead>{t("colCreated")}</TableHead>
                 <TableHead>{t("colAmount")}</TableHead>

@@ -197,7 +197,7 @@ export function WebhooksSettings() {
                     <div className="flex items-center gap-2">
                       <span className="text-foreground truncate font-mono text-xs">{w.url}</span>
                       {!w.is_active && (
-                        <Badge className="border-border bg-muted text-muted-foreground text-[10px] tracking-wide uppercase">
+                        <Badge className="border-transparent bg-muted text-muted-foreground text-[11px] font-medium">
                           {t('paused')}
                         </Badge>
                       )}
@@ -250,7 +250,7 @@ export function WebhooksSettings() {
                         onClick={() => remove(w)}
                         disabled={busy === w.id}
                         aria-label={t('delete')}
-                        className="border-red-500/40 bg-red-500/10 text-red-300 hover:border-red-500/60 hover:bg-red-500/20 hover:text-red-200"
+                        className="border-red-500/40 bg-red-500/10 text-red-700 dark:text-red-300 hover:border-red-500/60 hover:bg-red-500/20 hover:text-red-800 dark:hover:text-red-200"
                       >
                         {busy === w.id ? <Loader2 className="size-4 animate-spin" /> : <Trash2 className="size-4" />}
                       </Button>
@@ -308,7 +308,7 @@ function DeliveryLogDialog({ hook, onClose }: { hook: ApiWebhookEndpoint; onClos
           </DialogDescription>
         </DialogHeader>
         {failed ? (
-          <p className="text-sm text-red-400">{t('logLoadFailed')}</p>
+          <p className="text-sm text-red-600 dark:text-red-400">{t('logLoadFailed')}</p>
         ) : rows === null ? (
           <div className="flex justify-center py-6">
             <Loader2 className="text-primary size-5 animate-spin" />
@@ -323,7 +323,7 @@ function DeliveryLogDialog({ hook, onClose }: { hook: ApiWebhookEndpoint; onClos
                   className={
                     row.outcome === 'delivered'
                       ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-500'
-                      : 'border-red-500/30 bg-red-500/10 text-red-400'
+                      : 'border-red-500/30 bg-red-500/10 text-red-600 dark:text-red-400'
                   }
                 >
                   {row.outcome === 'delivered' ? t('logDelivered') : t('logFailed')}

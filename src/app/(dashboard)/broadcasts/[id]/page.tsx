@@ -47,6 +47,7 @@ import { useTranslations } from 'next-intl';
 import { useCan } from '@/hooks/use-can';
 import { numberLabel, useWhatsAppNumbers } from '@/components/settings/numbers/use-whatsapp-numbers';
 import { CampaignCostCard } from '@/components/broadcasts/campaign-cost';
+import { BROADCAST_STATUS_TONE as STATUS_TONE, StatusPill } from '@/components/broadcasts/campaign-ui';
 
 interface StatCardProps {
   label: string;
@@ -59,15 +60,15 @@ interface StatCardProps {
 function StatCard({ label, value, total, icon, color }: StatCardProps) {
   const pct = total > 0 ? Math.round((value / total) * 100) : 0;
   return (
-    <div className="rounded-xl border border-border bg-card p-4">
-      <div className="flex items-center justify-between">
-        <div className={`flex h-8 w-8 items-center justify-center rounded-lg ${color}`}>
-          {icon}
-        </div>
-        <span className="text-xs text-muted-foreground">{pct}%</span>
+    <div className="flex flex-col gap-1 rounded-xl border border-border bg-card p-4">
+      <div className="flex items-center justify-between gap-2">
+        <span className="flex min-w-0 items-center gap-1.5 text-xs font-medium text-muted-foreground">
+          <span className={`shrink-0 ${color}`}>{icon}</span>
+          <span className="truncate">{label}</span>
+        </span>
+        <span className="text-xs tabular-nums text-muted-foreground">{pct}%</span>
       </div>
-      <p className="mt-3 text-2xl font-bold text-foreground">{value.toLocaleString()}</p>
-      <p className="text-xs text-muted-foreground">{label}</p>
+      <p className="text-2xl font-bold tracking-tight tabular-nums text-foreground">{value.toLocaleString()}</p>
     </div>
   );
 }
@@ -88,31 +89,25 @@ function FunnelChart({ steps }: { steps: FunnelStep[] }) {
   const max = Math.max(...steps.map((s) => s.value), 1);
   return (
     <div className="rounded-xl border border-border bg-card p-4">
-      <h3 className="mb-4 text-sm font-medium text-foreground">{t('funnel')}</h3>
-      <div className="space-y-2">
+      <h3 className="mb-4 text-base font-semibold text-foreground">{t('funnel')}</h3>
+      <div className="space-y-3">
         {steps.map((step) => {
-          const pctOfMax = Math.max(5, Math.round((step.value / max) * 100));
+          const pctOfMax = Math.max(1, Math.round((step.value / max) * 100));
           const pctOfSent =
             steps[0].value > 0
               ? Math.round((step.value / steps[0].value) * 100)
               : 0;
           return (
-            <div key={step.label} className="flex items-center gap-3">
-              <span className="w-20 shrink-0 text-xs text-muted-foreground">
-                {step.label}
-              </span>
-              <div className="relative h-7 flex-1 rounded-full bg-muted">
+            <div key={step.label} className="grid grid-cols-[4.5rem_minmax(0,1fr)_4rem_2.5rem] items-center gap-3 text-[13px]">
+              <span className="truncate text-muted-foreground">{step.label}</span>
+              <div className="h-[22px] overflow-hidden rounded-md bg-muted">
                 <div
-                  className={`h-7 rounded-full ${step.color} transition-[width] duration-500`}
+                  className={`h-full rounded-md ${step.color} transition-[width] duration-500`}
                   style={{ width: `${pctOfMax}%` }}
                 />
-                <span className="absolute inset-0 flex items-center px-3 text-xs font-medium text-foreground">
-                  {step.value.toLocaleString()}
-                  <span className="ml-2 text-muted-foreground/80">
-                    ({pctOfSent}%)
-                  </span>
-                </span>
               </div>
+              <b className="text-right font-semibold tabular-nums text-foreground">{step.value.toLocaleString()}</b>
+              <small className="text-right text-xs tabular-nums text-muted-foreground">{pctOfSent}%</small>
             </div>
           );
         })}
@@ -423,7 +418,7 @@ export default function BroadcastDetailPage() {
   if (error || !broadcast) {
     return (
       <div className="flex h-64 flex-col items-center justify-center gap-2">
-        <p className="text-sm text-red-400">{error ?? t('notFound')}</p>
+        <p className="text-sm text-red-600 dark:text-red-400">{error ?? t('notFound')}</p>
         <Button variant="outline" onClick={() => router.push('/broadcasts')}>
           {t('backToBroadcasts')}
         </Button>
@@ -441,44 +436,43 @@ export default function BroadcastDetailPage() {
 
   const funnelSteps: FunnelStep[] = [
     { label: t('stats.sent'), value: broadcast.sent_count, color: 'bg-primary' },
-    { label: t('stats.delivered'), value: broadcast.delivered_count, color: 'bg-teal-500' },
-    { label: t('stats.read'), value: broadcast.read_count, color: 'bg-blue-500' },
-    { label: t('stats.replied'), value: broadcast.replied_count, color: 'bg-indigo-500' },
+    { label: t('stats.delivered'), value: broadcast.delivered_count, color: 'bg-primary/85' },
+    { label: t('stats.read'), value: broadcast.read_count, color: 'bg-primary/70' },
+    { label: t('stats.replied'), value: broadcast.replied_count, color: 'bg-primary/55' },
   ];
 
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="flex items-center gap-4">
+        <div className="flex min-w-0 flex-col items-start gap-2">
           <Button
-            variant="outline"
-            size="icon"
+            variant="ghost"
+            size="icon-sm"
             onClick={() => router.push('/broadcasts')}
             aria-label={t('backToBroadcasts')}
-            className="border-border"
+            title={t('backToBroadcasts')}
+            className="-ml-1 text-muted-foreground"
           >
             <ArrowLeft className="h-4 w-4" />
           </Button>
-          <div>
-            <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-bold text-foreground">{broadcast.name}</h1>
-              <span
-                className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${status.classes}`}
-              >
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-3">
+              <h1 className="text-[22px] font-bold leading-tight tracking-tight text-foreground">{broadcast.name}</h1>
+              <StatusPill tone={STATUS_TONE[broadcast.status] ?? 'neutral'} pulse={status.pulse}>
                 {tStatus(status.label)}
-              </span>
+              </StatusPill>
             </div>
-            <div className="mt-1 flex items-center gap-3 text-sm text-muted-foreground">
+            <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
               <span>{t('template', { name: broadcast.template_name })}</span>
-              <span>-</span>
+              <span aria-hidden>·</span>
               {numbers.length > 1 && (() => {
                 const id = (broadcast as Broadcast & { whatsapp_config_id?: string | null }).whatsapp_config_id;
                 const n = id ? numbers.find((x) => x.id === id) : undefined;
                 return (
                   <>
                     <span>{tn('picker.sendFrom')}: {n ? numberLabel(n, tn) : '—'}</span>
-                    <span>-</span>
+                    <span aria-hidden>·</span>
                   </>
                 );
               })()}
@@ -494,8 +488,8 @@ export default function BroadcastDetailPage() {
             because orphaning in-flight Meta messages would leave the
             funnel inconsistent. */}
         {confirmDelete ? (
-          <div className="flex items-center gap-2 rounded-md border border-red-500/30 bg-red-500/10 px-3 py-1.5 text-sm">
-            <span className="text-red-300">{t('deletePrompt')}</span>
+          <div className="flex items-center gap-2 rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-1.5 text-sm">
+            <span className="text-red-600 dark:text-red-400">{t('deletePrompt')}</span>
             <Button
               variant="outline"
               size="sm"
@@ -525,7 +519,7 @@ export default function BroadcastDetailPage() {
                 ? t('cannotDeleteSending')
                 : t('deleteHover')
             }
-            className="border-red-500/30 bg-transparent text-red-400 hover:bg-red-500/10 disabled:opacity-40"
+            className="border-red-500/30 bg-transparent text-red-600 hover:bg-red-500/10 disabled:opacity-40 dark:text-red-400"
           >
             <Trash2 className="h-3.5 w-3.5" />
             {t('delete')}
@@ -535,7 +529,7 @@ export default function BroadcastDetailPage() {
 
       {/* Scheduled: when it will start, with reschedule and cancel. */}
       {broadcast.status === 'scheduled' && broadcast.scheduled_at && (
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-blue-500/20 bg-blue-500/5 p-4">
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-primary/10 p-4">
           <p className="text-sm font-medium text-foreground">
             {t('scheduledFor', { when: new Date(broadcast.scheduled_at).toLocaleString() })}
           </p>
@@ -551,7 +545,7 @@ export default function BroadcastDetailPage() {
               {t('reschedule')}
             </Button>
             <Button variant="outline" size="sm" disabled={scheduleBusy} onClick={() => changeSchedule('DELETE')}
-              className="border-red-500/30 text-red-400 hover:bg-red-500/10">
+              className="border-red-500/30 text-red-600 hover:bg-red-500/10 dark:text-red-400">
               {t('cancelSchedule')}
             </Button>
           </div>}
@@ -650,8 +644,8 @@ export default function BroadcastDetailPage() {
           </div>
           {canReconcile ? (
             confirmNotSent ? (
-              <div className="flex flex-wrap items-center gap-2 rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm">
-                <span className="text-red-300">{t('uncertainNotSentWarning', { count: selectedUncertain.size })}</span>
+              <div className="flex flex-wrap items-center gap-2 rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm">
+                <span className="text-red-600 dark:text-red-400">{t('uncertainNotSentWarning', { count: selectedUncertain.size })}</span>
                 <Button variant="outline" size="sm" disabled={reconciling} onClick={() => setConfirmNotSent(false)}>
                   {t('cancel')}
                 </Button>
@@ -685,42 +679,42 @@ export default function BroadcastDetailPage() {
           value={broadcast.total_recipients}
           total={broadcast.total_recipients}
           icon={<Users className="h-4 w-4" />}
-          color="bg-muted text-muted-foreground"
+          color="text-muted-foreground"
         />
         <StatCard
           label={t('stats.sent')}
           value={broadcast.sent_count}
           total={broadcast.total_recipients}
           icon={<Send className="h-4 w-4" />}
-          color="bg-primary/10 text-primary"
+          color="text-primary"
         />
         <StatCard
           label={t('stats.delivered')}
           value={broadcast.delivered_count}
           total={broadcast.total_recipients}
           icon={<CheckCheck className="h-4 w-4" />}
-          color="bg-teal-500/10 text-teal-400"
+          color="text-muted-foreground"
         />
         <StatCard
           label={t('stats.read')}
           value={broadcast.read_count}
           total={broadcast.total_recipients}
           icon={<Eye className="h-4 w-4" />}
-          color="bg-blue-500/10 text-blue-400"
+          color="text-muted-foreground"
         />
         <StatCard
           label={t('stats.replied')}
           value={broadcast.replied_count}
           total={broadcast.total_recipients}
           icon={<MessageCircle className="h-4 w-4" />}
-          color="bg-indigo-500/10 text-indigo-400"
+          color="text-muted-foreground"
         />
         <StatCard
           label={t('stats.failed')}
           value={broadcast.failed_count}
           total={broadcast.total_recipients}
           icon={<AlertCircle className="h-4 w-4" />}
-          color="bg-red-500/10 text-red-400"
+          color="text-red-600 dark:text-red-400"
         />
       </div>
 
@@ -828,21 +822,21 @@ export default function BroadcastDetailPage() {
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
-                <TableRow className="border-border hover:bg-transparent">
-                  <TableHead className="text-muted-foreground">{t('table.contact')}</TableHead>
-                  <TableHead className="text-muted-foreground">{t('table.phone')}</TableHead>
-                  <TableHead className="text-muted-foreground">{t('table.status')}</TableHead>
-                  <TableHead className="text-muted-foreground">{t('table.sent')}</TableHead>
-                  <TableHead className="text-muted-foreground">{t('table.delivered')}</TableHead>
-                  <TableHead className="text-muted-foreground">{t('table.read')}</TableHead>
-                  <TableHead className="text-muted-foreground">{t('table.error')}</TableHead>
+                <TableRow className="border-border bg-muted hover:bg-muted">
+                  <TableHead className="h-9 px-4 text-xs font-semibold text-muted-foreground">{t('table.contact')}</TableHead>
+                  <TableHead className="h-9 px-4 text-xs font-semibold text-muted-foreground">{t('table.phone')}</TableHead>
+                  <TableHead className="h-9 px-4 text-xs font-semibold text-muted-foreground">{t('table.status')}</TableHead>
+                  <TableHead className="h-9 px-4 text-xs font-semibold text-muted-foreground">{t('table.sent')}</TableHead>
+                  <TableHead className="h-9 px-4 text-xs font-semibold text-muted-foreground">{t('table.delivered')}</TableHead>
+                  <TableHead className="h-9 px-4 text-xs font-semibold text-muted-foreground">{t('table.read')}</TableHead>
+                  <TableHead className="h-9 px-4 text-xs font-semibold text-muted-foreground">{t('table.error')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredRecipients.map((recipient) => {
                   const rStatus = getRecipientStatus(recipient.status);
                   return (
-                    <TableRow key={recipient.id} className="border-border">
+                    <TableRow key={recipient.id} className="border-border/70 transition-colors duration-150 hover:bg-muted/60">
                       <TableCell className="font-medium text-foreground">
                         {recipient.contact?.name ?? t('unknownContact')}
                       </TableCell>
@@ -851,7 +845,7 @@ export default function BroadcastDetailPage() {
                       </TableCell>
                       <TableCell>
                         <span
-                          className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${rStatus.classes}`}
+                          className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${rStatus.classes}`}
                         >
                           {tStatus(rStatus.label)}
                         </span>
@@ -871,7 +865,7 @@ export default function BroadcastDetailPage() {
                           ? new Date(recipient.read_at).toLocaleString()
                           : '-'}
                       </TableCell>
-                      <TableCell className="max-w-xs truncate text-xs text-red-400">
+                      <TableCell className="max-w-xs truncate text-xs text-red-600 dark:text-red-400">
                         {recipient.error_message ?? '-'}
                       </TableCell>
                     </TableRow>

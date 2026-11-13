@@ -9,9 +9,9 @@ import { useTranslations } from 'next-intl';
 import { templateSendRefusal } from '@/lib/whatsapp/template-send-params';
 
 const categoryColors: Record<string, string> = {
-  Marketing: 'bg-purple-500/10 text-purple-400 border-purple-500/20',
-  Utility: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
-  Authentication: 'bg-orange-500/10 text-orange-400 border-orange-500/20',
+  Marketing: 'bg-primary/10 text-primary',
+  Utility: 'bg-muted text-muted-foreground',
+  Authentication: 'bg-muted text-muted-foreground',
 };
 
 interface Step1Props {
@@ -63,7 +63,7 @@ export function Step1ChooseTemplate({ selectedTemplate, onSelect, onNext, onBack
   if (error) {
     return (
       <div className="flex h-64 flex-col items-center justify-center gap-2">
-        <p className="text-sm text-red-400">{error}</p>
+        <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
       </div>
     );
   }
@@ -71,14 +71,14 @@ export function Step1ChooseTemplate({ selectedTemplate, onSelect, onNext, onBack
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-lg font-semibold text-foreground">{t('chooseTemplate.title')}</h2>
+        <h2 className="text-base font-semibold text-foreground">{t('chooseTemplate.title')}</h2>
         <p className="mt-1 text-sm text-muted-foreground">
           {t('chooseTemplate.subtitle')}
         </p>
       </div>
 
       {templates.length === 0 ? (
-        <div className="flex h-48 flex-col items-center justify-center rounded-xl border border-border bg-card/50">
+        <div className="flex h-48 flex-col items-center justify-center rounded-xl border border-dashed border-border bg-card">
           <FileText className="mb-2 h-8 w-8 text-muted-foreground" />
           <p className="text-sm text-muted-foreground">{t('chooseTemplate.noTemplates')}</p>
           <p className="mt-1 text-xs text-muted-foreground">{t('chooseTemplate.createFirst')}</p>
@@ -97,23 +97,23 @@ export function Step1ChooseTemplate({ selectedTemplate, onSelect, onNext, onBack
                 onClick={() => onSelect(template)}
                 disabled={refused}
                 aria-describedby={refused ? `tpl-refused-${template.id}` : undefined}
-                className={`flex flex-col gap-3 rounded-xl border p-4 text-left transition-all disabled:cursor-not-allowed disabled:opacity-60 ${
+                className={`flex flex-col gap-3 rounded-xl border p-4 text-left transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-60 ${
                   isSelected
-                    ? 'border-primary bg-primary/5 ring-1 ring-primary/30'
-                    : 'border-border bg-card/50 hover:border-border hover:bg-card'
+                    ? 'border-primary bg-primary/10'
+                    : 'border-border bg-card hover:bg-muted/60'
                 }`}
               >
-                <div className="flex items-start justify-between">
-                  <h3 className="text-sm font-medium text-foreground">{template.name}</h3>
+                <div className="flex items-start justify-between gap-2">
+                  <h3 className="min-w-0 truncate font-mono text-[13px] font-semibold text-foreground">{template.name}</h3>
                   <span
-                    className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium ${catColor}`}
+                    className={`inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-[11px] font-medium ${catColor}`}
                   >
                     {template.category}
                   </span>
                 </div>
                 <p className="line-clamp-3 text-xs text-muted-foreground">{template.body_text}</p>
                 {refused && (
-                  <p id={`tpl-refused-${template.id}`} className="text-[11px] text-amber-300">
+                  <p id={`tpl-refused-${template.id}`} className="text-[11px] text-amber-700 dark:text-amber-400">
                     {t('chooseTemplate.authNotForCampaigns')}
                   </p>
                 )}
@@ -130,7 +130,7 @@ export function Step1ChooseTemplate({ selectedTemplate, onSelect, onNext, onBack
       )}
 
       <div className="flex items-center justify-between border-t border-border pt-4">
-        <Button variant="outline" onClick={onBack} className="border-border text-muted-foreground">
+        <Button variant="outline" onClick={onBack}>
           {t('back')}
         </Button>
         <Button

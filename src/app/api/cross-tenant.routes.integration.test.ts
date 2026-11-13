@@ -20,7 +20,7 @@ const routeModules = import.meta.glob('/src/app/api/**/route.ts');
 const databases = fixtureDatabaseUrls();
 
 type Extra = Record<'list' | 'segment' | 'team' | 'paymentLink' | 'media' | 'note' | 'attribute' | 'schedule'
-  | 'savedFilter' | 'form' | 'mediaKey', string>;
+  | 'savedFilter' | 'form' | 'mediaKey' | 'igTemplate', string>;
 type Ids = TenantFixture & { extra: Extra };
 
 type Case = {
@@ -54,6 +54,13 @@ export const CASES: Case[] = [
   // While Instagram is off the list answers { enabled:false } with no query for any id, so the case runs with it on.
   { route: 'contacts/[id]/identities', method: 'GET', params: id('contactId'), env: INSTAGRAM_ON },
   { route: 'contacts/[id]/erase', method: 'POST', params: id('contactId') },
+  // WhatsApp consent: another workspace's contact is not found and keeps its consent.
+  { route: 'contacts/[id]/consent', method: 'POST', params: id('contactId'), body: () => ({ state: 'opted_out' }) },
+  { route: 'contacts/[id]/consent', method: 'POST', params: id('contactId'), body: () => ({ state: 'opted_in' }), as: 'agent' },
+  // Saved Instagram templates: another workspace's template cannot be edited or deleted.
+  { route: 'instagram/message-templates/[id]', method: 'PATCH', params: extra('igTemplate'), env: INSTAGRAM_ON,
+    body: () => ({ name: 'p15 taken over', kind: 'button', payload: { text: 'x', buttons: [{ type: 'reply', title: 'Hi' }] } }) },
+  { route: 'instagram/message-templates/[id]', method: 'DELETE', params: extra('igTemplate'), env: INSTAGRAM_ON },
   { route: 'conversations/[id]/notes', method: 'GET', params: id('conversationId') },
   { route: 'conversations/[id]/notes', method: 'POST', params: id('conversationId'), body: () => ({ body: 'p15 cross-tenant note' }) },
   { route: 'conversations/[id]/notes/[noteId]', method: 'PATCH', params: (b) => ({ id: b.conversationId, noteId: b.extra.note }), body: () => ({ body: 'p15 edit' }) },
@@ -299,7 +306,8 @@ const TABLES = ['contacts', 'conversations', 'messages', 'tags', 'contact_tags',
   'appointment_locations', 'broadcasts', 'broadcast_recipients', 'flows', 'flow_nodes', 'flow_runs', 'automations', 'automation_steps',
   'contact_lists', 'contact_list_members', 'segments', 'teams', 'payment_links', 'media_objects', 'conversation_notes',
   'workspace_attributes', 'report_schedules', 'saved_filters', 'whatsapp_forms', 'webhook_endpoints', 'api_keys',
-  'account_memberships', 'quick_replies', 'message_templates', 'ai_knowledge_documents', 'whatsapp_config', 'accounts'];
+  'account_memberships', 'quick_replies', 'message_templates', 'ai_knowledge_documents', 'whatsapp_config', 'accounts',
+  'instagram_message_templates'];
 
 async function existingTables(): Promise<string[]> {
   const rows = await fixtureOwnerPool().query<{ t: string }>(
@@ -340,6 +348,8 @@ async function addExtras(t: TenantFixture, tag: string): Promise<Extra> {
     savedFilter: await one("INSERT INTO saved_filters(account_id,user_id,name) VALUES($1,$2,'p15 view')", [a, u]),
     form: await one("INSERT INTO whatsapp_forms(account_id,user_id,name,category,definition) VALUES($1,$2,$3,'OTHER',$4::jsonb)",
       [a, u, `p15 form ${tag}`, JSON.stringify({ screens: [] })]),
+    igTemplate: await one("INSERT INTO instagram_message_templates(account_id,name,kind,payload,created_by) VALUES($1,$2,'button',$3::jsonb,$4)",
+      [a, `p15 template ${tag}`, JSON.stringify({ text: 'Hello', buttons: [{ type: 'postback', title: 'Hi', payload: 'reply:Hi' }] }), u]),
   };
 }
 

@@ -44,8 +44,6 @@ import {
   Trash2,
   Loader2,
   Users,
-  ChevronLeft,
-  ChevronRight,
   SlidersHorizontal,
   Filter,
   ListFilter,
@@ -57,12 +55,15 @@ import {
   BellOff,
 } from 'lucide-react';
 import { authFetch } from '@/lib/auth/client';
+import { cn } from '@/lib/utils';
 import { changeListMembers, fetchLists, fetchSegments, type ListSummary, type SegmentSummary } from '@/lib/audience/client';
 import { groupTagsByCategory } from '@/lib/contacts/tag-groups';
 import { contactSearchFilter } from '@/lib/contacts/search-term';
 import { Label } from '@/components/ui/label';
 import { planAllows, usePlan } from '@/lib/billing/client';
 import { UpgradeBadge } from '@/components/ui/upgrade-badge';
+import { TablePagination } from '@/components/ui/table-pagination';
+import { avatarTone, initials } from '@/lib/ui/avatar-tone';
 import { SegmentBuilderDialog } from '@/components/contacts/segment-builder-dialog';
 import { ContactForm } from '@/components/contacts/contact-form';
 import { ContactDetailView } from '@/components/contacts/contact-detail-view';
@@ -77,6 +78,14 @@ import { useTranslations } from 'next-intl';
 import { PAUSE_MINUTES_CHOICES } from '@/lib/flows/types';
 
 const PAGE_SIZE = 25;
+
+/** A filter rendered as a soft chip (a native select or a popover trigger). */
+const CHIP =
+  'h-8 max-w-56 shrink-0 cursor-pointer truncate rounded-full border border-border bg-card px-3 text-[13px] text-muted-foreground transition-colors duration-150 hover:bg-muted focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50';
+const CHIP_ON = 'border-transparent bg-primary/10 font-semibold text-primary hover:bg-primary/15';
+const TH = 'h-11 text-xs font-medium text-muted-foreground';
+
+
 
 interface ContactWithTags extends Contact {
   tags?: Tag[];
@@ -532,6 +541,16 @@ export default function ContactsPage() {
     setDetailOpen(true);
   }
 
+  // "View contact" from the inbox links here with ?contact=<id>: open that contact once.
+  // The detail view loads it through the tenant-scoped API, so another workspace's id shows nothing.
+  useEffect(() => {
+    const id = new URLSearchParams(window.location.search).get('contact');
+    if (id && /^[0-9a-f-]{36}$/i.test(id)) {
+      setDetailContactId(id);
+      setDetailOpen(true);
+    }
+  }, []);
+
   function confirmDelete(contact: Contact) {
     setDeleteTarget(contact);
     setDeleteConfirmOpen(true);
@@ -701,8 +720,6 @@ export default function ContactsPage() {
   }
 
   const totalPages = Math.ceil(totalCount / PAGE_SIZE);
-  const hasNext = page < totalPages - 1;
-  const hasPrev = page > 0;
 
   // Tag filter helpers. Every change resets to page 0 — the result set
   // shrinks/grows so page N may no longer be valid (mirrors the search box).
@@ -730,33 +747,34 @@ export default function ContactsPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">{t('title')}</h1>
-          <p className="text-sm text-muted-foreground mt-1">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <h1 className="text-[22px] font-bold tracking-tight text-foreground">{t('title')}</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
             {totalCount > 0 ? t('subtitle', { count: totalCount }) : t('subtitleZero')}
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {canEditSettings && !canExport && <UpgradeBadge />}
-          {canEditSettings && (
-            <Button
-              variant="outline"
-              onClick={exportCsv}
-              disabled={exporting || !canExport}
-              className="border-border text-muted-foreground hover:bg-muted"
-            >
-              {exporting ? <Loader2 className="size-4 animate-spin" /> : <Download className="size-4" />}
-              {segmentId ? t('segments.exportSegment') : listId ? t('lists.exportList') : t('segments.exportAll')}
-            </Button>
+          {canEdit && (
+            <>
+              <Button variant="ghost" onClick={() => openSegmentBuilder(null)} className="text-muted-foreground">
+                <ListFilter className="size-4" />
+                {t('segments.newSegment')}
+              </Button>
+              <Button variant="ghost" onClick={() => setNewListOpen(true)} className="text-muted-foreground">
+                <List className="size-4" />
+                {t('lists.newList')}
+              </Button>
+            </>
           )}
           {canEditSettings && (
             <Button
-              variant="outline"
+              variant="ghost"
               onClick={() => setCustomFieldsOpen(true)}
-              className="border-border text-muted-foreground hover:bg-muted"
+              className="text-muted-foreground"
             >
               <SlidersHorizontal className="size-4" />
               {t('customFieldsBtn')}
@@ -767,16 +785,25 @@ export default function ContactsPage() {
             canAct={canEdit}
             gateReason={tGate('reasons.addOrImportContacts')}
             onClick={() => setImportOpen(true)}
-            className="border-border text-muted-foreground hover:bg-muted"
           >
             <Upload className="size-4" />
             {t('importBtn')}
           </GatedButton>
+          {canEditSettings && (
+            <Button
+              variant="outline"
+              onClick={exportCsv}
+              disabled={exporting || !canExport}
+            >
+              {exporting ? <Loader2 className="size-4 animate-spin" /> : <Download className="size-4" />}
+              {segmentId ? t('segments.exportSegment') : listId ? t('lists.exportList') : t('segments.exportAll')}
+            </Button>
+          )}
           <GatedButton
             canAct={canEdit}
             gateReason={tGate('reasons.addOrImportContacts')}
             onClick={openAddForm}
-            className="bg-primary hover:bg-primary/90 text-primary-foreground"
+            size="lg"
           >
             <Plus className="size-4" />
             {t('addContactBtn')}
@@ -784,12 +811,13 @@ export default function ContactsPage() {
         </div>
       </div>
 
-      {/* Search + tag filter */}
+      {/* Search + filter chips */}
       <div className="space-y-2">
-        <div className="flex flex-col sm:flex-row gap-2">
-          <div className="relative w-full max-w-sm">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="relative w-full sm:w-80">
+            <Search className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input
+              type="search"
               value={search}
               onChange={(e) => {
                 setSearch(e.target.value);
@@ -798,46 +826,39 @@ export default function ContactsPage() {
                 setPage(0);
               }}
               placeholder={t('searchPlaceholder')}
-              className="pl-8 bg-card border-border text-foreground placeholder:text-muted-foreground"
+              className="h-10 rounded-xl border-transparent bg-muted pl-10 text-foreground placeholder:text-muted-foreground focus-visible:bg-card"
             />
           </div>
 
+          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
           <select
             aria-label={t('segments.selectLabel')}
             value={segmentId}
             onChange={(e) => selectSegment(e.target.value)}
-            className="h-9 shrink-0 rounded-md border border-border bg-card px-2 text-sm text-foreground"
+            className={cn(CHIP, segmentId && CHIP_ON)}
           >
             <option value="">{t('segments.allContacts')}</option>
             {segments.map((s) => (
               <option key={s.id} value={s.id}>{s.name}</option>
             ))}
           </select>
-          {canEdit && (
-            <Button
-              variant="outline"
-              onClick={() => openSegmentBuilder(null)}
-              className="border-border text-muted-foreground hover:bg-muted shrink-0"
-            >
-              <ListFilter className="size-4" />
-              {t('segments.newSegment')}
-            </Button>
-          )}
           {canEdit && selectedSegment && (
             <>
               <Button
-                variant="outline"
+                variant="ghost"
+                size="icon-sm"
                 onClick={() => openSegmentBuilder(selectedSegment)}
                 aria-label={t('segments.editSegment')}
-                className="border-border text-muted-foreground hover:bg-muted shrink-0"
+                className="text-muted-foreground"
               >
                 <Pencil className="size-4" />
               </Button>
               <Button
-                variant="outline"
+                variant="ghost"
+                size="icon-sm"
                 onClick={deleteSelectedSegment}
                 aria-label={t('segments.deleteSegment')}
-                className="border-border text-muted-foreground hover:bg-muted shrink-0"
+                className="text-muted-foreground hover:text-destructive"
               >
                 <Trash2 className="size-4" />
               </Button>
@@ -848,29 +869,20 @@ export default function ContactsPage() {
             aria-label={t('lists.selectLabel')}
             value={listId}
             onChange={(e) => selectList(e.target.value)}
-            className="h-9 shrink-0 rounded-md border border-border bg-card px-2 text-sm text-foreground"
+            className={cn(CHIP, listId && CHIP_ON)}
           >
             <option value="">{t('lists.none')}</option>
             {lists.map((l) => (
               <option key={l.id} value={l.id}>{l.name} ({l.member_count})</option>
             ))}
           </select>
-          {canEdit && (
-            <Button
-              variant="outline"
-              onClick={() => setNewListOpen(true)}
-              className="border-border text-muted-foreground hover:bg-muted shrink-0"
-            >
-              <List className="size-4" />
-              {t('lists.newList')}
-            </Button>
-          )}
           {canEdit && listId && (
             <Button
-              variant="outline"
+              variant="ghost"
+              size="icon-sm"
               onClick={deleteSelectedList}
               aria-label={t('lists.deleteList')}
-              className="border-border text-muted-foreground hover:bg-muted shrink-0"
+              className="text-muted-foreground hover:text-destructive"
             >
               <Trash2 className="size-4" />
             </Button>
@@ -880,16 +892,16 @@ export default function ContactsPage() {
             <PopoverTrigger
               disabled={segmentId !== '' || listId !== ''}
               render={
-                <Button
-                  variant="outline"
-                  className="border-border text-muted-foreground hover:bg-muted shrink-0"
+                <button
+                  type="button"
+                  className={cn(CHIP, 'inline-flex items-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-50', selectedTagIds.length > 0 && CHIP_ON)}
                 />
               }
             >
-              <Filter className="size-4" />
+              <Filter className="size-3.5" />
               {t('filterByTags')}
               {selectedTagIds.length > 0 && (
-                <span className="ml-1 inline-flex items-center justify-center rounded-full bg-primary px-1.5 text-[10px] font-semibold text-primary-foreground">
+                <span className="inline-flex min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold tabular-nums text-primary-foreground">
                   {selectedTagIds.length}
                 </span>
               )}
@@ -918,7 +930,7 @@ export default function ContactsPage() {
                     <div key={group.category ?? ''}>
                       {/* Headings only once categories are in use. */}
                       {tagGroups.length > 1 && (
-                        <p className="px-3 pt-2 pb-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                        <p className="px-3 pt-2 pb-1 text-xs font-medium text-muted-foreground">
                           {group.category ?? t('otherTags')}
                         </p>
                       )}
@@ -957,13 +969,13 @@ export default function ContactsPage() {
                   setChannelView(e.target.value as ChannelView);
                   setPage(0);
                 }}
-                className="h-9 shrink-0 rounded-md border border-border bg-card px-2 text-sm text-foreground"
+                className={cn(CHIP, channelView && CHIP_ON)}
               >
                 <option value="">{tc('allChannels')}</option>
                 <option value="whatsapp">{tc('hasWhatsApp')}</option>
                 <option value="instagram">{tc('hasInstagram')}</option>
               </select>
-              <div className="flex shrink-0 items-center gap-2">
+              <div className="flex h-8 shrink-0 items-center gap-2 rounded-full border border-border bg-card pl-1.5 pr-3">
                 <Switch
                   id="contacts-subscribed-only"
                   checked={subscribedOnly}
@@ -972,12 +984,14 @@ export default function ContactsPage() {
                     setPage(0);
                   }}
                 />
-                <Label htmlFor="contacts-subscribed-only" className="text-sm text-muted-foreground">
+                <Label htmlFor="contacts-subscribed-only" className="text-[13px] font-normal text-muted-foreground">
                   {tc('subscribedOnly')}
                 </Label>
               </div>
             </>
           )}
+
+          </div>
         </div>
 
         {/* Active tag-filter chips */}
@@ -989,7 +1003,7 @@ export default function ContactsPage() {
               return (
                 <span
                   key={id}
-                  className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium"
+                  className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium"
                   style={{
                     backgroundColor: tag.color + '20',
                     color: tag.color,
@@ -1018,9 +1032,13 @@ export default function ContactsPage() {
 
       {/* Bulk action bar */}
       {selected.size > 0 && (
-        <div className="flex flex-wrap items-center justify-between gap-4 rounded-lg border border-border bg-muted/40 px-4 py-2">
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-foreground">
-            <p>
+        <div
+          role="toolbar"
+          aria-label={t('selectedCount', { count: selectionCount })}
+          className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-primary/10 py-2 pl-4 pr-2"
+        >
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] text-foreground">
+            <p className="font-semibold tabular-nums">
               {allMatching
                 ? t('allMatchingSelected', { count: totalCount })
                 : t('selectedCount', { count: selected.size })}
@@ -1142,11 +1160,12 @@ export default function ContactsPage() {
       )}
 
       {/* Table */}
-      <div className="rounded-lg border border-border overflow-hidden">
+      <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+        <div className="overflow-x-auto">
         <Table>
           <TableHeader>
-            <TableRow className="border-border hover:bg-transparent">
-              <TableHead className="w-10">
+            <TableRow className="border-border bg-muted/50 hover:bg-muted/50">
+              <TableHead className="h-11 w-12 pl-5">
                 <Checkbox
                   checked={allOnPageSelected}
                   indeterminate={!allOnPageSelected && someOnPageSelected}
@@ -1155,33 +1174,35 @@ export default function ContactsPage() {
                   aria-label={t('selectAllOnPage')}
                 />
               </TableHead>
-              <TableHead className="text-muted-foreground">{t('tableColumns.name')}</TableHead>
-              <TableHead className="text-muted-foreground">{t('tableColumns.phone')}</TableHead>
-              <TableHead className="text-muted-foreground hidden md:table-cell">{t('tableColumns.email')}</TableHead>
-              <TableHead className="text-muted-foreground hidden lg:table-cell">{t('tableColumns.company')}</TableHead>
+              <TableHead className={TH}>{t('tableColumns.name')}</TableHead>
+              <TableHead className={TH}>{t('tableColumns.phone')}</TableHead>
+              <TableHead className={cn(TH, 'hidden md:table-cell')}>{t('tableColumns.email')}</TableHead>
+              <TableHead className={cn(TH, 'hidden lg:table-cell')}>{t('tableColumns.company')}</TableHead>
               {instagramOn && (
-                <TableHead className="text-muted-foreground hidden md:table-cell">{tcs('instagram')}</TableHead>
+                <TableHead className={cn(TH, 'hidden md:table-cell')}>{tcs('instagram')}</TableHead>
               )}
-              <TableHead className="text-muted-foreground hidden md:table-cell">{t('tableColumns.tags')}</TableHead>
-              <TableHead className="text-muted-foreground hidden lg:table-cell">{t('tableColumns.createdAt')}</TableHead>
-              <TableHead className="text-muted-foreground w-12" />
+              <TableHead className={cn(TH, 'hidden md:table-cell')}>{t('tableColumns.tags')}</TableHead>
+              <TableHead className={cn(TH, 'hidden lg:table-cell')}>{t('tableColumns.createdAt')}</TableHead>
+              <TableHead className="w-12" />
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
-              <TableRow className="border-border">
-                <TableCell colSpan={instagramOn ? 9 : 8} className="text-center py-12">
+              <TableRow className="border-border hover:bg-transparent">
+                <TableCell colSpan={instagramOn ? 9 : 8} className="py-16 text-center">
                   <div className="flex flex-col items-center gap-2">
-                    <Loader2 className="size-6 animate-spin text-primary" />
+                    <Loader2 className="size-5 animate-spin text-muted-foreground" />
                     <p className="text-sm text-muted-foreground">{t('loading')}</p>
                   </div>
                 </TableCell>
               </TableRow>
             ) : contacts.length === 0 ? (
-              <TableRow className="border-border">
-                <TableCell colSpan={instagramOn ? 9 : 8} className="text-center py-12">
-                  <div className="flex flex-col items-center gap-2">
-                    <Users className="size-8 text-muted-foreground" />
+              <TableRow className="border-border hover:bg-transparent">
+                <TableCell colSpan={instagramOn ? 9 : 8} className="py-16 text-center whitespace-normal">
+                  <div className="flex flex-col items-center gap-3">
+                    <span className="flex size-12 items-center justify-center rounded-xl bg-muted text-muted-foreground">
+                      {hasActiveFilters ? <Search className="size-5" /> : <Users className="size-5" />}
+                    </span>
                     <p className="text-sm text-muted-foreground">
                       {hasActiveFilters
                         ? t('noContactsMatch')
@@ -1192,11 +1213,9 @@ export default function ContactsPage() {
                         canAct={canEdit}
                         gateReason={tGate('reasons.addOrImportContacts')}
                         variant="outline"
-                        size="sm"
                         onClick={openAddForm}
-                        className="mt-2 border-border text-muted-foreground hover:bg-muted"
                       >
-                        <Plus className="size-3.5" />
+                        <Plus className="size-4" />
                         {t('addFirstContact')}
                       </GatedButton>
                     )}
@@ -1207,47 +1226,61 @@ export default function ContactsPage() {
               contacts.map((contact) => (
                 <TableRow
                   key={contact.id}
-                  className="border-border hover:bg-muted/50 cursor-pointer"
+                  data-state={selected.has(contact.id) ? 'selected' : undefined}
+                  className="h-16 cursor-pointer border-border transition-colors duration-150 hover:bg-muted/40 data-[state=selected]:bg-primary/5"
                   onClick={() => openDetail(contact.id)}
                 >
-                  <TableCell onClick={(e) => e.stopPropagation()}>
+                  <TableCell className="pl-5" onClick={(e) => e.stopPropagation()}>
                     <Checkbox
                       checked={selected.has(contact.id)}
                       onCheckedChange={() => toggleSelect(contact.id)}
                       aria-label={t('selectContact', { name: contact.name || contact.phone })}
                     />
                   </TableCell>
-                  <TableCell className="text-foreground font-medium">
-                    {contact.name || <span className="text-muted-foreground italic">{t('unnamed')}</span>}
-                    <LeadScoreCell entry={leadScores[contact.id]} />
+                  <TableCell className="font-medium text-foreground">
+                    <div className="flex min-w-0 items-center gap-3">
+                      <span
+                        aria-hidden
+                        className={cn('flex size-9 shrink-0 items-center justify-center rounded-full text-xs font-semibold', avatarTone(contact.name || contact.phone))}
+                      >
+                        {initials(contact.name)}
+                      </span>
+                      <span className="min-w-0 truncate text-[14px] font-semibold">
+                        {contact.name || <span className="font-normal italic text-muted-foreground">{t('unnamed')}</span>}
+                        <LeadScoreCell entry={leadScores[contact.id]} />
+                      </span>
+                    </div>
                   </TableCell>
-                  <TableCell className="text-muted-foreground font-mono text-xs">
-                    {contact.phone}
+                  <TableCell className="text-[13px] tabular-nums text-foreground/80">
+                    <span className="inline-flex items-center gap-2">
+                      <span aria-hidden className="size-1.5 shrink-0 rounded-full bg-emerald-500" />
+                      {contact.phone}
+                    </span>
                   </TableCell>
-                  <TableCell className="text-muted-foreground hidden md:table-cell text-sm">
-                    {contact.email || <span className="text-muted-foreground">-</span>}
+                  <TableCell className="hidden text-[13px] text-muted-foreground md:table-cell">
+                    {contact.email || <span aria-hidden>—</span>}
                   </TableCell>
-                  <TableCell className="text-muted-foreground hidden lg:table-cell text-sm">
-                    {contact.company || <span className="text-muted-foreground">-</span>}
+                  <TableCell className="hidden text-[13px] text-muted-foreground lg:table-cell">
+                    {contact.company || <span aria-hidden>—</span>}
                   </TableCell>
                   {instagramOn && (
-                    <TableCell className="hidden md:table-cell text-xs" data-testid="contact-instagram-status">
+                    <TableCell className="hidden text-xs md:table-cell" data-testid="contact-instagram-status">
                       {igStatus[contact.id] === 'subscribed' ? (
-                        <span className="text-foreground">{tcs('subscribed')}</span>
+                        <span className="inline-flex items-center rounded-full bg-emerald-500/10 px-2 py-0.5 font-medium text-emerald-700 dark:text-emerald-300">{tcs('subscribed')}</span>
                       ) : igStatus[contact.id] === 'unsubscribed' ? (
-                        <span className="text-muted-foreground">{tcs('unsubscribed')}</span>
+                        <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-muted-foreground">{tcs('unsubscribed')}</span>
                       ) : (
                         <span className="text-muted-foreground">{tcs('none')}</span>
                       )}
                     </TableCell>
                   )}
                   <TableCell className="hidden md:table-cell">
-                    <div className="flex flex-wrap gap-1">
+                    <div className="flex flex-wrap items-center gap-1">
                       {contact.tags && contact.tags.length > 0 ? (
                         contact.tags.slice(0, 3).map((tag) => (
                           <span
                             key={tag.id}
-                            className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium"
+                            className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium"
                             style={{
                               backgroundColor: tag.color + '20',
                               color: tag.color,
@@ -1257,23 +1290,23 @@ export default function ContactsPage() {
                           </span>
                         ))
                       ) : (
-                        <span className="text-muted-foreground text-xs">-</span>
+                        <span aria-hidden className="text-xs text-muted-foreground">—</span>
                       )}
                       {contact.tags && contact.tags.length > 3 && (
-                        <span className="text-[10px] text-muted-foreground">
+                        <span className="text-xs tabular-nums text-muted-foreground">
                           +{contact.tags.length - 3}
                         </span>
                       )}
                     </div>
                   </TableCell>
-                  <TableCell className="text-muted-foreground text-xs hidden lg:table-cell">
+                  <TableCell className="hidden text-[13px] tabular-nums text-muted-foreground lg:table-cell">
                     {new Date(contact.created_at).toLocaleDateString('en-US', {
                       month: 'short',
                       day: 'numeric',
                       year: 'numeric',
                     })}
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="pr-3 text-right">
                     <DropdownMenu>
                       <DropdownMenuTrigger
                         render={
@@ -1321,46 +1354,28 @@ export default function ContactsPage() {
             )}
           </TableBody>
         </Table>
-      </div>
+        </div>
 
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="flex items-center justify-between">
-          <p className="text-xs text-muted-foreground">
-            {t('showingPagination', {
+        {!loading && totalCount > 0 && (
+          <TablePagination
+            className="border-t border-border"
+            page={page}
+            totalPages={totalPages}
+            onPageChange={setPage}
+            summary={t('showingPagination', {
               start: page * PAGE_SIZE + 1,
               end: Math.min((page + 1) * PAGE_SIZE, totalCount),
               total: totalCount
             })}
-          </p>
-          <div className="flex items-center gap-1">
-            <Button
-              variant="outline"
-              size="icon-sm"
-              disabled={!hasPrev}
-              onClick={() => setPage((p) => p - 1)}
-              aria-label={t('previousPage')}
-              className="border-border text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-30"
-            >
-              <ChevronLeft className="size-4" />
-            </Button>
-            <span className="text-xs text-muted-foreground px-2">
-              {t('pageCount', { page: page + 1, total: totalPages })}
-            </span>
-            <Button
-              variant="outline"
-              size="icon-sm"
-              disabled={!hasNext}
-              onClick={() => setPage((p) => p + 1)}
-              aria-label={t('nextPage')}
-              className="border-border text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-30"
-            >
-              <ChevronRight className="size-4" />
-            </Button>
-          </div>
-        </div>
-      )}
-
+            labels={{
+              nav: t('paginationLabel'),
+              previous: t('previousPage'),
+              next: t('nextPage'),
+              page: (n) => t('goToPage', { page: n }),
+            }}
+          />
+        )}
+      </div>
       {/* Contact Form Dialog */}
       <ContactForm
         open={formOpen}

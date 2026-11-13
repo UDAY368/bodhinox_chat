@@ -93,12 +93,16 @@ const renderShape = (
     width = Math.abs(width)
   }
 
+  // Softly rounded bars, never rounder than the bar itself.
+  const radius = Math.max(0, Math.min(4, width / 2, height / 2))
   return (
     <rect
       x={x}
       y={y}
       width={width}
       height={height}
+      rx={radius}
+      ry={radius}
       opacity={
         activeBar || (activeLegend && activeLegend !== name)
           ? deepEqual(activeBar, { ...payload, value })
@@ -141,7 +145,7 @@ const LegendItem = ({
     >
       <span
         className={cx(
-          "size-2 shrink-0 rounded-xs",
+          "size-2 shrink-0 rounded-full",
           getColorClassName(color, "bg"),
           activeLegend && activeLegend !== name ? "opacity-40" : "opacity-100",
         )}
@@ -477,19 +481,19 @@ const ChartTooltip = ({
     return (
       <div
         className={cx(
-          "rounded-md border text-sm shadow-md",
+          "rounded-lg border text-xs shadow-sm",
           "border-border",
           "bg-popover",
         )}
       >
-        <div className={cx("border-b border-inherit px-4 py-2")}>
+        <div className={cx("border-b border-inherit px-3 py-1.5")}>
           <p
             className={cx("font-medium", "text-popover-foreground")}
           >
             {label}
           </p>
         </div>
-        <div className={cx("space-y-1 px-4 py-2")}>
+        <div className={cx("space-y-1 px-3 py-1.5")}>
           {payload.map(({ value, category, color }, index) => (
             <div
               key={`id-${index}`}
@@ -499,7 +503,7 @@ const ChartTooltip = ({
                 <span
                   aria-hidden="true"
                   className={cx(
-                    "size-2 shrink-0 rounded-xs",
+                    "size-2 shrink-0 rounded-full",
                     getColorClassName(color, "bg"),
                   )}
                 />
@@ -693,7 +697,7 @@ const BarChart = React.forwardRef<HTMLDivElement, BarChartProps>(
           >
             {showGridLines ? (
               <CartesianGrid
-                className={cx("stroke-border stroke-1")}
+                className={cx("stroke-border/70 stroke-1")}
                 horizontal={layout !== "vertical"}
                 vertical={layout === "vertical"}
               />
@@ -794,7 +798,7 @@ const BarChart = React.forwardRef<HTMLDivElement, BarChartProps>(
               wrapperStyle={{ outline: "none" }}
               isAnimationActive={true}
               animationDuration={100}
-              cursor={{ fill: "#d1d5db", opacity: "0.15" }}
+              cursor={{ fill: "var(--muted)", opacity: "0.6" }}
               offset={20}
               position={{
                 y: layout === "horizontal" ? 0 : undefined,

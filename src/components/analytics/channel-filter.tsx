@@ -3,6 +3,7 @@
 import { useTranslations } from 'next-intl';
 
 import { useWorkspaceChannels } from '@/hooks/use-workspace-channels';
+import { quietSelect } from '@/components/dashboard/segmented';
 
 export type ChannelFilterValue = '' | 'whatsapp' | 'instagram';
 
@@ -18,10 +19,10 @@ export function ChannelFilter({ value, onChange }: { value: ChannelFilterValue; 
   const both = data ? data.enabled.includes('whatsapp') && data.enabled.includes('instagram') : false;
   if (!both && !value) return null;
   return (
-    <label className="flex items-center gap-2 text-sm">
+    <label className="flex items-center gap-2 text-[13px]">
       <span className="text-muted-foreground">{t('label')}</span>
       <select
-        className="h-8 rounded-md border border-border bg-background px-2 text-sm"
+        className={quietSelect}
         value={value}
         onChange={(e) => onChange(e.target.value as ChannelFilterValue)}
       >

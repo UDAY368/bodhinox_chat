@@ -133,11 +133,11 @@ export function AgentLearnings({ canPromote }: AgentLearningsProps) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <GraduationCap className="h-5 w-5" /> {t('title')}
+        <CardTitle className="flex items-center gap-2 text-[15px] font-semibold">
+          <GraduationCap className="h-4 w-4 text-primary" /> {t('title')}
         </CardTitle>
         <CardDescription>{t('description')}</CardDescription>
-        <div role="tablist" aria-label={t('filterLabel')} className="mt-3 flex flex-wrap gap-1.5">
+        <div role="tablist" aria-label={t('filterLabel')} className="mt-3 flex w-fit max-w-full gap-1 overflow-x-auto rounded-xl bg-muted p-[3px] [scrollbar-width:none]">
           {STATUSES.map((s) => (
             <button key={s} type="button" role="tab" aria-selected={status === s}
               onClick={() => {
@@ -145,11 +145,11 @@ export function AgentLearnings({ canPromote }: AgentLearningsProps) {
                 setStatus(s); setItems([]); setEditing(null);
               }}
               className={cn(
-                'rounded-full border px-3 py-1 text-xs transition-colors',
-                status === s ? 'border-primary bg-primary text-primary-foreground' : 'border-border text-muted-foreground hover:bg-muted',
+                'inline-flex h-[30px] shrink-0 items-center rounded-[9px] px-3 text-[13px] font-medium whitespace-nowrap transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                status === s ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',
               )}>
               {t(`status.${s}`)}
-              {status === s && !loading && <span className="ml-1.5 tabular-nums opacity-80">{total}</span>}
+              {status === s && !loading && <span className="ml-1.5 font-semibold tabular-nums text-muted-foreground">{total}</span>}
             </button>
           ))}
         </div>
@@ -161,19 +161,19 @@ export function AgentLearnings({ canPromote }: AgentLearningsProps) {
             <Loader2 className="h-5 w-5 animate-spin" aria-label={t('loading')} />
           </div>
         ) : items.length === 0 ? (
-          <div className="py-10 text-center text-sm text-muted-foreground">
-            <BookOpenCheck className="mx-auto mb-2 h-6 w-6" />
+          <div className="flex flex-col items-center gap-2 py-10 text-center text-sm text-muted-foreground">
+            <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary"><BookOpenCheck className="h-5 w-5" /></span>
             {t(`empty.${status}`)}
           </div>
         ) : (
-          <ul className="divide-y">
+          <ul className="divide-y divide-border">
             {items.map((q) => {
               const busy = busyId === q.id;
               const showEditor = status === 'open' || editing === q.id;
               return (
                 <li key={q.id} className="space-y-2 py-4 first:pt-0">
                   <div className="flex flex-wrap items-start justify-between gap-2">
-                    <p className="min-w-0 flex-1 whitespace-pre-wrap break-words text-sm font-medium">{q.question}</p>
+                    <p className="min-w-0 flex-1 whitespace-pre-wrap break-words text-sm font-semibold">{q.question}</p>
                     <div className="flex shrink-0 items-center gap-2 text-xs text-muted-foreground">
                       <span className="rounded-full bg-muted px-2 py-0.5 tabular-nums">{t('askedTimes', { count: q.occurrences })}</span>
                       <time dateTime={q.last_asked_at}>{format.relativeTime(new Date(q.last_asked_at))}</time>
@@ -181,7 +181,7 @@ export function AgentLearnings({ canPromote }: AgentLearningsProps) {
                   </div>
 
                   {status === 'answered' && q.answer && editing !== q.id && (
-                    <p className="whitespace-pre-wrap break-words rounded-md bg-muted/50 p-2.5 text-sm">{q.answer}</p>
+                    <p className="whitespace-pre-wrap break-words rounded-lg bg-muted p-3 text-sm">{q.answer}</p>
                   )}
 
                   {showEditor && status !== 'dismissed' && (
@@ -222,7 +222,7 @@ export function AgentLearnings({ canPromote }: AgentLearningsProps) {
                       </Button>
                     )}
                     {status === 'answered' && q.promoted_document_id && (
-                      <span className="text-xs text-emerald-700 dark:text-emerald-400">{t('inKnowledge')}</span>
+                      <span className="rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-xs font-medium text-emerald-700 dark:text-emerald-400">{t('inKnowledge')}</span>
                     )}
                   </div>
                 </li>

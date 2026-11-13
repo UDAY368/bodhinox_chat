@@ -22,7 +22,7 @@ import { REPORT_FORMATS, REPORT_KINDS, type ReportFormat, type ReportKind } from
 const CADENCES = ["daily", "weekly", "monthly"] as const;
 type Cadence = (typeof CADENCES)[number];
 const HOURS = Array.from({ length: 24 }, (_, h) => h);
-const selectClass = "border-border bg-card text-foreground h-9 w-full rounded-md border px-2 text-sm";
+const selectClass = "border-border bg-card text-foreground h-9 w-full rounded-lg border px-2.5 text-[13px] transition-colors duration-150 hover:bg-muted outline-none focus-visible:ring-2 focus-visible:ring-ring/50";
 
 export interface ReportScheduleView {
   id: string;
@@ -205,38 +205,38 @@ export function SchedulesPanel() {
         ) : schedules.length === 0 ? (
           <p className="text-sm text-muted-foreground">{t("empty")}</p>
         ) : (
-          <div className="overflow-x-auto">
+          <div className="relative overflow-x-auto rounded-lg border border-border">
             <table className="w-full min-w-[40rem] text-sm">
               <thead>
-                <tr className="border-b border-border text-left text-xs text-muted-foreground">
-                  <th scope="col" className="py-2 pr-3 font-medium">{tr("kind")}</th>
-                  <th scope="col" className="py-2 pr-3 font-medium">{t("when")}</th>
-                  <th scope="col" className="py-2 pr-3 font-medium">{t("recipients")}</th>
-                  <th scope="col" className="py-2 pr-3 font-medium">{tr("statusLabel")}</th>
-                  <th scope="col" className="py-2 font-medium"><span className="sr-only">{t("actions")}</span></th>
+                <tr className="bg-muted text-left text-xs text-muted-foreground">
+                  <th scope="col" className="px-3.5 py-2 font-semibold">{tr("kind")}</th>
+                  <th scope="col" className="px-3.5 py-2 font-semibold">{t("when")}</th>
+                  <th scope="col" className="px-3.5 py-2 font-semibold">{t("recipients")}</th>
+                  <th scope="col" className="px-3.5 py-2 font-semibold">{tr("statusLabel")}</th>
+                  <th scope="col" className="px-3.5 py-2 font-semibold"><span className="sr-only">{t("actions")}</span></th>
                 </tr>
               </thead>
               <tbody>
                 {schedules.map((s) => (
-                  <tr key={s.id} className="border-b border-border align-top last:border-0">
-                    <td className="py-2 pr-3 text-foreground">
+                  <tr key={s.id} className="border-t border-border align-top transition-colors duration-150 hover:bg-muted/50">
+                    <td className="px-3.5 py-2.5 text-foreground">
                       {tr(`kinds.${s.kind}`)}
                       <span className="block text-xs text-muted-foreground">{tr(`formats.${s.format}`)}</span>
                     </td>
-                    <td className="py-2 pr-3 text-muted-foreground">
+                    <td className="px-3.5 py-2.5 text-muted-foreground">
                       {t("whenValue", { cadence: t(`cadences.${s.cadence}`), hour: hourLabel(s.hourLocal) })}
                     </td>
-                    <td className="py-2 pr-3 text-muted-foreground">
+                    <td className="px-3.5 py-2.5 text-muted-foreground">
                       {s.recipients.map((r) => r.name || tr("formerMember")).join(", ")}
                     </td>
-                    <td className="py-2 pr-3 text-muted-foreground">
+                    <td className="px-3.5 py-2.5 text-muted-foreground">
                       {s.pausedAt ? (
-                        <span className="text-destructive">{t(`paused.${s.pauseReason ?? "manual"}`)}</span>
+                        <span className="inline-flex items-center rounded-full bg-destructive/10 px-2 py-0.5 text-xs font-medium text-destructive">{t(`paused.${s.pauseReason ?? "manual"}`)}</span>
                       ) : (
                         t("next", { date: format.dateTime(new Date(s.nextRunAt), { dateStyle: "medium", timeStyle: "short" }) })
                       )}
                     </td>
-                    <td className="py-2 text-right whitespace-nowrap">
+                    <td className="px-3.5 py-2.5 text-right whitespace-nowrap">
                       <Button type="button" size="sm" variant="ghost" onClick={() => patch(s.id, { paused: !s.pausedAt })}
                         aria-label={s.pausedAt ? t("resume") : t("pause")}>
                         {s.pausedAt ? <Play className="size-4" /> : <Pause className="size-4" />}

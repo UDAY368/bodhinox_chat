@@ -138,68 +138,73 @@ export default function FormsPage() {
   }
 
   return (
-    <div className="space-y-6 p-4 sm:p-6">
-      <header className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold text-foreground">{t("title")}</h1>
+    <div className="space-y-6">
+      <header className="flex flex-wrap items-start justify-between gap-4">
+        <div className="min-w-0 flex-1 basis-64">
+          <h1 className="text-[22px] font-bold leading-tight tracking-tight text-foreground">{t("title")}</h1>
           <p className="mt-1 max-w-2xl text-sm text-muted-foreground">{t("description")}</p>
         </div>
-        <GatedButton canAct={canManage} gateReason={tGate("reasons.manageForms")} onClick={openCreate}>
+        <GatedButton canAct={canManage} gateReason={tGate("reasons.manageForms")} onClick={openCreate} className="h-9 px-4">
           <Plus className="h-4 w-4" />
           {t("newForm")}
         </GatedButton>
       </header>
 
       {forms.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border bg-card/50 px-6 py-16 text-center">
-          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-muted">
-            <ClipboardList className="h-6 w-6 text-muted-foreground" />
+        <div className="flex flex-col items-center justify-center rounded-xl border border-border bg-card px-6 py-12 text-center">
+          <div className="flex size-13 items-center justify-center rounded-2xl bg-primary/10 text-primary" aria-hidden>
+            <ClipboardList className="h-6 w-6" />
           </div>
-          <h2 className="mt-4 text-base font-medium text-foreground">{t("emptyTitle")}</h2>
+          <h2 className="mt-3 text-[15px] font-semibold text-foreground">{t("emptyTitle")}</h2>
           <p className="mt-1 max-w-md text-sm text-muted-foreground">{t("emptyDesc")}</p>
-          <GatedButton canAct={canManage} gateReason={tGate("reasons.manageForms")} onClick={openCreate} className="mt-5">
+          <GatedButton canAct={canManage} gateReason={tGate("reasons.manageForms")} onClick={openCreate} variant="outline" className="mt-4">
             <Plus className="h-4 w-4" />
             {t("createFirst")}
           </GatedButton>
         </div>
       ) : (
-        <div className="rounded-lg border border-border bg-card">
+        <div className="overflow-hidden rounded-xl border border-border bg-card">
           <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>{t("colName")}</TableHead>
-                <TableHead>{t("colCategory")}</TableHead>
-                <TableHead>{t("colStatus")}</TableHead>
-                <TableHead className="text-right">{t("colResponses")}</TableHead>
-                <TableHead>{t("colUpdated")}</TableHead>
-                <TableHead className="text-right">
+            <TableHeader className="bg-muted">
+              <TableRow className="border-border hover:bg-transparent">
+                <TableHead className="h-9 px-4 text-xs font-semibold text-muted-foreground">{t("colName")}</TableHead>
+                <TableHead className="hidden h-9 px-3 text-xs font-semibold text-muted-foreground md:table-cell">{t("colCategory")}</TableHead>
+                <TableHead className="h-9 px-3 text-xs font-semibold text-muted-foreground">{t("colStatus")}</TableHead>
+                <TableHead className="hidden h-9 px-3 text-right text-xs font-semibold text-muted-foreground sm:table-cell">{t("colResponses")}</TableHead>
+                <TableHead className="hidden h-9 px-3 text-xs font-semibold text-muted-foreground lg:table-cell">{t("colUpdated")}</TableHead>
+                <TableHead className="h-9 px-3 pr-4 text-right">
                   <span className="sr-only">{t("colActions")}</span>
                 </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {forms.map((form) => (
-                <TableRow key={form.id}>
-                  <TableCell className="max-w-[16rem]">
-                    <button
-                      type="button"
-                      onClick={() => router.push(`/forms/${form.id}`)}
-                      className="truncate text-left font-medium text-foreground hover:underline"
-                    >
-                      {form.name}
-                    </button>
+                <TableRow key={form.id} className="border-border/70 transition-colors duration-150 hover:bg-muted/60">
+                  <TableCell className="max-w-[18rem] px-4 py-3">
+                    <div className="flex min-w-0 items-center gap-3">
+                      <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-[10px] bg-primary/10 text-primary" aria-hidden>
+                        <ClipboardList className="size-[18px]" />
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => router.push(`/forms/${form.id}`)}
+                        className="min-w-0 truncate text-left font-semibold text-foreground transition-colors duration-150 hover:text-primary"
+                      >
+                        {form.name}
+                      </button>
+                    </div>
                   </TableCell>
-                  <TableCell className="text-muted-foreground">{tCat(form.category)}</TableCell>
-                  <TableCell>
+                  <TableCell className="hidden px-3 text-muted-foreground md:table-cell">{tCat(form.category)}</TableCell>
+                  <TableCell className="px-3">
                     <FormStatusBadge status={form.status} />
                   </TableCell>
-                  <TableCell className="text-right tabular-nums">
+                  <TableCell className="hidden px-3 text-right font-semibold tabular-nums sm:table-cell">
                     {form.response_count ?? 0}
                   </TableCell>
-                  <TableCell className="whitespace-nowrap text-muted-foreground">
+                  <TableCell className="hidden whitespace-nowrap px-3 text-muted-foreground lg:table-cell">
                     {format.dateTime(new Date(form.updated_at), { dateStyle: "medium" })}
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="px-3 pr-4">
                     <div className="flex justify-end gap-1">
                       <Button
                         variant="ghost"
@@ -268,7 +273,7 @@ export default function FormsPage() {
                 id="form-create-category"
                 value={category}
                 onChange={(e) => setCategory(e.target.value as FormCategory)}
-                className="h-9 w-full rounded-md border border-border bg-muted px-2 text-sm text-foreground"
+                className="h-9 w-full rounded-lg border border-border bg-card px-2.5 text-sm text-foreground"
               >
                 {FORM_CATEGORIES.map((c) => (
                   <option key={c} value={c}>{tCat(c)}</option>

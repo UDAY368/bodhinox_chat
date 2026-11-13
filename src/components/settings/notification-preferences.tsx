@@ -8,7 +8,6 @@ import { useAuth } from '@/hooks/use-auth';
 import { authFetch } from '@/lib/auth/client';
 import type { NotificationPreference } from '@/lib/notifications/preferences';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 import { SettingsPanelHead } from './settings-panel-head';
@@ -84,69 +83,67 @@ export function NotificationPreferences({ className }: { className?: string }) {
   }
 
   return (
-    <section className={cn('max-w-2xl', className)}>
+    <section className={cn('max-w-3xl', className)}>
       <SettingsPanelHead title={t('title')} description={t('description')} />
-      <Card>
-        <CardContent className="space-y-4">
-          {loading ? (
-            <p role="status">{t('loading')}</p>
-          ) : error || !preferences ? (
-            <div className="space-y-3">
-              <p role="alert" className="text-destructive">
-                {t('loadFailed')}
-              </p>
-              <Button onClick={() => setRetry((v) => v + 1)}>{t('retry')}</Button>
-            </div>
-          ) : (
-            <>
-              {!emailAvailable && (
-                <p className="text-muted-foreground text-sm">{t('emailUnavailable')}</p>
-              )}
-              <div role="table" aria-label={t('title')} className="divide-y">
-                <div role="row" className="text-muted-foreground flex items-center gap-4 pb-2 text-xs font-medium">
-                  <span role="columnheader" className="flex-1">
-                    {t('event')}
-                  </span>
-                  <span role="columnheader" className="w-16 text-center">
-                    {events('inApp')}
-                  </span>
-                  <span role="columnheader" className="w-16 text-center">
-                    {events('email')}
-                  </span>
-                </div>
-                {preferences.map((pref) => {
-                  const label = events(`${pref.event}.label`);
-                  return (
-                    <div role="row" key={pref.event} className="flex items-center gap-4 py-3">
-                      <div role="cell" className="min-w-0 flex-1">
-                        <p className="text-sm font-medium">{label}</p>
-                        <p className="text-muted-foreground text-xs">{events(`${pref.event}.description`)}</p>
-                      </div>
-                      <div role="cell" className="flex w-16 justify-center">
-                        <Switch
-                          checked={pref.in_app}
-                          disabled={saving !== null}
-                          aria-label={t('inAppFor', { event: label })}
-                          onCheckedChange={(value) => void toggle(pref.event, 'in_app', value)}
-                        />
-                      </div>
-                      <div role="cell" className="flex w-16 justify-center">
-                        <Switch
-                          checked={pref.email}
-                          disabled={saving !== null || (!emailAvailable && !pref.email)}
-                          aria-label={t('emailFor', { event: label })}
-                          onCheckedChange={(value) => void toggle(pref.event, 'email', value)}
-                        />
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-              <p className="text-muted-foreground text-xs">{t('digestHint')}</p>
-            </>
+      {loading ? (
+        <div className="rounded-xl border border-border bg-card px-4 py-6">
+          <p role="status" className="text-muted-foreground text-sm">{t('loading')}</p>
+        </div>
+      ) : error || !preferences ? (
+        <div className="flex flex-col items-start gap-3 rounded-xl border border-border bg-card px-4 py-5">
+          <p role="alert" className="text-destructive text-sm">
+            {t('loadFailed')}
+          </p>
+          <Button variant="outline" size="sm" onClick={() => setRetry((v) => v + 1)}>{t('retry')}</Button>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {!emailAvailable && (
+            <p className="text-muted-foreground px-0.5 text-[13px]">{t('emailUnavailable')}</p>
           )}
-        </CardContent>
-      </Card>
+          <div role="table" aria-label={t('title')} className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-card">
+            <div role="row" className="bg-muted/60 text-muted-foreground flex min-h-[38px] items-center gap-3 px-4 text-xs font-semibold">
+              <span role="columnheader" className="flex-1">
+                {t('event')}
+              </span>
+              <span role="columnheader" className="w-14 text-center sm:w-16">
+                {events('inApp')}
+              </span>
+              <span role="columnheader" className="w-14 text-center sm:w-16">
+                {events('email')}
+              </span>
+            </div>
+            {preferences.map((pref) => {
+              const label = events(`${pref.event}.label`);
+              return (
+                <div role="row" key={pref.event} className="flex min-h-14 items-center gap-3 px-4 py-2.5">
+                  <div role="cell" className="min-w-0 flex-1">
+                    <p className="text-foreground text-sm font-semibold">{label}</p>
+                    <p className="text-muted-foreground text-xs">{events(`${pref.event}.description`)}</p>
+                  </div>
+                  <div role="cell" className="flex w-14 justify-center sm:w-16">
+                    <Switch
+                      checked={pref.in_app}
+                      disabled={saving !== null}
+                      aria-label={t('inAppFor', { event: label })}
+                      onCheckedChange={(value) => void toggle(pref.event, 'in_app', value)}
+                    />
+                  </div>
+                  <div role="cell" className="flex w-14 justify-center sm:w-16">
+                    <Switch
+                      checked={pref.email}
+                      disabled={saving !== null || (!emailAvailable && !pref.email)}
+                      aria-label={t('emailFor', { event: label })}
+                      onCheckedChange={(value) => void toggle(pref.event, 'email', value)}
+                    />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <p className="text-muted-foreground px-0.5 text-xs">{t('digestHint')}</p>
+        </div>
+      )}
     </section>
   );
 }

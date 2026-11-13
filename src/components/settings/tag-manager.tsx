@@ -199,7 +199,7 @@ export function TagManager() {
                 {groupTagsByCategory(tags).map((group, _, groups) => (
                   <div key={group.category ?? ''} className="space-y-1.5">
                     {groups.length > 1 && (
-                      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                      <p className="text-xs font-semibold text-muted-foreground">
                         {group.category ?? t('uncategorized')}
                       </p>
                     )}

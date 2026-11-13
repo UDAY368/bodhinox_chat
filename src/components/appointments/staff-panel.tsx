@@ -83,9 +83,9 @@ export function StaffPanel({ config, canEdit, onChanged }: { config: Appointment
   return (
     <div className="space-y-6">
       <section className="space-y-3">
-        <h2 className="text-lg font-semibold">{t('staff.title')}</h2>
+        <h2 className="text-base font-semibold tracking-tight">{t('staff.title')}</h2>
         {config.staff.length === 0 && <p className="text-sm text-muted-foreground">{t('staff.empty')}</p>}
-        <ul className="divide-y divide-border rounded-lg border border-border bg-card text-sm">
+        <ul className="divide-y divide-border rounded-xl border border-border bg-card text-sm">
           {config.staff.map((s) => (
             <li key={s.id} className="flex flex-wrap items-center gap-2 p-3">
               <span className="font-medium">{s.display_name}</span>
@@ -173,7 +173,7 @@ function HoursSection({ config, canEdit }: { config: AppointmentConfig; canEdit:
   const location = locations.find((l) => l.id === locationId);
   return (
     <section className="space-y-3">
-      <h2 className="text-lg font-semibold">{t('staff.hours')}</h2>
+      <h2 className="text-base font-semibold tracking-tight">{t('staff.hours')}</h2>
       <div className="flex flex-wrap gap-2">
         <select aria-label={t('sheet.location')} className={`${selectClass} w-48`} value={locationId} onChange={(e) => setLocationId(e.target.value)}>
           {locations.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}

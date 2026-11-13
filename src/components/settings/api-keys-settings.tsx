@@ -201,12 +201,12 @@ export function ApiKeysSettings() {
                           {k.name}
                         </span>
                         {status === 'revoked' && (
-                          <Badge className="border-border bg-muted text-muted-foreground text-[10px] tracking-wide uppercase">
+                          <Badge className="border-transparent bg-muted text-muted-foreground text-[11px] font-medium">
                             {t('revoked')}
                           </Badge>
                         )}
                         {status === 'expired' && (
-                          <Badge className="border-border bg-muted text-muted-foreground text-[10px] tracking-wide uppercase">
+                          <Badge className="border-transparent bg-muted text-muted-foreground text-[11px] font-medium">
                             {t('expired')}
                           </Badge>
                         )}
@@ -249,7 +249,7 @@ export function ApiKeysSettings() {
                           size="sm"
                           onClick={() => handleRevoke(k)}
                           disabled={revoking === k.id}
-                          className="self-start border-red-500/40 bg-red-500/10 text-red-300 hover:border-red-500/60 hover:bg-red-500/20 hover:text-red-200 sm:self-auto"
+                          className="self-start border-red-500/40 bg-red-500/10 text-red-700 dark:text-red-300 hover:border-red-500/60 hover:bg-red-500/20 hover:text-red-800 dark:hover:text-red-200 sm:self-auto"
                         >
                           {revoking === k.id ? (
                             <Loader2 className="size-4 animate-spin" />

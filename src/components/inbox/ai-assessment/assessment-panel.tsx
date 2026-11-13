@@ -155,7 +155,7 @@ export function AssessmentPanelView({ enabled, assessment, busy = false, onRefre
   return (
     <section className="border-border border-t pt-4" aria-label={t('title')}>
       <div className="mb-2 flex items-center justify-between">
-        <h3 className="flex items-center gap-1 text-xs font-semibold uppercase">
+        <h3 className="flex items-center gap-1 text-[13px] font-semibold">
           <Sparkles className="size-3" aria-hidden />
           {t('title')}
         </h3>

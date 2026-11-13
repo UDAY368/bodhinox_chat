@@ -54,7 +54,7 @@ export function CategoriesPanel({ canManage }: { canManage: boolean }) {
     <section className="space-y-4">
       {canManage && (
         <form className="flex flex-wrap items-center gap-2" onSubmit={(e) => { e.preventDefault(); void add(); }}>
-          <Input value={name} maxLength={80} onChange={(e) => setName(e.target.value)} placeholder={t("name")} aria-label={t("name")} className="max-w-xs bg-muted" />
+          <Input value={name} maxLength={80} onChange={(e) => setName(e.target.value)} placeholder={t("name")} aria-label={t("name")} className="max-w-xs" />
           <select aria-label={t("parent")} className={selectClass} value={parent} onChange={(e) => setParent(e.target.value)}>
             <option value="">{t("none")}</option>
             {tops.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
@@ -63,9 +63,9 @@ export function CategoriesPanel({ canManage }: { canManage: boolean }) {
         </form>
       )}
       {ordered.length === 0 ? (
-        <p className="rounded-lg border border-dashed border-border p-6 text-center text-sm text-muted-foreground">{t("empty")}</p>
+        <p className="rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">{t("empty")}</p>
       ) : (
-        <ul className="divide-y divide-border rounded-lg border border-border bg-card">
+        <ul className="divide-y divide-border rounded-xl border border-border bg-card">
           {ordered.map((c) => (
             <CategoryRow key={c.id} category={c} tops={tops} canManage={canManage} busy={busy}
               onSave={(body) => run(saveCategory(c.id, body), t("saved"))} />

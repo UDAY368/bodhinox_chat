@@ -161,7 +161,7 @@ function FilteredGallery({ templates, creating, onUse }: { templates: TemplateSu
       aria-pressed={active}
       onClick={() => setFilter(next)}
       className={cn(
-        "w-full rounded-md px-2.5 py-1.5 text-left text-sm transition-colors",
+        "w-full rounded-lg px-2.5 py-1.5 text-left text-[13px] transition-colors duration-150",
         active ? "bg-primary/10 font-medium text-primary" : "text-muted-foreground hover:bg-muted hover:text-foreground",
       )}
     >
@@ -175,11 +175,11 @@ function FilteredGallery({ templates, creating, onUse }: { templates: TemplateSu
       <nav aria-label={t("galleryTitle")} className="shrink-0 space-y-3 md:w-48">
         {railButton("all", t("allTemplates"), filter.kind === "all", { kind: "all" })}
         <div>
-          <p className="px-2.5 pb-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{t("byGoal")}</p>
+          <p className="px-2.5 pb-1 text-xs font-semibold text-muted-foreground">{t("byGoal")}</p>
           {GOALS.map((goal) => railButton(`goal:${goal}`, t(`goals.${goal}`), same(filter, { kind: "goal", value: goal }), { kind: "goal", value: goal }))}
         </div>
         <div>
-          <p className="px-2.5 pb-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{t("byTrigger")}</p>
+          <p className="px-2.5 pb-1 text-xs font-semibold text-muted-foreground">{t("byTrigger")}</p>
           {TRIGGERS.map((trigger) =>
             railButton(`trigger:${trigger}`, t(`triggers.${trigger}`), same(filter, { kind: "trigger", value: trigger }), { kind: "trigger", value: trigger }))}
         </div>
@@ -188,13 +188,13 @@ function FilteredGallery({ templates, creating, onUse }: { templates: TemplateSu
       <div className="min-w-0 flex-1 space-y-4">
         <div className="relative">
           <label htmlFor={searchId} className="sr-only">{t("searchPlaceholder")}</label>
-          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input id={searchId} type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t("searchPlaceholder")} className="pl-8" />
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input id={searchId} type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t("searchPlaceholder")} className="h-9 rounded-xl border-transparent bg-muted pl-9 shadow-none" />
         </div>
 
         {recommended.length > 0 && (
           <section aria-label={t("recommended")} className="space-y-2">
-            <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t("recommended")}</h3>
+            <h3 className="text-[13px] font-semibold text-foreground">{t("recommended")}</h3>
             <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
               {recommended.map((template) => <TemplateCard key={template.slug} template={template} large onOpen={() => setDetail(template)} />)}
             </div>
@@ -203,7 +203,7 @@ function FilteredGallery({ templates, creating, onUse }: { templates: TemplateSu
 
         {rest.length > 0 ? (
           <section aria-label={showRecommended ? t("more") : t("galleryTitle")} className="space-y-2">
-            {recommended.length > 0 && <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t("more")}</h3>}
+            {recommended.length > 0 && <h3 className="text-[13px] font-semibold text-foreground">{t("more")}</h3>}
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {rest.map((template) => <TemplateCard key={template.slug} template={template} onOpen={() => setDetail(template)} />)}
             </div>
@@ -219,7 +219,7 @@ function FilteredGallery({ templates, creating, onUse }: { templates: TemplateSu
 function NoResults() {
   const t = useTranslations("Flows.gallery");
   return (
-    <p className="rounded-lg border border-dashed border-border p-6 text-center text-sm text-muted-foreground" role="status">
+    <p className="rounded-xl border border-border px-6 py-10 text-center text-sm text-muted-foreground" role="status">
       {t("noResults")}
     </p>
   );
@@ -240,7 +240,7 @@ function KindLabel({ template }: { template: TemplateSummary }) {
 function UsesAiBadge() {
   const t = useTranslations("StarterFlows.instagram5");
   return (
-    <span className="inline-flex items-center gap-1 rounded-full border border-primary/30 px-2 py-0.5 text-[10px] font-medium text-primary">
+    <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">
       <Sparkles className="h-3 w-3" aria-hidden />
       {t("usesAi")}
     </span>
@@ -255,15 +255,16 @@ function TemplateCard({ template, large = false, onOpen }: { template: TemplateS
       onClick={onOpen}
       data-template={template.slug}
       className={cn(
-        "flex flex-col gap-2 rounded-lg border border-border bg-background p-4 text-left transition-colors hover:border-primary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-        large && "bg-primary/5",
+        "flex flex-col items-start gap-1.5 rounded-xl border border-border bg-card p-3.5 text-left transition-[border-color,background-color,transform] duration-150 hover:border-primary hover:bg-muted/50 active:scale-[.985] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
       )}
     >
-      <div className="flex items-start justify-between gap-2">
-        <Icon className={cn("text-primary", large ? "h-6 w-6" : "h-5 w-5")} />
+      <div className="flex w-full items-start justify-between gap-2">
+        <span className={cn("inline-flex shrink-0 items-center justify-center rounded-[10px] bg-primary/10 text-primary", large ? "h-10 w-10" : "h-[34px] w-[34px]")}>
+          <Icon className={large ? "h-5 w-5" : "h-4 w-4"} />
+        </span>
         {template.meta?.uses_ai && <UsesAiBadge />}
       </div>
-      <span className="line-clamp-2 text-sm font-semibold text-popover-foreground">{template.name}</span>
+      <span className="mt-1 line-clamp-2 text-sm font-semibold text-popover-foreground">{template.name}</span>
       <span className="line-clamp-2 text-xs leading-relaxed text-muted-foreground">{template.description}</span>
       <div className="mt-auto pt-1">
         <KindLabel template={template} />
@@ -291,16 +292,16 @@ function TemplateDetail({ template, creating, onBack, onUse }: {
             <Icon className="h-4 w-4 text-primary" aria-hidden />{tChannel(channel)}
           </p>
           <div>
-            <h3 className="text-xl font-semibold text-popover-foreground text-balance">{template.name}</h3>
+            <h3 className="text-xl font-bold tracking-tight text-popover-foreground text-balance">{template.name}</h3>
             <p className="mt-1 text-sm text-muted-foreground">{template.description}</p>
           </div>
           {meta && (
             <ul className="flex flex-wrap gap-1.5 text-[11px] text-muted-foreground">
-              <li className="rounded-full border border-border px-2 py-0.5"><KindLabel template={template} /> · {t(`levels.${meta.level}`)}</li>
-              <li className="rounded-full border border-border px-2 py-0.5">{meta.trigger ? t(`triggers.${meta.trigger}`) : t("noTrigger")}</li>
+              <li className="rounded-full bg-muted px-2 py-0.5"><KindLabel template={template} /> · {t(`levels.${meta.level}`)}</li>
+              <li className="rounded-full bg-muted px-2 py-0.5">{meta.trigger ? t(`triggers.${meta.trigger}`) : t("noTrigger")}</li>
               {meta.goals.map((goal) => <li key={goal} className="rounded-full border border-border px-2 py-0.5">{t(`goals.${goal}`)}</li>)}
-              {meta.uses_ai && <li className="inline-flex items-center gap-1 rounded-full border border-primary/30 px-2 py-0.5 text-primary"><Sparkles className="h-3 w-3" aria-hidden />{t("usesAi")}</li>}
-              {meta.needs_payments && <li className="inline-flex items-center gap-1 rounded-full border border-border px-2 py-0.5"><CreditCard className="h-3 w-3" aria-hidden />{t("needsPayments")}</li>}
+              {meta.uses_ai && <li className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-primary"><Sparkles className="h-3 w-3" aria-hidden />{t("usesAi")}</li>}
+              {meta.needs_payments && <li className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5"><CreditCard className="h-3 w-3" aria-hidden />{t("needsPayments")}</li>}
             </ul>
           )}
           {template.business_value && (
@@ -380,10 +381,10 @@ function CategoryGallery({ templates, creating, onUse }: { templates: TemplateSu
       aria-pressed={category === value}
       onClick={() => setCategory(value)}
       className={cn(
-        "rounded-full border px-3 py-1 text-xs font-medium transition-colors",
+        "h-8 rounded-full border px-3 text-[13px] transition-colors duration-150",
         category === value
-          ? "border-primary bg-primary text-primary-foreground"
-          : "border-border bg-background text-muted-foreground hover:bg-muted hover:text-foreground",
+          ? "border-transparent bg-primary/10 font-semibold text-primary"
+          : "border-border bg-card text-muted-foreground hover:bg-muted hover:text-foreground",
       )}
     >
       {text}
@@ -396,14 +397,14 @@ function CategoryGallery({ templates, creating, onUse }: { templates: TemplateSu
         <label htmlFor={searchId} className="sr-only">
           {t("searchLabel")}
         </label>
-        <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <Input
           id={searchId}
           type="search"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder={t("searchPlaceholder")}
-          className="pl-8"
+          className="h-9 rounded-xl border-transparent bg-muted pl-9 shadow-none"
         />
       </div>
 
@@ -423,10 +424,12 @@ function CategoryGallery({ templates, creating, onUse }: { templates: TemplateSu
             return (
               <div
                 key={template.slug}
-                className="flex flex-col gap-2.5 rounded-lg border border-border bg-background p-4 text-left transition-colors hover:border-primary/40"
+                className="flex flex-col gap-2 rounded-xl border border-border bg-card p-3.5 text-left transition-colors duration-150 hover:border-primary"
               >
                 <div className="flex items-start justify-between gap-2">
-                  <Icon className="h-5 w-5 text-primary" />
+                  <span className="inline-flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-[10px] bg-primary/10 text-primary">
+                    <Icon className="h-4 w-4" />
+                  </span>
                   {template.meta?.uses_ai ? <UsesAiBadge /> : <span className="text-[11px] text-muted-foreground">{label(template.category)}</span>}
                 </div>
                 <span className="text-sm font-semibold text-popover-foreground">{template.name}</span>

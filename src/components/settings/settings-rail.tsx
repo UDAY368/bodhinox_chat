@@ -29,6 +29,20 @@ export interface RailExtraItem {
 // drives the row→column switch in the markup below — keep the two in sync.
 const RAIL_DESKTOP_MIN_PX = 1024;
 
+// One look for every rail entry: a quiet row on desktop, a soft pill in the
+// horizontal scroller; the active one sits on a muted fill with an accent icon.
+const linkClass = (isActive: boolean) =>
+  cn(
+    'flex min-h-[34px] shrink-0 items-center gap-2.5 rounded-full border px-3 py-1.5 text-left text-sm font-medium whitespace-nowrap transition-colors duration-150',
+    'lg:w-full lg:rounded-lg lg:border-0 lg:px-2.5',
+    isActive
+      ? 'border-transparent bg-muted text-foreground'
+      : 'border-border text-muted-foreground hover:bg-muted/60 hover:text-foreground',
+  );
+
+const iconClass = (isActive: boolean) =>
+  cn('size-4 shrink-0', isActive ? 'text-primary' : 'text-muted-foreground');
+
 /**
  * The settings left rail — grouped, vertical on desktop and a
  * horizontal scroller on narrow screens (mirrors the mockup's ≤920px
@@ -71,9 +85,9 @@ export function SettingsRail({
     <nav
       aria-label={t('sectionsNav')}
       className={cn(
-        'flex gap-1 overflow-x-auto pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
+        'flex gap-1 overflow-x-auto pb-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
         'border-b border-border',
-        'lg:sticky lg:top-0 lg:flex-col lg:overflow-visible lg:border-b-0 lg:pb-0',
+        'lg:max-h-[calc(100dvh-8rem)] lg:flex-col lg:overflow-y-auto lg:border-b-0 lg:pb-4',
       )}
     >
       {RAIL_GROUPS.map(({ label, group }) => {
@@ -86,8 +100,8 @@ export function SettingsRail({
             className="flex shrink-0 gap-1 lg:flex-col lg:gap-0.5"
           >
             {label ? (
-              <div className="hidden px-3 pt-3.5 pb-1.5 text-[11px] font-semibold tracking-[0.09em] text-muted-foreground uppercase lg:block">
-                {t(`groups.${group}`)}
+              <div className="hidden px-2.5 pt-3.5 pb-1 text-xs font-semibold text-muted-foreground/80 lg:block">
+                {group === 'account' ? t('members.you') : t(`groups.${group === 'billing' ? 'account' : group}`)}
               </div>
             ) : null}
             {items.map((s) => {
@@ -101,21 +115,15 @@ export function SettingsRail({
                   type="button"
                   onClick={() => onSelect(s)}
                   aria-current={isActive ? 'page' : undefined}
-                  className={cn(
-                    'flex shrink-0 items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm font-medium whitespace-nowrap transition-colors',
-                    'lg:w-full',
-                    isActive
-                      ? 'bg-primary-soft text-primary'
-                      : 'text-muted-foreground hover:bg-muted hover:text-foreground',
-                  )}
+                  className={linkClass(isActive)}
                 >
-                  <Icon className="size-4 shrink-0" />
+                  <Icon className={iconClass(isActive)} />
                   <span className="flex-1">{s === 'channels' ? tChannels('title') : t(`sections.${s}`)}</span>
                   {hints?.[s] != null ? (
                     <span
                       className={cn(
                         'hidden items-center gap-1.5 text-xs lg:inline-flex',
-                        isActive ? 'text-primary' : 'text-muted-foreground',
+                        'text-muted-foreground',
                       )}
                     >
                       {hints[s]}
@@ -136,15 +144,9 @@ export function SettingsRail({
                     type="button"
                     onClick={() => onSelectExtra?.(item.id)}
                     aria-current={isActive ? 'page' : undefined}
-                    className={cn(
-                      'flex shrink-0 items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm font-medium whitespace-nowrap transition-colors',
-                      'lg:w-full',
-                      isActive
-                        ? 'bg-primary-soft text-primary'
-                        : 'text-muted-foreground hover:bg-muted hover:text-foreground',
-                    )}
+                    className={linkClass(isActive)}
                   >
-                    <Icon className="size-4 shrink-0" />
+                    <Icon className={iconClass(isActive)} />
                     <span className="flex-1">{item.label}</span>
                   </button>
                 );

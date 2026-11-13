@@ -171,7 +171,7 @@ export function AgentSetupWizard({ canEdit, knowledgeSlot, onOpenKnowledge, onOp
   return (
     <Card>
       <CardHeader>
-        <CardTitle>{t('title')}</CardTitle>
+        <CardTitle className="text-[15px] font-semibold">{t('title')}</CardTitle>
         <CardDescription>
           {completedAt ? t('completedDescription') : t('description')}
           {!canEdit && <span className="mt-1 block">{t('readOnly')}</span>}
@@ -184,8 +184,8 @@ export function AgentSetupWizard({ canEdit, knowledgeSlot, onOpenKnowledge, onOp
                 onClick={() => setStepIndex(i)}
                 aria-current={i === stepIndex ? 'step' : undefined}
                 className={cn(
-                  'flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs transition-colors',
-                  i === stepIndex ? 'border-primary bg-primary text-primary-foreground' : 'border-border text-muted-foreground hover:bg-muted',
+                  'flex h-7 items-center gap-1.5 rounded-full px-3 text-xs font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                  i === stepIndex ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground hover:text-foreground',
                 )}
               >
                 {i < stepIndex ? <Check className="h-3 w-3" /> : <span className="tabular-nums">{i + 1}</span>}
@@ -286,7 +286,7 @@ export function AgentSetupWizard({ canEdit, knowledgeSlot, onOpenKnowledge, onOp
 
         {step === 'knowledge' && (
           knowledgeSlot ?? (
-            <div className="rounded-lg border border-dashed p-5 text-sm">
+            <div className="rounded-xl bg-muted p-5 text-sm">
               <p className="font-medium">{t('knowledge.title')}</p>
               <p className="mt-1 text-muted-foreground">{t('knowledge.placeholder')}</p>
               {onOpenKnowledge && (
@@ -348,8 +348,8 @@ function Chip({ active, disabled, onClick, children }: { active: boolean; disabl
   return (
     <button type="button" disabled={disabled} aria-pressed={active} onClick={onClick}
       className={cn(
-        'rounded-full border px-2.5 py-1 text-xs transition-colors disabled:cursor-not-allowed disabled:opacity-60',
-        active ? 'border-primary bg-primary/10 text-primary' : 'border-border hover:bg-muted',
+        'rounded-full border px-3 py-1 text-xs font-medium transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-60',
+        active ? 'border-transparent bg-primary/10 text-primary' : 'border-border text-muted-foreground hover:bg-muted hover:text-foreground',
       )}>
       {children}
     </button>

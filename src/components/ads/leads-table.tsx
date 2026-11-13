@@ -25,7 +25,7 @@ export interface LeadsTableProps {
 
 type Filters = { formId: string; adId: string; from: string; to: string };
 const EMPTY: Filters = { formId: '', adId: '', from: '', to: '' };
-const selectClass = 'h-8 rounded-md border border-border bg-muted px-2 text-sm text-foreground';
+const selectClass = 'h-8 rounded-lg border border-border bg-card px-2.5 text-sm text-foreground';
 
 /** Hands out request tokens; only the latest token may still update state. */
 export function createRequestSequencer() {
@@ -215,28 +215,28 @@ export function LeadsTable({ canManage }: LeadsTableProps) {
           <Button type="button" variant="ghost" size="sm" onClick={() => load(filters, null)}>{t('retry')}</Button>
         </div>
       ) : !loading && leads.length === 0 ? (
-        <p className="text-sm text-muted-foreground" data-testid="leads-empty">{t('leads.empty')}</p>
+        <p className="rounded-xl border border-border bg-card px-4 py-12 text-center text-sm text-muted-foreground" data-testid="leads-empty">{t('leads.empty')}</p>
       ) : (
-        <div className="overflow-x-auto rounded-md border border-border">
+        <div className="overflow-x-auto rounded-xl border border-border bg-card">
           <table className="w-full text-sm">
-            <thead className="bg-muted/50 text-left text-xs text-muted-foreground">
+            <thead className="bg-muted text-left text-xs text-muted-foreground">
               <tr>
-                <th className="px-3 py-2 font-medium">{t('leads.receivedAt')}</th>
-                <th className="px-3 py-2 font-medium">{t('leads.form')}</th>
-                <th className="px-3 py-2 font-medium">{t('leads.ad')}</th>
-                <th className="px-3 py-2 font-medium">{t('leads.contact')}</th>
-                <th className="px-3 py-2 font-medium">{t('leads.answers')}</th>
+                <th className="px-3.5 py-2.5 font-semibold">{t('leads.receivedAt')}</th>
+                <th className="px-3.5 py-2.5 font-semibold">{t('leads.form')}</th>
+                <th className="px-3.5 py-2.5 font-semibold">{t('leads.ad')}</th>
+                <th className="px-3.5 py-2.5 font-semibold">{t('leads.contact')}</th>
+                <th className="px-3.5 py-2.5 font-semibold">{t('leads.answers')}</th>
                 {canManage && <th className="px-3 py-2"><span className="sr-only">{t('leads.deleteLead')}</span></th>}
               </tr>
             </thead>
             <tbody>
               {leads.map((lead) => (
-                <tr key={lead.id} className="border-t border-border align-top" data-testid="lead-row">
-                  <td className="whitespace-nowrap px-3 py-2 text-muted-foreground">{new Date(lead.receivedAt).toLocaleString()}</td>
-                  <td className="px-3 py-2">{lead.formName || lead.formId || '-'}</td>
-                  <td className="px-3 py-2">{lead.adName || lead.adId || '-'}</td>
-                  <td className="px-3 py-2">{lead.contactName || <span className="text-muted-foreground">{t('leads.noContact')}</span>}</td>
-                  <td className="px-3 py-2">
+                <tr key={lead.id} className="border-t border-border/70 align-top transition-colors duration-150 hover:bg-muted/60" data-testid="lead-row">
+                  <td className="whitespace-nowrap px-3.5 py-3 text-muted-foreground">{new Date(lead.receivedAt).toLocaleString()}</td>
+                  <td className="px-3.5 py-3">{lead.formName || lead.formId || '-'}</td>
+                  <td className="px-3.5 py-3">{lead.adName || lead.adId || '-'}</td>
+                  <td className="px-3.5 py-3">{lead.contactName || <span className="text-muted-foreground">{t('leads.noContact')}</span>}</td>
+                  <td className="px-3.5 py-3">
                     {lead.status !== 'fetched' ? (
                       <span className="text-xs text-muted-foreground">{t(`leads.status.${lead.status}`)}</span>
                     ) : (
@@ -251,7 +251,7 @@ export function LeadsTable({ canManage }: LeadsTableProps) {
                     )}
                   </td>
                   {canManage && (
-                    <td className="px-3 py-2 text-right">
+                    <td className="px-3.5 py-3 text-right">
                       <Button type="button" variant="ghost" size="sm" aria-label={t('leads.deleteLead')} disabled={busy !== null}
                         onClick={() => remove(lead)}>
                         {busy === lead.id ? <Loader2 className="size-4 animate-spin" /> : <Trash2 className="size-4" />}

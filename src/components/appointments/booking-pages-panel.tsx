@@ -88,7 +88,7 @@ export function BookingPagesPanel({ config, canEdit }: { config: AppointmentConf
   }
 
   const form = (
-    <div className="grid gap-3 rounded-lg border border-border p-3 text-sm sm:grid-cols-2">
+    <div className="grid gap-3 rounded-xl border border-border p-3 text-sm sm:grid-cols-2">
       <div className="space-y-1">
         <Label htmlFor="page-title">{t('pages.titleLabel')}</Label>
         <Input id="page-title" maxLength={120} value={draft.title} onChange={(e) => set('title')(e.target.value)} />
@@ -137,7 +137,7 @@ export function BookingPagesPanel({ config, canEdit }: { config: AppointmentConf
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold">{t('pages.title')}</h2>
+        <h2 className="text-base font-semibold tracking-tight">{t('pages.title')}</h2>
         {canEdit && editing === null && <Button type="button" size="sm" onClick={() => edit('new')}>{t('pages.add')}</Button>}
       </div>
       {editing === 'new' && form}
@@ -146,7 +146,7 @@ export function BookingPagesPanel({ config, canEdit }: { config: AppointmentConf
         {(pages ?? []).map((p) => (
           <li key={p.id}>
             {editing === p.id ? form : (
-              <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-card p-3 text-sm">
+              <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border bg-card p-3 text-sm">
                 <span className="font-medium">{p.title}</span>
                 <code className="truncate text-xs text-muted-foreground">/book/{p.slug}</code>
                 {!p.active && <span className="text-xs text-muted-foreground">({t('pages.inactive')})</span>}

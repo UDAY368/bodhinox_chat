@@ -120,6 +120,9 @@ export interface Contact {
   /** Set when the contact opted out of marketing (STOP keyword, agent, API). */
   opted_out_at?: string | null;
   opt_out_source?: 'keyword' | 'agent' | 'api' | 'import' | null;
+  /** When and how the contact opted in to WhatsApp business messages (null: not recorded). */
+  opted_in_at?: string | null;
+  opt_in_source?: 'keyword' | 'agent' | 'api' | 'import' | null;
   /** Set when the workspace blocked the contact: no automated messages. */
   blocked_at?: string | null;
   name?: string;

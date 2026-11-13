@@ -7,7 +7,7 @@ import { toast } from "sonner"
 import {
   Zap,
   Plus,
-  MoreVertical,
+  MoreHorizontal,
   Copy,
   Pencil,
   Trash2,
@@ -44,7 +44,7 @@ import {
 import { AUTOMATION_TEMPLATES, templateOnChannel, type TemplateSlug } from "@/lib/automations/templates"
 import { channelPath } from "@/lib/channels/routes"
 import type { Channel } from "@/types"
-import { triggerMeta, formatRelative, isKnownTrigger } from "@/lib/automations/trigger-meta"
+import { formatRelative, isKnownTrigger } from "@/lib/automations/trigger-meta"
 import { cn } from "@/lib/utils"
 
 const TEMPLATE_ORDER: TemplateSlug[] = [
@@ -151,7 +151,7 @@ export function AutomationList({ channel }: { channel: Channel }) {
   if (error) {
     return (
       <div className="flex h-64 flex-col items-center justify-center gap-2">
-        <p className="text-sm text-red-400">{error}</p>
+        <p className="text-sm text-destructive">{error}</p>
         <Button variant="outline" onClick={() => window.location.reload()}>
           {t("retry")}
         </Button>
@@ -171,10 +171,10 @@ export function AutomationList({ channel }: { channel: Channel }) {
   const templates = TEMPLATE_ORDER.filter((slug) => templateOnChannel(AUTOMATION_TEMPLATES[slug], channel))
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">
+    <div>
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="min-w-0">
+          <h1 className="text-[22px] font-bold tracking-tight text-foreground">
             {tSection(channel === "instagram" ? "instagramTitle" : "whatsappTitle")}
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
@@ -188,7 +188,6 @@ export function AutomationList({ channel }: { channel: Channel }) {
           canAct={canCreate}
           gateReason={tGate("reasons.createAutomations")}
           onClick={() => router.push(channelPath(channel, "automationNew"))}
-          className="bg-primary text-primary-foreground hover:bg-primary/90"
         >
           <Plus className="h-4 w-4" />
           {t("create")}
@@ -196,9 +195,9 @@ export function AutomationList({ channel }: { channel: Channel }) {
       </div>
 
       {showTemplates && templates.length > 0 && (
-        <section>
-          <h2 className="mb-3 text-sm font-semibold text-muted-foreground">{t("templatesTitle")}</h2>
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <section className="mt-6">
+          <h2 className="mb-3 text-[13px] font-semibold text-foreground">{t("templatesTitle")}</h2>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
             {templates.map((slug) => {
               const t = AUTOMATION_TEMPLATES[slug]
               const Icon = TEMPLATE_ICON[slug]
@@ -206,13 +205,13 @@ export function AutomationList({ channel }: { channel: Channel }) {
                 <button
                   key={slug}
                   onClick={() => startFromTemplate(slug)}
-                  className="group flex flex-col items-start rounded-xl border border-border bg-card p-4 text-left transition-colors hover:border-primary/50 hover:bg-card/80"
+                  className="flex flex-col items-start gap-1.5 rounded-xl border border-border bg-card p-3.5 text-left transition-[border-color,background-color,transform] duration-150 hover:border-primary hover:bg-muted/50 active:scale-[.985]"
                 >
-                  <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary group-hover:bg-primary/15">
-                    <Icon className="h-5 w-5" />
-                  </div>
-                  <div className="text-sm font-semibold text-foreground">{t.name}</div>
-                  <p className="mt-1 text-xs text-muted-foreground">{t.description}</p>
+                  <span className="mb-1 inline-flex h-[34px] w-[34px] items-center justify-center rounded-[10px] bg-primary/10 text-primary">
+                    <Icon className="h-4 w-4" />
+                  </span>
+                  <span className="text-sm font-semibold text-foreground">{t.name}</span>
+                  <span className="text-[13px] text-muted-foreground">{t.description}</span>
                 </button>
               )
             })}
@@ -221,17 +220,17 @@ export function AutomationList({ channel }: { channel: Channel }) {
       )}
 
       {automations.length === 0 ? (
-        <div className="flex h-48 flex-col items-center justify-center rounded-xl border border-dashed border-border bg-card/40">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
-            <Zap className="h-6 w-6 text-primary" />
-          </div>
-          <p className="mt-3 text-sm font-medium text-foreground">{t("emptyTitle")}</p>
-          <p className="mt-1 text-xs text-muted-foreground">
+        <div className="mt-6 flex flex-col items-center gap-2 rounded-xl border border-border bg-card px-4 py-12 text-center">
+          <span className="mb-2 inline-flex h-[52px] w-[52px] items-center justify-center rounded-2xl bg-primary/10 text-primary">
+            <Zap className="h-6 w-6" />
+          </span>
+          <p className="text-[15px] font-semibold text-foreground">{t("emptyTitle")}</p>
+          <p className="text-sm text-muted-foreground">
             {t("emptyDesc")}
           </p>
         </div>
       ) : (
-        <ul className="space-y-3">
+        <ul className="mt-6 divide-y divide-border/60 overflow-hidden rounded-xl border border-border bg-card">
           {automations.map((a) => (
             <AutomationCard
               key={a.id}
@@ -297,71 +296,62 @@ function AutomationCard({
 }) {
   const tTriggers = useTranslations("Automations.builder.triggers")
   const tRelative = useTranslations("Automations.relative")
-  const meta = triggerMeta(automation.trigger_type)
   const triggerLabel = isKnownTrigger(automation.trigger_type)
     ? tTriggers(`${automation.trigger_type}.label`)
     : automation.trigger_type
   return (
-    <li className="rounded-xl border border-border bg-card transition-colors hover:border-border">
-      <div className="flex items-center gap-4 p-4">
-        <div
-          className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-primary/10"
-          aria-hidden
-        >
-          <Zap className="h-5 w-5 text-primary" />
-        </div>
+    <li className="flex items-center gap-3 px-4 py-3 transition-colors duration-150 hover:bg-muted/50">
+      <span
+        className="inline-flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-[10px] bg-primary/10 text-primary"
+        aria-hidden
+      >
+        <Zap className="h-4 w-4" />
+      </span>
 
-        <button
-          type="button"
-          onClick={onEdit}
-          className="min-w-0 flex-1 text-left"
-        >
-          <div className="flex items-center gap-2">
-            <span className="truncate text-sm font-semibold text-foreground">
-              {automation.name}
-            </span>
-            {automation.is_active && (
-              <span className="relative flex h-2 w-2" aria-label={t("activeIndicator")}>
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-75" />
-                <span className="relative inline-flex h-2 w-2 rounded-full bg-primary" />
-              </span>
-            )}
-          </div>
-          {automation.description && (
-            <p className="mt-0.5 truncate text-xs text-muted-foreground">{automation.description}</p>
+      <button
+        type="button"
+        onClick={onEdit}
+        className="group min-w-0 flex-1 text-left"
+      >
+        <span className="flex min-w-0 items-center gap-2">
+          <span className="truncate text-sm font-semibold text-foreground transition-colors duration-150 group-hover:text-primary">
+            {automation.name}
+          </span>
+          {automation.is_active && (
+            <span className="inline-flex h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500" aria-label={t("activeIndicator")} />
           )}
-          <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-            <span
-              className={cn(
-                "inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium",
-                meta.pillClass,
-              )}
-            >
-              {triggerLabel}
-            </span>
-            <span className="tabular-nums">
-              {automation.execution_count === 1
-                ? t("runs", { count: automation.execution_count })
-                : t("runsPlural", { count: automation.execution_count })}
-            </span>
-            <span aria-hidden>·</span>
-            <span>{t("lastRun", { time: formatRelative(automation.last_executed_at, tRelative) })}</span>
-          </div>
-        </button>
+        </span>
+        {automation.description && (
+          <span className="block truncate text-xs text-muted-foreground">{automation.description}</span>
+        )}
+        <span className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-foreground/80">
+            <span className={cn("h-1.5 w-1.5 rounded-full", automation.channel === "instagram" ? "bg-gradient-to-br from-amber-400 via-pink-500 to-violet-600" : "bg-emerald-500")} aria-hidden />
+            {triggerLabel}
+          </span>
+          <span className="tabular-nums">
+            {automation.execution_count === 1
+              ? t("runs", { count: automation.execution_count })
+              : t("runsPlural", { count: automation.execution_count })}
+          </span>
+          <span aria-hidden>·</span>
+          <span>{t("lastRun", { time: formatRelative(automation.last_executed_at, tRelative) })}</span>
+        </span>
+      </button>
 
-        <div className="flex items-center gap-3">
-          <Switch
-            checked={automation.is_active}
-            onCheckedChange={(v) => onToggle(!!v)}
-            aria-label={automation.is_active ? t("deactivate") : t("activate")}
-          />
+      <div className="flex shrink-0 items-center gap-2">
+        <Switch
+          checked={automation.is_active}
+          onCheckedChange={(v) => onToggle(!!v)}
+          aria-label={automation.is_active ? t("deactivate") : t("activate")}
+        />
 
           <DropdownMenu>
             <DropdownMenuTrigger
               aria-label={t("openMenu")}
-              className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground data-[popup-open]:bg-muted"
+              className="inline-flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground transition-colors duration-150 hover:bg-muted hover:text-foreground data-[popup-open]:bg-muted"
             >
-              <MoreVertical className="h-4 w-4" />
+              <MoreHorizontal className="h-4 w-4" />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem onClick={onEdit}>
@@ -383,7 +373,6 @@ function AutomationCard({
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-        </div>
       </div>
     </li>
   )

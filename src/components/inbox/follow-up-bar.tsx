@@ -83,7 +83,6 @@ export function FollowUpBar({ conversationId, channel, draftText, readOnly, sche
   const [reminderOpen, setReminderOpen] = useState(false);
   const [scheduleOpen, setScheduleOpen] = useState(false);
   const [when, setWhen] = useState("");
-  const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
 
   const when_ = useCallback(
@@ -107,10 +106,14 @@ export function FollowUpBar({ conversationId, channel, draftText, readOnly, sche
   useEffect(() => {
     void load();
     const timer = setInterval(() => void load(), 60_000);
-    return () => clearInterval(timer);
+    // A reminder set from the thread header shows here straight away.
+    const onChange = () => void load();
+    window.addEventListener(SNOOZES_CHANGED_EVENT, onChange);
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener(SNOOZES_CHANGED_EVENT, onChange);
+    };
   }, [load]);
-
-  const choosePreset = (preset: ReminderPreset) => setWhen(toLocalInput(presetTime(preset)));
 
   const send = async (url: string, method: "POST" | "PATCH", body: unknown, errors: readonly string[], scope: "reminders" | "scheduled") => {
     setBusy(true);
@@ -127,19 +130,6 @@ export function FollowUpBar({ conversationId, channel, draftText, readOnly, sche
     } finally {
       setBusy(false);
     }
-  };
-
-  const saveReminder = async (kind: ConversationReminderKind) => {
-    const at = new Date(when);
-    if (!when || Number.isNaN(at.getTime())) return;
-    const ok = await send("/api/inbox/reminders", "POST", {
-      conversation_id: conversationId, kind, remind_at: at.toISOString(), note: note.trim() || undefined,
-    }, REMINDER_ERRORS, "reminders");
-    if (!ok) return;
-    setReminderOpen(false);
-    setNote("");
-    await load();
-    window.dispatchEvent(new Event(SNOOZES_CHANGED_EVENT));
   };
 
   const saveSchedule = async () => {
@@ -164,7 +154,7 @@ export function FollowUpBar({ conversationId, channel, draftText, readOnly, sche
     if (await send(`/api/inbox/scheduled-replies/${id}`, "PATCH", body, SCHEDULED_ERRORS, "scheduled")) await load();
   };
 
-  const openReminder = () => { setWhen(toLocalInput(presetTime("oneHour"))); setNote(""); setReminderOpen(true); };
+  const openReminder = () => setReminderOpen(true);
   const openSchedule = () => { setWhen(toLocalInput(presetTime("oneHour"))); setScheduleOpen(true); };
 
   const visibleReminders = reminders.filter((r) => r.status === "pending" || r.status === "fired");
@@ -241,37 +231,7 @@ export function FollowUpBar({ conversationId, channel, draftText, readOnly, sche
         </ul>
       )}
 
-      <Dialog open={reminderOpen} onOpenChange={setReminderOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader><DialogTitle>{t("title")}</DialogTitle></DialogHeader>
-          <div className="space-y-3">
-            <div className="flex flex-wrap gap-1">
-              {(["oneHour", "threeHours", "tomorrow", "nextWeek"] as const).map((p) => (
-                <Button key={p} type="button" variant="outline" size="sm" className="h-7 text-xs" onClick={() => choosePreset(p)}>
-                  {t(`presets.${p}`)}
-                </Button>
-              ))}
-            </div>
-            <label className="block text-xs font-medium">
-              {t("remindAt")}
-              <Input type="datetime-local" value={when} onChange={(e) => setWhen(e.target.value)} className="mt-1" />
-            </label>
-            <label className="block text-xs font-medium">
-              {t("note")}
-              <Textarea value={note} maxLength={CONVERSATION_REMINDER_LIMITS.noteChars} placeholder={t("notePlaceholder")}
-                onChange={(e) => setNote(e.target.value)} className="mt-1" />
-            </label>
-            <p className="text-muted-foreground text-xs">{t("snoozeHelp")}</p>
-          </div>
-          <DialogFooter className="gap-2 sm:gap-2">
-            <Button type="button" variant="outline" disabled={busy || !when} onClick={() => void saveReminder("snooze")}>{t("snooze")}</Button>
-            <Button type="button" disabled={busy || !when} onClick={() => void saveReminder("reminder")}>
-              {busy && <Loader2 className="mr-1 h-4 w-4 animate-spin" aria-hidden />}
-              {t("save")}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ReminderDialog conversationId={conversationId} open={reminderOpen} onOpenChange={setReminderOpen} />
 
       <Dialog open={scheduleOpen} onOpenChange={setScheduleOpen}>
         <DialogContent className="sm:max-w-md">
@@ -293,5 +253,88 @@ export function FollowUpBar({ conversationId, channel, draftText, readOnly, sche
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+interface ReminderDialogProps {
+  conversationId: string;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}
+
+/** Set a reminder or snooze for one conversation. Opened from the follow-up bar and the thread header's bell. */
+export function ReminderDialog({ conversationId, open, onOpenChange }: ReminderDialogProps) {
+  const t = useTranslations("Inbox.reminders");
+  const [when, setWhen] = useState("");
+  const [note, setNote] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  // Each opening starts an hour from now with an empty note.
+  const [openedFor, setOpenedFor] = useState<string | null>(null);
+  const openKey = open ? conversationId : null;
+  if (openKey !== openedFor) {
+    setOpenedFor(openKey);
+    if (openKey) {
+      setWhen(toLocalInput(presetTime("oneHour")));
+      setNote("");
+    }
+  }
+
+  const save = async (kind: ConversationReminderKind) => {
+    const at = new Date(when);
+    if (!when || Number.isNaN(at.getTime()) || busy) return;
+    setBusy(true);
+    try {
+      const res = await authFetch("/api/inbox/reminders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ conversation_id: conversationId, kind, remind_at: at.toISOString(), note: note.trim() || undefined }),
+      });
+      if (!res.ok) {
+        const data = (await res.json().catch(() => null)) as { error?: unknown } | null;
+        toast.error(t(`errors.${errorKey(data?.error, REMINDER_ERRORS)}` as never));
+        return;
+      }
+      onOpenChange(false);
+      window.dispatchEvent(new Event(SNOOZES_CHANGED_EVENT));
+    } catch {
+      toast.error(t("errors.failed"));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader><DialogTitle>{t("title")}</DialogTitle></DialogHeader>
+        <div className="space-y-3">
+          <div className="flex flex-wrap gap-1">
+            {(["oneHour", "threeHours", "tomorrow", "nextWeek"] as const).map((p) => (
+              <Button key={p} type="button" variant="outline" size="sm" className="h-7 text-xs" onClick={() => setWhen(toLocalInput(presetTime(p)))}>
+                {t(`presets.${p}`)}
+              </Button>
+            ))}
+          </div>
+          <label className="block text-xs font-medium">
+            {t("remindAt")}
+            <Input type="datetime-local" value={when} onChange={(e) => setWhen(e.target.value)} className="mt-1" />
+          </label>
+          <label className="block text-xs font-medium">
+            {t("note")}
+            <Textarea value={note} maxLength={CONVERSATION_REMINDER_LIMITS.noteChars} placeholder={t("notePlaceholder")}
+              onChange={(e) => setNote(e.target.value)} className="mt-1" />
+          </label>
+          <p className="text-muted-foreground text-xs">{t("snoozeHelp")}</p>
+        </div>
+        <DialogFooter className="gap-2 sm:gap-2">
+          <Button type="button" variant="outline" disabled={busy || !when} onClick={() => void save("snooze")}>{t("snooze")}</Button>
+          <Button type="button" disabled={busy || !when} onClick={() => void save("reminder")}>
+            {busy && <Loader2 className="mr-1 h-4 w-4 animate-spin" aria-hidden />}
+            {t("save")}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

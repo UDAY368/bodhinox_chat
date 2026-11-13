@@ -52,23 +52,27 @@ export const SETTINGS_SECTIONS = [
   'conversion-events',
   'deals',
   'members',
+  'plan',
   'payments',
   'connections',
   'ads',
   'api',
-  'plan',
 ] as const;
 
 export type SettingsSection = (typeof SETTINGS_SECTIONS)[number];
 
 export const DEFAULT_SECTION: SettingsSection = 'overview';
 
-/** Rail grouping. `adminOnly` items are hidden for non-admins. */
+/**
+ * Rail grouping: `account` is the signed-in member's own settings (shown as
+ * "You"), `workspace` the shared setup, `billing` plan, payments and the
+ * connections to other tools (shown as "Account").
+ */
 export interface SectionMeta {
   id: SettingsSection;
   label: string;
   icon: LucideIcon;
-  group: 'top' | 'account' | 'workspace';
+  group: 'top' | 'account' | 'workspace' | 'billing';
 }
 
 export const SECTION_META: Record<SettingsSection, SectionMeta> = {
@@ -144,11 +148,11 @@ export const SECTION_META: Record<SettingsSection, SectionMeta> = {
     icon: UsersRound,
     group: 'workspace',
   },
-  payments: { id: 'payments', label: 'Payments', icon: CreditCard, group: 'workspace' },
-  connections: { id: 'connections', label: 'Meetings & shipping', icon: Truck, group: 'workspace' },
-  ads: { id: 'ads', label: 'Ads', icon: Megaphone, group: 'workspace' },
-  api: { id: 'api', label: 'API & webhooks', icon: KeyRound, group: 'workspace' },
-  plan: { id: 'plan', label: 'Plan & usage', icon: Gauge, group: 'workspace' },
+  payments: { id: 'payments', label: 'Payments', icon: CreditCard, group: 'billing' },
+  connections: { id: 'connections', label: 'Meetings & shipping', icon: Truck, group: 'billing' },
+  ads: { id: 'ads', label: 'Ads', icon: Megaphone, group: 'billing' },
+  api: { id: 'api', label: 'API & webhooks', icon: KeyRound, group: 'billing' },
+  plan: { id: 'plan', label: 'Plan & usage', icon: Gauge, group: 'billing' },
 };
 
 export const RAIL_GROUPS: {
@@ -156,8 +160,9 @@ export const RAIL_GROUPS: {
   group: SectionMeta['group'];
 }[] = [
   { label: null, group: 'top' },
-  { label: 'Account', group: 'account' },
+  { label: 'You', group: 'account' },
   { label: 'Workspace', group: 'workspace' },
+  { label: 'Account', group: 'billing' },
 ];
 
 function isSection(value: string | null): value is SettingsSection {

@@ -28,6 +28,7 @@ import {
   ShoppingBag,
   Store,
   Images,
+  Clock,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { GatedButton } from "@/components/ui/gated-button";
@@ -728,7 +729,7 @@ export function MessageComposer({
   // ---- Render --------------------------------------------------------
 
   return (
-    <div className="studio-composer group/composer border-t border-border bg-card px-2 py-2 @md:px-3">
+    <div className="studio-composer group/composer bg-card px-2 pt-1 pb-3 @md:px-4">
       {replyTo && (
         <div className="mb-2">
           <ReplyQuote
@@ -742,10 +743,10 @@ export function MessageComposer({
         <div
           data-instagram-window={igBanner.kind}
           className={cn(
-            "mb-2 rounded-lg px-3 py-2 text-xs",
+            "mb-2 rounded-xl px-3.5 py-2.5 text-[13px]",
             igBanner.kind === "open"
               ? "bg-muted text-muted-foreground"
-              : "bg-amber-500/10 text-amber-700 dark:text-amber-400",
+              : "studio-note",
           )}
         >
           {igBanner.kind === "closed"
@@ -787,14 +788,15 @@ export function MessageComposer({
         />
       )}
       {!isInstagram && sessionExpired && (
-        <div className="mb-2 flex items-center justify-between rounded-lg bg-amber-500/10 px-3 py-2">
-          <p className="text-xs text-amber-700 dark:text-amber-400">
+        <div className="studio-note mb-2 flex items-center justify-between gap-3 rounded-xl px-3.5 py-2.5">
+          <p className="flex min-w-0 items-center gap-2 text-[13px]">
+            <Clock className="size-4 shrink-0" aria-hidden />
             {t("sessionExpiredHint")}
           </p>
           <Button
-            variant="ghost"
+            variant="outline"
             size="sm"
-            className="h-7 text-xs text-amber-700 hover:text-amber-800 dark:text-amber-400 dark:hover:text-amber-300"
+            className="h-7 shrink-0 text-xs"
             onClick={onOpenTemplates}
           >
             <LayoutTemplate className="mr-1 h-3 w-3" />
@@ -857,7 +859,7 @@ export function MessageComposer({
         />
       ) : recording ? (
         // Recording bar — replaces the composer while the mic is live.
-        <div className="flex items-center gap-3 rounded-xl border border-border bg-muted px-4 py-2.5">
+        <div className="flex items-center gap-3 rounded-[18px] border border-border bg-muted px-4 py-2.5">
           <span className="flex h-2.5 w-2.5 shrink-0 animate-pulse rounded-full bg-red-500" />
           <span className="flex-1 text-sm text-foreground">
             {t("recording", { current: formatDuration(recordSeconds), max: formatDuration(MAX_RECORDING_SECONDS) })}
@@ -872,14 +874,41 @@ export function MessageComposer({
           <Button
             size="sm"
             onClick={stopRecording}
-            className="h-9 w-9 shrink-0 bg-primary p-0 hover:bg-primary/90"
+            className="size-8 shrink-0 rounded-full bg-primary p-0 hover:bg-primary/90"
             title={t("stopAndAttach")}
           >
             <Square className="h-4 w-4" />
           </Button>
         </div>
       ) : (
-        <div className="flex items-end gap-2">
+        // One rounded box: the text on top, one row of tools and the round send button below.
+        <div className="studio-composer-box flex flex-col rounded-[18px] border border-border bg-card px-3 pt-2 pb-2">
+          <textarea
+            ref={textareaRef}
+            value={text}
+            onChange={handleChange}
+            onKeyDown={handleKeyDown}
+            placeholder={
+              readOnly
+                ? t("readOnlyPlaceholder")
+                : windowClosed
+                  ? isInstagram
+                    ? tc("windowClosed")
+                    : t("sessionExpiredPlaceholder")
+                  : t("typeMessagePlaceholder")
+            }
+            disabled={windowClosed || readOnly}
+            rows={1}
+            // Textarea keeps its own inline title — the GatedButton
+            // wrapping pattern doesn't apply to non-button inputs.
+            // The placeholder text also surfaces the read-only state.
+            title={readOnly ? t("readOnlyTitle") : undefined}
+            className={cn(
+              "block max-h-[136px] min-h-9 w-full min-w-0 resize-none overflow-y-auto border-0 bg-transparent px-0.5 py-1.5 text-sm leading-5 text-foreground placeholder-muted-foreground outline-none placeholder:truncate",
+              (windowClosed || readOnly) && "cursor-not-allowed opacity-50"
+            )}
+          />
+          <div className="mt-1 flex items-center gap-0.5">
           {/* Attach menu — photo / video / document / voice. */}
           <DropdownMenu>
             <DropdownMenuTrigger
@@ -891,7 +920,7 @@ export function MessageComposer({
                     ? undefined
                     : t("attachMedia")
               }
-              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md p-0 text-muted-foreground hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex size-8 shrink-0 items-center justify-center rounded-lg p-0 text-muted-foreground transition-colors duration-150 hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
             >
               {busy ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -939,7 +968,7 @@ export function MessageComposer({
                     ? undefined
                     : t("moreActions")
               }
-              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md p-0 text-muted-foreground hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex size-8 shrink-0 items-center justify-center rounded-lg p-0 text-muted-foreground transition-colors duration-150 hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
             >
               <Plus className="h-4 w-4" />
             </DropdownMenuTrigger>
@@ -977,8 +1006,8 @@ export function MessageComposer({
                 </DropdownMenuItem>
               )}
               {/* Phones: the template and AI buttons live here so the text box keeps its width. */}
-              {!isInstagram && !readOnly && (
-                <DropdownMenuItem className="md:hidden" onClick={onOpenTemplates}>
+              {!readOnly && (
+                <DropdownMenuItem className="md:hidden" disabled={isInstagram && windowClosed} onClick={onOpenTemplates}>
                   <LayoutTemplate className="mr-2 h-4 w-4" />
                   {t("sendTemplate")}
                 </DropdownMenuItem>
@@ -997,20 +1026,22 @@ export function MessageComposer({
           </DropdownMenu>
 
           {/* From 768px; phones reach both through the + menu. */}
-          <div className="hidden shrink-0 items-end gap-2 md:flex">
-            {!isInstagram && (
-              <GatedButton
-                variant="ghost"
-                size="sm"
-                canAct={!readOnly}
-                gateReason={tGate("reasons.sendMessages")}
-                title={readOnly ? undefined : t("sendTemplate")}
-                className="h-9 w-9 shrink-0 p-0 text-muted-foreground hover:text-foreground"
-                onClick={onOpenTemplates}
-              >
-                <LayoutTemplate className="h-4 w-4" />
-              </GatedButton>
-            )}
+          <div className="hidden shrink-0 items-center gap-0.5 md:flex">
+            {/* WhatsApp: Meta-approved templates; Instagram: saved card and button messages. */}
+            <GatedButton
+              variant="ghost"
+              size="sm"
+              canAct={!readOnly}
+              gateReason={tGate("reasons.sendMessages")}
+              title={readOnly ? undefined : isInstagram && windowClosed ? tc("windowClosed") : t("sendTemplate")}
+              aria-label={t("sendTemplate")}
+              disabled={isInstagram && windowClosed}
+              data-composer-templates
+              className="size-8 shrink-0 rounded-lg p-0 text-muted-foreground hover:text-foreground"
+              onClick={onOpenTemplates}
+            >
+              <LayoutTemplate className="h-4 w-4" />
+            </GatedButton>
 
             <GatedButton
               variant="ghost"
@@ -1020,7 +1051,7 @@ export function MessageComposer({
               disabled={drafting}
               title={readOnly ? undefined : assistSuggest ? tAssist("suggestReplies") : t("draftHint")}
               aria-label={assistSuggest ? tAssist("suggestReplies") : t("draftWithAI")}
-              className="h-9 w-9 shrink-0 p-0 text-muted-foreground hover:text-primary"
+              className="size-8 shrink-0 rounded-lg p-0 text-muted-foreground hover:text-primary"
               onClick={assistSuggest ? handleSuggest : handleDraft}
             >
               {drafting ? (
@@ -1030,43 +1061,18 @@ export function MessageComposer({
               )}
             </GatedButton>
           </div>
-
-          <textarea
-            ref={textareaRef}
-            value={text}
-            onChange={handleChange}
-            onKeyDown={handleKeyDown}
-            placeholder={
-              readOnly
-                ? t("readOnlyPlaceholder")
-                : windowClosed
-                  ? isInstagram
-                    ? tc("windowClosed")
-                    : t("sessionExpiredPlaceholder")
-                  : t("typeMessagePlaceholder")
-            }
-            disabled={windowClosed || readOnly}
-            rows={1}
-            // Textarea keeps its own inline title — the GatedButton
-            // wrapping pattern doesn't apply to non-button inputs.
-            // The placeholder text also surfaces the read-only state.
-            title={readOnly ? t("readOnlyTitle") : undefined}
-            className={cn(
-              "block max-h-[136px] min-h-9 min-w-0 flex-1 resize-none overflow-y-auto rounded-xl border border-border bg-background px-3 py-2 text-sm leading-5 text-foreground placeholder-muted-foreground outline-none transition-colors placeholder:truncate focus:border-primary/50",
-              (windowClosed || readOnly) && "cursor-not-allowed opacity-50"
-            )}
-          />
-
+          <span className="flex-1" />
           <GatedButton
             size="sm"
             canAct={!readOnly}
             gateReason={tGate("reasons.sendMessages")}
             disabled={!text.trim() || windowClosed || sending || overInstagramLimit}
             onClick={handleSend}
-            className="h-9 w-9 shrink-0 bg-primary p-0 hover:bg-primary/90 disabled:opacity-40"
+            className="size-8 shrink-0 rounded-full bg-primary p-0 hover:bg-primary/90 disabled:opacity-30"
           >
             <Send className="h-4 w-4" />
           </GatedButton>
+          </div>
         </div>
       )}
 

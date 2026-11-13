@@ -19,7 +19,7 @@ import type {
 import { APPOINTMENT_ERROR_CODES } from '@/lib/appointments/types';
 import { APPOINTMENT_TEMPLATE_REFUSALS } from '@/lib/appointments/template-check';
 
-export const selectClass = 'h-9 w-full rounded-md border border-border bg-background px-2 text-sm text-foreground disabled:opacity-60';
+export const selectClass = 'h-9 w-full rounded-lg border border-border bg-card px-2.5 text-sm text-foreground outline-none transition-[border-color,box-shadow] duration-150 focus:border-primary focus:ring-3 focus:ring-ring/30 disabled:opacity-60';
 
 // ------------------------------------------------------------ JSON over the wire
 

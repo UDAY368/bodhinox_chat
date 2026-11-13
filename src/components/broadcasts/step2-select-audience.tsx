@@ -280,7 +280,7 @@ export function Step2SelectAudience({
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-lg font-semibold text-foreground">{t('selectAudience.title')}</h2>
+        <h2 className="text-base font-semibold text-foreground">{t('selectAudience.title')}</h2>
         <p className="mt-1 text-sm text-muted-foreground">
           {t('selectAudience.subtitle')}
         </p>
@@ -313,10 +313,10 @@ export function Step2SelectAudience({
                   csvText: option.type === 'csv' ? audience.csvText : undefined,
                 })
               }
-              className={`flex items-start gap-3 rounded-xl border p-4 text-left transition-all ${
+              className={`flex items-start gap-3 rounded-xl border p-4 text-left transition-colors duration-150 ${
                 isSelected
-                  ? 'border-primary bg-primary/5 ring-1 ring-primary/30'
-                  : 'border-border bg-card/50 hover:border-border'
+                  ? 'border-primary bg-primary/10'
+                  : 'border-border bg-card hover:bg-muted/60'
               }`}
             >
               <div
@@ -340,7 +340,7 @@ export function Step2SelectAudience({
       </div>
 
       {audience.type === 'segment' && (
-        <div className="rounded-xl border border-border bg-card/50 p-4">
+        <div className="rounded-xl border border-border bg-card p-4">
           <label htmlFor="audience-segment" className="mb-2 block text-sm font-medium text-foreground">
             {t('selectAudience.selectSegment')}
           </label>
@@ -366,7 +366,7 @@ export function Step2SelectAudience({
       )}
 
       {audience.type === 'list' && (
-        <div className="rounded-xl border border-border bg-card/50 p-4">
+        <div className="rounded-xl border border-border bg-card p-4">
           <label htmlFor="audience-list" className="mb-2 block text-sm font-medium text-foreground">
             {t('selectAudience.selectList')}
           </label>
@@ -392,7 +392,7 @@ export function Step2SelectAudience({
       )}
 
       {audience.type === 'tags' && (
-        <div className="rounded-xl border border-border bg-card/50 p-4">
+        <div className="rounded-xl border border-border bg-card p-4">
           <p className="mb-3 text-sm font-medium text-foreground">{t('selectAudience.selectTags')}</p>
           {loadingTags ? (
             <Loader2 className="h-5 w-5 animate-spin text-primary" />
@@ -428,7 +428,7 @@ export function Step2SelectAudience({
       )}
 
       {audience.type === 'custom_field' && (
-        <div className="space-y-3 rounded-xl border border-border bg-card/50 p-4">
+        <div className="space-y-3 rounded-xl border border-border bg-card p-4">
           <p className="text-sm font-medium text-foreground">{t('selectAudience.method.customField')}</p>
           {loadingFields ? (
             <Loader2 className="h-5 w-5 animate-spin text-primary" />
@@ -478,7 +478,7 @@ export function Step2SelectAudience({
       )}
 
       {audience.type === 'csv' && (
-        <div className="space-y-3 rounded-xl border border-border bg-card/50 p-4">
+        <div className="space-y-3 rounded-xl border border-border bg-card p-4">
           <div>
             <p className="text-sm font-medium text-foreground">
               {t('selectAudience.uploadCsv')}
@@ -539,9 +539,9 @@ export function Step2SelectAudience({
       )}
 
       {/* Exclude list — applies regardless of audience type */}
-      <div className="rounded-xl border border-border bg-card/50 p-4">
+      <div className="rounded-xl border border-border bg-card p-4">
         <div className="mb-3 flex items-center gap-2">
-          <X className="h-4 w-4 text-red-400" />
+          <X className="h-4 w-4 text-red-600 dark:text-red-400" />
           <p className="text-sm font-medium text-foreground">
             {t('selectAudience.excludeTags')}
           </p>
@@ -558,7 +558,7 @@ export function Step2SelectAudience({
                   onClick={() => toggleExcludeTag(tag.id)}
                   className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-medium transition-all ${
                     isExcluded
-                      ? 'border-red-500/30 bg-red-500/10 text-red-300'
+                      ? 'border-red-500/30 bg-red-500/10 text-red-600 dark:text-red-400'
                       : 'border-border bg-muted text-muted-foreground hover:border-border'
                   }`}
                 >
@@ -575,7 +575,7 @@ export function Step2SelectAudience({
       </div>
 
       {/* Audience Summary */}
-      <div className="rounded-xl border border-border bg-card/50 p-4">
+      <div className="rounded-xl border border-border bg-card p-4">
         <p className="mb-2 text-sm font-medium text-foreground">{t('selectAudience.audienceSummary')}</p>
         {loadingCount ? (
           <div className="flex items-center gap-2">
@@ -601,7 +601,7 @@ export function Step2SelectAudience({
         <Button
           variant="outline"
           onClick={onBack}
-          className="border-border text-muted-foreground"
+          className="text-muted-foreground"
         >
           <ArrowLeft className="h-4 w-4" />
           {t('back')}

@@ -115,7 +115,7 @@ export function AiUsageCard() {
       <CardHeader>
         <div className="flex items-start justify-between gap-4">
           <div>
-            <CardTitle className="flex items-center gap-2 text-base">
+            <CardTitle className="flex items-center gap-2 text-[15px] font-semibold">
               <BarChart3 className="h-4 w-4 text-primary" /> {t('title')}
             </CardTitle>
             <CardDescription>
@@ -144,8 +144,8 @@ export function AiUsageCard() {
           <Skeleton className="h-[220px] w-full" />
         ) : !hasSpend ? (
           <div className="flex flex-col items-center justify-center gap-2 py-10 text-center text-sm text-muted-foreground">
-            <BarChart3 className="h-8 w-8 opacity-40" />
-            <p>{t('empty', { days: data.window_days })}</p>
+            <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary"><BarChart3 className="h-5 w-5" /></span>
+            <p className="text-foreground">{t('empty', { days: data.window_days })}</p>
             <p className="text-xs">
               {t('emptyHint')}
             </p>
@@ -175,14 +175,14 @@ export function AiUsageCard() {
             </div>
 
             <div>
-              <p className="mb-2 text-xs font-medium text-muted-foreground">
+              <p className="mb-2 text-xs font-semibold text-muted-foreground">
                 {t('tokensPerDay')}
               </p>
               <BarChart
                 data={chartData}
                 index="day"
                 categories={[tokensLabel]}
-                colors={['amber']}
+                colors={['blue']}
                 valueFormatter={(v) => formatCompactNumber(v)}
                 showLegend={false}
                 yAxisWidth={48}
@@ -192,14 +192,14 @@ export function AiUsageCard() {
 
             {data.by_model.length > 0 && (
               <div>
-                <p className="mb-2 text-xs font-medium text-muted-foreground">
+                <p className="mb-2 text-xs font-semibold text-muted-foreground">
                   {t('byModel')}
                 </p>
-                <ul className="divide-y divide-border rounded-md border border-border">
+                <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border">
                   {data.by_model.map((m) => (
                     <li
                       key={`${m.provider}:${m.model}`}
-                      className="flex items-center justify-between px-3 py-2 text-sm"
+                      className="flex items-center justify-between gap-3 px-4 py-2.5 text-sm transition-colors duration-150 hover:bg-muted/40"
                     >
                       <span className="min-w-0 truncate">
                         <span className="text-foreground">{m.model}</span>{' '}
@@ -236,12 +236,12 @@ function Stat({
   icon?: typeof Bot;
 }) {
   return (
-    <div className="rounded-md border border-border p-3">
+    <div className="rounded-lg bg-muted p-3">
       <p className="flex items-center gap-1 text-xs text-muted-foreground">
         {Icon && <Icon className="h-3 w-3" />}
         {label}
       </p>
-      <p className="mt-1 text-lg font-semibold tabular-nums text-foreground">
+      <p className="mt-1 text-[17px] font-bold tracking-tight tabular-nums text-foreground">
         {value}
       </p>
     </div>

@@ -61,7 +61,7 @@ export function InstagramFacts({ contactId, refreshToken, className }: { contact
 
   return (
     <section className={cn('space-y-3', className)} aria-label={t('title')}>
-      <h3 className="text-xs font-semibold uppercase">{t('title')}</h3>
+      <h3 className="text-[13px] font-semibold text-foreground">{t('title')}</h3>
       {data.identities.map((identity) => {
         const fact = facts.identities.find((row) => row.id === identity.id);
         return (

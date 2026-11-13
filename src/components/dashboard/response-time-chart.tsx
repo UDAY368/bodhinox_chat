@@ -6,7 +6,6 @@ import type { ResponseTimeSummary } from '@/lib/dashboard/types'
 import { BarChart } from '@/components/tremor/bar-chart'
 import { EmptyState } from './empty-state'
 import { Skeleton } from './skeleton'
-import styles from './dashboard.module.css'
 
 interface ResponseTimeChartProps {
   data: ResponseTimeSummary | null
@@ -56,10 +55,10 @@ export function ResponseTimeChart({
     })) ?? []
 
   return (
-    <section className={`${styles.responseChart} studio-panel rounded-xl border border-border bg-card`}>
-      <header className="flex items-center justify-between gap-3 border-b border-border px-5 py-4">
+    <section className="flex h-full flex-col rounded-xl border border-border bg-card">
+      <header className="flex flex-wrap items-start justify-between gap-3 px-5 pt-5">
         <div>
-          <h2 className="text-sm font-semibold text-foreground">
+          <h2 className="text-[15px] font-semibold tracking-tight text-foreground">
             {t('title')}
           </h2>
           <p className="mt-0.5 text-xs text-muted-foreground">
@@ -68,7 +67,7 @@ export function ResponseTimeChart({
         </div>
         <div className="flex items-center gap-3 text-right text-xs">
           {thresholdMinutes > 0 && (
-            <span className="rounded-full border border-primary/20 bg-primary/7 px-2.5 py-1 font-medium text-primary tabular-nums">
+            <span className="rounded-full bg-primary/10 px-2.5 py-0.5 font-medium text-primary tabular-nums">
               {t('target', { minutes: thresholdMinutes })}
             </span>
           )}
@@ -89,7 +88,7 @@ export function ResponseTimeChart({
         </div>
       </header>
 
-      <div className="p-5">
+      <div className="flex-1 px-5 pt-4 pb-5">
         {loading || !data ? (
           <Skeleton className="h-[260px] w-full" />
         ) : !hasData ? (
@@ -103,7 +102,7 @@ export function ResponseTimeChart({
             data={chartData}
             index="day"
             categories={[category]}
-            colors={['amber']}
+            colors={['chart1']}
             valueFormatter={(value) => `${value.toFixed(1)}m`}
             showLegend={false}
             yAxisWidth={48}

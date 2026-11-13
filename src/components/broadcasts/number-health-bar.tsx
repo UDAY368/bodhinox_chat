@@ -10,10 +10,10 @@ import { authFetch } from '@/lib/auth/client';
 import type { PhoneHealth } from '@/lib/whatsapp/phone-health';
 
 const QUALITY_CLASSES: Record<string, string> = {
-  GREEN: 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20',
-  YELLOW: 'bg-amber-500/10 text-amber-500 border-amber-500/20',
-  RED: 'bg-red-500/10 text-red-500 border-red-500/20',
-  UNKNOWN: 'bg-muted text-muted-foreground border-border',
+  GREEN: 'bg-emerald-500/12 text-emerald-700 dark:text-emerald-400',
+  YELLOW: 'bg-amber-500/12 text-amber-700 dark:text-amber-400',
+  RED: 'bg-red-500/12 text-red-600 dark:text-red-400',
+  UNKNOWN: 'bg-muted text-muted-foreground',
 };
 
 export function NumberHealthBar() {
@@ -33,10 +33,10 @@ export function NumberHealthBar() {
   const remaining = limit?.kind === 'tier' && used !== null ? Math.max(0, limit.perDay - used) : null;
 
   return (
-    <div className="flex flex-wrap items-center gap-x-6 gap-y-2 rounded-xl border border-border bg-card px-4 py-3 text-sm" data-testid="number-health">
+    <div className="flex flex-wrap items-center gap-x-6 gap-y-2 rounded-xl bg-muted px-4 py-2.5 text-sm" data-testid="number-health">
       <span className="flex items-center gap-2">
         <span className="text-muted-foreground">{t('quality')}</span>
-        <span className={`rounded-full border px-2 py-0.5 text-xs font-medium ${QUALITY_CLASSES[health.quality] ?? QUALITY_CLASSES.UNKNOWN}`}>
+        <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${QUALITY_CLASSES[health.quality] ?? QUALITY_CLASSES.UNKNOWN}`}>
           {t(`ratings.${health.quality}`)}
         </span>
       </span>

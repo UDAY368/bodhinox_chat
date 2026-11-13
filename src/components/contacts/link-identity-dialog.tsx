@@ -135,7 +135,7 @@ export function LinkIdentityDialog({ open, onOpenChange, contactId, identity, on
                 autoComplete="off"
               />
             </div>
-            <div className="max-h-48 overflow-y-auto rounded-md border border-border" role="listbox" aria-label={t('pickContact')}>
+            <div className="max-h-48 overflow-y-auto rounded-xl border border-border" role="listbox" aria-label={t('pickContact')}>
               {searching ? (
                 <p className="flex items-center gap-2 p-2 text-xs text-muted-foreground"><Loader2 className="size-3 animate-spin" />{t('searching')}</p>
               ) : candidates.length === 0 ? (

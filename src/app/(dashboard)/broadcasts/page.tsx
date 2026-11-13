@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/data/client';
 import { Broadcast, BroadcastStatus } from '@/types';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import {
   Table,
   TableBody,
@@ -15,6 +14,16 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { CalendarClock, ChevronLeft, ChevronRight, Code, Loader2, Plus, Radio, Search } from 'lucide-react';
+import {
+  CampaignEmpty,
+  CampaignHeader,
+  IconTile,
+  ProgressBar,
+  SearchField,
+  SegmentedTabs,
+  StatusPill,
+  BROADCAST_STATUS_TONE as STATUS_TONE,
+} from '@/components/broadcasts/campaign-ui';
 import { NumberHealthBar } from '@/components/broadcasts/number-health-bar';
 import { numberLabel, useWhatsAppNumbers } from '@/components/settings/numbers/use-whatsapp-numbers';
 import { ApiCampaignDialog } from '@/components/broadcasts/api-campaign-dialog';
@@ -40,28 +49,12 @@ function percent(numerator: number, denominator: number): number {
   return Math.round((numerator / denominator) * 100);
 }
 
-function RateCell({
-  value,
-  total,
-  color,
-}: {
-  value: number;
-  total: number;
-  /** Tailwind bg class for the fill, e.g. "bg-primary" */
-  color: string;
-}) {
+function RateCell({ value, total }: { value: number; total: number }) {
   const pct = percent(value, total);
   return (
     <div className="flex items-center gap-2">
-      <span className="w-10 text-right text-xs tabular-nums text-muted-foreground">
-        {pct}%
-      </span>
-      <div className="h-1.5 w-20 overflow-hidden rounded-full bg-muted">
-        <div
-          className={`h-1.5 rounded-full ${color}`}
-          style={{ width: `${pct}%` }}
-        />
-      </div>
+      <ProgressBar pct={pct} />
+      <span className="w-9 text-right text-xs tabular-nums text-muted-foreground">{pct}%</span>
     </div>
   );
 }
@@ -182,7 +175,7 @@ export default function BroadcastsPage() {
   if (error && broadcasts.length === 0) {
     return (
       <div className="flex h-64 flex-col items-center justify-center gap-2">
-        <p className="text-sm text-red-400">{error}</p>
+        <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
         <Button variant="outline" onClick={() => window.location.reload()}>
           {t('retry')}
         </Button>
@@ -220,106 +213,89 @@ export default function BroadcastsPage() {
         </div>
       )}
 
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">{t('title')}</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {t('subtitle')}
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          {canCreate && !canApi && <UpgradeBadge />}
-          {canCreate && (
-            <Button variant="outline" onClick={() => setApiOpen(true)} disabled={!canApi}>
-              <Code className="h-4 w-4" />
-              {t('newApiCampaign')}
-            </Button>
-          )}
-          <GatedButton
-            canAct={canCreate}
-            gateReason={tGate('reasons.createBroadcasts')}
-            onClick={() => router.push('/broadcasts/new')}
-            className="bg-primary text-primary-foreground hover:bg-primary/90"
-          >
-            <Plus className="h-4 w-4" />
-            {t('newBroadcast')}
-          </GatedButton>
-        </div>
-      </div>
+      <CampaignHeader
+        title={t('title')}
+        description={t('subtitle')}
+        actions={
+          <>
+            {canCreate && !canApi && <UpgradeBadge />}
+            {canCreate && (
+              <Button variant="outline" onClick={() => setApiOpen(true)} disabled={!canApi}>
+                <Code className="h-4 w-4" />
+                {t('newApiCampaign')}
+              </Button>
+            )}
+            <GatedButton
+              canAct={canCreate}
+              gateReason={tGate('reasons.createBroadcasts')}
+              onClick={() => router.push('/broadcasts/new')}
+              className="h-9 bg-primary px-4 text-primary-foreground hover:bg-primary/90"
+            >
+              <Plus className="h-4 w-4" />
+              {t('newBroadcast')}
+            </GatedButton>
+          </>
+        }
+      />
 
       <NumberHealthBar />
 
       <ApiCampaignDialog open={apiOpen} onOpenChange={setApiOpen} onCreated={(id) => router.push(`/broadcasts/${id}`)} />
 
-      {/* Status tabs + name search */}
+      {/* Status filter (segmented) + name search */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div role="tablist" aria-label={t('tabsLabel')} className="flex flex-wrap gap-1">
-          {TABS.map((key) => (
-            <button
-              key={key}
-              role="tab"
-              aria-selected={tab === key}
-              onClick={() => { setTab(key); setPage(0); }}
-              className={`rounded-full px-3 py-1 text-sm transition-colors ${tab === key ? 'bg-primary/10 font-medium text-primary' : 'text-muted-foreground hover:bg-muted'}`}
-            >
-              {key === 'all' ? t('tabAll') : tStatus(key)}
-            </button>
-          ))}
-        </div>
-        <div className="relative w-full sm:w-64">
-          <Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            aria-label={t('searchLabel')}
-            value={search}
-            onChange={(e) => { setSearch(e.target.value); setPage(0); }}
-            placeholder={t('searchPlaceholder')}
-            className="pl-8"
-          />
-        </div>
+        <SegmentedTabs
+          ariaLabel={t('tabsLabel')}
+          value={tab}
+          onChange={(key) => { setTab(key); setPage(0); }}
+          items={TABS.map((key) => ({ value: key, label: key === 'all' ? t('tabAll') : tStatus(key) }))}
+        />
+        <SearchField
+          ariaLabel={t('searchLabel')}
+          value={search}
+          onChange={(v) => { setSearch(v); setPage(0); }}
+          placeholder={t('searchPlaceholder')}
+        />
       </div>
 
       {error && (
-        <p role="alert" className="rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-400">{error}</p>
+        <p role="alert" className="rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-600 dark:text-red-400">{error}</p>
       )}
 
       {broadcasts.length === 0 && (tab !== 'all' || search.trim()) ? (
-        <div className="flex h-40 items-center justify-center rounded-xl border border-border bg-card">
-          <p className="text-sm text-muted-foreground">{t('noMatches')}</p>
-        </div>
+        <CampaignEmpty icon={Search} title={t('noMatches')} />
       ) : broadcasts.length === 0 ? (
-        <div className="flex h-64 flex-col items-center justify-center rounded-xl border border-border bg-card">
-          <Radio className="mb-3 h-10 w-10 text-muted-foreground" />
-          <p className="text-sm font-medium text-foreground">{t('noBroadcastsYet')}</p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            {t('createFirst')}
-          </p>
-          <GatedButton
-            canAct={canCreate}
-            gateReason={tGate('reasons.createBroadcasts')}
-            onClick={() => router.push('/broadcasts/new')}
-            className="mt-4 bg-primary text-primary-foreground hover:bg-primary/90"
-          >
-            <Plus className="h-4 w-4" />
-            {t('newBroadcast')}
-          </GatedButton>
-        </div>
+        <CampaignEmpty
+          icon={Radio}
+          title={t('noBroadcastsYet')}
+          description={t('createFirst')}
+          action={
+            <GatedButton
+              canAct={canCreate}
+              gateReason={tGate('reasons.createBroadcasts')}
+              onClick={() => router.push('/broadcasts/new')}
+              variant="outline"
+            >
+              <Plus className="h-4 w-4" />
+              {t('newBroadcast')}
+            </GatedButton>
+          }
+        />
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-border bg-card">
+        <div className="overflow-hidden rounded-xl border border-border bg-card">
           <Table>
-            <TableHeader>
+            <TableHeader className="bg-muted">
               <TableRow className="border-border hover:bg-transparent">
-                <TableHead className="text-muted-foreground">{t('table.name')}</TableHead>
-                <TableHead className="hidden text-muted-foreground md:table-cell">{t('table.template')}</TableHead>
+                <TableHead className="h-9 px-4 text-xs font-semibold text-muted-foreground">{t('table.name')}</TableHead>
                 {showSendFrom && (
-                  <TableHead className="hidden text-muted-foreground md:table-cell">{tn('picker.sendFrom')}</TableHead>
+                  <TableHead className="hidden h-9 px-3 text-xs font-semibold text-muted-foreground md:table-cell">{tn('picker.sendFrom')}</TableHead>
                 )}
-                <TableHead className="hidden text-right text-muted-foreground sm:table-cell">
+                <TableHead className="h-9 px-3 text-xs font-semibold text-muted-foreground">{t('table.status')}</TableHead>
+                <TableHead className="hidden h-9 px-3 text-right text-xs font-semibold text-muted-foreground sm:table-cell">
                   {t('table.recipients')}
                 </TableHead>
-                <TableHead className="hidden text-muted-foreground lg:table-cell">{t('table.delivery')}</TableHead>
-                <TableHead className="hidden text-muted-foreground lg:table-cell">{t('table.read')}</TableHead>
-                <TableHead className="text-muted-foreground">{t('table.status')}</TableHead>
-                <TableHead className="hidden text-muted-foreground sm:table-cell">{t('table.date')}</TableHead>
+                <TableHead className="hidden h-9 px-3 text-xs font-semibold text-muted-foreground lg:table-cell">{t('table.delivery')}</TableHead>
+                <TableHead className="hidden h-9 px-3 pr-4 text-xs font-semibold text-muted-foreground lg:table-cell">{t('table.read')}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -328,57 +304,45 @@ export default function BroadcastsPage() {
                 return (
                   <TableRow
                     key={broadcast.id}
-                    className="cursor-pointer border-border hover:bg-muted/50"
+                    className="cursor-pointer border-border/70 transition-colors duration-150 hover:bg-muted/60"
                     onClick={() => router.push(`/broadcasts/${broadcast.id}`)}
                   >
-                    <TableCell className="font-medium text-foreground">
-                      {broadcast.name}
-                    </TableCell>
-                    <TableCell className="hidden text-muted-foreground md:table-cell">
-                      {broadcast.template_name}
+                    <TableCell className="w-full max-w-0 px-4 py-3">
+                      <div className="flex min-w-0 items-center gap-3">
+                        <IconTile icon={Radio} />
+                        <div className="flex min-w-0 flex-col leading-snug">
+                          <span className="truncate font-semibold text-foreground">{broadcast.name}</span>
+                          <span className="flex min-w-0 items-center gap-1 text-xs text-muted-foreground">
+                            <span className="truncate">{broadcast.template_name}</span>
+                            <span aria-hidden>·</span>
+                            {broadcast.status === 'scheduled' && broadcast.scheduled_at ? (
+                              <span className="inline-flex shrink-0 items-center gap-1" title={t('scheduledFor')}>
+                                <CalendarClock className="h-3 w-3" />
+                                {new Date(broadcast.scheduled_at).toLocaleString()}
+                              </span>
+                            ) : (
+                              <span className="shrink-0">{new Date(broadcast.created_at).toLocaleDateString()}</span>
+                            )}
+                          </span>
+                        </div>
+                      </div>
                     </TableCell>
                     {showSendFrom && (
-                      <TableCell className="hidden text-muted-foreground md:table-cell">{sendFromOf(broadcast)}</TableCell>
+                      <TableCell className="hidden px-3 text-muted-foreground md:table-cell">{sendFromOf(broadcast)}</TableCell>
                     )}
-                    <TableCell className="hidden text-right text-muted-foreground tabular-nums sm:table-cell">
-                      {broadcast.total_recipients}
-                    </TableCell>
-                    <TableCell className="hidden lg:table-cell">
-                      <RateCell
-                        value={broadcast.delivered_count}
-                        total={broadcast.total_recipients}
-                        color="bg-primary"
-                      />
-                    </TableCell>
-                    <TableCell className="hidden lg:table-cell">
-                      <RateCell
-                        value={broadcast.read_count}
-                        total={broadcast.total_recipients}
-                        color="bg-blue-500"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <span
-                        className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs font-medium ${status.classes}`}
-                      >
-                        {status.pulse && (
-                          <span className="relative flex h-1.5 w-1.5">
-                            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-yellow-400 opacity-75" />
-                            <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-yellow-400" />
-                          </span>
-                        )}
+                    <TableCell className="px-3">
+                      <StatusPill tone={STATUS_TONE[broadcast.status] ?? 'neutral'} pulse={status.pulse}>
                         {tStatus(status.label)}
-                      </span>
+                      </StatusPill>
                     </TableCell>
-                    <TableCell className="hidden text-muted-foreground sm:table-cell">
-                      {broadcast.status === 'scheduled' && broadcast.scheduled_at ? (
-                        <span className="inline-flex items-center gap-1" title={t('scheduledFor')}>
-                          <CalendarClock className="h-3.5 w-3.5" />
-                          {new Date(broadcast.scheduled_at).toLocaleString()}
-                        </span>
-                      ) : (
-                        new Date(broadcast.created_at).toLocaleDateString()
-                      )}
+                    <TableCell className="hidden px-3 text-right font-semibold tabular-nums text-foreground sm:table-cell">
+                      {broadcast.total_recipients.toLocaleString()}
+                    </TableCell>
+                    <TableCell className="hidden px-3 lg:table-cell">
+                      <RateCell value={broadcast.delivered_count} total={broadcast.total_recipients} />
+                    </TableCell>
+                    <TableCell className="hidden px-3 pr-4 lg:table-cell">
+                      <RateCell value={broadcast.read_count} total={broadcast.total_recipients} />
                     </TableCell>
                   </TableRow>
                 );

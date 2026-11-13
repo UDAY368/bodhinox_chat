@@ -47,6 +47,12 @@
     }
   },
   "Sidebar": {
+    "campaigns": "캠페인",
+    "sales": "판매",
+    "overview": "개요",
+    "reports": "보고서",
+    "rules": "규칙",
+    "instagramTools": "Instagram 도구",
     "title": "BODHINOX",
     "primaryNav": "기본 메뉴",
     "dashboard": "대시보드",
@@ -112,6 +118,7 @@
     "expandSidebar": "펼치기"
   },
   "Header": {
+    "notificationsUnread": "알림, 읽지 않음 {count}개",
     "dashboard": "대시보드",
     "inbox": "인박스",
     "notifications": "알림",
@@ -404,7 +411,10 @@
       "lifecycle": "진행 상태",
       "slaDueIn": "{value}{unit, select, m {분} h {시간} other {일}} 내 응답",
       "slaOverdue": "{value}{unit, select, m {분} h {시간} other {일}} 지연",
-      "filterMyTeam": "내 팀"
+      "filterMyTeam": "내 팀",
+      "addFilter": "필터",
+      "filterSearch": "필터 검색",
+      "noFilterMatches": "일치하는 필터가 없습니다"
     },
     "messageThread": {
       "backToConversations": "대화 목록으로 돌아가기",
@@ -635,7 +645,12 @@
       "noFlowAnswers": "저장된 플로우 응답이 없습니다.",
       "addNote": "메모 추가",
       "copyPhone": "연락처 번호 복사",
-      "copyError": "연락처 번호를 복사할 수 없습니다."
+      "copyError": "연락처 번호를 복사할 수 없습니다.",
+      "viewContact": "연락처 보기",
+      "editDetails": "정보 편집",
+      "channel": "채널",
+      "phone": "전화번호",
+      "firstSeen": "처음 연락"
     },
     "aiBanner": {
       "pausedTitle": "이 대화에서 AI 어시스턴트가 일시 중지됨",
@@ -934,6 +949,113 @@
       "handledHelp": "한 번이라도 배정되었거나 직접 메시지를 보낸 채팅",
       "sectionAssigned": "현재 배정된 상담원",
       "sectionHandled": "처리한 적 있는 상담원"
+    },
+    "sessionRail": {
+      "title": "열린 대화 창",
+      "closingSoon": "{count}개 곧 종료",
+      "item": "{name}, {time} 후 창 종료"
+    },
+    "consent": {
+      "title": "수신 동의",
+      "optedIn": "수신 동의",
+      "optedOut": "수신 거부",
+      "none": "동의 없음",
+      "since": "{when}부터 · {how}",
+      "noneYet": "아직 기록된 WhatsApp 수신 동의가 없습니다.",
+      "hint": {
+        "opted_in": "템플릿과 브로드캐스트를 보낼 수 있습니다. 고객은 언제든 STOP으로 거부할 수 있습니다.",
+        "opted_out": "템플릿과 브로드캐스트를 보낼 수 없습니다. 24시간 창 안에서는 답장할 수 있습니다.",
+        "none": "템플릿이나 브로드캐스트를 보내기 전에 고객의 동의를 받으세요."
+      },
+      "source": {
+        "in": {
+          "keyword": "고객이 START로 답장",
+          "agent": "팀원이 기록",
+          "api": "API로 기록",
+          "import": "가져오기"
+        },
+        "out": {
+          "keyword": "고객이 STOP으로 답장",
+          "agent": "팀원이 설정",
+          "api": "API로 설정",
+          "import": "가져오기"
+        },
+        "unknown": "출처 기록 없음"
+      },
+      "recordOptIn": "수신 동의 기록",
+      "optOut": "수신 거부",
+      "confirmOptIn": "이 고객이 회사의 WhatsApp 메시지 수신에 동의한 경우에만 기록하세요.",
+      "confirm": "네, 동의했습니다",
+      "cancel": "취소",
+      "failed": "수신 동의를 변경하지 못했습니다. 다시 시도하세요.",
+      "banner": "{when}에 수신 거부({how}). 템플릿과 브로드캐스트가 차단되었으며 24시간 창 안에서는 답장할 수 있습니다.",
+      "filter": "수신 동의",
+      "any": "모든 동의 상태",
+      "updated": "수신 동의 변경됨: {status}"
+    },
+    "igTemplates": {
+      "title": "Instagram 템플릿",
+      "newTitle": "새 Instagram 템플릿",
+      "editTitle": "Instagram 템플릿 편집",
+      "back": "템플릿으로 돌아가기",
+      "description": "Instagram용 카드·버튼 메시지를 저장합니다. Meta 승인 템플릿은 WhatsApp 전용이므로 이 템플릿은 24시간 창 안에서 일반 메시지처럼 전송됩니다.",
+      "empty": "아직 Instagram 템플릿이 없습니다. 카드 갤러리나 버튼 메시지를 저장해 두고 어느 Instagram 채팅에서든 보내세요.",
+      "kindCards": "카드",
+      "kindButton": "버튼 메시지",
+      "kind": "템플릿 유형",
+      "edit": "{name} 편집",
+      "delete": "{name} 삭제",
+      "send": "보내기",
+      "new": "새 템플릿",
+      "save": "템플릿 저장",
+      "saved": "템플릿을 저장했습니다",
+      "windowHint": "24시간 창이 열려 있을 때만 전송됩니다.",
+      "limitsHint": "카드 최대 10개, 카드당 버튼 3개, 제목 80자, 버튼 이름 20자까지.",
+      "name": "템플릿 이름",
+      "namePlaceholder": "예: 시즌 할인",
+      "cardN": "카드 {n}",
+      "removeCard": "카드 {n} 삭제",
+      "cardTitle": "제목",
+      "cardSubtitle": "부제목(선택)",
+      "imageUrl": "이미지 링크",
+      "imageUrlPlaceholder": "이미지 링크(https://, 선택)",
+      "addCard": "카드 추가",
+      "text": "메시지 내용",
+      "preview": "미리보기",
+      "buttonType": "버튼 유형",
+      "buttonReply": "답장",
+      "buttonLink": "링크",
+      "buttonTitle": "버튼 이름",
+      "buttonUrl": "링크 주소",
+      "removeButton": "버튼 삭제",
+      "addButton": "버튼 추가",
+      "errors": {
+        "duplicate_name": "같은 이름의 템플릿이 이미 있습니다.",
+        "too_many": "이 워크스페이스는 Instagram 템플릿 최대 개수(100개)에 도달했습니다.",
+        "invalid_template": "Instagram에서 받지 않는 템플릿입니다. 제목, 버튼 이름, https 링크를 확인하세요.",
+        "failed": "저장하지 못했습니다. 다시 시도하세요.",
+        "too_large": "템플릿이 너무 커서 저장할 수 없습니다. 링크를 줄이거나 카드 수를 줄이세요.",
+        "deleteFailed": "삭제하지 못했습니다. 다시 시도하세요."
+      },
+      "deleted": "{name} 삭제됨",
+      "confirmDelete": "이 워크스페이스 전체에서 “{name}”을(를) 삭제할까요?",
+      "deleteConfirm": "삭제",
+      "cancel": "취소",
+      "gallery": "카드 {count}개",
+      "problems": {
+        "name": "템플릿 이름을 입력하세요.",
+        "text": "메시지 내용을 입력하세요.",
+        "textLong": "메시지 내용이 {max}자를 넘습니다.",
+        "buttonLabel": "모든 버튼에 이름이 필요합니다.",
+        "buttonLabelLong": "버튼 이름은 최대 {max}자입니다.",
+        "buttonUrl": "링크 버튼에는 https:// 주소가 필요합니다.",
+        "cardTitle": "카드 {n}에 제목이 필요합니다.",
+        "cardTitleLong": "카드 {n} 제목이 {max}자를 넘습니다.",
+        "cardSubtitleLong": "카드 {n} 부제목이 {max}자를 넘습니다.",
+        "imageUrl": "카드 {n} 이미지 링크는 https://로 시작해야 합니다.",
+        "tooLarge": "너무 커서 저장할 수 없습니다. 링크를 줄이거나 카드 수를 줄이세요.",
+        "more": "(외 {count}개)"
+      }
     }
   },
   "Contacts": {
@@ -1031,7 +1153,9 @@
       },
       "rowActions": "{name} 작업",
       "previousPage": "이전 페이지",
-      "nextPage": "다음 페이지"
+      "nextPage": "다음 페이지",
+      "paginationLabel": "페이지 이동",
+      "goToPage": "{page}페이지"
     },
     "form": {
       "addTitle": "연락처 추가",

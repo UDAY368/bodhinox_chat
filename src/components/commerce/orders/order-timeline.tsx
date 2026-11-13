@@ -36,7 +36,7 @@ export function OrderTimelinePanel({ timeline }: { timeline: OrderTimeline | nul
   return (
     <div className="space-y-4">
       {timeline.documents.length > 0 && (
-        <div className="space-y-2 rounded-lg border border-border bg-card p-4">
+        <div className="space-y-2 rounded-xl border border-border bg-card p-4">
           <h2 className="text-sm font-medium text-foreground">{t("documents")}</h2>
           <ul className="space-y-1">
             {timeline.documents.map((d) => (
@@ -52,7 +52,7 @@ export function OrderTimelinePanel({ timeline }: { timeline: OrderTimeline | nul
         </div>
       )}
 
-      <div className="space-y-2 rounded-lg border border-border bg-card p-4">
+      <div className="space-y-2 rounded-xl border border-border bg-card p-4">
         <h2 className="text-sm font-medium text-foreground">{t("title")}</h2>
         {timeline.events.length === 0 ? (
           <p className="text-xs text-muted-foreground">{t("empty")}</p>
@@ -78,7 +78,7 @@ export function OrderTimelinePanel({ timeline }: { timeline: OrderTimeline | nul
       </div>
 
       {timeline.messages.length > 0 && (
-        <div className="space-y-2 rounded-lg border border-border bg-card p-4">
+        <div className="space-y-2 rounded-xl border border-border bg-card p-4">
           <h2 className="text-sm font-medium text-foreground">{t("messages")}</h2>
           <ul className="space-y-1 text-sm">
             {timeline.messages.map((m) => (

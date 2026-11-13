@@ -148,7 +148,7 @@ export function SettingsPanel({ canEdit }: { canEdit: boolean }) {
 
   return (
     <div className="max-w-2xl space-y-6 text-sm">
-      <h2 className="text-lg font-semibold">{t('title')}</h2>
+      <h2 className="text-base font-semibold tracking-tight">{t('title')}</h2>
       <div className="grid gap-4 sm:grid-cols-2">
         {NUMBERS.map((n) => (
           <div key={n.key} className="space-y-1">

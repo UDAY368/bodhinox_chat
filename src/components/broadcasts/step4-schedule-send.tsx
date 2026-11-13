@@ -159,7 +159,7 @@ export function Step4ScheduleSend({
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-lg font-semibold text-foreground">{t('scheduleSend.title')}</h2>
+        <h2 className="text-base font-semibold text-foreground">{t('scheduleSend.title')}</h2>
         <p className="mt-1 text-sm text-muted-foreground">
           {t('scheduleSend.subtitle')}
         </p>
@@ -199,7 +199,7 @@ export function Step4ScheduleSend({
       )}
 
       {/* Summary Card */}
-      <div className="rounded-xl border border-border bg-card/50 p-4 space-y-3">
+      <div className="rounded-xl border border-border bg-card p-4 space-y-3">
         <p className="text-sm font-medium text-foreground">{t('scheduleSend.summary')}</p>
         <div className="grid grid-cols-2 gap-3 text-sm">
           <div>
@@ -238,7 +238,7 @@ export function Step4ScheduleSend({
       </div>
 
       {/* Test send */}
-      <div className="rounded-xl border border-border bg-card/50 p-4 space-y-2">
+      <div className="rounded-xl border border-border bg-card p-4 space-y-2">
         <p className="text-sm font-medium text-foreground">{t('scheduleSend.testTitle')}</p>
         <p className="text-xs text-muted-foreground">{t('scheduleSend.testHint')}</p>
         <div className="flex flex-wrap gap-2">
@@ -257,7 +257,7 @@ export function Step4ScheduleSend({
       </div>
 
       {/* When to send */}
-      <div className="rounded-xl border border-border bg-card/50 p-4 space-y-3">
+      <div className="rounded-xl border border-border bg-card p-4 space-y-3">
         <p className="text-sm font-medium text-foreground">{t('scheduleSend.whenLabel')}</p>
         <div className="flex flex-wrap gap-4 text-sm text-foreground">
           <label className="flex items-center gap-2">
@@ -312,7 +312,7 @@ export function Step4ScheduleSend({
           variant="outline"
           onClick={onBack}
           disabled={isProcessing}
-          className="border-border text-muted-foreground"
+          className="text-muted-foreground"
         >
           <ArrowLeft className="h-4 w-4" />
           {t('back')}
@@ -368,7 +368,7 @@ export function Step4ScheduleSend({
               <Button
                 variant="outline"
                 onClick={() => setShowConfirm(false)}
-                className="border-border text-muted-foreground"
+                className="text-muted-foreground"
               >
                 {t('cancel')}
               </Button>

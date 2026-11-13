@@ -85,10 +85,11 @@ export async function applyConsentKeyword(
     .update(
       keyword === 'opt_out'
         ? { opted_out_at: new Date().toISOString(), opt_out_source: 'keyword' }
-        : { opted_out_at: null, opt_out_source: null }
+        : { opted_out_at: null, opt_out_source: null, opted_in_at: new Date().toISOString(), opt_in_source: 'keyword' }
     )
     .eq('id', contactId)
     .eq('account_id', accountId);
   const { error } = await (keyword === 'opt_out' ? query.is('opted_out_at', null) : query);
   if (error) throw new Error('Contact consent update failed');
 }
+

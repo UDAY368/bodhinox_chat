@@ -15,6 +15,7 @@ import type { ActivityItem, ActivityKind } from '@/lib/dashboard/types'
 import { cn } from '@/lib/utils'
 import { EmptyState } from './empty-state'
 import { Skeleton } from './skeleton'
+import { segmentedItem, segmentedTrack } from './segmented'
 
 interface ActivityFeedProps {
   items: ActivityItem[] | null
@@ -31,11 +32,11 @@ interface KindTheme {
 }
 
 const KIND_THEME: Record<ActivityKind, KindTheme> = {
-  message: { icon: MessageSquare, badge: 'bg-primary/8 text-primary' },
+  message: { icon: MessageSquare, badge: 'bg-primary/10 text-primary' },
   contact: { icon: UserPlus, badge: 'bg-primary/10 text-primary' },
   deal: { icon: Briefcase, badge: 'bg-primary/10 text-primary' },
-  broadcast: { icon: Radio, badge: 'bg-primary/8 text-primary' },
-  automation: { icon: Zap, badge: 'bg-primary/8 text-primary' },
+  broadcast: { icon: Radio, badge: 'bg-primary/10 text-primary' },
+  automation: { icon: Zap, badge: 'bg-primary/10 text-primary' },
 }
 
 import { useTranslations } from 'next-intl'
@@ -57,12 +58,12 @@ export function ActivityFeed({ items, loading }: ActivityFeedProps) {
     i === 0 || totalLoaded > PAGE_SIZES[i - 1]
 
   return (
-    <section className="studio-panel rounded-xl border border-border bg-card">
-      <header className="flex items-center justify-between border-b border-border px-5 py-4">
-        <h2 className="text-sm font-semibold text-foreground">{t('title')}</h2>
+    <section className="flex h-full flex-col rounded-xl border border-border bg-card">
+      <header className="flex items-center justify-between gap-3 px-5 pt-5 pb-2">
+        <h2 className="text-[15px] font-semibold tracking-tight text-foreground">{t('title')}</h2>
         <Link
           href="/inbox"
-          className="text-xs font-medium text-primary hover:text-primary/80"
+          className="rounded-md text-[13px] font-medium text-primary transition-opacity duration-150 hover:opacity-80"
         >
           {t('viewAll')}
         </Link>
@@ -84,19 +85,15 @@ export function ActivityFeed({ items, loading }: ActivityFeedProps) {
         </div>
       ) : (
         <>
-          <ul className="divide-y divide-border">
-            {visible.map((it, i) => {
+          <ul className="flex-1 space-y-0.5 px-3">
+            {visible.map((it) => {
               const theme = KIND_THEME[it.kind]
               const Icon = theme.icon
-              // Alternating row background for scanability. bg-muted/40
-              // keeps the stripe visible in both light and dark modes
-              // (bg-card/40 vanishes against a white card surface in light).
-              const stripe = i % 2 === 0 ? 'bg-transparent' : 'bg-muted/15'
               const row = (
-                <div className="flex items-center gap-3 px-6 py-4">
+                <div className="flex items-center gap-3 px-2 py-2">
                   <span
                     className={cn(
-                      'flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full',
+                      'flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-[10px]',
                       theme.badge,
                     )}
                   >
@@ -111,7 +108,7 @@ export function ActivityFeed({ items, loading }: ActivityFeedProps) {
                 </div>
               )
               return (
-                <li key={it.id} className={cn(stripe, 'transition-colors hover:bg-muted/40')}>
+                <li key={it.id} className="rounded-lg transition-colors duration-150 hover:bg-muted/60">
                   {it.href ? (
                     <Link href={it.href} className="block">
                       {row}
@@ -123,12 +120,13 @@ export function ActivityFeed({ items, loading }: ActivityFeedProps) {
               )
             })}
           </ul>
-          <footer className="flex items-center justify-between border-t border-border px-5 py-3 text-xs">
+          <footer className="mt-2 flex flex-wrap items-center justify-between gap-2 border-t border-border px-5 py-3 text-xs">
             <span className="text-muted-foreground tabular-nums">
               {t('showingOf', { visible: visible.length, totalLoaded, plus: totalLoaded === 50 ? '+' : '' })}
             </span>
-            <div className="flex items-center gap-1">
-              <span className="mr-1 text-muted-foreground">{t('show')}</span>
+            <div className="flex items-center gap-2">
+              <span className="text-muted-foreground">{t('show')}</span>
+              <div className={segmentedTrack}>
               {PAGE_SIZES.map((size, i) => {
                 const disabled = !isSizeUseful(size, i)
                 return (
@@ -137,18 +135,14 @@ export function ActivityFeed({ items, loading }: ActivityFeedProps) {
                     type="button"
                     onClick={() => setPageSize(size)}
                     disabled={disabled}
-                    className={cn(
-                      'rounded-md px-2 py-1 font-medium tabular-nums transition-colors',
-                      pageSize === size
-                        ? 'bg-secondary text-secondary-foreground'
-                        : 'text-muted-foreground hover:bg-muted hover:text-foreground',
-                      disabled && 'cursor-not-allowed opacity-40 hover:bg-transparent hover:text-muted-foreground',
-                    )}
+                    aria-pressed={pageSize === size}
+                    className={segmentedItem(pageSize === size, 'h-6 px-2 text-xs tabular-nums')}
                   >
                     {size}
                   </button>
                 )
               })}
+              </div>
             </div>
           </footer>
         </>

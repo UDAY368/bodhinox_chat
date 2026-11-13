@@ -109,13 +109,13 @@ export function ServicesPanel({ config, canEdit, onChanged }: { config: Appointm
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold">{t('services.title')}</h2>
+        <h2 className="text-base font-semibold tracking-tight">{t('services.title')}</h2>
         {canEdit && <Button type="button" size="sm" onClick={() => open('new')}>{t('services.add')}</Button>}
       </div>
       {config.services.length === 0 && <p className="text-sm text-muted-foreground">{t('services.empty')}</p>}
       <ul className="space-y-3">
         {config.services.map((s) => (
-          <li key={s.id} className="rounded-lg border border-border bg-card p-3 text-sm">
+          <li key={s.id} className="rounded-xl border border-border bg-card p-3 text-sm">
             <div className="flex flex-wrap items-center gap-2">
               <span className="font-medium">{s.name}</span>
               <span className="text-xs text-muted-foreground">

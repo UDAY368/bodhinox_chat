@@ -33,7 +33,7 @@ export function CommerceCard({ query }: CommerceCardProps) {
     <Panel title={t('title')} description={t('description')}>
       <ReportState loading={report.loading} error={report.error} onRetry={report.retry} empty={commerceEmpty(stats)}>
         {stats && (
-          <div className="space-y-6">
+          <div className="space-y-5">
             {stats.currencies.map((c) => <CurrencyBlock key={c.currency} stats={c} showCode={stats.currencies.length > 1} />)}
           </div>
         )}
@@ -50,7 +50,7 @@ function CurrencyBlock({ stats, showCode }: { stats: CommerceCurrencyStats; show
   return (
     <section aria-label={stats.currency} className="space-y-3">
       {showCode && <h3 className="text-xs font-semibold text-muted-foreground">{stats.currency}</h3>}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <MetricCard
           title={t('netMerchandise')}
           value={money(stats.netMerchandiseMinor)}

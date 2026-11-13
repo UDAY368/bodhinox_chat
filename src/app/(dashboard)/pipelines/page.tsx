@@ -51,6 +51,7 @@ const SPEC_DEFAULT_STAGES = [
 export default function PipelinesPage() {
   const t = useTranslations("Pipelines.page");
   const tGate = useTranslations("GatedButton");
+  const tNav = useTranslations("Sidebar");
   const db = createClient();
   const canEditSettings = useCan("edit-settings");
   const canCreateDeals = useCan("send-messages");
@@ -305,14 +306,14 @@ export default function PipelinesPage() {
 
   if (loading) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <div className="h-8 w-48 animate-pulse rounded bg-muted" />
-          <div className="h-9 w-28 animate-pulse rounded-lg bg-muted" />
+          <div className="h-7 w-40 animate-pulse rounded-lg bg-muted" />
+          <div className="h-8 w-28 animate-pulse rounded-full bg-muted" />
         </div>
-        <div className="flex gap-3">
+        <div className="flex gap-3 overflow-hidden">
           {[1, 2, 3, 4, 5].map((i) => (
-            <div key={i} className="h-96 w-72 animate-pulse rounded-xl bg-muted/50" />
+            <div key={i} className="h-96 w-60 shrink-0 animate-pulse rounded-xl bg-muted" />
           ))}
         </div>
       </div>
@@ -320,17 +321,42 @@ export default function PipelinesPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          {/* Pipeline selector dropdown */}
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <h1 className="text-[22px] font-bold tracking-tight text-foreground">
+          {tNav("pipelines")}
+        </h1>
+        <div className="flex flex-wrap items-center gap-2">
+          <GatedButton
+            variant="outline"
+            canAct={canEditSettings}
+            gateReason={tGate("reasons.createPipelines")}
+            onClick={() => setNewPipelineOpen(true)}
+          >
+            <Plus className="h-4 w-4" />
+            {t("addPipeline")}
+          </GatedButton>
+          <GatedButton
+            canAct={canCreateDeals}
+            gateReason={tGate("reasons.createDeals")}
+            disabled={!selectedPipelineId || stages.length === 0}
+            onClick={() => handleAddDeal()}
+          >
+            <Plus className="h-4 w-4" />
+            {t("addDeal")}
+          </GatedButton>
+        </div>
+      </div>
+
+      {pipelines.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2">
           <DropdownMenu>
             <DropdownMenuTrigger
-              className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground hover:bg-muted transition-colors data-[popup-open]:bg-muted"
+              className="inline-flex h-8 max-w-full items-center gap-2 rounded-full border border-border bg-card px-3.5 text-sm text-foreground transition-colors duration-150 hover:bg-muted data-[popup-open]:bg-muted"
             >
-              <GitBranch className="h-4 w-4 text-primary" />
-              <span className="font-semibold">
+              <GitBranch className="h-4 w-4 text-muted-foreground" />
+              <span className="truncate font-medium">
                 {selectedPipeline?.name ?? t("selectPipeline")}
               </span>
               <ChevronDown className="h-4 w-4 text-muted-foreground" />
@@ -371,48 +397,27 @@ export default function PipelinesPage() {
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
-
-        <div className="flex items-center gap-2">
-          <GatedButton
-            variant="outline"
-            canAct={canEditSettings}
-            gateReason={tGate("reasons.createPipelines")}
-            onClick={() => setNewPipelineOpen(true)}
-            className="border-border bg-card text-foreground hover:bg-muted"
-          >
-            <Plus className="mr-1 h-4 w-4" />
-            {t("addPipeline")}
-          </GatedButton>
-          <GatedButton
-            canAct={canCreateDeals}
-            gateReason={tGate("reasons.createDeals")}
-            disabled={!selectedPipelineId || stages.length === 0}
-            onClick={() => handleAddDeal()}
-            className="bg-primary text-primary-foreground hover:bg-primary/90"
-          >
-            <Plus className="mr-1 h-4 w-4" />
-            {t("addDeal")}
-          </GatedButton>
-        </div>
-      </div>
+      )}
 
       {/* Board */}
       {pipelines.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border py-20">
-          <GitBranch className="h-12 w-12 text-muted-foreground" />
-          <h3 className="mt-4 text-lg font-medium text-foreground">
+        <div className="flex flex-col items-center justify-center gap-2 px-4 py-12 text-center">
+          <span className="mb-1 flex size-[52px] items-center justify-center rounded-2xl bg-primary/10 text-primary">
+            <GitBranch className="size-6" />
+          </span>
+          <h3 className="text-base font-semibold text-foreground">
             {t("noPipelinesYet")}
           </h3>
-          <p className="mt-2 text-sm text-muted-foreground">
+          <p className="text-sm text-muted-foreground">
             {t("createToStartTracking")}
           </p>
           <GatedButton
             canAct={canEditSettings}
             gateReason={tGate("reasons.createPipelines")}
             onClick={() => setNewPipelineOpen(true)}
-            className="mt-4 bg-primary text-primary-foreground hover:bg-primary/90"
+            className="mt-2"
           >
-            <Plus className="mr-1 h-4 w-4" />
+            <Plus className="h-4 w-4" />
             {t("createPipeline")}
           </GatedButton>
         </div>

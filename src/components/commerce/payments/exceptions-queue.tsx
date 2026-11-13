@@ -67,7 +67,7 @@ export function ExceptionsQueue() {
           </SelectContent>
         </Select>
       </div>
-      <div className="mt-4 rounded-lg border border-border">
+      <div className="mt-4 overflow-x-auto rounded-xl border border-border bg-card">
         {loading ? (
           <div className="flex justify-center p-10"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
         ) : rows.length === 0 ? (
@@ -76,8 +76,8 @@ export function ExceptionsQueue() {
             <p>{status === "open" ? t("emptyOpen") : t("emptyResolved")}</p>
           </div>
         ) : (
-          <Table>
-            <TableHeader>
+          <Table className="[&_td]:px-3.5 [&_td]:py-2.5">
+            <TableHeader className="bg-muted [&_th]:h-9 [&_th]:px-3.5 [&_th]:text-xs [&_th]:font-semibold [&_th]:text-muted-foreground">
               <TableRow>
                 <TableHead>{t("colDate")}</TableHead>
                 <TableHead>{t("colKind")}</TableHead>

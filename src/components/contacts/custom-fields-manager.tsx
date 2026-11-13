@@ -191,7 +191,7 @@ export function CustomFieldsPanel() {
         <Button
           onClick={handleCreate}
           disabled={creating || !newName.trim()}
-          className="bg-primary hover:bg-primary/90 text-primary-foreground shrink-0"
+          className="shrink-0"
         >
           {creating ? (
             <Loader2 className="size-4 animate-spin" />
@@ -203,7 +203,7 @@ export function CustomFieldsPanel() {
       </div>
 
       {/* List */}
-      <div className="max-h-72 overflow-y-auto rounded-md border border-border">
+      <div className="max-h-72 overflow-y-auto rounded-xl border border-border bg-card">
         {loading ? (
           <div className="flex items-center justify-center gap-2 py-8 text-sm text-muted-foreground">
             <Loader2 className="size-4 animate-spin" />
@@ -275,7 +275,7 @@ function FieldRow({
         disabled={busy}
         onClick={() => onDelete(field)}
         title={t('deleteTitle')}
-        className="shrink-0 text-muted-foreground hover:text-red-400"
+        className="shrink-0 text-muted-foreground hover:text-destructive"
       >
         {busy ? (
           <Loader2 className="size-4 animate-spin" />

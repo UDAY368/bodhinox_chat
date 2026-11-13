@@ -144,13 +144,13 @@ export function SavedFiltersMenu({ current, onApply, scope = 'all' }: SavedFilte
         <DropdownMenuTrigger
           aria-label={active ? `${t('views')}: ${active.name}` : t('views')}
           className={cn(
-            'hover:bg-muted inline-flex h-7 max-w-40 items-center justify-center gap-1 rounded-md px-2 text-xs',
-            active ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
+            'inline-flex h-8 max-w-48 shrink-0 items-center justify-center gap-1.5 rounded-full border px-3 text-[13px] font-medium whitespace-nowrap transition-colors duration-150',
+            active ? 'bg-primary/10 text-primary border-transparent' : 'border-border text-foreground hover:bg-muted'
           )}
         >
-          {active ? <BookmarkCheck className="h-3 w-3 shrink-0" /> : <Bookmark className="h-3 w-3 shrink-0" />}
+          {active ? <BookmarkCheck className="size-3.5 shrink-0" /> : <Bookmark className="size-3.5 shrink-0" />}
           <span className="truncate">{active ? active.name : t('views')}</span>
-          <ChevronDown className="h-3 w-3 shrink-0" />
+          <ChevronDown className="size-3.5 shrink-0 opacity-60" />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="border-border bg-popover min-w-52">
           {!loaded ? (

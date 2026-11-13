@@ -68,6 +68,52 @@ export const chartColors = {
     fill: "fill-fuchsia-500",
     text: "text-fuchsia-500",
   },
+  // Theme chart tokens (globals.css --chart-1..5). chart1 follows the accent,
+  // so these stay calm in light and dark and with every accent.
+  chart1: {
+    bg: "bg-chart-1",
+    stroke: "stroke-chart-1",
+    fill: "fill-chart-1",
+    text: "text-chart-1",
+  },
+  chart2: {
+    bg: "bg-chart-2",
+    stroke: "stroke-chart-2",
+    fill: "fill-chart-2",
+    text: "text-chart-2",
+  },
+  chart3: {
+    bg: "bg-chart-3",
+    stroke: "stroke-chart-3",
+    fill: "fill-chart-3",
+    text: "text-chart-3",
+  },
+  chart4: {
+    bg: "bg-chart-4",
+    stroke: "stroke-chart-4",
+    fill: "fill-chart-4",
+    text: "text-chart-4",
+  },
+  chart5: {
+    bg: "bg-chart-5",
+    stroke: "stroke-chart-5",
+    fill: "fill-chart-5",
+    text: "text-chart-5",
+  },
+  /** Failures and other bad outcomes (the theme's destructive colour). */
+  danger: {
+    bg: "bg-destructive",
+    stroke: "stroke-destructive",
+    fill: "fill-destructive",
+    text: "text-destructive",
+  },
+  /** A quiet second series beside chart1 (e.g. a percentile next to a median). */
+  soft: {
+    bg: "bg-muted-foreground/45",
+    stroke: "stroke-muted-foreground/45",
+    fill: "fill-muted-foreground/45",
+    text: "text-muted-foreground",
+  },
 } as const satisfies {
   [color: string]: {
     [key in ColorUtility]: string
@@ -79,6 +125,9 @@ export type AvailableChartColorsKeys = keyof typeof chartColors
 export const AvailableChartColors: AvailableChartColorsKeys[] = Object.keys(
   chartColors,
 ) as Array<AvailableChartColorsKeys>
+
+/** The theme's chart tokens in order, for charts with several series. */
+export const THEME_SERIES: AvailableChartColorsKeys[] = ["chart1", "chart2", "chart3", "chart4", "chart5"]
 
 export const constructCategoryColors = (
   categories: string[],

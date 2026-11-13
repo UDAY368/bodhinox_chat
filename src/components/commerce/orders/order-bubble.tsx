@@ -30,7 +30,7 @@ export function OrderBubble({ payload }: { payload: unknown }) {
   const hidden = order.items.length - MAX_LINES;
   return (
     <div className="flex min-w-48 flex-col gap-1.5">
-      <span className="text-muted-foreground inline-flex items-center gap-1 text-[10px] font-medium tracking-wide uppercase">
+      <span className="text-muted-foreground inline-flex items-center gap-1 text-[11px] font-medium">
         <ShoppingBag className="h-3 w-3" />
         {t("label", { count: orderUnitCount(order.items) })}
       </span>

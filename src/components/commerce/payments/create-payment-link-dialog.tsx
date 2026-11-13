@@ -91,7 +91,7 @@ export function CreatePaymentLinkDialog({ open, onOpenChange, onCreated, orderId
             <p className="text-sm">{created.short_url ? t("ready") : t("unknownHelp")}</p>
             {created.short_url && (
               <div className="flex gap-2">
-                <Input readOnly value={created.short_url} className="bg-muted font-mono text-xs" onFocus={(e) => e.currentTarget.select()} />
+                <Input readOnly value={created.short_url} className="font-mono text-xs" onFocus={(e) => e.currentTarget.select()} />
                 <Button variant="outline" size="sm" onClick={() => void copy()} aria-label={t("copy")}>
                   {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
                 </Button>

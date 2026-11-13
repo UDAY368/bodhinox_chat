@@ -58,10 +58,10 @@ export interface Filters { outcome: string; reason: string; range: Range }
 const DEFAULT_FILTERS: Filters = { outcome: ANY, reason: ANY, range: '7d' };
 
 const OUTCOME_STYLE: Record<ReplyEventOutcome, string> = {
-  replied: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
-  handed_off: 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300',
-  skipped: 'border-border bg-muted text-muted-foreground',
-  error: 'border-destructive/30 bg-destructive/10 text-destructive',
+  replied: 'border-transparent bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
+  handed_off: 'border-transparent bg-amber-500/10 text-amber-700 dark:text-amber-300',
+  skipped: 'border-transparent bg-muted text-muted-foreground',
+  error: 'border-transparent bg-destructive/10 text-destructive',
 };
 const KNOWN_REASONS = new Set<string>(ALL_REPLY_EVENT_REASONS);
 
@@ -129,7 +129,7 @@ export function AiActivity() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-base">
+        <CardTitle className="flex items-center gap-2 text-[15px] font-semibold">
           <History className="h-4 w-4 text-primary" /> {t('title')}
         </CardTitle>
         <CardDescription>{t('description')}</CardDescription>
@@ -203,24 +203,25 @@ export function ActivityResults({ state, onRetry, onLoadMore, onOpen }: {
   return (
     <>
       {failed ? (
-        <div className="flex flex-wrap items-center gap-3 rounded-md border border-destructive/30 bg-destructive/5 p-3">
+        <div className="flex flex-wrap items-center gap-3 rounded-lg bg-destructive/10 px-3 py-2">
           <p role="alert" className="text-sm text-destructive">{t('loadFailed')}</p>
           <Button type="button" size="sm" variant="outline" onClick={onRetry}>{t('retry')}</Button>
         </div>
       ) : events.length === 0 && !loading ? (
-        <div className="rounded-md border border-dashed border-border p-6 text-center">
+        <div className="flex flex-col items-center gap-2 py-10 text-center">
+          <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary"><History className="h-5 w-5" aria-hidden /></span>
           <p className="text-sm text-foreground">{t('empty')}</p>
-          <p className="mt-1 text-xs text-muted-foreground">{t('emptyHint')}</p>
+          <p className="max-w-sm text-[13px] text-muted-foreground">{t('emptyHint')}</p>
         </div>
       ) : (
-        <ul className="divide-y divide-border rounded-md border border-border">
+        <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border">
           {events.map((event) => (
             <li key={event.id}>
               <button
                 type="button"
                 onClick={() => onOpen(event.id)}
                 aria-label={`${t('openDetails')}: ${contactLabel(event.contact)}`}
-                className="grid w-full gap-1 px-3 py-2.5 text-left text-sm transition-colors hover:bg-muted/60 focus-visible:bg-muted/60 focus-visible:outline-none sm:grid-cols-[9rem_10rem_minmax(0,1fr)] sm:gap-3"
+                className="grid w-full gap-1 px-4 py-3 text-left text-sm transition-colors duration-150 hover:bg-muted/60 focus-visible:bg-muted/60 focus-visible:outline-none sm:grid-cols-[9rem_10rem_minmax(0,1fr)] sm:gap-3"
               >
                 <span className="text-xs text-muted-foreground sm:text-sm">
                   {format.dateTime(new Date(event.created_at), { dateStyle: 'medium', timeStyle: 'short' })}
@@ -228,7 +229,7 @@ export function ActivityResults({ state, onRetry, onLoadMore, onOpen }: {
                 <span className="truncate font-medium text-foreground">{contactLabel(event.contact)}</span>
                 <span className="min-w-0 space-y-1">
                   <span className="flex flex-wrap items-center gap-2">
-                    <Badge variant="outline" className={cn(OUTCOME_STYLE[event.outcome])}>{t(`outcomes.${event.outcome}`)}</Badge>
+                    <Badge variant="outline" className={cn('rounded-full', OUTCOME_STYLE[event.outcome])}>{t(`outcomes.${event.outcome}`)}</Badge>
                     <span className="text-xs text-muted-foreground">{reasonLabel(event.reason)}</span>
                   </span>
                   <span className="block truncate text-xs text-muted-foreground">{event.preview || t('noPreview')}</span>
@@ -303,22 +304,22 @@ export function ActivityDetailBody({ detail, onClose }: { detail: ActivityDetail
   return (
     <div className="min-w-0 space-y-4 text-sm">
       <div className="flex flex-wrap items-center gap-2">
-        <Badge variant="outline" className={cn(OUTCOME_STYLE[detail.outcome])}>{t(`outcomes.${detail.outcome}`)}</Badge>
+        <Badge variant="outline" className={cn('rounded-full', OUTCOME_STYLE[detail.outcome])}>{t(`outcomes.${detail.outcome}`)}</Badge>
         <span className="text-muted-foreground">{reasonLabel(detail.reason)}</span>
       </div>
 
       <section className="space-y-1">
-        <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t('message')}</h3>
-        <p className="whitespace-pre-wrap break-words rounded-md bg-muted p-3 text-foreground">{detail.customer_text || t('noPreview')}</p>
+        <h3 className="text-xs font-semibold text-muted-foreground">{t('message')}</h3>
+        <p className="whitespace-pre-wrap break-words rounded-lg bg-muted p-3 text-foreground">{detail.customer_text || t('noPreview')}</p>
       </section>
       <section className="space-y-1">
-        <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t('aiReply')}</h3>
+        <h3 className="text-xs font-semibold text-muted-foreground">{t('aiReply')}</h3>
         {detail.reply_text
-          ? <p className="whitespace-pre-wrap break-words rounded-md border border-border p-3 text-foreground">{detail.reply_text}</p>
+          ? <p className="whitespace-pre-wrap break-words rounded-lg bg-primary/10 p-3 text-foreground">{detail.reply_text}</p>
           : <p className="text-muted-foreground">{t('noReply')}</p>}
       </section>
       <section className="space-y-1">
-        <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t('sources')}</h3>
+        <h3 className="text-xs font-semibold text-muted-foreground">{t('sources')}</h3>
         {detail.sources.length
           ? <ul className="list-disc space-y-0.5 pl-5 text-foreground">
               {detail.sources.map((s) => <li key={s.document_id} className="break-words">{s.title || t('untitled')}</li>)}
@@ -326,9 +327,9 @@ export function ActivityDetailBody({ detail, onClose }: { detail: ActivityDetail
           : <p className="text-muted-foreground">{t('noSources')}</p>}
       </section>
       <section className="space-y-1">
-        <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t('flags')}</h3>
+        <h3 className="text-xs font-semibold text-muted-foreground">{t('flags')}</h3>
         {detail.guard_flags.length
-          ? <div className="flex flex-wrap gap-1.5">{detail.guard_flags.map((f) => <Badge key={f} variant="secondary" className="font-mono">{f}</Badge>)}</div>
+          ? <div className="flex flex-wrap gap-1.5">{detail.guard_flags.map((f) => <Badge key={f} variant="secondary" className="rounded-full font-mono">{f}</Badge>)}</div>
           : <p className="text-muted-foreground">{t('noFlags')}</p>}
       </section>
 

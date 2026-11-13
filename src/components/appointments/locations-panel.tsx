@@ -56,7 +56,7 @@ export function LocationsPanel({ config, canEdit, onChanged }: { config: Appoint
   }
 
   const form = (
-    <div className="grid gap-3 rounded-lg border border-border p-3 text-sm sm:grid-cols-2">
+    <div className="grid gap-3 rounded-xl border border-border p-3 text-sm sm:grid-cols-2">
       <div className="space-y-1">
         <Label htmlFor="loc-name">{t('locations.name')}</Label>
         <Input id="loc-name" maxLength={120} value={draft.name} onChange={(e) => set('name')(e.target.value)} />
@@ -92,7 +92,7 @@ export function LocationsPanel({ config, canEdit, onChanged }: { config: Appoint
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold">{t('locations.title')}</h2>
+        <h2 className="text-base font-semibold tracking-tight">{t('locations.title')}</h2>
         {canEdit && editing === null && <Button type="button" size="sm" onClick={() => edit('new')}>{t('locations.add')}</Button>}
       </div>
       {editing === 'new' && form}
@@ -101,7 +101,7 @@ export function LocationsPanel({ config, canEdit, onChanged }: { config: Appoint
         {config.locations.map((l) => (
           <li key={l.id}>
             {editing === l.id ? form : (
-              <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-card p-3 text-sm">
+              <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border bg-card p-3 text-sm">
                 <span className="font-medium">{l.name}</span>
                 <span className="text-xs text-muted-foreground">{t(`locations.kinds.${l.kind}`)} · {l.timezone}{l.address ? ` · ${l.address}` : ''}</span>
                 {l.archived_at && <span className="text-xs text-muted-foreground">({t('services.archived')})</span>}

@@ -12,6 +12,7 @@ import {
   DollarSign,
   Send,
   ArrowUpRight,
+  ChevronRight,
 } from 'lucide-react';
 
 import {
@@ -38,7 +39,7 @@ import { ActivityFeed } from '@/components/dashboard/activity-feed';
 import { OperationsPanel } from '@/components/dashboard/operations-panel';
 import { OnboardingChecklist } from '@/components/dashboard/onboarding-checklist';
 import { ChannelPickerCard } from '@/components/dashboard/channel-picker-card';
-import styles from '@/components/dashboard/dashboard.module.css';
+import { buttonVariants } from '@/components/ui/button';
 
 import { useTranslations } from 'next-intl';
 
@@ -137,62 +138,27 @@ export default function DashboardPage() {
   );
 
   return (
-    <div className={`${styles.dashboard} studio-dashboard space-y-6`}>
-      {/* Header */}
-      <div className={styles.pageHeader}>
-        <div>
-          <p className="eyebrow">{t('workspaceLabel')}</p>
-          <h1 className="text-foreground mt-2 text-2xl font-semibold tracking-tight">
+    <div className="mx-auto w-full max-w-[1440px] space-y-5">
+      {/* Header: title, one line, and the one primary action. */}
+      <header className="flex flex-wrap items-start justify-between gap-4">
+        <div className="min-w-0">
+          <h1 className="text-foreground text-[22px] leading-tight font-bold tracking-tight">
             {t('title')}
           </h1>
-          <p className="text-muted-foreground mt-2 max-w-xl text-sm leading-relaxed">
+          <p className="text-muted-foreground mt-1 max-w-2xl text-sm">
             {t('description')}
           </p>
         </div>
-        <Link href="/inbox" className={styles.inboxLink}>
-          {t('openInbox')} <ArrowUpRight className="h-4 w-4" aria-hidden />
+        <Link href="/inbox" className={buttonVariants({ size: 'lg' })}>
+          {t('openInbox')} <ArrowUpRight aria-hidden />
         </Link>
-      </div>
+      </header>
 
       <ChannelPickerCard />
       <OnboardingChecklist />
 
-      <div className={styles.introGrid}>
-        <section className={`${styles.hero} studio-hero`}>
-          <div className={styles.orbit} aria-hidden>
-            <span />
-            <i />
-          </div>
-          <div className={styles.heroContent}>
-            <h2 className="studio-editorial">
-              {t('heroTitle')}
-              <br />
-              <span>{t('heroAccent')}</span>
-            </h2>
-            <p>{t('heroDescription')}</p>
-          </div>
-        </section>
-        <Link href="/agents" className={styles.aiTile}>
-          <div className={styles.aiTileTop}>
-            <span>{t('aiLabel')}</span>
-          </div>
-          <div className={styles.aiTileBody}>
-            <div>
-              <h2 className="studio-editorial">{t('aiTitle')}</h2>
-              <p>{t('aiDescription')}</p>
-            </div>
-            <Image src="/brand/khaga-sun-orange.webp" alt="" aria-hidden="true"
-              width={640} height={640} sizes="(max-width: 720px) 140px, 160px"
-              className={styles.aiAvatar} />
-          </div>
-          <div className={styles.aiTileLink}>
-            {t('openAi')} <ArrowUpRight className="h-4 w-4" aria-hidden />
-          </div>
-        </Link>
-      </div>
-
       {/* Metric cards */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {metricsLoading || !metrics ? (
           Array.from({ length: 4 }).map((_, i) => <SkeletonCard key={i} />)
         ) : (
@@ -252,8 +218,25 @@ export default function DashboardPage() {
         )}
       </div>
 
-      {/* Quick actions */}
+      {/* Quick actions, with the AI workspace as one more calm row */}
       <QuickActions />
+      <Link
+        href="/agents"
+        className="border-border bg-card hover:bg-muted/60 group flex items-center gap-3 rounded-xl border p-3 pr-4 transition-colors duration-150"
+      >
+        <Image src="/brand/khaga-sun-orange.webp" alt="" aria-hidden="true"
+          width={80} height={80} sizes="40px"
+          className="bg-muted size-10 shrink-0 rounded-xl object-contain p-1" />
+        <span className="min-w-0 flex-1">
+          <span className="text-foreground block text-sm font-semibold">{t('aiTitle')}</span>
+          <span className="text-muted-foreground block truncate text-xs">{t('aiDescription')}</span>
+        </span>
+        <span className="text-primary hidden items-center gap-1 text-[13px] font-medium sm:inline-flex">
+          {t('openAi')}
+        </span>
+        <ChevronRight className="text-muted-foreground size-4 shrink-0 transition-transform duration-150 group-hover:translate-x-0.5" aria-hidden />
+      </Link>
+
       <OperationsPanel onReplyTarget={setReplyTargetMinutes} />
 
       {/* Charts row */}
@@ -263,8 +246,8 @@ export default function DashboardPage() {
           stretched height so their rounded borders line up. Without
           this, the pipeline card rendered at its natural (shorter)
           height while the line chart drove the row height. */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
-        <div className="h-full lg:col-span-3">
+      <div className="grid grid-cols-1 gap-3.5 lg:grid-cols-12">
+        <div className="h-full min-w-0 lg:col-span-7">
           <ConversationsChart
             series={series}
             loading={seriesLoading}
@@ -272,7 +255,7 @@ export default function DashboardPage() {
             onRangeChange={handleRangeChange}
           />
         </div>
-        <div className="h-full lg:col-span-2">
+        <div className="h-full min-w-0 lg:col-span-5">
           <PipelineDonut
             data={pipeline}
             loading={pipelineLoading}
@@ -281,15 +264,19 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Response time */}
-      <ResponseTimeChart
-        data={responseTime}
-        loading={responseTimeLoading}
-        thresholdMinutes={replyTargetMinutes}
-      />
-
-      {/* Activity feed */}
-      <ActivityFeed items={activity} loading={activityLoading} />
+      {/* Response time beside the most recent activity */}
+      <div className="grid grid-cols-1 gap-3.5 lg:grid-cols-12">
+        <div className="min-w-0 lg:col-span-7">
+          <ResponseTimeChart
+            data={responseTime}
+            loading={responseTimeLoading}
+            thresholdMinutes={replyTargetMinutes}
+          />
+        </div>
+        <div className="min-w-0 lg:col-span-5">
+          <ActivityFeed items={activity} loading={activityLoading} />
+        </div>
+      </div>
     </div>
   );
 }
