@@ -77,6 +77,9 @@ export function buildSections(enabled: readonly Channel[] | null | undefined): S
       tabs: [
         { href: '/dashboard', labelKey: 'overview' },
         { href: '/analytics', labelKey: 'analytics' },
+        { href: '/analytics/conversations', labelKey: 'analyticsConversations' },
+        { href: '/analytics/team', labelKey: 'analyticsTeam' },
+        { href: '/analytics/campaigns', labelKey: 'analyticsCampaigns' },
         { href: '/reports', labelKey: 'reports' },
       ],
     },

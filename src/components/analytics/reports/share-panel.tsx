@@ -16,7 +16,7 @@ import { useFormatter, useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { authFetch } from "@/lib/auth/client";
-import { shareRolesFor, type ReportKind, type ShareRole } from "@/lib/analytics/report-kinds";
+import { shareRolesFor, type RunKind, type ShareRole } from "@/lib/analytics/report-kinds";
 
 const EXPIRY_HOURS = [24, 72, 168] as const;
 const selectClass = "border-border bg-card text-foreground h-9 w-full rounded-lg border px-2.5 text-[13px] transition-colors duration-150 hover:bg-muted outline-none focus-visible:ring-2 focus-visible:ring-ring/50";
@@ -36,7 +36,7 @@ export interface ReportShareView {
 const linkFor = (share: Pick<ReportShareView, "path" | "url">) =>
   share.url || (typeof window === "undefined" ? share.path : new URL(share.path, window.location.origin).toString());
 
-export function SharePanel({ reportId, kind }: { reportId: string; kind: ReportKind }) {
+export function SharePanel({ reportId, kind }: { reportId: string; kind: RunKind }) {
   const t = useTranslations("Analytics.reports.share");
   const format = useFormatter();
   const roles = shareRolesFor(kind);

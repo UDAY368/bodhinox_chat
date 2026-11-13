@@ -115,7 +115,10 @@
     "automation": "Automation",
     "ai": "AI",
     "collapseSidebar": "Collapse",
-    "expandSidebar": "Expand"
+    "expandSidebar": "Expand",
+    "analyticsConversations": "Conversations",
+    "analyticsTeam": "Team",
+    "analyticsCampaigns": "Campaigns"
   },
   "Header": {
     "notificationsUnread": "{count, plural, =1 {Notifications, 1 unread} other {Notifications, # unread}}",
@@ -7735,7 +7738,12 @@
       "scheduleCreatorLostAccess": "This schedule's creator is no longer an admin. Create a new schedule instead.",
       "invalidShare": "Choose who can open the link and an expiry of up to 7 days.",
       "shareRoleTooLow": "This report holds data that role cannot see. Choose a higher role.",
-      "shareNotFound": "This report is not available."
+      "shareNotFound": "This report is not available.",
+      "invalidSavedReport": "Give the report a name of up to 60 characters, pick at least one metric, a grouping, a channel and a valid date range.",
+      "savedReportNameTaken": "A report with this name already exists.",
+      "savedReportNotFound": "Report not found.",
+      "tooManySavedReports": "This workspace already has 50 saved reports. Delete one first.",
+      "invalidSavedSchedule": "Choose how often (daily, weekly or monthly) and a time of day."
     },
     "meetings": {
       "not_configured": "Zoom is not available on this deployment.",
@@ -11150,7 +11158,8 @@
         "agent_performance": "Agent performance by day",
         "product_summary": "Product sales",
         "service_summary": "Appointments by service",
-        "commerce_daily": "Collections by day"
+        "commerce_daily": "Collections by day",
+        "saved_report": "Saved report"
       },
       "range": "Date range",
       "presets": {
@@ -11392,6 +11401,373 @@
       "whatsapp": "WhatsApp",
       "instagram": "Instagram",
       "whatsappOnlyNote": "Campaign and template figures are WhatsApp only."
+    },
+    "insights": {
+      "chart": {
+        "nothing": "Nothing to show for this range.",
+        "roleDescription": "chart",
+        "lineLabel": "{label}. {count, plural, one {# point} other {# points}}. Use the left and right arrow keys to read the values.",
+        "donutLabel": "{label}: {parts}. Use the arrow keys to read each part.",
+        "heatmapLabel": "New conversations by hour of the day"
+      },
+      "delta": {
+        "new": "New",
+        "same": "No change",
+        "up": "+{value}%",
+        "down": "−{value}%"
+      },
+      "hourSpan": "{day}, {from} to {to}",
+      "weekSpan": "{from} – {to}",
+      "bucket": {
+        "hour": "Hour",
+        "day": "Day",
+        "week": "Week"
+      },
+      "caption": "{from} to {to} · {channel}.",
+      "comparedWith": "Changes are compared with {from} to {to}.",
+      "custom": {
+        "title": "Custom dates",
+        "description": "Pick any range of up to 366 days. One day is shown hour by hour.",
+        "cancel": "Cancel",
+        "errors": {
+          "missing": "Pick both dates.",
+          "order": "The start date is after the end date.",
+          "future": "The end date cannot be in the future.",
+          "too_long": "Pick a range of 366 days or less."
+        }
+      },
+      "tabs": {
+        "overview": {
+          "title": "Analytics",
+          "description": "How your conversations, team and automations are doing."
+        },
+        "conversations": {
+          "title": "Conversations",
+          "description": "How fast customers get a reply and how chats end."
+        },
+        "team": {
+          "title": "Team",
+          "description": "What each person handled and how quickly."
+        },
+        "campaigns": {
+          "title": "Campaigns",
+          "description": "How your broadcasts and automations performed."
+        }
+      },
+      "overview": {
+        "stats": {
+          "new": "New conversations",
+          "resolved": "Resolved",
+          "firstResponse": "Median first response",
+          "resolution": "Median resolution time",
+          "messages": "Messages sent",
+          "teamReply": "Team first reply"
+        },
+        "series": {
+          "new": "New",
+          "resolved": "Resolved"
+        },
+        "trendTitle": "New and resolved conversations",
+        "trendSub": "By {bucket}",
+        "attentionTitle": "Needs attention",
+        "attentionSub": "Right now",
+        "splitTitle": "Channel split",
+        "splitSub": "New conversations. Pick a channel to filter every tab.",
+        "conversations": "conversations",
+        "busiestTitle": "Busiest hours",
+        "busiestSub": "Most new conversations start around {hour}.",
+        "busiestNone": "No new conversations in this range.",
+        "busiestCell": "{from} to {to}: {count, plural, one {# new conversation} other {# new conversations}}"
+      },
+      "attention": {
+        "allClear": "All clear. Nothing is waiting on your team.",
+        "unowned": {
+          "title": "{count, plural, one {{shown} chat has no owner} other {{shown} chats have no owner}}",
+          "sub": "Assign them so someone replies"
+        },
+        "unread": {
+          "title": "{count, plural, one {{shown} unread chat} other {{shown} unread chats}}",
+          "sub": "Customers are waiting for a reply"
+        },
+        "closingSoon": {
+          "title": "{count, plural, one {{shown} reply window closes soon} other {{shown} reply windows close soon}}",
+          "sub": "Reply within 24 hours to skip the template"
+        },
+        "needsTemplate": {
+          "title": "{count, plural, one {{shown} chat needs a template} other {{shown} chats need a template}}",
+          "sub": "The 24-hour reply window has closed"
+        },
+        "failedToday": {
+          "title": "{count, plural, one {{shown} message failed today} other {{shown} messages failed today}}",
+          "sub": "Check the number, then send again"
+        },
+        "switchedOff": {
+          "title": "{count, plural, one {{shown} automation is switched off} other {{shown} automations are switched off}}",
+          "sub": "They ran before and are off now"
+        }
+      },
+      "conversations": {
+        "stats": {
+          "firstResponse": "Median first response",
+          "p90": "90th percentile response",
+          "resolution": "Median resolution time",
+          "rate": "Resolution rate"
+        },
+        "median": "Median",
+        "p90": "90th percentile",
+        "spread": {
+          "under1h": "Under 1h",
+          "1to4h": "1 to 4h",
+          "4to12h": "4 to 12h",
+          "12to24h": "12 to 24h",
+          "overDay": "Over a day"
+        },
+        "noLabel": "No label",
+        "cols": {
+          "new": "New",
+          "resolved": "Resolved",
+          "firstResponse": "First response",
+          "resolution": "Resolution time",
+          "failed": "Failed messages",
+          "firstResponseSeconds": "Median first response (seconds)",
+          "resolutionSeconds": "Median resolution time (seconds)"
+        },
+        "fileName": "conversations",
+        "responseTitle": "First response time",
+        "responseSub": "How long a customer waits for the first reply",
+        "minutesValue": "{value} min",
+        "minutesAxis": "{value}m",
+        "openTitle": "Open and closed",
+        "openSub": "Conversations started in this range",
+        "closedWord": "closed",
+        "closed": "Closed",
+        "open": "Still open",
+        "spreadTitle": "Resolution time",
+        "spreadSub": "How long resolved conversations took",
+        "conversations": "Conversations",
+        "channelTitle": "By channel",
+        "channelSub": "New and resolved conversations",
+        "labelTitle": "By label",
+        "labelSub": "New conversations by conversation label",
+        "breakdownTitle": "Breakdown by {bucket}",
+        "breakdownSub": "Select a column to sort",
+        "exportCsv": "Export CSV",
+        "showFewer": "Show fewer rows",
+        "showAll": "Show all {count} rows"
+      },
+      "team": {
+        "unnamed": "Unnamed member",
+        "stats": {
+          "handled": "Handled by people",
+          "resolved": "Resolved by the team",
+          "firstResponse": "Team first response",
+          "messages": "Messages sent by the team",
+          "online": "Online now"
+        },
+        "onlineOf": "{online} of {total}",
+        "cols": {
+          "member": "Member",
+          "handled": "Handled",
+          "messages": "Messages sent",
+          "resolved": "Resolved",
+          "firstResponse": "Median first response",
+          "status": "Status",
+          "role": "Role",
+          "firstResponseSeconds": "Median first response (seconds)"
+        },
+        "openMember": "Open the detail for {name}",
+        "presence": {
+          "online": "Online",
+          "away": "Away",
+          "offline": "Offline"
+        },
+        "fileName": "team",
+        "resolvedTitle": "Resolved by member",
+        "resolvedSub": "Conversations resolved while assigned to each person. Select one for their detail.",
+        "noMembers": "No members yet.",
+        "tableTitle": "Members",
+        "tableSub": "Select a person to see their detail",
+        "search": "Search members",
+        "exportCsv": "Export CSV",
+        "noMatch": "No one matches",
+        "noMatchHint": "Try a different name or role.",
+        "clearSearch": "Clear search",
+        "attribution": "Messages and first responses are credited to the member who sent them; resolutions to the current assignee. Bots, flows and the AI agent are not counted here.",
+        "detailChart": "Handled and resolved",
+        "byChannel": "By channel",
+        "medianResolution": "Median resolution time",
+        "resolutionRate": "Resolution rate",
+        "openChats": "Open their chats"
+      },
+      "campaigns": {
+        "stats": {
+          "broadcasts": "Broadcasts sent",
+          "sent": "Messages sent",
+          "delivered": "Delivered",
+          "read": "Read",
+          "replied": "Replied",
+          "runs": "Automation runs"
+        },
+        "kinds": {
+          "flow": "Flows",
+          "rule": "Rules",
+          "sequence": "Sequences",
+          "flowOne": "Flow",
+          "ruleOne": "Rule",
+          "sequenceOne": "Sequence"
+        },
+        "cols": {
+          "broadcast": "Broadcast",
+          "sentOn": "Sent on",
+          "template": "Template",
+          "step": "Step",
+          "people": "People",
+          "shareOfSent": "Share of sent"
+        },
+        "openBroadcast": "Open the funnel for {name}",
+        "fileName": "broadcasts",
+        "whatsappOnly": "Broadcast figures are WhatsApp only. Automations show for the chosen channel.",
+        "funnelTitle": "Broadcast performance",
+        "funnelSub": "{count, plural, one {# broadcast} other {# broadcasts}} in this range",
+        "funnelMode": "Show counts or rates",
+        "counts": "Counts",
+        "rates": "Rates",
+        "noBroadcasts": "No broadcasts in this range",
+        "noBroadcastsHint": "Pick a longer range, or send one from Campaigns.",
+        "openCampaigns": "Open campaigns",
+        "topTitle": "Top automations",
+        "topSubRuns": "Times each automation ran",
+        "topSubCtr": "People who tapped a tracked button or link",
+        "topMode": "Rank by runs or click rate",
+        "runs": "Runs",
+        "clickRate": "Click rate",
+        "openAutomation": "Open {name}",
+        "noAutomations": "No automation runs here",
+        "noAutomationsHint": "No flow, rule or sequence ran in this range.",
+        "noClicksHint": "No flow with a tracked link ran in this range.",
+        "tableTitle": "Broadcasts",
+        "tableSub": "Select a broadcast to see its funnel",
+        "exportCsv": "Export CSV",
+        "nothingSent": "Nothing was sent in this range.",
+        "kindsTitle": "Runs by type",
+        "kindsSub": "Flows, rules and sequences",
+        "runsWord": "runs",
+        "sentOn": "sent {date}"
+      },
+      "saved": {
+        "pageTitle": "Reports",
+        "pageDescription": "Saved reports you can preview, export or send by email, and report files built in the background.",
+        "title": "Saved reports",
+        "description": "Pick the metrics once, then export the report or email it on a schedule.",
+        "build": "Build report",
+        "search": "Search reports",
+        "count": "{shown} of {total, plural, one {# report} other {# reports}} · {scheduled} sent by email",
+        "loadFailed": "Saved reports could not be loaded.",
+        "retry": "Retry",
+        "noMatch": "No report matches",
+        "noMatchHint": "Try a different name.",
+        "empty": "No saved reports yet",
+        "emptyHint": "Build one to export it or send it by email.",
+        "clearSearch": "Clear search",
+        "failed": "That did not work. Try again.",
+        "duplicated": "Report duplicated",
+        "saved": "Report \"{name}\" saved",
+        "updated": "Report updated",
+        "deleteTitle": "Delete this report?",
+        "deleteText": "\"{name}\" will be removed.",
+        "deleteScheduled": "\"{name}\" will be removed and its emails will stop.",
+        "cancel": "Cancel",
+        "delete": "Delete",
+        "deleted": "Report deleted",
+        "scheduleBadge": "{freq}, {time} · {count, plural, one {# person} other {# people}}",
+        "freq": {
+          "daily": "Every day",
+          "weekly": "Every Monday",
+          "monthly": "On the 1st of each month"
+        },
+        "ranges": {
+          "today": "Today",
+          "7d": "Last 7 days",
+          "30d": "Last 30 days",
+          "90d": "Last 90 days",
+          "this_week": "This week",
+          "last_week": "Last week",
+          "this_month": "This month",
+          "last_month": "Last month",
+          "custom": "Custom dates"
+        },
+        "summary": "{count, plural, one {# metric} other {# metrics}} by {group} · {range} · {channel}",
+        "groups": {
+          "day": "Day",
+          "week": "Week",
+          "channel": "Channel",
+          "agent": "Member",
+          "label": "Label"
+        },
+        "openReport": "Open {name}",
+        "changeSchedule": "Change email schedule",
+        "scheduleEmail": "Schedule email",
+        "paused": "paused",
+        "notScheduled": "Not scheduled",
+        "more": "More actions for {name}",
+        "moreShort": "More actions",
+        "open": "Open",
+        "edit": "Edit",
+        "duplicate": "Duplicate",
+        "exportReport": "Export {name}",
+        "export": "Export",
+        "exportCsv": "Export CSV",
+        "exportPdf": "Export PDF",
+        "errors": {
+          "name": "Give the report a name.",
+          "nameTaken": "A report with this name already exists.",
+          "metrics": "Pick at least one metric.",
+          "missing": "Pick both dates.",
+          "order": "The start date is after the end date.",
+          "future": "The end date cannot be in the future.",
+          "too_long": "Pick a range of 366 days or less.",
+          "time": "Pick a time.",
+          "recipients": "Pick at least one person."
+        },
+        "editTitle": "Edit report",
+        "buildTitle": "Build report",
+        "builderHint": "Counts and durations only, never message content.",
+        "name": "Name",
+        "namePlaceholder": "Weekly support summary",
+        "metrics": "Metrics",
+        "metric": {
+          "new": "New conversations",
+          "resolved": "Resolved",
+          "first_response": "Median first response",
+          "resolution": "Median resolution time",
+          "messages": "Messages sent",
+          "failed": "Failed messages"
+        },
+        "groupBy": "Group by",
+        "range": "Date range",
+        "fileType": "File type",
+        "saveChanges": "Save changes",
+        "saveReport": "Save report",
+        "weekOf": "Week of {date}",
+        "noLabel": "No label",
+        "formerMember": "Former member",
+        "previewMeta": "{from} to {to} · {channel} · {count, plural, one {# row} other {# rows}}",
+        "loading": "Loading…",
+        "previewFailed": "The preview could not be loaded.",
+        "done": "Done",
+        "scheduleRemoved": "Schedule removed",
+        "scheduleSaved": "\"{name}\" will be emailed on this schedule",
+        "scheduleTitle": "Schedule email report",
+        "scheduleHint": "Email \"{name}\" as a {format} file. Each email covers the period that just ended and holds a sign-in link, never the file.",
+        "howOften": "How often",
+        "time": "Time (workspace time zone)",
+        "sendTo": "Send to",
+        "noAdmins": "No admins or owners found.",
+        "unnamed": "Unnamed member",
+        "adminsOnly": "Only owners and admins can receive reports. Each one is checked again when the report is sent.",
+        "stopSending": "Stop sending",
+        "saveSchedule": "Save schedule"
+      }
     }
   },
   "Ads": {

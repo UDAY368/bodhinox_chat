@@ -115,7 +115,10 @@
     "automation": "자동화",
     "ai": "AI",
     "collapseSidebar": "접기",
-    "expandSidebar": "펼치기"
+    "expandSidebar": "펼치기",
+    "analyticsConversations": "대화",
+    "analyticsTeam": "팀",
+    "analyticsCampaigns": "캠페인"
   },
   "Header": {
     "notificationsUnread": "알림, 읽지 않음 {count}개",
@@ -7735,7 +7738,12 @@
       "scheduleCreatorLostAccess": "이 예약을 만든 사람이 더 이상 관리자가 아닙니다. 새 예약을 만드세요.",
       "invalidShare": "링크를 열 수 있는 사람과 최대 7일의 만료 기간을 선택하세요.",
       "shareRoleTooLow": "이 보고서에는 해당 역할이 볼 수 없는 데이터가 있습니다. 더 높은 역할을 선택하세요.",
-      "shareNotFound": "이 보고서를 사용할 수 없습니다."
+      "shareNotFound": "이 보고서를 사용할 수 없습니다.",
+      "invalidSavedReport": "보고서 이름을 60자 이내로 입력하고, 지표를 하나 이상 고른 뒤 그룹, 채널, 올바른 기간을 선택하세요.",
+      "savedReportNameTaken": "같은 이름의 보고서가 이미 있습니다.",
+      "savedReportNotFound": "보고서를 찾을 수 없습니다.",
+      "tooManySavedReports": "이 워크스페이스에는 이미 저장된 보고서가 50개 있습니다. 먼저 하나를 삭제하세요.",
+      "invalidSavedSchedule": "빈도(매일, 매주, 매월)와 시간을 선택하세요."
     },
     "meetings": {
       "not_configured": "이 배포에서는 Zoom을 사용할 수 없습니다.",
@@ -11150,7 +11158,8 @@
         "agent_performance": "일별 상담원 실적",
         "product_summary": "상품별 판매",
         "service_summary": "서비스별 예약",
-        "commerce_daily": "일별 수금"
+        "commerce_daily": "일별 수금",
+        "saved_report": "저장된 보고서"
       },
       "range": "기간",
       "presets": {
@@ -11392,6 +11401,373 @@
       "whatsapp": "WhatsApp",
       "instagram": "Instagram",
       "whatsappOnlyNote": "캠페인과 템플릿 수치는 WhatsApp 전용입니다."
+    },
+    "insights": {
+      "chart": {
+        "nothing": "이 기간에 표시할 내용이 없습니다.",
+        "roleDescription": "차트",
+        "lineLabel": "{label}. {count, plural, other {#개 지점}}. 왼쪽과 오른쪽 화살표 키로 값을 확인하세요.",
+        "donutLabel": "{label}: {parts}. 화살표 키로 각 부분을 확인하세요.",
+        "heatmapLabel": "시간대별 새 대화"
+      },
+      "delta": {
+        "new": "신규",
+        "same": "변화 없음",
+        "up": "+{value}%",
+        "down": "−{value}%"
+      },
+      "hourSpan": "{day}, {from}~{to}",
+      "weekSpan": "{from} – {to}",
+      "bucket": {
+        "hour": "시간",
+        "day": "일",
+        "week": "주"
+      },
+      "caption": "{from}~{to} · {channel}.",
+      "comparedWith": "변화는 {from}~{to}와 비교한 값입니다.",
+      "custom": {
+        "title": "사용자 지정 날짜",
+        "description": "최대 366일까지 원하는 기간을 고르세요. 하루를 고르면 시간별로 보여 줍니다.",
+        "cancel": "취소",
+        "errors": {
+          "missing": "두 날짜를 모두 고르세요.",
+          "order": "시작일이 종료일보다 늦습니다.",
+          "future": "종료일은 미래일 수 없습니다.",
+          "too_long": "366일 이하의 기간을 고르세요."
+        }
+      },
+      "tabs": {
+        "overview": {
+          "title": "분석",
+          "description": "대화, 팀, 자동화가 어떻게 진행되고 있는지 확인하세요."
+        },
+        "conversations": {
+          "title": "대화",
+          "description": "고객이 얼마나 빨리 답변을 받고 대화가 어떻게 끝나는지 보여 줍니다."
+        },
+        "team": {
+          "title": "팀",
+          "description": "각 구성원이 무엇을 얼마나 빨리 처리했는지 보여 줍니다."
+        },
+        "campaigns": {
+          "title": "캠페인",
+          "description": "브로드캐스트와 자동화의 성과를 보여 줍니다."
+        }
+      },
+      "overview": {
+        "stats": {
+          "new": "새 대화",
+          "resolved": "해결됨",
+          "firstResponse": "첫 응답 중앙값",
+          "resolution": "해결 시간 중앙값",
+          "messages": "보낸 메시지",
+          "teamReply": "팀 첫 답변"
+        },
+        "series": {
+          "new": "신규",
+          "resolved": "해결됨"
+        },
+        "trendTitle": "새 대화와 해결된 대화",
+        "trendSub": "{bucket} 단위",
+        "attentionTitle": "확인 필요",
+        "attentionSub": "지금",
+        "splitTitle": "채널별 비율",
+        "splitSub": "새 대화 기준입니다. 채널을 고르면 모든 탭이 필터링됩니다.",
+        "conversations": "대화",
+        "busiestTitle": "가장 바쁜 시간대",
+        "busiestSub": "새 대화는 주로 {hour}쯤 시작됩니다.",
+        "busiestNone": "이 기간에 새 대화가 없습니다.",
+        "busiestCell": "{from}~{to}: {count, plural, other {새 대화 #건}}"
+      },
+      "attention": {
+        "allClear": "모두 처리되었습니다. 팀을 기다리는 항목이 없습니다.",
+        "unowned": {
+          "title": "{count, plural, other {담당자 없는 대화 {shown}건}}",
+          "sub": "누군가 답할 수 있도록 배정하세요"
+        },
+        "unread": {
+          "title": "{count, plural, other {읽지 않은 대화 {shown}건}}",
+          "sub": "답변을 기다리는 고객이 있습니다"
+        },
+        "closingSoon": {
+          "title": "{count, plural, other {곧 닫히는 답장 창 {shown}건}}",
+          "sub": "24시간 안에 답하면 템플릿이 필요 없습니다"
+        },
+        "needsTemplate": {
+          "title": "{count, plural, other {템플릿이 필요한 대화 {shown}건}}",
+          "sub": "24시간 답장 창이 닫혔습니다"
+        },
+        "failedToday": {
+          "title": "{count, plural, other {오늘 실패한 메시지 {shown}건}}",
+          "sub": "번호를 확인한 뒤 다시 보내세요"
+        },
+        "switchedOff": {
+          "title": "{count, plural, other {꺼진 자동화 {shown}개}}",
+          "sub": "이전에 실행되었지만 지금은 꺼져 있습니다"
+        }
+      },
+      "conversations": {
+        "stats": {
+          "firstResponse": "첫 응답 중앙값",
+          "p90": "90번째 백분위 응답",
+          "resolution": "해결 시간 중앙값",
+          "rate": "해결률"
+        },
+        "median": "중앙값",
+        "p90": "90번째 백분위",
+        "spread": {
+          "under1h": "1시간 미만",
+          "1to4h": "1~4시간",
+          "4to12h": "4~12시간",
+          "12to24h": "12~24시간",
+          "overDay": "하루 이상"
+        },
+        "noLabel": "라벨 없음",
+        "cols": {
+          "new": "신규",
+          "resolved": "해결됨",
+          "firstResponse": "첫 응답",
+          "resolution": "해결 시간",
+          "failed": "실패한 메시지",
+          "firstResponseSeconds": "첫 응답 중앙값(초)",
+          "resolutionSeconds": "해결 시간 중앙값(초)"
+        },
+        "fileName": "conversations",
+        "responseTitle": "첫 응답 시간",
+        "responseSub": "고객이 첫 답변을 받기까지 기다린 시간",
+        "minutesValue": "{value}분",
+        "minutesAxis": "{value}분",
+        "openTitle": "진행 중과 종료",
+        "openSub": "이 기간에 시작된 대화",
+        "closedWord": "종료",
+        "closed": "종료됨",
+        "open": "진행 중",
+        "spreadTitle": "해결 시간",
+        "spreadSub": "해결된 대화에 걸린 시간",
+        "conversations": "대화",
+        "channelTitle": "채널별",
+        "channelSub": "새 대화와 해결된 대화",
+        "labelTitle": "라벨별",
+        "labelSub": "대화 라벨별 새 대화",
+        "breakdownTitle": "{bucket}별 상세",
+        "breakdownSub": "열을 선택해 정렬하세요",
+        "exportCsv": "CSV 내보내기",
+        "showFewer": "행 줄여 보기",
+        "showAll": "{count}개 행 모두 보기"
+      },
+      "team": {
+        "unnamed": "이름 없는 구성원",
+        "stats": {
+          "handled": "사람이 처리한 대화",
+          "resolved": "팀이 해결한 대화",
+          "firstResponse": "팀 첫 응답",
+          "messages": "팀이 보낸 메시지",
+          "online": "현재 온라인"
+        },
+        "onlineOf": "{total}명 중 {online}명",
+        "cols": {
+          "member": "구성원",
+          "handled": "처리",
+          "messages": "보낸 메시지",
+          "resolved": "해결됨",
+          "firstResponse": "첫 응답 중앙값",
+          "status": "상태",
+          "role": "역할",
+          "firstResponseSeconds": "첫 응답 중앙값(초)"
+        },
+        "openMember": "{name}님의 상세 열기",
+        "presence": {
+          "online": "온라인",
+          "away": "자리 비움",
+          "offline": "오프라인"
+        },
+        "fileName": "team",
+        "resolvedTitle": "구성원별 해결",
+        "resolvedSub": "각 구성원에게 배정된 상태에서 해결된 대화입니다. 한 명을 선택하면 상세가 열립니다.",
+        "noMembers": "아직 구성원이 없습니다.",
+        "tableTitle": "구성원",
+        "tableSub": "구성원을 선택해 상세를 확인하세요",
+        "search": "구성원 검색",
+        "exportCsv": "CSV 내보내기",
+        "noMatch": "일치하는 구성원이 없습니다",
+        "noMatchHint": "다른 이름이나 역할로 검색해 보세요.",
+        "clearSearch": "검색 지우기",
+        "attribution": "메시지와 첫 응답은 보낸 구성원에게, 해결은 현재 담당자에게 집계됩니다. 봇, 플로우, AI 에이전트는 여기에 포함되지 않습니다.",
+        "detailChart": "처리와 해결",
+        "byChannel": "채널별",
+        "medianResolution": "해결 시간 중앙값",
+        "resolutionRate": "해결률",
+        "openChats": "이 구성원의 대화 열기"
+      },
+      "campaigns": {
+        "stats": {
+          "broadcasts": "보낸 브로드캐스트",
+          "sent": "보낸 메시지",
+          "delivered": "전달됨",
+          "read": "읽음",
+          "replied": "답장함",
+          "runs": "자동화 실행"
+        },
+        "kinds": {
+          "flow": "플로우",
+          "rule": "규칙",
+          "sequence": "시퀀스",
+          "flowOne": "플로우",
+          "ruleOne": "규칙",
+          "sequenceOne": "시퀀스"
+        },
+        "cols": {
+          "broadcast": "브로드캐스트",
+          "sentOn": "보낸 날짜",
+          "template": "템플릿",
+          "step": "단계",
+          "people": "인원",
+          "shareOfSent": "보낸 수 대비 비율"
+        },
+        "openBroadcast": "{name}의 퍼널 열기",
+        "fileName": "broadcasts",
+        "whatsappOnly": "브로드캐스트 수치는 WhatsApp 전용입니다. 자동화는 선택한 채널 기준으로 표시됩니다.",
+        "funnelTitle": "브로드캐스트 성과",
+        "funnelSub": "이 기간의 브로드캐스트 {count, plural, other {#개}}",
+        "funnelMode": "건수 또는 비율 보기",
+        "counts": "건수",
+        "rates": "비율",
+        "noBroadcasts": "이 기간에 브로드캐스트가 없습니다",
+        "noBroadcastsHint": "더 긴 기간을 고르거나 캠페인에서 하나 보내세요.",
+        "openCampaigns": "캠페인 열기",
+        "topTitle": "주요 자동화",
+        "topSubRuns": "각 자동화가 실행된 횟수",
+        "topSubCtr": "추적 버튼이나 링크를 누른 사람",
+        "topMode": "실행 수 또는 클릭률로 정렬",
+        "runs": "실행",
+        "clickRate": "클릭률",
+        "openAutomation": "{name} 열기",
+        "noAutomations": "실행된 자동화가 없습니다",
+        "noAutomationsHint": "이 기간에 실행된 플로우, 규칙, 시퀀스가 없습니다.",
+        "noClicksHint": "이 기간에 추적 링크가 있는 플로우가 실행되지 않았습니다.",
+        "tableTitle": "브로드캐스트",
+        "tableSub": "브로드캐스트를 선택해 퍼널을 확인하세요",
+        "exportCsv": "CSV 내보내기",
+        "nothingSent": "이 기간에 보낸 것이 없습니다.",
+        "kindsTitle": "유형별 실행",
+        "kindsSub": "플로우, 규칙, 시퀀스",
+        "runsWord": "실행",
+        "sentOn": "{date}에 보냄"
+      },
+      "saved": {
+        "pageTitle": "보고서",
+        "pageDescription": "미리 보고 내보내거나 이메일로 보낼 수 있는 저장된 보고서와, 백그라운드에서 만든 보고서 파일입니다.",
+        "title": "저장된 보고서",
+        "description": "지표를 한 번 고른 뒤 보고서를 내보내거나 일정에 맞춰 이메일로 보내세요.",
+        "build": "보고서 만들기",
+        "search": "보고서 검색",
+        "count": "{total, plural, other {보고서 #개}} 중 {shown}개 · 이메일 발송 {scheduled}개",
+        "loadFailed": "저장된 보고서를 불러오지 못했습니다.",
+        "retry": "다시 시도",
+        "noMatch": "일치하는 보고서가 없습니다",
+        "noMatchHint": "다른 이름으로 검색해 보세요.",
+        "empty": "저장된 보고서가 아직 없습니다",
+        "emptyHint": "보고서를 만들어 내보내거나 이메일로 보내세요.",
+        "clearSearch": "검색 지우기",
+        "failed": "처리하지 못했습니다. 다시 시도하세요.",
+        "duplicated": "보고서를 복제했습니다",
+        "saved": "\"{name}\" 보고서를 저장했습니다",
+        "updated": "보고서를 수정했습니다",
+        "deleteTitle": "이 보고서를 삭제할까요?",
+        "deleteText": "\"{name}\" 보고서가 삭제됩니다.",
+        "deleteScheduled": "\"{name}\" 보고서가 삭제되고 이메일 발송도 중단됩니다.",
+        "cancel": "취소",
+        "delete": "삭제",
+        "deleted": "보고서를 삭제했습니다",
+        "scheduleBadge": "{freq}, {time} · {count, plural, other {#명}}",
+        "freq": {
+          "daily": "매일",
+          "weekly": "매주 월요일",
+          "monthly": "매월 1일"
+        },
+        "ranges": {
+          "today": "오늘",
+          "7d": "최근 7일",
+          "30d": "최근 30일",
+          "90d": "최근 90일",
+          "this_week": "이번 주",
+          "last_week": "지난주",
+          "this_month": "이번 달",
+          "last_month": "지난달",
+          "custom": "사용자 지정 날짜"
+        },
+        "summary": "{group}별 {count, plural, other {지표 #개}} · {range} · {channel}",
+        "groups": {
+          "day": "일",
+          "week": "주",
+          "channel": "채널",
+          "agent": "구성원",
+          "label": "라벨"
+        },
+        "openReport": "{name} 열기",
+        "changeSchedule": "이메일 일정 변경",
+        "scheduleEmail": "이메일 예약",
+        "paused": "일시 중지됨",
+        "notScheduled": "예약 안 됨",
+        "more": "{name} 추가 작업",
+        "moreShort": "추가 작업",
+        "open": "열기",
+        "edit": "편집",
+        "duplicate": "복제",
+        "exportReport": "{name} 내보내기",
+        "export": "내보내기",
+        "exportCsv": "CSV 내보내기",
+        "exportPdf": "PDF 내보내기",
+        "errors": {
+          "name": "보고서 이름을 입력하세요.",
+          "nameTaken": "같은 이름의 보고서가 이미 있습니다.",
+          "metrics": "지표를 하나 이상 고르세요.",
+          "missing": "두 날짜를 모두 고르세요.",
+          "order": "시작일이 종료일보다 늦습니다.",
+          "future": "종료일은 미래일 수 없습니다.",
+          "too_long": "366일 이하의 기간을 고르세요.",
+          "time": "시간을 고르세요.",
+          "recipients": "한 명 이상 고르세요."
+        },
+        "editTitle": "보고서 편집",
+        "buildTitle": "보고서 만들기",
+        "builderHint": "건수와 시간만 담기며 메시지 내용은 포함되지 않습니다.",
+        "name": "이름",
+        "namePlaceholder": "주간 지원 요약",
+        "metrics": "지표",
+        "metric": {
+          "new": "새 대화",
+          "resolved": "해결됨",
+          "first_response": "첫 응답 중앙값",
+          "resolution": "해결 시간 중앙값",
+          "messages": "보낸 메시지",
+          "failed": "실패한 메시지"
+        },
+        "groupBy": "그룹 기준",
+        "range": "기간",
+        "fileType": "파일 형식",
+        "saveChanges": "변경 사항 저장",
+        "saveReport": "보고서 저장",
+        "weekOf": "{date} 주",
+        "noLabel": "라벨 없음",
+        "formerMember": "이전 구성원",
+        "previewMeta": "{from}~{to} · {channel} · {count, plural, other {#개 행}}",
+        "loading": "불러오는 중…",
+        "previewFailed": "미리보기를 불러오지 못했습니다.",
+        "done": "완료",
+        "scheduleRemoved": "일정을 삭제했습니다",
+        "scheduleSaved": "\"{name}\" 보고서가 이 일정으로 이메일 발송됩니다",
+        "scheduleTitle": "이메일 보고서 예약",
+        "scheduleHint": "\"{name}\" 보고서를 {format} 파일로 보냅니다. 각 이메일은 방금 끝난 기간을 다루며, 파일이 아닌 로그인 링크만 담습니다.",
+        "howOften": "빈도",
+        "time": "시간(워크스페이스 시간대)",
+        "sendTo": "받는 사람",
+        "noAdmins": "관리자나 소유자를 찾을 수 없습니다.",
+        "unnamed": "이름 없는 구성원",
+        "adminsOnly": "소유자와 관리자만 보고서를 받을 수 있습니다. 보고서를 보낼 때 다시 확인합니다.",
+        "stopSending": "발송 중지",
+        "saveSchedule": "일정 저장"
+      }
     }
   },
   "Ads": {

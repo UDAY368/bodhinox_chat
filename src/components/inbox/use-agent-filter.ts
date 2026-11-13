@@ -4,7 +4,10 @@
 // member and mode, and (for "Handled by") the ids of the chats they handled,
 // read from GET /api/inbox/handled-by. Kept in the list's own state, like the
 // company filter. A failed lookup keeps only the current-assignee matches.
+// A link with ?agent=<member id> (Analytics > Team: "Open their chats") starts
+// on that member's handled chats.
 import { useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 
 import { useAuth } from '@/hooks/use-auth';
 import { authFetch } from '@/lib/auth/client';
@@ -13,10 +16,16 @@ import type { AgentFilter } from '@/lib/inbox/inbox-filters';
 
 export interface FilterMember { id: string; name: string }
 
+const MEMBER_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export function useAgentFilter(resyncToken?: string | number) {
   const { accountId } = useAuth();
+  const searchParams = useSearchParams();
   const [members, setMembers] = useState<FilterMember[]>([]);
-  const [agent, setAgent] = useState<AgentFilter | null>(null);
+  const [agent, setAgent] = useState<AgentFilter | null>(() => {
+    const linked = searchParams?.get('agent');
+    return linked && MEMBER_ID.test(linked) ? { memberId: linked.toLowerCase(), mode: 'handled' } : null;
+  });
   // Keyed by the member it was read for, so a newer choice never shows an older member's chats.
   const [handled, setHandled] = useState<{ memberId: string; ids: ReadonlySet<string> } | null>(null);
 
