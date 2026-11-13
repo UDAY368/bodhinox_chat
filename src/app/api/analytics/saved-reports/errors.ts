@@ -23,6 +23,7 @@ const SCHEDULE = {
   not_found: 'scheduleNotFound',
   too_many: 'tooManySchedules',
   creator_lost_access: 'scheduleCreatorLostAccess',
+  format_locked: 'scheduleFormatLocked',
 } as const;
 
 /** Maps a saved-report, schedule or range error to its translated response; rethrows anything else. */
