@@ -1,6 +1,7 @@
 // WhatsApp consent recorded by a member (inbox contact panel, contact sheet).
 // STOP / START from customers go through applyConsentKeyword in ./consent.
 import { withTenant } from '@/lib/db/tenant';
+import { recordContactActivity } from './profile';
 
 /** 'cleared' removes an opt-out without recording an opt-in (the contact sheet's switch). */
 export type WhatsAppConsentState = 'opted_in' | 'opted_out' | 'cleared';
@@ -31,10 +32,13 @@ export async function setWhatsAppConsent(
       SELECT opted_out_at, opt_out_source, opted_in_at, opt_in_source FROM contacts
       WHERE account_id=${tenant.accountId}::uuid AND id=${contactId}::uuid`;
     if (!rows.length) return null;
-    if (changed > 0)
+    if (changed > 0) {
       await tx.$executeRaw`INSERT INTO audit_logs(account_id, user_id, action, resource_id, metadata)
         VALUES(${tenant.accountId}::uuid, ${tenant.userId}::uuid, 'contact.consent_changed', ${contactId},
           ${JSON.stringify({ channel: 'whatsapp', state })}::jsonb)`;
+      // The contact's timeline (any member reads it; audit_logs is admins only).
+      await recordContactActivity(tx, tenant, contactId, 'consent_changed', { channel: 'whatsapp', state });
+    }
     const iso = (d: Date | null) => (d ? d.toISOString() : null);
     const row = rows[0];
     return {

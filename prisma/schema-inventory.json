@@ -368,6 +368,26 @@
         "default": null,
         "reference": null,
         "definition": "instagram_opted_in_at timestamptz"
+      },
+      {
+        "name": "owner_id",
+        "type": "uuid",
+        "nullable": true,
+        "default": null,
+        "reference": {
+          "table": "auth_users",
+          "column": "id",
+          "onDelete": "SET NULL"
+        },
+        "definition": "owner_id uuid"
+      },
+      {
+        "name": "city",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "city text"
       }
     ],
     "tags": [
@@ -18700,6 +18720,72 @@
         "default": "now()",
         "reference": null,
         "definition": "updated_at timestamptz NOT NULL DEFAULT now()"
+      }
+    ],
+    "contact_activity": [
+      {
+        "name": "id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "gen_random_uuid()",
+        "reference": null,
+        "definition": "id uuid PRIMARY KEY DEFAULT gen_random_uuid()"
+      },
+      {
+        "name": "account_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "NULLIF(current_setting('app.account_id', true),'')::uuid ",
+        "reference": {
+          "table": "accounts",
+          "column": "id",
+          "onDelete": "CASCADE"
+        },
+        "definition": "account_id uuid NOT NULL DEFAULT NULLIF(current_setting('app.account_id', true),'')::uuid REFERENCES accounts(id) ON DELETE CASCADE"
+      },
+      {
+        "name": "contact_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "contact_id uuid NOT NULL"
+      },
+      {
+        "name": "actor_id",
+        "type": "uuid",
+        "nullable": true,
+        "default": null,
+        "reference": {
+          "table": "auth_users",
+          "column": "id",
+          "onDelete": "SET NULL"
+        },
+        "definition": "actor_id uuid REFERENCES auth_users(id) ON DELETE SET NULL"
+      },
+      {
+        "name": "kind",
+        "type": "text",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "kind text NOT NULL"
+      },
+      {
+        "name": "detail",
+        "type": "jsonb",
+        "nullable": false,
+        "default": "'{}'::jsonb",
+        "reference": null,
+        "definition": "detail jsonb NOT NULL DEFAULT '{}'::jsonb"
+      },
+      {
+        "name": "created_at",
+        "type": "timestamptz",
+        "nullable": false,
+        "default": "now()",
+        "reference": null,
+        "definition": "created_at timestamptz NOT NULL DEFAULT now()"
       }
     ]
   }

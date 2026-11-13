@@ -24,7 +24,9 @@ import { contactSearchSql, loadSegmentFilter } from '@/lib/audience/segments';
 import { PAUSE_MINUTES_CHOICES } from '@/lib/flows/types';
 import { markExplicitPause } from '@/lib/inbox/automation-pause';
 import { conversationVisibleSql } from '@/lib/inbox/inbox-scope';
-import { loadPhoneMask, maskContactRow } from '@/lib/inbox/masking-apply';
+import { loadPhoneMask, maskContactIdentifier, maskContactRow } from '@/lib/inbox/masking-apply';
+import { normalizeFieldValue } from './custom-field-types';
+import { isWorkspaceMember } from './profile';
 import { contactSearchTerm } from './search-term';
 
 /** One statement per action; past this, narrow the filter first. */
@@ -50,6 +52,10 @@ export const bulkScopeSchema = z.object({
   channel: z.enum(CONTACT_CHANNEL_FILTERS).optional(),
   /** Stage 5: only contacts subscribed on Instagram (an identity and no Instagram opt-out). */
   subscribedOnly: z.boolean().optional(),
+  /** Contacts redesign: only contacts owned by this member, or by no one ('none'). */
+  ownerId: z.union([uuid, z.literal('none')]).optional(),
+  /** Contacts redesign: WhatsApp consent; opted_in is "not opted out" (marketing allowed). */
+  consent: z.enum(['opted_in', 'opted_out']).optional(),
 }).strict().refine((s) => [s.segmentId, s.listId, s.tagIds, s.contactIds].filter(Boolean).length <= 1, 'Choose one view');
 export type BulkScope = z.infer<typeof bulkScopeSchema>;
 
@@ -69,6 +75,8 @@ const bulkSchema = z.object({
     /** minutes: one of PAUSE_MINUTES_CHOICES; null pauses until someone resumes. */
     z.object({ type: z.literal('pause_automations'), minutes: pauseMinutes }).strict(),
     z.object({ type: z.literal('set_field'), fieldId: uuid, value: z.string().trim().min(1).max(MAX_BULK_FIELD_VALUE) }).strict(),
+    /** Contacts redesign: set (null: remove) the owner; the owner must be a workspace member. */
+    z.object({ type: z.literal('assign_owner'), ownerId: uuid.nullable() }).strict(),
   ]),
   /** The match count the user was shown. */
   expected: z.number().int().min(1),
@@ -98,7 +106,39 @@ export function scopeFromQuery(query: URLSearchParams): Record<string, unknown> 
   if (search?.trim()) scope.search = search.slice(0, 200);
   if (channel) scope.channel = channel;
   if (query.get('subscribed') === '1') scope.subscribedOnly = true;
+  const ownerId = query.get('ownerId');
+  const consent = query.get('consent');
+  if (ownerId) scope.ownerId = ownerId;
+  if (consent) scope.consent = consent;
   return scope;
+}
+
+/** The contacts table's sort orders (Contacts redesign); 'created' newest first is the default. */
+export const CONTACT_SORTS = ['created', 'name', 'city', 'owner', 'seen'] as const;
+export type ContactSort = (typeof CONTACT_SORTS)[number];
+
+/** A sort from the query string (`sort=name&dir=asc`); anything else is newest first. */
+export function sortFromQuery(query: URLSearchParams): { sort: ContactSort; dir: 'asc' | 'desc' } {
+  const sort = (CONTACT_SORTS as readonly string[]).includes(query.get('sort') ?? '') ? (query.get('sort') as ContactSort) : 'created';
+  const dir = query.get('dir') === 'asc' ? 'asc' : query.get('dir') === 'desc' ? 'desc' : sort === 'created' || sort === 'seen' ? 'desc' : 'asc';
+  return { sort, dir };
+}
+
+/** The ORDER BY of a sort (fixed SQL; empty values last either way, id as the tiebreak). */
+export function sortSql(sort: ContactSort, dir: 'asc' | 'desc'): Prisma.Sql {
+  const d = Prisma.raw(dir === 'asc' ? 'ASC' : 'DESC');
+  switch (sort) {
+    case 'name':
+      return Prisma.sql`lower(NULLIF(c.name,'')) ${d} NULLS LAST, c.created_at DESC, c.id`;
+    case 'city':
+      return Prisma.sql`lower(NULLIF(c.city,'')) ${d} NULLS LAST, lower(c.name), c.id`;
+    case 'owner':
+      return Prisma.sql`lower(owner_name) ${d} NULLS LAST, lower(c.name), c.id`;
+    case 'seen':
+      return Prisma.sql`last_seen_at ${d} NULLS LAST, c.created_at DESC, c.id`;
+    default:
+      return Prisma.sql`c.created_at ${d}, c.id`;
+  }
 }
 
 /**
@@ -139,33 +179,52 @@ async function scopeWhere(tx: TenantTransaction, ctx: TenantContext, scope: Bulk
   const channel = channelFilter(scope);
   const narrowed = channel.conditions.length ? Prisma.sql`AND ${compileAudienceFilter(ctx.accountId, channel)}` : Prisma.empty;
   const picked = scope.contactIds ? Prisma.sql`AND c.id = ANY(${scope.contactIds}::uuid[])` : Prisma.empty;
-  return Prisma.sql`${compileAudienceFilter(ctx.accountId, filter)} ${picked} ${narrowed} ${contactSearchSql(search, maskPhones)}`;
+  const owner = scope.ownerId === 'none' ? Prisma.sql`AND c.owner_id IS NULL`
+    : scope.ownerId ? Prisma.sql`AND c.owner_id = ${scope.ownerId}::uuid` : Prisma.empty;
+  const consent = scope.consent === 'opted_out' ? Prisma.sql`AND c.opted_out_at IS NOT NULL`
+    : scope.consent === 'opted_in' ? Prisma.sql`AND c.opted_out_at IS NULL` : Prisma.empty;
+  return Prisma.sql`${compileAudienceFilter(ctx.accountId, filter)} ${picked} ${narrowed} ${owner} ${consent} ${contactSearchSql(search, maskPhones)}`;
 }
 
 const CONTACT_COLUMNS = Prisma.sql`c.id::text, c.user_id::text, c.account_id::text, c.phone, c.name, c.email, c.company,
-  c.avatar_url, c.created_at, c.updated_at, c.wa_user_id, c.wa_username, c.opted_out_at, c.opt_out_source, c.blocked_at`;
+  c.avatar_url, c.created_at, c.updated_at, c.wa_user_id, c.wa_username, c.opted_out_at, c.opt_out_source, c.blocked_at,
+  c.opted_in_at, c.instagram_opted_out_at, c.city, c.owner_id::text`;
 
 /**
- * One page (newest first) of the contacts a bulk action on `scope` would
- * reach, with the total: the contacts page lists through this while a channel
- * filter is on, so the count it shows is the count the action checks.
+ * One page of the contacts a bulk action on `scope` would reach, with the
+ * total: the contacts page lists through this, so the count it shows is the
+ * count the action checks. Newest first unless `page.sort` says otherwise.
+ * Each row also carries the owner's name, the last message time of the
+ * conversations the member may see, and the first Instagram username
+ * (masked like a number for a masked member).
  */
-export async function scopeContacts(ctx: TenantContext, rawScope: unknown, page: { offset: number; limit: number }):
+export async function scopeContacts(ctx: TenantContext, rawScope: unknown,
+  page: { offset: number; limit: number; sort?: ContactSort; dir?: 'asc' | 'desc' }):
   Promise<{ contacts: Record<string, unknown>[]; total: number }> {
   const parsed = bulkScopeSchema.safeParse(rawScope);
   if (!parsed.success) throw new AudienceFilterError(parsed.error.issues[0]?.message ?? 'Invalid request');
+  const sort = page.sort ?? 'created';
+  const dir = page.dir ?? (sort === 'created' || sort === 'seen' ? 'desc' : 'asc');
   return withTenant(ctx, async (tx) => {
     const maskPhones = await loadPhoneMask(tx, ctx);
     const where = await scopeWhere(tx, ctx, parsed.data, maskPhones);
     const rows = await tx.$queryRaw<(Record<string, unknown> & { total_count: number })[]>(Prisma.sql`
-      SELECT ${CONTACT_COLUMNS}, count(*) OVER()::int AS total_count
-      FROM contacts c WHERE ${where}
-      ORDER BY c.created_at DESC, c.id LIMIT ${page.limit} OFFSET ${page.offset}`);
+      SELECT * FROM (
+        SELECT ${CONTACT_COLUMNS}, count(*) OVER()::int AS total_count,
+          (SELECT p.full_name FROM profiles p WHERE p.account_id=c.account_id AND p.user_id=c.owner_id LIMIT 1) AS owner_name,
+          (SELECT max(v.last_message_at) FROM conversations v WHERE v.account_id=c.account_id AND v.contact_id=c.id
+            AND ${Prisma.raw(conversationVisibleSql('v'))}) AS last_seen_at,
+          (SELECT i.username FROM contact_channel_identities i WHERE i.account_id=c.account_id AND i.contact_id=c.id
+            AND i.channel='instagram' ORDER BY i.created_at LIMIT 1) AS instagram_username
+        FROM contacts c WHERE ${where}
+      ) c
+      ORDER BY ${sortSql(sort, dir)} LIMIT ${page.limit} OFFSET ${page.offset}`);
     const total = rows[0]?.total_count ?? 0;
     return {
       contacts: rows.map((row) => {
         const contact: Record<string, unknown> = { ...row };
         delete contact.total_count;
+        if (maskPhones && typeof contact.instagram_username === 'string') contact.instagram_username = maskContactIdentifier(contact.instagram_username);
         return maskContactRow(contact, maskPhones);
       }),
       total,
@@ -273,12 +332,31 @@ export async function bulkContactAction(ctx: TenantContext, input: unknown): Pro
         break;
       }
       case 'set_field': {
-        const field = await tx.$queryRaw<{ id: string }[]>`SELECT id FROM custom_fields WHERE account_id=${ctx.accountId}::uuid AND id=${action.fieldId}::uuid`;
+        const field = await tx.$queryRaw<{ id: string; field_type: string; field_options: unknown }[]>`
+          SELECT id, field_type, field_options FROM custom_fields WHERE account_id=${ctx.accountId}::uuid AND id=${action.fieldId}::uuid`;
         if (!field[0]) throw new AudienceNotFoundError('Custom field not found');
+        // A number, date or choice field only takes a value of its type (custom-field-types.ts).
+        const typed = normalizeFieldValue(field[0], action.value);
+        if (!typed.ok || !typed.value) throw new AudienceFilterError(`This value does not fit the field (${typed.ok ? 'empty' : typed.problem.replace(/_/g, ' ')})`);
         changed = await tx.$executeRaw(Prisma.sql`
           INSERT INTO contact_custom_values(account_id,contact_id,custom_field_id,value)
-          SELECT ${ctx.accountId}::uuid, id, ${action.fieldId}::uuid, ${action.value} FROM (${matching}) m(id)
+          SELECT ${ctx.accountId}::uuid, id, ${action.fieldId}::uuid, ${typed.value} FROM (${matching}) m(id)
           ON CONFLICT (contact_id, custom_field_id) DO UPDATE SET value=EXCLUDED.value`);
+        break;
+      }
+      case 'assign_owner': {
+        if (action.ownerId && !(await isWorkspaceMember(tx, ctx.accountId, action.ownerId)))
+          throw new AudienceFilterError('The owner must be a member of this workspace');
+        const updated = await tx.$queryRaw<{ id: string }[]>(Prisma.sql`
+          UPDATE contacts SET owner_id=${action.ownerId}::uuid, updated_at=now()
+          WHERE account_id=${ctx.accountId}::uuid AND id IN (${matching}) AND owner_id IS DISTINCT FROM ${action.ownerId}::uuid
+          RETURNING id::text`);
+        changed = updated.length;
+        // One timeline row per contact that changed (ids only).
+        if (changed)
+          await tx.$executeRaw`INSERT INTO contact_activity(account_id, contact_id, actor_id, kind, detail)
+            SELECT ${ctx.accountId}::uuid, value::uuid, ${ctx.userId || null}::uuid, 'owner_changed', ${JSON.stringify({ owner_id: action.ownerId })}::jsonb
+            FROM jsonb_array_elements_text(${JSON.stringify(updated.map((r) => r.id))}::jsonb)`;
         break;
       }
     }

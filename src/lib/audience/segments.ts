@@ -186,6 +186,47 @@ export async function pageContacts(
   return { contacts: rows.map((row) => maskContactRow(row, page.maskPhones === true)), total: rows[0]?.total_count ?? 0 };
 }
 
+export interface SegmentCard extends Segment {
+  /** Contacts matching now; null when the segment names a tag, list, field or campaign that is gone. */
+  total: number | null;
+  /** Of those, how many may receive marketing (not opted out, not blocked). */
+  sendable: number | null;
+  /** Up to four matching contacts (newest first) for the card's faces. */
+  sample: { id: string; name: string | null }[];
+}
+
+/** Every segment with its live count and a few members (the Contacts > Segments tab). */
+export async function segmentCards(ctx: TenantContext): Promise<SegmentCard[]> {
+  return withTenant(ctx, async (tx) => {
+    const segments = await tx.$queryRaw<Segment[]>`SELECT ${SEGMENT_COLUMNS} FROM segments WHERE account_id=${ctx.accountId}::uuid ORDER BY name`;
+    const cards: SegmentCard[] = [];
+    for (const segment of segments) {
+      let filter: AudienceFilter;
+      try {
+        filter = parseAudienceFilter(segment.filter);
+      } catch {
+        cards.push({ ...segment, total: null, sendable: null, sample: [] });
+        continue;
+      }
+      // A deleted tag, list, field or campaign (or retargeting no longer in the plan) makes
+      // the segment unusable until it is edited; the card says so instead of a count.
+      const broken = await assertFilterReferences(tx, ctx.accountId, filter).then(() => false, () => true);
+      if (broken) {
+        cards.push({ ...segment, total: null, sendable: null, sample: [] });
+        continue;
+      }
+      const where = compileAudienceFilter(ctx.accountId, filter);
+      const [count] = await tx.$queryRaw<{ total: number; sendable: number }[]>(Prisma.sql`
+        SELECT count(*)::int AS total, count(*) FILTER (WHERE c.opted_out_at IS NULL AND c.blocked_at IS NULL)::int AS sendable
+        FROM contacts c WHERE ${where}`);
+      const sample = await tx.$queryRaw<{ id: string; name: string | null }[]>(Prisma.sql`
+        SELECT c.id::text, c.name FROM contacts c WHERE ${where} ORDER BY c.created_at DESC, c.id LIMIT 4`);
+      cards.push({ ...segment, total: count.total, sendable: count.sendable, sample });
+    }
+    return cards;
+  });
+}
+
 /** One page of a segment's contacts. */
 export async function segmentContacts(ctx: TenantContext, id: string, page: ContactPage) {
   return withTenant(ctx, async (tx) =>
