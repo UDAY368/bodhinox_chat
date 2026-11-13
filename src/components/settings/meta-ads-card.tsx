@@ -151,14 +151,14 @@ export function MetaAdsCard() {
   const connect = async () => {
     if (!status?.enabled) return;
     setBusy(true);
-    let code: string | null = null;
+    let accessToken: string | null = null;
     try {
       const fb = await loadSdk(status.appId);
-      code = await new Promise<string | null>((resolve) => {
-        fb.login((response) => resolve(response.authResponse?.code ?? null), {
+      // The popup's user token, not a code: a JavaScript SDK login code cannot be
+      // exchanged server side (Meta ties it to an internal redirect address).
+      accessToken = await new Promise<string | null>((resolve) => {
+        fb.login((response) => resolve(response.authResponse?.accessToken ?? null), {
           config_id: status.loginConfigId,
-          response_type: 'code',
-          override_default_response_type: true,
         });
       });
     } catch {
@@ -167,14 +167,14 @@ export function MetaAdsCard() {
       return;
     }
     setBusy(false);
-    if (!code) {
+    if (!accessToken) {
       toast.error(t('loginCancelled'));
       return;
     }
     const json = await call('/api/meta-ads/connect', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ code }),
+      body: JSON.stringify({ accessToken }),
     });
     if (json) {
       setChoices(null);

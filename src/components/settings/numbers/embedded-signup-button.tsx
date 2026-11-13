@@ -37,7 +37,7 @@ import { EMBEDDED_SIGNUP_EXTRAS, embeddedSignupPublicConfig, parseEmbeddedSignup
 const SDK_SRC = "https://connect.facebook.net/en_US/sdk.js";
 const GRAPH_VERSION = "v21.0";
 
-type FbLoginResponse = { authResponse?: { code?: string } | null; status?: string };
+type FbLoginResponse = { authResponse?: { code?: string; accessToken?: string } | null; status?: string };
 type FbSdk = {
   init: (opts: { appId: string; autoLogAppEvents?: boolean; xfbml?: boolean; version: string }) => void;
   login: (cb: (response: FbLoginResponse) => void, opts: Record<string, unknown>) => void;

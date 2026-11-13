@@ -1,6 +1,7 @@
-// POST /api/meta-ads/connect { code } — admin. Exchanges the Facebook Login for
-// Business code server side and stores the workspace's pending connection (the
-// encrypted user token is never returned). 200 { connection }.
+// POST /api/meta-ads/connect { accessToken } — admin. Checks the Facebook Login
+// for Business popup's user token belongs to this app, makes it long-lived and
+// stores the workspace's pending connection (the encrypted token is never
+// returned). 200 { connection }.
 // 503 meta_ads_not_enabled (before anything else), 400 invalid_request,
 // 409 already_connected, 409 token_invalid, 429 rate limited, 502 meta_error.
 
@@ -15,9 +16,9 @@ import { actorOf, metaAdsErrorResponse, metaAdsRouteError, notEnabledResponse, N
 import { checkRateLimit, rateLimitResponse, RATE_LIMITS } from '@/lib/rate-limit';
 
 export const runtime = 'nodejs';
-/** Each attempt spends a login code; a few per hour per workspace is plenty. */
+/** Each attempt is one login; a few per hour per workspace is plenty. */
 const ACCOUNT_LIMIT = { limit: 10, windowMs: 60 * 60_000 };
-const Body = z.object({ code: z.string().trim().min(1).max(1024) }).strict();
+const Body = z.object({ accessToken: z.string().trim().min(1).max(4096) }).strict();
 
 export async function POST(request: Request) {
   try {
@@ -31,7 +32,7 @@ export async function POST(request: Request) {
     if (!accountLimit.success) return rateLimitResponse(accountLimit);
     const parsed = Body.safeParse(await request.json().catch(() => null));
     if (!parsed.success) return metaAdsErrorResponse('invalid_request');
-    const connection = await startConnection(actorOf(session), parsed.data.code);
+    const connection = await startConnection(actorOf(session), parsed.data.accessToken);
     return NextResponse.json({ connection }, { headers: NO_STORE });
   } catch (error) {
     return metaAdsRouteError(error);

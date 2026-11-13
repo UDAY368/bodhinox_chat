@@ -11,7 +11,7 @@ const graph = vi.hoisted(() => ({
 }));
 vi.mock('./graph', async (original) => ({
   ...(await original<typeof import('./graph')>()),
-  exchangeLoginCode: vi.fn(async (_c: unknown, code: string) => ({ accessToken: `user-token-${code}` })),
+  exchangeLoginToken: vi.fn(async (_c: unknown, code: string) => ({ accessToken: `user-token-${code}` })),
   getGrantedScopes: vi.fn(async () => ['ads_read', 'ads_management']),
   listAdAccounts: vi.fn(async () => [{ id: process.env.IT_M_ACCOUNT, name: 'Acct', currency: 'INR', businessId: null }]),
   listPages: vi.fn(async () => [{ id: process.env.IT_M_PAGE, name: 'Page', accessToken: 'page-token' }]),

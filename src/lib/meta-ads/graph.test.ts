@@ -4,7 +4,7 @@ import {
   GRAPH_BASE,
   MetaGraphInputError,
   capiEvent,
-  exchangeLoginCode,
+  exchangeLoginToken,
   getGrantedScopes,
   getInsights,
   getOrCreateDataset,
@@ -152,9 +152,39 @@ describe('graph client errors', () => {
     expect(metaErrorCode(new Error('x'))).toBeNull();
   });
 
-  it('sanitizes the login code exchange error', async () => {
-    fetchMock.mockResolvedValueOnce(json({ error: { message: `code ${TOKEN} expired`, code: 100 } }, 400));
-    const error = await exchangeLoginCode({ appId: '1', appSecret: 's' }, 'CODE').catch((e: unknown) => e) as MetaApiError;
+  it('accepts the login popup token only when Meta says it is a live user token of this app, then makes it long-lived', async () => {
+    const config = { appId: '1', appSecret: 's' };
+    fetchMock
+      .mockResolvedValueOnce(json({ data: { is_valid: true, app_id: '1', type: 'USER' } }))
+      .mockResolvedValueOnce(json({ access_token: 'LONG' }));
+    await expect(exchangeLoginToken(config, 'SHORT')).resolves.toEqual({ accessToken: 'LONG' });
+    const [debugUrl, debugInit] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(new URL(debugUrl).pathname).toMatch(/\/debug_token$/);
+    expect(new URL(debugUrl).searchParams.get('input_token')).toBe('SHORT');
+    // The app token travels in the header, never in the URL.
+    expect((debugInit.headers as Record<string, string>).Authorization).toBe('Bearer 1|s');
+    expect(debugUrl).not.toContain('1|s');
+    const exchange = new URL(fetchMock.mock.calls[1][0] as string);
+    expect(exchange.pathname).toMatch(/\/oauth\/access_token$/);
+    expect(Object.fromEntries(exchange.searchParams)).toEqual({ grant_type: 'fb_exchange_token', client_id: '1', client_secret: 's', fb_exchange_token: 'SHORT' });
+  });
+
+  it("refuses another app's token, an invalid token or a non-user token as an invalid token, without exchanging it", async () => {
+    const config = { appId: '1', appSecret: 's' };
+    for (const data of [{ is_valid: true, app_id: '999', type: 'USER' }, { is_valid: false, app_id: '1' }, { is_valid: true, app_id: '1', type: 'PAGE' }]) {
+      fetchMock.mockReset();
+      fetchMock.mockResolvedValueOnce(json({ data }));
+      const error = await exchangeLoginToken(config, 'SHORT').catch((e: unknown) => e);
+      expect(isMetaTokenInvalid(error)).toBe(true);
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    }
+  });
+
+  it('sanitizes a failed exchange', async () => {
+    fetchMock
+      .mockResolvedValueOnce(json({ data: { is_valid: true, app_id: '1', type: 'USER' } }))
+      .mockResolvedValueOnce(json({ error: { message: `token ${TOKEN} expired`, code: 100 } }, 400));
+    const error = await exchangeLoginToken({ appId: '1', appSecret: 's' }, 'SHORT').catch((e: unknown) => e) as MetaApiError;
     expect(error).toBeInstanceOf(MetaApiError);
     expect(error.message).toBe('Meta API error: 400');
   });

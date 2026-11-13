@@ -33,7 +33,7 @@ vi.mock('@/lib/whatsapp/encryption', () => ({
 }));
 vi.mock('./graph', async (original) => ({
   ...(await original<typeof import('./graph')>()),
-  exchangeLoginCode: vi.fn(async () => ({ accessToken: 'user-token' })),
+  exchangeLoginToken: vi.fn(async () => ({ accessToken: 'user-token' })),
   getGrantedScopes: vi.fn(async () => ['ads_read', 'leads_retrieval', 'pages_manage_metadata', 'pages_read_engagement', 'pages_manage_ads']),
   listAdAccounts: vi.fn(async () => [{ id: '111', name: 'Acct', currency: 'INR', businessId: '999' }]),
   listPages: vi.fn(async () => [{ id: '222', name: 'Page', accessToken: 'page-token' }]),
@@ -83,7 +83,7 @@ describe('gating', () => {
       updateCapiSettings(admin, { capiEnabled: false }),
     ]) expect(await code(call)).toBe('meta_ads_not_enabled');
     expect(h.queries).toEqual([]);
-    expect(graph.exchangeLoginCode).not.toHaveBeenCalled();
+    expect(graph.exchangeLoginToken).not.toHaveBeenCalled();
   });
 
   it('refuses members below admin', async () => {
@@ -97,7 +97,7 @@ describe('startConnection', () => {
   it('stores the encrypted user token on the pending row through the worker', async () => {
     h.answer = (sql) => (/INSERT INTO meta_ad_connections/.test(sql) ? [row({ status: 'pending', ad_account_id: null })] : []);
     const dto = await startConnection(admin, ' the-code ');
-    expect(graph.exchangeLoginCode).toHaveBeenCalledWith(expect.anything(), 'the-code');
+    expect(graph.exchangeLoginToken).toHaveBeenCalledWith(expect.anything(), 'the-code');
     const insert = h.queries.find((q) => /INSERT INTO meta_ad_connections/.test(q.sql))!;
     expect(insert.sql).toMatch(/ON CONFLICT \(account_id\) WHERE status <> 'disconnected' DO UPDATE/);
     expect(insert.sql).toMatch(/WHERE meta_ad_connections\.status='pending'/);
@@ -111,7 +111,7 @@ describe('startConnection', () => {
   it('refuses while an active connection exists, without exchanging the code', async () => {
     h.answer = (sql) => (/SELECT/.test(sql) && /status<>'disconnected'/.test(sql) ? [row()] : []);
     expect(await code(startConnection(admin, 'code'))).toBe('already_connected');
-    expect(graph.exchangeLoginCode).not.toHaveBeenCalled();
+    expect(graph.exchangeLoginToken).not.toHaveBeenCalled();
   });
 
   it('gates from the row re-read in the insert transaction, not the one read before the Meta calls', async () => {
@@ -141,11 +141,11 @@ describe('startConnection', () => {
   });
 
   it('maps Meta failures to fixed codes', async () => {
-    vi.mocked(graph.exchangeLoginCode).mockRejectedValueOnce(new MetaApiError('secret text', { code: 190, httpStatus: 400 }));
+    vi.mocked(graph.exchangeLoginToken).mockRejectedValueOnce(new MetaApiError('secret text', { code: 190, httpStatus: 400 }));
     expect(await code(startConnection(admin, 'code'))).toBe('token_invalid');
-    vi.mocked(graph.exchangeLoginCode).mockRejectedValueOnce(new MetaApiError('x', { code: 100, httpStatus: 400 }));
+    vi.mocked(graph.exchangeLoginToken).mockRejectedValueOnce(new MetaApiError('x', { code: 100, httpStatus: 400 }));
     expect(await code(startConnection(admin, 'code'))).toBe('meta_error');
-    expect(await code(startConnection(admin, 'x'.repeat(1025)))).toBe('invalid_request');
+    expect(await code(startConnection(admin, 'x'.repeat(4097)))).toBe('invalid_request');
   });
 });
 

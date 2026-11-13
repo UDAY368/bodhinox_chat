@@ -13,7 +13,6 @@ import { leaseFetch } from '@/lib/jobs/lease';
 import {
   META_API_VERSION,
   MetaApiError,
-  exchangeEmbeddedSignupCode,
   readMetaError,
 } from '@/lib/whatsapp/meta-api';
 import type { MetaAdsConfig } from './config';
@@ -132,14 +131,33 @@ const money = (value: unknown): number => {
 
 // ---------------------------------------------------------------- login
 
-/** Login for Business code -> user access token (Meta's OAuth code exchange). */
-export async function exchangeLoginCode(config: Pick<MetaAdsConfig, 'appId' | 'appSecret'>, code: string): Promise<{ accessToken: string }> {
-  try {
-    return await exchangeEmbeddedSignupCode({ appId: config.appId, appSecret: config.appSecret, code });
-  } catch (error) {
-    if (error instanceof MetaApiError) throw sanitize(error);
-    throw new Error('Meta did not return an access token for the login code.');
-  }
+/** A token Meta says is not a live user token of this app: treated like an expired one (code 190). */
+const notOurToken = () => new MetaApiError('Meta API error: 400', { code: 190, httpStatus: 400 });
+
+/**
+ * The Login for Business popup's short-lived user token -> a long-lived one
+ * (about 60 days). The JavaScript SDK's login code is bound to an internal
+ * redirect address the server cannot reproduce (Meta refuses its exchange with
+ * 100:36008), so the browser sends the token itself. It is accepted only when
+ * Meta's debug_token says it is valid, belongs to this app and is a user token;
+ * then Meta's own fb_exchange_token makes it long-lived (which also fails for
+ * another app's token). Both are Meta-defined exchanges that take the token in
+ * the query, the one exception to "tokens only in the Authorization header";
+ * neither URL is ever logged.
+ */
+export async function exchangeLoginToken(config: Pick<MetaAdsConfig, 'appId' | 'appSecret'>, shortToken: string): Promise<{ accessToken: string }> {
+  const appToken = `${config.appId}|${config.appSecret}`;
+  const debug = await request<{ data?: { is_valid?: unknown; app_id?: unknown; type?: unknown } }>('GET', 'debug_token', appToken,
+    { params: { input_token: shortToken } });
+  const info = debug.data;
+  if (info?.is_valid !== true || String(info.app_id) !== config.appId || (info.type !== undefined && info.type !== 'USER')) throw notOurToken();
+  const response = await leaseFetch(url('oauth/access_token', {
+    grant_type: 'fb_exchange_token', client_id: config.appId, client_secret: config.appSecret, fb_exchange_token: shortToken,
+  }), { method: 'GET', signal: AbortSignal.timeout(TIMEOUT_MS) });
+  if (!response.ok) await failure(response);
+  const data = (await response.json()) as { access_token?: unknown };
+  if (typeof data.access_token !== 'string' || !data.access_token) throw new Error('Meta did not return a long-lived access token.');
+  return { accessToken: data.access_token };
 }
 
 /** Permissions the user granted (status 'granted' only). */
