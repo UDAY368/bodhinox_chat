@@ -1689,7 +1689,8 @@
         "optOutCleared": "Descadastro do {channel} removido",
         "blocked": "Bloqueado",
         "unblocked": "Desbloqueado",
-        "templateSent": "Modelo enviado"
+        "templateSent": "Modelo enviado",
+        "templateSentNamed": "Enviou o modelo “{name}”"
       },
       "segmentsTab": {
         "hint": "Os segmentos se atualizam sozinhos quando os contatos mudam.",

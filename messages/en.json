@@ -1689,7 +1689,8 @@
         "optOutCleared": "{channel} opt-out removed",
         "blocked": "Blocked",
         "unblocked": "Unblocked",
-        "templateSent": "Template sent"
+        "templateSent": "Template sent",
+        "templateSentNamed": "Sent the template “{name}”"
       },
       "segmentsTab": {
         "hint": "Segments update on their own as contacts change.",

@@ -1689,7 +1689,8 @@
         "optOutCleared": "{channel} 수신 거부 해제됨",
         "blocked": "차단됨",
         "unblocked": "차단 해제됨",
-        "templateSent": "템플릿 보냄"
+        "templateSent": "템플릿 보냄",
+        "templateSentNamed": "템플릿 ‘{name}’ 보냄"
       },
       "segmentsTab": {
         "hint": "세그먼트는 연락처가 바뀌면 자동으로 업데이트됩니다.",

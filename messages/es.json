@@ -1689,7 +1689,8 @@
         "optOutCleared": "Se quitó la baja de {channel}",
         "blocked": "Bloqueado",
         "unblocked": "Desbloqueado",
-        "templateSent": "Plantilla enviada"
+        "templateSent": "Plantilla enviada",
+        "templateSentNamed": "Envió la plantilla «{name}»"
       },
       "segmentsTab": {
         "hint": "Los segmentos se actualizan solos cuando cambian los contactos.",
