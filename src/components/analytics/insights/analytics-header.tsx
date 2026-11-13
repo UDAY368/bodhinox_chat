@@ -22,6 +22,8 @@ import { useAnalyticsFilters } from './context';
 
 const QUICK: Exclude<Preset, 'custom'>[] = ['today', '7d', '30d', '90d'];
 const CALENDAR: Exclude<Preset, 'custom'>[] = ['this_week', 'last_week', 'this_month', 'last_month'];
+/** Presets whose range ends today (so the shown end day is the workspace's today). */
+const ENDS_TODAY = new Set(['today', '7d', '30d', '90d', 'this_week', 'this_month']);
 export type AnalyticsTab = 'overview' | 'conversations' | 'team' | 'campaigns';
 
 export function tabOf(pathname: string): AnalyticsTab {
@@ -97,7 +99,7 @@ export function AnalyticsHeader() {
   const custom = range.preset === 'custom';
   const day = (d: string) => format.dateTime(new Date(`${d}T00:00:00Z`), { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
   const customLabel = custom && range.from && range.to ? (range.from === range.to ? day(range.from) : `${day(range.from)} – ${day(range.to)}`) : tr('custom');
-  const today = shown?.range.endDay && !custom ? shown.range.endDay : browserToday();
+  const today = shown?.range.endDay && ENDS_TODAY.has(shown.range.preset ?? '') ? shown.range.endDay : browserToday();
 
   return (
     <div className="space-y-3">

@@ -39,7 +39,7 @@ export async function adminSession(request: Request, mutation: boolean) {
   const session = await requireSession(request);
   if (mutation) await assertMutation(request, session);
   if (!hasMinRole(session.role, 'admin')) throw new ForbiddenError();
-  const limit = checkRateLimit(`analyticsSavedReports:${session.userId}`, { limit: mutation ? 20 : 60, windowMs: 60_000 });
+  const limit = checkRateLimit(`analyticsSavedReports:${mutation ? 'write' : 'read'}:${session.userId}`, { limit: mutation ? 20 : 60, windowMs: 60_000 });
   return { session, limited: limit.success ? null : rateLimitResponse(limit) };
 }
 

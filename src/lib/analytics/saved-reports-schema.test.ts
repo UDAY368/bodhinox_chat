@@ -10,7 +10,7 @@ import checksums from '../../../prisma/migration-checksums.json';
 import { RUN_KINDS } from './report-kinds';
 import { SAVED_CHANNELS, SAVED_FORMATS, SAVED_GROUPS, SAVED_METRICS, SAVED_RANGES } from './saved-report-shape';
 
-const NAMES = ['20261114007000_analytics_saved_reports', '20261114007100_analytics_saved_reports_validate', '20261114007200_report_schedules_saved_report_idx'];
+const NAMES = ['20261122000000_analytics_saved_reports', '20261122000100_analytics_saved_reports_validate', '20261122000200_report_schedules_saved_report_idx'];
 const sql = (name: string) => readFileSync(join(process.cwd(), 'prisma', 'migrations', name, 'migration.sql'), 'utf8')
   .replace(/\r\n/g, '\n').replace(/--[^\n]*/g, '');
 const [create, validate, index] = NAMES.map(sql);

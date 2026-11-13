@@ -56,7 +56,7 @@ export function StatRow({ stats, loading }: { stats: Stat[]; loading?: boolean }
         const body = (
           <>
             <small className="truncate text-xs font-medium text-muted-foreground">{s.label}</small>
-            {loading ? <Skeleton className="h-7 w-20" /> : <strong className="text-[21px] leading-tight font-bold tracking-tight whitespace-nowrap text-foreground tabular-nums sm:text-2xl">{s.value}</strong>}
+            {loading ? <Skeleton className="h-7 w-20" /> : <strong className="text-[21px] leading-tight font-bold tracking-tight [overflow-wrap:anywhere] text-foreground tabular-nums sm:text-2xl">{s.value}</strong>}
             {!loading && s.delta && <em className={cn('text-xs font-semibold not-italic tabular-nums', toneClass[s.delta.tone])}>{s.delta.text}</em>}
           </>
         );

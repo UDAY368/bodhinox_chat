@@ -15,8 +15,8 @@
 -- reads), two new report_schedules columns, and the report_runs and
 -- report_schedules kind checks widened to allow 'saved_report'. The widened
 -- checks and the new constraints are NOT VALID here and validated in
--- 20261114007100; the one-schedule-per-report index is built CONCURRENTLY in
--- 20261114007200.
+-- 20261122000100; the one-schedule-per-report index is built CONCURRENTLY in
+-- 20261122000200.
 SET LOCAL lock_timeout = '5s';
 
 CREATE TABLE analytics_saved_reports (

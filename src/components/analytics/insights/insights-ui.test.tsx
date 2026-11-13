@@ -46,8 +46,8 @@ describe('analytics redesign helpers', () => {
 
   it('links each automation to where it is edited, and maps paths to tabs', () => {
     expect(automationHref({ id: 'f', kind: 'flow', channel: 'any' })).toBe('/flows/f');
-    expect(automationHref({ id: 'r', kind: 'rule', channel: 'instagram' })).toBe('/instagram/automations/r');
-    expect(automationHref({ id: 'r', kind: 'rule', channel: 'whatsapp' })).toBe('/whatsapp/automations/r');
+    expect(automationHref({ id: 'r', kind: 'rule', channel: 'instagram' })).toBe('/instagram/automations/r/edit');
+    expect(automationHref({ id: 'r', kind: 'rule', channel: 'whatsapp' })).toBe('/whatsapp/automations/r/edit');
     expect(automationHref({ id: 's', kind: 'sequence', channel: 'instagram' })).toBe('/instagram/sequences/s');
     expect(tabOf('/analytics')).toBe('overview');
     expect(tabOf('/analytics/team')).toBe('team');

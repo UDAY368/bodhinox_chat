@@ -42,7 +42,7 @@ const ratio = (part: number, whole: number) => (whole > 0 ? (part / whole) * 100
 /** Where an automation is edited. */
 export function automationHref(a: Pick<AutomationRunRow, 'id' | 'kind' | 'channel'>): string {
   if (a.kind === 'flow') return `/flows/${a.id}`;
-  if (a.kind === 'rule') return `${channelPath(a.channel === 'instagram' ? 'instagram' : 'whatsapp', 'automations')}/${a.id}`;
+  if (a.kind === 'rule') return channelPath(a.channel === 'instagram' ? 'instagram' : 'whatsapp', 'automations', a.id);
   return a.channel === 'instagram' ? `/instagram/sequences/${a.id}` : '/automation';
 }
 
@@ -184,7 +184,7 @@ function BroadcastDialog({ broadcast: b, onClose }: { broadcast: Broadcast; onCl
     STEPS.map((k) => [ts(k), b[k], ratio(b[k], b.sent) == null ? '' : `${(ratio(b[k], b.sent) as number).toFixed(1)}%`]));
   return (
     <Dialog open onOpenChange={(o) => { if (!o) onClose(); }}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>{b.name}</DialogTitle>
           <DialogDescription>

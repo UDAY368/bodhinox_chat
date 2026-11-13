@@ -1,4 +1,4 @@
--- Validates the constraints 20261114007000 added NOT VALID. Every existing
+-- Validates the constraints 20261122000000 added NOT VALID. Every existing
 -- report_runs and report_schedules row already satisfies them (the kind lists
 -- only grew, minute_local defaults to 0, and no row names a saved report yet).
 SET LOCAL lock_timeout = '5s';

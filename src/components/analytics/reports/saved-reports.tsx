@@ -491,7 +491,11 @@ function ScheduleDialog({ report, onClose, onSaved }: { report: SavedReportView;
       try {
         const res = await authFetch('/api/account/members', { cache: 'no-store' });
         const members = res.ok ? (await json<{ members: Member[] }>(res)).members ?? [] : [];
-        if (!cancelled) setAdmins(members.filter((m) => m.role === 'owner' || m.role === 'admin'));
+        if (cancelled) return;
+        const eligible = members.filter((m) => m.role === 'owner' || m.role === 'admin');
+        setAdmins(eligible);
+        // A recipient who is no longer an admin has no checkbox; drop them so the save is not refused.
+        if (eligible.length) setRecipients((list) => list.filter((id) => eligible.some((m) => m.user_id === id)));
       } catch {
         if (!cancelled) setAdmins([]);
       }
