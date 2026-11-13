@@ -4429,7 +4429,10 @@
       "connections": "Meetings & shipping",
       "instagram": "Instagram",
       "privacy": "Privacy & access",
-      "conversion-events": "Conversion events"
+      "conversion-events": "Conversion events",
+      "workspace": "Workspace",
+      "integrations": "Integrations",
+      "audit-log": "Audit log"
     },
     "groups": {
       "account": "Account",
@@ -5770,7 +5773,8 @@
       "cancel": "Cancel",
       "recent": "Last 30 days",
       "loadFailed": "Couldn’t load conversion events."
-    }
+    },
+    "unsavedChanges": "Unsaved changes"
   },
   "SignupPage": {
     "passwordsMismatch": "Passwords do not match",
@@ -13732,6 +13736,179 @@
       "loadFailed": "Could not load these settings.",
       "retry": "Try again",
       "loading": "Loading"
+    }
+  },
+  "SettingsRedesign": {
+    "saveBar": {
+      "label": "Unsaved changes",
+      "unsaved": "Unsaved changes",
+      "discard": "Discard",
+      "save": "Save changes",
+      "leaveConfirm": "You have unsaved changes. Leave this section and discard them?"
+    },
+    "profile": {
+      "language": "Language",
+      "languageHint": "The language Bodhinox shows for you.",
+      "languageWorkspace": "Workspace default ({language})",
+      "languageDefault": "Workspace default",
+      "languageFailed": "Could not save your language."
+    },
+    "workspace": {
+      "title": "Workspace",
+      "description": "Details that apply to the whole team.",
+      "loadFailed": "Could not load the workspace settings.",
+      "loading": "Loading",
+      "adminsOnly": "Only admins and owners can change these settings.",
+      "name": "Workspace name",
+      "nameHint": "Your team sees this name",
+      "timezoneHint": "Used for working hours and reports",
+      "language": "Default language",
+      "languageHint": "For members who have not chosen their own",
+      "languageUnset": "Not set (app default)",
+      "copyMonday": "Copy Monday to weekdays",
+      "copied": "Monday copied to Tuesday through Friday",
+      "hoursHint": "Outside these hours, customers get your after-hours reply.",
+      "checkFields": "Check the marked fields",
+      "saveFailed": "Could not save the workspace settings.",
+      "saved": "Changes saved",
+      "errors": {
+        "nameRequired": "Enter a workspace name",
+        "closeAfterOpen": "Closing time must be after opening time"
+      }
+    },
+    "notifications": {
+      "checkFields": "Check the marked fields",
+      "saved": "Changes saved",
+      "push": "Push",
+      "pushFor": "Push for {event}",
+      "pushUnavailable": "Push notifications are not set up on this server yet.",
+      "pushTitle": "Bodhinox",
+      "pushBody": "You have a new notification",
+      "pushOn": "Push is on for this browser",
+      "pushOff": "Push is off for this browser",
+      "pushDenied": "The browser blocked notifications. Allow them in the site settings, then try again.",
+      "pushUnsupported": "This browser cannot receive push notifications.",
+      "pushFailed": "Could not turn on push for this browser.",
+      "quietTitle": "Quiet hours",
+      "quietPause": "Pause email and push",
+      "quietPauseHint": "In-app notifications still collect quietly.",
+      "quietBetween": "Quiet between",
+      "quietZone": "Times in {zone}",
+      "quietStart": "Quiet hours start",
+      "quietEnd": "Quiet hours end",
+      "and": "and",
+      "sameTimes": "Choose two different times",
+      "quietMentions": "Let mentions through",
+      "quietMentionsHint": "A teammate who mentions you can still reach you.",
+      "deviceTitle": "This browser",
+      "thisBrowser": "Push on this browser",
+      "thisBrowserOn": "{count, plural, one {On. This is your only device.} other {On. # devices get your push notifications.}}",
+      "thisBrowserOff": "Turn on to get push notifications here, even when Bodhinox is closed.",
+      "turnOn": "Turn on",
+      "turnOff": "Turn off",
+      "tryIt": "Try it",
+      "tryItHint": "Sends a sample notification to this browser.",
+      "sendTest": "Send a test",
+      "testSent": "Test sent. It should appear in a moment.",
+      "testBody": "This is a test notification.",
+      "testShown": "Test notification shown",
+      "testNeedsPermission": "Turn on push or browser notifications first.",
+      "testFailed": "Could not send the test notification."
+    },
+    "audit": {
+      "description": "Who changed what, and when. Entries show identifiers and counts, never message content.",
+      "export": "Export",
+      "nothingToExport": "There is nothing to export",
+      "exported": "{count, plural, one {# event exported} other {# events exported}}",
+      "exportedTruncated": "The first {count} events were exported. Narrow the filters to export the rest.",
+      "exportFailed": "Could not export the audit log.",
+      "search": "Search events",
+      "person": "Filter by person",
+      "everyone": "Everyone",
+      "categories": "Categories",
+      "moreFilters": "More filters",
+      "noMatch": "No events match",
+      "noMatchHint": "Try another word or clear the filters.",
+      "clear": "Clear filters",
+      "loading": "Loading",
+      "shown": "{count, plural, one {# event shown} other {# events shown}}",
+      "chips": {
+        "all": "All",
+        "team": "Team",
+        "channels": "Channels",
+        "billing": "Billing",
+        "security": "Security",
+        "integrations": "Integrations",
+        "settings": "Settings",
+        "other": "Other"
+      }
+    },
+    "team": {
+      "tabs": "Team sections",
+      "members": "Members",
+      "groups": "Groups",
+      "permissions": "Permissions",
+      "seats": "{used} of {total} seats used",
+      "seatsOnPlan": "{used} of {total} seats used on the {plan} plan"
+    },
+    "channels": {
+      "tabs": "Channels",
+      "overview": "Overview",
+      "whatsapp": "WhatsApp",
+      "instagram": "Instagram"
+    },
+    "integrations": {
+      "title": "Integrations",
+      "description": "Connect the tools you already use.",
+      "connected": "Connected",
+      "attention": "Needs attention",
+      "disconnected": "Disconnected",
+      "notConnected": "Not connected",
+      "manage": "Manage",
+      "setUp": "Set up",
+      "manageApp": "Manage {app}",
+      "apps": {
+        "shopify": {
+          "name": "Shopify",
+          "text": "Sync your store, orders and abandoned carts."
+        },
+        "woocommerce": {
+          "name": "WooCommerce",
+          "text": "Bring in orders from your WordPress shop."
+        },
+        "razorpay": {
+          "name": "Razorpay",
+          "text": "Send payment links and track payments."
+        },
+        "zoom": {
+          "name": "Zoom",
+          "text": "Add meeting links to booked appointments."
+        },
+        "shiprocket": {
+          "name": "Shiprocket",
+          "text": "Create shipments and send tracking updates."
+        },
+        "sheets": {
+          "name": "Google Sheets",
+          "text": "Add rows to a sheet from your flows."
+        },
+        "webhooks": {
+          "name": "Webhooks",
+          "text": "Send events to your own systems as they happen."
+        }
+      }
+    },
+    "quickReplies": {
+      "search": "Search quick replies",
+      "noMatch": "Nothing matches",
+      "noMatchHint": "Try a different word.",
+      "clear": "Clear search"
+    },
+    "languages": {
+      "en": "English",
+      "es": "Spanish (Español)",
+      "ko": "Korean (한국어)",
+      "pt": "Portuguese (Português)"
     }
   }
 }

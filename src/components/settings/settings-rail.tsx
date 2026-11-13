@@ -6,6 +6,8 @@ import { useTranslations } from 'next-intl';
 import type { LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
+  isRailSection,
+  railSection,
   RAIL_GROUPS,
   SECTION_META,
   SETTINGS_SECTIONS,
@@ -56,6 +58,7 @@ export function SettingsRail({
   extraItems = [],
   onSelectExtra,
   hidden,
+  unsaved,
 }: {
   active: SettingsSection | string;
   onSelect: (section: SettingsSection) => void;
@@ -64,6 +67,8 @@ export function SettingsRail({
   onSelectExtra?: (id: string) => void;
   /** Sections not shown, e.g. the tabs of a channel the workspace does not use (hiddenSections). */
   hidden?: ReadonlySet<SettingsSection>;
+  /** Sections with unsaved changes; the rail marks them with a dot. */
+  unsaved?: ReadonlySet<string>;
 }) {
   const t = useTranslations('Settings');
   const tChannels = useTranslations('Channels.settings');
@@ -91,9 +96,13 @@ export function SettingsRail({
       )}
     >
       {RAIL_GROUPS.map(({ label, group }) => {
+        // A section shown inside another (WhatsApp inside Channels) has no entry of its own.
         const items = SETTINGS_SECTIONS.filter(
-          (s) => SECTION_META[s].group === group && !hidden?.has(s),
+          (s) => SECTION_META[s].group === group && !hidden?.has(s) && isRailSection(s),
         );
+        const activeEntry = (SETTINGS_SECTIONS as readonly string[]).includes(active)
+          ? railSection(active as SettingsSection)
+          : active;
         return (
           <div
             key={group}
@@ -107,7 +116,8 @@ export function SettingsRail({
             {items.map((s) => {
               const meta = SECTION_META[s];
               const Icon = meta.icon;
-              const isActive = s === active;
+              const isActive = s === activeEntry;
+              const isUnsaved = unsaved?.has(s) ?? false;
               return (
                 <button
                   key={s}
@@ -119,6 +129,11 @@ export function SettingsRail({
                 >
                   <Icon className={iconClass(isActive)} />
                   <span className="flex-1">{s === 'channels' ? tChannels('title') : t(`sections.${s}`)}</span>
+                  {isUnsaved ? (
+                    <span className="size-2 shrink-0 rounded-full bg-primary" title={t('unsavedChanges')}>
+                      <span className="sr-only">{t('unsavedChanges')}</span>
+                    </span>
+                  ) : null}
                   {hints?.[s] != null ? (
                     <span
                       className={cn(
