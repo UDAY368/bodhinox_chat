@@ -23,7 +23,10 @@ import { Fragment, useCallback, useEffect, useId, useMemo, useRef, useState } fr
 import { useTranslations } from 'next-intl';
 import { paletteBlock, useWorkspaceCapabilities } from './palette';
 import {
+  ArrowDown,
+  ArrowUp,
   CircleAlert,
+  Copy,
   Plus,
   Trash2,
   ChevronDown,
@@ -76,11 +79,11 @@ import { applyTriggerType } from './triggers/ig-trigger-config';
 import { entryLocked } from './nodes/ig-node-config';
 import { NodeKeySelect } from './forms/fields';
 import { IssueLine } from './validation-panel';
-import { commentTriggerOf, useFlowEditor, type BuilderState } from './flow-editor-state';
+import { commentTriggerOf, uniqueNodeKey, useFlowEditor, type BuilderState } from './flow-editor-state';
 import { VersionBar } from './version-bar';
 import { splitFlow } from './split-flow';
 import { DryRunPanel } from './dry-run-panel';
-import { groupSteps } from './basic-steps';
+import { duplicateStep, groupSteps, moveStepDown, moveStepUp, stepMoves } from './basic-steps';
 import { PhoneBubble } from './flow-preview';
 import { PhoneFrame } from './phone-frame';
 import { useAuth } from '@/hooks/use-auth';
@@ -153,11 +156,27 @@ export function FlowBuilder() {
   const entryIsLocked = entryLocked(commentTriggerOf(state), state.nodes, state.entry_node_id);
   const nodeIssues = (key: string) => issues.filter((i) => i.scope === 'node' && i.node_key === key);
   const triggerIssues = issues.filter((i) => i.scope === 'trigger');
-  const row = (node: BuilderNode) => (
-    <StepRow key={node.node_key} node={node} active={picked === node.node_key} isEntry={state.entry_node_id === node.node_key}
+  const row = (node: BuilderNode, index?: number) => (
+    <StepRow key={node.node_key} node={node} index={index} active={picked === node.node_key} isEntry={state.entry_node_id === node.node_key}
       hasError={nodeIssues(node.node_key).some((i) => i.severity === 'error')}
       onSelect={() => setPicked(node.node_key)} onRemove={() => removeNode(node.node_key)} t={t} />
   );
+  // Move up / down swap a step with its neighbour in a straight line; Duplicate copies it right after itself.
+  const moves = selected ? stepMoves(state, selected.node_key) : { up: false, down: false };
+  const move = (key: string, direction: 'up' | 'down') => setState((s) => {
+    const moved = direction === 'up' ? moveStepUp(s, key) : moveStepDown(s, key);
+    return moved ? { ...s, ...moved } : s;
+  }, { key: null });
+  const duplicate = (key: string) => {
+    const copyKey = uniqueNodeKey(key, state.nodes);
+    setState((s) => {
+      const copied = duplicateStep(s, key, copyKey);
+      return copied ? { ...s, ...copied } : s;
+    }, { key: null });
+    setPicked(copyKey);
+    toast.success(tb('stepDuplicated'));
+  };
+  const position = selected ? connected.indexOf(selected) : -1;
 
   return (
     // Sized by its own width (the shell's Preview panel can sit beside it), not the window's.
@@ -165,7 +184,7 @@ export function FlowBuilder() {
     <div className="flex min-h-full flex-col @3xl:h-full @3xl:flex-row" data-testid="basic-builder">
       {/* Left: the steps, as the customer meets them. */}
       <nav aria-label={tb('stepsNav')} className="border-border bg-card flex shrink-0 flex-col gap-4 border-b p-4 @3xl:w-80 @3xl:overflow-y-auto @3xl:border-r @3xl:border-b-0">
-        <StepGroup title={tb('startingStep')}>
+        <StepGroup title={tb('whenCaption')}>
           <button type="button" onClick={() => setPicked(null)} aria-current={selected ? undefined : 'true'}
             className={cn(STEP_ROW, 'w-full text-left', !selected && STEP_ROW_ACTIVE)}>
             <span className="bg-primary-soft text-primary flex h-7 w-7 shrink-0 items-center justify-center rounded-md"><Zap className="h-3.5 w-3.5" /></span>
@@ -176,12 +195,12 @@ export function FlowBuilder() {
             {triggerIssues.some((i) => i.severity === 'error') && <CircleAlert className="h-3.5 w-3.5 shrink-0 text-red-400" aria-label={tb('hasErrors')} />}
           </button>
         </StepGroup>
-        <StepGroup title={tb('connected', { count: connected.length })}>
-          {connected.length ? connected.map(row) : <p className="text-muted-foreground px-1 text-xs">{tb('connectedEmpty')}</p>}
+        <StepGroup title={tb('thenCaption', { count: connected.length })}>
+          {connected.length ? connected.map((node, i) => row(node, i + 1)) : <p className="text-muted-foreground px-1 text-xs">{tb('connectedEmpty')}</p>}
         </StepGroup>
         {unconnected.length > 0 && (
           <StepGroup title={tb('unconnected', { count: unconnected.length })} hint={tb('unconnectedHint')}>
-            {unconnected.map(row)}
+            {unconnected.map((node) => row(node))}
           </StepGroup>
         )}
         <AddNodeButton types={nodeTypes} onAdd={addNode} t={t} />
@@ -209,6 +228,12 @@ export function FlowBuilder() {
               onUpdateConfig={(patch) => updateNodeConfig(selected.node_key, patch)}
               onRemove={() => removeNode(selected.node_key)}
               onSetEntry={entryIsLocked ? undefined : () => setState((s) => ({ ...s, entry_node_id: selected.node_key }))}
+              position={position >= 0 ? { index: position + 1, total: connected.length } : null}
+              canMoveUp={moves.up}
+              canMoveDown={moves.down}
+              onMoveUp={() => move(selected.node_key, 'up')}
+              onMoveDown={() => move(selected.node_key, 'down')}
+              onDuplicate={selected.node_type === 'start' || selected.node_type === 'ig_private_reply' ? undefined : () => duplicate(selected.node_key)}
               t={t}
             />
           ) : (
@@ -249,8 +274,10 @@ function StepGroup({ title, hint, children }: { title: string; hint?: string; ch
 }
 
 /** One step in the list: select it, or delete it from its hover tool. */
-function StepRow({ node, active, isEntry, hasError, onSelect, onRemove, t }: {
+function StepRow({ node, index, active, isEntry, hasError, onSelect, onRemove, t }: {
   node: BuilderNode;
+  /** Its number in the "Then…" list (absent for a step nothing leads to). */
+  index?: number;
   active: boolean;
   isEntry: boolean;
   hasError: boolean;
@@ -259,6 +286,7 @@ function StepRow({ node, active, isEntry, hasError, onSelect, onRemove, t }: {
   t: ReturnType<typeof useTranslations>;
 }) {
   const tSummary = useTranslations('Flows.summary');
+  const tb = useTranslations('Flows.builder.basic');
   const label = t(`nodes.${node.node_type}.label`);
   const summary = summarizeNode(node, tSummary);
   return (
@@ -273,7 +301,8 @@ function StepRow({ node, active, isEntry, hasError, onSelect, onRemove, t }: {
           </span>
           {summary && <span className="text-muted-foreground block truncate text-xs">{summary}</span>}
         </span>
-        {hasError && <CircleAlert className="h-3.5 w-3.5 shrink-0 text-red-400" />}
+        {hasError ? <CircleAlert className="h-3.5 w-3.5 shrink-0 text-red-400" aria-label={tb('hasErrors')} />
+          : index !== undefined && <span className="text-muted-foreground shrink-0 text-xs font-semibold tabular-nums" aria-hidden>{index}</span>}
       </button>
       {/* Floats over the row's end on hover or focus, so names keep their full width. Touch
           screens have no hover, so they delete from the editor's footer instead. */}
@@ -636,6 +665,12 @@ function StepEditor({
   onUpdateConfig,
   onRemove,
   onSetEntry,
+  position,
+  canMoveUp,
+  canMoveDown,
+  onMoveUp,
+  onMoveDown,
+  onDuplicate,
   t,
 }: {
   node: BuilderNode;
@@ -648,9 +683,20 @@ function StepEditor({
   onRemove: () => void;
   /** Absent while the entry is locked (a comment flow starts with its private reply). */
   onSetEntry?: () => void;
+  /** "Step 2 of 5" in the Then… list; null for a step nothing leads to. */
+  position: { index: number; total: number } | null;
+  canMoveUp: boolean;
+  canMoveDown: boolean;
+  onMoveUp: () => void;
+  onMoveDown: () => void;
+  /** Absent for a step a flow has only one of (start, private reply). */
+  onDuplicate?: () => void;
   t: ReturnType<typeof useTranslations>;
 }) {
+  const tb = useTranslations('Flows.builder.basic');
   const c = nodeColors(node.node_type);
+  const tool = 'text-muted-foreground hover:bg-muted hover:text-foreground inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-primary disabled:pointer-events-none disabled:opacity-40';
+  const label = t(`nodes.${node.node_type}.label`);
   return (
     <section
       aria-label={t(`nodes.${node.node_type}.label`)}
@@ -661,18 +707,39 @@ function StepEditor({
         isFlashed && 'ring-primary ring-offset-background ring-2 ring-offset-2'
       )}
     >
-      <div className="border-border flex items-center gap-3 border-b px-4 py-3" style={{ background: c.soft }}>
+      <div className="border-border flex flex-wrap items-center gap-x-3 gap-y-2 border-b px-4 py-3" style={{ background: c.soft }}>
         <NodeIconChip type={node.node_type} size={32} iconSize={16} />
         <div className="min-w-0 flex-1">
           <h2 className="flex items-center gap-2 text-sm font-semibold">
-            <span className="truncate" style={{ color: c.text }}>{t(`nodes.${node.node_type}.label`)}</span>
+            <span className="truncate" style={{ color: c.text }}>{label}</span>
             {isEntry && (
               <Badge variant="outline" className="border-primary/40 bg-primary/10 text-primary text-[10px]">{t('badgeEntry')}</Badge>
             )}
           </h2>
-          <p className="text-muted-foreground truncate text-xs">{t(`nodes.${node.node_type}.blurb`)}</p>
+          <p className="text-muted-foreground truncate text-xs">
+            {position ? tb('stepOf', { index: position.index, total: position.total }) : t(`nodes.${node.node_type}.blurb`)}
+          </p>
         </div>
-        <code className="bg-muted text-muted-foreground rounded px-1.5 py-0.5 text-[10px]">{node.node_key}</code>
+        <code className="bg-muted text-muted-foreground hidden max-w-[10rem] truncate rounded px-1.5 py-0.5 text-[10px] @lg:inline">{node.node_key}</code>
+        {/* Move up / Move down / Duplicate / Delete, as in the prototype's step header. */}
+        <div role="toolbar" aria-label={tb('stepTools', { step: label })} className="flex items-center gap-0.5">
+          <button type="button" className={tool} onClick={onMoveUp} disabled={!canMoveUp}
+            aria-label={tb('moveUp')} title={canMoveUp ? tb('moveUp') : tb('cantMove')}>
+            <ArrowUp className="h-4 w-4" />
+          </button>
+          <button type="button" className={tool} onClick={onMoveDown} disabled={!canMoveDown}
+            aria-label={tb('moveDown')} title={canMoveDown ? tb('moveDown') : tb('cantMove')}>
+            <ArrowDown className="h-4 w-4" />
+          </button>
+          <button type="button" className={tool} onClick={onDuplicate} disabled={!onDuplicate}
+            aria-label={tb('duplicateStep')} title={tb('duplicateStep')}>
+            <Copy className="h-4 w-4" />
+          </button>
+          <button type="button" className={cn(tool, 'hover:bg-red-500/10 hover:text-red-400')} onClick={onRemove}
+            aria-label={t('removeNode')} title={t('removeNode')}>
+            <Trash2 className="h-4 w-4" />
+          </button>
+        </div>
       </div>
       <div className="px-4 py-4">
         <NodeConfigWithAdvanced node={node} allNodes={allNodes} onUpdate={onUpdate} onUpdateConfig={onUpdateConfig} t={t} />
@@ -684,17 +751,12 @@ function StepEditor({
           </div>
         )}
       </div>
-      <div className="border-border flex items-center justify-between border-t px-3 py-3">
-        {!isEntry && onSetEntry ? (
+      {/* Delete sits in the header's tools (every screen, touch included). */}
+      {!isEntry && onSetEntry && (
+        <div className="border-border flex items-center border-t px-3 py-3">
           <Button variant="ghost" size="sm" onClick={onSetEntry}>{t('setAsEntry')}</Button>
-        ) : (
-          <span />
-        )}
-        <Button variant="ghost" size="sm" onClick={onRemove} className="text-red-400 hover:bg-red-500/10 hover:text-red-300">
-          <Trash2 className="h-3.5 w-3.5" />
-          {t('removeNode')}
-        </Button>
-      </div>
+        </div>
+      )}
     </section>
   );
 }

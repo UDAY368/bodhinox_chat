@@ -32,9 +32,9 @@ test('an agent builds a flow in the Simple builder: steps list, editor and phone
   // The first step added becomes the first step, in one undo step: one undo removes it entirely.
   await steps.getByRole('button', { name: 'Add node' }).click();
   await page.getByRole('menuitem', { name: 'Send message' }).click();
-  await expect(steps.getByText('Steps (1)')).toBeVisible();
+  await expect(steps.getByText('Then… (1)')).toBeVisible();
   await page.getByRole('button', { name: 'Undo' }).click();
-  await expect(steps.getByText('Steps (0)')).toBeVisible();
+  await expect(steps.getByText('Then… (0)')).toBeVisible();
   await expect(steps.getByText(/Not connected/)).toHaveCount(0);
   await steps.getByRole('button', { name: 'Add node' }).click();
   await page.getByRole('menuitem', { name: 'Send message' }).click();
@@ -42,7 +42,7 @@ test('an agent builds a flow in the Simple builder: steps list, editor and phone
   await expect(editor).toBeVisible();
   await expect(editor.getByText('Entry')).toBeVisible();
   await editor.getByLabel('Text sent to the customer').fill('Hello from the simple builder');
-  await expect(steps.getByText('Steps (1)')).toBeVisible();
+  await expect(steps.getByText('Then… (1)')).toBeVisible();
   await expect(steps.getByText('Hello from the simple builder')).toBeVisible();
   await expect(page.getByTestId('step-phone')).toContainText('Hello from the simple builder');
 
@@ -60,7 +60,7 @@ test('an agent builds a flow in the Simple builder: steps list, editor and phone
   const firstKey = (await steps.locator('[data-step]').first().getAttribute('data-step'))!;
   await keyField.fill(firstKey);
   await expect(keyField).toHaveValue(secondKey);
-  await expect(steps.getByText('Steps (1)')).toBeVisible();
+  await expect(steps.getByText('Then… (1)')).toBeVisible();
   await expect(steps.getByText('Not connected (1)')).toBeVisible();
 
   // Its hover tool deletes it; the editor falls back to the trigger.
