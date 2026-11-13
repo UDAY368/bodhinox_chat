@@ -1052,6 +1052,33 @@ export interface DefaultReplyTriggerConfig {
   frequency: TriggerFrequency;
 }
 
+// ------------------------------------------------------------ Automation-list triggers
+
+/**
+ * The inbound message that created the contact (their first ever, on either
+ * channel). Narrower than first_inbound_message, which also fires for a known
+ * contact's first message on a new number or account. No settings.
+ */
+export type ContactCreatedTriggerConfig = Record<string, never>;
+
+/**
+ * A tag newly added to the contact (by an agent, a rule, a flow step or the
+ * API) while a conversation is known; the run starts on that conversation.
+ * Not an inbound message: the tag writer (contacts/tag-events.ts) starts it.
+ */
+export interface TagAddedTriggerConfig {
+  tag_id: string;
+}
+
+/**
+ * Any inbound message while the workspace is outside its working hours
+ * (Settings › Inbox). With no working hours set it never fires. `frequency`
+ * limits it per contact, like the default reply.
+ */
+export interface OutsideHoursTriggerConfig {
+  frequency: TriggerFrequency;
+}
+
 // ------------------------------------------------------------ Stage 3 triggers
 
 /**
@@ -1123,7 +1150,10 @@ export type FlowTriggerConfig =
   | { trigger_type: "ig_story_mention"; config: IgStoryMentionTriggerConfig }
   | { trigger_type: "ig_live_comment"; config: IgLiveCommentTriggerConfig }
   | { trigger_type: "ig_ref"; config: IgRefTriggerConfig }
-  | { trigger_type: "ig_share_to_story"; config: IgShareToStoryTriggerConfig };
+  | { trigger_type: "ig_share_to_story"; config: IgShareToStoryTriggerConfig }
+  | { trigger_type: "contact_created"; config: ContactCreatedTriggerConfig }
+  | { trigger_type: "tag_added"; config: TagAddedTriggerConfig }
+  | { trigger_type: "outside_hours"; config: OutsideHoursTriggerConfig };
 
 export type FlowTriggerType = FlowTriggerConfig["trigger_type"];
 
@@ -1142,6 +1172,9 @@ export const FLOW_TRIGGER_TYPES = Object.keys({
   ig_live_comment: true,
   ig_ref: true,
   ig_share_to_story: true,
+  contact_created: true,
+  tag_added: true,
+  outside_hours: true,
 } satisfies Record<FlowTriggerType, true>) as FlowTriggerType[];
 
 /**

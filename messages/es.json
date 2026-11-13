@@ -2406,7 +2406,10 @@
       "unifiedDescription": "Todas las automatizaciones de WhatsApp e Instagram en un solo lugar. Elige el canal al crear una.",
       "channelFilterLabel": "Canal",
       "allChannels": "Todos los canales",
-      "chooseChannel": "Canal de la nueva automatización"
+      "chooseChannel": "Canal de la nueva automatización",
+      "triggerContactCreated": "Se crea un contacto nuevo",
+      "triggerTagAdded": "Se agrega una etiqueta",
+      "triggerOutsideHours": "Mensaje fuera del horario laboral"
     },
     "edit": {
       "notFound": "Flujo no encontrado.",
@@ -2454,7 +2457,16 @@
         "unconnectedHint": "Ningún paso lleva a estos, así que nunca se ejecutan. Conéctalos desde otro paso o elimínalos.",
         "phoneTitle": "Lo que ve el cliente",
         "phonePick": "Elige un paso para verlo como lo verá el cliente.",
-        "phoneNothing": "Este paso no envía nada visible para el cliente. Funciona en segundo plano."
+        "phoneNothing": "Este paso no envía nada visible para el cliente. Funciona en segundo plano.",
+        "whenCaption": "Cuando…",
+        "thenCaption": "Entonces… ({count})",
+        "stepOf": "Paso {index} de {total}",
+        "stepTools": "Herramientas de {step}",
+        "moveUp": "Subir",
+        "moveDown": "Bajar",
+        "cantMove": "Solo se puede mover un paso que está en línea recta. Cambia sus enlaces para reordenar una rama.",
+        "duplicateStep": "Duplicar paso",
+        "stepDuplicated": "Paso duplicado. Deshacer elimina la copia."
       },
       "triggerTitle": "Disparador",
       "whenLabel": "Cuando…",
@@ -3079,7 +3091,10 @@
         "characters": "{count, plural, =1 {# carácter} other {# caracteres}}",
         "charactersLeft": "{count, plural, =1 {Queda # carácter} other {Quedan # caracteres}}",
         "bytesLeft": "{count, plural, =1 {Queda # byte} other {Quedan # bytes}}"
-      }
+      },
+      "triggerContactCreatedTitle": "Se crea un contacto nuevo",
+      "triggerTagAddedTitle": "Se agrega una etiqueta",
+      "triggerOutsideHoursTitle": "Mensaje fuera del horario laboral"
     },
     "validation": {
       "noIssues": "Sin problemas. Listo para activar.",
@@ -3483,6 +3498,22 @@
         "needsAi": "Activa la IA en este espacio de trabajo para coincidir por significado.",
         "tooLong": "Usa hasta 300 caracteres.",
         "required": "Describe el significado que debe reconocer."
+      },
+      "contactCreated": {
+        "help": "Empieza con el primer mensaje de alguien que aún no era contacto."
+      },
+      "tagAdded": {
+        "help": "Empieza cuando se agrega esta etiqueta a un contacto, ya sea una persona, una regla, un flujo o la API.",
+        "tag": "Etiqueta",
+        "pick": "Elige una etiqueta",
+        "none": "Aún no hay etiquetas. Crea una en Configuración › Campos y etiquetas.",
+        "loading": "Cargando etiquetas…",
+        "missing": "Una etiqueta que se eliminó",
+        "conversationNote": "Se ejecuta en la conversación donde se agregó la etiqueta, o en la conversación más reciente del contacto. Un contacto sin conversación se omite."
+      },
+      "outsideHours": {
+        "help": "Empieza cuando llega un mensaje fuera de tu <link>horario laboral</link>.",
+        "noHours": "Si no hay horario laboral configurado, nunca empieza."
       }
     },
     "nodes": {
@@ -3878,7 +3909,10 @@
         "ig_story_mention": "Mención en historia",
         "ig_live_comment": "Comentario en directo",
         "ig_ref": "Enlace ref",
-        "ig_share_to_story": "Compartir en historia"
+        "ig_share_to_story": "Compartir en historia",
+        "contact_created": "Contacto nuevo",
+        "tag_added": "Etiqueta agregada",
+        "outside_hours": "Fuera de horario"
       }
     },
     "canvas": {
@@ -7318,7 +7352,9 @@
       "storefrontNeedsNext": "Conecta el paso que sigue cuando se envía el enlace.",
       "capabilityUnavailable": "El paso \"{key}\" necesita {capability}, que este espacio de trabajo aún no ha configurado.",
       "crossFlowLoop": "Los pasos Conectar flujo forman un bucle sin respuesta del cliente: {flows}.",
-      "stage5Pending": "Este paso o ajuste aún no está disponible. Quítalo para publicar el flujo."
+      "stage5Pending": "Este paso o ajuste aún no está disponible. Quítalo para publicar el flujo.",
+      "triggerTagRequired": "Elige la etiqueta que inicia este flujo.",
+      "triggerBadFrequency": "Elige con qué frecuencia puede empezar para una misma persona."
     },
     "automations": {
       "needsStep": "las automatizaciones activas necesitan al menos un paso",

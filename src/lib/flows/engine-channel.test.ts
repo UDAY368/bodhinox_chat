@@ -169,7 +169,9 @@ vi.mock("./admin-client", () => {
   return { databaseAdmin: () => ({ from: (t: string) => builder(t), rpc: () => Promise.resolve({ error: null }) }) };
 });
 
-import { dispatchInboundToFlows, flowListensOnConversation, igProfileValue, matchReplyId, startCommentFlow, startFlowById } from "./engine";
+import {
+  dispatchInboundToFlows, flowListensOnConversation, igProfileValue, matchReplyId, startCommentFlow, startFlowById, startTagAddedFlows,
+} from "./engine";
 
 const FLOW = {
   id: "flow-1", account_id: "acct-1", user_id: "u-1", status: "active", trigger_type: "keyword",
@@ -776,5 +778,112 @@ describe("Instagram Phase 1 engine (Stage 2C)", () => {
     expect(h.igCards).not.toHaveBeenCalled();
     expect(h.dispatch).not.toHaveBeenCalled();
     expect(result.outcome).toBe("handed_off");
+  });
+});
+
+describe("automation list event triggers (contact_created, outside_hours, tag_added)", () => {
+  const send = (over: { isNewContact?: boolean; isFirstInboundMessage?: boolean; text?: string } = {}) => dispatchInboundToFlows({
+    accountId: "acct-1", userId: "u-1", contactId: "ct-1", conversationId: "cv-1",
+    message: { kind: "text", text: over.text ?? "hello", meta_message_id: "m-ev" },
+    isFirstInboundMessage: over.isFirstInboundMessage ?? false, isNewContact: over.isNewContact,
+  });
+  // Closed every day: a schedule with one minute open on Monday (nothing else), in UTC.
+  const CLOSED = { timezone: "UTC", working_hours: { mon: [{ start: "00:00", end: "00:01" }] } };
+  const OPEN = { timezone: "UTC", working_hours: Object.fromEntries(["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
+    .map((day) => [day, [{ start: "00:00", end: "24:00" }]])) };
+
+  it("contact_created starts only on the message that created the contact, ahead of first_inbound_message", async () => {
+    h.state.flows = [
+      { ...FLOW, id: "flow-first", trigger_type: "first_inbound_message", trigger_config: {}, created_at: "2025-01-01T00:00:00Z" },
+      { ...FLOW, id: "flow-new", trigger_type: "contact_created", trigger_config: {} },
+    ];
+    await send({ isFirstInboundMessage: true });
+    expect(runs().map((r) => r.row.flow_id)).toEqual(["flow-first"]);
+    h.state.inserted = [];
+    h.state.insertedRun = null;
+    await send({ isFirstInboundMessage: true, isNewContact: true });
+    expect(runs().map((r) => r.row.flow_id)).toEqual(["flow-new"]);
+  });
+
+  it("contact_created never starts for a known contact", async () => {
+    h.state.flows = [{ ...FLOW, trigger_type: "contact_created", trigger_config: {} }];
+    expect((await send()).outcome).toBe("no_match");
+    expect(runs()).toHaveLength(0);
+  });
+
+  it("outside_hours starts while the workspace is closed, and never while open", async () => {
+    h.state.flows = [{ ...FLOW, trigger_type: "outside_hours", trigger_config: { frequency: "every_time" } }];
+    h.rawRow = OPEN;
+    expect((await send()).outcome).toBe("no_match");
+    h.rawRow = CLOSED;
+    // Monday 00:00 is the only open minute: any other time is closed.
+    vi.useFakeTimers({ now: new Date("2026-11-11T22:00:00Z"), toFake: ["Date"] });
+    try {
+      await send();
+    } finally {
+      vi.useRealTimers();
+    }
+    expect(runs()).toHaveLength(1);
+  });
+
+  it("outside_hours never fires without working hours (always open)", async () => {
+    h.state.flows = [{ ...FLOW, trigger_type: "outside_hours", trigger_config: { frequency: "every_time" } }];
+    h.rawRow = { timezone: "UTC", working_hours: {} };
+    expect((await send()).outcome).toBe("no_match");
+  });
+
+  it("a keyword outranks outside_hours", async () => {
+    h.rawRow = CLOSED;
+    h.state.flows = [
+      { ...FLOW, id: "flow-away", trigger_type: "outside_hours", trigger_config: { frequency: "every_time" }, created_at: "2025-01-01T00:00:00Z" },
+      { ...FLOW, id: "flow-k", trigger_type: "keyword", trigger_config: { keywords: ["price"] } },
+    ];
+    await send({ text: "price please" });
+    expect(runs().map((r) => r.row.flow_id)).toEqual(["flow-k"]);
+  });
+
+  it("tag_added never starts from a message", async () => {
+    h.state.flows = [{ ...FLOW, trigger_type: "tag_added", trigger_config: { tag_id: "00000000-0000-4000-8000-000000000001" } }];
+    expect((await send()).outcome).toBe("no_match");
+  });
+
+  const TAG = "00000000-0000-4000-8000-000000000001";
+  const TAG_VERSION = {
+    id: "ver-t", account_id: "acct-1", flow_id: "flow-1", version: 1, trigger_type: "tag_added",
+    trigger_config: { tag_id: TAG }, entry_node_id: "start", fallback_policy: {}, channel_scope: "whatsapp",
+    nodes: SEND_NODES.map(({ node_key, node_type, config }) => ({ node_key, node_type, config })),
+    published_by: null, published_at: "2026-01-01T00:00:00Z",
+  };
+
+  it("startTagAddedFlows starts the live flow for that tag on the conversation, carrying the chain depth", async () => {
+    h.versions.set("ver-t", TAG_VERSION);
+    h.state.flows = [{ ...FLOW, trigger_type: "tag_added", trigger_config: { tag_id: TAG }, published_version_id: "ver-t", channel_scope: "whatsapp" }];
+    const result = await startTagAddedFlows({ accountId: "acct-1", contactId: "ct-1", conversationId: "cv-1", tagId: TAG, chainDepth: 2 });
+    expect(result).toEqual({ outcome: "started", flowId: "flow-1" });
+    expect(runs()).toHaveLength(1);
+    expect(runs()[0].row.vars).toMatchObject({ _tag_chain_depth: 2 });
+    expect(h.waText).toHaveBeenCalledTimes(1);
+  });
+
+  it("startTagAddedFlows ignores another tag, a draft trigger the live version does not have, and a flow on another channel", async () => {
+    h.versions.set("ver-t", { ...TAG_VERSION, trigger_config: { tag_id: "00000000-0000-4000-8000-000000000002" } });
+    h.state.flows = [{ ...FLOW, trigger_type: "tag_added", trigger_config: { tag_id: TAG }, published_version_id: "ver-t", channel_scope: "whatsapp" }];
+    expect((await startTagAddedFlows({ accountId: "acct-1", contactId: "ct-1", conversationId: "cv-1", tagId: TAG, chainDepth: 1 })).outcome).toBe("none");
+    h.versions.set("ver-t", { ...TAG_VERSION, trigger_type: "keyword", trigger_config: { keywords: ["hi"] } });
+    expect((await startTagAddedFlows({ accountId: "acct-1", contactId: "ct-1", conversationId: "cv-1", tagId: TAG, chainDepth: 1 })).outcome).toBe("none");
+    h.versions.set("ver-t", { ...TAG_VERSION, channel_scope: "instagram" });
+    expect((await startTagAddedFlows({ accountId: "acct-1", contactId: "ct-1", conversationId: "cv-1", tagId: TAG, chainDepth: 1 })).outcome).toBe("none");
+    // A never-published flow (no version) does not start either.
+    h.state.flows = [{ ...FLOW, trigger_type: "tag_added", trigger_config: { tag_id: TAG } }];
+    expect((await startTagAddedFlows({ accountId: "acct-1", contactId: "ct-1", conversationId: "cv-1", tagId: TAG, chainDepth: 1 })).outcome).toBe("none");
+    expect(runs()).toHaveLength(0);
+  });
+
+  it("startTagAddedFlows answers conflict while a run is active on the conversation (one run per conversation)", async () => {
+    h.versions.set("ver-t", TAG_VERSION);
+    h.state.flows = [{ ...FLOW, trigger_type: "tag_added", trigger_config: { tag_id: TAG }, published_version_id: "ver-t", channel_scope: "whatsapp" }];
+    h.state.activeRuns = [{ id: "run-busy", account_id: "acct-1", flow_id: "flow-1", contact_id: "ct-1", conversation_id: "cv-1", status: "active" }];
+    expect((await startTagAddedFlows({ accountId: "acct-1", contactId: "ct-1", conversationId: "cv-1", tagId: TAG, chainDepth: 1 })).outcome).toBe("conflict");
+    expect(runs()).toHaveLength(0);
   });
 });

@@ -91,5 +91,30 @@ export async function addContactTagAndDispatch(
     },
   });
 
+  await startTagFlow(input, depth + 1);
+
   return { added: true, dispatched: true };
+}
+
+/**
+ * The tag_added flow trigger: a flow starts on the conversation the tag was
+ * added in, or (from the contacts page or the API) the contact's most recently
+ * active conversation; a contact with none starts no flow. Never throws: the
+ * tag is already written and the rules above already ran. Ids only in the log.
+ */
+async function startTagFlow(input: AddContactTagAndDispatchInput, chainDepth: number): Promise<void> {
+  const conversationId = input.context?.conversation_id;
+  try {
+    // Loaded on use: the flow engine imports this module (its tag steps write through it).
+    const { startTagAddedFlows } = await import('@/lib/flows/engine');
+    await startTagAddedFlows({
+      accountId: input.accountId,
+      contactId: input.contactId,
+      conversationId,
+      tagId: input.tagId,
+      chainDepth,
+    });
+  } catch {
+    console.error('[flows] tag_added start failed', { accountId: input.accountId, contactId: input.contactId, tagId: input.tagId });
+  }
 }

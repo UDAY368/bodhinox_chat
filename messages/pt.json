@@ -2406,7 +2406,10 @@
       "unifiedDescription": "Todas as automações de WhatsApp e Instagram em um só lugar. Escolha o canal ao criar uma.",
       "channelFilterLabel": "Canal",
       "allChannels": "Todos os canais",
-      "chooseChannel": "Canal da nova automação"
+      "chooseChannel": "Canal da nova automação",
+      "triggerContactCreated": "Um novo contato é criado",
+      "triggerTagAdded": "Uma tag é adicionada",
+      "triggerOutsideHours": "Mensagem fora do horário de atendimento"
     },
     "edit": {
       "notFound": "Fluxo não encontrado.",
@@ -2454,7 +2457,16 @@
         "unconnectedHint": "Nenhuma etapa leva a estas, então elas nunca rodam. Conecte-as a partir de outra etapa ou exclua-as.",
         "phoneTitle": "O que o cliente vê",
         "phonePick": "Escolha uma etapa para vê-la como o cliente verá.",
-        "phoneNothing": "Esta etapa não envia nada visível ao cliente. Ela funciona nos bastidores."
+        "phoneNothing": "Esta etapa não envia nada visível ao cliente. Ela funciona nos bastidores.",
+        "whenCaption": "Quando…",
+        "thenCaption": "Então… ({count})",
+        "stepOf": "Etapa {index} de {total}",
+        "stepTools": "Ferramentas de {step}",
+        "moveUp": "Mover para cima",
+        "moveDown": "Mover para baixo",
+        "cantMove": "Só uma etapa em linha reta pode ser movida. Altere os links para reordenar um ramo.",
+        "duplicateStep": "Duplicar etapa",
+        "stepDuplicated": "Etapa duplicada. Desfazer remove a cópia."
       },
       "triggerTitle": "Gatilho",
       "whenLabel": "Quando…",
@@ -3079,7 +3091,10 @@
         "characters": "{count, plural, =1 {# caractere} other {# caracteres}}",
         "charactersLeft": "{count, plural, =1 {Resta # caractere} other {Restam # caracteres}}",
         "bytesLeft": "{count, plural, =1 {Resta # byte} other {Restam # bytes}}"
-      }
+      },
+      "triggerContactCreatedTitle": "Um novo contato é criado",
+      "triggerTagAddedTitle": "Uma tag é adicionada",
+      "triggerOutsideHoursTitle": "Mensagem fora do horário de atendimento"
     },
     "validation": {
       "noIssues": "Nenhum problema. Pronto para ativar.",
@@ -3483,6 +3498,22 @@
         "needsAi": "Ative a IA neste espaço de trabalho para corresponder pelo sentido.",
         "tooLong": "Use até 300 caracteres.",
         "required": "Descreva o significado a reconhecer."
+      },
+      "contactCreated": {
+        "help": "Começa na primeira mensagem de alguém que ainda não era contato."
+      },
+      "tagAdded": {
+        "help": "Começa quando esta tag é adicionada a um contato, por uma pessoa, uma regra, um fluxo ou a API.",
+        "tag": "Tag",
+        "pick": "Escolha uma tag",
+        "none": "Ainda não há tags. Crie uma em Configurações › Campos e tags.",
+        "loading": "Carregando tags…",
+        "missing": "Uma tag que foi excluída",
+        "conversationNote": "Roda na conversa em que a tag foi adicionada, ou na conversa mais recente do contato. Um contato sem conversa é ignorado."
+      },
+      "outsideHours": {
+        "help": "Começa quando uma mensagem chega fora do seu <link>horário de atendimento</link>.",
+        "noHours": "Sem horário de atendimento configurado, nunca começa."
       }
     },
     "nodes": {
@@ -3878,7 +3909,10 @@
         "ig_story_mention": "Menção no story",
         "ig_live_comment": "Comentário na live",
         "ig_ref": "Link ref",
-        "ig_share_to_story": "Compartilhar no story"
+        "ig_share_to_story": "Compartilhar no story",
+        "contact_created": "Novo contato",
+        "tag_added": "Tag adicionada",
+        "outside_hours": "Fora do horário"
       }
     },
     "canvas": {
@@ -7318,7 +7352,9 @@
       "storefrontNeedsNext": "Conecte a etapa seguinte ao envio do link.",
       "capabilityUnavailable": "A etapa \"{key}\" precisa de {capability}, que este espaço de trabalho ainda não configurou.",
       "crossFlowLoop": "As etapas Conectar fluxo formam um ciclo sem resposta do cliente: {flows}.",
-      "stage5Pending": "Esta etapa ou configuração ainda não está disponível. Remova-a para publicar o fluxo."
+      "stage5Pending": "Esta etapa ou configuração ainda não está disponível. Remova-a para publicar o fluxo.",
+      "triggerTagRequired": "Escolha a tag que inicia este fluxo.",
+      "triggerBadFrequency": "Escolha com que frequência isso pode começar para a mesma pessoa."
     },
     "automations": {
       "needsStep": "automações ativas precisam de pelo menos uma etapa",

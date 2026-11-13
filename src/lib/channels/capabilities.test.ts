@@ -88,10 +88,11 @@ describe('channel capabilities', () => {
 
   it('builds each channel flow palette from one exhaustive map', () => {
     expect(flowTriggersFor('whatsapp')).toEqual(['keyword', 'first_inbound_message', 'manual', 'template_reply', 'order_received', 'ad_click',
-      'default_reply']);
+      'default_reply', 'contact_created', 'tag_added', 'outside_hours']);
     // Stage 3: click-to-Direct ads (ad_click), Live comments and ref links; Stage 4: Share-to-Story (conversion_event also opens on Instagram).
+    // The automation list's event triggers run on both channels.
     expect(flowTriggersFor('instagram')).toEqual(['keyword', 'first_inbound_message', 'manual', 'ad_click', 'default_reply', 'ig_comment',
-      'ig_story_reply', 'ig_story_mention', 'ig_live_comment', 'ig_ref', 'ig_share_to_story']);
+      'ig_story_reply', 'ig_story_mention', 'ig_live_comment', 'ig_ref', 'ig_share_to_story', 'contact_created', 'tag_added', 'outside_hours']);
     for (const channel of CHANNELS)
       for (const trigger of FLOW_TRIGGERS_BY_CHANNEL[channel]) expect(triggerAvailableOn(trigger, channel)).toBe(true);
     // Every trigger type is offered by at least one channel.

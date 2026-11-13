@@ -1169,6 +1169,9 @@ export function describeTrigger(trigger: FlowTriggerConfig | { trigger_type: str
     return t("triggerFirstInbound");
   }
   if (type === "order_received") return t("triggerOrderReceived");
+  if (type === "contact_created") return t("triggerContactCreated");
+  if (type === "tag_added") return t("triggerTagAdded");
+  if (type === "outside_hours") return t("triggerOutsideHours");
   if (type === "ad_click") {
     const ids = Array.isArray(cfg.ad_ids) ? cfg.ad_ids.length : 0;
     return ids ? t("triggerAdClick", { count: ids }) : t("triggerAdClickAny");
