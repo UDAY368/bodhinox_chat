@@ -25,7 +25,8 @@ import { useTranslations } from "next-intl";
 interface PipelineBoardProps {
   stages: PipelineStage[];
   deals: Deal[];
-  onDealMoved: (dealId: string, newStageId: string) => void;
+  /** Moving a deal (drag and the card menu's "Move to"); omitted for viewers, who cannot move deals. */
+  onDealMoved?: (dealId: string, newStageId: string) => void;
   onAddDeal: (stageId: string) => void;
   onEditDeal: (deal: Deal) => void;
   /** The card menu's Delete (omitted for members who cannot delete). */
@@ -88,7 +89,7 @@ export function PipelineBoard({
     if (!deal || deal.stage_id === targetStageId) return;
     if (!sortedStages.some((s) => s.id === targetStageId)) return;
 
-    onDealMoved(dealId, targetStageId);
+    onDealMoved?.(dealId, targetStageId);
   }
 
   function handleDragCancel() {
@@ -126,7 +127,7 @@ export function PipelineBoard({
               onAddDeal={onAddDeal}
               onEditDeal={onEditDeal}
               stages={sortedStages}
-              onMove={(deal, stageId) => onDealMoved(deal.id, stageId)}
+              onMove={onDealMoved ? (deal, stageId) => onDealMoved(deal.id, stageId) : undefined}
               onDelete={onDeleteDeal}
               emptyText={emptyText}
             />
@@ -215,7 +216,7 @@ function StageColumn({
   onAddDeal: (stageId: string) => void;
   onEditDeal: (deal: Deal) => void;
   stages: PipelineStage[];
-  onMove: (deal: Deal, stageId: string) => void;
+  onMove?: (deal: Deal, stageId: string) => void;
   onDelete?: (deal: Deal) => void;
   emptyText?: string;
 }) {
@@ -297,19 +298,22 @@ function DraggableDealCard({
   stage: PipelineStage;
   onEdit: (deal: Deal) => void;
   stages: PipelineStage[];
-  onMove: (deal: Deal, stageId: string) => void;
+  onMove?: (deal: Deal, stageId: string) => void;
   onDelete?: (deal: Deal) => void;
 }) {
+  // Without a move handler (viewers) the card is not draggable at all.
+  const canMove = Boolean(onMove);
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: deal.id,
+    disabled: !canMove,
   });
 
   return (
     <div
       ref={setNodeRef}
-      {...listeners}
-      {...attributes}
-      style={{ opacity: isDragging ? 0.3 : 1, touchAction: "none" }}
+      {...(canMove ? listeners : {})}
+      {...(canMove ? attributes : {})}
+      style={{ opacity: isDragging ? 0.3 : 1, touchAction: canMove ? "none" : undefined }}
     >
       <DealCard deal={deal} stage={stage} onEdit={onEdit} stages={stages} onMove={onMove} onDelete={onDelete} />
     </div>

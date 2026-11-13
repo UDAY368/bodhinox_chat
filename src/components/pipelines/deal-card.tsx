@@ -59,7 +59,7 @@ export function DealCard({ deal, stage, onEdit, isOverlay, stages, onMove, onDel
           e.stopPropagation();
           onEdit(deal);
         }}
-        className={`group relative flex w-full cursor-grab flex-col gap-2 rounded-xl border border-border bg-card py-2.5 pl-3 ${showMenu ? "pr-9" : "pr-2.5"} text-left transition-[box-shadow,opacity] duration-150 focus-visible:outline-2 focus-visible:outline-primary ${
+        className={`group relative flex w-full ${isOverlay || onMove ? "cursor-grab" : "cursor-pointer"} flex-col gap-2 rounded-xl border border-border bg-card py-2.5 pl-3 ${showMenu ? "pr-9" : "pr-2.5"} text-left transition-[box-shadow,opacity] duration-150 focus-visible:outline-2 focus-visible:outline-primary ${
           isOverlay
             ? "shadow-[0_12px_32px_rgb(0_0_0/0.16)]"
             : "hover:shadow-[0_1px_2px_rgb(0_0_0/0.06),0_4px_14px_rgb(0_0_0/0.06)]"
