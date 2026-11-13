@@ -15,12 +15,6 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import {
   ArrowLeft,
   Loader2,
   Users,
@@ -29,10 +23,8 @@ import {
   Eye,
   AlertCircle,
   MessageCircle,
-  Filter,
   Download,
-  ChevronDown,
-  Trash2,
+  Copy,
   PlayCircle,
   RotateCcw,
   MousePointerClick,
@@ -47,7 +39,11 @@ import { useTranslations } from 'next-intl';
 import { useCan } from '@/hooks/use-can';
 import { numberLabel, useWhatsAppNumbers } from '@/components/settings/numbers/use-whatsapp-numbers';
 import { CampaignCostCard } from '@/components/broadcasts/campaign-cost';
-import { BROADCAST_STATUS_TONE as STATUS_TONE, StatusPill } from '@/components/broadcasts/campaign-ui';
+import { BROADCAST_STATUS_TONE as STATUS_TONE, SearchField, StatusPill } from '@/components/broadcasts/campaign-ui';
+import { BroadcastActionsMenu, primaryAction, useBroadcastActions } from '@/components/broadcasts/broadcast-actions';
+import { BroadcastMessageCard } from '@/components/broadcasts/broadcast-message-card';
+import { ChannelDot } from '@/components/broadcasts/broadcast-display';
+import { cn } from '@/lib/utils';
 
 interface StatCardProps {
   label: string;
@@ -116,14 +112,16 @@ function FunnelChart({ steps }: { steps: FunnelStep[] }) {
   );
 }
 
+// Chip order follows the prototype: furthest along first.
 const RECIPIENT_STATUSES: readonly RecipientStatus[] = [
-  'pending',
-  'sent',
-  'delivered',
-  'read',
   'replied',
+  'read',
+  'delivered',
+  'sent',
   'failed',
+  'pending',
 ];
+const RECIPIENT_PAGE = 12;
 
 /**
  * CSV export helper — RFC 4180 quoting. Quote every field so
@@ -157,6 +155,7 @@ export default function BroadcastDetailPage() {
   const params = useParams();
   const router = useRouter();
   const t = useTranslations('Broadcasts.detail');
+  const tc = useTranslations('Campaigns');
   const tStatus = useTranslations('Broadcasts.status');
   const tn = useTranslations('whatsappNumbers');
   const canSend = useCan('send-messages');
@@ -176,8 +175,9 @@ export default function BroadcastDetailPage() {
   const [statusFilter, setStatusFilter] = useState<RecipientStatus | 'all'>(
     'all',
   );
-  const [confirmDelete, setConfirmDelete] = useState(false);
-  const [deleting, setDeleting] = useState(false);
+  const [recipientQuery, setRecipientQuery] = useState('');
+  const [recipientPage, setRecipientPage] = useState(0);
+  const [statusCounts, setStatusCounts] = useState<Partial<Record<RecipientStatus, number>>>({});
   const [resumingScope, setResumingScope] = useState<
     'pending' | 'failed' | null
   >(null);
@@ -237,8 +237,11 @@ export default function BroadcastDetailPage() {
       }
       setUncertainTotal(uncertainCount);
       setSelectedUncertain(new Set());
-      setPendingCount(await countStatus('pending'));
-      setRetryableCount(Math.max(0, (await countStatus('failed')) - uncertainCount));
+      // Exact per-status counts for the recipient chips (the table loads at most 1,000 rows).
+      const tallies = Object.fromEntries(await Promise.all(RECIPIENT_STATUSES.map(async (s) => [s, await countStatus(s)] as const))) as Record<RecipientStatus, number>;
+      setStatusCounts(tallies);
+      setPendingCount(tallies.pending);
+      setRetryableCount(Math.max(0, tallies.failed - uncertainCount));
     } catch (err) {
       setError(err instanceof Error ? err.message : t('notFound'));
     } finally {
@@ -250,13 +253,15 @@ export default function BroadcastDetailPage() {
     fetchData();
   }, [fetchData]);
 
-  const filteredRecipients = useMemo(
-    () =>
-      statusFilter === 'all'
-        ? recipients
-        : recipients.filter((r) => r.status === statusFilter),
-    [recipients, statusFilter],
-  );
+  const filteredRecipients = useMemo(() => {
+    const q = recipientQuery.trim().toLowerCase();
+    return recipients.filter((r) => (statusFilter === 'all' || r.status === statusFilter) &&
+      (!q || (r.contact?.name ?? '').toLowerCase().includes(q) || (r.contact?.phone ?? '').toLowerCase().includes(q)));
+  }, [recipients, statusFilter, recipientQuery]);
+  const recipientPages = Math.max(1, Math.ceil(filteredRecipients.length / RECIPIENT_PAGE));
+  const currentRecipientPage = Math.min(recipientPage, recipientPages - 1);
+  const pagedRecipients = filteredRecipients.slice(currentRecipientPage * RECIPIENT_PAGE, (currentRecipientPage + 1) * RECIPIENT_PAGE);
+  const actions = useBroadcastActions({ onChanged: fetchData, afterDelete: () => router.push('/broadcasts') });
 
   function handleExport() {
     if (!broadcast) return;
@@ -387,26 +392,6 @@ export default function BroadcastDetailPage() {
     }
   }
 
-  async function handleDelete() {
-    setDeleting(true);
-    const db = createClient();
-    // broadcast_recipients cascades on broadcasts.id (migration 001), so a
-    // single delete is sufficient — the aggregate trigger in migration 003
-    // is defined on broadcast_recipients but fires only on its own row
-    // changes, not on a cascaded drop of the parent row.
-    const { error: delErr } = await db
-      .from('broadcasts')
-      .delete()
-      .eq('id', broadcastId);
-    setDeleting(false);
-    if (delErr) {
-      toast.error(t('toastFailedDelete', { error: delErr.message }));
-      return;
-    }
-    toast.success(t('toastDeleted'));
-    router.push('/broadcasts');
-  }
-
   if (loading) {
     return (
       <div className="flex h-64 items-center justify-center">
@@ -427,12 +412,14 @@ export default function BroadcastDetailPage() {
   }
 
   const status = getBroadcastStatus(broadcast.status);
+  const lead = primaryAction(broadcast, actions.canSend);
 
-  const notStarted = broadcast.status === 'scheduled' || broadcast.status === 'cancelled';
+  const notStarted = broadcast.status === 'scheduled' || broadcast.status === 'cancelled' || broadcast.status === 'draft';
   // A campaign whose tab went away sits in 'sending' with recipients
   // still pending and nothing left to move them. Name that state rather
   // than leaving a permanently pulsing "sending" badge.
   const isStalled = broadcast.status === 'sending' && pendingCount > 0;
+  const isPaused = broadcast.status === 'paused';
 
   const funnelSteps: FunnelStep[] = [
     { label: t('stats.sent'), value: broadcast.sent_count, color: 'bg-primary' },
@@ -464,8 +451,17 @@ export default function BroadcastDetailPage() {
               </StatusPill>
             </div>
             <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
-              <span>{t('template', { name: broadcast.template_name })}</span>
+              <span className="inline-flex items-center gap-1.5">
+                <ChannelDot channel={broadcast.channel === 'instagram' ? 'instagram' : 'whatsapp'} />
+                {broadcast.channel === 'instagram' ? tc('channels.instagram') : tc('channels.whatsapp')}
+              </span>
               <span aria-hidden>·</span>
+              {broadcast.channel !== 'instagram' && (
+                <>
+                  <span>{t('template', { name: broadcast.template_name })}</span>
+                  <span aria-hidden>·</span>
+                </>
+              )}
               {numbers.length > 1 && (() => {
                 const id = (broadcast as Broadcast & { whatsapp_config_id?: string | null }).whatsapp_config_id;
                 const n = id ? numbers.find((x) => x.id === id) : undefined;
@@ -483,49 +479,28 @@ export default function BroadcastDetailPage() {
           </div>
         </div>
 
-        {/* Delete — inline-confirm pattern matches the pipeline-settings
-            "Delete Pipeline" flow. Mid-send broadcasts can't be deleted
-            because orphaning in-flight Meta messages would leave the
-            funnel inconsistent. */}
-        {confirmDelete ? (
-          <div className="flex items-center gap-2 rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-1.5 text-sm">
-            <span className="text-red-600 dark:text-red-400">{t('deletePrompt')}</span>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setConfirmDelete(false)}
-              disabled={deleting}
-              className="h-7 border-border bg-transparent text-muted-foreground hover:bg-muted"
-            >
-              {t('cancel')}
+        {/* Lead action by status, Duplicate, and the More menu (Campaigns redesign). Delete is in the
+            menu behind a confirmation; a sending campaign must be paused before it can be deleted. */}
+        <div className="flex flex-wrap items-center gap-2">
+          {lead && (() => {
+            const Icon = actions.icon(lead);
+            return (
+              <Button size="sm" onClick={() => actions.run(lead, broadcast)} disabled={actions.busy !== null}>
+                {actions.busy === broadcast.id ? <Loader2 className="animate-spin" /> : <Icon />}
+                {actions.label(lead, broadcast)}
+              </Button>
+            );
+          })()}
+          {actions.canSend && broadcast.kind !== 'api' && (
+            <Button variant="ghost" size="sm" onClick={() => actions.run('duplicate', broadcast)}>
+              <Copy />
+              {tc('actions.duplicate')}
             </Button>
-            <Button
-              size="sm"
-              onClick={handleDelete}
-              disabled={deleting}
-              className="h-7 bg-red-600 text-white hover:bg-red-700 disabled:opacity-50"
-            >
-              {deleting ? t('deleting') : t('confirm')}
-            </Button>
-          </div>
-        ) : (
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={broadcast.status === 'sending'}
-            onClick={() => setConfirmDelete(true)}
-            title={
-              broadcast.status === 'sending'
-                ? t('cannotDeleteSending')
-                : t('deleteHover')
-            }
-            className="border-red-500/30 bg-transparent text-red-600 hover:bg-red-500/10 disabled:opacity-40 dark:text-red-400"
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-            {t('delete')}
-          </Button>
-        )}
+          )}
+          <BroadcastActionsMenu broadcast={broadcast} actions={actions} inDetail exclude={[...(lead ? [lead] : []), 'duplicate']} />
+        </div>
       </div>
+      {actions.dialogs}
 
       {/* Scheduled: when it will start, with reschedule and cancel. */}
       {broadcast.status === 'scheduled' && broadcast.scheduled_at && (
@@ -554,7 +529,13 @@ export default function BroadcastDetailPage() {
 
       {/* Resume / retry (issue #472). Only rendered when there is
           actually something outstanding. */}
-      {!notStarted && (pendingCount > 0 || retryableCount > 0) && (
+      {isPaused && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 text-sm">
+          <p className="text-foreground">{tc('pausedHint', { count: pendingCount })}</p>
+        </div>
+      )}
+
+      {!notStarted && !isPaused && (pendingCount > 0 || retryableCount > 0) && (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card p-4">
           <div className="text-sm">
             <p className="font-medium text-foreground">
@@ -743,70 +724,62 @@ export default function BroadcastDetailPage() {
         </div>
       )}
 
-      <FunnelChart steps={funnelSteps} />
+      <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_320px]">
+        <FunnelChart steps={funnelSteps} />
+        <BroadcastMessageCard broadcast={broadcast} />
+      </div>
 
       <CampaignCostCard broadcastId={broadcast.id} />
 
       {/* Recipients Table */}
       <div className="rounded-xl border border-border bg-card">
-        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-3">
-          <h2 className="text-sm font-medium text-foreground">
-            {statusFilter !== 'all'
-              ? t('recipientsHeader', { filtered: filteredRecipients.length, total: recipients.length })
-              : t('recipientsHeaderAll', { total: recipients.length })}
-          </h2>
-          <div className="flex items-center gap-2">
-            <DropdownMenu>
-              <DropdownMenuTrigger
-                render={
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="border-border text-muted-foreground hover:bg-muted"
-                  />
-                }
+        <div className="space-y-3 border-b border-border px-4 py-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-sm font-medium text-foreground">
+              {statusFilter !== 'all' || recipientQuery.trim()
+                ? t('recipientsHeader', { filtered: filteredRecipients.length, total: recipients.length })
+                : t('recipientsHeaderAll', { total: recipients.length })}
+            </h2>
+            <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
+              <SearchField
+                ariaLabel={tc('recipients.search')}
+                placeholder={tc('recipients.search')}
+                value={recipientQuery}
+                onChange={(v) => { setRecipientQuery(v); setRecipientPage(0); }}
+                className="sm:w-56"
+              />
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleExport}
+                disabled={recipients.length === 0}
+                className="border-border text-muted-foreground hover:bg-muted"
               >
-                <Filter className="h-3.5 w-3.5" />
-                {statusFilter === 'all'
-                  ? t('allStatuses')
-                  : tStatus(getRecipientStatus(statusFilter).label)}
-                <ChevronDown className="h-3 w-3" />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent className="border-border bg-popover">
-                <DropdownMenuItem
-                  onClick={() => setStatusFilter('all')}
-                  className={
-                    statusFilter === 'all' ? 'text-primary' : 'text-popover-foreground'
-                  }
+                <Download className="h-3.5 w-3.5" />
+                {t('exportCsv')}
+              </Button>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-1.5" role="group" aria-label={tc('recipients.filter')}>
+            {(['all', ...RECIPIENT_STATUSES.filter((s) => (statusCounts[s] ?? 0) > 0 || statusFilter === s)] as const).map((s) => {
+              const on = statusFilter === s;
+              const n = s === 'all' ? broadcast.total_recipients : statusCounts[s] ?? 0;
+              return (
+                <button
+                  key={s}
+                  type="button"
+                  aria-pressed={on}
+                  onClick={() => { setStatusFilter(s); setRecipientPage(0); }}
+                  className={cn(
+                    'inline-flex h-7 items-center gap-1.5 rounded-full border px-3 text-xs font-medium transition-colors duration-150 outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                    on ? 'border-primary bg-primary/10 text-primary' : 'border-border bg-card text-muted-foreground hover:text-foreground',
+                  )}
                 >
-                  {t('allStatuses')}
-                </DropdownMenuItem>
-                {RECIPIENT_STATUSES.map((s) => (
-                  <DropdownMenuItem
-                    key={s}
-                    onClick={() => setStatusFilter(s)}
-                    className={
-                      statusFilter === s
-                        ? 'text-primary'
-                        : 'text-popover-foreground'
-                    }
-                  >
-                    {tStatus(getRecipientStatus(s).label)}
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleExport}
-              disabled={recipients.length === 0}
-              className="border-border text-muted-foreground hover:bg-muted"
-            >
-              <Download className="h-3.5 w-3.5" />
-              {t('exportCsv')}
-            </Button>
+                  {s === 'all' ? t('allStatuses') : tStatus(getRecipientStatus(s).label)}
+                  <b className="tabular-nums">{n.toLocaleString()}</b>
+                </button>
+              );
+            })}
           </div>
         </div>
 
@@ -833,7 +806,7 @@ export default function BroadcastDetailPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredRecipients.map((recipient) => {
+                {pagedRecipients.map((recipient) => {
                   const rStatus = getRecipientStatus(recipient.status);
                   return (
                     <TableRow key={recipient.id} className="border-border/70 transition-colors duration-150 hover:bg-muted/60">
@@ -873,6 +846,23 @@ export default function BroadcastDetailPage() {
                 })}
               </TableBody>
             </Table>
+            <div className="flex items-center justify-between gap-2 border-t border-border px-4 py-2.5">
+              <small className="text-xs tabular-nums text-muted-foreground">
+                {tc('recipients.range', {
+                  start: currentRecipientPage * RECIPIENT_PAGE + 1,
+                  end: currentRecipientPage * RECIPIENT_PAGE + pagedRecipients.length,
+                  total: filteredRecipients.length,
+                })}
+              </small>
+              <span className="flex gap-1.5">
+                <Button variant="outline" size="sm" disabled={currentRecipientPage === 0} onClick={() => setRecipientPage(currentRecipientPage - 1)}>
+                  {tc('recipients.previous')}
+                </Button>
+                <Button variant="outline" size="sm" disabled={currentRecipientPage >= recipientPages - 1} onClick={() => setRecipientPage(currentRecipientPage + 1)}>
+                  {tc('recipients.next')}
+                </Button>
+              </span>
+            </div>
           </div>
         )}
       </div>

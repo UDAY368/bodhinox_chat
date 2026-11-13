@@ -208,4 +208,5 @@ export const BROADCAST_STATUS_TONE: Record<string, PillTone> = {
   sent: 'ok',
   failed: 'bad',
   cancelled: 'neutral',
+  paused: 'warn',
 };

@@ -1684,7 +1684,8 @@
       "read": "읽음",
       "replied": "응답함",
       "unknown": "알 수 없음",
-      "cancelled": "취소됨"
+      "cancelled": "취소됨",
+      "paused": "일시 중지됨"
     },
     "detail": {
       "backToBroadcasts": "브로드캐스트로 돌아가기",
@@ -11436,7 +11437,8 @@
       "from": "시작일",
       "to": "종료일",
       "syncFailed": "동기화를 예약하지 못했습니다. 다시 시도하세요.",
-      "retargetSaved": "세그먼트를 저장했습니다. 브로드캐스트 대상으로 선택하세요."
+      "retargetSaved": "세그먼트를 저장했습니다. 브로드캐스트 대상으로 선택하세요.",
+      "openDetails": "{name} 세부 정보 열기"
     },
     "leads": {
       "empty": "아직 잠재 고객이 없습니다.",
@@ -13732,6 +13734,172 @@
       "loadFailed": "이 설정을 불러오지 못했습니다.",
       "retry": "다시 시도",
       "loading": "불러오는 중"
+    }
+  },
+  "Campaigns": {
+    "title": "캠페인",
+    "blurbs": {
+      "broadcasts": "한 번에 많은 사람에게 메시지 하나를 보냅니다.",
+      "templates": "WhatsApp이 승인한 메시지로, 먼저 연락할 수 있습니다.",
+      "ads": "WhatsApp 또는 Instagram 채팅을 여는 광고입니다.",
+      "forms": "WhatsApp을 벗어나지 않고 작성하는 짧은 양식입니다."
+    },
+    "textMessage": "텍스트 메시지",
+    "sentProgress": "이미 발송된 대상 비율",
+    "noMatchesHint": "다른 상태나 검색어를 사용해 보세요.",
+    "clearFilters": "필터 지우기",
+    "pausedHint": "이 브로드캐스트는 일시 중지되었습니다. 아직 {count}명이 대기 중입니다. 계속 보내려면 재개하세요.",
+    "stats": {
+      "audience": "대상",
+      "sent": "발송",
+      "delivered": "전달",
+      "read": "읽음",
+      "replied": "답장"
+    },
+    "when": {
+      "draft": "아직 발송 안 됨",
+      "scheduled": "{when} 발송 예정",
+      "sending": "{when} 시작",
+      "paused": "일시 중지됨",
+      "cancelled": "취소됨",
+      "sent": "{when} 발송됨"
+    },
+    "channels": {
+      "whatsapp": "WhatsApp",
+      "instagram": "Instagram"
+    },
+    "actions": {
+      "moreFor": "{name} 추가 작업",
+      "more": "추가 작업",
+      "open": "열기",
+      "viewReport": "보고서 보기",
+      "edit": "편집",
+      "editAndSend": "편집 후 발송",
+      "reschedule": "편집 또는 일정 변경",
+      "sendNow": "지금 발송",
+      "cancelSchedule": "예약 취소",
+      "pause": "일시 중지",
+      "resume": "재개",
+      "retryFailed": "실패 건 재시도",
+      "duplicate": "복제",
+      "delete": "삭제",
+      "cancel": "취소",
+      "actionFailed": "작업에 실패했습니다. {error}",
+      "toastDeleted": "브로드캐스트가 삭제되었습니다",
+      "cannotDeleteSending": "삭제하기 전에 브로드캐스트를 일시 중지하세요.",
+      "toastUnscheduled": "예약이 취소되었습니다",
+      "toastPaused": "브로드캐스트가 일시 중지되었습니다",
+      "toastResumed": "다시 발송 중입니다",
+      "toastRetry": "실패한 수신자에게 다시 발송 중입니다",
+      "toastStarted": "발송이 시작되었습니다",
+      "confirmDeleteTitle": "브로드캐스트를 삭제할까요?",
+      "confirmDeleteBody": "\"{name}\"과(와) 보고서가 삭제됩니다.",
+      "confirmSendTitle": "지금 발송할까요?",
+      "confirmSendBody": "\"{name}\"이(가) {count}명에게 바로 발송을 시작합니다."
+    },
+    "recipients": {
+      "search": "수신자 검색",
+      "filter": "상태별 수신자 필터",
+      "range": "{total}개 중 {start}–{end}",
+      "previous": "이전",
+      "next": "다음"
+    },
+    "message": {
+      "title": "메시지",
+      "textMessage": "텍스트 메시지",
+      "yourBusiness": "내 비즈니스",
+      "empty": "메시지 내용이 없습니다.",
+      "loading": "메시지를 불러오는 중",
+      "templateMissing": "이 템플릿은 더 이상 워크스페이스에 없습니다.",
+      "customField": "사용자 지정 필드"
+    },
+    "wizard": {
+      "steps": {
+        "details": "세부 정보",
+        "message": "메시지",
+        "review": "검토"
+      },
+      "detailsTitle": "이름과 채널",
+      "detailsSubtitle": "브로드캐스트 이름을 정하고 보낼 채널을 선택하세요.",
+      "nameLabel": "이름",
+      "namePlaceholder": "예: 디왈리 할인",
+      "nameHint": "이 이름은 팀원만 볼 수 있습니다.",
+      "nameRequired": "브로드캐스트 이름을 입력하세요.",
+      "channelLabel": "채널",
+      "channelWhatsapp": "WhatsApp",
+      "channelWhatsappHint": "수신에 동의한 모든 사람에게 승인된 템플릿을 보냅니다.",
+      "channelInstagram": "Instagram",
+      "channelInstagramHint": "지난 24시간 안에 메시지를 보낸 사람에게 보냅니다.",
+      "channelInstagramOff": "Instagram 브로드캐스트를 보내려면 설정에서 Instagram을 켜세요.",
+      "back": "뒤로",
+      "next": "다음",
+      "messageTitle": "메시지 작성",
+      "messageSubtitle": "Instagram 브로드캐스트는 텍스트만 보낼 수 있습니다. 짧고 친근하게 작성하세요.",
+      "messageLabel": "메시지",
+      "insertFirstName": "이름",
+      "messagePlaceholder": "메시지를 입력하세요",
+      "messageHint": "'{first name}'을 입력하면 각 사람의 이름으로 인사합니다.",
+      "messageRequired": "메시지를 입력하세요.",
+      "preview": "미리보기",
+      "yourBusiness": "내 비즈니스",
+      "sampleName": "Priya",
+      "previewEmpty": "입력하는 동안 여기에 메시지가 표시됩니다.",
+      "reviewTitle": "검토 후 발송",
+      "reviewSubtitle": "보내기 전에 받는 사람을 확인하세요.",
+      "reviewName": "이름",
+      "reviewChannel": "채널",
+      "reviewAudience": "대상",
+      "reviewWhen": "시점",
+      "reviewNow": "지금",
+      "willGetIt": "{count, plural, other {명이 받게 됩니다}}",
+      "leftOutWindow": "{count}명 제외: 마지막 메시지가 24시간보다 오래되었습니다",
+      "leftOutRule": "Instagram은 지난 24시간 안에 메시지를 보낸 사람에게만 메시지를 허용합니다. 수신 거부했거나 차단된 연락처는 항상 제외됩니다.",
+      "countFailed": "대상 수를 계산하지 못했습니다. 뒤로 가서 다시 시도하세요.",
+      "counting": "받는 사람을 계산하는 중…",
+      "instagramNoSchedule": "Instagram 브로드캐스트는 바로 발송됩니다. 나중 시간에는 24시간 창이 닫힐 수 있습니다.",
+      "sendNow": "지금 발송",
+      "instagramReach": "명이 지난 24시간 안에 메시지를 보냈고 받게 됩니다",
+      "templateNotApproved": "아직 승인되지 않은 템플릿이라 브로드캐스트에 사용할 수 없습니다.",
+      "copyName": "{name} 사본",
+      "templateGone": "원래 템플릿이 더 이상 승인 상태가 아닙니다. 다른 템플릿을 선택하세요.",
+      "loadFailed": "복사할 브로드캐스트를 불러오지 못했습니다.",
+      "audience": {
+        "all": "모든 연락처",
+        "tags": "라벨별",
+        "customField": "사용자 지정 필드별",
+        "csv": "CSV 파일에서",
+        "segment": "세그먼트",
+        "list": "목록"
+      }
+    },
+    "templates": {
+      "category": "카테고리",
+      "allCategories": "모든 카테고리",
+      "counts": "변수 {variables}개 · 버튼 {buttons}개",
+      "use": "사용"
+    },
+    "forms": {
+      "summary": "양식 {count}개 · 게시됨 {published}개",
+      "search": "양식 검색",
+      "noMatches": "일치하는 양식이 없습니다.",
+      "searchResponses": "응답 검색",
+      "noResponseMatches": "검색과 일치하는 응답이 없습니다."
+    },
+    "adDrawer": {
+      "ad": "광고",
+      "campaign": "캠페인",
+      "rangeNote": "광고 탭에서 선택한 날짜의 합계입니다.",
+      "spend": "지출",
+      "clicks": "클릭",
+      "conversations": "대화",
+      "purchases": "구매",
+      "last14": "최근 14일",
+      "metric": "차트 지표",
+      "loadFailed": "일별 수치를 불러오지 못했습니다.",
+      "loading": "일별 수치를 불러오는 중…",
+      "chartLabel": "최근 14일 동안의 일별 {metric}, 합계 {total}",
+      "total": "합계 {total}",
+      "openInAdsManager": "광고 관리자에서 열기"
     }
   }
 }

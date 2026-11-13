@@ -756,7 +756,7 @@ export interface Deal {
 }
 
 export type BroadcastStatus =
-  'draft' | 'scheduled' | 'sending' | 'sent' | 'failed' | 'cancelled';
+  'draft' | 'scheduled' | 'sending' | 'sent' | 'failed' | 'cancelled' | 'paused';
 export type RecipientStatus =
   'pending' | 'sent' | 'delivered' | 'read' | 'replied' | 'failed';
 
@@ -775,6 +775,12 @@ export interface Broadcast {
   tracked_url?: string | null;
   /** Recipients who clicked the tracked link at least once. */
   click_count?: number;
+  /** 'whatsapp' (approved template) or 'instagram' (free text inside the 24-hour window). */
+  channel?: 'whatsapp' | 'instagram';
+  /** The Instagram message ({first name} is replaced per recipient). */
+  message_text?: string | null;
+  /** When a member paused it; null while not paused. */
+  paused_at?: string | null;
   status: BroadcastStatus;
   total_recipients: number;
   sent_count: number;

@@ -7,6 +7,9 @@ test('an agent schedules a campaign, sees when it will start and cancels it', as
   await login(page, fixtures().users.agent);
   await page.goto('/broadcasts/new');
 
+  // Details first: the name and the channel (WhatsApp by default).
+  await page.getByLabel('Name', { exact: true }).fill(name);
+  await page.getByRole('button', { name: 'Next', exact: true }).click();
   await page.getByRole('button', { name: /e2e_template/ }).click();
   await page.getByRole('button', { name: 'Next', exact: true }).click();
   await page.getByRole('button', { name: /All Contacts/ }).click();
@@ -35,7 +38,7 @@ test('the campaign list filters by status tab and name search', async ({ page })
   await page.getByRole('tab', { name: 'Cancelled' }).click();
   await page.getByLabel('Search campaigns').fill(`Scheduled ${fixtures().runId}`);
   // A retried scheduling test can leave an extra matching campaign; any one proves the filter works.
-  await expect(page.getByRole('cell', { name: new RegExp(`^Scheduled ${fixtures().runId}`) }).first()).toBeVisible();
+  await expect(page.getByRole('link', { name: new RegExp(`^Scheduled ${fixtures().runId}`) }).first()).toBeVisible();
   await page.getByRole('tab', { name: 'Sent' }).click();
   await expect(page.getByText('No campaigns match.')).toBeVisible();
 });

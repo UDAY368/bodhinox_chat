@@ -108,6 +108,26 @@ export async function cancelScheduledBroadcast(scope: TenantContext, broadcastId
   }, getWorkerPrisma());
 }
 
+/**
+ * Start a scheduled campaign now: its time and its waiting job move to now, in
+ * one transaction, so the same single job sends it (never a second one).
+ * Refused once the job has started or when it is not scheduled.
+ */
+export async function startScheduledNow(scope: TenantContext, broadcastId: string): Promise<void> {
+  await withTenant(scope, async (tx) => {
+    const rows = await tx.$queryRaw<{ id: string }[]>`
+      UPDATE broadcasts SET scheduled_at=now(), updated_at=now()
+      WHERE account_id=${scope.accountId}::uuid AND id=${broadcastId}::uuid AND status='scheduled' RETURNING id`;
+    if (!rows.length) {
+      await assertBroadcastInWorkspace(tx, scope.accountId, broadcastId);
+      throw new AuthError('Only scheduled campaigns can be started now', 409, 'conflict');
+    }
+    const moved = await tx.$executeRaw`UPDATE jobs SET run_at=now(), updated_at=now()
+      WHERE tenant_id=${scope.accountId}::uuid AND dedupe_key=${initialJob(broadcastId)} AND status='pending'`;
+    if (!moved) throw new AuthError('This campaign is already starting', 409, 'conflict');
+  }, getWorkerPrisma());
+}
+
 /** Move a scheduled campaign to a new time; refused once its job has started. */
 export async function rescheduleBroadcast(scope: TenantContext, broadcastId: string, value: unknown, now = new Date()): Promise<void> {
   const at = parseSchedule(typeof value === 'string' ? value : undefined, now);

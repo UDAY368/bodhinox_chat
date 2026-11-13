@@ -29,7 +29,7 @@ vi.mock('@/lib/channels/sender', async (importOriginal) => ({
 
 import { broadcastChannel, countInstagramAudience, createInstagramBroadcast, deliverInstagramBroadcast, IG_FAILURE } from './instagram';
 import { broadcastHalted, pauseBroadcast, unpauseBroadcast } from './pause';
-import { broadcastDispatchable, claimBroadcastStart } from './schedule';
+import { broadcastDispatchable, claimBroadcastStart, startScheduledNow } from './schedule';
 
 const configured = config({ path: '.env.test', quiet: true }).parsed;
 const ownerUrl = process.env.TEST_DATABASE_URL;
@@ -182,6 +182,21 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('Instagram broadcasts and pa
     expect(await broadcastDispatchable(A, id)).toBe(true);
     const audit = (await q("SELECT action FROM audit_logs WHERE account_id=$1 AND resource_id=$2 ORDER BY created_at", [A, id])).rows.map((r) => r.action);
     expect(audit).toEqual(['campaigns.paused', 'campaigns.resumed']);
+  });
+
+  it('starts a scheduled campaign now by moving its one waiting job, only in its own workspace', async () => {
+    const id = randomUUID();
+    await q("INSERT INTO broadcasts(id,account_id,user_id,name,template_name,status,scheduled_at) VALUES($1,$2,$3,'Later','promo','scheduled',now()+interval '2 days')", [id, A, agent]);
+    await q(`INSERT INTO jobs(type,tenant_id,payload,dedupe_key,run_at) VALUES('broadcast.dispatch',$1,$2::jsonb,$3,now()+interval '2 days')`,
+      [A, JSON.stringify({ broadcastId: id, scope: 'pending' }), `broadcast:${id}:initial`]);
+    await expect(startScheduledNow(ctxB, id)).rejects.toMatchObject({ status: 404 });
+    await startScheduledNow(ctxA, id);
+    const job = (await q('SELECT count(*)::int AS n, bool_and(run_at <= now() + interval \'1 second\') AS due FROM jobs WHERE dedupe_key=$1', [`broadcast:${id}:initial`])).rows[0];
+    expect(job).toEqual({ n: 1, due: true });
+    expect(await broadcastDispatchable(A, id)).toBe(true);
+    // Not scheduled any more (started): a second Send now is refused.
+    await q("UPDATE broadcasts SET status='sending' WHERE id=$1", [id]);
+    await expect(startScheduledNow(ctxA, id)).rejects.toMatchObject({ status: 409 });
   });
 
   it('refuses CSV audiences, empty text and roles below agent', async () => {
