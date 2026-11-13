@@ -87,6 +87,7 @@ export const CASES: Case[] = [
   // Broadcasts
   { route: 'broadcasts/[id]/schedule', method: 'PATCH', params: id('broadcastId'), body: () => ({ scheduledAt: new Date(Date.now() + 86400000).toISOString() }) },
   { route: 'broadcasts/[id]/schedule', method: 'DELETE', params: id('broadcastId') },
+  { route: 'broadcasts/[id]/pause', method: 'POST', params: id('broadcastId'), body: () => ({}) },
   { route: 'whatsapp/broadcast/[id]/resume', method: 'POST', params: id('broadcastId'), body: () => ({}) },
   { route: 'whatsapp/broadcast/[id]/reconcile', method: 'GET', params: id('broadcastId') },
   // Flows and automations
@@ -485,6 +486,7 @@ describe.skipIf(!databases)('[TEN-01][SEC-03] cross-tenant id routes', () => {
     { route: 'ai/knowledge/[id]', method: 'DELETE', as: 'agent', permission: 'ai.knowledge', params: rid('ai_knowledge_documents'), target: rid('ai_knowledge_documents') },
     { route: 'whatsapp/broadcast/[id]/resume', method: 'POST', as: 'viewer', permission: 'campaigns.send', params: id('broadcastId'), body: () => ({}), target: id('broadcastId') },
     { route: 'broadcasts/[id]/schedule', method: 'DELETE', as: 'viewer', permission: 'campaigns.send', params: id('broadcastId'), target: id('broadcastId') },
+    { route: 'broadcasts/[id]/pause', method: 'POST', as: 'viewer', permission: 'campaigns.send', params: id('broadcastId'), body: () => ({}), target: id('broadcastId') },
     { route: 'commerce/orders/[id]/offline-payment', method: 'POST', as: 'agent', permission: 'commerce.record_payments', params: id('orderId'), body: () => ({ amount: '10.00', method: 'cash', client_request_id: randomUUID() }), target: id('orderId') },
     { route: 'appointments/[id]', method: 'PATCH', as: 'viewer', permission: 'appointments.manage', params: id('appointmentId'), body: () => ({ action: 'cancel', reason: 'staff', expected_version: 1 }), target: id('appointmentId') },
     { route: 'appointments/services/[id]', method: 'PATCH', as: 'agent', permission: 'appointments.settings', params: rid('appointment_services'), body: () => ({ name: 'p15 tamper' }), target: rid('appointment_services') },

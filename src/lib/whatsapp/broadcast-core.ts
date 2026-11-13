@@ -151,6 +151,9 @@ export interface BroadcastPlan {
 
 const MAX_RECIPIENTS = 1000;
 
+/** How often (in recipients) a dispatch pass re-reads whether the campaign was paused. */
+export const STOP_CHECK_EVERY = 10;
+
 /**
  * Validate + persist a broadcast, resolving each recipient to a
  * contact. Returns a plan for {@link deliverBroadcast}. Throws
@@ -396,15 +399,21 @@ export async function deliverBroadcast(
   plan: BroadcastPlan,
   options?: {
     accountId: string; assertLease: () => void; headerMediaUrl?: string; attemptId: string; retryRejected?: boolean;
+    /** Checked between recipients; true (a member paused the campaign) ends the pass with the rest left pending. */
+    shouldStop?: () => Promise<boolean>;
   }
-): Promise<{ throttled: boolean; sent: number }> {
+): Promise<{ throttled: boolean; sent: number; stopped?: boolean }> {
   let sent = 0;
+  let index = 0;
   const tracked = trackedButtonIndex(plan.templateRow);
   // Location, offer end and coupon are the same for every recipient.
   const extras = plan.sendExtras ?? {};
   const carousel = !!plan.templateRow && templateKindOf(plan.templateRow) === 'carousel';
   const flowButtons = (plan.templateRow?.buttons ?? []).some((b) => b.type === 'FLOW');
   for (const recipient of plan.planned) {
+    // Pause is read every STOP_CHECK_EVERY recipients (and before the first), so it takes effect within seconds.
+    if (options?.shouldStop && index % STOP_CHECK_EVERY === 0 && await options.shouldStop()) return { throttled: false, sent, stopped: true };
+    index++;
     // shortcut: fixed ~6 sends/s; pace by the number's messaging tier once the health job (Phase 2c) reports it.
     if (options) await new Promise(resolve => setTimeout(resolve, 150));
     const variants = phoneVariants(recipient.phone);

@@ -9,6 +9,10 @@ const h = vi.hoisted(() => ({
   enqueued: [] as unknown[],
   steps: [] as string[],
   throttled: false,
+  stopped: false,
+  channel: 'whatsapp' as 'whatsapp' | 'instagram',
+  igPass: { sent: 1, failed: 0, remaining: 0, stopped: false },
+  igCalls: [] as unknown[][],
 }));
 
 vi.mock('@/lib/db/prisma', () => ({ getWorkerPrisma: () => ({}) }));
@@ -30,6 +34,11 @@ vi.mock('@/lib/broadcasts/schedule', () => ({
   claimBroadcastStart: async () => { h.claimed += 1; return true; },
   prepareFailedRetry: async (_account: string, _broadcast: string, retryId: string) => { h.steps.push(`prepare:${retryId}`); return 1; },
 }));
+vi.mock('@/lib/broadcasts/pause', () => ({ broadcastHalted: async () => false }));
+vi.mock('@/lib/broadcasts/instagram', () => ({
+  broadcastChannel: async () => h.channel,
+  deliverInstagramBroadcast: async (...args: unknown[]) => { h.igCalls.push(args); return h.igPass; },
+}));
 vi.mock('@/lib/whatsapp/broadcast-resume', () => ({
   planBroadcastResume: async () => { h.steps.push('plan'); if (h.planError) throw h.planError; return { plan: {}, remaining: 0 }; },
 }));
@@ -41,7 +50,11 @@ vi.mock('@/lib/whatsapp/broadcast-core', () => {
     BroadcastError,
     MAX_THROTTLE_RETRIES: 6,
     throttleDelayMs: () => 1000,
-    deliverBroadcast: async () => { h.delivered += 1; return h.throttled ? { sent: 0, throttled: true } : { sent: 1, throttled: false }; },
+    deliverBroadcast: async () => {
+      h.delivered += 1;
+      if (h.stopped) return { sent: 0, throttled: false, stopped: true };
+      return h.throttled ? { sent: 0, throttled: true } : { sent: 1, throttled: false };
+    },
     finalizeBroadcastStatus: async () => { h.finalized += 1; },
   };
 });
@@ -56,7 +69,8 @@ const job = { id: 'job-1', type: 'broadcast.dispatch', tenant_id: ACCOUNT, paylo
 
 describe('broadcast.dispatch on a disconnected number', () => {
   beforeEach(() => {
-    Object.assign(h, { planError: null, claimed: 0, delivered: 0, finalized: 0, unlocked: 0, enqueued: [], steps: [], throttled: false });
+    Object.assign(h, { planError: null, claimed: 0, delivered: 0, finalized: 0, unlocked: 0, enqueued: [], steps: [], throttled: false,
+      stopped: false, channel: 'whatsapp', igPass: { sent: 1, failed: 0, remaining: 0, stopped: false }, igCalls: [] });
   });
 
   it('holds the campaign: completes without retry, status untouched, one reason logged', async () => {
@@ -91,7 +105,8 @@ describe('broadcast.dispatch for one "Retry failed" request (audit finding 11)',
   const RETRY = '33333333-3333-4333-8333-33333333333c';
   const retryJob = { ...job, payload: { broadcastId: BROADCAST, scope: 'failed', retryId: RETRY } } as unknown as Job;
   beforeEach(() => {
-    Object.assign(h, { planError: null, claimed: 0, delivered: 0, finalized: 0, unlocked: 0, enqueued: [], steps: [], throttled: false });
+    Object.assign(h, { planError: null, claimed: 0, delivered: 0, finalized: 0, unlocked: 0, enqueued: [], steps: [], throttled: false,
+      stopped: false, channel: 'whatsapp', igPass: { sent: 1, failed: 0, remaining: 0, stopped: false }, igCalls: [] });
   });
 
   it('applies the retry generation before planning the pass', async () => {
@@ -112,5 +127,48 @@ describe('broadcast.dispatch for one "Retry failed" request (audit finding 11)',
     const [, payload] = h.enqueued[0] as [string, Record<string, unknown>];
     expect(payload).toMatchObject({ broadcastId: BROADCAST, scope: 'failed', throttles: 1 });
     expect(payload).not.toHaveProperty('retryId');
+  });
+});
+
+describe('broadcast.dispatch pause and Instagram campaigns', () => {
+  beforeEach(() => {
+    Object.assign(h, { planError: null, claimed: 0, delivered: 0, finalized: 0, unlocked: 0, enqueued: [], steps: [], throttled: false,
+      stopped: false, channel: 'whatsapp', igPass: { sent: 1, failed: 0, remaining: 0, stopped: false }, igCalls: [] });
+  });
+
+  it('a paused WhatsApp pass queues no follow-up and leaves the status alone', async () => {
+    h.stopped = true;
+    await handleJob(job);
+    expect(h.delivered).toBe(1);
+    expect(h.enqueued).toEqual([]);
+    expect(h.finalized).toBe(0);
+    expect(h.unlocked).toBe(1);
+  });
+
+  it('an Instagram campaign never plans a WhatsApp template pass', async () => {
+    h.channel = 'instagram';
+    await handleJob(job);
+    expect(h.steps).toEqual([]);
+    expect(h.delivered).toBe(0);
+    expect(h.igCalls).toHaveLength(1);
+    expect(h.igCalls[0].slice(0, 3)).toEqual([ACCOUNT, BROADCAST, 'pending']);
+    expect(h.claimed).toBe(1);
+    expect(h.finalized).toBe(1);
+    expect(h.unlocked).toBe(1);
+  });
+
+  it('an Instagram backlog queues the next pass; a paused one does not settle', async () => {
+    h.channel = 'instagram';
+    h.igPass = { sent: 1000, failed: 0, remaining: 5, stopped: false };
+    await handleJob(job);
+    expect(h.enqueued).toHaveLength(1);
+    const [type, payload] = h.enqueued[0] as [string, Record<string, unknown>];
+    expect(type).toBe('broadcast.dispatch');
+    expect(payload).toEqual({ broadcastId: BROADCAST, scope: 'pending' });
+    h.enqueued = []; h.finalized = 0;
+    h.igPass = { sent: 3, failed: 0, remaining: 7, stopped: true };
+    await handleJob(job);
+    expect(h.enqueued).toEqual([]);
+    expect(h.finalized).toBe(0);
   });
 });

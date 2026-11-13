@@ -8,6 +8,8 @@ const h = vi.hoisted(() => ({
   permissionDenied: false,
   permissionChecks: [] as unknown[][],
   recipients: [] as Record<string, unknown>[],
+  unpaused: [] as unknown[][],
+  steps: [] as string[],
 }));
 
 vi.mock('@/lib/auth/account', () => ({
@@ -49,7 +51,10 @@ vi.mock('@/lib/auth/permissions', () => ({
     if (h.permissionDenied) throw Object.assign(new Error('This feature is turned off for your role'), { status: 403 });
   },
 }));
-vi.mock('@/lib/jobs/queue', () => ({ enqueueJob: async (...args: unknown[]) => { h.enqueued.push(args); return 'job-1'; } }));
+vi.mock('@/lib/jobs/queue', () => ({ enqueueJob: async (...args: unknown[]) => { h.enqueued.push(args); h.steps.push('enqueue'); return 'job-1'; } }));
+vi.mock('@/lib/broadcasts/pause', () => ({
+  unpauseBroadcast: async (...args: unknown[]) => { h.unpaused.push(args); h.steps.push('unpause'); return true; },
+}));
 
 import { POST } from './route';
 import { UNCERTAIN_SEND_MESSAGE } from '@/lib/whatsapp/broadcast-core';
@@ -174,5 +179,37 @@ describe('POST /api/whatsapp/broadcast/[id]/resume confirmation count (audit fin
   it('answers 0 when nothing is in scope', async () => {
     h.recipients = [row('sent')];
     expect(await (await resume('failed')).json()).toMatchObject({ resuming: 0, remaining: 0 });
+  });
+});
+
+describe('POST /api/whatsapp/broadcast/[id]/resume for paused and Instagram campaigns', () => {
+  beforeEach(() => {
+    h.enqueued = []; h.numbers = [connected]; h.permissionDenied = false; h.permissionChecks = []; h.unpaused = []; h.steps = [];
+    h.recipients = [{ broadcast_id: 'b-1', status: 'pending', outcome_uncertain_at: null }];
+  });
+
+  it('puts a paused campaign back to sending before queueing its pass, in the caller tenant', async () => {
+    h.broadcast = { id: 'b-1', status: 'paused', scheduled_at: null, whatsapp_config_id: A };
+    expect((await resume()).status).toBe(202);
+    expect(h.unpaused).toEqual([[{ accountId: 'acct', userId: 'u-1', role: 'agent' }, 'b-1']]);
+    expect(h.steps).toEqual(['unpause', 'enqueue']);
+  });
+
+  it('never unpauses when campaigns.send is turned off', async () => {
+    h.broadcast = { id: 'b-1', status: 'paused', scheduled_at: null, whatsapp_config_id: A };
+    h.permissionDenied = true;
+    expect((await resume()).status).toBe(403);
+    expect(h.unpaused).toEqual([]);
+    expect(h.enqueued).toEqual([]);
+  });
+
+  it('does not need a WhatsApp number for an Instagram campaign and never forwards header media', async () => {
+    h.broadcast = { id: 'b-1', status: 'sending', scheduled_at: null, whatsapp_config_id: null, channel: 'instagram' };
+    h.numbers = [disconnected];
+    const res = await POST(new Request('http://localhost/api/whatsapp/broadcast/b-1/resume', {
+      method: 'POST', body: JSON.stringify({ scope: 'pending', headerMediaUrl: 'https://example.com/a.png' }),
+    }), { params: Promise.resolve({ id: 'b-1' }) });
+    expect(res.status).toBe(202);
+    expect(h.enqueued[0][1]).toEqual({ broadcastId: 'b-1', scope: 'pending' });
   });
 });
