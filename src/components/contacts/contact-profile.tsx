@@ -369,7 +369,7 @@ export function ContactProfile({ contactId }: { contactId: string }) {
         return;
       }
       toast.success(td('toastTemplateSent', { name: template.name }));
-      // Jump to the chat the send opened.
+      // Jump to the chat the send opened (the reload also shows the send on the timeline).
       const fresh = await loadOverview();
       const convo = fresh?.conversations.find((c) => c.channel === 'whatsapp');
       if (convo) router.push(conversationInboxPath('whatsapp', enabledChannels, convo.id));
@@ -519,7 +519,7 @@ export function ContactProfile({ contactId }: { contactId: string }) {
         </div>
       </header>
 
-      <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_340px]">
+      <div className="grid items-start gap-4 min-[1100px]:grid-cols-[minmax(0,1fr)_340px]">
         <div className="flex min-w-0 flex-col gap-4">
           {/* Details */}
           <section className={CARD} aria-labelledby="ct-details">
@@ -960,7 +960,7 @@ export function ContactProfile({ contactId }: { contactId: string }) {
       case 'unblocked':
         return by(t('timeline.unblocked'));
       case 'template_sent':
-        return by(t('timeline.templateSent'));
+        return by(typeof d.template === 'string' && d.template ? t('timeline.templateSentNamed', { name: d.template }) : t('timeline.templateSent'));
       default:
         return '';
     }

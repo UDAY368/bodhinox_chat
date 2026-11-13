@@ -722,10 +722,10 @@ function ContactsPeople() {
         <button
           type="button"
           onClick={() => sortBy(id)}
-          className={cn('inline-flex items-center gap-1 rounded-md hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50', on && 'text-foreground')}
+          className={cn('inline-flex max-w-full items-center gap-1 rounded-md hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50', on && 'text-foreground')}
         >
-          {label}
-          {on && (sort.dir === 'asc' ? <ArrowUp className="size-3" aria-hidden /> : <ArrowDown className="size-3" aria-hidden />)}
+          <span className="truncate">{label}</span>
+          {on && (sort.dir === 'asc' ? <ArrowUp className="size-3 shrink-0" aria-hidden /> : <ArrowDown className="size-3 shrink-0" aria-hidden />)}
         </button>
       </TableHead>
     );
@@ -1226,8 +1226,8 @@ function ContactsPeople() {
                 />
               </TableHead>
               {sortHead('name', t('tableColumns.name'))}
-              <TableHead className={cn(TH, 'hidden w-[20%] sm:table-cell')}>{tr('columns.channels')}</TableHead>
-              <TableHead className={cn(TH, 'hidden w-[15%] md:table-cell')}>{t('tableColumns.tags')}</TableHead>
+              <TableHead className={cn(TH, 'hidden w-[20%] truncate sm:table-cell')}>{tr('columns.channels')}</TableHead>
+              <TableHead className={cn(TH, 'hidden w-[15%] truncate md:table-cell')}>{t('tableColumns.tags')}</TableHead>
               {sortHead('owner', tr('columns.owner'), 'hidden w-[12%] lg:table-cell')}
               {sortHead('city', tr('columns.city'), 'hidden w-[10%] xl:table-cell')}
               {sortHead('seen', tr('columns.lastSeen'), 'hidden w-[10%] xl:table-cell')}
@@ -1312,6 +1312,26 @@ function ContactsPeople() {
                           <LeadScoreCell entry={leadScores[contact.id]} />
                         </span>
                         {sub && <span className="truncate text-xs font-normal text-muted-foreground">{sub}</span>}
+                        {/* Narrow screens: the hidden Channels and Labels columns, stacked under the name. */}
+                        {(contact.phone || contact.instagram_username || contact.opted_out_at || contact.blocked_at) && (
+                          <span className="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 text-xs font-normal text-muted-foreground sm:hidden">
+                            {(contact.phone || contact.instagram_username) && (
+                              <span className="min-w-0 truncate tabular-nums">{contact.phone || `@${contact.instagram_username}`}</span>
+                            )}
+                            {contact.opted_out_at && <span className="text-amber-700 dark:text-amber-300">{tr('badges.optedOut')}</span>}
+                            {contact.blocked_at && <span className="text-destructive">{tr('badges.blocked')}</span>}
+                          </span>
+                        )}
+                        {contact.tags && contact.tags.length > 0 && (
+                          <span className="mt-1 flex min-w-0 flex-wrap gap-1 md:hidden">
+                            {contact.tags.slice(0, 2).map((tag) => (
+                              <span key={tag.id} className="max-w-[9rem] truncate rounded-full px-2 py-px text-[11px] font-medium" style={{ backgroundColor: tag.color + '20', color: tag.color }}>
+                                {tag.name}
+                              </span>
+                            ))}
+                            {contact.tags.length > 2 && <span className="text-[11px] tabular-nums text-muted-foreground">+{contact.tags.length - 2}</span>}
+                          </span>
+                        )}
                       </span>
                     </Link>
                   </TableCell>
@@ -1390,7 +1410,7 @@ function ContactsPeople() {
                   <TableCell className="hidden truncate text-[13px] text-muted-foreground xl:table-cell">
                     {contact.city || <span aria-hidden>—</span>}
                   </TableCell>
-                  <TableCell className="hidden text-[13px] tabular-nums text-muted-foreground xl:table-cell">
+                  <TableCell className="hidden truncate text-[13px] tabular-nums text-muted-foreground xl:table-cell">
                     {contact.last_seen_at ? formatLastSeen(contact.last_seen_at, locale, tr) : <span aria-hidden>—</span>}
                   </TableCell>
                   <TableCell className="pr-3 text-right" onClick={(e) => e.stopPropagation()}>

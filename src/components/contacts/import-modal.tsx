@@ -651,9 +651,9 @@ export function ImportModal({
                   </div>
                   <ul className="max-h-32 space-y-1 overflow-y-auto text-xs">
                     {result.failedDetails.map((row, i) => (
-                      <li key={i} className="flex items-baseline gap-2 text-muted-foreground">
-                        <span className="shrink-0 font-mono text-popover-foreground">{row.name ? `${row.name} (${row.phone})` : row.phone}</span>
-                        <span className="truncate">{row.reason}</span>
+                      <li key={i} className="flex min-w-0 items-baseline gap-2 text-muted-foreground">
+                        <span className="max-w-[60%] shrink-0 truncate font-mono text-popover-foreground">{row.name ? `${row.name} (${row.phone})` : row.phone}</span>
+                        <span className="min-w-0 truncate">{row.reason}</span>
                       </li>
                     ))}
                   </ul>
