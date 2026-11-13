@@ -19538,6 +19538,14 @@
         "definition": "sent_at timestamptz"
       },
       {
+        "name": "not_before",
+        "type": "timestamptz",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "not_before timestamptz"
+      },
+      {
         "name": "outcome",
         "type": "text",
         "nullable": true,

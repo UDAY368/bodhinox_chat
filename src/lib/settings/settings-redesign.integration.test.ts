@@ -101,7 +101,7 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('settings redesign on Postgr
     expect(await deletePushSubscription(asAdmin, FCM)).toBe(false);
   });
 
-  it('queues push beside the in-app row, claims it once, and holds it back in quiet hours', async () => {
+  it('queues push beside the in-app row and holds it until quiet hours end', async () => {
     await saveNotificationPreferences(asAgent, [{ event: 'assigned_message', in_app: true, email: false, push: true }]);
     const contact = (await owner.query("INSERT INTO contacts(account_id,user_id,phone,name) VALUES($1,$2,$3,'Asha') RETURNING id",
       [accountA, adminA, `9198${seed}1`])).rows[0].id;
@@ -112,14 +112,27 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('settings redesign on Postgr
     const queued = await owner.query('SELECT count(*)::int AS n FROM notification_push_queue WHERE account_id=$1 AND sent_at IS NULL', [accountA]);
     expect(queued.rows[0].n).toBe(1);
     const calls: string[] = [];
-    // The agent's quiet hours cover the whole day: nothing is sent.
+    // The agent is inside quiet hours that end in two hours: nothing is sent, the entry waits unclaimed until they end.
+    const minute = new Date().getUTCHours() * 60 + new Date().getUTCMinutes();
+    await owner.query('UPDATE member_preferences SET quiet_enabled=true, quiet_start=$3, quiet_end=$4, quiet_time_zone=$5 WHERE account_id=$1 AND user_id=$2',
+      [accountA, agentA, (minute + 1440 - 60) % 1440, (minute + 120) % 1440, 'UTC']);
     const quiet = await sendNotificationPushes(accountA, { fetch: async (url) => { calls.push(url); return { status: 201 }; } });
-    expect(quiet).toMatchObject({ status: 'done', claimed: 1, sent: 0 });
+    expect(quiet).toMatchObject({ status: 'done', claimed: 0, sent: 0, held: 1 });
     expect(calls).toEqual([]);
-    const outcome = await owner.query('SELECT outcome FROM notification_push_queue WHERE account_id=$1', [accountA]);
-    expect(outcome.rows[0].outcome).toBe('quiet');
-    // Claimed: a retry sends nothing again.
-    expect(await sendNotificationPushes(accountA, { fetch: async () => ({ status: 201 }) })).toMatchObject({ claimed: 0 });
+    const held = (await owner.query('SELECT outcome, sent_at, not_before FROM notification_push_queue WHERE account_id=$1', [accountA])).rows[0];
+    expect(held).toMatchObject({ outcome: null, sent_at: null });
+    expect(held.not_before.getTime()).toBeGreaterThan(Date.now());
+    // Not due yet: a retry reads nothing, and the scheduler does not list the workspace.
+    expect(await sendNotificationPushes(accountA, { fetch: async () => ({ status: 201 }) })).toMatchObject({ claimed: 0, held: 0 });
+    const due = await getWorkerPrisma().$queryRaw<{ account_id: string }[]>`SELECT * FROM crm_accounts_with_pending_notification_push()`;
+    expect(due.map((r) => r.account_id)).not.toContain(accountA);
+    // Once the quiet hours are over it is claimed (once) and settled.
+    await owner.query('UPDATE member_preferences SET quiet_enabled=false WHERE account_id=$1', [accountA]);
+    const released = await sendNotificationPushes(accountA, { now: new Date(held.not_before.getTime() + 60_000), fetch: async () => ({ status: 201 }) });
+    expect(released).toMatchObject({ claimed: 1, held: 0 });
+    expect((await owner.query('SELECT outcome FROM notification_push_queue WHERE account_id=$1', [accountA])).rows[0].outcome).not.toBeNull();
+    expect(await sendNotificationPushes(accountA, { now: new Date(held.not_before.getTime() + 120_000), fetch: async () => ({ status: 201 }) }))
+      .toMatchObject({ claimed: 0 });
     // The app role cannot read the push queue at all.
     await expect(withTenant(asAgent, (tx) => tx.$queryRaw`SELECT 1 FROM notification_push_queue`)).rejects.toThrow();
   });

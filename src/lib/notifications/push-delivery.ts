@@ -10,9 +10,13 @@
  *
  * Per member, all claimed entries become one payload-free wake-up per device:
  *   - quiet hours (member_preferences, the member's own time zone) hold it
- *     back, except a mention when the member lets mentions through ('quiet');
- *   - entries already read in the app, switched off since, older than an hour,
- *     or for a member with no device are skipped ('skipped');
+ *     back, except a mention when the member lets mentions through: the entry
+ *     stays unclaimed with not_before = when the quiet hours end, and is sent
+ *     then; one that would be more than 12 hours old by then is dropped
+ *     ('quiet');
+ *   - entries already read in the app, switched off since, or for a member
+ *     with no device are skipped ('skipped'), and so are entries older than an
+ *     hour (12 hours for one released after quiet hours);
  *   - a device the push service says is gone (404/410) is deleted.
  * Nothing is scheduled while VAPID keys are not configured. Endpoints are
  * never logged.
@@ -20,12 +24,14 @@
 import { getWorkerPrisma } from '@/lib/db/prisma';
 import { withTenant } from '@/lib/db/tenant';
 import { enqueueJob } from '@/lib/jobs/queue';
-import { isQuietFor, type QuietHours } from './quiet-hours';
+import { isQuietFor, quietEndsAt, type QuietHours } from './quiet-hours';
 import { sendWebPush, vapidConfig, webPushAvailable, type PushFetch, type PushOutcome } from './web-push';
 
 export const NOTIFICATION_PUSH_JOB = 'inbox.notification_push';
 export const PUSH_SCHEDULE_CHECK_MS = 30 * 1000;
 export const PUSH_MAX_AGE_MS = 60 * 60 * 1000;
+/** A push held by quiet hours is still sent when they end, unless it is older than this by then. */
+export const PUSH_HOLD_MAX_AGE_MS = 12 * 60 * 60 * 1000;
 export const PUSH_CLAIM_LIMIT = 1000;
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -35,6 +41,8 @@ export interface PushEntry {
   user_id: string;
   event: string;
   created_at: Date;
+  /** Set once the entry was held by quiet hours (the time it was held until). */
+  not_before?: Date | null;
   read: boolean;
   wants_push: boolean;
   quiet_enabled: boolean | null;
@@ -47,6 +55,9 @@ export interface PushEntry {
 export interface PushPlan {
   /** Members to wake, each with the entries that wake-up covers. */
   send: { userId: string; entryIds: string[] }[];
+  /** Entries inside quiet hours, held until they end (left unclaimed). */
+  hold: { id: string; until: Date }[];
+  /** Entries dropped because the quiet hours outlast PUSH_HOLD_MAX_AGE_MS. */
   quiet: string[];
   skipped: string[];
 }
@@ -62,15 +73,24 @@ function quietOf(entry: PushEntry): QuietHours | null {
   };
 }
 
-/** Decide what happens to each claimed entry (pure). */
+/** Decide what happens to each pending entry (pure). */
 export function planPushes(entries: PushEntry[], now: Date): PushPlan {
-  const plan: PushPlan = { send: [], quiet: [], skipped: [] };
+  const plan: PushPlan = { send: [], hold: [], quiet: [], skipped: [] };
   const byUser = new Map<string, string[]>();
   for (const entry of entries) {
-    if (entry.read || !entry.wants_push || now.getTime() - new Date(entry.created_at).getTime() > PUSH_MAX_AGE_MS) {
+    const created = new Date(entry.created_at).getTime();
+    const quiet = quietOf(entry);
+    if (entry.read || !entry.wants_push) {
       plan.skipped.push(entry.id);
-    } else if (isQuietFor(quietOf(entry), entry.event, now)) {
+    } else if (quiet && isQuietFor(quiet, entry.event, now)) {
+      const until = quietEndsAt(quiet, now);
+      if (!until || until.getTime() - created > PUSH_HOLD_MAX_AGE_MS) plan.quiet.push(entry.id);
+      else plan.hold.push({ id: entry.id, until });
+    } else if (entry.not_before && now.getTime() - created > PUSH_HOLD_MAX_AGE_MS) {
+      // Held by quiet hours for too long: dropped, recorded as quiet.
       plan.quiet.push(entry.id);
+    } else if (!entry.not_before && now.getTime() - created > PUSH_MAX_AGE_MS) {
+      plan.skipped.push(entry.id);
     } else {
       byUser.set(entry.user_id, [...(byUser.get(entry.user_id) ?? []), entry.id]);
     }
@@ -83,6 +103,8 @@ export interface PushResult {
   status: 'unconfigured' | 'done';
   claimed: number;
   sent: number;
+  /** Entries left pending until the member's quiet hours end. */
+  held: number;
 }
 
 async function mark(accountId: string, ids: string[], outcome: 'sent' | 'quiet' | 'skipped' | 'failed'): Promise<void> {
@@ -99,31 +121,41 @@ export async function sendNotificationPushes(
 ): Promise<PushResult> {
   if (!UUID.test(accountId)) throw new Error('Invalid push account');
   const config = vapidConfig();
-  if (!config) return { status: 'unconfigured', claimed: 0, sent: 0 };
+  if (!config) return { status: 'unconfigured', claimed: 0, sent: 0, held: 0 };
   const now = options.now ?? new Date();
   const tenant = { accountId, role: 'owner' as const };
 
-  const entries = await withTenant(tenant, async (tx) => {
+  // Planned inside the claiming transaction: held entries stay unclaimed (with their release time) and the
+  // rest are claimed, together, so a crash between the two can never lose a held push.
+  const { entries, plan } = await withTenant(tenant, async (tx) => {
     const rows = await tx.$queryRaw<PushEntry[]>`
-      SELECT q.id::text AS id, q.user_id::text AS user_id, q.event, q.created_at,
+      SELECT q.id::text AS id, q.user_id::text AS user_id, q.event, q.created_at, q.not_before,
         (n.read_at IS NOT NULL) AS read, COALESCE(p.push, false) AS wants_push,
         mp.quiet_enabled, mp.quiet_start, mp.quiet_end, mp.quiet_time_zone, mp.quiet_allow_mentions
       FROM notification_push_queue q
       LEFT JOIN notifications n ON n.account_id=q.account_id AND n.id=q.notification_id
       LEFT JOIN notification_preferences p ON p.account_id=q.account_id AND p.user_id=q.user_id AND p.event=q.event
       LEFT JOIN member_preferences mp ON mp.account_id=q.account_id AND mp.user_id=q.user_id
-      WHERE q.account_id=${accountId}::uuid AND q.sent_at IS NULL
+      WHERE q.account_id=${accountId}::uuid AND q.sent_at IS NULL AND (q.not_before IS NULL OR q.not_before <= ${now})
       ORDER BY q.created_at, q.id
       LIMIT ${PUSH_CLAIM_LIMIT}
       FOR UPDATE OF q SKIP LOCKED`;
-    if (rows.length)
+    const planned = planPushes(rows, now);
+    const held = new Set(planned.hold.map((h) => h.id));
+    const claim = rows.map((row) => row.id).filter((id) => !held.has(id));
+    if (claim.length)
       await tx.$executeRaw`UPDATE notification_push_queue SET sent_at=${now}
-        WHERE account_id=${accountId}::uuid AND id = ANY(${rows.map((row) => row.id)}::uuid[]) AND sent_at IS NULL`;
-    return rows;
+        WHERE account_id=${accountId}::uuid AND id = ANY(${claim}::uuid[]) AND sent_at IS NULL`;
+    const byTime = new Map<number, string[]>();
+    for (const h of planned.hold) byTime.set(h.until.getTime(), [...(byTime.get(h.until.getTime()) ?? []), h.id]);
+    for (const [until, ids] of byTime)
+      await tx.$executeRaw`UPDATE notification_push_queue SET not_before=${new Date(until)}
+        WHERE account_id=${accountId}::uuid AND id = ANY(${ids}::uuid[]) AND sent_at IS NULL`;
+    return { entries: rows, plan: planned };
   }, getWorkerPrisma());
-  if (!entries.length) return { status: 'done', claimed: 0, sent: 0 };
+  if (!entries.length) return { status: 'done', claimed: 0, sent: 0, held: 0 };
+  const claimed = entries.length - plan.hold.length;
 
-  const plan = planPushes(entries, now);
   await mark(accountId, plan.quiet, 'quiet');
   await mark(accountId, plan.skipped, 'skipped');
 
@@ -152,7 +184,7 @@ export async function sendNotificationPushes(
     else console.error('[notifications] push not delivered', { userId, devices: devices.length });
     await mark(accountId, entryIds, delivered ? 'sent' : 'failed');
   }
-  return { status: 'done', claimed: entries.length, sent };
+  return { status: 'done', claimed, sent, held: plan.hold.length };
 }
 
 /** One push job per workspace per 30-second window; repeats are no-ops. */
