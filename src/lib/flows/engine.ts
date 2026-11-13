@@ -3781,12 +3781,15 @@ export async function startTagAddedFlows(input: {
     input.conversationId
       ? conversationQuery.eq("id", input.conversationId).maybeSingle()
       : conversationQuery.order("last_message_at", { ascending: false, nullsFirst: false }).limit(1).maybeSingle(),
-    db.from("contacts").select("id, blocked_at").eq("account_id", input.accountId).eq("id", input.contactId).maybeSingle(),
+    db.from("contacts").select("id, blocked_at, opted_out_at").eq("account_id", input.accountId).eq("id", input.contactId).maybeSingle(),
   ]);
   if (conversation.error || contact.error) throw new Error("Tag flow ownership lookup failed");
   const row = (Array.isArray(conversation.data) ? conversation.data[0] : conversation.data) as
     { id: string; channel?: string | null; whatsapp_config_id?: string | null } | null | undefined;
-  if (!row || !contact.data || (contact.data as { blocked_at?: string | null }).blocked_at) return { outcome: "none" };
+  // A tag start is business-initiated (nobody just wrote in): a blocked contact, or one who
+  // sent STOP (opted_out_at, either channel), gets no flow, like a template send.
+  const person = contact.data as { blocked_at?: string | null; opted_out_at?: string | null } | null;
+  if (!row || !person || person.blocked_at || person.opted_out_at) return { outcome: "none" };
   const channel: Channel = row.channel === "instagram" ? "instagram" : "whatsapp";
   if (channel === "instagram" && !(await instagramAutomationAllowed(input.accountId, input.contactId))) return { outcome: "none" };
 

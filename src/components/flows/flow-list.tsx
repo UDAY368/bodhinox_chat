@@ -457,7 +457,8 @@ export function FlowList({ channel }: { channel: Channel | "all" }) {
   }
 
   async function saveRename(item: AutomationItem, name: string) {
-    const error = await rename(item, name);
+    // A network failure keeps the dialog open with the same message as a refusal.
+    const error = await rename(item, name).catch(() => "");
     if (error !== null) {
       toast.error(error || tList("rename.error"));
       return;

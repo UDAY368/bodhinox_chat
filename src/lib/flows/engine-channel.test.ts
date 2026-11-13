@@ -16,6 +16,8 @@ const h = vi.hoisted(() => ({
     updates: [] as { table: string; row: Record<string, unknown> }[],
     insertedRun: null as Record<string, unknown> | null,
     conversation: { channel: "whatsapp" as string, whatsapp_config_id: null as string | null },
+    /** Extra columns on the one contact row (blocked_at, opted_out_at). */
+    contact: {} as Record<string, unknown>,
     /** The conversation channel lookup fails once a run is active (audit #48). */
     channelLookupFails: false,
     /** Only a newly inserted run's channel lookup fails (a Connect Flow target, audit #48). */
@@ -124,7 +126,7 @@ vi.mock("./admin-client", () => {
     if (table === "flows") return h.state.flows;
     if (table === "flow_nodes") return h.state.nodes;
     if (table === "conversations") return [{ id: "cv-1", account_id: "acct-1", contact_id: "ct-1", ...h.state.conversation }];
-    if (table === "contacts") return [{ id: "ct-1", account_id: "acct-1" }];
+    if (table === "contacts") return [{ id: "ct-1", account_id: "acct-1", ...h.state.contact }];
     if (table === "messages") return h.messages;
     return [];
   }
@@ -200,6 +202,7 @@ beforeEach(() => {
   h.shareFlag = false;
   h.state.activeRuns = [];
   h.state.flows = [];
+  h.state.contact = {};
   h.state.nodes = SEND_NODES;
   h.state.inserted = [];
   h.state.updates = [];
@@ -877,6 +880,17 @@ describe("automation list event triggers (contact_created, outside_hours, tag_ad
     h.state.flows = [{ ...FLOW, trigger_type: "tag_added", trigger_config: { tag_id: TAG } }];
     expect((await startTagAddedFlows({ accountId: "acct-1", contactId: "ct-1", conversationId: "cv-1", tagId: TAG, chainDepth: 1 })).outcome).toBe("none");
     expect(runs()).toHaveLength(0);
+  });
+
+  it("startTagAddedFlows starts nothing for a contact who opted out or is blocked", async () => {
+    h.versions.set("ver-t", TAG_VERSION);
+    h.state.flows = [{ ...FLOW, trigger_type: "tag_added", trigger_config: { tag_id: TAG }, published_version_id: "ver-t", channel_scope: "whatsapp" }];
+    h.state.contact = { opted_out_at: "2026-11-01T00:00:00Z" };
+    expect((await startTagAddedFlows({ accountId: "acct-1", contactId: "ct-1", conversationId: "cv-1", tagId: TAG, chainDepth: 1 })).outcome).toBe("none");
+    h.state.contact = { blocked_at: "2026-11-01T00:00:00Z" };
+    expect((await startTagAddedFlows({ accountId: "acct-1", contactId: "ct-1", conversationId: "cv-1", tagId: TAG, chainDepth: 1 })).outcome).toBe("none");
+    expect(runs()).toHaveLength(0);
+    expect(h.waText).not.toHaveBeenCalled();
   });
 
   it("startTagAddedFlows answers conflict while a run is active on the conversation (one run per conversation)", async () => {

@@ -169,6 +169,7 @@ export function FlowBuilder() {
   }, { key: null });
   const duplicate = (key: string) => {
     const copyKey = uniqueNodeKey(key, state.nodes);
+    if (!duplicateStep(state, key, copyKey)) return;
     setState((s) => {
       const copied = duplicateStep(s, key, copyKey);
       return copied ? { ...s, ...copied } : s;
