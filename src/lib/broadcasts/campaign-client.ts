@@ -24,7 +24,11 @@ function audienceBody(audience: AudienceConfig) {
 async function call<T>(url: string, init: RequestInit, fallback: string): Promise<T> {
   const response = await authFetch(url, { headers: { 'Content-Type': 'application/json' }, ...init });
   const payload = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error((payload as { error?: string }).error || fallback);
+  if (!response.ok) {
+    const body = payload as { error?: string; code?: unknown };
+    // The reason code (when the route gives one) lets the page show a translated message.
+    throw Object.assign(new Error(body.error || fallback), { code: typeof body.code === 'string' ? body.code : undefined });
+  }
   return payload as T;
 }
 

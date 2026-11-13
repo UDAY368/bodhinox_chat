@@ -14703,7 +14703,13 @@
       "confirmDeleteTitle": "브로드캐스트를 삭제할까요?",
       "confirmDeleteBody": "\"{name}\"과(와) 보고서가 삭제됩니다.",
       "confirmSendTitle": "지금 발송할까요?",
-      "confirmSendBody": "\"{name}\"이(가) {count}명에게 바로 발송을 시작합니다."
+      "confirmSendBody": "\"{name}\"이(가) {count}명에게 바로 발송을 시작합니다.",
+      "errors": {
+        "not_scheduled": "이 캠페인은 더 이상 예약 상태가 아니므로 지금 시작할 수 없습니다.",
+        "already_starting": "이 캠페인은 이미 시작되는 중입니다.",
+        "workspace_held": "워크스페이스가 정지된 동안에는 캠페인이 보류됩니다. 워크스페이스가 다시 활성화되면 발송됩니다.",
+        "job_missing": "이 캠페인은 더 이상 예약에서 시작할 수 없습니다. 지금 보내려면 복제하세요."
+      }
     },
     "recipients": {
       "search": "수신자 검색",

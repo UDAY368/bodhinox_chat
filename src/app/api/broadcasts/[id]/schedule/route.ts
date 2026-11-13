@@ -5,6 +5,7 @@
 import { NextResponse } from 'next/server';
 
 import { requireRole, toErrorResponse } from '@/lib/auth/account';
+import { AuthError } from '@/lib/auth/errors';
 import { tenantOf } from '@/lib/audience/http';
 import { requirePermission } from '@/lib/auth/permissions';
 import { cancelScheduledBroadcast, rescheduleBroadcast, startScheduledNow } from '@/lib/broadcasts/schedule';
@@ -23,6 +24,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     else await rescheduleBroadcast(tenantOf(ctx), id, body?.scheduledAt);
     return NextResponse.json({ success: true });
   } catch (error) {
+    // A refused start carries its reason code, so the page can say why in the member's language.
+    if (error instanceof AuthError && error.status === 409) return NextResponse.json({ error: error.message, code: error.code }, { status: 409 });
     return toErrorResponse(error);
   }
 }

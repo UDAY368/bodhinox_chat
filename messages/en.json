@@ -14703,7 +14703,13 @@
       "confirmDeleteTitle": "Delete broadcast?",
       "confirmDeleteBody": "\"{name}\" and its report will be removed.",
       "confirmSendTitle": "Send now?",
-      "confirmSendBody": "\"{name}\" will start sending to {count, plural, one {# person} other {# people}} right away."
+      "confirmSendBody": "\"{name}\" will start sending to {count, plural, one {# person} other {# people}} right away.",
+      "errors": {
+        "not_scheduled": "This campaign is no longer scheduled, so it cannot be started now.",
+        "already_starting": "This campaign is already starting.",
+        "workspace_held": "Campaigns are on hold while this workspace is suspended. It sends once the workspace is active again.",
+        "job_missing": "This campaign can no longer be started from its schedule. Duplicate it to send it now."
+      }
     },
     "recipients": {
       "search": "Search recipients",

@@ -14703,7 +14703,13 @@
       "confirmDeleteTitle": "Excluir transmissão?",
       "confirmDeleteBody": "\"{name}\" e o relatório dela serão removidos.",
       "confirmSendTitle": "Enviar agora?",
-      "confirmSendBody": "\"{name}\" começará a ser enviada para {count, plural, one {# pessoa} other {# pessoas}} imediatamente."
+      "confirmSendBody": "\"{name}\" começará a ser enviada para {count, plural, one {# pessoa} other {# pessoas}} imediatamente.",
+      "errors": {
+        "not_scheduled": "Esta campanha não está mais agendada, então não pode ser iniciada agora.",
+        "already_starting": "Esta campanha já está sendo iniciada.",
+        "workspace_held": "As campanhas ficam em espera enquanto este espaço de trabalho estiver suspenso. Ela será enviada quando o espaço voltar a ficar ativo.",
+        "job_missing": "Esta campanha não pode mais ser iniciada pelo agendamento. Duplique-a para enviá-la agora."
+      }
     },
     "recipients": {
       "search": "Buscar destinatários",
