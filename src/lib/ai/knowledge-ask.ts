@@ -63,8 +63,11 @@ export async function askKnowledge(ctx: { db: DataClient; accountId: string; use
   const admin = hasMinRole(ctx.role, 'admin')
   const ranked = chunks
     .filter((c) => {
-      const s = c.source_id ? byId.get(c.source_id) : undefined
-      return admin || !s || s.min_role !== 'admin'
+      if (admin) return true
+      if (!c.source_id) return true
+      // A source this member cannot read (or an admin-only one) is never shown below admin.
+      const s = byId.get(c.source_id)
+      return !!s && s.min_role !== 'admin'
     })
     .map((c) => ({ chunk: c, score: chunkScore(c) }))
     .sort((a, b) => b.score - a.score)

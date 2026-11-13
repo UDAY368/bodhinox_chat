@@ -41,7 +41,7 @@ export function SourceDialog({ state, onClose, onSaved }: {
   const [name, setName] = useState(editing?.title ?? '');
   const [pageLimit, setPageLimit] = useState('50');
   const [file, setFile] = useState<File | null>(null);
-  const [question, setQuestion] = useState(editing?.question ?? (state.kind === 'add' ? state.preset ?? '' : ''));
+  const [question, setQuestion] = useState(editing?.question ?? (state.kind === 'add' ? (state.preset ?? '').slice(0, 300) : ''));
   const [answer, setAnswer] = useState(editing?.answer ?? '');
   const [content, setContent] = useState(editing?.content ?? '');
   const [error, setError] = useState<string | null>(null);
@@ -109,7 +109,7 @@ export function SourceDialog({ state, onClose, onSaved }: {
         <DialogHeader><DialogTitle>{title}</DialogTitle></DialogHeader>
         <form className="space-y-4" noValidate onSubmit={(e) => { e.preventDefault(); void submit(); }}>
           {!editing && (
-            <div className={segmentedTrack} role="group" aria-label={t('add.modeLabel')}>
+            <div className={`${segmentedTrack} flex-wrap`} role="group" aria-label={t('add.modeLabel')}>
               {MODES.map((m) => (
                 <button key={m} type="button" aria-pressed={mode === m} className={segmentedItem(mode === m)} onClick={() => { setMode(m); setError(null); }}>
                   {t(`add.modes.${m}`)}

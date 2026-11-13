@@ -40,6 +40,12 @@ export function AgentTestPanel({ agent, onClose }: { agent: AgentView; onClose: 
 
   useEffect(() => { box.current?.scrollTo({ top: box.current.scrollHeight }); }, [turns, sending]);
   useEffect(() => { field.current?.focus(); }, [agent.id]);
+  // Below xl the panel covers the page: Escape closes it like a sheet.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && !e.defaultPrevented && !document.querySelector('[role="dialog"], [role="menu"]')) onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
 
   const reset = () => { setTurns([]); setHanded(false); setError(''); setInput(''); requestAnimationFrame(() => field.current?.focus()); };
 

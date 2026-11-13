@@ -95,7 +95,7 @@ export function AgentDialog({ open, agent, takenNames, onOpenChange, onSaved }: 
           </div>
           <div className="space-y-1.5">
             <span className="text-sm font-medium" id="agent-tone-label">{t('editor.tone')}</span>
-            <div className={segmentedTrack} role="group" aria-labelledby="agent-tone-label">
+            <div className={cn(segmentedTrack, 'flex-wrap')} role="group" aria-labelledby="agent-tone-label">
               {AGENT_TONES.map((tone) => (
                 <button key={tone} type="button" aria-pressed={form.tone === tone} className={segmentedItem(form.tone === tone)}
                   onClick={() => set('tone', tone)}>{t(`agents.tones.${tone}`)}</button>
