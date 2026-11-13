@@ -43,7 +43,7 @@ vi.mock('@/lib/auth/email', () => ({
 import { parseRange } from './range';
 import { PDF_MAX_ROWS } from './report-pdf';
 import {
-  buildReport, handleReportJob, isReportKind, KIND_MIN_ROLE, listReports, MAX_REPORT_ROWS, rate, REPORT_KINDS, ReportError,
+  buildReport, handleReportJob, isReportKind, KIND_MIN_ROLE, listReports, MAX_REPORT_ROWS, rate, REPORT_KINDS, ReportError, RUN_KINDS,
   reportFilename, requestReport, runReportSweep, toCsv,
 } from './reports';
 
@@ -368,6 +368,7 @@ describe('Phase 12: formats, scheduled delivery and share bounds', () => {
     expect(KIND_MIN_ROLE.service_summary).toBe('viewer');
     expect(KIND_MIN_ROLE.product_summary).toBe('agent');
     expect(KIND_MIN_ROLE.commerce_daily).toBe('agent');
-    expect(Object.keys(KIND_MIN_ROLE).sort()).toEqual([...REPORT_KINDS].sort());
+    expect(KIND_MIN_ROLE.saved_report).toBe('viewer');
+    expect(Object.keys(KIND_MIN_ROLE).sort()).toEqual([...RUN_KINDS].sort());
   });
 });

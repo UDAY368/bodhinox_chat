@@ -24,7 +24,9 @@ import { hasMinRole, type AccountRole } from '@/lib/auth/roles';
 import { getWorkerPrisma } from '@/lib/db/prisma';
 import { withTenant, type TenantTransaction } from '@/lib/db/tenant';
 import { addDays, localDay, localMidnight, previousCompletePeriod, workspaceTimezone, type ReportCadence } from './range';
-import { isReportFormat, isReportKind, REPORT_JOB, type ReportFormat, type ReportKind, type ReportParams } from './reports';
+import { isReportFormat, isReportKind, isRunKind, REPORT_JOB, type ReportFormat, type ReportParams, type RunKind } from './reports';
+import { SAVED_REPORT_KIND } from './report-kinds';
+import { parseSnapshot } from './saved-report-shape';
 
 export const REPORT_SCHEDULES_JOB = 'analytics.report_schedules';
 export const MAX_REPORT_SCHEDULES = 10;
@@ -55,10 +57,14 @@ export interface ScheduleActor {
 
 export interface ReportSchedule {
   id: string;
-  kind: ReportKind;
+  kind: RunKind;
   format: ReportFormat;
   cadence: ReportCadence;
   hourLocal: number;
+  /** Minutes past hourLocal (saved report schedules pick any minute; the others run on the hour). */
+  minuteLocal: number;
+  /** The saved report a 'saved_report' schedule emails, else null. */
+  savedReport: { id: string; name: string } | null;
   recipients: { userId: string; name: string | null }[];
   createdBy: { userId: string; name: string | null };
   pausedAt: string | null;
@@ -88,7 +94,7 @@ export function localHourInstant(day: string, hour: number, timezone: string): D
  * The next occurrence strictly after `now`: daily every day, weekly on Monday,
  * monthly on the 1st, at `hour` local time in the workspace timezone.
  */
-export function nextRunAt(cadence: ReportCadence, hour: number, timezone: string, now: Date = new Date()): Date {
+export function nextRunAt(cadence: ReportCadence, hour: number, timezone: string, now: Date = new Date(), minute = 0): Date {
   const today = localDay(now, timezone);
   const isCandidate = (day: string) => {
     if (cadence === 'daily') return true;
@@ -99,7 +105,7 @@ export function nextRunAt(cadence: ReportCadence, hour: number, timezone: string
   for (let i = 0; i <= 62; i++) {
     const day = addDays(today, i);
     if (!isCandidate(day)) continue;
-    const at = localHourInstant(day, hour, timezone);
+    const at = new Date(localHourInstant(day, hour, timezone).getTime() + minute * 60_000);
     if (at.getTime() > now.getTime()) return at;
   }
   throw new Error('No next schedule occurrence');
@@ -118,7 +124,7 @@ export interface ScheduleInput {
 const isCadence = (value: unknown): value is ReportCadence => typeof value === 'string' && (REPORT_CADENCES as readonly string[]).includes(value);
 const isHour = (value: unknown): value is number => Number.isInteger(value) && (value as number) >= 0 && (value as number) <= 23;
 
-function parseRecipients(value: unknown): string[] {
+export function parseRecipients(value: unknown): string[] {
   if (!Array.isArray(value) || value.length < 1 || value.length > MAX_SCHEDULE_RECIPIENTS) throw new ScheduleError('invalid_recipients', 400);
   const ids = value.map((v) => (typeof v === 'string' && UUID.test(v) ? v.toLowerCase() : null));
   if (ids.some((v) => v === null) || new Set(ids).size !== ids.length) throw new ScheduleError('invalid_recipients', 400);
@@ -126,7 +132,7 @@ function parseRecipients(value: unknown): string[] {
 }
 
 /** Every recipient must be a current admin or owner of this workspace. */
-async function assertAdminRecipients(tx: TenantTransaction, accountId: string, recipients: string[]): Promise<void> {
+export async function assertAdminRecipients(tx: TenantTransaction, accountId: string, recipients: string[]): Promise<void> {
   const rows = await tx.$queryRaw<{ user_id: string }[]>`SELECT user_id::text AS user_id FROM account_memberships
     WHERE account_id=${accountId}::uuid AND user_id = ANY(${recipients}::uuid[]) AND role IN ('owner','admin')`;
   if (rows.length !== recipients.length) throw new ScheduleError('invalid_recipients', 400);
@@ -140,13 +146,17 @@ const audit = (tx: TenantTransaction, actor: ScheduleActor, action: string, sche
   tx.$executeRaw`INSERT INTO audit_logs(account_id,user_id,action,resource_id,metadata)
     VALUES(${actor.accountId}::uuid,${actor.userId}::uuid,${action},${scheduleId},${JSON.stringify(metadata)}::jsonb)`;
 
-type ScheduleRow = {
-  id: string; kind: ReportKind; format: ReportFormat; cadence: ReportCadence; hour_local: number; recipients: string[];
+export type ScheduleRow = {
+  id: string; kind: RunKind; format: ReportFormat; cadence: ReportCadence; hour_local: number; minute_local?: number | null;
+  saved_report_id?: string | null; saved_report_name?: string | null; recipients: string[];
   created_by: string; paused_at: Date | null; pause_reason: PauseReason | null; next_run_at: Date; last_run_id: string | null;
   created_at: Date;
 };
 
-const SCHEDULE_COLUMNS = Prisma.sql`s.id::text AS id, s.kind, s.format, s.cadence, s.hour_local, s.recipients::text[] AS recipients,
+export const SCHEDULE_COLUMNS = Prisma.sql`s.id::text AS id, s.kind, s.format, s.cadence, s.hour_local, s.minute_local,
+  s.saved_report_id::text AS saved_report_id,
+  (SELECT sr.name FROM analytics_saved_reports sr WHERE sr.account_id=s.account_id AND sr.id=s.saved_report_id) AS saved_report_name,
+  s.recipients::text[] AS recipients,
   s.created_by::text AS created_by, s.paused_at, s.pause_reason, s.next_run_at, s.last_run_id::text AS last_run_id, s.created_at`;
 
 async function names(tx: TenantTransaction, ids: string[]): Promise<Map<string, string | null>> {
@@ -156,10 +166,11 @@ async function names(tx: TenantTransaction, ids: string[]): Promise<Map<string, 
   return new Map(rows.map((r) => [r.user_id, r.full_name]));
 }
 
-async function toSchedules(tx: TenantTransaction, rows: ScheduleRow[]): Promise<ReportSchedule[]> {
+export async function toSchedules(tx: TenantTransaction, rows: ScheduleRow[]): Promise<ReportSchedule[]> {
   const people = await names(tx, [...new Set(rows.flatMap((r) => [r.created_by, ...r.recipients]))]);
   return rows.map((r) => ({
-    id: r.id, kind: r.kind, format: r.format, cadence: r.cadence, hourLocal: r.hour_local,
+    id: r.id, kind: r.kind, format: r.format, cadence: r.cadence, hourLocal: r.hour_local, minuteLocal: r.minute_local ?? 0,
+    savedReport: r.saved_report_id && r.saved_report_name ? { id: r.saved_report_id, name: r.saved_report_name } : null,
     recipients: r.recipients.map((userId) => ({ userId, name: people.get(userId) ?? null })),
     createdBy: { userId: r.created_by, name: people.get(r.created_by) ?? null },
     pausedAt: r.paused_at?.toISOString() ?? null, pauseReason: r.pause_reason, nextRunAt: r.next_run_at.toISOString(),
@@ -235,7 +246,8 @@ export async function updateSchedule(actor: ScheduleActor, id: string, input: Sc
       if (!creator[0] || !['owner', 'admin'].includes(creator[0].role)) throw new ScheduleError('creator_lost_access', 409);
     }
     const timing = resuming || cadence !== current.cadence || hour !== current.hour_local;
-    const next = timing ? nextRunAt(cadence, hour, await workspaceTimezone(tx, actor.accountId)) : current.next_run_at;
+    const next = timing ? nextRunAt(cadence, hour, await workspaceTimezone(tx, actor.accountId), new Date(), current.minute_local ?? 0)
+      : current.next_run_at;
     // paused_at and pause_reason are set and cleared together (CHECK in SQL).
     const pausing = input.paused === true && current.paused_at === null;
     const pausedAt = pausing ? new Date() : resuming ? null : current.paused_at;
@@ -291,8 +303,10 @@ export type ScheduleOutcome = 'queued' | 'repeat' | 'paused';
  */
 async function runOneDueSchedule(accountId: string, now: Date): Promise<{ id: string; outcome: ScheduleOutcome } | null> {
   return withTenant(worker(accountId), async (tx) => {
-    const due = await tx.$queryRaw<{ id: string; kind: string; format: string; cadence: ReportCadence; hour_local: number; created_by: string }[]>`
-      SELECT id::text AS id, kind, format, cadence, hour_local, created_by::text AS created_by FROM report_schedules
+    const due = await tx.$queryRaw<{ id: string; kind: string; format: string; cadence: ReportCadence; hour_local: number;
+      minute_local: number | null; saved_report_id: string | null; created_by: string }[]>`
+      SELECT id::text AS id, kind, format, cadence, hour_local, minute_local, saved_report_id::text AS saved_report_id,
+        created_by::text AS created_by FROM report_schedules
       WHERE account_id=${accountId}::uuid AND paused_at IS NULL AND next_run_at <= ${now}
       ORDER BY next_run_at, id LIMIT 1 FOR UPDATE SKIP LOCKED`;
     const s = due[0];
@@ -309,8 +323,17 @@ async function runOneDueSchedule(accountId: string, now: Date): Promise<{ id: st
     const timezone = await workspaceTimezone(tx, accountId);
     const period = previousCompletePeriod(s.cadence, timezone, now);
     const params: ReportParams = { from: period.startDay, to: period.endDay, timezone };
+    if (s.kind === SAVED_REPORT_KIND && s.saved_report_id) {
+      // Snapshot the definition now: a later edit never changes a file already queued.
+      const saved = await tx.$queryRaw<{ name: string; metrics: string[]; group_by: string; channel: string }[]>`
+        SELECT name, metrics::text[] AS metrics, group_by, channel FROM analytics_saved_reports
+        WHERE account_id=${accountId}::uuid AND id=${s.saved_report_id}::uuid`;
+      const report = saved[0] ? parseSnapshot({ name: saved[0].name, metrics: saved[0].metrics, group: saved[0].group_by, channel: saved[0].channel }) : null;
+      if (report) params.report = report;
+    }
     let outcome: ScheduleOutcome = 'repeat';
-    if (isReportKind(s.kind) && isReportFormat(s.format)) {
+    const runnable = s.kind === SAVED_REPORT_KIND ? Boolean(params.report) : isReportKind(s.kind);
+    if (runnable && isRunKind(s.kind) && isReportFormat(s.format)) {
       const inserted = await tx.$queryRaw<{ id: string }[]>`INSERT INTO report_runs
         (account_id,kind,format,params,requested_by,email_requested,schedule_id)
         VALUES(${accountId}::uuid,${s.kind},${s.format},${JSON.stringify(params)}::jsonb,${s.created_by}::uuid,true,${s.id}::uuid)
@@ -325,7 +348,7 @@ async function runOneDueSchedule(accountId: string, now: Date): Promise<{ id: st
         await tx.$executeRaw`UPDATE report_schedules SET last_run_id=${runId}::uuid WHERE account_id=${accountId}::uuid AND id=${s.id}::uuid`;
       }
     }
-    await tx.$executeRaw`UPDATE report_schedules SET next_run_at=${nextRunAt(s.cadence, s.hour_local, timezone, now)}, updated_at=now()
+    await tx.$executeRaw`UPDATE report_schedules SET next_run_at=${nextRunAt(s.cadence, s.hour_local, timezone, now, s.minute_local ?? 0)}, updated_at=now()
       WHERE account_id=${accountId}::uuid AND id=${s.id}::uuid`;
     return { id: s.id, outcome };
   }, getWorkerPrisma());
