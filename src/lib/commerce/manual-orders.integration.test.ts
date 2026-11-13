@@ -110,7 +110,7 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('manual orders on PostgreSQL
   });
 
   it('a viewer cannot create a manual order', async () => {
-    expect(await code(createManualOrder(viewer, body([{ variant_id: variantA, qty: 1 }])))).toBe('ForbiddenError');
+    expect(await code(createManualOrder(viewer, body([{ variant_id: variantA, qty: 1 }])))).toBe('forbidden');
   });
 
   it('lists only published, priced variants of the caller\'s own workspace', async () => {

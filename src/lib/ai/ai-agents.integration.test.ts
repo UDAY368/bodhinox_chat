@@ -16,8 +16,9 @@ if (appUrl) process.env.DATABASE_URL = appUrl;
 if (workerUrl) process.env.WORKER_DATABASE_URL = workerUrl;
 
 const accountA = randomUUID(), accountB = randomUUID();
-const admin = randomUUID(), agent = randomUUID(), ownerBUser = randomUUID();
+const admin = randomUUID(), admin2 = randomUUID(), agent = randomUUID(), ownerBUser = randomUUID();
 const adminA: TenantContext = { accountId: accountA, userId: admin, role: 'admin' };
+const admin2A: TenantContext = { accountId: accountA, userId: admin2, role: 'admin' };
 const agentA: TenantContext = { accountId: accountA, userId: agent, role: 'agent' };
 const ownerB: TenantContext = { accountId: accountB, userId: ownerBUser, role: 'owner' };
 const phone = `+9197${String(Date.now()).slice(-8)}`;
@@ -34,17 +35,17 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('AI agents and reply ratings
     const app = await getPrisma().$queryRaw<{ name: string; role: string }[]>`SELECT current_database() AS name, current_user AS role`;
     if (!/test/i.test(app[0].name) || app[0].role !== 'bodhinox_app') throw new Error('Requires constrained test app credentials');
     await owner.query("INSERT INTO auth_users(id,email,full_name,password_hash) SELECT x, x::text || '@example.invalid', 'Agents test', 'test-only-hash' FROM unnest($1::uuid[]) x",
-      [[admin, agent, ownerBUser]]);
+      [[admin, admin2, agent, ownerBUser]]);
     await owner.query("INSERT INTO accounts(id,name,owner_user_id) VALUES($1,'Agents A',$2),($3,'Agents B',$4)", [accountA, admin, accountB, ownerBUser]);
-    await owner.query("INSERT INTO account_memberships(account_id,user_id,role) VALUES($1,$2,'admin'),($1,$3,'agent'),($4,$5,'owner')",
-      [accountA, admin, agent, accountB, ownerBUser]);
+    await owner.query("INSERT INTO account_memberships(account_id,user_id,role) VALUES($1,$2,'admin'),($1,$3,'agent'),($4,$5,'owner'),($1,$6,'admin')",
+      [accountA, admin, agent, accountB, ownerBUser, admin2]);
     contactA = (await owner.query("INSERT INTO contacts(account_id,user_id,phone,name) VALUES($1,$2,$3,'Asha') RETURNING id", [accountA, admin, phone])).rows[0].id;
     conversationA = (await owner.query('INSERT INTO conversations(account_id,user_id,contact_id) VALUES($1,$2,$3) RETURNING id', [accountA, admin, contactA])).rows[0].id;
   });
   afterAll(async () => {
     if (owner) {
       await owner.query('DELETE FROM accounts WHERE id = ANY($1::uuid[])', [[accountA, accountB]]);
-      await owner.query('DELETE FROM auth_users WHERE id = ANY($1::uuid[])', [[admin, agent, ownerBUser]]);
+      await owner.query('DELETE FROM auth_users WHERE id = ANY($1::uuid[])', [[admin, admin2, agent, ownerBUser]]);
       await owner.end();
     }
     await disconnectDatabases();
@@ -116,11 +117,13 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('AI agents and reply ratings
     const [event] = (await owner.query("SELECT id::text FROM ai_reply_events WHERE account_id=$1 AND outcome='replied' LIMIT 1", [accountA])).rows;
     expect(await withTenant(adminA, (tx) => setRating(tx, accountA, admin, { kind: 'agent', id: event.id }, 'down'))).toBe(true);
     expect(await withTenant(adminA, (tx) => setRating(tx, accountA, admin, { kind: 'agent', id: event.id }, 'up'))).toBe(true);
-    expect(await withTenant(agentA, (tx) => setRating(tx, accountA, agent, { kind: 'agent', id: event.id }, 'down'))).toBe(true);
+    expect(await withTenant(admin2A, (tx) => setRating(tx, accountA, admin2, { kind: 'agent', id: event.id }, 'down'))).toBe(true);
+    // Agents' sent replies are admin-only (ai_reply_events RLS, like the admin-only ratings route): an agent cannot rate one.
+    expect(await withTenant(agentA, (tx) => setRating(tx, accountA, agent, { kind: 'agent', id: event.id }, 'down'))).toBe(false);
     const ratings = (await owner.query('SELECT user_id::text, vote FROM ai_reply_ratings WHERE account_id=$1 ORDER BY vote', [accountA])).rows;
-    expect(ratings).toEqual([{ user_id: agent, vote: 'down' }, { user_id: admin, vote: 'up' }]);
+    expect(ratings).toEqual([{ user_id: admin2, vote: 'down' }, { user_id: admin, vote: 'up' }]);
     // RLS: a member cannot write a rating as somebody else.
-    await expect(withTenant(agentA, (tx) => tx.$executeRaw`INSERT INTO ai_reply_ratings(account_id, reply_event_id, user_id, vote)
+    await expect(withTenant(admin2A, (tx) => tx.$executeRaw`INSERT INTO ai_reply_ratings(account_id, reply_event_id, user_id, vote)
       VALUES (${accountA}::uuid, ${event.id}::uuid, ${admin}::uuid, 'down')`)).rejects.toThrow();
     // Another workspace cannot rate this reply.
     expect(await withTenant(ownerB, (tx) => setRating(tx, accountB, ownerBUser, { kind: 'agent', id: event.id }, 'up'))).toBe(false);

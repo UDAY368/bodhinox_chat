@@ -56,7 +56,7 @@ describe.skipIf(!ownerUrl || !appUrl)('contact import batches and bulk actions o
       { phone: '919876500001', name: 'Repeated in the batch' },
       { phone: '919876500002', name: 'New two' },
     ];
-    expect(await importContactBatch(a, { rows })).toEqual({ imported: 2, updated: 0, skipped: 151, tagsAssigned: 1 });
+    expect(await importContactBatch(a, { rows })).toEqual({ imported: 2, updated: 0, skipped: 151, tagsAssigned: 1, fieldsSet: 0, fieldsRejected: 0 });
     const created = await owner.query("SELECT id, phone, name, company FROM contacts WHERE account_id=$1 AND phone_normalized='919876500001'", [accountA]);
     expect(created.rows[0]).toMatchObject({ phone: '+919876500001', name: "Siobhan O'Brien", company: "Kelly's" });
     // The other workspace's tag is never linked.
@@ -66,12 +66,12 @@ describe.skipIf(!ownerUrl || !appUrl)('contact import batches and bulk actions o
 
   it('updates existing contacts and tags them only when asked; blanks keep stored values', async () => {
     const asha = { phone: '14155550201', name: 'Asha Rao', tagIds: [lead] };
-    expect(await importContactBatch(a, { rows: [asha] })).toEqual({ imported: 0, updated: 0, skipped: 1, tagsAssigned: 0 });
-    expect(await importContactBatch(a, { rows: [asha], updateExisting: true })).toEqual({ imported: 0, updated: 1, skipped: 0, tagsAssigned: 1 });
+    expect(await importContactBatch(a, { rows: [asha] })).toEqual({ imported: 0, updated: 0, skipped: 1, tagsAssigned: 0, fieldsSet: 0, fieldsRejected: 0 });
+    expect(await importContactBatch(a, { rows: [asha], updateExisting: true })).toEqual({ imported: 0, updated: 1, skipped: 0, tagsAssigned: 1, fieldsSet: 0, fieldsRejected: 0 });
     const row = (await owner.query("SELECT id, name, company FROM contacts WHERE account_id=$1 AND phone_normalized='14155550201'", [accountA])).rows[0];
     expect(row).toMatchObject({ name: 'Asha Rao', company: 'Old Co' });
     // Same values again: nothing changes, the tag link already exists.
-    expect(await importContactBatch(a, { rows: [asha], updateExisting: true })).toEqual({ imported: 0, updated: 0, skipped: 1, tagsAssigned: 0 });
+    expect(await importContactBatch(a, { rows: [asha], updateExisting: true })).toEqual({ imported: 0, updated: 0, skipped: 1, tagsAssigned: 0, fieldsSet: 0, fieldsRejected: 0 });
   });
 
   it('carries an opt-out or block from the file and never clears one', async () => {

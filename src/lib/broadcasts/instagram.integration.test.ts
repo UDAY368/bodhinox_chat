@@ -76,13 +76,13 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('Instagram broadcasts and pa
     const igB = (await q(`INSERT INTO instagram_accounts(account_id,ig_user_id,username,access_token_enc,scopes,connected_by_user_id)
       VALUES($1,$2,'other',$3,ARRAY['instagram_business_basic','instagram_business_manage_messages'],$4) RETURNING id`,
       [B, `82${seed}`, encrypt('test-only-ig-token'), outsider])).rows[0].id;
-    open1 = await igContact(A, agent, igA, 'Priya Sharma', `s1${seed}`, '2 hours');
-    await igContact(A, agent, igA, 'Rohan Iyer', `s2${seed}`, '23 hours');
-    await igContact(A, agent, igA, 'Old Lead', `s3${seed}`, '30 hours');
-    await igContact(A, agent, igA, 'Never Wrote', `s4${seed}`, null);
-    optedOut = await igContact(A, agent, igA, 'Opted Out', `s5${seed}`, '1 hour');
+    open1 = await igContact(A, agent, igA, 'Priya Sharma', `91${seed}`, '2 hours');
+    await igContact(A, agent, igA, 'Rohan Iyer', `92${seed}`, '23 hours');
+    await igContact(A, agent, igA, 'Old Lead', `93${seed}`, '30 hours');
+    await igContact(A, agent, igA, 'Never Wrote', `94${seed}`, null);
+    optedOut = await igContact(A, agent, igA, 'Opted Out', `95${seed}`, '1 hour');
     await q('UPDATE contacts SET instagram_opted_out_at=now() WHERE id=$1', [optedOut]);
-    await igContact(B, outsider, igB, 'Other Workspace', `s6${seed}`, '1 hour');
+    await igContact(B, outsider, igB, 'Other Workspace', `96${seed}`, '1 hour');
   });
   beforeEach(() => { send.calls = []; send.mode = 'ok'; });
   afterAll(async () => {
@@ -123,7 +123,7 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('Instagram broadcasts and pa
     const pass = await deliverInstagramBroadcast(A, id, 'pending', { assertLease: noop, paceMs: 0 });
     await q('UPDATE contacts SET opted_out_at=NULL WHERE id=$1', [open1]);
     expect(pass).toMatchObject({ sent: 1, failed: 1, remaining: 0, stopped: false });
-    expect(send.calls).toEqual([{ igsid: `s2${seed}`, text: 'Hi Rohan' }]);
+    expect(send.calls).toEqual([{ igsid: `92${seed}`, text: 'Hi Rohan' }]);
     const rows = (await q('SELECT id, status, error_message, whatsapp_message_id FROM broadcast_recipients WHERE broadcast_id=$1 ORDER BY status', [id])).rows;
     expect(rows.find((r) => r.status === 'failed')?.error_message).toBe(IG_FAILURE.optedOut);
     const sentRow = rows.find((r) => r.status === 'sent')!;
