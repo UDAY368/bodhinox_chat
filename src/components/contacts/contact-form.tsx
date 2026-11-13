@@ -28,6 +28,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, AlertTriangle } from 'lucide-react';
 import { useTranslations } from 'next-intl';
+import { saveContactField, useContactMembers } from './contacts-client';
 
 interface ContactFormProps {
   open: boolean;
@@ -49,8 +50,10 @@ export function ContactForm({
   onViewExisting,
 }: ContactFormProps) {
   const t = useTranslations('Contacts.form');
+  const tx = useTranslations('Contacts.redesign');
   const db = createClient();
-  const { accountId } = useAuth();
+  const { accountId, user } = useAuth();
+  const members = useContactMembers();
   const isEdit = !!contact;
   // The server sends a masked member only the masked number; it is shown
   // read-only, since the server refuses number writes from that member.
@@ -60,6 +63,10 @@ export function ContactForm({
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [company, setCompany] = useState('');
+  const [city, setCity] = useState('');
+  // '' is no one. A new contact starts owned by the member adding it (the owner is saved
+  // through PATCH /api/contacts/[id], which checks the owner is a member).
+  const [ownerId, setOwnerId] = useState('');
   const [saving, setSaving] = useState(false);
 
   // Duplicate-phone detection for NEW contacts. `exact` (same digits)
@@ -81,11 +88,13 @@ export function ContactForm({
       setPhone(contact?.phone ?? '');
       setEmail(contact?.email ?? '');
       setCompany(contact?.company ?? '');
+      setCity(contact?.city ?? '');
+      setOwnerId(contact ? (contact.owner_id ?? '') : (user?.id ?? ''));
       setSelectedTagIds(contactTags.map((ct) => ct.tag_id));
       setDupMatch(null);
       fetchTags();
     }
-  }, [open, contact]);
+  }, [open, contact, user?.id]);
 
   // Look up an existing contact with this number (new contacts only).
   // Runs on blur so we don't query on every keystroke.
@@ -176,6 +185,7 @@ export function ContactForm({
             ...(phoneChanged && !phoneMasked ? { phone: phone.trim() } : {}),
             email: email.trim() || null,
             company: company.trim() || null,
+            city: city.trim().slice(0, 200) || null,
             updated_at: new Date().toISOString(),
           })
           .eq('id', contactId);
@@ -190,11 +200,18 @@ export function ContactForm({
             phone: phone.trim(),
             email: email.trim() || null,
             company: company.trim() || null,
+            city: city.trim().slice(0, 200) || null,
           })
           .select('id')
           .single();
         if (error) throw error;
         contactId = data.id;
+      }
+
+      // The owner goes through the profile route (a member check and a timeline row).
+      if (contactId && ownerId !== (contact?.owner_id ?? '')) {
+        const saved = await saveContactField(contactId, { field: 'owner_id', value: ownerId });
+        if (!saved.ok) toast.error(tx('owner.saveFailed'));
       }
 
       // Sync tags
@@ -245,7 +262,7 @@ export function ContactForm({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="bg-popover border-border text-popover-foreground sm:max-w-md">
+      <DialogContent className="max-h-[90dvh] overflow-y-auto bg-popover border-border text-popover-foreground sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="text-popover-foreground">
             {isEdit ? t('editTitle') : t('addTitle')}
@@ -335,17 +352,51 @@ export function ContactForm({
             />
           </div>
 
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="min-w-0 space-y-2">
+              <Label htmlFor="cf-company" className="text-muted-foreground">
+                {t('companyLabel')}
+              </Label>
+              <Input
+                id="cf-company"
+                value={company}
+                onChange={(e) => setCompany(e.target.value)}
+                placeholder={t('companyPlaceholder')}
+                className="bg-muted border-border text-foreground placeholder:text-muted-foreground"
+              />
+            </div>
+            <div className="min-w-0 space-y-2">
+              <Label htmlFor="cf-city" className="text-muted-foreground">
+                {tx('fields.city')}
+              </Label>
+              <Input
+                id="cf-city"
+                value={city}
+                maxLength={200}
+                onChange={(e) => setCity(e.target.value)}
+                className="bg-muted border-border text-foreground placeholder:text-muted-foreground"
+              />
+            </div>
+          </div>
+
           <div className="space-y-2">
-            <Label htmlFor="cf-company" className="text-muted-foreground">
-              {t('companyLabel')}
+            <Label htmlFor="cf-owner" className="text-muted-foreground">
+              {tx('fields.owner')}
             </Label>
-            <Input
-              id="cf-company"
-              value={company}
-              onChange={(e) => setCompany(e.target.value)}
-              placeholder={t('companyPlaceholder')}
-              className="bg-muted border-border text-foreground placeholder:text-muted-foreground"
-            />
+            <select
+              id="cf-owner"
+              value={ownerId}
+              onChange={(e) => setOwnerId(e.target.value)}
+              className="h-9 w-full rounded-lg border border-border bg-muted px-2.5 text-sm text-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+            >
+              <option value="">{tx('owner.noOne')}</option>
+              {members.map((m) => (
+                <option key={m.user_id} value={m.user_id}>{m.full_name || tx('owner.unnamedMember')}</option>
+              ))}
+              {ownerId && !members.some((m) => m.user_id === ownerId) && members.length > 0 && (
+                <option value={ownerId}>{tx('owner.formerMember')}</option>
+              )}
+            </select>
           </div>
 
           <div className="space-y-2">
