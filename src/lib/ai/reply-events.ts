@@ -50,6 +50,8 @@ export interface ReplyEventInput {
   completionTokens?: number | null
   totalTokens?: number | null
   latencyMs?: number | null
+  /** The AI agent that handled the message (null: the legacy single agent). */
+  agentId?: string | null
 }
 
 /** The row written for one event: every field capped to the table's limits. */
@@ -71,6 +73,7 @@ export interface ReplyEventRow {
   completion_tokens: number
   total_tokens: number
   latency_ms: number | null
+  agent_id: string | null
 }
 
 /** At most `max` characters (code points, as PostgreSQL counts them), no NUL bytes; null when blank. */
@@ -122,6 +125,7 @@ export function replyEventRow(input: ReplyEventInput): ReplyEventRow {
     completion_tokens: count(input.completionTokens),
     total_tokens: count(input.totalTokens),
     latency_ms: latency,
+    agent_id: uuidOrNull(input.agentId),
   }
 }
 
@@ -135,11 +139,11 @@ export async function recordReplyEvent(input: ReplyEventInput): Promise<void> {
     const r = replyEventRow(input)
     await withTenant({ accountId: input.accountId, role: 'owner' }, (tx) => tx.$executeRaw`INSERT INTO ai_reply_events(
         account_id, conversation_id, contact_id, inbound_message_id, outcome, reason, customer_text, reply_text,
-        sources, confidence, guard_flags, provider, model, prompt_tokens, completion_tokens, total_tokens, latency_ms)
+        sources, confidence, guard_flags, provider, model, prompt_tokens, completion_tokens, total_tokens, latency_ms, agent_id)
       VALUES (${r.account_id}::uuid, ${r.conversation_id}::uuid, ${r.contact_id}::uuid, ${r.inbound_message_id}, ${r.outcome},
         ${r.reason}, ${r.customer_text}, ${r.reply_text}, ${JSON.stringify(r.sources)}::jsonb, ${r.confidence}::real,
         ${r.guard_flags}::text[], ${r.provider}, ${r.model}, ${r.prompt_tokens}::int, ${r.completion_tokens}::int,
-        ${r.total_tokens}::int, ${r.latency_ms}::int)`, getWorkerPrisma())
+        ${r.total_tokens}::int, ${r.latency_ms}::int, ${r.agent_id}::uuid)`, getWorkerPrisma())
   } catch (error) {
     logAiEvent({ feature: 'reply_events', reason: 'insert_failed', accountId: input.accountId, error })
   }

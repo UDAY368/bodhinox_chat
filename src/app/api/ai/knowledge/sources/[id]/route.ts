@@ -1,6 +1,11 @@
 // GET    /api/ai/knowledge/sources/:id — the source and its pages (any member; an admin-only
 //   source is 404 below admin).
-//   200 { source, pages: [{ id, title, source_url, fetched_at }] }; 404.
+//   200 { source, pages: [{ id, title, source_url, fetched_at }], content } where content is the stored
+//   text of a file or text source ({ kind: 'text', text, truncated }), a Q&A source's
+//   { kind: 'qa', question, answer }, or null for a website or sitemap; 404.
+// PUT    /api/ai/knowledge/sources/:id — edit a text source { title, content } or a Q&A source
+//   { question, answer } and queue its re-indexing in the same transaction (admin, rate limited,
+//   audited 'ai.knowledge_content_updated'). 202 { source }; 400 wrong shape for the source; 404.
 // POST   /api/ai/knowledge/sources/:id — re-crawl a website or sitemap, or re-index a file, text or
 //   learned source (admin, rate limited). 202 { source }; 404; 409 a run is already in progress.
 // PATCH  /api/ai/knowledge/sources/:id — change who may see the source and whether it grounds customer
@@ -13,7 +18,9 @@ import { NextResponse } from 'next/server'
 import { requireRole } from '@/lib/auth/account'
 import { tenantOf } from '@/lib/audience/http'
 import { requirePermission } from '@/lib/auth/permissions'
-import { deleteSource, getSource, KnowledgeSourceError, parseAccessPatch, recrawlSource, updateSourceAccess } from '@/lib/ai/knowledge-sources'
+import {
+  deleteSource, getSource, KnowledgeSourceError, parseAccessPatch, parseContentInput, recrawlSource, updateSourceAccess, updateSourceContent,
+} from '@/lib/ai/knowledge-sources'
 import { knowledgeSourceErrorResponse } from '@/lib/ai/knowledge-sources-http'
 import { checkRateLimit, rateLimitResponse, RATE_LIMITS } from '@/lib/rate-limit'
 
@@ -52,6 +59,19 @@ export async function PATCH(request: Request, { params }: Params) {
     const patch = parseAccessPatch(await request.json().catch(() => null))
     const source = await updateSourceAccess(tenantOf(ctx), (await params).id, patch)
     return NextResponse.json({ source }, { headers: noStore })
+  } catch (error) {
+    return knowledgeSourceErrorResponse(error)
+  }
+}
+
+export async function PUT(request: Request, { params }: Params) {
+  try {
+    const ctx = await requireRole('admin')
+    const limit = checkRateLimit(`ai-sources:write:${ctx.userId}`, RATE_LIMITS.adminAction)
+    if (!limit.success) return rateLimitResponse(limit)
+    const input = parseContentInput(await request.json().catch(() => null))
+    const source = await updateSourceContent(tenantOf(ctx), (await params).id, input)
+    return NextResponse.json({ source }, { status: 202, headers: noStore })
   } catch (error) {
     return knowledgeSourceErrorResponse(error)
   }

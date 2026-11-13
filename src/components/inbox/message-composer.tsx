@@ -75,6 +75,7 @@ import { instagramMediaAllowed } from "@/lib/channels/capabilities";
 import { INSTAGRAM_LIMITS, utf8Bytes } from "@/lib/instagram/graph-limits";
 import { instagramWindowBanner } from "@/lib/instagram/window";
 import { AiReplySuggestions, type ReplyOptionView } from "./ai-assist/ai-reply-suggestions";
+import { TranslateMenu, TranslationPanel, useAiTranslate } from "./ai-assist/ai-translate";
 import { FollowUpBar } from "./follow-up-bar";
 import { EmojiPicker, SlashQuickReplies, matchQuickReplies, slashQuery, useQuickReplyList } from "./composer-extras";
 import { LocationDialog, type SendLocationPayload } from "./location-dialog";
@@ -346,6 +347,8 @@ export function MessageComposer({
   // every capability — so the disabled branch is a no-op there.
   const canSend = useCan("send-messages");
   const readOnly = !canSend;
+  // Translation (an assistant feature, off until an admin turns it on): on request only.
+  const translate = useAiTranslate(conversationId, !readOnly);
   // Media (like free-form text) is only allowed inside the 24h window.
   const inputsDisabled = readOnly || windowClosed;
 
@@ -894,6 +897,8 @@ export function MessageComposer({
         </div>
       )}
 
+      {!readOnly && <TranslationPanel state={translate} />}
+
       {suggestionsOpen && !readOnly && (
         <AiReplySuggestions
           key={`${conversationId}:${suggestionsKey}`}
@@ -1205,6 +1210,13 @@ export function MessageComposer({
               )}
             </GatedButton>
           </div>
+          {!readOnly && (
+            <TranslateMenu state={translate} draft={text}
+              onDraft={(translated) => {
+                setText(translated);
+                requestAnimationFrame(() => { adjustHeight(); textareaRef.current?.focus(); });
+              }} />
+          )}
           </>
           )}
           <span className="flex-1" />

@@ -27,11 +27,32 @@ export interface AiWorkspaceSettings {
   monthly_token_cap: number | null;
   /** Stage 5 (5G): up to 3 ordered goals for the Instagram AI auto-reply; [] is today's behaviour. */
   instagram_goals: AiGoal[];
+  /** Auto-labelling of new conversations. */
+  labelling_enabled: boolean;
+  /** Translate customer messages for staff, and staff drafts back. */
+  translation_enabled: boolean;
+  /** The team language translation targets (TRANSLATION_LANGUAGES). */
+  translation_language: TranslationLanguage;
+  /** Hand sensitive (health) questions to a person in every conversation. */
+  route_to_staff_enabled: boolean;
+  /** When false, monthly_token_cap no longer stops the assistant features (the plan limit always does). */
+  pause_at_cap: boolean;
   updated_at: string | null;
 }
 
-export type AiToggleKey = 'summaries_enabled' | 'suggestions_enabled' | 'assessment_enabled' | 'insights_enabled';
-export const AI_TOGGLE_KEYS: readonly AiToggleKey[] = ['summaries_enabled', 'suggestions_enabled', 'assessment_enabled', 'insights_enabled'];
+export type AiToggleKey = 'summaries_enabled' | 'suggestions_enabled' | 'assessment_enabled' | 'insights_enabled'
+  | 'labelling_enabled' | 'translation_enabled' | 'route_to_staff_enabled' | 'pause_at_cap';
+export const AI_TOGGLE_KEYS: readonly AiToggleKey[] = ['summaries_enabled', 'suggestions_enabled', 'assessment_enabled', 'insights_enabled',
+  'labelling_enabled', 'translation_enabled', 'route_to_staff_enabled', 'pause_at_cap'];
+
+/** Team languages for translation (DB CHECK ai_workspace_settings_translation_language_check). */
+export const TRANSLATION_LANGUAGES = ['en', 'hi', 'te', 'ta', 'mr', 'kn', 'ml', 'bn', 'gu', 'pa', 'es', 'pt', 'ko', 'fr', 'de', 'ar'] as const;
+export type TranslationLanguage = (typeof TRANSLATION_LANGUAGES)[number];
+/** English names for prompts (the UI shows translated names). */
+export const TRANSLATION_LANGUAGE_NAMES: Record<TranslationLanguage, string> = {
+  en: 'English', hi: 'Hindi', te: 'Telugu', ta: 'Tamil', mr: 'Marathi', kn: 'Kannada', ml: 'Malayalam', bn: 'Bengali',
+  gu: 'Gujarati', pa: 'Punjabi', es: 'Spanish', pt: 'Portuguese', ko: 'Korean', fr: 'French', de: 'German', ar: 'Arabic',
+};
 
 export const DEFAULT_AI_SETTINGS: AiWorkspaceSettings = {
   summaries_enabled: false,
@@ -40,6 +61,11 @@ export const DEFAULT_AI_SETTINGS: AiWorkspaceSettings = {
   insights_enabled: false,
   monthly_token_cap: null,
   instagram_goals: [],
+  labelling_enabled: false,
+  translation_enabled: false,
+  translation_language: 'en',
+  route_to_staff_enabled: false,
+  pause_at_cap: true,
   updated_at: null,
 };
 
@@ -49,6 +75,8 @@ export const FEATURE_TOGGLE: Record<AiAssistFeature, AiToggleKey> = {
   suggest: 'suggestions_enabled',
   assess: 'assessment_enabled',
   insights: 'insights_enabled',
+  label: 'labelling_enabled',
+  translate: 'translation_enabled',
 };
 
 /** The permission each feature needs (role ceiling plus workspace restrictions). */
@@ -57,6 +85,8 @@ export const FEATURE_PERMISSION: Record<AiAssistFeature, FeaturePermission> = {
   suggest: 'ai.assist',
   assess: 'ai.assess',
   insights: 'ai.insights',
+  label: 'ai.assist',
+  translate: 'ai.assist',
 };
 
 /** Largest workspace token cap accepted (fits bigint and a JS safe integer). */
@@ -69,6 +99,11 @@ interface SettingsRow {
   insights_enabled: boolean;
   monthly_token_cap: bigint | null;
   instagram_goals: unknown;
+  labelling_enabled: boolean;
+  translation_enabled: boolean;
+  translation_language: string;
+  route_to_staff_enabled: boolean;
+  pause_at_cap: boolean;
   updated_at: Date | null;
 }
 
@@ -80,6 +115,12 @@ const toSettings = (row: SettingsRow | undefined): AiWorkspaceSettings => row
     insights_enabled: row.insights_enabled,
     monthly_token_cap: row.monthly_token_cap === null ? null : Number(row.monthly_token_cap),
     instagram_goals: parseGoals(row.instagram_goals),
+    labelling_enabled: row.labelling_enabled === true,
+    translation_enabled: row.translation_enabled === true,
+    translation_language: (TRANSLATION_LANGUAGES as readonly string[]).includes(row.translation_language)
+      ? (row.translation_language as TranslationLanguage) : 'en',
+    route_to_staff_enabled: row.route_to_staff_enabled === true,
+    pause_at_cap: row.pause_at_cap !== false,
     updated_at: row.updated_at ? row.updated_at.toISOString() : null,
   }
   : { ...DEFAULT_AI_SETTINGS, instagram_goals: [] };
@@ -87,11 +128,12 @@ const toSettings = (row: SettingsRow | undefined): AiWorkspaceSettings => row
 /** The workspace's switches (all off when there is no row). Inside the caller's tenant transaction. */
 export async function readAiSettings(tx: TenantTransaction, accountId: string): Promise<AiWorkspaceSettings> {
   const rows = await tx.$queryRaw<SettingsRow[]>`SELECT summaries_enabled, suggestions_enabled, assessment_enabled, insights_enabled,
-    monthly_token_cap, instagram_goals, updated_at FROM ai_workspace_settings WHERE account_id=${accountId}::uuid`;
+    monthly_token_cap, instagram_goals, labelling_enabled, translation_enabled, translation_language, route_to_staff_enabled,
+    pause_at_cap, updated_at FROM ai_workspace_settings WHERE account_id=${accountId}::uuid`;
   return toSettings(rows[0]);
 }
 
-export type AiSettingsPatch = Partial<Pick<AiWorkspaceSettings, AiToggleKey | 'monthly_token_cap' | 'instagram_goals'>>;
+export type AiSettingsPatch = Partial<Pick<AiWorkspaceSettings, AiToggleKey | 'monthly_token_cap' | 'instagram_goals' | 'translation_language'>>;
 
 /**
  * Upserts the given switches as `ctx.userId` and audits 'ai.settings_updated'
@@ -107,13 +149,17 @@ export async function writeAiSettings(
   const next = { ...current, ...patch };
   const cap = next.monthly_token_cap === null ? null : BigInt(next.monthly_token_cap);
   await tx.$executeRaw`INSERT INTO ai_workspace_settings(account_id, summaries_enabled, suggestions_enabled, assessment_enabled,
-      insights_enabled, monthly_token_cap, instagram_goals, updated_by)
+      insights_enabled, monthly_token_cap, instagram_goals, labelling_enabled, translation_enabled, translation_language,
+      route_to_staff_enabled, pause_at_cap, updated_by)
     VALUES(${ctx.accountId}::uuid, ${next.summaries_enabled}, ${next.suggestions_enabled}, ${next.assessment_enabled},
-      ${next.insights_enabled}, ${cap}::bigint, ${JSON.stringify(next.instagram_goals)}::jsonb, ${ctx.userId}::uuid)
+      ${next.insights_enabled}, ${cap}::bigint, ${JSON.stringify(next.instagram_goals)}::jsonb, ${next.labelling_enabled},
+      ${next.translation_enabled}, ${next.translation_language}, ${next.route_to_staff_enabled}, ${next.pause_at_cap}, ${ctx.userId}::uuid)
     ON CONFLICT (account_id) DO UPDATE SET summaries_enabled=EXCLUDED.summaries_enabled,
       suggestions_enabled=EXCLUDED.suggestions_enabled, assessment_enabled=EXCLUDED.assessment_enabled,
       insights_enabled=EXCLUDED.insights_enabled, monthly_token_cap=EXCLUDED.monthly_token_cap,
-      instagram_goals=EXCLUDED.instagram_goals, updated_by=EXCLUDED.updated_by`;
+      instagram_goals=EXCLUDED.instagram_goals, labelling_enabled=EXCLUDED.labelling_enabled,
+      translation_enabled=EXCLUDED.translation_enabled, translation_language=EXCLUDED.translation_language,
+      route_to_staff_enabled=EXCLUDED.route_to_staff_enabled, pause_at_cap=EXCLUDED.pause_at_cap, updated_by=EXCLUDED.updated_by`;
   // Audited by key and value; goals by their types only (a link is the author's, but kept out of the log).
   const changed = Object.fromEntries(Object.entries(patch)
     .filter(([k, v]) => JSON.stringify(current[k as keyof AiWorkspaceSettings]) !== JSON.stringify(v))
@@ -140,6 +186,10 @@ export function parseSettingsPatch(body: unknown): AiSettingsPatch | null {
     else if (typeof cap === 'number' && Number.isSafeInteger(cap) && cap > 0 && cap <= MAX_MONTHLY_TOKEN_CAP) patch.monthly_token_cap = cap;
     else return null;
   }
+  if ('translation_language' in input) {
+    if (!(TRANSLATION_LANGUAGES as readonly unknown[]).includes(input.translation_language)) return null;
+    patch.translation_language = input.translation_language as TranslationLanguage;
+  }
   if ('instagram_goals' in input) {
     if (autoReplyGoalsProblem(input.instagram_goals) !== null) return null;
     // Only the known fields of each goal are kept.
@@ -148,6 +198,17 @@ export function parseSettingsPatch(body: unknown): AiSettingsPatch | null {
       : g.type === 'grow_followers' ? { type: 'grow_followers' } : { type: 'capture_lead', fields: [...g.fields], on_refusal: g.on_refusal });
   }
   return Object.keys(patch).length ? patch : null;
+}
+
+/**
+ * True when this month's tokens are used up: the plan limit always counts;
+ * the workspace's own cap counts only while pause_at_cap is on.
+ */
+export async function budgetUsedUp(tx: TenantTransaction, accountId: string, settings?: AiWorkspaceSettings): Promise<boolean> {
+  const s = settings ?? await readAiSettings(tx, accountId);
+  const used = await aiTokensUsed(tx, accountId);
+  const limit = (await getEntitlements(tx, accountId)).limits.ai_tokens_monthly;
+  return (limit !== null && used >= limit) || (s.pause_at_cap && s.monthly_token_cap !== null && used >= s.monthly_token_cap);
 }
 
 /** True when the workspace has an active AI config with a usable chat key (no decryption, no provider call). */
@@ -180,9 +241,6 @@ export async function isAiFeatureAvailable(
   const settings = await readAiSettings(tx, ctx.accountId);
   if (!settings[FEATURE_TOGGLE[feature]]) return { ok: false, reason: 'feature_off' };
   if (!(await aiConfigured(tx, ctx.accountId))) return { ok: false, reason: 'not_configured' };
-  const used = await aiTokensUsed(tx, ctx.accountId);
-  const limit = (await getEntitlements(tx, ctx.accountId)).limits.ai_tokens_monthly;
-  if ((limit !== null && used >= limit) || (settings.monthly_token_cap !== null && used >= settings.monthly_token_cap))
-    return { ok: false, reason: 'quota' };
+  if (await budgetUsedUp(tx, ctx.accountId, settings)) return { ok: false, reason: 'quota' };
   return { ok: true };
 }

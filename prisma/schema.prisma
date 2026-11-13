@@ -1612,6 +1612,8 @@ model ai_knowledge_sources {
   /// Phase 13: may ground customer-facing text (only with min_role 'agent', CHECK-enforced).
   customer_facing Boolean @default(true)
   @@unique([account_id, id])
+  /// 20261114006100: a question-and-answer text source (title = the question).
+  qa Boolean @default(false)
 }
 
 model ai_agent_profiles {
@@ -2888,6 +2890,12 @@ model ai_workspace_settings {
   updated_at DateTime @db.Timestamptz(6) @default(now())
   /// Stage 5 (20261118000800): at most 3 goals for the Instagram AI auto-reply.
   instagram_goals Json @db.JsonB @default(dbgenerated("'[]'::jsonb"))
+  /// 20261114006100_ai_assistant_features: auto-labelling, translation, route to staff and the budget pause switch.
+  labelling_enabled Boolean @default(false)
+  translation_enabled Boolean @default(false)
+  translation_language String @default("en")
+  route_to_staff_enabled Boolean @default(false)
+  pause_at_cap Boolean @default(true)
 }
 
 /// Phase 13 (20261111100100_ai_suggestions): staff-reviewed summaries and suggested replies; never sent by the system.
@@ -2992,6 +3000,8 @@ model ai_reply_events {
   total_tokens Int @default(0)
   latency_ms Int?
   created_at DateTime @db.Timestamptz(6) @default(now())
+  /// 20261121006000: the AI agent that handled the message (null before agents existed).
+  agent_id String? @db.Uuid
   @@unique([account_id, id])
   @@index([account_id, created_at(sort: Desc), id(sort: Desc)], map: "ai_reply_events_list_idx")
   @@index([account_id, outcome, created_at(sort: Desc)], map: "ai_reply_events_outcome_idx")
@@ -3356,4 +3366,42 @@ model deal_notes {
   created_at DateTime @default(now()) @db.Timestamptz(6)
   @@unique([account_id, id])
   @@index([account_id, deal_id, created_at(sort: Desc)], map: "deal_notes_deal_idx")
+}
+
+/// 20261114006000_ai_multi_agents: AI agents (channels, working hours, handoff rules); is_default reads the agent profile.
+model ai_agents {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  name String
+  role String @default("general")
+  instructions String?
+  tone String?
+  channels String[] @default(["whatsapp", "instagram"])
+  hours_mode String @default("always")
+  hours_from DateTime? @db.Time(6)
+  hours_to DateTime? @db.Time(6)
+  handoff_rules Json @db.JsonB @default("{}")
+  enabled Boolean @default(false)
+  is_default Boolean @default(false)
+  position Int @default(0)
+  created_by String? @db.Uuid
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @default(now()) @db.Timestamptz(6)
+  @@unique([account_id, id])
+  @@index([account_id, position, created_at], map: "ai_agents_order_idx")
+}
+
+/// 20261121006100_ai_reply_ratings: one helpful / not helpful rating per member per AI reply.
+model ai_reply_ratings {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  suggestion_id String? @db.Uuid
+  reply_event_id String? @db.Uuid
+  user_id String @db.Uuid
+  /// 'up' | 'down'
+  vote String
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @default(now()) @db.Timestamptz(6)
+  @@unique([account_id, id])
+  @@index([account_id, created_at(sort: Desc)], map: "ai_reply_ratings_account_idx")
 }

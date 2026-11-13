@@ -6485,7 +6485,8 @@
         "slot_lost": "다른 응답이 마지막 슬롯을 사용함",
         "claim_failed": "응답 슬롯을 예약하지 못함",
         "stale": "전송 전에 대화가 변경됨",
-        "dispatch_failed": "문제가 발생함"
+        "dispatch_failed": "문제가 발생함",
+        "no_agent": "이 채널과 시간에 켜진 에이전트가 없습니다"
       },
       "unknownReason": "기타({code})",
       "detailTitle": "활동 세부 정보",
@@ -14678,6 +14679,533 @@
       "openChat": "채팅 열기",
       "openContact": "연락처 열기",
       "expireNow": "지금 만료"
+    }
+  },
+  "AiStudio": {
+    "title": "AI",
+    "description": "대신 답장하는 에이전트, 에이전트가 아는 내용, 그리고 얼마나 잘하고 있는지 확인하세요.",
+    "newAgent": "새 에이전트",
+    "addSource": "소스 추가",
+    "sectionsLabel": "AI 섹션",
+    "tabs": {
+      "agents": "에이전트",
+      "knowledge": "지식",
+      "features": "어시스턴트 기능",
+      "quality": "품질",
+      "setup": "설정",
+      "learnings": "학습",
+      "usage": "사용량",
+      "activity": "활동"
+    },
+    "common": {
+      "cancel": "취소",
+      "retry": "다시 시도",
+      "loading": "불러오는 중",
+      "loadFailed": "불러오지 못했습니다.",
+      "failed": "실패했습니다. 다시 시도하세요."
+    },
+    "agents": {
+      "filterAll": "전체",
+      "filterOn": "켜짐",
+      "filterOff": "꺼짐",
+      "filterLabel": "에이전트 보기",
+      "search": "에이전트 검색",
+      "orderHint": "대화마다 에이전트 한 명이 답합니다. 이미 그 대화에 답한 에이전트가 먼저이고, 없으면 해당 채널과 시간에 켜져 있는 이 목록의 첫 번째 에이전트가 답합니다.",
+      "emptyTitle": "아직 에이전트가 없습니다",
+      "emptyBody": "에이전트는 지식 베이스를 사용해 고객에게 대신 답합니다.",
+      "createFirst": "에이전트 만들기",
+      "noMatchTitle": "일치하는 에이전트가 없습니다",
+      "noMatchBody": "다른 검색어나 필터를 사용해 보세요.",
+      "clearFilters": "필터 지우기",
+      "roles": {
+        "sales": "영업",
+        "support": "지원",
+        "bookings": "예약",
+        "orders": "주문",
+        "general": "일반"
+      },
+      "tones": {
+        "friendly": "친근함",
+        "professional": "전문적",
+        "concise": "간결함",
+        "enthusiastic": "열정적",
+        "formal": "격식"
+      },
+      "channels": {
+        "whatsapp": "WhatsApp",
+        "instagram": "Instagram"
+      },
+      "hoursAlways": "항상 켜짐",
+      "hoursDuring": "{from}~{to}",
+      "hoursOutside": "{from}~{to} 외 시간",
+      "roleTone": "{role} 에이전트 · {tone} 어조",
+      "roleOnly": "{role} 에이전트",
+      "toggleLabel": "{name}이(가) 고객에게 답장",
+      "noGoal": "설정의 지침을 사용합니다.",
+      "defaultBadge": "기본",
+      "handled": "처리한 대화",
+      "solved": "사람 없이 해결",
+      "newLabel": "신규",
+      "noChats": "아직 대화 없음",
+      "statusOn": "켜짐",
+      "statusOff": "꺼짐",
+      "test": "에이전트 테스트",
+      "edit": "편집",
+      "more": "{name} 더 보기",
+      "duplicate": "복제",
+      "moveUp": "위로 이동",
+      "moveDown": "아래로 이동",
+      "delete": "삭제",
+      "readOnly": "관리자만 에이전트를 변경할 수 있습니다.",
+      "defaultHint": "처음부터 있던 에이전트입니다. 지침, 어조, 인계 규칙은 설정에 있는 내용을 사용합니다.",
+      "deleteTitle": "{name}을(를) 삭제할까요?",
+      "deleteOn": "이 에이전트는 켜져 있습니다. 즉시 고객 응답을 멈춥니다.",
+      "deleteOff": "이 에이전트와 설정이 삭제됩니다.",
+      "deleteConfirm": "에이전트 삭제",
+      "toasts": {
+        "created": "에이전트를 만들었습니다. 준비되면 켜세요.",
+        "saved": "에이전트를 저장했습니다",
+        "duplicated": "{name}을(를) 만들었습니다. 지금은 꺼져 있습니다.",
+        "deleted": "에이전트를 삭제했습니다",
+        "on": "{name}이(가) 켜져 고객에게 답하고 있습니다",
+        "off": "{name}이(가) 꺼졌습니다",
+        "moved": "순서를 저장했습니다",
+        "failed": "실패했습니다. 다시 시도하세요.",
+        "loadFailed": "에이전트를 불러오지 못했습니다."
+      },
+      "errors": {
+        "forbidden": "관리자만 에이전트를 변경할 수 있습니다.",
+        "invalid_input": "에이전트 정보를 확인하고 다시 시도하세요.",
+        "not_found": "이 에이전트는 더 이상 없습니다.",
+        "name_taken": "다른 에이전트가 이미 이 이름을 사용합니다.",
+        "limit_reached": "워크스페이스에는 에이전트를 최대 20개까지 둘 수 있습니다.",
+        "default_agent": "기본 에이전트는 삭제할 수 없습니다. 대신 끄세요."
+      }
+    },
+    "editor": {
+      "newTitle": "새 에이전트",
+      "editTitle": "{name} 편집",
+      "name": "이름",
+      "namePlaceholder": "예: 마야",
+      "role": "역할",
+      "goal": "목표와 지침",
+      "goalPlaceholder": "이 에이전트가 할 일과 절대 하지 말아야 할 일은 무엇인가요?",
+      "tone": "어조",
+      "channels": "채널",
+      "handoffLegend": "사람에게 인계",
+      "keywords": "고객이 이렇게 말하면",
+      "keywordsPlaceholder": "환불, 불만, 상담원 연결",
+      "keywordsHint": "단어는 쉼표로 구분하세요.",
+      "maxTurns": "AI 답장 횟수가 이만큼 되면",
+      "maxTurnsHint": "0은 제한 없음입니다.",
+      "unsure": "에이전트가 확신하지 못할 때",
+      "unsureHint": "답을 추측하는 대신 인계합니다.",
+      "hoursLegend": "운영 시간",
+      "hoursMode": "답장하는 시간",
+      "modeAlways": "항상",
+      "modeDuring": "이 시간에만",
+      "modeOutside": "이 시간 외에만",
+      "from": "시작",
+      "to": "종료",
+      "timezone": "시간은 받은편지함 설정의 시간대를 따릅니다.",
+      "create": "에이전트 만들기",
+      "save": "변경 사항 저장",
+      "errors": {
+        "name": "다른 에이전트가 쓰지 않는 이름을 입력하세요.",
+        "goal": "에이전트가 할 일을 입력하세요.",
+        "channels": "채널을 하나 이상 선택하세요.",
+        "maxTurns": "0에서 50 사이의 숫자를 입력하세요.",
+        "hours": "시작 시간은 종료 시간보다 빨라야 합니다."
+      }
+    },
+    "test": {
+      "panelLabel": "{name} 테스트",
+      "subtitle": "테스트 채팅 · 고객에게 아무것도 보내지 않습니다",
+      "reset": "다시 시작",
+      "close": "테스트 채팅 닫기",
+      "hint": "고객처럼 메시지를 입력하세요. {name}이(가) 지식 베이스를 바탕으로 답합니다.",
+      "hintOff": "고객에게는 꺼져 있지만 테스트는 할 수 있습니다.",
+      "placeholder": "고객으로 메시지 입력",
+      "lockedPlaceholder": "계속 테스트하려면 다시 시작하세요",
+      "inputLabel": "테스트 메시지",
+      "send": "보내기",
+      "from": "출처: {source}",
+      "typing": "에이전트가 입력 중입니다",
+      "handoverReply": "도와드릴 수 있는 팀원을 연결해 드릴게요. 곧 여기에서 답변드립니다.",
+      "handoff": {
+        "keyword": "사람에게 인계됨: 고객이 인계 단어를 사용했습니다",
+        "turns": "답장 한도에 도달해 사람에게 인계됨",
+        "unsure": "사람에게 인계됨: 에이전트가 확신하지 못했습니다"
+      },
+      "starters": {
+        "sales1": "연간 요금제는 얼마인가요?",
+        "sales2": "데모를 받을 수 있나요?",
+        "sales3": "진행 중인 할인이 있나요?",
+        "support1": "주문은 언제 발송되나요?",
+        "support2": "연락처는 어떻게 내보내나요?",
+        "support3": "환불하고 싶어요",
+        "bookings1": "상담을 예약할 수 있나요?",
+        "bookings2": "영업시간이 어떻게 되나요?",
+        "bookings3": "일정을 바꿔야 해요",
+        "orders1": "주문은 언제 발송되나요?",
+        "orders2": "청구서를 보내 주세요",
+        "orders3": "상품이 파손되어 도착했어요",
+        "general1": "영업시간이 어떻게 되나요?",
+        "general2": "가격이 얼마인가요?",
+        "general3": "급한 일이에요"
+      }
+    },
+    "knowledge": {
+      "askTitle": "지식 베이스에 질문하기",
+      "askBody": "고객이 묻기 전에 AI가 무엇을 찾을지 확인하세요.",
+      "askPlaceholder": "예: 환불은 얼마나 걸리나요?",
+      "askLabel": "질문",
+      "ask": "질문하기",
+      "askEmpty": "먼저 질문을 입력하세요.",
+      "askFailed": "지식 베이스를 검색하지 못했습니다. 다시 시도하세요.",
+      "noMatch": "“{q}”와(과) 일치하는 내용이 없습니다.",
+      "noMatchBody": "다른 검색어나 유형을 사용해 보세요.",
+      "writeAnswer": "답변 작성",
+      "untitled": "제목 없음",
+      "matchPct": "{n}% 일치",
+      "teamOnly": "팀 전용, 답장에는 사용하지 않음",
+      "typeLabel": "소스 유형",
+      "types": {
+        "all": "전체",
+        "website": "웹사이트",
+        "document": "문서",
+        "qa": "질문과 답변"
+      },
+      "search": "소스 검색",
+      "addShort": "추가",
+      "tableLabel": "지식 소스",
+      "cols": {
+        "source": "소스",
+        "type": "유형",
+        "status": "상태",
+        "size": "크기",
+        "updated": "업데이트",
+        "inReplies": "답장에 사용",
+        "inRepliesHint": "고객에게 답할 때 이 소스를 사용합니다",
+        "actions": "작업"
+      },
+      "kind": {
+        "website": "웹사이트",
+        "sitemap": "사이트맵",
+        "file": "문서",
+        "text": "텍스트",
+        "qa": "질문과 답변",
+        "learning": "학습한 답변"
+      },
+      "status": {
+        "queued": "대기 중",
+        "crawling": "동기화 중",
+        "ready": "동기화됨",
+        "failed": "실패",
+        "disabled": "꺼짐"
+      },
+      "progressLabel": "{title} 동기화 진행률",
+      "size": {
+        "pages": "{count, plural, other {#페이지}}",
+        "answers": "{count, plural, other {답변 #개}}",
+        "documents": "{count, plural, other {문서 #개}}"
+      },
+      "never": "아직 동기화되지 않음",
+      "useInReplies": "고객 답장에 {title} 사용",
+      "syncAgainLabel": "{title} 다시 동기화",
+      "more": "{title} 더 보기",
+      "menu": {
+        "view": "내용 보기",
+        "editAnswer": "답변 편집",
+        "editText": "텍스트 편집",
+        "copy": "주소 복사",
+        "syncAgain": "다시 동기화",
+        "tryAgain": "다시 시도",
+        "showAgents": "상담원에게 공개",
+        "adminsOnly": "관리자 전용",
+        "delete": "삭제"
+      },
+      "emptyTitle": "아직 소스가 없습니다",
+      "emptyBody": "웹사이트, 문서 또는 몇 가지 질문과 답변을 추가하세요.",
+      "addFirst": "소스 추가",
+      "noMatchTitle": "일치하는 소스가 없습니다",
+      "clearFilters": "필터 지우기",
+      "deleteTitle": "{title}을(를) 삭제할까요?",
+      "deleteBody": "AI가 이 소스를 즉시 사용하지 않습니다. 되돌릴 수 없습니다.",
+      "deleteConfirm": "소스 삭제",
+      "toasts": {
+        "added": "소스를 추가했습니다. 지금 읽는 중입니다.",
+        "saved": "저장했습니다. 지금 다시 읽는 중입니다.",
+        "deleted": "소스를 삭제했습니다",
+        "syncing": "{title} 동기화 중",
+        "inReplies": "{title}을(를) 고객 답장에 사용합니다",
+        "teamOnly": "{title}은(는) 팀 전용입니다",
+        "copied": "주소를 복사했습니다",
+        "failed": "실패했습니다. 다시 시도하세요."
+      },
+      "add": {
+        "title": "소스 추가",
+        "editAnswerTitle": "답변 편집",
+        "editTextTitle": "텍스트 편집",
+        "modeLabel": "소스 종류",
+        "modes": {
+          "website": "웹사이트",
+          "sitemap": "사이트맵",
+          "file": "파일 업로드",
+          "qa": "질문과 답변 작성",
+          "text": "텍스트"
+        },
+        "url": "페이지 주소",
+        "sitemapUrl": "사이트맵 주소",
+        "name": "이름",
+        "namePlaceholder": "고객센터",
+        "nameHint": "선택 사항입니다. 비워 두면 사이트 이름을 사용합니다.",
+        "file": "파일 선택",
+        "fileHint": "PDF, Word, 텍스트 또는 Markdown, 최대 10MB",
+        "question": "질문",
+        "questionPlaceholder": "일요일에도 배송하나요?",
+        "answer": "답변",
+        "answerPlaceholder": "AI가 해야 할 답변입니다.",
+        "textTitle": "제목",
+        "textContent": "텍스트",
+        "submit": "소스 추가",
+        "save": "저장",
+        "errors": {
+          "url": "웹 주소를 입력하세요. 예: https://yourshop.com/help",
+          "pageLimit": "1에서 500 사이의 페이지 수를 입력하세요.",
+          "file": "업로드할 파일을 선택하세요.",
+          "fileType": "PDF, Word, 텍스트 또는 Markdown 파일을 사용하세요.",
+          "fileSize": "이 파일은 10MB보다 큽니다.",
+          "question": "질문을 입력하세요.",
+          "answer": "답변을 입력하세요.",
+          "title": "텍스트 제목을 입력하세요.",
+          "content": "텍스트를 입력하세요."
+        }
+      },
+      "detail": {
+        "updated": "{when} 업데이트",
+        "never": "아직 동기화되지 않음",
+        "truncated": "텍스트의 앞부분만 보여 줍니다.",
+        "pages": "{count, plural, other {#페이지}}",
+        "noPreview": "이 소스는 텍스트 미리보기가 없습니다. 동기화되면 검색에 사용됩니다.",
+        "close": "닫기"
+      }
+    },
+    "features": {
+      "title": "어시스턴트 기능",
+      "body": "받은편지함에서 팀을 돕는 기능입니다. AI가 이것을 스스로 보내지는 않습니다.",
+      "onCount": "{total}개 중 {on}개 켜짐",
+      "teamLanguage": "팀 언어",
+      "languageSaved": "팀 언어를 {language}(으)로 설정했습니다",
+      "turnedOn": "{name}을(를) 켰습니다",
+      "turnedOff": "{name}을(를) 껐습니다",
+      "setupLink": "에이전트 및 제공업체 설정",
+      "items": {
+        "suggest": {
+          "name": "추천 답장",
+          "desc": "받은편지함에서 답장을 최대 세 개 제안합니다. 하나를 골라 보내기 전에 편집할 수 있습니다."
+        },
+        "summary": {
+          "name": "대화 요약",
+          "desc": "긴 대화를 몇 줄로 요약합니다. 팀에게만 보입니다."
+        },
+        "assess": {
+          "name": "리드 점수",
+          "desc": "고객이 원하는 것을 파악하고 리드마다 0~100점의 점수를 매깁니다."
+        },
+        "label": {
+          "name": "자동 라벨",
+          "desc": "새 대화에 가격이나 지원 같은 받은편지함 라벨을 최대 두 개까지 붙입니다."
+        },
+        "translate": {
+          "name": "번역",
+          "desc": "받은편지함에서 요청하면 고객 메시지를 팀 언어로 보여 주고 답장을 고객 언어로 번역합니다."
+        },
+        "route": {
+          "name": "직원에게 연결",
+          "desc": "모든 대화에서 건강 및 기타 민감한 질문은 답하지 않고 사람에게 보냅니다."
+        },
+        "insights": {
+          "name": "비즈니스 인사이트",
+          "desc": "요청하면 분석 수치를 짧게 요약해 줍니다."
+        }
+      }
+    },
+    "languages": {
+      "en": "영어",
+      "hi": "힌디어",
+      "te": "텔루구어",
+      "ta": "타밀어",
+      "mr": "마라티어",
+      "kn": "칸나다어",
+      "ml": "말라얄람어",
+      "bn": "벵골어",
+      "gu": "구자라트어",
+      "pa": "펀자브어",
+      "es": "스페인어",
+      "pt": "포르투갈어",
+      "ko": "한국어",
+      "fr": "프랑스어",
+      "de": "독일어",
+      "ar": "아랍어"
+    },
+    "budget": {
+      "title": "월간 토큰 예산",
+      "states": {
+        "ok": "정상",
+        "warn": "얼마 남지 않음",
+        "over": "예산 소진",
+        "none": "제한 없음"
+      },
+      "usedNoLimit": "이번 달 사용한 토큰",
+      "ofLimit": "/ {limit} 토큰",
+      "barLabel": "사용한 예산",
+      "pct": "{n}% 사용",
+      "resets": "{date}에 초기화",
+      "overNote": "한도를 넘었습니다. 일시 중지가 꺼져 있어 어시스턴트 기능은 계속 작동합니다.",
+      "pausedNote": "예산이 초기화되거나 한도를 올릴 때까지 AI가 일시 중지됩니다.",
+      "planLimit": "요금제에서 매월 {n} 토큰을 사용할 수 있습니다.",
+      "limitLabel": "월간 한도(토큰)",
+      "preset": "{n}백만",
+      "saveLimit": "한도 저장",
+      "removeLimit": "제한 없음",
+      "setLimit": "한도 설정",
+      "change": "한도 변경",
+      "pause": "예산을 다 쓰면 AI 일시 중지",
+      "pauseHint": "한도에 도달하면 어시스턴트 기능이 멈춥니다. 팀은 계속 직접 답할 수 있습니다. 요금제 한도는 항상 적용됩니다.",
+      "pauseOn": "예산을 다 쓰면 AI가 일시 중지됩니다",
+      "pauseOff": "한도를 넘어도 AI가 계속 작동합니다",
+      "tokensNote": "토큰은 AI가 읽고 쓰는 텍스트의 양입니다. 영어 약 750단어가 1,000토큰입니다.",
+      "saved": "월간 한도를 {n} 토큰으로 설정했습니다",
+      "removed": "월간 한도를 없앴습니다",
+      "errors": {
+        "invalid": "토큰 수를 정수로 입력하세요.",
+        "min": "최소 한도는 100,000 토큰입니다.",
+        "max": "한도가 너무 큽니다."
+      }
+    },
+    "usage": {
+      "title": "이번 달 토큰 사용처",
+      "empty": "이번 달에는 아직 사용한 토큰이 없습니다.",
+      "off": "꺼짐",
+      "modes": {
+        "auto_reply": "AI 에이전트",
+        "draft": "초안",
+        "summary": "대화 요약",
+        "suggest": "추천 답장",
+        "assess": "리드 점수",
+        "insights": "비즈니스 인사이트",
+        "label": "자동 라벨",
+        "translate": "번역",
+        "other": "테스트 및 기타"
+      }
+    },
+    "quality": {
+      "windowTitle": "최근 {days}일",
+      "shown": "추천 {n}개 표시됨",
+      "outcomes": {
+        "accepted": {
+          "label": "그대로 보냄",
+          "hint": "처음부터 맞는 추천이었습니다"
+        },
+        "edited": {
+          "label": "수정 후 보냄",
+          "hint": "거의 맞았지만 팀이 수정했습니다"
+        },
+        "rejected": {
+          "label": "거절됨",
+          "hint": "팀이 닫았습니다"
+        },
+        "unused": {
+          "label": "사용 안 함",
+          "hint": "표시되었지만 무시되었습니다"
+        }
+      },
+      "pctOf": "추천의 {n}%",
+      "chartDay": "일별 표시된 추천",
+      "chartOutcome": "추천의 결과",
+      "chartLabel": "차트 보기",
+      "byDay": "일별",
+      "byOutcome": "결과별",
+      "dayChartLabel": "일별 표시된 추천, 최고 {max}개",
+      "dayBar": "{day}: 추천 {n}개",
+      "busiest": "가장 많았던 날: 추천 {max}개. 막대에 마우스를 올리면 날짜가 보입니다.",
+      "safetyTitle": "작동한 안전 점검",
+      "safetyNote": "각 점검은 위험한 답변이 고객에게 보이기 전에 막았습니다.",
+      "checks": {
+        "sensitive_routed": "민감한 주제를 직원에게 보냄",
+        "guard_blocked": "위험한 답변을 보류함",
+        "claims": "결제·환불·의료 관련 주장을 대체함",
+        "personal_data": "개인 정보를 AI에게서 숨김",
+        "links": "알 수 없는 링크를 제거함",
+        "injection": "지시처럼 보이는 텍스트를 무시함"
+      },
+      "ratingsTitle": "팀 평가",
+      "helpfulPct": "{n}% 도움 됨",
+      "helpful": "도움 됨",
+      "notHelpful": "도움 안 됨",
+      "noRatings": "아래 답장을 평가하면 팀이 얼마나 도움이 된다고 느끼는지 볼 수 있습니다.",
+      "repliesTitle": "최근 AI 답장",
+      "filterLabel": "답장 보기",
+      "filters": {
+        "all": "전체",
+        "suggestion": "추천",
+        "agent": "에이전트 답장",
+        "down": "도움 안 됨",
+        "unrated": "평가 안 함"
+      },
+      "nothing": "항목이 없습니다",
+      "nothingYet": "최근 30일의 AI 답장이 여기에 표시됩니다.",
+      "nothingBody": "이 필터와 일치하는 답장이 없습니다.",
+      "showAll": "모든 답장 보기",
+      "cols": {
+        "customer": "고객",
+        "reply": "질문과 AI 답장",
+        "result": "결과",
+        "helpful": "도움 됨?"
+      },
+      "unknownContact": "고객",
+      "openReply": "{name}에게 보낸 답장 열기",
+      "results": {
+        "accepted": "그대로 보냄",
+        "edited": "수정됨",
+        "rejected": "거절됨",
+        "shown": "사용 안 함",
+        "sent": "에이전트가 보냄"
+      },
+      "agentReply": "에이전트 답장",
+      "suggestion": "추천 답장",
+      "rateUp": "도움 됨",
+      "rateDown": "도움 안 됨",
+      "toasts": {
+        "up": "도움 됨으로 표시했습니다",
+        "down": "도움 안 됨으로 표시했습니다",
+        "cleared": "평가를 지웠습니다"
+      },
+      "detail": {
+        "title": "{name}에게 보낸 답장",
+        "asked": "{name}의 질문",
+        "suggested": "AI 추천",
+        "agentReplied": "{name}의 답장",
+        "source": "답변 출처",
+        "agent": "에이전트",
+        "shownTo": "표시 대상",
+        "rating": "내 평가",
+        "notRated": "평가 안 함",
+        "openConversation": "대화 열기",
+        "writeBetter": "더 나은 답변 작성"
+      }
+    },
+    "translate": {
+      "button": "번역",
+      "incoming": "고객 메시지 번역",
+      "outgoing": "내 답장 번역",
+      "panelTitle": "{language}(으)로",
+      "panelTitleAny": "번역",
+      "close": "번역 닫기",
+      "needText": "먼저 답장을 입력하세요.",
+      "replaced": "답장을 번역했습니다. 확인한 뒤 보내세요.",
+      "failed": "번역하지 못했습니다. 다시 시도하세요."
     }
   }
 }

@@ -59,8 +59,10 @@ export interface AiReservation {
   db: PrismaClient;
 }
 
+/** The workspace's own token cap while it pauses the AI (pause_at_cap); null when there is none or pausing is off. */
 async function workspaceTokenCap(tx: TenantTransaction, accountId: string): Promise<number | null> {
-  const [row] = await tx.$queryRaw<{ cap: bigint | null }[]>`SELECT monthly_token_cap AS cap FROM ai_workspace_settings WHERE account_id=${accountId}::uuid`;
+  const [row] = await tx.$queryRaw<{ cap: bigint | null }[]>`SELECT CASE WHEN pause_at_cap THEN monthly_token_cap END AS cap
+    FROM ai_workspace_settings WHERE account_id=${accountId}::uuid`;
   return row?.cap === null || row?.cap === undefined ? null : Number(row.cap);
 }
 

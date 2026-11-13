@@ -93,11 +93,11 @@ export class AiError extends Error {
 // ------------------------------------------------------------------
 
 /** The assistant features that each have a workspace switch (ai_workspace_settings). */
-export const AI_ASSIST_FEATURES = ['summary', 'suggest', 'assess', 'insights'] as const
+export const AI_ASSIST_FEATURES = ['summary', 'suggest', 'assess', 'insights', 'label', 'translate'] as const
 export type AiAssistFeature = (typeof AI_ASSIST_FEATURES)[number]
 
 /** ai_usage_log.mode values (DB CHECK ai_usage_log_mode_check). */
-export const AI_USAGE_MODES = ['auto_reply', 'draft', 'summary', 'suggest', 'assess', 'insights'] as const
+export const AI_USAGE_MODES = ['auto_reply', 'draft', 'summary', 'suggest', 'assess', 'insights', 'label', 'translate'] as const
 export type AiUsageMode = (typeof AI_USAGE_MODES)[number]
 
 /** Why an assistant task produced no model output (each has an AiFallback.<reason> message). */

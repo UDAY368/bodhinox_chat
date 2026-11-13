@@ -4,6 +4,7 @@ import { buildConversationContext } from './context'
 import { retrieveKnowledgeScored } from './knowledge'
 import { generateReply } from './generate'
 import { buildAgentSystemPrompt, loadAgentProfileTx, matchHandoffKeyword, type AgentProfile } from './agent-profile'
+import { agentProfileFor, pickAgent } from './agents'
 import { assessConfidence, type RetrievalScores } from './confidence'
 import { recordUnanswered } from './unanswered'
 import { buildHandoffSummary, pauseConversationForStaff, type HandoffGuardReason } from './handoff'
@@ -215,7 +216,22 @@ export async function dispatchInboundToAiReply(
     // The workspace's agent profile (setup wizard). Missing or unreadable
     // means the defaults: no keywords, no turn limit.
     const profile = await loadProfile(accountId)
-    const rules = profile?.handoff_rules
+    // Exactly one agent answers: the conversation's previous agent when it is
+    // still on for this channel and hour, else the first eligible agent in
+    // list order. Agents exist but none is on now: a person answers. Not
+    // best-effort: a failed read throws (an agent that is off never answers).
+    const pick = await pickAgent(accountId, instagram ? 'instagram' : 'whatsapp', conversationId)
+    if (pick.kind === 'none') {
+      console.info('[ai auto-reply] skipped', { reason: 'no_agent' })
+      await unavailable()
+      await record('skipped', 'no_agent')
+      return
+    }
+    const agent = pick.kind === 'agent' ? pick.agent : null
+    event.agentId = agent?.id ?? null
+    // The default agent replies with the workspace profile exactly as before.
+    const agentProfile = agent ? agentProfileFor(profile, agent) : profile
+    const rules = agentProfile?.handoff_rules
     const question = latestUserMessage(messages)
     event.customerText = question
     // Routing checks every customer turn since the last reply, so a burst
@@ -334,13 +350,14 @@ export async function dispatchInboundToAiReply(
     // quoted as untrusted reference material (see agent-profile.ts).
     // A goal's guidance joins the operator instructions (never customer text).
     const goalText = goalGuidance?.instructions ?? null
-    const promptProfile = profile && goalText
-      ? { ...profile, instructions: [profile.instructions?.trim() || config.systemPrompt?.trim() || '', goalText].filter(Boolean).join('\n\n') }
-      : profile
+    const promptProfile = agentProfile && goalText
+      ? { ...agentProfile, instructions: [agentProfile.instructions?.trim() || config.systemPrompt?.trim() || '', goalText].filter(Boolean).join('\n\n') }
+      : agentProfile
     const systemPrompt = buildAgentSystemPrompt(promptProfile, {
       mode: 'auto_reply',
       knowledge,
-      legacyPrompt: goalText && !profile ? [config.systemPrompt?.trim(), goalText].filter(Boolean).join('\n\n') : config.systemPrompt,
+      legacyPrompt: goalText && !agentProfile ? [config.systemPrompt?.trim(), goalText].filter(Boolean).join('\n\n') : config.systemPrompt,
+      agent: agent && !agent.is_default ? { name: agent.name, role: agent.role } : null,
     })
 
     // Personal data in customer messages is masked before it leaves for the provider.

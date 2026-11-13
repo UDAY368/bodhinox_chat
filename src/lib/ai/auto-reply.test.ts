@@ -49,6 +49,8 @@ vi.mock('./knowledge', () => ({
   },
 }))
 vi.mock('./generate', () => ({ generateReply: h.generateReply }))
+// No ai_agents rows: the legacy single agent answers (auto-reply-agent.test.ts covers agent selection).
+vi.mock('./agents', async (importOriginal) => ({ ...(await importOriginal<typeof import('./agents')>()), pickAgent: async () => ({ kind: 'legacy' as const }) }))
 vi.mock('./reply-events', () => ({ recordReplyEvent: h.recordReplyEvent }))
 vi.mock('./budget', () => ({ reserveAi: h.reserveAi, settleAi: h.settleAi, failAi: h.failAi, chatTokenEstimate: () => 100 }))
 vi.mock('@/lib/db/prisma', () => ({ getWorkerPrisma: () => ({ worker: true }) }))

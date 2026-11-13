@@ -20,6 +20,10 @@ export const FEATURE_BUDGETS: Record<AiAssistFeature, Omit<FeatureBudget, 'timeo
   assess: { maxInputChars: 12_000, maxOutputTokens: 300, contextMessages: 20 },
   // Insights send only the computed numbers (JSON), never conversations.
   insights: { maxInputChars: 8_000, maxOutputTokens: 600, contextMessages: 0 },
+  // Auto-labelling reads the first customer messages and returns label names only.
+  label: { maxInputChars: 4_000, maxOutputTokens: 80, contextMessages: 6 },
+  // Translation of the latest customer messages, or of one staff draft.
+  translate: { maxInputChars: 6_000, maxOutputTokens: 700, contextMessages: 6 },
 };
 
 export const FEATURE_TIMEOUT_CAP_MS = 20_000;

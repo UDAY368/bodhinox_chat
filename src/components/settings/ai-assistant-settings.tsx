@@ -88,7 +88,7 @@ const NO_GOALS: AiGoal[] = [];
 const fieldClass = 'border-input bg-background h-9 w-full rounded-md border px-2 text-sm';
 
 /** The Instagram goals editor (Settings -> AI assistant). */
-function InstagramGoalsEditor({ initial, busy, onSave }: {
+export function InstagramGoalsEditor({ initial, busy, onSave }: {
   initial: AiGoal[]; busy: boolean; onSave: (goals: AiGoal[]) => Promise<boolean>;
 }) {
   const tg = useTranslations('AiSettings.instagramGoals');

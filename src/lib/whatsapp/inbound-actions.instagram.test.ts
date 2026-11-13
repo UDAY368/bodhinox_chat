@@ -9,6 +9,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const h = vi.hoisted(() => ({
   calls: [] as string[],
   flow: vi.fn(), resume: vi.fn(), automations: vi.fn(), ai: vi.fn(), mediaSkip: vi.fn(), lifecycle: vi.fn(), away: vi.fn(), webhook: vi.fn(),
+  routeStaff: vi.fn(), autoLabel: vi.fn(),
   stages: new Map<string, unknown>(),
   contact: { blocked_at: null as string | null, instagram_opted_out_at: null as string | null },
   consent: [] as Record<string, unknown>[],
@@ -40,6 +41,8 @@ vi.mock('./quick-reply-actions', () => ({ dispatchQuickReplyAction: vi.fn() }));
 vi.mock('@/lib/automations/engine', () => ({ resumeAwaitingReply: h.resume, runAutomationsForTrigger: h.automations }));
 vi.mock('@/lib/flows/engine', () => ({ dispatchInboundToFlows: h.flow, startFlowById: h.startFlow }));
 vi.mock('@/lib/ai/auto-reply', () => ({ dispatchInboundToAiReply: h.ai, recordUnreadableInbound: h.mediaSkip }));
+vi.mock('@/lib/ai/route-to-staff', () => ({ routeSensitiveInbound: h.routeStaff }));
+vi.mock('@/lib/ai/auto-label', () => ({ enqueueAutoLabelForInbound: h.autoLabel }));
 vi.mock('@/lib/webhooks/deliver', () => ({ dispatchWebhookEvent: h.webhook }));
 vi.mock('@/lib/inbox/lifecycle', () => ({ applyInboundLifecycle: h.lifecycle }));
 vi.mock('@/lib/inbox/away-message', () => ({ sendAwayMessage: h.away }));
@@ -81,7 +84,10 @@ describe('Instagram inbound pipeline', () => {
   it('runs flow, automations, AI, lifecycle, away message and webhooks in the WhatsApp order', async () => {
     await processInboundActions(message({ wasConversationCreated: true }));
     expect(h.calls).toEqual(['conversation_webhook', 'flow', 'reply_resume', 'automation:new_message_received', 'automation:keyword_match',
-      'ai_reply', 'away_message', 'message_webhook']);
+      'ai_reply', 'away_message', 'message_webhook', 'ai_route_staff', 'ai_label']);
+    // Route to staff and auto-labelling run for Instagram too, after the bots (each checks its own switch).
+    expect(h.routeStaff).toHaveBeenCalledWith({ accountId: ID, conversationId: ID, contactId: ID, configOwnerUserId: ID, text: expect.any(String) });
+    expect(h.autoLabel).toHaveBeenCalledWith(ID, ID);
     expect(h.ai).toHaveBeenCalledWith({ accountId: ID, conversationId: ID, contactId: ID, configOwnerUserId: ID,
       inboundMessageId: 'mid.in-1', inboundRowId: ID, routingChecked: true, requireHandoffOnUnavailable: false });
     expect(h.away).toHaveBeenCalledWith({ accountId: ID, userId: ID, conversationId: ID, contactId: ID, messageId: ID });

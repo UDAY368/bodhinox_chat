@@ -13,6 +13,8 @@ const types = new Set(['whatsapp.webhook', 'inbound.actions', 'automation.trigge
   'ai.assess_conversation', 'ai.insight_run', 'ai.retention_sweep',
   // An inbound AI auto-reply deferred by the account-wide rate limit.
   'ai.auto_reply_retry',
+  // Auto-labelling of a new conversation (one job per conversation).
+  'ai.auto_label',
   // Stage 5: public API flow starts and due sequence messages (both also inserted directly with their own dedupe keys).
   'api.start_flow', 'sequences.due']);
 export async function enqueueJob(type: string, payload: Record<string, unknown>, options: JobOptions = {}): Promise<string> {

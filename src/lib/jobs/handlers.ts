@@ -513,6 +513,9 @@ export async function handleJob(job: Job, assertLease: () => void = () => {}) {
       // that it is still the newest readable message and that no person took over,
       // under the inbound's stage checkpoint so a re-leased job never sends twice.
       await (await import('@/lib/ai/auto-reply')).handleAutoReplyRetryJob(accountId, job.payload, assertLease);
+    else if (job.type === 'ai.auto_label')
+      // Adds up to two of the workspace's labels to a new conversation; never sends.
+      await (await import('@/lib/ai/auto-label')).handleAutoLabelJob(accountId, job.payload);
     else if (job.type === 'ai.insight_run')
       // One insight run from a fixed reporting query; skipped (not failed) when AI is unavailable.
       await (await import('@/lib/ai/insights/job')).handleInsightRunJob(accountId, job.payload, { attempts: job.attempts, maxAttempts: job.max_attempts });
