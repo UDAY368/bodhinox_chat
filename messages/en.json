@@ -2102,7 +2102,8 @@
       "read": "Read",
       "replied": "Replied",
       "unknown": "Unknown",
-      "cancelled": "Cancelled"
+      "cancelled": "Cancelled",
+      "paused": "Paused"
     },
     "detail": {
       "backToBroadcasts": "Back to Broadcasts",
@@ -11891,7 +11892,8 @@
       "from": "From",
       "to": "To",
       "syncFailed": "Could not queue a sync. Try again.",
-      "retargetSaved": "Segment saved. Choose it as the audience of a broadcast."
+      "retargetSaved": "Segment saved. Choose it as the audience of a broadcast.",
+      "openDetails": "Open details for {name}"
     },
     "leads": {
       "empty": "No leads yet.",
@@ -14257,6 +14259,172 @@
       "createSequence": "Create sequence",
       "templateKind": "{kind} · {channel}",
       "flowTemplates": "Flow templates"
+    }
+  },
+  "Campaigns": {
+    "title": "Campaigns",
+    "blurbs": {
+      "broadcasts": "Send one message to many people at once.",
+      "templates": "Messages WhatsApp has approved, so you can write to people first.",
+      "ads": "Ads that open a chat on WhatsApp or Instagram.",
+      "forms": "Short forms people fill in without leaving WhatsApp."
+    },
+    "textMessage": "Text message",
+    "sentProgress": "Share of the audience already sent",
+    "noMatchesHint": "Try another status or search.",
+    "clearFilters": "Clear filters",
+    "pausedHint": "This broadcast is paused. {count, plural, one {# person is} other {# people are}} still waiting. Resume to keep sending.",
+    "stats": {
+      "audience": "Audience",
+      "sent": "Sent",
+      "delivered": "Delivered",
+      "read": "Read",
+      "replied": "Replied"
+    },
+    "when": {
+      "draft": "Not sent yet",
+      "scheduled": "Sends {when}",
+      "sending": "Started {when}",
+      "paused": "Paused",
+      "cancelled": "Cancelled",
+      "sent": "Sent {when}"
+    },
+    "channels": {
+      "whatsapp": "WhatsApp",
+      "instagram": "Instagram"
+    },
+    "actions": {
+      "moreFor": "More actions for {name}",
+      "more": "More actions",
+      "open": "Open",
+      "viewReport": "View report",
+      "edit": "Edit",
+      "editAndSend": "Edit and send",
+      "reschedule": "Edit or reschedule",
+      "sendNow": "Send now",
+      "cancelSchedule": "Cancel schedule",
+      "pause": "Pause",
+      "resume": "Resume",
+      "retryFailed": "Retry failed",
+      "duplicate": "Duplicate",
+      "delete": "Delete",
+      "cancel": "Cancel",
+      "actionFailed": "That did not work. {error}",
+      "toastDeleted": "Broadcast deleted",
+      "cannotDeleteSending": "Pause the broadcast before deleting it.",
+      "toastUnscheduled": "Schedule cancelled",
+      "toastPaused": "Broadcast paused",
+      "toastResumed": "Sending again",
+      "toastRetry": "Sending again to the failed recipients",
+      "toastStarted": "Sending started",
+      "confirmDeleteTitle": "Delete broadcast?",
+      "confirmDeleteBody": "\"{name}\" and its report will be removed.",
+      "confirmSendTitle": "Send now?",
+      "confirmSendBody": "\"{name}\" will start sending to {count, plural, one {# person} other {# people}} right away."
+    },
+    "recipients": {
+      "search": "Search recipients",
+      "filter": "Filter recipients by status",
+      "range": "{start}–{end} of {total}",
+      "previous": "Previous",
+      "next": "Next"
+    },
+    "message": {
+      "title": "Message",
+      "textMessage": "Text message",
+      "yourBusiness": "Your business",
+      "empty": "No message text.",
+      "loading": "Loading the message",
+      "templateMissing": "This template is no longer in the workspace.",
+      "customField": "custom field"
+    },
+    "wizard": {
+      "steps": {
+        "details": "Details",
+        "message": "Message",
+        "review": "Review"
+      },
+      "detailsTitle": "Name and channel",
+      "detailsSubtitle": "Name the broadcast and choose where it goes.",
+      "nameLabel": "Name",
+      "namePlaceholder": "e.g. Diwali offer",
+      "nameHint": "Only your team sees this name.",
+      "nameRequired": "Give the broadcast a name.",
+      "channelLabel": "Channel",
+      "channelWhatsapp": "WhatsApp",
+      "channelWhatsappHint": "An approved template to anyone who opted in.",
+      "channelInstagram": "Instagram",
+      "channelInstagramHint": "A message to people who wrote to you in the last 24 hours.",
+      "channelInstagramOff": "Turn on Instagram in Settings to send Instagram broadcasts.",
+      "back": "Back",
+      "next": "Next",
+      "messageTitle": "Write the message",
+      "messageSubtitle": "Instagram broadcasts are plain text. Keep it short and personal.",
+      "messageLabel": "Message",
+      "insertFirstName": "First name",
+      "messagePlaceholder": "Write your message",
+      "messageHint": "Type '{first name}' to greet each person by name.",
+      "messageRequired": "Write a message.",
+      "preview": "Preview",
+      "yourBusiness": "Your business",
+      "sampleName": "Priya",
+      "previewEmpty": "Your message appears here as you type.",
+      "reviewTitle": "Review and send",
+      "reviewSubtitle": "Check who gets it before it goes out.",
+      "reviewName": "Name",
+      "reviewChannel": "Channel",
+      "reviewAudience": "Audience",
+      "reviewWhen": "When",
+      "reviewNow": "Now",
+      "willGetIt": "{count, plural, one {person will get this} other {people will get this}}",
+      "leftOutWindow": "{count, plural, one {# person} other {# people}} left out: last wrote more than 24 hours ago",
+      "leftOutRule": "Instagram only allows messages to people who wrote to you in the last 24 hours. Opted-out and blocked contacts are always left out.",
+      "countFailed": "Could not count the audience. Go back and try again.",
+      "counting": "Counting who gets it…",
+      "instagramNoSchedule": "Instagram broadcasts send right away: the 24-hour window would close before a later time.",
+      "sendNow": "Send now",
+      "instagramReach": "people wrote in the last 24 hours and will get it",
+      "templateNotApproved": "That template is not approved yet, so it cannot be used in a broadcast.",
+      "copyName": "{name} copy",
+      "templateGone": "The original template is no longer approved. Choose another one.",
+      "loadFailed": "Could not load the broadcast to copy.",
+      "audience": {
+        "all": "All contacts",
+        "tags": "By label",
+        "customField": "By custom field",
+        "csv": "From a CSV file",
+        "segment": "A segment",
+        "list": "A list"
+      }
+    },
+    "templates": {
+      "category": "Category",
+      "allCategories": "All categories",
+      "counts": "{variables, plural, one {# variable} other {# variables}} · {buttons, plural, one {# button} other {# buttons}}",
+      "use": "Use"
+    },
+    "forms": {
+      "summary": "{count, plural, one {# form} other {# forms}} · {published} published",
+      "search": "Search forms",
+      "noMatches": "No forms match.",
+      "searchResponses": "Search responses",
+      "noResponseMatches": "No responses match your search."
+    },
+    "adDrawer": {
+      "ad": "Ad",
+      "campaign": "Campaign",
+      "rangeNote": "Totals for the dates chosen on the Ads tab.",
+      "spend": "Spend",
+      "clicks": "Clicks",
+      "conversations": "Conversations",
+      "purchases": "Purchases",
+      "last14": "Last 14 days",
+      "metric": "Chart metric",
+      "loadFailed": "Could not load the daily figures.",
+      "loading": "Loading daily figures…",
+      "chartLabel": "{metric} per day for the last 14 days, {total} in total",
+      "total": "Total {total}",
+      "openInAdsManager": "Open in Ads Manager"
     }
   }
 }

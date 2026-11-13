@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useFormatter, useTranslations } from "next-intl";
 import { toast } from "sonner";
-import { ClipboardList, Copy, Loader2, Pencil, Plus, Trash2 } from "lucide-react";
+import { ClipboardList, Copy, Loader2, Pencil, Plus, Search, Trash2 } from "lucide-react";
 
 import { useCan } from "@/hooks/use-can";
 import { Button } from "@/components/ui/button";
@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { FormStatusBadge } from "@/components/forms/form-status-badge";
+import { CampaignEmpty, CampaignHeader, SearchField } from "@/components/broadcasts/campaign-ui";
 import {
   createForm,
   deleteForm,
@@ -39,6 +40,7 @@ import { FORM_CATEGORIES, type FormCategory } from "@/lib/whatsapp/forms/types";
 export default function FormsPage() {
   const router = useRouter();
   const t = useTranslations("Forms.list");
+  const tc = useTranslations("Campaigns");
   const tCat = useTranslations("Forms.categories");
   const tGate = useTranslations("GatedButton");
   const format = useFormatter();
@@ -53,6 +55,10 @@ export default function FormsPage() {
   const [createError, setCreateError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<FormListItem | null>(null);
+  const [query, setQuery] = useState("");
+  const term = query.trim().toLowerCase();
+  const visible = term ? forms.filter((f) => f.name.toLowerCase().includes(term)) : forms;
+  const published = forms.filter((f) => f.status === "published").length;
 
   useEffect(() => {
     let cancelled = false;
@@ -139,16 +145,23 @@ export default function FormsPage() {
 
   return (
     <div className="space-y-6">
-      <header className="flex flex-wrap items-start justify-between gap-4">
-        <div className="min-w-0 flex-1 basis-64">
-          <h1 className="text-[22px] font-bold leading-tight tracking-tight text-foreground">{t("title")}</h1>
-          <p className="mt-1 max-w-2xl text-sm text-muted-foreground">{t("description")}</p>
+      <CampaignHeader
+        title={tc("title")}
+        description={tc("blurbs.forms")}
+        actions={
+          <GatedButton canAct={canManage} gateReason={tGate("reasons.manageForms")} onClick={openCreate} className="h-9 px-4">
+            <Plus className="h-4 w-4" />
+            {t("newForm")}
+          </GatedButton>
+        }
+      />
+
+      {forms.length > 0 && (
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm text-muted-foreground">{tc("forms.summary", { count: forms.length, published })}</p>
+          <SearchField ariaLabel={tc("forms.search")} placeholder={tc("forms.search")} value={query} onChange={setQuery} />
         </div>
-        <GatedButton canAct={canManage} gateReason={tGate("reasons.manageForms")} onClick={openCreate} className="h-9 px-4">
-          <Plus className="h-4 w-4" />
-          {t("newForm")}
-        </GatedButton>
-      </header>
+      )}
 
       {forms.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-xl border border-border bg-card px-6 py-12 text-center">
@@ -162,6 +175,13 @@ export default function FormsPage() {
             {t("createFirst")}
           </GatedButton>
         </div>
+      ) : visible.length === 0 ? (
+        <CampaignEmpty
+          icon={Search}
+          title={tc("forms.noMatches")}
+          description={tc("noMatchesHint")}
+          action={<Button variant="outline" onClick={() => setQuery("")}>{tc("clearFilters")}</Button>}
+        />
       ) : (
         <div className="overflow-hidden rounded-xl border border-border bg-card">
           <Table>
@@ -178,7 +198,7 @@ export default function FormsPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {forms.map((form) => (
+              {visible.map((form) => (
                 <TableRow key={form.id} className="border-border/70 transition-colors duration-150 hover:bg-muted/60">
                   <TableCell className="max-w-[18rem] px-4 py-3">
                     <div className="flex min-w-0 items-center gap-3">

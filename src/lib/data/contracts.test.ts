@@ -235,6 +235,17 @@ describe('fixed CRM resource authorization', () => {
     expect(() =>
       validateWrite('broadcasts', { template_name: 'promo_x', scheduled_at: '2026-11-05T18:00:00.000Z', status: 'scheduled' }, tenant, false, 'update')
     ).not.toThrow();
+    // An Instagram draft keeps its channel and text; a browser can never pause, or change them afterwards.
+    expect(() =>
+      validateQuery('broadcasts', { operation: 'insert', values: { ...draft, template_name: '', channel: 'instagram', message_text: 'Hi {first name}' } }, tenant, true)
+    ).not.toThrow();
+    expect(() => validateWrite('broadcasts', { ...draft, status: 'paused' }, tenant, true)).toThrow();
+    expect(() => validateWrite('broadcasts', { ...draft, paused_at: '2026-11-05T18:00:00.000Z' }, tenant, true)).toThrow(/server-managed/);
+    for (const [field, value] of [['channel', 'instagram'], ['message_text', 'changed'], ['paused_at', null], ['status', 'paused']] as const) {
+      expect(() =>
+        validateQuery('broadcasts', { operation: 'update', values: { [field]: value }, filters: id }, tenant, true)
+      ).toThrow(/server-managed/);
+    }
   });
   it('keeps the Stage 5 timed pause and Instagram subscription out of browser writes', () => {
     for (const operation of ['insert', 'update'] as const) {

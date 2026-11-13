@@ -14,7 +14,7 @@ const hrefs = (enabled: Parameters<typeof navigationPages>[0]) => navigationPage
 const groups = (enabled: Parameters<typeof buildNavigation>[0]) =>
   Object.fromEntries(buildNavigation(enabled).map((group) => [group.id, group.pages.map((page) => page.href)]));
 
-const WHATSAPP_PAGES = ['/whatsapp/automations', '/broadcasts', '/settings?tab=templates', '/forms', '/ads'];
+const WHATSAPP_PAGES = ['/whatsapp/automations', '/broadcasts', '/templates', '/forms', '/ads'];
 const INSTAGRAM_PAGES = [
   // Stage 5: Instagram opens on its home page.
   '/instagram/home',
@@ -32,7 +32,7 @@ describe('navigation per channel set', () => {
 
   it('only Instagram: one Instagram group; broadcasts, templates, forms and ads are hidden', () => {
     expect(groups(['instagram'])).toEqual({ workspace: ['/instagram/inbox', ...WORKSPACE_PAGES], instagram: INSTAGRAM_PAGES });
-    for (const href of ['/broadcasts', '/settings?tab=templates', '/forms', '/ads', '/inbox'])
+    for (const href of ['/broadcasts', '/templates', '/forms', '/ads', '/inbox'])
       expect(hrefs(['instagram'])).not.toContain(href);
   });
 

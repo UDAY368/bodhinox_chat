@@ -2066,6 +2066,30 @@
         "nullable": true,
         "default": null,
         "definition": "whatsapp_config_id UUID"
+      },
+      {
+        "name": "channel",
+        "type": "text",
+        "nullable": false,
+        "default": "'whatsapp'",
+        "reference": null,
+        "definition": "channel TEXT NOT NULL DEFAULT 'whatsapp' CHECK (channel IN ('whatsapp', 'instagram'))"
+      },
+      {
+        "name": "message_text",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "message_text TEXT CHECK (message_text IS NULL OR char_length(message_text) <= 1000)"
+      },
+      {
+        "name": "paused_at",
+        "type": "timestamptz",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "paused_at TIMESTAMPTZ"
       }
     ],
     "broadcast_recipients": [
@@ -2216,6 +2240,18 @@
         "default": null,
         "reference": null,
         "definition": "outcome_uncertain_at TIMESTAMPTZ"
+      },
+      {
+        "name": "conversation_id",
+        "type": "uuid",
+        "nullable": true,
+        "default": null,
+        "reference": {
+          "table": "conversations",
+          "column": "id",
+          "onDelete": "SET NULL"
+        },
+        "definition": "conversation_id UUID"
       }
     ],
     "automations": [

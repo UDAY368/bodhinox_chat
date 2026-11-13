@@ -19,6 +19,7 @@ const protectedPaths = [
   '/automation',
   '/flows',
   '/forms',
+  '/templates',
   '/commerce',
   '/agents',
   '/appointments',

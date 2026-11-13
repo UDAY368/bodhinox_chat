@@ -16,7 +16,9 @@ import {
   Search,
   BookOpen,
   Sparkles,
+  Send,
 } from 'lucide-react';
+import Link from 'next/link';
 import { createClient } from '@/lib/data/client';
 import { useAuth } from '@/hooks/use-auth';
 import { useCan } from '@/hooks/use-can';
@@ -26,6 +28,9 @@ import { Badge } from '@/components/ui/badge';
 import { useTranslations } from 'next-intl';
 import { Card, CardContent } from '@/components/ui/card';
 import { SettingsPanelHead } from './settings-panel-head';
+import { CampaignHeader } from '@/components/broadcasts/campaign-ui';
+import { TemplatePreview } from '@/components/templates/template-preview';
+import { extractVariableIndices } from '@/lib/whatsapp/template-validators';
 import {
   Dialog,
   DialogContent,
@@ -86,8 +91,27 @@ interface EditorState {
   draftId: string | null;
 }
 
-export function TemplateManager() {
+/** The Campaigns header on the Templates tab; the Settings panel header elsewhere. */
+function HeaderFor({ variant, title, description, action }: {
+  variant: 'settings' | 'campaigns'; title: string; description: string; action?: React.ReactNode;
+}) {
+  return variant === 'campaigns'
+    ? <CampaignHeader title={title} description={description} actions={action} />
+    : <SettingsPanelHead title={title} description={description} action={action} />;
+}
+
+/** Categories a template list can be narrowed to (Meta's ids, stored as-is). */
+const CATEGORIES = ['all', 'Marketing', 'Utility', 'Authentication'] as const;
+type CategoryFilter = (typeof CATEGORIES)[number];
+
+/**
+ * `variant="campaigns"` renders the manager as the Campaigns > Templates tab
+ * (the Campaigns header); Settings keeps its panel header.
+ */
+export function TemplateManager({ variant = 'settings' }: { variant?: 'settings' | 'campaigns' } = {}) {
   const t = useTranslations('Settings.templates');
+  const tc = useTranslations('Campaigns');
+  const canSend = useCan('send-messages');
   // Meta's category ids (stored as-is) → display label in the UI language.
   const categoryLabel = (category: string) =>
     t.has(`categoryLabels.${category}`) ? t(`categoryLabels.${category}`) : category;
@@ -102,6 +126,7 @@ export function TemplateManager() {
   const [syncing, setSyncing] = useState(false);
   const [tab, setTab] = useState<TemplateTab>('all');
   const [query, setQuery] = useState('');
+  const [category, setCategory] = useState<CategoryFilter>('all');
   const [editor, setEditor] = useState<EditorState | null>(null);
   const [editorOpen, setEditorOpen] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -119,8 +144,8 @@ export function TemplateManager() {
   const defaultLanguage = templateLanguageForAppLocale();
   const counts = useMemo(() => countTemplateTabs(templates), [templates]);
   const visible = useMemo(
-    () => filterTemplates(templates, tab, query),
-    [templates, tab, query],
+    () => filterTemplates(templates, tab, query).filter((tpl) => category === 'all' || tpl.category === category),
+    [templates, tab, query, category],
   );
 
   useEffect(() => {
@@ -303,9 +328,10 @@ export function TemplateManager() {
 
   return (
     <section className="animate-in fade-in-50 space-y-4 duration-200">
-      <SettingsPanelHead
-        title={t('title')}
-        description={t('description')}
+      <HeaderFor
+        variant={variant}
+        title={variant === 'campaigns' ? tc('title') : t('title')}
+        description={variant === 'campaigns' ? tc('blurbs.templates') : t('description')}
         action={
           canEdit ? (
             <div className="flex flex-wrap items-center gap-2">
@@ -377,6 +403,17 @@ export function TemplateManager() {
                 </Button>
               ))}
             </div>
+            <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+            <select
+              aria-label={tc('templates.category')}
+              value={category}
+              onChange={(e) => setCategory(e.target.value as CategoryFilter)}
+              className="h-9 rounded-lg border border-border bg-muted px-2.5 text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              {CATEGORIES.map((c) => (
+                <option key={c} value={c}>{c === 'all' ? tc('templates.allCategories') : categoryLabel(c)}</option>
+              ))}
+            </select>
             <div className="relative sm:w-64">
               <Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
               <Input
@@ -388,16 +425,20 @@ export function TemplateManager() {
                 className="pl-8 bg-muted border-border text-foreground placeholder:text-muted-foreground"
               />
             </div>
+            </div>
           </div>
 
           {visible.length === 0 ? (
             <Card>
-              <CardContent className="py-10 text-center text-sm text-muted-foreground">
+              <CardContent className="flex flex-col items-center gap-3 py-10 text-center text-sm text-muted-foreground">
                 {t('noMatches')}
+                <Button variant="outline" size="sm" onClick={() => { setTab('all'); setCategory('all'); setQuery(''); }}>
+                  {tc('clearFilters')}
+                </Button>
               </CardContent>
             </Card>
           ) : (
-            <div className="grid gap-3 xl:grid-cols-2">
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,280px),1fr))] gap-3">
               {visible.map((template) => {
                 const statusKey = template.status || 'DRAFT';
                 const status = templateStatusConfig[statusKey] ?? {
@@ -408,78 +449,8 @@ export function TemplateManager() {
                 const issue = template.rejection_reason || template.submission_error;
                 const local = isLocalDraft(template);
                 const rowTab = templateTabOf(template.status);
-                return (
-                  <Card key={template.id}>
-                    <CardContent className="flex items-start justify-between pt-4">
-                      <div className="space-y-2 min-w-0 flex-1">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <h3 className="font-medium text-foreground break-all">{template.name}</h3>
-                          <Badge
-                            className={`text-xs border ${categoryColors[template.category] || ''}`}
-                          >
-                            {categoryLabel(template.category)}
-                          </Badge>
-                          <Badge className={`text-xs border ${status.classes}`}>
-                            {status.label}
-                          </Badge>
-                          {template.template_kind && template.template_kind !== 'standard' && (
-                            <Badge variant="outline" className="text-xs">
-                              {kindLabel[template.template_kind]}
-                            </Badge>
-                          )}
-                          {template.language && (
-                            <span className="text-xs text-muted-foreground uppercase">
-                              {template.language}
-                            </span>
-                          )}
-                          {!local && (
-                            <Badge
-                              className={`text-[10px] border gap-1 ${healthClasses[health]}`}
-                              title={t('qualityScoreTitle')}
-                            >
-                              <span
-                                aria-hidden
-                                className={`size-1.5 rounded-full ${healthDot[health]}`}
-                              />
-                              {t('health.label', { level: healthLabel[health] })}
-                            </Badge>
-                          )}
-                        </div>
-                        <p className="text-sm text-muted-foreground line-clamp-2">
-                          {template.body_text}
-                        </p>
-                        {template.footer_text && (
-                          <p className="text-xs text-muted-foreground italic">
-                            {template.footer_text}
-                          </p>
-                        )}
-                        {issue && (
-                          // Clamped to two lines; the full text is on hover.
-                          <div
-                            className="flex items-start gap-1.5 text-xs text-red-400 bg-red-950/20 border border-red-900/40 rounded px-2 py-1.5"
-                            title={issue}
-                          >
-                            <AlertCircle className="size-3.5 mt-0.5 shrink-0" />
-                            <span className="line-clamp-2">
-                              <span className="sr-only">{t('issueLabel')}: </span>
-                              {issue}
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                      <div className="flex flex-wrap items-center justify-end gap-1 shrink-0 ml-2 max-w-[50%]">
-                        {canEdit && local && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => openRow(template)}
-                            title={t('editDraftTitle')}
-                            className={rowAction}
-                          >
-                            <Pencil className="size-3.5" />
-                            {t('editDraft')}
-                          </Button>
-                        )}
+                const rowActions = (
+                <div className="flex shrink-0 flex-wrap items-center justify-end gap-0.5">
                         {canEdit && !local && statusKey === 'APPROVED' && (
                           <Button
                             variant="ghost"
@@ -559,6 +530,83 @@ export function TemplateManager() {
                             )}
                           </Button>
                         )}
+                      </div>
+                );
+                return (
+                  <Card key={template.id} className="transition-shadow duration-150 hover:shadow-md">
+                    <CardContent className="flex h-full flex-col gap-3 pt-4">
+                      <h3 className="break-all font-mono text-sm font-medium text-foreground">{template.name}</h3>
+                      <div className="space-y-2 min-w-0 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <Badge
+                            className={`text-xs border ${categoryColors[template.category] || ''}`}
+                          >
+                            {categoryLabel(template.category)}
+                          </Badge>
+                          <Badge className={`text-xs border ${status.classes}`}>
+                            {status.label}
+                          </Badge>
+                          {template.template_kind && template.template_kind !== 'standard' && (
+                            <Badge variant="outline" className="text-xs">
+                              {kindLabel[template.template_kind]}
+                            </Badge>
+                          )}
+                          {template.language && (
+                            <span className="text-xs text-muted-foreground uppercase">
+                              {template.language}
+                            </span>
+                          )}
+                          {!local && (
+                            <Badge
+                              className={`text-[10px] border gap-1 ${healthClasses[health]}`}
+                              title={t('qualityScoreTitle')}
+                            >
+                              <span
+                                aria-hidden
+                                className={`size-1.5 rounded-full ${healthDot[health]}`}
+                              />
+                              {t('health.label', { level: healthLabel[health] })}
+                            </Badge>
+                          )}
+                        </div>
+                        {/* The template as the customer sees it: header, body, footer and buttons in a chat bubble. */}
+                        <div className="max-h-72 overflow-hidden [&_p.whitespace-pre-wrap]:line-clamp-6">
+                          <TemplatePreview
+                            template={{ ...(template as unknown as TemplateDraftInput), language: template.language ?? 'en_US' }}
+                          />
+                        </div>
+                        {issue && (
+                          // Clamped to two lines; the full text is on hover.
+                          <div
+                            className="flex items-start gap-1.5 text-xs text-red-400 bg-red-950/20 border border-red-900/40 rounded px-2 py-1.5"
+                            title={issue}
+                          >
+                            <AlertCircle className="size-3.5 mt-0.5 shrink-0" />
+                            <span className="line-clamp-2">
+                              <span className="sr-only">{t('issueLabel')}: </span>
+                              {issue}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                      <div className="mt-auto flex flex-wrap items-center justify-between gap-2 border-t border-border pt-3">
+                        <small className="text-xs text-muted-foreground">
+                          {tc('templates.counts', { variables: extractVariableIndices(template.body_text ?? '').length, buttons: (template.buttons ?? []).length })}
+                        </small>
+                        <div className="flex flex-wrap items-center justify-end gap-1">
+                        {rowActions}
+                        {statusKey === 'APPROVED' && canSend ? (
+                          <Button size="sm" variant="outline" render={<Link href={`/broadcasts/new?templateId=${template.id}`} />} nativeButton={false}>
+                            <Send />
+                            {tc('templates.use')}
+                          </Button>
+                        ) : canEdit && local ? (
+                          <Button size="sm" variant="outline" onClick={() => openRow(template)}>
+                            <Pencil />
+                            {t('editDraft')}
+                          </Button>
+                        ) : null}
+                        </div>
                       </div>
                     </CardContent>
                   </Card>

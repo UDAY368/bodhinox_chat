@@ -117,6 +117,9 @@ const browserBroadcastDraftFields = [
   'template_variables',
   'audience_filter',
   'status',
+  // An Instagram draft keeps its channel and text; nothing sends until a campaign route runs.
+  'channel',
+  'message_text',
 ];
 const browserReadOnly = new Set([
   // Dedicated automation routes enforce activation and scheduling validators.

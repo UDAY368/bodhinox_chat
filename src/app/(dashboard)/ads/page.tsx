@@ -30,6 +30,7 @@ type Status =
 
 export default function AdsPage() {
   const t = useTranslations('Ads');
+  const tc = useTranslations('Campaigns');
   const { accountRole } = useAuth();
   const [status, setStatus] = useState<Status | null>(null);
   const [failed, setFailed] = useState(false);
@@ -58,8 +59,8 @@ export default function AdsPage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0 flex-1 basis-64">
-          <h1 className="text-[22px] font-bold leading-tight tracking-tight text-foreground">{t('title')}</h1>
-          <p className="mt-1 text-sm text-muted-foreground">{t('description')}</p>
+          <h1 className="text-[22px] font-bold leading-tight tracking-tight text-foreground">{tc('title')}</h1>
+          <p className="mt-1 text-sm text-muted-foreground">{tc('blurbs.ads')}</p>
         </div>
         {active && connection.adAccountId && (
           <a
@@ -100,7 +101,7 @@ export default function AdsPage() {
             <TabsTrigger value="conversions">{t('tabs.conversions')}</TabsTrigger>
           </TabsList>
           <TabsContent value="ads" className="pt-4">
-            <AdsTable canManage={isAdmin && active} canSegment={isAgent} />
+            <AdsTable canManage={isAdmin && active} canSegment={isAgent} adAccountId={connection?.adAccountId ?? null} />
           </TabsContent>
           <TabsContent value="campaigns" className="pt-4">
             <CampaignsPanel canManage={isAdmin && active} />

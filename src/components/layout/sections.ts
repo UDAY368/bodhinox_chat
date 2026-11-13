@@ -24,8 +24,8 @@ export interface Section {
   unread?: Channel | 'all';
 }
 
-// A tab whose link carries a query (Templates lives at /settings?tab=templates) never claims a path:
-// otherwise every Settings page would count as Campaigns.
+// A tab whose link carries a query never claims a path: otherwise every page under it would count
+// as that tab (Templates used to live at /settings?tab=templates; it is /templates now).
 const under = (pathname: string, href: string) =>
   !href.includes('?') && (pathname === href || pathname.startsWith(`${href}/`));
 
@@ -54,8 +54,9 @@ export function buildSections(enabled: readonly Channel[] | null | undefined): S
       tabs: [
         { href: channelPath('whatsapp', 'broadcasts'), labelKey: 'broadcasts' },
         { href: channelPath('whatsapp', 'templates'), labelKey: 'templates' },
-        { href: channelPath('whatsapp', 'forms'), labelKey: 'forms' },
+        // The prototype's order: Broadcasts, Templates, Ads, Forms.
         { href: channelPath('whatsapp', 'ads'), labelKey: 'ads' },
+        { href: channelPath('whatsapp', 'forms'), labelKey: 'forms' },
       ],
     });
   }

@@ -104,7 +104,7 @@ export async function assertMedia(tx:TenantTransaction,accountId:string,value:st
  * contacts, then joins its rows as `x` (one recipient per row, so a row can carry its own values).
  * Read-only callers must not pass a CSV audience (it writes contacts).
  */
-export async function audienceSource(tx:TenantTransaction,scope:TenantContext,input:Pick<CampaignInput,'audience'>):Promise<{from:Prisma.Sql;where:Prisma.Sql;order:Prisma.Sql}>{
+export async function audienceSource(tx:TenantTransaction,scope:TenantContext,input:Pick<CampaignInput,'audience'>,channel:'whatsapp'|'instagram'='whatsapp'):Promise<{from:Prisma.Sql;where:Prisma.Sql;order:Prisma.Sql}>{
   const {audience}=input;const accountId=scope.accountId;
   const conditions:Prisma.Sql[]=[Prisma.sql`c.account_id=${accountId}::uuid`];
   let from=Prisma.sql`contacts c`,order=Prisma.sql`c.id`;
@@ -151,8 +151,14 @@ export async function audienceSource(tx:TenantTransaction,scope:TenantContext,in
   }
   // Opted-out and blocked contacts never receive campaigns (lib/contacts/consent).
   conditions.push(Prisma.sql`c.opted_out_at IS NULL AND c.blocked_at IS NULL`);
-  // A campaign needs a WhatsApp address; phone-less Instagram-only contacts are never recipients.
-  conditions.push(Prisma.sql`(c.phone_normalized<>'' OR c.wa_user_id IS NOT NULL)`);
+  if(channel==='instagram'){
+    // An Instagram campaign needs an Instagram conversation and the Instagram subscription (lib/broadcasts/instagram).
+    conditions.push(Prisma.sql`c.instagram_opted_out_at IS NULL`);
+    conditions.push(Prisma.sql`EXISTS(SELECT 1 FROM conversations cv WHERE cv.account_id=${accountId}::uuid AND cv.contact_id=c.id AND cv.channel='instagram' AND cv.instagram_account_id IS NOT NULL)`);
+  }else{
+    // A campaign needs a WhatsApp address; phone-less Instagram-only contacts are never recipients.
+    conditions.push(Prisma.sql`(c.phone_normalized<>'' OR c.wa_user_id IS NOT NULL)`);
+  }
   if(audience.excludeTagIds?.length)conditions.push(Prisma.sql`NOT EXISTS(SELECT 1 FROM contact_tags t WHERE t.account_id=${accountId}::uuid AND t.contact_id=c.id AND t.tag_id IN (${jsonIds(audience.excludeTagIds)}))`);
   return {from,where:Prisma.join(conditions,' AND '),order};
 }

@@ -5,25 +5,19 @@ import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/data/client';
 import { Broadcast, BroadcastStatus } from '@/types';
 import { Button } from '@/components/ui/button';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
-import { CalendarClock, ChevronLeft, ChevronRight, Code, Loader2, Plus, Radio, Search } from 'lucide-react';
+import Link from 'next/link';
+import { ChevronLeft, ChevronRight, Code, Loader2, Plus, Radio, Search } from 'lucide-react';
 import {
   CampaignEmpty,
   CampaignHeader,
   IconTile,
-  ProgressBar,
   SearchField,
   SegmentedTabs,
   StatusPill,
   BROADCAST_STATUS_TONE as STATUS_TONE,
 } from '@/components/broadcasts/campaign-ui';
+import { BroadcastActionsMenu, useBroadcastActions } from '@/components/broadcasts/broadcast-actions';
+import { ChannelDot, broadcastStarted, broadcastWhen, sentPercent } from '@/components/broadcasts/broadcast-display';
 import { NumberHealthBar } from '@/components/broadcasts/number-health-bar';
 import { numberLabel, useWhatsAppNumbers } from '@/components/settings/numbers/use-whatsapp-numbers';
 import { ApiCampaignDialog } from '@/components/broadcasts/api-campaign-dialog';
@@ -42,26 +36,22 @@ import { useTranslations } from 'next-intl';
 const POLL_INTERVAL_MS = 5_000;
 const PAGE_SIZE = 20;
 type Tab = 'all' | BroadcastStatus;
-const TABS: Tab[] = ['all', 'scheduled', 'sending', 'sent', 'failed', 'draft', 'cancelled'];
+// The prototype's tabs (All, Draft, Scheduled, Sending, Sent, Paused), then the app's own Failed and Cancelled.
+const TABS: Tab[] = ['all', 'draft', 'scheduled', 'sending', 'sent', 'paused', 'failed', 'cancelled'];
 
-function percent(numerator: number, denominator: number): number {
-  if (!denominator) return 0;
-  return Math.round((numerator / denominator) * 100);
-}
-
-function RateCell({ value, total }: { value: number; total: number }) {
-  const pct = percent(value, total);
+function Stat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-center gap-2">
-      <ProgressBar pct={pct} />
-      <span className="w-9 text-right text-xs tabular-nums text-muted-foreground">{pct}%</span>
-    </div>
+    <span className="flex min-w-0 flex-col leading-tight">
+      <b className="text-sm font-semibold tabular-nums text-foreground">{value}</b>
+      <small className="truncate text-[11px] text-muted-foreground">{label}</small>
+    </span>
   );
 }
 
 export default function BroadcastsPage() {
   const router = useRouter();
   const t = useTranslations('Broadcasts.page');
+  const tc = useTranslations('Campaigns');
   const tStatus = useTranslations('Broadcasts.status');
   const tGate = useTranslations('GatedButton');
   const tn = useTranslations('whatsappNumbers');
@@ -82,6 +72,7 @@ export default function BroadcastsPage() {
   const [page, setPage] = useState(0);
   const [total, setTotal] = useState(0);
   const [apiOpen, setApiOpen] = useState(false);
+  const [counts, setCounts] = useState<Partial<Record<Tab, number>>>({});
   const canApi = planAllows(usePlan(), 'api_campaigns');
   // Each fetch claims a number; only the newest may commit (fast tab/search switching).
   const fetchSeq = useRef(0);
@@ -110,6 +101,14 @@ export default function BroadcastsPage() {
       setBroadcasts(data ?? []);
       setTotal(count ?? 0);
       setError(null);
+      // Per-status counts for the tabs (head-only counts; no rows are read).
+      const tallies = await Promise.all(TABS.map(async (key) => {
+        let tally = db.from('broadcasts').select('id', { count: 'exact', head: true });
+        if (key !== 'all') tally = tally.eq('status', key);
+        const { count: n } = await tally;
+        return [key, n ?? 0] as const;
+      }));
+      if (seq === fetchSeq.current) setCounts(Object.fromEntries(tallies));
     } catch (err) {
       if (seq === fetchSeq.current) setError(err instanceof Error ? err.message : t('errorLoad'));
     } finally {
@@ -122,6 +121,8 @@ export default function BroadcastsPage() {
   }, [fetchBroadcasts]);
 
   const totalPages = Math.ceil(total / PAGE_SIZE);
+  const actions = useBroadcastActions({ onChanged: fetchBroadcasts });
+  const num = (n: number) => n.toLocaleString();
 
   const anySending = useMemo(
     () => broadcasts.some((b) => b.status === 'sending'),
@@ -214,8 +215,8 @@ export default function BroadcastsPage() {
       )}
 
       <CampaignHeader
-        title={t('title')}
-        description={t('subtitle')}
+        title={tc('title')}
+        description={tc('blurbs.broadcasts')}
         actions={
           <>
             {canCreate && !canApi && <UpgradeBadge />}
@@ -245,10 +246,12 @@ export default function BroadcastsPage() {
       {/* Status filter (segmented) + name search */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <SegmentedTabs
+          // Eight tabs are wider than a tablet row: shrink and scroll instead of pushing the search off-screen.
+          className="min-w-0"
           ariaLabel={t('tabsLabel')}
           value={tab}
           onChange={(key) => { setTab(key); setPage(0); }}
-          items={TABS.map((key) => ({ value: key, label: key === 'all' ? t('tabAll') : tStatus(key) }))}
+          items={TABS.map((key) => ({ value: key, label: key === 'all' ? t('tabAll') : tStatus(key), count: counts[key] }))}
         />
         <SearchField
           ariaLabel={t('searchLabel')}
@@ -263,7 +266,16 @@ export default function BroadcastsPage() {
       )}
 
       {broadcasts.length === 0 && (tab !== 'all' || search.trim()) ? (
-        <CampaignEmpty icon={Search} title={t('noMatches')} />
+        <CampaignEmpty
+          icon={Search}
+          title={t('noMatches')}
+          description={tc('noMatchesHint')}
+          action={
+            <Button variant="outline" onClick={() => { setTab('all'); setSearch(''); setPage(0); }}>
+              {tc('clearFilters')}
+            </Button>
+          }
+        />
       ) : broadcasts.length === 0 ? (
         <CampaignEmpty
           icon={Radio}
@@ -282,75 +294,74 @@ export default function BroadcastsPage() {
           }
         />
       ) : (
-        <div className="overflow-hidden rounded-xl border border-border bg-card">
-          <Table>
-            <TableHeader className="bg-muted">
-              <TableRow className="border-border hover:bg-transparent">
-                <TableHead className="h-9 px-4 text-xs font-semibold text-muted-foreground">{t('table.name')}</TableHead>
-                {showSendFrom && (
-                  <TableHead className="hidden h-9 px-3 text-xs font-semibold text-muted-foreground md:table-cell">{tn('picker.sendFrom')}</TableHead>
-                )}
-                <TableHead className="h-9 px-3 text-xs font-semibold text-muted-foreground">{t('table.status')}</TableHead>
-                <TableHead className="hidden h-9 px-3 text-right text-xs font-semibold text-muted-foreground sm:table-cell">
-                  {t('table.recipients')}
-                </TableHead>
-                <TableHead className="hidden h-9 px-3 text-xs font-semibold text-muted-foreground lg:table-cell">{t('table.delivery')}</TableHead>
-                <TableHead className="hidden h-9 px-3 pr-4 text-xs font-semibold text-muted-foreground lg:table-cell">{t('table.read')}</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {broadcasts.map((broadcast) => {
-                const status = getBroadcastStatus(broadcast.status);
-                return (
-                  <TableRow
-                    key={broadcast.id}
-                    className="cursor-pointer border-border/70 transition-colors duration-150 hover:bg-muted/60"
-                    onClick={() => router.push(`/broadcasts/${broadcast.id}`)}
-                  >
-                    <TableCell className="w-full max-w-0 px-4 py-3">
-                      <div className="flex min-w-0 items-center gap-3">
-                        <IconTile icon={Radio} />
-                        <div className="flex min-w-0 flex-col leading-snug">
-                          <span className="truncate font-semibold text-foreground">{broadcast.name}</span>
-                          <span className="flex min-w-0 items-center gap-1 text-xs text-muted-foreground">
-                            <span className="truncate">{broadcast.template_name}</span>
-                            <span aria-hidden>·</span>
-                            {broadcast.status === 'scheduled' && broadcast.scheduled_at ? (
-                              <span className="inline-flex shrink-0 items-center gap-1" title={t('scheduledFor')}>
-                                <CalendarClock className="h-3 w-3" />
-                                {new Date(broadcast.scheduled_at).toLocaleString()}
-                              </span>
-                            ) : (
-                              <span className="shrink-0">{new Date(broadcast.created_at).toLocaleDateString()}</span>
-                            )}
-                          </span>
-                        </div>
-                      </div>
-                    </TableCell>
-                    {showSendFrom && (
-                      <TableCell className="hidden px-3 text-muted-foreground md:table-cell">{sendFromOf(broadcast)}</TableCell>
-                    )}
-                    <TableCell className="px-3">
-                      <StatusPill tone={STATUS_TONE[broadcast.status] ?? 'neutral'} pulse={status.pulse}>
-                        {tStatus(status.label)}
-                      </StatusPill>
-                    </TableCell>
-                    <TableCell className="hidden px-3 text-right font-semibold tabular-nums text-foreground sm:table-cell">
-                      {broadcast.total_recipients.toLocaleString()}
-                    </TableCell>
-                    <TableCell className="hidden px-3 lg:table-cell">
-                      <RateCell value={broadcast.delivered_count} total={broadcast.total_recipients} />
-                    </TableCell>
-                    <TableCell className="hidden px-3 pr-4 lg:table-cell">
-                      <RateCell value={broadcast.read_count} total={broadcast.total_recipients} />
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </div>
+        <ul className="@container overflow-hidden rounded-xl border border-border bg-card" aria-label={t('title')}>
+          {broadcasts.map((broadcast) => {
+            const status = getBroadcastStatus(broadcast.status);
+            const started = broadcastStarted(broadcast.status);
+            const pct = sentPercent(broadcast);
+            const v = (n: number) => (started ? num(n) : '–');
+            const instagram = broadcast.channel === 'instagram';
+            return (
+              <li
+                key={broadcast.id}
+                className="flex cursor-pointer flex-wrap items-center gap-x-4 gap-y-2.5 border-t border-border/70 px-3 py-3 transition-colors duration-150 first:border-t-0 hover:bg-muted/60 sm:px-4 @5xl:flex-nowrap"
+                onClick={(e) => {
+                  if ((e.target as HTMLElement).closest('a,button,[role="menu"]')) return;
+                  router.push(`/broadcasts/${broadcast.id}`);
+                }}
+              >
+                <div className="order-1 flex min-w-0 flex-[1_1_calc(100%-60px)] items-center gap-3 @5xl:order-none @5xl:flex-[1_1_220px]">
+                  <IconTile icon={Radio} />
+                  <div className="flex min-w-0 flex-col leading-snug">
+                    <Link href={`/broadcasts/${broadcast.id}`} className="truncate rounded-sm font-semibold text-foreground outline-none hover:text-primary focus-visible:ring-2 focus-visible:ring-ring">
+                      {broadcast.name}
+                    </Link>
+                    <span className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
+                      <ChannelDot channel={instagram ? 'instagram' : 'whatsapp'} />
+                      <span className="truncate">
+                        {instagram ? tc('textMessage') : broadcast.template_name}
+                        {' · '}
+                        {broadcastWhen(broadcast, tc)}
+                        {showSendFrom && !instagram ? ` · ${tn('picker.sendFrom')}: ${sendFromOf(broadcast)}` : ''}
+                      </span>
+                    </span>
+                  </div>
+                </div>
+                <span className="order-3 shrink-0 @5xl:order-none @5xl:w-24">
+                  <StatusPill tone={STATUS_TONE[broadcast.status] ?? 'neutral'} pulse={status.pulse}>
+                    {tStatus(status.label)}
+                  </StatusPill>
+                </span>
+                <div className="order-6 grid flex-[1_1_100%] grid-cols-5 gap-2 sm:pl-12 @5xl:order-none @5xl:flex-none @5xl:grid-cols-[repeat(5,72px)] @5xl:pl-0">
+                  <Stat label={tc('stats.audience')} value={num(broadcast.total_recipients)} />
+                  <Stat label={tc('stats.sent')} value={v(broadcast.sent_count)} />
+                  <Stat label={tc('stats.delivered')} value={v(broadcast.delivered_count)} />
+                  <Stat label={tc('stats.read')} value={v(broadcast.read_count)} />
+                  <Stat label={tc('stats.replied')} value={v(broadcast.replied_count)} />
+                </div>
+                <div
+                  className="order-4 h-1.5 min-w-12 max-w-60 flex-1 overflow-hidden rounded-full bg-muted @5xl:order-none @5xl:w-20 @5xl:flex-none"
+                  role="progressbar"
+                  aria-label={tc('sentProgress')}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-valuenow={started ? pct : 0}
+                >
+                  <div className="h-full rounded-full bg-primary transition-[width] duration-300" style={{ width: `${started ? pct : 0}%` }} />
+                </div>
+                <span className="order-5 mr-auto w-9 text-xs tabular-nums text-muted-foreground @5xl:order-none @5xl:mr-0 @5xl:text-right">
+                  {started ? `${pct}%` : '–'}
+                </span>
+                <span className="order-2 shrink-0 @5xl:order-none">
+                  <BroadcastActionsMenu broadcast={broadcast} actions={actions} />
+                </span>
+              </li>
+            );
+          })}
+        </ul>
       )}
+
+      {actions.dialogs}
 
       {totalPages > 1 && (
         <div className="flex items-center justify-between">

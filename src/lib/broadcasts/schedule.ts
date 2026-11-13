@@ -12,10 +12,10 @@ import { parseSchedule } from './create-campaign';
 
 const initialJob = (id: string) => `broadcast:${id}:initial`;
 
-/** Read-only gate: false for a cancelled campaign, one scheduled for later, or a suspended (billing or admin) or closing workspace. */
+/** Read-only gate: false for a cancelled or paused campaign, one scheduled for later, or a suspended (billing or admin) or closing workspace. */
 export async function broadcastDispatchable(accountId: string, broadcastId: string): Promise<boolean> {
   const rows = await withTenant({ accountId, role: 'owner' }, (tx) => tx.$queryRaw<{ ok: boolean }[]>`
-    SELECT (status<>'cancelled' AND (status<>'scheduled' OR scheduled_at<=now())
+    SELECT (status NOT IN ('cancelled','paused') AND (status<>'scheduled' OR scheduled_at<=now())
       -- A suspended workspace (unpaid after grace) holds its campaigns; Resume after paying.
       AND NOT EXISTS (SELECT 1 FROM account_subscriptions s WHERE s.account_id=broadcasts.account_id AND s.status='suspended')
       -- So does an admin-suspended or closing workspace (the same rule as suspensionReason); Resume after reactivation.
@@ -70,12 +70,12 @@ export async function prepareFailedRetry(accountId: string, broadcastId: string,
 
 /**
  * Move a campaign into `sending` for a dispatch pass. False when it was
- * cancelled, or is scheduled for later; the caller then sends nothing.
+ * cancelled or paused, or is scheduled for later; the caller then sends nothing.
  */
 export async function claimBroadcastStart(accountId: string, broadcastId: string): Promise<boolean> {
   const rows = await withTenant({ accountId, role: 'owner' }, (tx) => tx.$queryRaw<{ id: string }[]>`
     UPDATE broadcasts SET status='sending', updated_at=now()
-    WHERE account_id=${accountId}::uuid AND id=${broadcastId}::uuid AND status<>'cancelled'
+    WHERE account_id=${accountId}::uuid AND id=${broadcastId}::uuid AND status NOT IN ('cancelled','paused')
       AND (status<>'scheduled' OR scheduled_at<=now())
     RETURNING id`, getWorkerPrisma());
   return rows.length > 0;
@@ -105,6 +105,26 @@ export async function cancelScheduledBroadcast(scope: TenantContext, broadcastId
     await tx.$executeRaw`UPDATE jobs SET status='done', updated_at=now()
       WHERE tenant_id=${scope.accountId}::uuid AND dedupe_key=${initialJob(broadcastId)} AND status='pending'`;
     return true;
+  }, getWorkerPrisma());
+}
+
+/**
+ * Start a scheduled campaign now: its time and its waiting job move to now, in
+ * one transaction, so the same single job sends it (never a second one).
+ * Refused once the job has started or when it is not scheduled.
+ */
+export async function startScheduledNow(scope: TenantContext, broadcastId: string): Promise<void> {
+  await withTenant(scope, async (tx) => {
+    const rows = await tx.$queryRaw<{ id: string }[]>`
+      UPDATE broadcasts SET scheduled_at=now(), updated_at=now()
+      WHERE account_id=${scope.accountId}::uuid AND id=${broadcastId}::uuid AND status='scheduled' RETURNING id`;
+    if (!rows.length) {
+      await assertBroadcastInWorkspace(tx, scope.accountId, broadcastId);
+      throw new AuthError('Only scheduled campaigns can be started now', 409, 'conflict');
+    }
+    const moved = await tx.$executeRaw`UPDATE jobs SET run_at=now(), updated_at=now()
+      WHERE tenant_id=${scope.accountId}::uuid AND dedupe_key=${initialJob(broadcastId)} AND status='pending'`;
+    if (!moved) throw new AuthError('This campaign is already starting', 409, 'conflict');
   }, getWorkerPrisma());
 }
 

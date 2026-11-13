@@ -2102,7 +2102,8 @@
       "read": "Lida",
       "replied": "Respondida",
       "unknown": "Desconhecido",
-      "cancelled": "Cancelada"
+      "cancelled": "Cancelada",
+      "paused": "Pausada"
     },
     "detail": {
       "backToBroadcasts": "Voltar aos disparos",
@@ -11891,7 +11892,8 @@
       "from": "De",
       "to": "Até",
       "syncFailed": "Não foi possível agendar a sincronização. Tente novamente.",
-      "retargetSaved": "Segmento salvo. Escolha-o como público de uma transmissão."
+      "retargetSaved": "Segmento salvo. Escolha-o como público de uma transmissão.",
+      "openDetails": "Abrir os detalhes de {name}"
     },
     "leads": {
       "empty": "Ainda não há leads.",
@@ -14257,6 +14259,172 @@
       "createSequence": "Criar sequência",
       "templateKind": "{kind} · {channel}",
       "flowTemplates": "Modelos de fluxo"
+    }
+  },
+  "Campaigns": {
+    "title": "Campanhas",
+    "blurbs": {
+      "broadcasts": "Envie uma mensagem para muitas pessoas de uma vez.",
+      "templates": "Mensagens aprovadas pelo WhatsApp para você escrever primeiro.",
+      "ads": "Anúncios que abrem uma conversa no WhatsApp ou no Instagram.",
+      "forms": "Formulários curtos preenchidos sem sair do WhatsApp."
+    },
+    "textMessage": "Mensagem de texto",
+    "sentProgress": "Parte do público já enviada",
+    "noMatchesHint": "Tente outro status ou outra busca.",
+    "clearFilters": "Limpar filtros",
+    "pausedHint": "Esta transmissão está pausada. {count, plural, one {# pessoa ainda aguarda} other {# pessoas ainda aguardam}}. Retome para continuar enviando.",
+    "stats": {
+      "audience": "Público",
+      "sent": "Enviadas",
+      "delivered": "Entregues",
+      "read": "Lidas",
+      "replied": "Respondidas"
+    },
+    "when": {
+      "draft": "Ainda não enviada",
+      "scheduled": "Envia {when}",
+      "sending": "Iniciada {when}",
+      "paused": "Pausada",
+      "cancelled": "Cancelada",
+      "sent": "Enviada {when}"
+    },
+    "channels": {
+      "whatsapp": "WhatsApp",
+      "instagram": "Instagram"
+    },
+    "actions": {
+      "moreFor": "Mais ações para {name}",
+      "more": "Mais ações",
+      "open": "Abrir",
+      "viewReport": "Ver relatório",
+      "edit": "Editar",
+      "editAndSend": "Editar e enviar",
+      "reschedule": "Editar ou reagendar",
+      "sendNow": "Enviar agora",
+      "cancelSchedule": "Cancelar agendamento",
+      "pause": "Pausar",
+      "resume": "Retomar",
+      "retryFailed": "Reenviar falhas",
+      "duplicate": "Duplicar",
+      "delete": "Excluir",
+      "cancel": "Cancelar",
+      "actionFailed": "Não deu certo. {error}",
+      "toastDeleted": "Transmissão excluída",
+      "cannotDeleteSending": "Pause a transmissão antes de excluí-la.",
+      "toastUnscheduled": "Agendamento cancelado",
+      "toastPaused": "Transmissão pausada",
+      "toastResumed": "Enviando novamente",
+      "toastRetry": "Enviando novamente para os destinatários com falha",
+      "toastStarted": "Envio iniciado",
+      "confirmDeleteTitle": "Excluir transmissão?",
+      "confirmDeleteBody": "\"{name}\" e o relatório dela serão removidos.",
+      "confirmSendTitle": "Enviar agora?",
+      "confirmSendBody": "\"{name}\" começará a ser enviada para {count, plural, one {# pessoa} other {# pessoas}} imediatamente."
+    },
+    "recipients": {
+      "search": "Buscar destinatários",
+      "filter": "Filtrar destinatários por status",
+      "range": "{start}–{end} de {total}",
+      "previous": "Anterior",
+      "next": "Próxima"
+    },
+    "message": {
+      "title": "Mensagem",
+      "textMessage": "Mensagem de texto",
+      "yourBusiness": "Sua empresa",
+      "empty": "Sem texto de mensagem.",
+      "loading": "Carregando a mensagem",
+      "templateMissing": "Este modelo não está mais no espaço de trabalho.",
+      "customField": "campo personalizado"
+    },
+    "wizard": {
+      "steps": {
+        "details": "Detalhes",
+        "message": "Mensagem",
+        "review": "Revisão"
+      },
+      "detailsTitle": "Nome e canal",
+      "detailsSubtitle": "Dê um nome à transmissão e escolha para onde ela vai.",
+      "nameLabel": "Nome",
+      "namePlaceholder": "ex.: Oferta de Diwali",
+      "nameHint": "Só a sua equipe vê este nome.",
+      "nameRequired": "Dê um nome à transmissão.",
+      "channelLabel": "Canal",
+      "channelWhatsapp": "WhatsApp",
+      "channelWhatsappHint": "Um modelo aprovado para quem deu consentimento.",
+      "channelInstagram": "Instagram",
+      "channelInstagramHint": "Uma mensagem para quem escreveu para você nas últimas 24 horas.",
+      "channelInstagramOff": "Ative o Instagram em Configurações para enviar transmissões pelo Instagram.",
+      "back": "Voltar",
+      "next": "Avançar",
+      "messageTitle": "Escreva a mensagem",
+      "messageSubtitle": "Transmissões do Instagram são só texto. Seja breve e pessoal.",
+      "messageLabel": "Mensagem",
+      "insertFirstName": "Primeiro nome",
+      "messagePlaceholder": "Escreva sua mensagem",
+      "messageHint": "Digite '{first name}' para cumprimentar cada pessoa pelo nome.",
+      "messageRequired": "Escreva uma mensagem.",
+      "preview": "Prévia",
+      "yourBusiness": "Sua empresa",
+      "sampleName": "Priya",
+      "previewEmpty": "Sua mensagem aparece aqui enquanto você digita.",
+      "reviewTitle": "Revisar e enviar",
+      "reviewSubtitle": "Confira quem vai receber antes do envio.",
+      "reviewName": "Nome",
+      "reviewChannel": "Canal",
+      "reviewAudience": "Público",
+      "reviewWhen": "Quando",
+      "reviewNow": "Agora",
+      "willGetIt": "{count, plural, one {pessoa vai receber} other {pessoas vão receber}}",
+      "leftOutWindow": "{count, plural, one {# pessoa ficou de fora} other {# pessoas ficaram de fora}}: escreveram há mais de 24 horas",
+      "leftOutRule": "O Instagram só permite mensagens para quem escreveu para você nas últimas 24 horas. Contatos descadastrados ou bloqueados sempre ficam de fora.",
+      "countFailed": "Não foi possível contar o público. Volte e tente de novo.",
+      "counting": "Contando quem vai receber…",
+      "instagramNoSchedule": "Transmissões do Instagram são enviadas na hora: a janela de 24 horas fecharia antes de um horário posterior.",
+      "sendNow": "Enviar agora",
+      "instagramReach": "pessoas escreveram nas últimas 24 horas e vão receber",
+      "templateNotApproved": "Esse modelo ainda não foi aprovado, então não pode ser usado em uma transmissão.",
+      "copyName": "{name} cópia",
+      "templateGone": "O modelo original não está mais aprovado. Escolha outro.",
+      "loadFailed": "Não foi possível carregar a transmissão para copiar.",
+      "audience": {
+        "all": "Todos os contatos",
+        "tags": "Por etiqueta",
+        "customField": "Por campo personalizado",
+        "csv": "De um arquivo CSV",
+        "segment": "Um segmento",
+        "list": "Uma lista"
+      }
+    },
+    "templates": {
+      "category": "Categoria",
+      "allCategories": "Todas as categorias",
+      "counts": "{variables, plural, one {# variável} other {# variáveis}} · {buttons, plural, one {# botão} other {# botões}}",
+      "use": "Usar"
+    },
+    "forms": {
+      "summary": "{count, plural, one {# formulário} other {# formulários}} · {published} publicados",
+      "search": "Buscar formulários",
+      "noMatches": "Nenhum formulário encontrado.",
+      "searchResponses": "Buscar respostas",
+      "noResponseMatches": "Nenhuma resposta corresponde à busca."
+    },
+    "adDrawer": {
+      "ad": "Anúncio",
+      "campaign": "Campanha",
+      "rangeNote": "Totais das datas escolhidas na aba Anúncios.",
+      "spend": "Gasto",
+      "clicks": "Cliques",
+      "conversations": "Conversas",
+      "purchases": "Compras",
+      "last14": "Últimos 14 dias",
+      "metric": "Métrica do gráfico",
+      "loadFailed": "Não foi possível carregar os números diários.",
+      "loading": "Carregando números diários…",
+      "chartLabel": "{metric} por dia nos últimos 14 dias, {total} no total",
+      "total": "Total {total}",
+      "openInAdsManager": "Abrir no Gerenciador de Anúncios"
     }
   }
 }

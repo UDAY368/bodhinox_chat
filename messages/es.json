@@ -2102,7 +2102,8 @@
       "read": "Leído",
       "replied": "Respondido",
       "unknown": "Desconocido",
-      "cancelled": "Cancelada"
+      "cancelled": "Cancelada",
+      "paused": "En pausa"
     },
     "detail": {
       "backToBroadcasts": "Volver a difusiones",
@@ -11891,7 +11892,8 @@
       "from": "Desde",
       "to": "Hasta",
       "syncFailed": "No se pudo poner en cola la sincronización. Inténtalo de nuevo.",
-      "retargetSaved": "Segmento guardado. Elígelo como audiencia de una difusión."
+      "retargetSaved": "Segmento guardado. Elígelo como audiencia de una difusión.",
+      "openDetails": "Abrir los detalles de {name}"
     },
     "leads": {
       "empty": "Aún no hay clientes potenciales.",
@@ -14257,6 +14259,172 @@
       "createSequence": "Crear secuencia",
       "templateKind": "{kind} · {channel}",
       "flowTemplates": "Plantillas de flujos"
+    }
+  },
+  "Campaigns": {
+    "title": "Campañas",
+    "blurbs": {
+      "broadcasts": "Envía un mensaje a muchas personas a la vez.",
+      "templates": "Mensajes aprobados por WhatsApp para que puedas escribir primero.",
+      "ads": "Anuncios que abren un chat en WhatsApp o Instagram.",
+      "forms": "Formularios breves que se rellenan sin salir de WhatsApp."
+    },
+    "textMessage": "Mensaje de texto",
+    "sentProgress": "Parte de la audiencia ya enviada",
+    "noMatchesHint": "Prueba con otro estado o búsqueda.",
+    "clearFilters": "Quitar filtros",
+    "pausedHint": "Esta difusión está en pausa. {count, plural, one {# persona sigue} other {# personas siguen}} esperando. Reanúdala para seguir enviando.",
+    "stats": {
+      "audience": "Audiencia",
+      "sent": "Enviados",
+      "delivered": "Entregados",
+      "read": "Leídos",
+      "replied": "Respondidos"
+    },
+    "when": {
+      "draft": "Aún sin enviar",
+      "scheduled": "Se envía {when}",
+      "sending": "Iniciada {when}",
+      "paused": "En pausa",
+      "cancelled": "Cancelada",
+      "sent": "Enviada {when}"
+    },
+    "channels": {
+      "whatsapp": "WhatsApp",
+      "instagram": "Instagram"
+    },
+    "actions": {
+      "moreFor": "Más acciones para {name}",
+      "more": "Más acciones",
+      "open": "Abrir",
+      "viewReport": "Ver informe",
+      "edit": "Editar",
+      "editAndSend": "Editar y enviar",
+      "reschedule": "Editar o reprogramar",
+      "sendNow": "Enviar ahora",
+      "cancelSchedule": "Cancelar programación",
+      "pause": "Pausar",
+      "resume": "Reanudar",
+      "retryFailed": "Reintentar fallidos",
+      "duplicate": "Duplicar",
+      "delete": "Eliminar",
+      "cancel": "Cancelar",
+      "actionFailed": "No se pudo completar. {error}",
+      "toastDeleted": "Difusión eliminada",
+      "cannotDeleteSending": "Pausa la difusión antes de eliminarla.",
+      "toastUnscheduled": "Programación cancelada",
+      "toastPaused": "Difusión en pausa",
+      "toastResumed": "Enviando de nuevo",
+      "toastRetry": "Enviando de nuevo a los destinatarios fallidos",
+      "toastStarted": "Envío iniciado",
+      "confirmDeleteTitle": "¿Eliminar la difusión?",
+      "confirmDeleteBody": "Se eliminarán «{name}» y su informe.",
+      "confirmSendTitle": "¿Enviar ahora?",
+      "confirmSendBody": "«{name}» empezará a enviarse a {count, plural, one {# persona} other {# personas}} de inmediato."
+    },
+    "recipients": {
+      "search": "Buscar destinatarios",
+      "filter": "Filtrar destinatarios por estado",
+      "range": "{start}–{end} de {total}",
+      "previous": "Anterior",
+      "next": "Siguiente"
+    },
+    "message": {
+      "title": "Mensaje",
+      "textMessage": "Mensaje de texto",
+      "yourBusiness": "Tu negocio",
+      "empty": "Sin texto de mensaje.",
+      "loading": "Cargando el mensaje",
+      "templateMissing": "Esta plantilla ya no está en el espacio de trabajo.",
+      "customField": "campo personalizado"
+    },
+    "wizard": {
+      "steps": {
+        "details": "Detalles",
+        "message": "Mensaje",
+        "review": "Revisión"
+      },
+      "detailsTitle": "Nombre y canal",
+      "detailsSubtitle": "Pon nombre a la difusión y elige por dónde se envía.",
+      "nameLabel": "Nombre",
+      "namePlaceholder": "p. ej., Oferta de Diwali",
+      "nameHint": "Solo tu equipo ve este nombre.",
+      "nameRequired": "Pon un nombre a la difusión.",
+      "channelLabel": "Canal",
+      "channelWhatsapp": "WhatsApp",
+      "channelWhatsappHint": "Una plantilla aprobada para quien haya dado su consentimiento.",
+      "channelInstagram": "Instagram",
+      "channelInstagramHint": "Un mensaje para quienes te escribieron en las últimas 24 horas.",
+      "channelInstagramOff": "Activa Instagram en Ajustes para enviar difusiones por Instagram.",
+      "back": "Atrás",
+      "next": "Siguiente",
+      "messageTitle": "Escribe el mensaje",
+      "messageSubtitle": "Las difusiones de Instagram son solo texto. Que sea breve y personal.",
+      "messageLabel": "Mensaje",
+      "insertFirstName": "Nombre",
+      "messagePlaceholder": "Escribe tu mensaje",
+      "messageHint": "Escribe '{first name}' para saludar a cada persona por su nombre.",
+      "messageRequired": "Escribe un mensaje.",
+      "preview": "Vista previa",
+      "yourBusiness": "Tu negocio",
+      "sampleName": "Priya",
+      "previewEmpty": "Tu mensaje aparece aquí mientras escribes.",
+      "reviewTitle": "Revisar y enviar",
+      "reviewSubtitle": "Comprueba quién lo recibe antes de enviarlo.",
+      "reviewName": "Nombre",
+      "reviewChannel": "Canal",
+      "reviewAudience": "Audiencia",
+      "reviewWhen": "Cuándo",
+      "reviewNow": "Ahora",
+      "willGetIt": "{count, plural, one {persona lo recibirá} other {personas lo recibirán}}",
+      "leftOutWindow": "{count, plural, one {# persona excluida} other {# personas excluidas}}: escribieron hace más de 24 horas",
+      "leftOutRule": "Instagram solo permite mensajes a quienes te escribieron en las últimas 24 horas. Los contactos dados de baja o bloqueados siempre se excluyen.",
+      "countFailed": "No se pudo contar la audiencia. Vuelve atrás e inténtalo de nuevo.",
+      "counting": "Contando quién lo recibe…",
+      "instagramNoSchedule": "Las difusiones de Instagram se envían al momento: la ventana de 24 horas se cerraría antes de una hora posterior.",
+      "sendNow": "Enviar ahora",
+      "instagramReach": "personas escribieron en las últimas 24 horas y lo recibirán",
+      "templateNotApproved": "Esa plantilla aún no está aprobada, así que no se puede usar en una difusión.",
+      "copyName": "{name} copia",
+      "templateGone": "La plantilla original ya no está aprobada. Elige otra.",
+      "loadFailed": "No se pudo cargar la difusión para copiarla.",
+      "audience": {
+        "all": "Todos los contactos",
+        "tags": "Por etiqueta",
+        "customField": "Por campo personalizado",
+        "csv": "Desde un archivo CSV",
+        "segment": "Un segmento",
+        "list": "Una lista"
+      }
+    },
+    "templates": {
+      "category": "Categoría",
+      "allCategories": "Todas las categorías",
+      "counts": "{variables, plural, one {# variable} other {# variables}} · {buttons, plural, one {# botón} other {# botones}}",
+      "use": "Usar"
+    },
+    "forms": {
+      "summary": "{count, plural, one {# formulario} other {# formularios}} · {published} publicados",
+      "search": "Buscar formularios",
+      "noMatches": "Ningún formulario coincide.",
+      "searchResponses": "Buscar respuestas",
+      "noResponseMatches": "Ninguna respuesta coincide con tu búsqueda."
+    },
+    "adDrawer": {
+      "ad": "Anuncio",
+      "campaign": "Campaña",
+      "rangeNote": "Totales de las fechas elegidas en la pestaña Anuncios.",
+      "spend": "Gasto",
+      "clicks": "Clics",
+      "conversations": "Conversaciones",
+      "purchases": "Compras",
+      "last14": "Últimos 14 días",
+      "metric": "Métrica del gráfico",
+      "loadFailed": "No se pudieron cargar las cifras diarias.",
+      "loading": "Cargando cifras diarias…",
+      "chartLabel": "{metric} por día en los últimos 14 días, {total} en total",
+      "total": "Total {total}",
+      "openInAdsManager": "Abrir en el Administrador de anuncios"
     }
   }
 }

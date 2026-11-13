@@ -38,6 +38,8 @@ import {
   prepareFailedRetry,
   unlockBroadcastDelivery,
 } from '@/lib/broadcasts/schedule';
+import { broadcastHalted } from '@/lib/broadcasts/pause';
+import { broadcastChannel, deliverInstagramBroadcast } from '@/lib/broadcasts/instagram';
 import { NUMBER_DISCONNECTED_REASON } from '@/lib/whatsapp/number-admin';
 import { withJobScope } from './scope';
 import { enqueueJob, type Job } from './queue';
@@ -209,6 +211,22 @@ export async function handleJob(job: Job, assertLease: () => void = () => {}) {
         return;
       }
       try {
+        // A member's Pause is read between recipients; a paused pass leaves the rest pending.
+        const shouldStop = () => broadcastHalted(accountId, broadcastId);
+        if ((await broadcastChannel(accountId, broadcastId)) === 'instagram') {
+          // Instagram: free text inside each recipient's 24-hour window (lib/broadcasts/instagram).
+          if (!(await claimBroadcastStart(accountId, broadcastId))) return;
+          const pass = await deliverInstagramBroadcast(accountId, broadcastId, scope, { assertLease, shouldStop });
+          if (pass.stopped) return;
+          if (pass.remaining > 0 && scope === 'pending')
+            await enqueueJob('broadcast.dispatch', { broadcastId, scope: 'pending' }, {
+              tenantId: accountId,
+              requeueCompleted: true,
+              dedupeKey: `broadcast:${broadcastId}:next:${job.id}`,
+            });
+          await finalizeBroadcastStatus(db, broadcastId);
+          return;
+        }
         // One "Retry failed" request: rows Meta failed after accepting them get a new send.
         if (scope !== 'pending' && job.payload.retryId !== undefined)
           await prepareFailedRetry(accountId, broadcastId, uuid(job.payload.retryId));
@@ -231,7 +249,10 @@ export async function handleJob(job: Job, assertLease: () => void = () => {}) {
           // Only intents Meta definitively refused (4xx, e.g. throttled) are re-sent;
           // an uncertain outcome still waits for reconciliation.
           retryRejected: true,
+          shouldStop,
         });
+        // Paused by a member: the rest stays pending until Resume queues the next pass.
+        if (result.stopped) return;
         if (result.throttled) {
           const next = result.sent > 0 ? 1 : throttles + 1;
           // Still throttled after about an hour with no progress: stop and leave the rest

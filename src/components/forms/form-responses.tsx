@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Download, Inbox, Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { SearchField } from "@/components/broadcasts/campaign-ui";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import type { FormDefinition } from "@/lib/whatsapp/forms/types";
 import { exportResponses, listResponses, type FormResponseRow } from "./form-api";
@@ -24,12 +25,14 @@ export function FormResponses({
   canExport: boolean;
 }) {
   const t = useTranslations("Forms.responses");
+  const tc = useTranslations("Campaigns");
   const format = useFormatter();
   const [rows, setRows] = useState<FormResponseRow[]>([]);
   const [cursor, setCursor] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [query, setQuery] = useState("");
 
   const load = useCallback(
     async (after: string | null) => {
@@ -52,6 +55,15 @@ export function FormResponses({
 
   const columns = useMemo(() => responseColumns(definition, rows), [definition, rows]);
   const titles = useMemo(() => optionTitles(definition), [definition]);
+  // Search over the loaded responses: contact name or number, or any answer.
+  const visible = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return rows;
+    return rows.filter((row) =>
+      (row.contact?.name ?? "").toLowerCase().includes(q) ||
+      (row.contact?.phone ?? "").toLowerCase().includes(q) ||
+      Object.values(row.answers ?? {}).some((v) => String(v ?? "").toLowerCase().includes(q)));
+  }, [rows, query]);
 
   async function loadMore() {
     setLoadingMore(true);
@@ -87,12 +99,17 @@ export function FormResponses({
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm text-muted-foreground">{t("summary", { count: rows.length, more: cursor ? "yes" : "no" })}</p>
-        {canExport && (
-          <Button variant="outline" size="sm" onClick={handleExport} disabled={exporting || rows.length === 0}>
-            {exporting ? <Loader2 className="animate-spin" /> : <Download />}
-            {t("export")}
-          </Button>
-        )}
+        <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
+          {rows.length > 0 && (
+            <SearchField ariaLabel={tc("forms.searchResponses")} placeholder={tc("forms.searchResponses")} value={query} onChange={setQuery} className="sm:w-56" />
+          )}
+          {canExport && (
+            <Button variant="outline" size="sm" onClick={handleExport} disabled={exporting || rows.length === 0}>
+              {exporting ? <Loader2 className="animate-spin" /> : <Download />}
+              {t("export")}
+            </Button>
+          )}
+        </div>
       </div>
 
       {rows.length === 0 ? (
@@ -101,6 +118,8 @@ export function FormResponses({
           <p className="mt-3 text-[15px] font-semibold text-foreground">{t("emptyTitle")}</p>
           <p className="mt-1 max-w-sm text-xs text-muted-foreground">{t("emptyDesc")}</p>
         </div>
+      ) : visible.length === 0 ? (
+        <p className="rounded-xl border border-border bg-card px-6 py-10 text-center text-sm text-muted-foreground">{tc("forms.noResponseMatches")}</p>
       ) : (
         <div className="overflow-hidden rounded-xl border border-border bg-card">
           <Table>
@@ -114,7 +133,7 @@ export function FormResponses({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {rows.map((row) => (
+              {visible.map((row) => (
                 <TableRow key={row.id}>
                   <TableCell className="whitespace-nowrap text-muted-foreground">
                     {format.dateTime(new Date(row.created_at), { dateStyle: "medium", timeStyle: "short" })}
