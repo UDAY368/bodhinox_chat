@@ -20,7 +20,7 @@ const routeModules = import.meta.glob('/src/app/api/**/route.ts');
 const databases = fixtureDatabaseUrls();
 
 type Extra = Record<'list' | 'segment' | 'team' | 'paymentLink' | 'media' | 'note' | 'attribute' | 'schedule'
-  | 'savedFilter' | 'form' | 'mediaKey' | 'igTemplate', string>;
+  | 'savedFilter' | 'form' | 'mediaKey' | 'igTemplate' | 'dealNote' | 'shopProduct', string>;
 type Ids = TenantFixture & { extra: Extra };
 
 type Case = {
@@ -66,6 +66,11 @@ export const CASES: Case[] = [
   { route: 'conversations/[id]/notes/[noteId]', method: 'PATCH', params: (b) => ({ id: b.conversationId, noteId: b.extra.note }), body: () => ({ body: 'p15 edit' }) },
   { route: 'conversations/[id]/notes/[noteId]', method: 'DELETE', params: (b) => ({ id: b.conversationId, noteId: b.extra.note }) },
   { route: 'conversations/[id]/ad-referral', method: 'GET', params: id('conversationId') },
+  // Deal team notes (Sales pipeline): another workspace's deal is not found; its notes cannot be read, added to or deleted.
+  { route: 'deals/[id]/notes', method: 'GET', params: rid('deals') },
+  { route: 'deals/[id]/notes', method: 'POST', params: rid('deals'), body: () => ({ body: 'p15 cross-tenant deal note' }) },
+  { route: 'deals/[id]/notes', method: 'POST', params: rid('deals'), body: () => ({ body: 'p15 cross-tenant deal note' }), as: 'agent' },
+  { route: 'deals/[id]/notes/[noteId]', method: 'DELETE', params: (b) => ({ id: b.ids.deals, noteId: b.extra.dealNote }) },
   // Orders and payments
   { route: 'commerce/orders/[id]', method: 'GET', params: id('orderId') },
   { route: 'commerce/orders/[id]', method: 'PATCH', params: id('orderId'), body: () => ({ status: 'cancelled' }) },
@@ -79,6 +84,8 @@ export const CASES: Case[] = [
   { route: 'commerce/orders/[id]/shipment/pickup', method: 'POST', params: id('orderId') },
   { route: 'payments/links/[id]', method: 'GET', params: extra('paymentLink') },
   { route: 'payments/links/[id]', method: 'POST', params: extra('paymentLink'), body: () => ({ action: 'cancel' }) },
+  // Catalogue: another workspace's product cannot be duplicated.
+  { route: 'commerce/shop/products/[id]/duplicate', method: 'POST', params: extra('shopProduct'), body: () => ({}) },
   // Appointments
   { route: 'appointments/[id]', method: 'GET', params: id('appointmentId') },
   { route: 'appointments/[id]', method: 'PATCH', params: id('appointmentId'), body: () => ({ action: 'cancel', reason: 'staff', expected_version: 1 }) },
@@ -307,7 +314,7 @@ const TABLES = ['contacts', 'conversations', 'messages', 'tags', 'contact_tags',
   'contact_lists', 'contact_list_members', 'segments', 'teams', 'payment_links', 'media_objects', 'conversation_notes',
   'workspace_attributes', 'report_schedules', 'saved_filters', 'whatsapp_forms', 'webhook_endpoints', 'api_keys',
   'account_memberships', 'quick_replies', 'message_templates', 'ai_knowledge_documents', 'whatsapp_config', 'accounts',
-  'instagram_message_templates'];
+  'instagram_message_templates', 'deal_notes', 'shop_products', 'shop_variants'];
 
 async function existingTables(): Promise<string[]> {
   const rows = await fixtureOwnerPool().query<{ t: string }>(
@@ -348,6 +355,8 @@ async function addExtras(t: TenantFixture, tag: string): Promise<Extra> {
     savedFilter: await one("INSERT INTO saved_filters(account_id,user_id,name) VALUES($1,$2,'p15 view')", [a, u]),
     form: await one("INSERT INTO whatsapp_forms(account_id,user_id,name,category,definition) VALUES($1,$2,$3,'OTHER',$4::jsonb)",
       [a, u, `p15 form ${tag}`, JSON.stringify({ screens: [] })]),
+    dealNote: await one('INSERT INTO deal_notes(account_id,deal_id,body,created_by) VALUES($1,$2,$3,$4)', [a, t.ids.deals, `p15 deal note ${tag}`, u]),
+    shopProduct: await one('INSERT INTO shop_products(account_id,name,created_by) VALUES($1,$2,$3)', [a, `p15 product ${tag}`, u]),
     igTemplate: await one("INSERT INTO instagram_message_templates(account_id,name,kind,payload,created_by) VALUES($1,$2,'button',$3::jsonb,$4)",
       [a, `p15 template ${tag}`, JSON.stringify({ text: 'Hello', buttons: [{ type: 'postback', title: 'Hi', payload: 'reply:Hi' }] }), u]),
   };
