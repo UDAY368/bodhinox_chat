@@ -20,7 +20,7 @@ const routeModules = import.meta.glob('/src/app/api/**/route.ts');
 const databases = fixtureDatabaseUrls();
 
 type Extra = Record<'list' | 'segment' | 'team' | 'paymentLink' | 'media' | 'note' | 'attribute' | 'schedule'
-  | 'savedFilter' | 'form' | 'mediaKey' | 'igTemplate', string>;
+  | 'savedFilter' | 'form' | 'mediaKey' | 'igTemplate' | 'savedReport', string>;
 type Ids = TenantFixture & { extra: Extra };
 
 type Case = {
@@ -139,6 +139,16 @@ export const CASES: Case[] = [
   { route: 'inbox/saved-filters/[id]', method: 'DELETE', params: extra('savedFilter') },
   { route: 'analytics/reports/schedules/[id]', method: 'PATCH', params: extra('schedule'), body: () => ({ paused: true }) },
   { route: 'analytics/reports/schedules/[id]', method: 'DELETE', params: extra('schedule') },
+  // Saved analytics reports (admins and owners): another workspace's report is never read, exported, changed or scheduled.
+  { route: 'analytics/saved-reports/[id]', method: 'PATCH', params: extra('savedReport'),
+    body: () => ({ name: 'p15 taken over', metrics: ['new'], group: 'day', channel: 'all', preset: '7d', format: 'csv' }) },
+  { route: 'analytics/saved-reports/[id]', method: 'DELETE', params: extra('savedReport') },
+  { route: 'analytics/saved-reports/[id]/duplicate', method: 'POST', params: extra('savedReport') },
+  { route: 'analytics/saved-reports/[id]/preview', method: 'GET', params: extra('savedReport') },
+  { route: 'analytics/saved-reports/[id]/export', method: 'GET', params: extra('savedReport'), query: () => 'format=csv' },
+  { route: 'analytics/saved-reports/[id]/schedule', method: 'PUT', params: extra('savedReport'),
+    body: (a) => ({ cadence: 'weekly', hour_local: 9, minute_local: 30, recipients: [a.users.owner.userId] }) },
+  { route: 'analytics/saved-reports/[id]/schedule', method: 'DELETE', params: extra('savedReport') },
 ];
 
 /**
@@ -305,7 +315,7 @@ describe('[TEN-01][SEC-03] cross-tenant route coverage', () => {
 const TABLES = ['contacts', 'conversations', 'messages', 'tags', 'contact_tags', 'orders', 'appointments', 'appointment_services',
   'appointment_locations', 'broadcasts', 'broadcast_recipients', 'flows', 'flow_nodes', 'flow_runs', 'automations', 'automation_steps',
   'contact_lists', 'contact_list_members', 'segments', 'teams', 'payment_links', 'media_objects', 'conversation_notes',
-  'workspace_attributes', 'report_schedules', 'saved_filters', 'whatsapp_forms', 'webhook_endpoints', 'api_keys',
+  'workspace_attributes', 'report_schedules', 'analytics_saved_reports', 'saved_filters', 'whatsapp_forms', 'webhook_endpoints', 'api_keys',
   'account_memberships', 'quick_replies', 'message_templates', 'ai_knowledge_documents', 'whatsapp_config', 'accounts',
   'instagram_message_templates'];
 
@@ -350,7 +360,19 @@ async function addExtras(t: TenantFixture, tag: string): Promise<Extra> {
       [a, u, `p15 form ${tag}`, JSON.stringify({ screens: [] })]),
     igTemplate: await one("INSERT INTO instagram_message_templates(account_id,name,kind,payload,created_by) VALUES($1,$2,'button',$3::jsonb,$4)",
       [a, `p15 template ${tag}`, JSON.stringify({ text: 'Hello', buttons: [{ type: 'postback', title: 'Hi', payload: 'reply:Hi' }] }), u]),
+    savedReport: await savedReportWithSchedule(a, u, tag),
   };
+}
+
+/** A saved analytics report with an email schedule, so "Stop sending" has something to stop on the caller's own row. */
+async function savedReportWithSchedule(accountId: string, userId: string, tag: string): Promise<string> {
+  const pool = fixtureOwnerPool();
+  const report = String((await pool.query<{ id: string }>(
+    "INSERT INTO analytics_saved_reports(account_id,name,metrics,group_by,channel,range_preset,format,created_by) VALUES($1,$2,ARRAY['new','resolved'],'day','all','7d','csv',$3) RETURNING id",
+    [accountId, `p15 report ${tag}`, userId])).rows[0].id);
+  await pool.query("INSERT INTO report_schedules(account_id,kind,cadence,recipients,created_by,next_run_at,saved_report_id,minute_local) VALUES($1,'saved_report','weekly',ARRAY[$2::uuid],$2,NOW()+interval '1 day',$3,15)",
+    [accountId, userId, report]);
+  return report;
 }
 
 async function invoke(c: Case, caller: Ids, target: Ids): Promise<Response> {
