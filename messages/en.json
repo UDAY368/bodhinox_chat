@@ -14669,7 +14669,8 @@
       "sending": "Started {when}",
       "paused": "Paused",
       "cancelled": "Cancelled",
-      "sent": "Sent {when}"
+      "sent": "Sent {when}",
+      "failed": "Failed {when}"
     },
     "channels": {
       "whatsapp": "WhatsApp",

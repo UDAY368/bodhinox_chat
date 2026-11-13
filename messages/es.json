@@ -14669,7 +14669,8 @@
       "sending": "Iniciada {when}",
       "paused": "En pausa",
       "cancelled": "Cancelada",
-      "sent": "Enviada {when}"
+      "sent": "Enviada {when}",
+      "failed": "Fallida {when}"
     },
     "channels": {
       "whatsapp": "WhatsApp",

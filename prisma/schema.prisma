@@ -356,6 +356,9 @@ model broadcasts {
   channel String @default("whatsapp")
   message_text String?
   paused_at DateTime? @db.Timestamptz(6)
+  /// 20261123016500: first move into 'sending' and last move into 'sent'/'failed' (set by a trigger).
+  started_at DateTime? @db.Timestamptz(6)
+  finished_at DateTime? @db.Timestamptz(6)
   @@unique([account_id, id])
 }
 

@@ -17,7 +17,7 @@ import {
   BROADCAST_STATUS_TONE as STATUS_TONE,
 } from '@/components/broadcasts/campaign-ui';
 import { BroadcastActionsMenu, useBroadcastActions } from '@/components/broadcasts/broadcast-actions';
-import { ChannelDot, broadcastStarted, broadcastWhen, sentPercent } from '@/components/broadcasts/broadcast-display';
+import { ChannelDot, broadcastStarted, broadcastWhen, sentPercent, shouldRefreshCounts, statusSignature } from '@/components/broadcasts/broadcast-display';
 import { NumberHealthBar } from '@/components/broadcasts/number-health-bar';
 import { numberLabel, useWhatsAppNumbers } from '@/components/settings/numbers/use-whatsapp-numbers';
 import { ApiCampaignDialog } from '@/components/broadcasts/api-campaign-dialog';
@@ -76,11 +76,14 @@ export default function BroadcastsPage() {
   const canApi = planAllows(usePlan(), 'api_campaigns');
   // Each fetch claims a number; only the newest may commit (fast tab/search switching).
   const fetchSeq = useRef(0);
+  // The 5-second poll re-reads the tab counts only when a listed status changed or every 30 seconds.
+  const countsAt = useRef<number | null>(null);
+  const countsSignature = useRef<string | null>(null);
 
   // Used to kick off polling only while something is actively sending.
   const pollTimer = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const fetchBroadcasts = useCallback(async () => {
+  const fetchBroadcasts = useCallback(async (opts?: { poll?: boolean }) => {
     const seq = ++fetchSeq.current;
     try {
       const db = createClient();
@@ -101,6 +104,13 @@ export default function BroadcastsPage() {
       setBroadcasts(data ?? []);
       setTotal(count ?? 0);
       setError(null);
+      const signature = `${tab}|${statusSignature(data ?? [])}`;
+      const refresh = shouldRefreshCounts({
+        poll: opts?.poll === true, prevSignature: countsSignature.current, nextSignature: signature, lastAt: countsAt.current, now: Date.now(),
+      });
+      countsSignature.current = signature;
+      if (!refresh) return;
+      countsAt.current = Date.now();
       // Per-status counts for the tabs (head-only counts; no rows are read).
       const tallies = await Promise.all(TABS.map(async (key) => {
         let tally = db.from('broadcasts').select('id', { count: 'exact', head: true });
@@ -117,11 +127,12 @@ export default function BroadcastsPage() {
   }, [page, tab, search, t]);
 
   useEffect(() => {
-    fetchBroadcasts();
+    void fetchBroadcasts();
   }, [fetchBroadcasts]);
+  const refetch = useCallback(() => fetchBroadcasts(), [fetchBroadcasts]);
 
   const totalPages = Math.ceil(total / PAGE_SIZE);
-  const actions = useBroadcastActions({ onChanged: fetchBroadcasts });
+  const actions = useBroadcastActions({ onChanged: refetch });
   const num = (n: number) => n.toLocaleString();
 
   const anySending = useMemo(
@@ -132,7 +143,7 @@ export default function BroadcastsPage() {
   useEffect(() => {
     function startPolling() {
       if (pollTimer.current) return;
-      pollTimer.current = setInterval(fetchBroadcasts, POLL_INTERVAL_MS);
+      pollTimer.current = setInterval(() => void fetchBroadcasts({ poll: true }), POLL_INTERVAL_MS);
     }
     function stopPolling() {
       if (!pollTimer.current) return;
@@ -148,7 +159,7 @@ export default function BroadcastsPage() {
       if (document.visibilityState === 'hidden') {
         stopPolling();
       } else {
-        fetchBroadcasts();
+        void fetchBroadcasts({ poll: true });
         startPolling();
       }
     }

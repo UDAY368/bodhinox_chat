@@ -787,6 +787,10 @@ export interface Broadcast {
   message_text?: string | null;
   /** When a member paused it; null while not paused. */
   paused_at?: string | null;
+  /** When it first started sending (set by the database on the move to 'sending'). */
+  started_at?: string | null;
+  /** When it last finished ('sent' or 'failed'); null while sending again. */
+  finished_at?: string | null;
   status: BroadcastStatus;
   total_recipients: number;
   sent_count: number;

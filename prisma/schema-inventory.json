@@ -2090,6 +2090,22 @@
         "default": null,
         "reference": null,
         "definition": "paused_at TIMESTAMPTZ"
+      },
+      {
+        "name": "started_at",
+        "type": "timestamptz",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "started_at TIMESTAMPTZ"
+      },
+      {
+        "name": "finished_at",
+        "type": "timestamptz",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "finished_at TIMESTAMPTZ"
       }
     ],
     "broadcast_recipients": [
