@@ -96,7 +96,7 @@ export async function runAnalytics<T>(context: TenantContext,
 const from = (range: AnalyticsRange) => Prisma.sql`${range.from.toISOString()}::timestamptz`;
 const to = (range: AnalyticsRange) => Prisma.sql`${range.to.toISOString()}::timestamptz`;
 /** The member credited with an agent row: its sender, or for pre-cutoff rows the current assignee. */
-const agentOf = (senderId: string, at: string, assignee: string) => Prisma.sql`COALESCE(${Prisma.raw(senderId)},
+export const agentOf = (senderId: string, at: string, assignee: string) => Prisma.sql`COALESCE(${Prisma.raw(senderId)},
   CASE WHEN ${Prisma.raw(at)} < ${AGENT_ATTRIBUTION_CUTOFF}::timestamptz THEN ${Prisma.raw(assignee)} END)`;
 /**
  * CTE `dn`: the workspace default number (the is_default row, or the only
@@ -135,7 +135,7 @@ const TIMED_RESOLUTION = Prisma.sql`FILTER (WHERE reopened_count=0 OR reopened_a
  * replies so far in a conversation, so a wait in segment n is answered by the
  * reply that opens segment n+1. `conversations` optionally limits the scan.
  */
-function waitsSql(accountId: string, range: AnalyticsRange, conversations: Prisma.Sql = Prisma.empty) {
+export function waitsSql(accountId: string, range: AnalyticsRange, conversations: Prisma.Sql = Prisma.empty) {
   return Prisma.sql`
     msgs AS (
       SELECT m.conversation_id, m.created_at, m.sender_type, m.sender_id,

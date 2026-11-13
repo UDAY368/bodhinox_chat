@@ -48,10 +48,12 @@ import { parseRange, workspaceTimezone, type AnalyticsRange, type RangeInput } f
 import { PDF_MAX_ROWS, toPdf } from './report-pdf';
 import { deleteReportFile, putReportFile, reportObjectKey } from './report-storage';
 
-import { isReportFormat, isReportKind, type ReportFormat, type ReportKind } from './report-kinds';
+import { isReportFormat, isReportKind, isRunKind, SAVED_REPORT_KIND, type ReportFormat, type ReportKind, type RunKind } from './report-kinds';
+import { fileStem, parseSnapshot, type SavedReportSnapshot } from './saved-report-shape';
+import { savedReportColumns, savedReportData } from './saved-report-table';
 
-export { isReportFormat, isReportKind, KIND_MIN_ROLE, REPORT_FORMATS, REPORT_KINDS } from './report-kinds';
-export type { ReportFormat, ReportKind } from './report-kinds';
+export { isReportFormat, isReportKind, isRunKind, KIND_MIN_ROLE, REPORT_FORMATS, REPORT_KINDS, RUN_KINDS } from './report-kinds';
+export type { ReportFormat, ReportKind, RunKind } from './report-kinds';
 export type ReportStatus = 'queued' | 'running' | 'ready' | 'failed' | 'expired';
 
 export const REPORT_JOB = 'analytics.report';
@@ -81,11 +83,15 @@ export interface ReportParams {
   from: string;
   to: string;
   timezone: string;
+  /** A saved report's definition, snapshotted when its schedule queued the run (kind 'saved_report' only). */
+  report?: SavedReportSnapshot;
 }
 
 export interface ReportRun {
   id: string;
-  kind: ReportKind;
+  kind: RunKind;
+  /** The saved report's name for a 'saved_report' run, else null. */
+  reportName: string | null;
   format: ReportFormat;
   status: ReportStatus;
   params: ReportParams;
@@ -454,7 +460,7 @@ export async function reportTable(tx: TenantTransaction, accountId: string, kind
 }
 
 export interface RenderMeta {
-  kind: ReportKind;
+  kind: RunKind;
   params: ReportParams;
   generatedAt?: Date;
 }
@@ -463,7 +469,7 @@ export interface RenderMeta {
 export async function renderReport(table: ReportTable, format: ReportFormat, meta: RenderMeta): Promise<BuiltReport> {
   if (format === 'pdf') {
     const pdf = await toPdf({
-      title: getT('Analytics.reports')(`kinds.${meta.kind}`),
+      title: meta.kind === SAVED_REPORT_KIND && meta.params.report ? meta.params.report.name : getT('Analytics.reports')(`kinds.${meta.kind}`),
       rangeLabel: `${meta.params.from} to ${meta.params.to} (${meta.params.timezone})`,
       columns: table.columns.map((c) => c.header),
       rows: table.rows.slice(0, PDF_MAX_ROWS).map((row) => table.columns.map((c) => c.value(row))),
@@ -494,7 +500,7 @@ export interface ReportActor {
 }
 
 type RunRow = {
-  id: string; kind: ReportKind; format?: ReportFormat | null; schedule_id?: string | null; status: ReportStatus; params: ReportParams; requested_by: string | null;
+  id: string; kind: RunKind; format?: ReportFormat | null; schedule_id?: string | null; status: ReportStatus; params: ReportParams; requested_by: string | null;
   requester_name: string | null; email_requested: boolean; row_count: number | null; truncated: boolean;
   byte_size: bigint | number | null; error: string | null; created_at: Date; finished_at: Date | null; expires_at: Date;
 };
@@ -506,6 +512,7 @@ const RUN_COLUMNS = Prisma.sql`r.id::text AS id, r.kind, r.format, r.schedule_id
 function toRun(row: RunRow): ReportRun {
   return {
     id: row.id, kind: row.kind, format: row.format === 'pdf' ? 'pdf' : 'csv', status: row.status, params: row.params,
+    reportName: row.kind === SAVED_REPORT_KIND ? parseSnapshot(row.params?.report)?.name ?? null : null,
     scheduled: row.schedule_id != null,
     requestedBy: row.requested_by ? { userId: row.requested_by, name: row.requester_name } : null,
     emailRequested: row.email_requested, rowCount: row.row_count, truncated: row.truncated,
@@ -565,9 +572,10 @@ export async function listReports(actor: ReportActor, limit = REPORT_LIST_LIMIT)
   return rows.map(toRun);
 }
 
-export function reportFilename(kind: ReportKind, params: ReportParams, format: ReportFormat = 'csv'): string {
+export function reportFilename(kind: RunKind, params: ReportParams, format: ReportFormat = 'csv'): string {
   const day = (d: string) => (DAY.test(d) ? d : 'range');
-  return `${kind}_${day(params.from)}_${day(params.to)}.${format === 'pdf' ? 'pdf' : 'csv'}`;
+  const stem = kind === SAVED_REPORT_KIND && params.report ? fileStem(params.report.name) : kind;
+  return `${stem}_${day(params.from)}_${day(params.to)}.${format === 'pdf' ? 'pdf' : 'csv'}`;
 }
 
 /**
@@ -579,7 +587,7 @@ export async function openReportDownload(actor: ReportActor, reportId: string): 
   assertAdmin(actor);
   if (!UUID.test(reportId)) throw new ReportError('not_found', 404);
   return withTenant(actor, async (tx) => {
-    const rows = await tx.$queryRaw<{ kind: ReportKind; format: ReportFormat | null; status: ReportStatus; params: ReportParams; object_key: string | null; row_count: number | null; live: boolean }[]>`
+    const rows = await tx.$queryRaw<{ kind: RunKind; format: ReportFormat | null; status: ReportStatus; params: ReportParams; object_key: string | null; row_count: number | null; live: boolean }[]>`
       SELECT kind, format, status, params, object_key, row_count, expires_at > now() AS live FROM report_runs
       WHERE account_id=${actor.accountId}::uuid AND id=${reportId}::uuid`;
     const row = rows[0];
@@ -597,8 +605,11 @@ const worker = (accountId: string) => ({ accountId, role: 'owner' as const });
 
 export function validParams(value: unknown): ReportParams | null {
   const p = value as Partial<ReportParams> | null;
-  return p && typeof p.from === 'string' && DAY.test(p.from) && typeof p.to === 'string' && DAY.test(p.to)
-    && typeof p.timezone === 'string' ? { from: p.from, to: p.to, timezone: p.timezone } : null;
+  if (!(p && typeof p.from === 'string' && DAY.test(p.from) && typeof p.to === 'string' && DAY.test(p.to)
+    && typeof p.timezone === 'string')) return null;
+  const report = p.report === undefined ? undefined : parseSnapshot(p.report);
+  if (report === null) return null;
+  return report ? { from: p.from, to: p.to, timezone: p.timezone, report } : { from: p.from, to: p.to, timezone: p.timezone };
 }
 
 async function markFailed(accountId: string, reportId: string, error: string): Promise<void> {
@@ -615,7 +626,7 @@ export async function runReportJob(accountId: string, payload: Record<string, un
   attempt: { attempts: number; maxAttempts: number } = { attempts: 1, maxAttempts: 1 }): Promise<void> {
   const reportId = typeof payload.reportId === 'string' && UUID.test(payload.reportId) ? payload.reportId : null;
   if (!reportId) throw new Error('Invalid report job');
-  const claimed = await withTenant(worker(accountId), (tx) => tx.$queryRaw<{ kind: ReportKind; format?: string | null; params: unknown;
+  const claimed = await withTenant(worker(accountId), (tx) => tx.$queryRaw<{ kind: RunKind; format?: string | null; params: unknown;
     email_requested: boolean; requested_by: string | null; schedule_id?: string | null }[]>`
     UPDATE report_runs SET status='running' WHERE account_id=${accountId}::uuid AND id=${reportId}::uuid
       AND status IN ('queued','running') AND expires_at > now()
@@ -624,14 +635,19 @@ export async function runReportJob(accountId: string, payload: Record<string, un
   if (!run) return; // Already finished, failed, expired or gone.
   const params = validParams(run.params);
   const format: ReportFormat | null = run.format == null ? 'csv' : isReportFormat(run.format) ? run.format : null;
-  if (!isReportKind(run.kind) || !params || !format) return markFailed(accountId, reportId, 'invalid_request');
+  if (!isRunKind(run.kind) || !params || !format || (run.kind === SAVED_REPORT_KIND) !== Boolean(params.report))
+    return markFailed(accountId, reportId, 'invalid_request');
   const kind = run.kind;
   try {
     // The query runs inside the transaction; rendering (PDF) happens after it commits.
     const table = await withTenant(worker(accountId), async (tx) => {
       await tx.$queryRaw`SELECT set_config('statement_timeout', ${String(REPORT_STATEMENT_TIMEOUT_MS)}, true)`;
       const range = parseRange({ preset: 'custom', from: params.from, to: params.to, bucket: 'day' }, params.timezone);
-      return reportTable(tx, accountId, kind, range);
+      if (kind === SAVED_REPORT_KIND && params.report) {
+        const data = await savedReportData(tx, accountId, params.report, range);
+        return { columns: savedReportColumns(data, params.timezone), rows: data.rows } as unknown as ReportTable;
+      }
+      return reportTable(tx, accountId, kind as ReportKind, range);
     }, getWorkerPrisma());
     const built = await renderReport(table, format, { kind, params });
     const key = reportObjectKey(accountId, reportId, format);
@@ -675,7 +691,7 @@ export async function runReportJob(accountId: string, payload: Record<string, un
  *   the user id only.
  * The email holds a link to the sign-in download route only, never the file.
  */
-async function emailReportRecipients(accountId: string, reportId: string, kind: ReportKind, params: ReportParams,
+async function emailReportRecipients(accountId: string, reportId: string, kind: RunKind, params: ReportParams,
   source: { requestedBy: string | null; scheduleId: string | null }): Promise<void> {
   const sender = process.env.AUTH_EMAIL_FROM;
   const origin = process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL;
@@ -711,7 +727,7 @@ async function emailReportRecipients(accountId: string, reportId: string, kind: 
 }
 
 /** One recipient: rechecks the live admin/owner membership and address, then sends once under `key`. */
-async function emailOne(accountId: string, reportId: string, kind: ReportKind, params: ReportParams, userId: string, key: string,
+async function emailOne(accountId: string, reportId: string, kind: RunKind, params: ReportParams, userId: string, key: string,
   mail: { sender: string; origin: string }): Promise<'sent' | 'skipped'> {
   const rows = await withTenant(worker(accountId), (tx) => tx.$queryRaw<{ email: string | null; role: string }[]>`
     SELECT p.email, m.role FROM account_memberships m LEFT JOIN profiles p ON p.user_id=m.user_id
@@ -720,7 +736,7 @@ async function emailOne(accountId: string, reportId: string, kind: ReportKind, p
   if (!rows[0] || !['owner', 'admin'].includes(rows[0].role) || !ADDRESS.test(address)) return 'skipped';
   const t = getT('Analytics.reports');
   const link = new URL(`/api/analytics/reports/${reportId}/download`, mail.origin).toString();
-  const values = { report: t(`kinds.${kind}`), from: params.from, to: params.to };
+  const values = { report: kind === SAVED_REPORT_KIND && params.report ? params.report.name : t(`kinds.${kind}`), from: params.from, to: params.to };
   await dispatchOnce(accountId, key, async () => {
     const transport = authEmailTransport();
     try {

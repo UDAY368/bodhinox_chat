@@ -115,7 +115,10 @@
     "automation": "Automação",
     "ai": "IA",
     "collapseSidebar": "Recolher",
-    "expandSidebar": "Expandir"
+    "expandSidebar": "Expandir",
+    "analyticsConversations": "Conversas",
+    "analyticsTeam": "Equipe",
+    "analyticsCampaigns": "Campanhas"
   },
   "Header": {
     "notificationsUnread": "{count, plural, =1 {Notificações, 1 não lida} other {Notificações, # não lidas}}",
@@ -8191,7 +8194,12 @@
       "scheduleCreatorLostAccess": "O criador deste agendamento não é mais administrador. Crie um novo agendamento.",
       "invalidShare": "Escolha quem pode abrir o link e uma validade de até 7 dias.",
       "shareRoleTooLow": "Este relatório contém dados que essa função não pode ver. Escolha uma função superior.",
-      "shareNotFound": "Este relatório não está disponível."
+      "shareNotFound": "Este relatório não está disponível.",
+      "invalidSavedReport": "Dê ao relatório um nome de até 60 caracteres e escolha pelo menos uma métrica, um agrupamento, um canal e um período válido.",
+      "savedReportNameTaken": "Já existe um relatório com este nome.",
+      "savedReportNotFound": "Relatório não encontrado.",
+      "tooManySavedReports": "Este espaço de trabalho já tem 50 relatórios salvos. Exclua um primeiro.",
+      "invalidSavedSchedule": "Escolha a frequência (diária, semanal ou mensal) e um horário."
     },
     "meetings": {
       "not_configured": "O Zoom não está disponível nesta instalação.",
@@ -11608,7 +11616,8 @@
         "agent_performance": "Desempenho dos agentes por dia",
         "product_summary": "Vendas por produto",
         "service_summary": "Agendamentos por serviço",
-        "commerce_daily": "Recebimentos por dia"
+        "commerce_daily": "Recebimentos por dia",
+        "saved_report": "Relatório salvo"
       },
       "range": "Período",
       "presets": {
@@ -11850,6 +11859,373 @@
       "whatsapp": "WhatsApp",
       "instagram": "Instagram",
       "whatsappOnlyNote": "Os números de campanhas e modelos são só do WhatsApp."
+    },
+    "insights": {
+      "chart": {
+        "nothing": "Nada para mostrar neste período.",
+        "roleDescription": "gráfico",
+        "lineLabel": "{label}. {count, plural, one {# ponto} other {# pontos}}. Use as setas para a esquerda e para a direita para ler os valores.",
+        "donutLabel": "{label}: {parts}. Use as setas para ler cada parte.",
+        "heatmapLabel": "Novas conversas por hora do dia"
+      },
+      "delta": {
+        "new": "Novo",
+        "same": "Sem mudança",
+        "up": "+{value}%",
+        "down": "−{value}%"
+      },
+      "hourSpan": "{day}, das {from} às {to}",
+      "weekSpan": "{from} – {to}",
+      "bucket": {
+        "hour": "Hora",
+        "day": "Dia",
+        "week": "Semana"
+      },
+      "caption": "De {from} a {to} · {channel}.",
+      "comparedWith": "As mudanças são comparadas com o período de {from} a {to}.",
+      "custom": {
+        "title": "Datas personalizadas",
+        "description": "Escolha qualquer período de até 366 dias. Um único dia é mostrado hora a hora.",
+        "cancel": "Cancelar",
+        "errors": {
+          "missing": "Escolha as duas datas.",
+          "order": "A data inicial é posterior à data final.",
+          "future": "A data final não pode estar no futuro.",
+          "too_long": "Escolha um período de 366 dias ou menos."
+        }
+      },
+      "tabs": {
+        "overview": {
+          "title": "Análises",
+          "description": "Como estão suas conversas, sua equipe e suas automações."
+        },
+        "conversations": {
+          "title": "Conversas",
+          "description": "Com que rapidez os clientes recebem resposta e como as conversas terminam."
+        },
+        "team": {
+          "title": "Equipe",
+          "description": "O que cada pessoa atendeu e com que rapidez."
+        },
+        "campaigns": {
+          "title": "Campanhas",
+          "description": "Como seus disparos e automações se saíram."
+        }
+      },
+      "overview": {
+        "stats": {
+          "new": "Novas conversas",
+          "resolved": "Resolvidas",
+          "firstResponse": "Mediana da primeira resposta",
+          "resolution": "Mediana do tempo de resolução",
+          "messages": "Mensagens enviadas",
+          "teamReply": "Primeira resposta da equipe"
+        },
+        "series": {
+          "new": "Novas",
+          "resolved": "Resolvidas"
+        },
+        "trendTitle": "Conversas novas e resolvidas",
+        "trendSub": "Por {bucket}",
+        "attentionTitle": "Precisa de atenção",
+        "attentionSub": "Agora",
+        "splitTitle": "Divisão por canal",
+        "splitSub": "Novas conversas. Escolha um canal para filtrar todas as abas.",
+        "conversations": "conversas",
+        "busiestTitle": "Horários de maior movimento",
+        "busiestSub": "A maioria das novas conversas começa por volta das {hour}.",
+        "busiestNone": "Nenhuma conversa nova neste período.",
+        "busiestCell": "Das {from} às {to}: {count, plural, one {# conversa nova} other {# conversas novas}}"
+      },
+      "attention": {
+        "allClear": "Tudo certo. Nada está esperando sua equipe.",
+        "unowned": {
+          "title": "{count, plural, one {{shown} conversa sem responsável} other {{shown} conversas sem responsável}}",
+          "sub": "Atribua para que alguém responda"
+        },
+        "unread": {
+          "title": "{count, plural, one {{shown} conversa não lida} other {{shown} conversas não lidas}}",
+          "sub": "Há clientes esperando resposta"
+        },
+        "closingSoon": {
+          "title": "{count, plural, one {{shown} janela de resposta fecha em breve} other {{shown} janelas de resposta fecham em breve}}",
+          "sub": "Responda em até 24 horas para não precisar de modelo"
+        },
+        "needsTemplate": {
+          "title": "{count, plural, one {{shown} conversa precisa de um modelo} other {{shown} conversas precisam de um modelo}}",
+          "sub": "A janela de resposta de 24 horas fechou"
+        },
+        "failedToday": {
+          "title": "{count, plural, one {{shown} mensagem falhou hoje} other {{shown} mensagens falharam hoje}}",
+          "sub": "Confira o número e envie de novo"
+        },
+        "switchedOff": {
+          "title": "{count, plural, one {{shown} automação está desligada} other {{shown} automações estão desligadas}}",
+          "sub": "Elas rodaram antes e agora estão desligadas"
+        }
+      },
+      "conversations": {
+        "stats": {
+          "firstResponse": "Mediana da primeira resposta",
+          "p90": "Resposta no percentil 90",
+          "resolution": "Mediana do tempo de resolução",
+          "rate": "Taxa de resolução"
+        },
+        "median": "Mediana",
+        "p90": "Percentil 90",
+        "spread": {
+          "under1h": "Menos de 1 h",
+          "1to4h": "De 1 a 4 h",
+          "4to12h": "De 4 a 12 h",
+          "12to24h": "De 12 a 24 h",
+          "overDay": "Mais de um dia"
+        },
+        "noLabel": "Sem etiqueta",
+        "cols": {
+          "new": "Novas",
+          "resolved": "Resolvidas",
+          "firstResponse": "Primeira resposta",
+          "resolution": "Tempo de resolução",
+          "failed": "Mensagens com falha",
+          "firstResponseSeconds": "Mediana da primeira resposta (segundos)",
+          "resolutionSeconds": "Mediana do tempo de resolução (segundos)"
+        },
+        "fileName": "conversas",
+        "responseTitle": "Tempo da primeira resposta",
+        "responseSub": "Quanto tempo um cliente espera pela primeira resposta",
+        "minutesValue": "{value} min",
+        "minutesAxis": "{value} min",
+        "openTitle": "Abertas e fechadas",
+        "openSub": "Conversas iniciadas neste período",
+        "closedWord": "fechadas",
+        "closed": "Fechadas",
+        "open": "Ainda abertas",
+        "spreadTitle": "Tempo de resolução",
+        "spreadSub": "Quanto tempo as conversas resolvidas levaram",
+        "conversations": "Conversas",
+        "channelTitle": "Por canal",
+        "channelSub": "Conversas novas e resolvidas",
+        "labelTitle": "Por etiqueta",
+        "labelSub": "Novas conversas por etiqueta de conversa",
+        "breakdownTitle": "Detalhamento por {bucket}",
+        "breakdownSub": "Escolha uma coluna para ordenar",
+        "exportCsv": "Exportar CSV",
+        "showFewer": "Mostrar menos linhas",
+        "showAll": "Mostrar todas as {count} linhas"
+      },
+      "team": {
+        "unnamed": "Membro sem nome",
+        "stats": {
+          "handled": "Atendidas por pessoas",
+          "resolved": "Resolvidas pela equipe",
+          "firstResponse": "Primeira resposta da equipe",
+          "messages": "Mensagens enviadas pela equipe",
+          "online": "Online agora"
+        },
+        "onlineOf": "{online} de {total}",
+        "cols": {
+          "member": "Membro",
+          "handled": "Atendidas",
+          "messages": "Mensagens enviadas",
+          "resolved": "Resolvidas",
+          "firstResponse": "Mediana da primeira resposta",
+          "status": "Status",
+          "role": "Função",
+          "firstResponseSeconds": "Mediana da primeira resposta (segundos)"
+        },
+        "openMember": "Abrir os detalhes de {name}",
+        "presence": {
+          "online": "Online",
+          "away": "Ausente",
+          "offline": "Offline"
+        },
+        "fileName": "equipe",
+        "resolvedTitle": "Resolvidas por membro",
+        "resolvedSub": "Conversas resolvidas enquanto estavam atribuídas a cada pessoa. Escolha uma para ver os detalhes.",
+        "noMembers": "Ainda não há membros.",
+        "tableTitle": "Membros",
+        "tableSub": "Escolha uma pessoa para ver os detalhes",
+        "search": "Pesquisar membros",
+        "exportCsv": "Exportar CSV",
+        "noMatch": "Ninguém corresponde",
+        "noMatchHint": "Tente outro nome ou função.",
+        "clearSearch": "Limpar pesquisa",
+        "attribution": "Mensagens e primeiras respostas contam para o membro que as enviou; resoluções, para o responsável atual. Bots, fluxos e o agente de IA não entram aqui.",
+        "detailChart": "Atendidas e resolvidas",
+        "byChannel": "Por canal",
+        "medianResolution": "Mediana do tempo de resolução",
+        "resolutionRate": "Taxa de resolução",
+        "openChats": "Abrir as conversas"
+      },
+      "campaigns": {
+        "stats": {
+          "broadcasts": "Disparos enviados",
+          "sent": "Mensagens enviadas",
+          "delivered": "Entregues",
+          "read": "Lidas",
+          "replied": "Respondidas",
+          "runs": "Execuções de automações"
+        },
+        "kinds": {
+          "flow": "Fluxos",
+          "rule": "Regras",
+          "sequence": "Sequências",
+          "flowOne": "Fluxo",
+          "ruleOne": "Regra",
+          "sequenceOne": "Sequência"
+        },
+        "cols": {
+          "broadcast": "Disparo",
+          "sentOn": "Enviado em",
+          "template": "Modelo",
+          "step": "Etapa",
+          "people": "Pessoas",
+          "shareOfSent": "Parcela dos enviados"
+        },
+        "openBroadcast": "Abrir o funil de {name}",
+        "fileName": "disparos",
+        "whatsappOnly": "Os números de disparos são só do WhatsApp. As automações aparecem para o canal escolhido.",
+        "funnelTitle": "Desempenho dos disparos",
+        "funnelSub": "{count, plural, one {# disparo} other {# disparos}} neste período",
+        "funnelMode": "Mostrar quantidades ou taxas",
+        "counts": "Quantidades",
+        "rates": "Taxas",
+        "noBroadcasts": "Nenhum disparo neste período",
+        "noBroadcastsHint": "Escolha um período maior ou envie um em Campanhas.",
+        "openCampaigns": "Abrir campanhas",
+        "topTitle": "Principais automações",
+        "topSubRuns": "Quantas vezes cada automação rodou",
+        "topSubCtr": "Pessoas que tocaram em um botão ou link rastreado",
+        "topMode": "Ordenar por execuções ou taxa de cliques",
+        "runs": "Execuções",
+        "clickRate": "Taxa de cliques",
+        "openAutomation": "Abrir {name}",
+        "noAutomations": "Nenhuma execução aqui",
+        "noAutomationsHint": "Nenhum fluxo, regra ou sequência rodou neste período.",
+        "noClicksHint": "Nenhum fluxo com link rastreado rodou neste período.",
+        "tableTitle": "Disparos",
+        "tableSub": "Escolha um disparo para ver o funil",
+        "exportCsv": "Exportar CSV",
+        "nothingSent": "Nada foi enviado neste período.",
+        "kindsTitle": "Execuções por tipo",
+        "kindsSub": "Fluxos, regras e sequências",
+        "runsWord": "execuções",
+        "sentOn": "enviado em {date}"
+      },
+      "saved": {
+        "pageTitle": "Relatórios",
+        "pageDescription": "Relatórios salvos que você pode visualizar, exportar ou enviar por e-mail, e arquivos de relatório gerados em segundo plano.",
+        "title": "Relatórios salvos",
+        "description": "Escolha as métricas uma vez e depois exporte o relatório ou envie-o por e-mail com uma programação.",
+        "build": "Criar relatório",
+        "search": "Pesquisar relatórios",
+        "count": "{shown} de {total, plural, one {# relatório} other {# relatórios}} · {scheduled} enviados por e-mail",
+        "loadFailed": "Não foi possível carregar os relatórios salvos.",
+        "retry": "Tentar de novo",
+        "noMatch": "Nenhum relatório corresponde",
+        "noMatchHint": "Tente outro nome.",
+        "empty": "Ainda não há relatórios salvos",
+        "emptyHint": "Crie um para exportá-lo ou enviá-lo por e-mail.",
+        "clearSearch": "Limpar pesquisa",
+        "failed": "Não deu certo. Tente de novo.",
+        "duplicated": "Relatório duplicado",
+        "saved": "Relatório \"{name}\" salvo",
+        "updated": "Relatório atualizado",
+        "deleteTitle": "Excluir este relatório?",
+        "deleteText": "\"{name}\" será removido.",
+        "deleteScheduled": "\"{name}\" será removido e os e-mails dele vão parar.",
+        "cancel": "Cancelar",
+        "delete": "Excluir",
+        "deleted": "Relatório excluído",
+        "scheduleBadge": "{freq}, {time} · {count, plural, one {# pessoa} other {# pessoas}}",
+        "freq": {
+          "daily": "Todos os dias",
+          "weekly": "Toda segunda-feira",
+          "monthly": "No dia 1º de cada mês"
+        },
+        "ranges": {
+          "today": "Hoje",
+          "7d": "Últimos 7 dias",
+          "30d": "Últimos 30 dias",
+          "90d": "Últimos 90 dias",
+          "this_week": "Esta semana",
+          "last_week": "Semana passada",
+          "this_month": "Este mês",
+          "last_month": "Mês passado",
+          "custom": "Datas personalizadas"
+        },
+        "summary": "{count, plural, one {# métrica} other {# métricas}} por {group} · {range} · {channel}",
+        "groups": {
+          "day": "Dia",
+          "week": "Semana",
+          "channel": "Canal",
+          "agent": "Membro",
+          "label": "Etiqueta"
+        },
+        "openReport": "Abrir {name}",
+        "changeSchedule": "Alterar o envio por e-mail",
+        "scheduleEmail": "Agendar e-mail",
+        "paused": "pausado",
+        "notScheduled": "Não agendado",
+        "more": "Mais ações para {name}",
+        "moreShort": "Mais ações",
+        "open": "Abrir",
+        "edit": "Editar",
+        "duplicate": "Duplicar",
+        "exportReport": "Exportar {name}",
+        "export": "Exportar",
+        "exportCsv": "Exportar CSV",
+        "exportPdf": "Exportar PDF",
+        "errors": {
+          "name": "Dê um nome ao relatório.",
+          "nameTaken": "Já existe um relatório com este nome.",
+          "metrics": "Escolha pelo menos uma métrica.",
+          "missing": "Escolha as duas datas.",
+          "order": "A data inicial é posterior à data final.",
+          "future": "A data final não pode estar no futuro.",
+          "too_long": "Escolha um período de 366 dias ou menos.",
+          "time": "Escolha um horário.",
+          "recipients": "Escolha pelo menos uma pessoa."
+        },
+        "editTitle": "Editar relatório",
+        "buildTitle": "Criar relatório",
+        "builderHint": "Somente quantidades e durações, nunca o conteúdo das mensagens.",
+        "name": "Nome",
+        "namePlaceholder": "Resumo semanal do suporte",
+        "metrics": "Métricas",
+        "metric": {
+          "new": "Novas conversas",
+          "resolved": "Resolvidas",
+          "first_response": "Mediana da primeira resposta",
+          "resolution": "Mediana do tempo de resolução",
+          "messages": "Mensagens enviadas",
+          "failed": "Mensagens com falha"
+        },
+        "groupBy": "Agrupar por",
+        "range": "Período",
+        "fileType": "Tipo de arquivo",
+        "saveChanges": "Salvar alterações",
+        "saveReport": "Salvar relatório",
+        "weekOf": "Semana de {date}",
+        "noLabel": "Sem etiqueta",
+        "formerMember": "Ex-membro",
+        "previewMeta": "De {from} a {to} · {channel} · {count, plural, one {# linha} other {# linhas}}",
+        "loading": "Carregando…",
+        "previewFailed": "Não foi possível carregar a prévia.",
+        "done": "Concluir",
+        "scheduleRemoved": "Agendamento removido",
+        "scheduleSaved": "\"{name}\" será enviado por e-mail com este agendamento",
+        "scheduleTitle": "Agendar relatório por e-mail",
+        "scheduleHint": "Envie \"{name}\" como arquivo {format}. Cada e-mail cobre o período que acabou de terminar e traz um link de acesso, nunca o arquivo.",
+        "howOften": "Frequência",
+        "time": "Horário (fuso do espaço de trabalho)",
+        "sendTo": "Enviar para",
+        "noAdmins": "Nenhum administrador ou proprietário encontrado.",
+        "unnamed": "Membro sem nome",
+        "adminsOnly": "Somente proprietários e administradores podem receber relatórios. Cada um é verificado de novo no envio.",
+        "stopSending": "Parar de enviar",
+        "saveSchedule": "Salvar agendamento"
+      }
     }
   },
   "Ads": {

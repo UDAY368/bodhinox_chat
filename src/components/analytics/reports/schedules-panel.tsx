@@ -17,7 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { authFetch } from "@/lib/auth/client";
-import { REPORT_FORMATS, REPORT_KINDS, type ReportFormat, type ReportKind } from "@/lib/analytics/report-kinds";
+import { REPORT_FORMATS, REPORT_KINDS, type ReportFormat, type ReportKind, type RunKind } from "@/lib/analytics/report-kinds";
 
 const CADENCES = ["daily", "weekly", "monthly"] as const;
 type Cadence = (typeof CADENCES)[number];
@@ -26,7 +26,11 @@ const selectClass = "border-border bg-card text-foreground h-9 w-full rounded-lg
 
 export interface ReportScheduleView {
   id: string;
-  kind: ReportKind;
+  kind: RunKind;
+  /** Minutes past hourLocal (saved report schedules). */
+  minuteLocal?: number;
+  /** The saved report a saved_report schedule emails. */
+  savedReport?: { id: string; name: string } | null;
   format: ReportFormat;
   cadence: Cadence;
   hourLocal: number;
@@ -43,7 +47,7 @@ interface Member {
   role: string;
 }
 
-const hourLabel = (h: number) => `${String(h).padStart(2, "0")}:00`;
+const hourLabel = (h: number, m = 0) => `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
 
 export function SchedulesPanel() {
   const t = useTranslations("Analytics.reports.schedules");
@@ -220,11 +224,11 @@ export function SchedulesPanel() {
                 {schedules.map((s) => (
                   <tr key={s.id} className="border-t border-border align-top transition-colors duration-150 hover:bg-muted/50">
                     <td className="px-3.5 py-2.5 text-foreground">
-                      {tr(`kinds.${s.kind}`)}
+                      {s.savedReport ? s.savedReport.name : tr(`kinds.${s.kind}`)}
                       <span className="block text-xs text-muted-foreground">{tr(`formats.${s.format}`)}</span>
                     </td>
                     <td className="px-3.5 py-2.5 text-muted-foreground">
-                      {t("whenValue", { cadence: t(`cadences.${s.cadence}`), hour: hourLabel(s.hourLocal) })}
+                      {t("whenValue", { cadence: t(`cadences.${s.cadence}`), hour: hourLabel(s.hourLocal, s.minuteLocal ?? 0) })}
                     </td>
                     <td className="px-3.5 py-2.5 text-muted-foreground">
                       {s.recipients.map((r) => r.name || tr("formerMember")).join(", ")}

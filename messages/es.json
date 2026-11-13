@@ -115,7 +115,10 @@
     "automation": "Automatización",
     "ai": "IA",
     "collapseSidebar": "Contraer",
-    "expandSidebar": "Expandir"
+    "expandSidebar": "Expandir",
+    "analyticsConversations": "Conversaciones",
+    "analyticsTeam": "Equipo",
+    "analyticsCampaigns": "Campañas"
   },
   "Header": {
     "notificationsUnread": "{count, plural, =1 {Notificaciones, 1 sin leer} other {Notificaciones, # sin leer}}",
@@ -8191,7 +8194,12 @@
       "scheduleCreatorLostAccess": "El creador de esta programación ya no es administrador. Crea una nueva programación.",
       "invalidShare": "Elige quién puede abrir el enlace y una caducidad de hasta 7 días.",
       "shareRoleTooLow": "Este informe contiene datos que ese rol no puede ver. Elige un rol superior.",
-      "shareNotFound": "Este informe no está disponible."
+      "shareNotFound": "Este informe no está disponible.",
+      "invalidSavedReport": "Pon al informe un nombre de hasta 60 caracteres y elige al menos una métrica, una agrupación, un canal y un rango de fechas válido.",
+      "savedReportNameTaken": "Ya existe un informe con este nombre.",
+      "savedReportNotFound": "No se encontró el informe.",
+      "tooManySavedReports": "Este espacio de trabajo ya tiene 50 informes guardados. Elimina uno primero.",
+      "invalidSavedSchedule": "Elige la frecuencia (diaria, semanal o mensual) y una hora del día."
     },
     "meetings": {
       "not_configured": "Zoom no está disponible en esta instalación.",
@@ -11608,7 +11616,8 @@
         "agent_performance": "Rendimiento de agentes por día",
         "product_summary": "Ventas por producto",
         "service_summary": "Citas por servicio",
-        "commerce_daily": "Cobros por día"
+        "commerce_daily": "Cobros por día",
+        "saved_report": "Informe guardado"
       },
       "range": "Rango de fechas",
       "presets": {
@@ -11850,6 +11859,373 @@
       "whatsapp": "WhatsApp",
       "instagram": "Instagram",
       "whatsappOnlyNote": "Las cifras de campañas y plantillas son solo de WhatsApp."
+    },
+    "insights": {
+      "chart": {
+        "nothing": "No hay nada que mostrar en este rango.",
+        "roleDescription": "gráfico",
+        "lineLabel": "{label}. {count, plural, one {# punto} other {# puntos}}. Usa las flechas izquierda y derecha para leer los valores.",
+        "donutLabel": "{label}: {parts}. Usa las flechas para leer cada parte.",
+        "heatmapLabel": "Conversaciones nuevas por hora del día"
+      },
+      "delta": {
+        "new": "Nuevo",
+        "same": "Sin cambios",
+        "up": "+{value} %",
+        "down": "−{value} %"
+      },
+      "hourSpan": "{day}, de {from} a {to}",
+      "weekSpan": "{from} – {to}",
+      "bucket": {
+        "hour": "Hora",
+        "day": "Día",
+        "week": "Semana"
+      },
+      "caption": "Del {from} al {to} · {channel}.",
+      "comparedWith": "Los cambios se comparan con el periodo del {from} al {to}.",
+      "custom": {
+        "title": "Fechas personalizadas",
+        "description": "Elige cualquier rango de hasta 366 días. Un solo día se muestra hora por hora.",
+        "cancel": "Cancelar",
+        "errors": {
+          "missing": "Elige las dos fechas.",
+          "order": "La fecha de inicio es posterior a la de fin.",
+          "future": "La fecha de fin no puede estar en el futuro.",
+          "too_long": "Elige un rango de 366 días o menos."
+        }
+      },
+      "tabs": {
+        "overview": {
+          "title": "Analítica",
+          "description": "Cómo van tus conversaciones, tu equipo y tus automatizaciones."
+        },
+        "conversations": {
+          "title": "Conversaciones",
+          "description": "Qué tan rápido reciben respuesta los clientes y cómo terminan los chats."
+        },
+        "team": {
+          "title": "Equipo",
+          "description": "Qué atendió cada persona y con qué rapidez."
+        },
+        "campaigns": {
+          "title": "Campañas",
+          "description": "Cómo rindieron tus difusiones y automatizaciones."
+        }
+      },
+      "overview": {
+        "stats": {
+          "new": "Conversaciones nuevas",
+          "resolved": "Resueltas",
+          "firstResponse": "Mediana de primera respuesta",
+          "resolution": "Mediana de tiempo de resolución",
+          "messages": "Mensajes enviados",
+          "teamReply": "Primera respuesta del equipo"
+        },
+        "series": {
+          "new": "Nuevas",
+          "resolved": "Resueltas"
+        },
+        "trendTitle": "Conversaciones nuevas y resueltas",
+        "trendSub": "Por {bucket}",
+        "attentionTitle": "Requiere atención",
+        "attentionSub": "Ahora mismo",
+        "splitTitle": "Reparto por canal",
+        "splitSub": "Conversaciones nuevas. Elige un canal para filtrar todas las pestañas.",
+        "conversations": "conversaciones",
+        "busiestTitle": "Horas de más actividad",
+        "busiestSub": "La mayoría de las conversaciones nuevas empiezan hacia las {hour}.",
+        "busiestNone": "No hay conversaciones nuevas en este rango.",
+        "busiestCell": "De {from} a {to}: {count, plural, one {# conversación nueva} other {# conversaciones nuevas}}"
+      },
+      "attention": {
+        "allClear": "Todo en orden. Nada espera a tu equipo.",
+        "unowned": {
+          "title": "{count, plural, one {{shown} chat sin responsable} other {{shown} chats sin responsable}}",
+          "sub": "Asígnalos para que alguien responda"
+        },
+        "unread": {
+          "title": "{count, plural, one {{shown} chat sin leer} other {{shown} chats sin leer}}",
+          "sub": "Hay clientes esperando una respuesta"
+        },
+        "closingSoon": {
+          "title": "{count, plural, one {{shown} ventana de respuesta cierra pronto} other {{shown} ventanas de respuesta cierran pronto}}",
+          "sub": "Responde dentro de las 24 horas para no necesitar plantilla"
+        },
+        "needsTemplate": {
+          "title": "{count, plural, one {{shown} chat necesita una plantilla} other {{shown} chats necesitan una plantilla}}",
+          "sub": "La ventana de respuesta de 24 horas se cerró"
+        },
+        "failedToday": {
+          "title": "{count, plural, one {{shown} mensaje falló hoy} other {{shown} mensajes fallaron hoy}}",
+          "sub": "Revisa el número y vuelve a enviar"
+        },
+        "switchedOff": {
+          "title": "{count, plural, one {{shown} automatización está desactivada} other {{shown} automatizaciones están desactivadas}}",
+          "sub": "Se ejecutaron antes y ahora están apagadas"
+        }
+      },
+      "conversations": {
+        "stats": {
+          "firstResponse": "Mediana de primera respuesta",
+          "p90": "Respuesta en el percentil 90",
+          "resolution": "Mediana de tiempo de resolución",
+          "rate": "Tasa de resolución"
+        },
+        "median": "Mediana",
+        "p90": "Percentil 90",
+        "spread": {
+          "under1h": "Menos de 1 h",
+          "1to4h": "De 1 a 4 h",
+          "4to12h": "De 4 a 12 h",
+          "12to24h": "De 12 a 24 h",
+          "overDay": "Más de un día"
+        },
+        "noLabel": "Sin etiqueta",
+        "cols": {
+          "new": "Nuevas",
+          "resolved": "Resueltas",
+          "firstResponse": "Primera respuesta",
+          "resolution": "Tiempo de resolución",
+          "failed": "Mensajes fallidos",
+          "firstResponseSeconds": "Mediana de primera respuesta (segundos)",
+          "resolutionSeconds": "Mediana de tiempo de resolución (segundos)"
+        },
+        "fileName": "conversaciones",
+        "responseTitle": "Tiempo de primera respuesta",
+        "responseSub": "Cuánto espera un cliente la primera respuesta",
+        "minutesValue": "{value} min",
+        "minutesAxis": "{value} m",
+        "openTitle": "Abiertas y cerradas",
+        "openSub": "Conversaciones iniciadas en este rango",
+        "closedWord": "cerradas",
+        "closed": "Cerradas",
+        "open": "Aún abiertas",
+        "spreadTitle": "Tiempo de resolución",
+        "spreadSub": "Cuánto tardaron las conversaciones resueltas",
+        "conversations": "Conversaciones",
+        "channelTitle": "Por canal",
+        "channelSub": "Conversaciones nuevas y resueltas",
+        "labelTitle": "Por etiqueta",
+        "labelSub": "Conversaciones nuevas por etiqueta de conversación",
+        "breakdownTitle": "Desglose por {bucket}",
+        "breakdownSub": "Elige una columna para ordenar",
+        "exportCsv": "Exportar CSV",
+        "showFewer": "Mostrar menos filas",
+        "showAll": "Mostrar las {count} filas"
+      },
+      "team": {
+        "unnamed": "Miembro sin nombre",
+        "stats": {
+          "handled": "Atendidas por personas",
+          "resolved": "Resueltas por el equipo",
+          "firstResponse": "Primera respuesta del equipo",
+          "messages": "Mensajes enviados por el equipo",
+          "online": "En línea ahora"
+        },
+        "onlineOf": "{online} de {total}",
+        "cols": {
+          "member": "Miembro",
+          "handled": "Atendidas",
+          "messages": "Mensajes enviados",
+          "resolved": "Resueltas",
+          "firstResponse": "Mediana de primera respuesta",
+          "status": "Estado",
+          "role": "Rol",
+          "firstResponseSeconds": "Mediana de primera respuesta (segundos)"
+        },
+        "openMember": "Abrir el detalle de {name}",
+        "presence": {
+          "online": "En línea",
+          "away": "Ausente",
+          "offline": "Desconectado"
+        },
+        "fileName": "equipo",
+        "resolvedTitle": "Resueltas por miembro",
+        "resolvedSub": "Conversaciones resueltas mientras estaban asignadas a cada persona. Elige una para ver su detalle.",
+        "noMembers": "Todavía no hay miembros.",
+        "tableTitle": "Miembros",
+        "tableSub": "Elige a una persona para ver su detalle",
+        "search": "Buscar miembros",
+        "exportCsv": "Exportar CSV",
+        "noMatch": "Nadie coincide",
+        "noMatchHint": "Prueba con otro nombre o rol.",
+        "clearSearch": "Borrar búsqueda",
+        "attribution": "Los mensajes y las primeras respuestas se atribuyen al miembro que los envió; las resoluciones, a la persona asignada actualmente. Aquí no se cuentan bots, flujos ni el agente de IA.",
+        "detailChart": "Atendidas y resueltas",
+        "byChannel": "Por canal",
+        "medianResolution": "Mediana de tiempo de resolución",
+        "resolutionRate": "Tasa de resolución",
+        "openChats": "Abrir sus chats"
+      },
+      "campaigns": {
+        "stats": {
+          "broadcasts": "Difusiones enviadas",
+          "sent": "Mensajes enviados",
+          "delivered": "Entregados",
+          "read": "Leídos",
+          "replied": "Respondidos",
+          "runs": "Ejecuciones de automatizaciones"
+        },
+        "kinds": {
+          "flow": "Flujos",
+          "rule": "Reglas",
+          "sequence": "Secuencias",
+          "flowOne": "Flujo",
+          "ruleOne": "Regla",
+          "sequenceOne": "Secuencia"
+        },
+        "cols": {
+          "broadcast": "Difusión",
+          "sentOn": "Enviada el",
+          "template": "Plantilla",
+          "step": "Paso",
+          "people": "Personas",
+          "shareOfSent": "Parte de los enviados"
+        },
+        "openBroadcast": "Abrir el embudo de {name}",
+        "fileName": "difusiones",
+        "whatsappOnly": "Las cifras de difusiones son solo de WhatsApp. Las automatizaciones se muestran para el canal elegido.",
+        "funnelTitle": "Rendimiento de las difusiones",
+        "funnelSub": "{count, plural, one {# difusión} other {# difusiones}} en este rango",
+        "funnelMode": "Mostrar cantidades o tasas",
+        "counts": "Cantidades",
+        "rates": "Tasas",
+        "noBroadcasts": "No hay difusiones en este rango",
+        "noBroadcastsHint": "Elige un rango más largo o envía una desde Campañas.",
+        "openCampaigns": "Abrir campañas",
+        "topTitle": "Automatizaciones principales",
+        "topSubRuns": "Veces que se ejecutó cada automatización",
+        "topSubCtr": "Personas que tocaron un botón o enlace con seguimiento",
+        "topMode": "Ordenar por ejecuciones o tasa de clics",
+        "runs": "Ejecuciones",
+        "clickRate": "Tasa de clics",
+        "openAutomation": "Abrir {name}",
+        "noAutomations": "No hay ejecuciones aquí",
+        "noAutomationsHint": "Ningún flujo, regla o secuencia se ejecutó en este rango.",
+        "noClicksHint": "Ningún flujo con enlace de seguimiento se ejecutó en este rango.",
+        "tableTitle": "Difusiones",
+        "tableSub": "Elige una difusión para ver su embudo",
+        "exportCsv": "Exportar CSV",
+        "nothingSent": "No se envió nada en este rango.",
+        "kindsTitle": "Ejecuciones por tipo",
+        "kindsSub": "Flujos, reglas y secuencias",
+        "runsWord": "ejecuciones",
+        "sentOn": "enviada el {date}"
+      },
+      "saved": {
+        "pageTitle": "Informes",
+        "pageDescription": "Informes guardados que puedes previsualizar, exportar o enviar por correo, y archivos de informe generados en segundo plano.",
+        "title": "Informes guardados",
+        "description": "Elige las métricas una vez y luego exporta el informe o envíalo por correo con una programación.",
+        "build": "Crear informe",
+        "search": "Buscar informes",
+        "count": "{shown} de {total, plural, one {# informe} other {# informes}} · {scheduled} enviados por correo",
+        "loadFailed": "No se pudieron cargar los informes guardados.",
+        "retry": "Reintentar",
+        "noMatch": "Ningún informe coincide",
+        "noMatchHint": "Prueba con otro nombre.",
+        "empty": "Todavía no hay informes guardados",
+        "emptyHint": "Crea uno para exportarlo o enviarlo por correo.",
+        "clearSearch": "Borrar búsqueda",
+        "failed": "No funcionó. Inténtalo de nuevo.",
+        "duplicated": "Informe duplicado",
+        "saved": "Informe «{name}» guardado",
+        "updated": "Informe actualizado",
+        "deleteTitle": "¿Eliminar este informe?",
+        "deleteText": "Se eliminará «{name}».",
+        "deleteScheduled": "Se eliminará «{name}» y dejarán de enviarse sus correos.",
+        "cancel": "Cancelar",
+        "delete": "Eliminar",
+        "deleted": "Informe eliminado",
+        "scheduleBadge": "{freq}, {time} · {count, plural, one {# persona} other {# personas}}",
+        "freq": {
+          "daily": "Todos los días",
+          "weekly": "Cada lunes",
+          "monthly": "El día 1 de cada mes"
+        },
+        "ranges": {
+          "today": "Hoy",
+          "7d": "Últimos 7 días",
+          "30d": "Últimos 30 días",
+          "90d": "Últimos 90 días",
+          "this_week": "Esta semana",
+          "last_week": "La semana pasada",
+          "this_month": "Este mes",
+          "last_month": "El mes pasado",
+          "custom": "Fechas personalizadas"
+        },
+        "summary": "{count, plural, one {# métrica} other {# métricas}} por {group} · {range} · {channel}",
+        "groups": {
+          "day": "Día",
+          "week": "Semana",
+          "channel": "Canal",
+          "agent": "Miembro",
+          "label": "Etiqueta"
+        },
+        "openReport": "Abrir {name}",
+        "changeSchedule": "Cambiar el envío por correo",
+        "scheduleEmail": "Programar correo",
+        "paused": "en pausa",
+        "notScheduled": "Sin programar",
+        "more": "Más acciones para {name}",
+        "moreShort": "Más acciones",
+        "open": "Abrir",
+        "edit": "Editar",
+        "duplicate": "Duplicar",
+        "exportReport": "Exportar {name}",
+        "export": "Exportar",
+        "exportCsv": "Exportar CSV",
+        "exportPdf": "Exportar PDF",
+        "errors": {
+          "name": "Ponle un nombre al informe.",
+          "nameTaken": "Ya existe un informe con este nombre.",
+          "metrics": "Elige al menos una métrica.",
+          "missing": "Elige las dos fechas.",
+          "order": "La fecha de inicio es posterior a la de fin.",
+          "future": "La fecha de fin no puede estar en el futuro.",
+          "too_long": "Elige un rango de 366 días o menos.",
+          "time": "Elige una hora.",
+          "recipients": "Elige al menos una persona."
+        },
+        "editTitle": "Editar informe",
+        "buildTitle": "Crear informe",
+        "builderHint": "Solo cantidades y duraciones, nunca el contenido de los mensajes.",
+        "name": "Nombre",
+        "namePlaceholder": "Resumen semanal de soporte",
+        "metrics": "Métricas",
+        "metric": {
+          "new": "Conversaciones nuevas",
+          "resolved": "Resueltas",
+          "first_response": "Mediana de primera respuesta",
+          "resolution": "Mediana de tiempo de resolución",
+          "messages": "Mensajes enviados",
+          "failed": "Mensajes fallidos"
+        },
+        "groupBy": "Agrupar por",
+        "range": "Rango de fechas",
+        "fileType": "Tipo de archivo",
+        "saveChanges": "Guardar cambios",
+        "saveReport": "Guardar informe",
+        "weekOf": "Semana del {date}",
+        "noLabel": "Sin etiqueta",
+        "formerMember": "Antiguo miembro",
+        "previewMeta": "Del {from} al {to} · {channel} · {count, plural, one {# fila} other {# filas}}",
+        "loading": "Cargando…",
+        "previewFailed": "No se pudo cargar la vista previa.",
+        "done": "Listo",
+        "scheduleRemoved": "Programación eliminada",
+        "scheduleSaved": "«{name}» se enviará por correo con esta programación",
+        "scheduleTitle": "Programar informe por correo",
+        "scheduleHint": "Envía «{name}» como archivo {format}. Cada correo cubre el periodo que acaba de terminar y contiene un enlace de inicio de sesión, nunca el archivo.",
+        "howOften": "Frecuencia",
+        "time": "Hora (zona horaria del espacio de trabajo)",
+        "sendTo": "Enviar a",
+        "noAdmins": "No se encontraron administradores ni propietarios.",
+        "unnamed": "Miembro sin nombre",
+        "adminsOnly": "Solo propietarios y administradores pueden recibir informes. Cada uno se vuelve a comprobar al enviar el informe.",
+        "stopSending": "Dejar de enviar",
+        "saveSchedule": "Guardar programación"
+      }
     }
   },
   "Ads": {

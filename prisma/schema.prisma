@@ -1703,9 +1703,38 @@ model report_schedules {
   last_run_id String? @db.Uuid
   created_at DateTime @db.Timestamptz(6) @default(now())
   updated_at DateTime @db.Timestamptz(6) @default(now())
-  // The partial index report_schedules_due_idx (WHERE paused_at IS NULL) is owned by the SQL.
+  /// 20261122000000: the analytics_saved_reports row a 'saved_report' schedule emails (composite FK, ON DELETE CASCADE, owned by the SQL).
+  saved_report_id String? @db.Uuid
+  /// Local minute past hour_local (0-59).
+  minute_local Int @db.SmallInt @default(0)
+  // The partial indexes report_schedules_due_idx (WHERE paused_at IS NULL) and report_schedules_saved_report_idx
+  // (unique, WHERE saved_report_id IS NOT NULL) are owned by the SQL.
   @@unique([account_id, id])
   @@index([account_id, created_at], map: "report_schedules_account_idx")
+}
+
+/// Analytics redesign (20261122000000): a saved report definition (metrics, grouping, channel, range, file type).
+/// Admins and owners read and write; the worker reads. Read and written only through withTenant raw SQL.
+model analytics_saved_reports {
+  id String @db.Uuid @id @default(dbgenerated("gen_random_uuid()"))
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  name String
+  /// Subset of 'new' | 'resolved' | 'first_response' | 'resolution' | 'messages' | 'failed'.
+  metrics String[]
+  /// 'day' | 'week' | 'channel' | 'agent' | 'label'
+  group_by String
+  /// 'all' | 'whatsapp' | 'instagram'
+  channel String @default("all")
+  range_preset String
+  from_day DateTime? @db.Date
+  to_day DateTime? @db.Date
+  format String @default("csv")
+  created_by String? @db.Uuid
+  created_at DateTime @db.Timestamptz(6) @default(now())
+  updated_at DateTime @db.Timestamptz(6) @default(now())
+  // The unique index analytics_saved_reports_name_idx (account_id, lower(name)) is owned by the SQL.
+  @@unique([account_id, id])
+  @@index([account_id, created_at(sort: Desc)], map: "analytics_saved_reports_account_idx")
 }
 
 /// Phase 12: a permission-controlled link to a ready report. No token; opened only through

@@ -195,6 +195,53 @@ describe('worker', () => {
     expect(advance.values[0]).toEqual(new Date('2026-11-16T08:00:00Z'));
   });
 
+  it('runs at a local minute when one is set (saved report schedules)', () => {
+    expect(nextRunAt('daily', 9, 'Asia/Kolkata', new Date('2026-11-04T03:00:00Z'), 45).toISOString()).toBe('2026-11-04T04:15:00.000Z');
+    expect(nextRunAt('daily', 9, 'Asia/Kolkata', new Date('2026-11-04T04:15:00Z'), 45).toISOString()).toBe('2026-11-05T04:15:00.000Z');
+  });
+
+  it('snapshots a saved report definition into its scheduled run and advances to the same minute', async () => {
+    let served = false;
+    const SAVED = '66666666-6666-4666-8666-666666666666';
+    h.respond = (sql) => {
+      if (sql.includes('FOR UPDATE SKIP LOCKED')) {
+        if (served) return [];
+        served = true;
+        return [{ id: S, kind: 'saved_report', format: 'csv', cadence: 'daily', hour_local: 9, minute_local: 30, saved_report_id: SAVED, created_by: U }];
+      }
+      if (sql.includes('FROM account_memberships')) return [{ role: 'admin' }];
+      if (sql.includes('workspace_inbox_settings')) return [{ timezone: 'UTC' }];
+      if (sql.includes('FROM analytics_saved_reports')) return [{ name: 'Weekly support', metrics: ['resolved', 'new'], group_by: 'agent', channel: 'whatsapp' }];
+      if (sql.includes('INSERT INTO report_runs')) return [{ id: RUN }];
+      return [];
+    };
+    expect(await runReportSchedules(A, new Date('2026-11-09T09:30:10Z'))).toEqual([{ id: S, outcome: 'queued' }]);
+    const lookup = h.calls.find((c) => c.sql.includes('FROM analytics_saved_reports'))!;
+    expect(lookup.values).toEqual([A, SAVED]);
+    const run = h.calls.find((c) => c.sql.includes('INSERT INTO report_runs'))!;
+    expect(run.values).toEqual(expect.arrayContaining(['saved_report', JSON.stringify({
+      from: '2026-11-08', to: '2026-11-08', timezone: 'UTC',
+      report: { name: 'Weekly support', metrics: ['new', 'resolved'], group: 'agent', channel: 'whatsapp' },
+    })]));
+    const advance = h.calls.find((c) => c.sql.includes('SET next_run_at'))!;
+    expect(advance.values[0]).toEqual(new Date('2026-11-10T09:30:00Z'));
+  });
+
+  it('queues nothing for a saved report schedule whose definition is gone', async () => {
+    let served = false;
+    h.respond = (sql) => {
+      if (sql.includes('FOR UPDATE SKIP LOCKED')) {
+        if (served) return [];
+        served = true;
+        return [{ id: S, kind: 'saved_report', format: 'csv', cadence: 'daily', hour_local: 9, minute_local: 0, saved_report_id: S, created_by: U }];
+      }
+      if (sql.includes('FROM account_memberships')) return [{ role: 'admin' }];
+      return [];
+    };
+    expect(await runReportSchedules(A, new Date('2026-11-09T09:30:10Z'))).toEqual([{ id: S, outcome: 'repeat' }]);
+    expect(h.calls.some((c) => c.sql.includes('INSERT INTO report_runs'))).toBe(false);
+  });
+
   it('treats a repeated period as a no-op that still advances', async () => {
     let served = false;
     h.respond = (sql) => {
