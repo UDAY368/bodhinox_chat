@@ -65,7 +65,7 @@ export function InstagramFacts({ contactId, refreshToken, className }: { contact
       {data.identities.map((identity) => {
         const fact = facts.identities.find((row) => row.id === identity.id);
         return (
-          <dl key={identity.id} className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5 text-xs">
+          <dl key={identity.id} className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1.5 text-xs">
             <dt className="text-muted-foreground">{t('username')}</dt>
             <dd className="truncate font-medium">{identityLabel(identity, t('unknown'))}</dd>
             <dt className="text-muted-foreground">{t('followsYou')}</dt>
@@ -79,7 +79,7 @@ export function InstagramFacts({ contactId, refreshToken, className }: { contact
           </dl>
         );
       })}
-      <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5 text-xs">
+      <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1.5 text-xs">
         <dt className="text-muted-foreground">{t('subscription')}</dt>
         <dd>{status === 'none' ? ts('none') : ts(status)}</dd>
         <dt className="text-muted-foreground">{t('lastInteraction')}</dt>

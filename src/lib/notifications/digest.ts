@@ -13,7 +13,9 @@
  * Each email lists titles and links only, never notification bodies or
  * customer message content. Entries already read in the app, entries for an
  * event the member has since switched off, and entries older than a week are
- * claimed without sending. Nothing is scheduled while SMTP or the app URL is
+ * claimed without sending. A member inside their quiet hours keeps their
+ * entries unclaimed until the window ends (a mention passes when they let
+ * mentions through). Nothing is scheduled while SMTP or the app URL is
  * not configured. Addresses, titles and provider errors are never logged.
  */
 import { authEmailTransport } from '@/lib/auth/email';
@@ -23,6 +25,7 @@ import { withTenant } from '@/lib/db/tenant';
 import { maskPhonesInText } from '@/lib/inbox/masking';
 import { enqueueJob } from '@/lib/jobs/queue';
 import { emailDigestAvailable } from './preferences';
+import { isQuietFor } from './quiet-hours';
 
 export const NOTIFICATION_DIGEST_JOB = 'inbox.notification_digest';
 export const DIGEST_INTERVAL_MS = 30 * 60 * 1000;
@@ -67,6 +70,27 @@ export interface DigestMessage {
   to: string;
   subject: string;
   text: string;
+}
+
+interface QuietColumns {
+  event?: string;
+  quiet_enabled?: boolean | null;
+  quiet_start?: number | null;
+  quiet_end?: number | null;
+  quiet_time_zone?: string | null;
+  quiet_allow_mentions?: boolean | null;
+}
+
+/** Whether the member's quiet hours hold this entry back at `now` (pure). */
+export function heldByQuietHours(row: QuietColumns, now: Date): boolean {
+  if (!row.quiet_enabled || row.quiet_start == null || row.quiet_end == null) return false;
+  return isQuietFor({
+    enabled: true,
+    start: Number(row.quiet_start),
+    end: Number(row.quiet_end),
+    time_zone: row.quiet_time_zone ?? 'UTC',
+    allow_mentions: row.quiet_allow_mentions ?? true,
+  }, row.event ?? '', now);
 }
 
 /** One line of plain text: no control characters, bounded. */
@@ -158,19 +182,24 @@ export async function sendNotificationDigest(
   const tenant = { accountId, role: 'owner' as const };
 
   const entries = await withTenant(tenant, async (tx) => {
-    const rows = await tx.$queryRaw<DigestEntry[]>`
-      SELECT q.id::text AS id, q.user_id::text AS user_id, q.title, q.link, q.created_at,
+    const locked = await tx.$queryRaw<(DigestEntry & QuietColumns)[]>`
+      SELECT q.id::text AS id, q.user_id::text AS user_id, q.event, q.title, q.link, q.created_at,
         pr.email AS address, (n.read_at IS NOT NULL) AS read, COALESCE(p.email, false) AS wants_email,
-        COALESCE(m.role::text NOT IN ('owner','admin') AND m.mask_phone_numbers, true) AS mask_phones
+        COALESCE(m.role::text NOT IN ('owner','admin') AND m.mask_phone_numbers, true) AS mask_phones,
+        mp.quiet_enabled, mp.quiet_start, mp.quiet_end, mp.quiet_time_zone, mp.quiet_allow_mentions
       FROM notification_email_queue q
       LEFT JOIN account_memberships m ON m.account_id=q.account_id AND m.user_id=q.user_id
       LEFT JOIN notifications n ON n.account_id=q.account_id AND n.id=q.notification_id
       LEFT JOIN notification_preferences p ON p.account_id=q.account_id AND p.user_id=q.user_id AND p.event=q.event
+      LEFT JOIN member_preferences mp ON mp.account_id=q.account_id AND mp.user_id=q.user_id
       LEFT JOIN profiles pr ON pr.user_id=q.user_id
       WHERE q.account_id=${accountId}::uuid AND q.sent_at IS NULL
       ORDER BY q.created_at, q.id
       LIMIT ${DIGEST_CLAIM_LIMIT}
       FOR UPDATE OF q SKIP LOCKED`;
+    // Quiet hours hold a member's entries back (unclaimed) until the window ends;
+    // the next digest window after it sends them.
+    const rows = locked.filter((row) => !heldByQuietHours(row, now));
     if (rows.length)
       await tx.$executeRaw`UPDATE notification_email_queue SET sent_at=${now}
         WHERE account_id=${accountId}::uuid AND id = ANY(${rows.map((row) => row.id)}::uuid[]) AND sent_at IS NULL`;

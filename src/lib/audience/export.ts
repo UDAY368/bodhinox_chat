@@ -19,20 +19,26 @@ export const MAX_EXPORT_ROWS = 50_000;
 
 type Row = {
   name: string | null; phone: string; email: string | null; company: string | null;
-  opted_out_at: Date | null; blocked_at: Date | null; created_at: Date | null;
+  opted_out_at: Date | null; blocked_at: Date | null; created_at: Date | null; city: string | null;
   tags: string; custom: Record<string, string | null>;
 };
 
-export type ExportSource = { segmentId: string } | { listId: string } | null;
+/** All contacts, one segment, one list, or chosen contacts (the ticked rows or one profile, at most 100). */
+export type ExportSource = { segmentId: string } | { listId: string } | { contactIds: string[] } | null;
+
+export const MAX_EXPORT_IDS = 100;
 
 export async function exportContactsCsv(ctx: TenantContext, source: ExportSource): Promise<{ csv: string; rows: number }> {
   return withTenant(ctx, async (tx) => {
     await requireFeature(tx, ctx.accountId, 'contact_export');
     let filter: AudienceFilter | null = null;
     if (source && 'segmentId' in source) filter = await loadSegmentFilter(tx, ctx.accountId, source.segmentId);
-    else if (source) await assertFilterReferences(tx, ctx.accountId, (filter = listFilter(source.listId)));
-    const where = filter ? compileAudienceFilter(ctx.accountId, filter) : Prisma.sql`c.account_id=${ctx.accountId}::uuid`;
-    const resourceId = source ? ('segmentId' in source ? source.segmentId : source.listId) : null;
+    else if (source && 'listId' in source) await assertFilterReferences(tx, ctx.accountId, (filter = listFilter(source.listId)));
+    const picked = source && 'contactIds' in source ? source.contactIds.slice(0, MAX_EXPORT_IDS) : null;
+    const where = filter ? compileAudienceFilter(ctx.accountId, filter)
+      : picked ? Prisma.sql`c.account_id=${ctx.accountId}::uuid AND c.id = ANY(${picked}::uuid[])`
+      : Prisma.sql`c.account_id=${ctx.accountId}::uuid`;
+    const resourceId = source && 'segmentId' in source ? source.segmentId : source && 'listId' in source ? source.listId : null;
     const [{ count }] = await tx.$queryRaw<{ count: number }[]>(Prisma.sql`SELECT count(*)::int AS count FROM contacts c WHERE ${where}`);
     if (count > MAX_EXPORT_ROWS)
       throw new AudienceFilterError(`Exports are limited to ${MAX_EXPORT_ROWS.toLocaleString('en')} contacts; export a narrower segment`);
@@ -40,7 +46,7 @@ export async function exportContactsCsv(ctx: TenantContext, source: ExportSource
     const fields = await tx.$queryRaw<{ id: string; field_name: string }[]>`
       SELECT id::text, field_name FROM custom_fields WHERE account_id=${ctx.accountId}::uuid ORDER BY field_name, id`;
     const rows = await tx.$queryRaw<Row[]>(Prisma.sql`
-      SELECT c.name, c.phone, c.email, c.company, c.opted_out_at, c.blocked_at, c.created_at,
+      SELECT c.name, c.phone, c.email, c.company, c.opted_out_at, c.blocked_at, c.created_at, c.city,
         COALESCE((SELECT string_agg(t.name, '; ' ORDER BY t.name) FROM contact_tags ct JOIN tags t ON t.id=ct.tag_id
           WHERE ct.account_id=${ctx.accountId}::uuid AND ct.contact_id=c.id), '') AS tags,
         COALESCE((SELECT jsonb_object_agg(v.custom_field_id::text, v.value) FROM contact_custom_values v
@@ -50,9 +56,9 @@ export async function exportContactsCsv(ctx: TenantContext, source: ExportSource
     await tx.$executeRaw`INSERT INTO audit_logs(account_id,user_id,action,resource_id,metadata)
       VALUES(${ctx.accountId}::uuid,${ctx.userId}::uuid,'contacts.export',${resourceId},${JSON.stringify({ rows: rows.length })}::jsonb)`;
 
-    const header = ['Name', 'Phone', 'Email', 'Company', 'Tags', 'Opted out at', 'Blocked at', 'Created at', ...fields.map((f) => f.field_name)];
+    const header = ['Name', 'Phone', 'Email', 'Company', 'Tags', 'Opted out at', 'Blocked at', 'Created at', 'City', ...fields.map((f) => f.field_name)];
     const lines = rows.map((r) =>
-      [r.name, r.phone, r.email, r.company, r.tags, r.opted_out_at, r.blocked_at, r.created_at, ...fields.map((f) => r.custom[f.id])]
+      [r.name, r.phone, r.email, r.company, r.tags, r.opted_out_at, r.blocked_at, r.created_at, r.city, ...fields.map((f) => r.custom[f.id])]
         .map(csvCell)
         .join(','),
     );

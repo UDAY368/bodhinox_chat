@@ -23,8 +23,14 @@
 // ranked by its own tier. A keyword trigger with match_type "intent" is asked
 // (one AI call for all of them) only after every exact trigger failed, just
 // before default_reply.
+// Automation list triggers: contact_created (the message that created the
+// contact) sits just above first_inbound_message; outside_hours (any message
+// while the workspace is closed) sits between first_inbound_message and
+// default_reply. tag_added never starts from a message: the tag writer starts
+// it (startTagAddedFlows).
 
 import { regexMatches } from "./input-validation";
+import { isWithinWorkingHours, type InboxSettings } from "@/lib/inbox/working-hours";
 import { hasKeywords, keywordListMatches } from "@/lib/instagram/comment-matching";
 import { normalizeInboundRef, refKeyMatches } from "@/lib/instagram/ref-links";
 import { IG_TEST_USERNAME } from "./types";
@@ -35,7 +41,7 @@ import type {
 
 const TIER: Record<string, number> = {
   order_received: -1, ad_click: -0.5, ig_ref: -0.4, template_reply: 0, ig_story_mention: 0.5, ig_share_to_story: 0.55, ig_story_reply: 0.6, keyword: 1,
-  first_inbound_message: 2, default_reply: 3,
+  contact_created: 1.9, first_inbound_message: 2, outside_hours: 2.5, default_reply: 3,
 };
 
 /** Digits only, the form contacts.phone_normalized and flows.test_numbers use. */
@@ -250,4 +256,15 @@ export function storyReplyMatches(facts: InstagramInboundFacts, text: string, cf
 export function defaultReplyApplies(message: ParsedInbound, facts: InstagramInboundFacts, isOurPostback: boolean): boolean {
   if (message.kind === "form" || message.kind === "order") return false;
   return !facts.storyMention && !facts.shareToStory && !isOurPostback;
+}
+
+/**
+ * Whether a message may start an outside_hours flow: an ordinary message (not
+ * a form or a cart, not one of our postback codes) while the workspace is
+ * closed. No working hours set means always open, so it never fires.
+ */
+export function outsideHoursApplies(message: ParsedInbound, settings: Pick<InboxSettings, "timezone" | "working_hours">,
+  isOurPostback: boolean, now: Date = new Date()): boolean {
+  if (message.kind === "form" || message.kind === "order" || isOurPostback) return false;
+  return !isWithinWorkingHours(settings, now);
 }

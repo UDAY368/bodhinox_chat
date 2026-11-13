@@ -19,6 +19,7 @@ import {
   IgStoryMentionTriggerFields,
   IgStoryReplyTriggerFields,
 } from "./ig-trigger-fields";
+import { ContactCreatedTriggerFields, OutsideHoursTriggerFields, TagAddedTriggerFields } from "./event-trigger-fields";
 
 type Config = Record<string, unknown>;
 
@@ -37,6 +38,9 @@ export const TRIGGER_TITLE_KEYS: Record<FlowTriggerType, string> = {
   ig_live_comment: "triggerIgLiveCommentTitle",
   ig_ref: "triggerIgRefTitle",
   ig_share_to_story: "triggerIgShareToStoryTitle",
+  contact_created: "triggerContactCreatedTitle",
+  tag_added: "triggerTagAddedTitle",
+  outside_hours: "triggerOutsideHoursTitle",
 };
 
 export function TriggerForm({ type, config, onChange, instagramOnly, shareToStoryOn }: {
@@ -71,6 +75,12 @@ export function TriggerForm({ type, config, onChange, instagramOnly, shareToStor
       return <IgRefTriggerFields config={config} onChange={onChange} />;
     case "ig_share_to_story":
       return <IgShareToStoryTriggerFields config={config} onChange={onChange} enabled={shareToStoryOn} />;
+    case "contact_created":
+      return <ContactCreatedTriggerFields />;
+    case "tag_added":
+      return <TagAddedTriggerFields config={config} onChange={onChange} />;
+    case "outside_hours":
+      return <OutsideHoursTriggerFields config={config} onChange={onChange} />;
     case "first_inbound_message":
     case "manual":
       return null;

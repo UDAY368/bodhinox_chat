@@ -14,6 +14,8 @@ const KNOWN_EVENTS = new Set([
   "shipment_created", "shipment_cancelled", "shipment_correction_accepted", "shipment_pickup_requested",
   // Cash on delivery chosen at checkout; Razorpay refused the checkout payment link (the order closed).
   "cod_confirmed", "payment_link_failed",
+  // A team member created the order by hand (Sales → Orders → New order).
+  "manual_created",
 ]);
 
 /** The order's history, its documents and how each customer notice went. */

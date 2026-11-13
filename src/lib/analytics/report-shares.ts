@@ -14,7 +14,7 @@
 import { Prisma } from '@prisma/client';
 import { hasMinRole, roleRank, type AccountRole } from '@/lib/auth/roles';
 import { withTenant, type TenantTransaction } from '@/lib/db/tenant';
-import { isReportKind, KIND_MIN_ROLE, SHARE_ROLES, type ReportFormat, type ReportKind, type ShareRole } from './report-kinds';
+import { isRunKind, KIND_MIN_ROLE, SHARE_ROLES, type ReportFormat, type RunKind, type ShareRole } from './report-kinds';
 import { reportFilename, validParams } from './reports';
 
 export { SHARE_ROLES, type ShareRole };
@@ -51,7 +51,7 @@ export interface ReportShare {
 export const isShareRole = (value: unknown): value is ShareRole => typeof value === 'string' && (SHARE_ROLES as readonly string[]).includes(value);
 
 /** A share role is allowed for a kind when it is at least the kind's live minimum. */
-export function shareRoleAllowed(kind: ReportKind, minRole: ShareRole): boolean {
+export function shareRoleAllowed(kind: RunKind, minRole: ShareRole): boolean {
   return roleRank(minRole) >= roleRank(KIND_MIN_ROLE[kind]);
 }
 
@@ -104,7 +104,7 @@ export async function createShare(actor: ShareActor, reportId: string, input: { 
     const runs = await tx.$queryRaw<{ kind: string; status: string; live: boolean }[]>`SELECT kind, status, expires_at > now() AS live
       FROM report_runs WHERE account_id=${actor.accountId}::uuid AND id=${reportId}::uuid`;
     const run = runs[0];
-    if (!run || !isReportKind(run.kind)) throw new ShareError('not_found', 404);
+    if (!run || !isRunKind(run.kind)) throw new ShareError('not_found', 404);
     if (run.status !== 'ready' || !run.live) throw new ShareError('not_ready', 409);
     if (!shareRoleAllowed(run.kind, minRole)) throw new ShareError('role_too_low', 400);
     const inserted = await tx.$queryRaw<{ id: string }[]>`INSERT INTO report_shares(account_id,report_run_id,min_role,created_by,expires_at)
@@ -153,7 +153,7 @@ export async function openShare(session: ShareActor, shareId: string): Promise<{
       SELECT run_id::text AS run_id, object_key, kind, format, params FROM crm_open_report_share(${shareId}::uuid)`;
     const row = rows[0];
     const params = row ? validParams(row.params) : null;
-    if (!row || !isReportKind(row.kind) || !params) throw new ShareError('not_found', 404);
+    if (!row || !isRunKind(row.kind) || !params) throw new ShareError('not_found', 404);
     const format: ReportFormat = row.format === 'pdf' ? 'pdf' : 'csv';
     await audit(tx, session, 'analytics.report_share_opened', row.run_id, { share_id: shareId, kind: row.kind, format });
     return { objectKey: row.object_key, filename: reportFilename(row.kind, params, format), format };
@@ -161,7 +161,7 @@ export async function openShare(session: ShareActor, shareId: string): Promise<{
 }
 
 export interface SharePeek {
-  kind: ReportKind;
+  kind: RunKind;
   format: ReportFormat;
   /** When the share stops opening: the earlier of the share's and the report's expiry. */
   expiresAt: string;
@@ -179,7 +179,7 @@ export async function peekShare(session: ShareActor, shareId: string): Promise<S
     const rows = await tx.$queryRaw<{ kind: string; format: string; expires_at: Date }[]>`
       SELECT kind, format, expires_at FROM crm_peek_report_share(${shareId}::uuid)`;
     const row = rows[0];
-    if (!row || !isReportKind(row.kind)) throw new ShareError('not_found', 404);
+    if (!row || !isRunKind(row.kind)) throw new ShareError('not_found', 404);
     return { kind: row.kind, format: row.format === 'pdf' ? 'pdf' : 'csv', expiresAt: new Date(row.expires_at).toISOString() };
   });
 }

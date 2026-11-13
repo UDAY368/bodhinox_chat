@@ -253,7 +253,7 @@ export default function InstagramQuickAutomationsPage() {
                 <DialogTitle>{t(`${active.key}.title`)}</DialogTitle>
                 <DialogDescription className="text-muted-foreground">{t(`${active.key}.description`)}</DialogDescription>
               </DialogHeader>
-              <div className="grid gap-6 md:grid-cols-[minmax(0,1fr)_19rem]">
+              <div className="grid grid-cols-1 gap-6 md:grid-cols-[minmax(0,1fr)_19rem]">
                 <div className="min-w-0" onFocusCapture={(event) => {
                   const name = (event.target as HTMLElement).closest<HTMLElement>('[data-field]')?.dataset.field;
                   if (name) setPreviewTab(FIELD_TAB[name] ?? 'dm');
@@ -507,7 +507,7 @@ function WizardFields({
               {field('link_url', t('link'), { type: 'url', required: true })}
             </div>
             {choices.moreLinks.map((row, i) => (
-              <div key={i} className="grid items-end gap-3 sm:grid-cols-[1fr_1fr_auto]" data-field="more_links">
+              <div key={i} className="grid grid-cols-1 items-end gap-3 sm:grid-cols-[1fr_1fr_auto]" data-field="more_links">
                 <div className="space-y-1.5">
                   <Label className="text-xs">{t('linkLabelN', { n: i + 2 })}</Label>
                   <Input value={row.label} onChange={(e) => setLink(i, { label: e.target.value })} />

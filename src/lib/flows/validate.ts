@@ -584,6 +584,11 @@ function validateTrigger(
   } else if (trigger_type === "keyword" && trigger_config.match_type === "not_contains") {
     // Fires on almost every message, ahead of the default reply and first-message flows.
     at("trigger_config.match_type", "triggerNotContainsBroad", "warning");
+  } else if (trigger_type === "tag_added") {
+    // Which tag starts it: a tag id of this workspace (the editor lists only those).
+    if (typeof trigger_config.tag_id !== "string" || !UUID.test(trigger_config.tag_id)) at("trigger_config.tag_id", "triggerTagRequired");
+  } else if (trigger_type === "outside_hours") {
+    if (trigger_config.frequency !== "every_time" && trigger_config.frequency !== "once_per_24h") at("trigger_config.frequency", "triggerBadFrequency");
   } else if (trigger_type === "ad_click") {
     // Optional Meta ad ids (empty or absent = any ad); digits only, at most 50.
     const ids = trigger_config.ad_ids;

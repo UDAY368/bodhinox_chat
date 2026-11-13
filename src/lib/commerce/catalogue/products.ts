@@ -546,6 +546,58 @@ export async function unpublishProduct(tx: TenantTransaction, accountId: string,
   return getShopProduct(tx, accountId, id);
 }
 
+/** The SKU for a copy: `<sku>-copy`, then `-copy2`, `-copy3`... trimmed to the 64-character limit. */
+export function copySku(sku: string, attempt: number): string {
+  const suffix = attempt <= 1 ? '-copy' : `-copy${attempt}`;
+  return `${sku.slice(0, 64 - suffix.length)}${suffix}`;
+}
+
+/** The name for a copy (" copy" appended, within the 200-character limit). */
+export const copyName = (name: string, suffix = ' copy'): string => `${name.slice(0, 200 - suffix.length)}${suffix}`;
+
+/**
+ * Duplicate a product (admins): a new draft named "<name> copy" with the same
+ * content, category (when still active), images and variants (prices and
+ * options kept, each SKU suffixed so it stays unique). Stock is never copied:
+ * the copy starts at zero on hand. One transaction; audited with ids only.
+ */
+export async function duplicateProduct(tx: TenantTransaction, accountId: string, userId: string, id: string, raw: unknown = {}): Promise<ShopProduct> {
+  const b = asBody(raw ?? {});
+  const name = has(b, 'name') ? text(b, 'name', 1, 200) : null;
+  const source = await getShopProduct(tx, accountId, id);
+  const category = source.category_id ? (await tx.$queryRaw<{ id: string }[]>`SELECT id::text AS id FROM shop_categories
+    WHERE account_id=${accountId}::uuid AND id=${source.category_id}::uuid AND archived_at IS NULL`)[0]?.id ?? null : null;
+  const rows = await tx.$queryRaw<{ id: string }[]>`
+    INSERT INTO shop_products(account_id,name,description,disclosure,category_id,follow_up_template,follow_up_template_language,
+      follow_up_after_days,repurchase_after_days,cod_available,created_by)
+    VALUES(${accountId}::uuid,${name ?? copyName(source.name)},${source.description},${source.disclosure},${category}::uuid,
+      ${source.follow_up_template},${source.follow_up_template_language},${source.follow_up_after_days},${source.repurchase_after_days},
+      ${source.cod_available},${userId}::uuid)
+    RETURNING id::text AS id`.catch((e) => mapDbError(e, 'name'));
+  const copyId = rows[0].id;
+  await tx.$executeRaw`INSERT INTO shop_product_images(account_id,product_id,media_id,url,position)
+    SELECT account_id, ${copyId}::uuid, media_id, url, position FROM shop_product_images
+    WHERE account_id=${accountId}::uuid AND product_id=${source.id}::uuid ORDER BY position`;
+  for (const v of source.variants.filter((x) => !x.archived)) {
+    let sku: string | null = null;
+    for (let attempt = 1; attempt <= 20 && !sku; attempt++) {
+      const candidate = copySku(v.sku, attempt);
+      const taken = await tx.$queryRaw<{ n: number }[]>`SELECT count(*)::int AS n FROM shop_variants
+        WHERE account_id=${accountId}::uuid AND sku=${candidate}`;
+      if ((taken[0]?.n ?? 0) === 0) sku = candidate;
+    }
+    if (!sku) throw new CatalogueError('sku_taken', 'sku');
+    await tx.$executeRaw`
+      INSERT INTO shop_variants(account_id,product_id,sku,option_values,price_minor,compare_at_minor,tax_rate_bps,hsn_code,track_inventory,
+        weight_grams,position)
+      VALUES(${accountId}::uuid,${copyId}::uuid,${sku},${JSON.stringify(v.option_values)}::jsonb,${v.price_minor}::bigint,
+        ${v.compare_at_minor}::bigint,${v.tax_rate_bps},${v.hsn_code},${v.track_inventory},${v.weight_grams},${v.position})`
+      .catch((e) => mapDbError(e, 'sku'));
+  }
+  await auditCatalogue(tx, accountId, userId, 'commerce.product_duplicated', copyId, { source_id: source.id });
+  return getShopProduct(tx, accountId, copyId);
+}
+
 // ------------------------------------------------------------ variants
 
 /**

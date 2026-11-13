@@ -368,6 +368,26 @@
         "default": null,
         "reference": null,
         "definition": "instagram_opted_in_at timestamptz"
+      },
+      {
+        "name": "owner_id",
+        "type": "uuid",
+        "nullable": true,
+        "default": null,
+        "reference": {
+          "table": "auth_users",
+          "column": "id",
+          "onDelete": "SET NULL"
+        },
+        "definition": "owner_id uuid"
+      },
+      {
+        "name": "city",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "city text"
       }
     ],
     "tags": [
@@ -2046,6 +2066,46 @@
         "nullable": true,
         "default": null,
         "definition": "whatsapp_config_id UUID"
+      },
+      {
+        "name": "channel",
+        "type": "text",
+        "nullable": false,
+        "default": "'whatsapp'",
+        "reference": null,
+        "definition": "channel TEXT NOT NULL DEFAULT 'whatsapp' CHECK (channel IN ('whatsapp', 'instagram'))"
+      },
+      {
+        "name": "message_text",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "message_text TEXT CHECK (message_text IS NULL OR char_length(message_text) <= 1000)"
+      },
+      {
+        "name": "paused_at",
+        "type": "timestamptz",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "paused_at TIMESTAMPTZ"
+      },
+      {
+        "name": "started_at",
+        "type": "timestamptz",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "started_at TIMESTAMPTZ"
+      },
+      {
+        "name": "finished_at",
+        "type": "timestamptz",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "finished_at TIMESTAMPTZ"
       }
     ],
     "broadcast_recipients": [
@@ -2196,6 +2256,18 @@
         "default": null,
         "reference": null,
         "definition": "outcome_uncertain_at TIMESTAMPTZ"
+      },
+      {
+        "name": "conversation_id",
+        "type": "uuid",
+        "nullable": true,
+        "default": null,
+        "reference": {
+          "table": "conversations",
+          "column": "id",
+          "onDelete": "SET NULL"
+        },
+        "definition": "conversation_id UUID"
       }
     ],
     "automations": [
@@ -2767,7 +2839,7 @@
         "nullable": false,
         "default": null,
         "reference": null,
-        "definition": "trigger_type TEXT NOT NULL\n    CHECK (trigger_type IN ('keyword', 'first_inbound_message', 'manual', 'template_reply', 'order_received', 'ad_click', 'default_reply', 'ig_comment', 'ig_story_reply', 'ig_story_mention', 'ig_live_comment', 'ig_ref', 'ig_share_to_story'))"
+        "definition": "trigger_type TEXT NOT NULL\n    CHECK (trigger_type IN ('keyword', 'first_inbound_message', 'manual', 'template_reply', 'order_received', 'ad_click', 'default_reply', 'ig_comment', 'ig_story_reply', 'ig_story_mention', 'ig_live_comment', 'ig_ref', 'ig_share_to_story', 'contact_created', 'tag_added', 'outside_hours'))"
       },
       {
         "name": "trigger_config",
@@ -3312,6 +3384,14 @@
         "default": "5",
         "reference": null,
         "definition": "reply_target_minutes integer"
+      },
+      {
+        "name": "default_language",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "default_language text CONSTRAINT accounts_default_language_check CHECK (default_language IN ('en','es','ko','pt'))"
       }
     ],
     "account_invitations": [
@@ -7068,6 +7148,14 @@
         "default": "false",
         "reference": null,
         "definition": "email boolean NOT NULL DEFAULT false"
+      },
+      {
+        "name": "push",
+        "type": "boolean",
+        "nullable": false,
+        "default": "false",
+        "reference": null,
+        "definition": "push boolean NOT NULL DEFAULT false"
       }
     ],
     "notification_email_queue": [
@@ -8414,6 +8502,14 @@
         "default": "true",
         "reference": null,
         "definition": "customer_facing boolean NOT NULL DEFAULT true"
+      },
+      {
+        "name": "qa",
+        "type": "boolean",
+        "nullable": false,
+        "default": "false",
+        "reference": null,
+        "definition": "qa boolean NOT NULL DEFAULT false"
       }
     ],
     "ai_agent_profiles": [
@@ -15574,6 +15670,26 @@
         "default": "now()",
         "reference": null,
         "definition": "updated_at timestamptz NOT NULL DEFAULT now()"
+      },
+      {
+        "name": "saved_report_id",
+        "type": "uuid",
+        "nullable": true,
+        "default": null,
+        "reference": {
+          "table": "analytics_saved_reports",
+          "column": "id",
+          "onDelete": "CASCADE"
+        },
+        "definition": "saved_report_id uuid"
+      },
+      {
+        "name": "minute_local",
+        "type": "smallint",
+        "nullable": false,
+        "default": "0",
+        "reference": null,
+        "definition": "minute_local smallint NOT NULL DEFAULT 0"
       }
     ],
     "report_shares": [
@@ -15746,6 +15862,46 @@
         "default": "'[]'::jsonb",
         "reference": null,
         "definition": "instagram_goals jsonb NOT NULL DEFAULT '[]'::jsonb"
+      },
+      {
+        "name": "labelling_enabled",
+        "type": "boolean",
+        "nullable": false,
+        "default": "false",
+        "reference": null,
+        "definition": "labelling_enabled boolean NOT NULL DEFAULT false"
+      },
+      {
+        "name": "translation_enabled",
+        "type": "boolean",
+        "nullable": false,
+        "default": "false",
+        "reference": null,
+        "definition": "translation_enabled boolean NOT NULL DEFAULT false"
+      },
+      {
+        "name": "translation_language",
+        "type": "text",
+        "nullable": false,
+        "default": "'en'",
+        "reference": null,
+        "definition": "translation_language text NOT NULL DEFAULT 'en'"
+      },
+      {
+        "name": "route_to_staff_enabled",
+        "type": "boolean",
+        "nullable": false,
+        "default": "false",
+        "reference": null,
+        "definition": "route_to_staff_enabled boolean NOT NULL DEFAULT false"
+      },
+      {
+        "name": "pause_at_cap",
+        "type": "boolean",
+        "nullable": false,
+        "default": "true",
+        "reference": null,
+        "definition": "pause_at_cap boolean NOT NULL DEFAULT true"
       }
     ],
     "ai_suggestions": [
@@ -16768,6 +16924,18 @@
         "default": "now()",
         "reference": null,
         "definition": "created_at timestamptz NOT NULL DEFAULT now()"
+      },
+      {
+        "name": "agent_id",
+        "type": "uuid",
+        "nullable": true,
+        "default": null,
+        "reference": {
+          "table": "ai_agents",
+          "column": "id",
+          "onDelete": "SET NULL"
+        },
+        "definition": "agent_id uuid"
       }
     ],
     "webhook_deliveries": [
@@ -18700,6 +18868,690 @@
         "default": "now()",
         "reference": null,
         "definition": "updated_at timestamptz NOT NULL DEFAULT now()"
+      }
+    ],
+    "contact_activity": [
+      {
+        "name": "id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "gen_random_uuid()",
+        "reference": null,
+        "definition": "id uuid PRIMARY KEY DEFAULT gen_random_uuid()"
+      },
+      {
+        "name": "account_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "NULLIF(current_setting('app.account_id', true),'')::uuid ",
+        "reference": {
+          "table": "accounts",
+          "column": "id",
+          "onDelete": "CASCADE"
+        },
+        "definition": "account_id uuid NOT NULL DEFAULT NULLIF(current_setting('app.account_id', true),'')::uuid REFERENCES accounts(id) ON DELETE CASCADE"
+      },
+      {
+        "name": "contact_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "contact_id uuid NOT NULL"
+      },
+      {
+        "name": "actor_id",
+        "type": "uuid",
+        "nullable": true,
+        "default": null,
+        "reference": {
+          "table": "auth_users",
+          "column": "id",
+          "onDelete": "SET NULL"
+        },
+        "definition": "actor_id uuid REFERENCES auth_users(id) ON DELETE SET NULL"
+      },
+      {
+        "name": "kind",
+        "type": "text",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "kind text NOT NULL"
+      },
+      {
+        "name": "detail",
+        "type": "jsonb",
+        "nullable": false,
+        "default": "'{}'::jsonb",
+        "reference": null,
+        "definition": "detail jsonb NOT NULL DEFAULT '{}'::jsonb"
+      },
+      {
+        "name": "created_at",
+        "type": "timestamptz",
+        "nullable": false,
+        "default": "now()",
+        "reference": null,
+        "definition": "created_at timestamptz NOT NULL DEFAULT now()"
+      }
+    ],
+    "deal_notes": [
+      {
+        "name": "id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "gen_random_uuid()",
+        "reference": null,
+        "definition": "id uuid PRIMARY KEY DEFAULT gen_random_uuid()"
+      },
+      {
+        "name": "account_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "NULLIF(current_setting('app.account_id', true),'')::uuid ",
+        "reference": {
+          "table": "accounts",
+          "column": "id",
+          "onDelete": "CASCADE"
+        },
+        "definition": "account_id uuid NOT NULL DEFAULT NULLIF(current_setting('app.account_id', true),'')::uuid REFERENCES accounts(id) ON DELETE CASCADE"
+      },
+      {
+        "name": "deal_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "deal_id uuid NOT NULL"
+      },
+      {
+        "name": "body",
+        "type": "text",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "body text NOT NULL"
+      },
+      {
+        "name": "created_by",
+        "type": "uuid",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "created_by uuid"
+      },
+      {
+        "name": "created_at",
+        "type": "timestamptz",
+        "nullable": false,
+        "default": "now()",
+        "reference": null,
+        "definition": "created_at timestamptz NOT NULL DEFAULT now()"
+      }
+    ],
+    "ai_agents": [
+      {
+        "name": "id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "gen_random_uuid()",
+        "reference": null,
+        "definition": "id uuid PRIMARY KEY DEFAULT gen_random_uuid()"
+      },
+      {
+        "name": "account_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "NULLIF(current_setting('app.account_id', true),'')::uuid ",
+        "reference": {
+          "table": "accounts",
+          "column": "id",
+          "onDelete": "CASCADE"
+        },
+        "definition": "account_id uuid NOT NULL DEFAULT NULLIF(current_setting('app.account_id', true),'')::uuid REFERENCES accounts(id) ON DELETE CASCADE"
+      },
+      {
+        "name": "name",
+        "type": "text",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "name text NOT NULL CHECK (char_length(name) BETWEEN 1 AND 60 AND name = btrim(name))"
+      },
+      {
+        "name": "role",
+        "type": "text",
+        "nullable": false,
+        "default": "'general'",
+        "reference": null,
+        "definition": "role text NOT NULL DEFAULT 'general' CHECK (role IN ('sales','support','bookings','orders','general'))"
+      },
+      {
+        "name": "instructions",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "instructions text CHECK (char_length(instructions) <= 4000)"
+      },
+      {
+        "name": "tone",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "tone text CHECK (tone IS NULL OR tone IN ('friendly','professional','concise','enthusiastic','formal'))"
+      },
+      {
+        "name": "channels",
+        "type": "text[]",
+        "nullable": false,
+        "default": "ARRAY['whatsapp','instagram']::text[]",
+        "reference": null,
+        "definition": "channels text[] NOT NULL DEFAULT ARRAY['whatsapp','instagram']::text[]"
+      },
+      {
+        "name": "hours_mode",
+        "type": "text",
+        "nullable": false,
+        "default": "'always'",
+        "reference": null,
+        "definition": "hours_mode text NOT NULL DEFAULT 'always' CHECK (hours_mode IN ('always','during','outside'))"
+      },
+      {
+        "name": "hours_from",
+        "type": "time",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "hours_from time"
+      },
+      {
+        "name": "hours_to",
+        "type": "time",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "hours_to time"
+      },
+      {
+        "name": "handoff_rules",
+        "type": "jsonb",
+        "nullable": false,
+        "default": "'{}'::jsonb",
+        "reference": null,
+        "definition": "handoff_rules jsonb NOT NULL DEFAULT '{}'::jsonb"
+      },
+      {
+        "name": "enabled",
+        "type": "boolean",
+        "nullable": false,
+        "default": "false",
+        "reference": null,
+        "definition": "enabled boolean NOT NULL DEFAULT false"
+      },
+      {
+        "name": "is_default",
+        "type": "boolean",
+        "nullable": false,
+        "default": "false",
+        "reference": null,
+        "definition": "is_default boolean NOT NULL DEFAULT false"
+      },
+      {
+        "name": "position",
+        "type": "integer",
+        "nullable": false,
+        "default": "0",
+        "reference": null,
+        "definition": "position integer NOT NULL DEFAULT 0 CHECK (position BETWEEN 0 AND 1000)"
+      },
+      {
+        "name": "created_by",
+        "type": "uuid",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "created_by uuid"
+      },
+      {
+        "name": "created_at",
+        "type": "timestamptz",
+        "nullable": false,
+        "default": "now()",
+        "reference": null,
+        "definition": "created_at timestamptz NOT NULL DEFAULT now()"
+      },
+      {
+        "name": "updated_at",
+        "type": "timestamptz",
+        "nullable": false,
+        "default": "now()",
+        "reference": null,
+        "definition": "updated_at timestamptz NOT NULL DEFAULT now()"
+      }
+    ],
+    "ai_reply_ratings": [
+      {
+        "name": "id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "gen_random_uuid()",
+        "reference": null,
+        "definition": "id uuid PRIMARY KEY DEFAULT gen_random_uuid()"
+      },
+      {
+        "name": "account_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "NULLIF(current_setting('app.account_id', true),'')::uuid ",
+        "reference": {
+          "table": "accounts",
+          "column": "id",
+          "onDelete": "CASCADE"
+        },
+        "definition": "account_id uuid NOT NULL DEFAULT NULLIF(current_setting('app.account_id', true),'')::uuid REFERENCES accounts(id) ON DELETE CASCADE"
+      },
+      {
+        "name": "suggestion_id",
+        "type": "uuid",
+        "nullable": true,
+        "default": null,
+        "reference": {
+          "table": "ai_suggestions",
+          "column": "id",
+          "onDelete": "CASCADE"
+        },
+        "definition": "suggestion_id uuid"
+      },
+      {
+        "name": "reply_event_id",
+        "type": "uuid",
+        "nullable": true,
+        "default": null,
+        "reference": {
+          "table": "ai_reply_events",
+          "column": "id",
+          "onDelete": "CASCADE"
+        },
+        "definition": "reply_event_id uuid"
+      },
+      {
+        "name": "user_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "user_id uuid NOT NULL"
+      },
+      {
+        "name": "vote",
+        "type": "text",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "vote text NOT NULL CHECK (vote IN ('up','down'))"
+      },
+      {
+        "name": "created_at",
+        "type": "timestamptz",
+        "nullable": false,
+        "default": "now()",
+        "reference": null,
+        "definition": "created_at timestamptz NOT NULL DEFAULT now()"
+      },
+      {
+        "name": "updated_at",
+        "type": "timestamptz",
+        "nullable": false,
+        "default": "now()",
+        "reference": null,
+        "definition": "updated_at timestamptz NOT NULL DEFAULT now()"
+      }
+    ],
+    "analytics_saved_reports": [
+      {
+        "name": "id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "gen_random_uuid()",
+        "reference": null,
+        "definition": "id uuid PRIMARY KEY DEFAULT gen_random_uuid()"
+      },
+      {
+        "name": "account_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "NULLIF(current_setting('app.account_id', true),'')::uuid ",
+        "reference": {
+          "table": "accounts",
+          "column": "id",
+          "onDelete": "CASCADE"
+        },
+        "definition": "account_id uuid NOT NULL DEFAULT NULLIF(current_setting('app.account_id', true),'')::uuid REFERENCES accounts(id) ON DELETE CASCADE"
+      },
+      {
+        "name": "name",
+        "type": "text",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "name text NOT NULL"
+      },
+      {
+        "name": "metrics",
+        "type": "text[]",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "metrics text[] NOT NULL"
+      },
+      {
+        "name": "group_by",
+        "type": "text",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "group_by text NOT NULL CHECK (group_by IN ('day','week','channel','agent','label'))"
+      },
+      {
+        "name": "channel",
+        "type": "text",
+        "nullable": false,
+        "default": "'all'",
+        "reference": null,
+        "definition": "channel text NOT NULL DEFAULT 'all' CHECK (channel IN ('all','whatsapp','instagram'))"
+      },
+      {
+        "name": "range_preset",
+        "type": "text",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "range_preset text NOT NULL"
+      },
+      {
+        "name": "from_day",
+        "type": "date",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "from_day date"
+      },
+      {
+        "name": "to_day",
+        "type": "date",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "to_day date"
+      },
+      {
+        "name": "format",
+        "type": "text",
+        "nullable": false,
+        "default": "'csv'",
+        "reference": null,
+        "definition": "format text NOT NULL DEFAULT 'csv' CHECK (format IN ('csv','pdf'))"
+      },
+      {
+        "name": "created_by",
+        "type": "uuid",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "created_by uuid"
+      },
+      {
+        "name": "created_at",
+        "type": "timestamptz",
+        "nullable": false,
+        "default": "now()",
+        "reference": null,
+        "definition": "created_at timestamptz NOT NULL DEFAULT now()"
+      },
+      {
+        "name": "updated_at",
+        "type": "timestamptz",
+        "nullable": false,
+        "default": "now()",
+        "reference": null,
+        "definition": "updated_at timestamptz NOT NULL DEFAULT now()"
+      }
+    ],
+    "member_preferences": [
+      {
+        "name": "account_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "NULLIF(current_setting('app.account_id', true),'')::uuid ",
+        "reference": {
+          "table": "accounts",
+          "column": "id",
+          "onDelete": "CASCADE"
+        },
+        "definition": "account_id uuid NOT NULL DEFAULT NULLIF(current_setting('app.account_id', true),'')::uuid REFERENCES accounts(id) ON DELETE CASCADE"
+      },
+      {
+        "name": "user_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "user_id uuid NOT NULL"
+      },
+      {
+        "name": "language",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "language text CHECK (language IN ('en','es','ko','pt'))"
+      },
+      {
+        "name": "quiet_enabled",
+        "type": "boolean",
+        "nullable": false,
+        "default": "false",
+        "reference": null,
+        "definition": "quiet_enabled boolean NOT NULL DEFAULT false"
+      },
+      {
+        "name": "quiet_start",
+        "type": "smallint",
+        "nullable": false,
+        "default": "1320",
+        "reference": null,
+        "definition": "quiet_start smallint NOT NULL DEFAULT 1320 CHECK (quiet_start BETWEEN 0 AND 1439)"
+      },
+      {
+        "name": "quiet_end",
+        "type": "smallint",
+        "nullable": false,
+        "default": "420",
+        "reference": null,
+        "definition": "quiet_end smallint NOT NULL DEFAULT 420 CHECK (quiet_end BETWEEN 0 AND 1439)"
+      },
+      {
+        "name": "quiet_time_zone",
+        "type": "text",
+        "nullable": false,
+        "default": "'UTC'",
+        "reference": null,
+        "definition": "quiet_time_zone text NOT NULL DEFAULT 'UTC' CHECK (char_length(quiet_time_zone) BETWEEN 1 AND 64)"
+      },
+      {
+        "name": "quiet_allow_mentions",
+        "type": "boolean",
+        "nullable": false,
+        "default": "true",
+        "reference": null,
+        "definition": "quiet_allow_mentions boolean NOT NULL DEFAULT true"
+      },
+      {
+        "name": "updated_at",
+        "type": "timestamptz",
+        "nullable": false,
+        "default": "now()",
+        "reference": null,
+        "definition": "updated_at timestamptz NOT NULL DEFAULT now()"
+      }
+    ],
+    "push_subscriptions": [
+      {
+        "name": "id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "gen_random_uuid()",
+        "reference": null,
+        "definition": "id uuid PRIMARY KEY DEFAULT gen_random_uuid()"
+      },
+      {
+        "name": "account_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "NULLIF(current_setting('app.account_id', true),'')::uuid ",
+        "reference": {
+          "table": "accounts",
+          "column": "id",
+          "onDelete": "CASCADE"
+        },
+        "definition": "account_id uuid NOT NULL DEFAULT NULLIF(current_setting('app.account_id', true),'')::uuid REFERENCES accounts(id) ON DELETE CASCADE"
+      },
+      {
+        "name": "user_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "user_id uuid NOT NULL"
+      },
+      {
+        "name": "endpoint",
+        "type": "text",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "endpoint text NOT NULL CHECK (char_length(endpoint) BETWEEN 10 AND 1000 AND endpoint LIKE 'https://%')"
+      },
+      {
+        "name": "p256dh",
+        "type": "text",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "p256dh text NOT NULL CHECK (char_length(p256dh) BETWEEN 20 AND 200)"
+      },
+      {
+        "name": "auth",
+        "type": "text",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "auth text NOT NULL CHECK (char_length(auth) BETWEEN 8 AND 100)"
+      },
+      {
+        "name": "created_at",
+        "type": "timestamptz",
+        "nullable": false,
+        "default": "now()",
+        "reference": null,
+        "definition": "created_at timestamptz NOT NULL DEFAULT now()"
+      },
+      {
+        "name": "last_sent_at",
+        "type": "timestamptz",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "last_sent_at timestamptz"
+      }
+    ],
+    "notification_push_queue": [
+      {
+        "name": "id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "gen_random_uuid()",
+        "reference": null,
+        "definition": "id uuid PRIMARY KEY DEFAULT gen_random_uuid()"
+      },
+      {
+        "name": "account_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "NULLIF(current_setting('app.account_id', true),'')::uuid ",
+        "reference": {
+          "table": "accounts",
+          "column": "id",
+          "onDelete": "CASCADE"
+        },
+        "definition": "account_id uuid NOT NULL DEFAULT NULLIF(current_setting('app.account_id', true),'')::uuid REFERENCES accounts(id) ON DELETE CASCADE"
+      },
+      {
+        "name": "user_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "user_id uuid NOT NULL"
+      },
+      {
+        "name": "event",
+        "type": "text",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "event text NOT NULL"
+      },
+      {
+        "name": "notification_id",
+        "type": "uuid",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "notification_id uuid"
+      },
+      {
+        "name": "dedupe_key",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "dedupe_key text CHECK (dedupe_key IS NULL OR char_length(dedupe_key) <= 200)"
+      },
+      {
+        "name": "created_at",
+        "type": "timestamptz",
+        "nullable": false,
+        "default": "now()",
+        "reference": null,
+        "definition": "created_at timestamptz NOT NULL DEFAULT now()"
+      },
+      {
+        "name": "sent_at",
+        "type": "timestamptz",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "sent_at timestamptz"
+      },
+      {
+        "name": "not_before",
+        "type": "timestamptz",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "not_before timestamptz"
+      },
+      {
+        "name": "outcome",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "outcome text CHECK (outcome IS NULL OR outcome IN ('sent', 'quiet', 'skipped', 'failed'))"
       }
     ]
   }

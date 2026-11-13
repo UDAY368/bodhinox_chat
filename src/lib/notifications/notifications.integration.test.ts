@@ -73,7 +73,7 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('notification emit, preferen
   it('lets each member, viewers included, manage only their own preferences', async () => {
     expect((await getNotificationPreferences(asViewer)).every((p) => p.in_app && !p.email)).toBe(true);
     const saved = await saveNotificationPreferences(asAgent, [{ event: 'assigned_message', in_app: false, email: true }]);
-    expect(saved.find((p) => p.event === 'assigned_message')).toEqual({ event: 'assigned_message', in_app: false, email: true });
+    expect(saved.find((p) => p.event === 'assigned_message')).toEqual({ event: 'assigned_message', in_app: false, email: true, push: false });
     await saveNotificationPreferences(asViewer, [{ event: 'mention', in_app: true, email: true }]);
     // The agent's choice is not the viewer's.
     expect((await getNotificationPreferences(asViewer)).find((p) => p.event === 'assigned_message')).toMatchObject({ in_app: true, email: false });

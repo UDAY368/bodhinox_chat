@@ -9,8 +9,11 @@ export interface ParsedContactRow {
   name?: string;
   email?: string;
   company?: string;
+  city?: string;
   /** Tag names from the optional `tags` column (comma/semicolon separated). */
   tagNames: string[];
+  /** Custom field values by field id (the import's column matching). */
+  customValues?: Record<string, string>;
   /** The raw 'Opted out at' cell (our export's column), when present. */
   optedOut?: string;
   /** The raw 'Blocked at' cell (our export's column), when present. */
@@ -68,6 +71,7 @@ export const HEADER_ALIASES = {
   lastName: ['lastname', 'surname', 'familyname'],
   email: ['email', 'emailaddress', 'mail', 'emailid'],
   company: ['company', 'companyname', 'organization', 'organisation', 'business', 'businessname'],
+  city: ['city', 'town', 'location'],
   tags: ['tags', 'tag', 'labels', 'label'],
   optedOut: ['optedoutat', 'optedout', 'optout', 'unsubscribed', 'unsubscribedat'],
   blocked: ['blockedat', 'blocked'],
@@ -128,6 +132,7 @@ export function parseContactCsv(text: string): ParseContactCsvResult {
   const lastIdx = findColumn(keys, HEADER_ALIASES.lastName);
   const emailIdx = findColumn(keys, HEADER_ALIASES.email);
   const companyIdx = findColumn(keys, HEADER_ALIASES.company);
+  const cityIdx = findColumn(keys, HEADER_ALIASES.city);
   const tagsIdx = findColumn(keys, HEADER_ALIASES.tags);
   const optedOutIdx = findColumn(keys, HEADER_ALIASES.optedOut);
   const blockedIdx = findColumn(keys, HEADER_ALIASES.blocked);
@@ -153,6 +158,7 @@ export function parseContactCsv(text: string): ParseContactCsvResult {
       name: cell(values, nameIdx) ?? (split || undefined),
       email: cell(values, emailIdx),
       company: cell(values, companyIdx),
+      ...(cityIdx >= 0 ? { city: cell(values, cityIdx) } : {}),
       tagNames: parseTagCell(cell(values, tagsIdx)),
       optedOut: cell(values, optedOutIdx),
       blocked: cell(values, blockedIdx),

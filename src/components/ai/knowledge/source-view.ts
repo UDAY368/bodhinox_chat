@@ -8,6 +8,8 @@ export type SourceMinRole = 'agent' | 'admin'
 export interface KnowledgeSourceView {
   id: string
   kind: SourceKind
+  /** A text source written as one question and its answer. */
+  qa?: boolean
   url: string | null
   title: string
   status: SourceStatus
@@ -66,3 +68,31 @@ export function nextAccess(source: Pick<KnowledgeSourceView, 'min_role' | 'custo
   const customer_facing = patch.customer_facing ?? (patch.min_role === 'admin' ? false : source.customer_facing)
   return customer_facing && min_role !== 'agent' ? null : { min_role, customer_facing }
 }
+
+// ---------------------------------------------------------------- AI page table
+
+/** The type chips of the sources table. */
+export type SourceGroup = 'all' | 'website' | 'document' | 'qa'
+export const SOURCE_GROUPS: readonly SourceGroup[] = ['all', 'website', 'document', 'qa']
+
+/** Websites and sitemaps; uploaded files and typed text; Q&A pairs and answers learned from the inbox. */
+export function sourceGroup(source: Pick<KnowledgeSourceView, 'kind' | 'qa'>): Exclude<SourceGroup, 'all'> {
+  if (source.kind === 'website' || source.kind === 'sitemap') return 'website'
+  if (source.kind === 'learning' || source.qa) return 'qa'
+  return 'document'
+}
+
+/** Sources in a type group matching a search over title and address. */
+export function filterSources<T extends Pick<KnowledgeSourceView, 'kind' | 'qa' | 'title' | 'url'>>(sources: readonly T[], group: SourceGroup, query: string): T[] {
+  const q = query.trim().toLowerCase()
+  return sources.filter((s) => (group === 'all' || sourceGroup(s) === group) && (!q || `${s.title} ${s.url ?? ''}`.toLowerCase().includes(q)))
+}
+
+/** Crawl progress (0..100) of a running website or sitemap source, or null. */
+export function syncProgress(source: Pick<KnowledgeSourceView, 'kind' | 'status' | 'pages_indexed' | 'page_limit'>): number | null {
+  if (!isRunning(source) || !isCrawled(source.kind) || source.page_limit <= 0) return null
+  return Math.max(4, Math.min(99, Math.round((source.pages_indexed / source.page_limit) * 100)))
+}
+
+/** The kind label key of a source (Q&A text sources have their own). */
+export const kindKey = (source: Pick<KnowledgeSourceView, 'kind' | 'qa'>): string => (source.qa ? 'qa' : source.kind)

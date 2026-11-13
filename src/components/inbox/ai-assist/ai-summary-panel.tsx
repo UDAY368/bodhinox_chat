@@ -39,7 +39,7 @@ export function parseSummary(body: unknown): SummaryView | null {
   };
 }
 
-export function AiSummaryPanel({ conversationId }: { conversationId: string }) {
+export function AiSummaryPanel({ conversationId, embedded = false }: { conversationId: string; /** Inside the contact panel: no own border or padding. */ embedded?: boolean }) {
   const [state, setState] = useState<PanelState>({ kind: "idle" });
 
   const run = useCallback(async () => {
@@ -58,10 +58,10 @@ export function AiSummaryPanel({ conversationId }: { conversationId: string }) {
     }
   }, [conversationId]);
 
-  return <AiSummaryPanelView state={state} onRun={run} onClose={() => setState({ kind: "idle" })} />;
+  return <AiSummaryPanelView state={state} onRun={run} onClose={() => setState({ kind: "idle" })} embedded={embedded} />;
 }
 
-export function AiSummaryPanelView({ state, onRun, onClose }: { state: PanelState; onRun: () => void; onClose: () => void }) {
+export function AiSummaryPanelView({ state, onRun, onClose, embedded = false }: { state: PanelState; onRun: () => void; onClose: () => void; embedded?: boolean }) {
   const t = useTranslations("AiAssist");
   const tFallback = useTranslations("AiFallback");
   const message = (reason: string | null) => {
@@ -70,7 +70,7 @@ export function AiSummaryPanelView({ state, onRun, onClose }: { state: PanelStat
   };
 
   return (
-    <div className="border-border border-t px-4 py-2" data-ai-summary>
+    <div className={embedded ? "pt-1 pb-1" : "border-border border-t px-4 py-2"} data-ai-summary>
       {state.kind !== "done" && (
         <div className="flex items-center gap-2">
           <Button variant="ghost" size="sm" className="h-7 gap-1.5 px-2 text-xs" disabled={state.kind === "loading"} onClick={onRun}>

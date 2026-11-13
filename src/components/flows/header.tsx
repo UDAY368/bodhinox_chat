@@ -147,7 +147,7 @@ export function EditorHeader({ view, onViewChange, previewOpen, onTogglePreview,
     // every pixel below it belongs to the canvas.
     <div className="@container flex flex-wrap items-center gap-x-2 gap-y-1 px-2 py-1.5 sm:px-3">
       {/* ---- left: back · breadcrumb › name · save state ---- */}
-      <div className="flex min-w-0 flex-1 items-center gap-1">
+      <div className="flex min-w-[10rem] flex-1 items-center gap-1">
         {/* A link (not router.push) so the leave guard can hold it while a save is pending. */}
         <Link
           href={backHref}
@@ -196,7 +196,7 @@ export function EditorHeader({ view, onViewChange, previewOpen, onTogglePreview,
       </div>
 
       {/* ---- right: undo · redo · preview · view · settings · save · version + publish · more ---- */}
-      <div className="flex shrink-0 items-center gap-1">
+      <div className="flex max-w-full flex-wrap items-center gap-1">
         <Button variant="ghost" size="icon-sm" onClick={history.undo} disabled={!history.canUndo}
           aria-label={tHistory("undo")} title={history.canUndo ? tHistory("undoShortcut") : tHistory("nothingToUndo")}>
           <Undo2 className="h-4 w-4" />

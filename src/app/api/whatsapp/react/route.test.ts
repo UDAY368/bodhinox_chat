@@ -7,6 +7,9 @@ const h = vi.hoisted(() => ({
   numbers: [] as Record<string, unknown>[],
   sent: [] as Record<string, unknown>[],
   blocked: false,
+  channel: null as string | null,
+  igReactions: [] as Record<string, unknown>[],
+  upserts: [] as Record<string, unknown>[],
 }));
 
 function db() {
@@ -15,14 +18,14 @@ function db() {
       const filters: Record<string, unknown> = {};
       const rows = (): Record<string, unknown>[] => {
         if (table === 'messages') return [{ id: 'm-1', message_id: 'wamid.in', conversation_id: 'cv-1' }];
-        if (table === 'conversations') return [{ id: 'cv-1', account_id: 'acct', whatsapp_config_id: h.conversationNumber, contact: { phone: '+15551234567' } }];
+        if (table === 'conversations') return [{ id: 'cv-1', account_id: 'acct', whatsapp_config_id: h.conversationNumber, channel: h.channel, contact: { phone: '+15551234567' } }];
         if (table === 'whatsapp_config') return h.numbers.filter((n) => Object.entries(filters).every(([k, v]) => k === 'account_id' || n[k] === v));
         return [];
       };
       const b: Record<string, unknown> = {
         select: () => b,
         delete: () => b,
-        upsert: async () => ({ error: null }),
+        upsert: async (row: Record<string, unknown>) => { h.upserts.push(row); return { error: null }; },
         eq: (field: string, value: unknown) => { filters[field] = value; return b; },
         maybeSingle: async () => ({ data: rows()[0] ?? null, error: null }),
         then: (resolve: (r: { data: unknown[]; error: null }) => unknown) => resolve({ data: rows(), error: null }),
@@ -41,6 +44,11 @@ vi.mock('@/lib/platform/lifecycle', () => ({ manualRepliesBlocked: async () => h
 vi.mock('@/lib/whatsapp/encryption', () => ({ decrypt: (v: string) => `plain:${v}` }));
 vi.mock('@/lib/whatsapp/meta-api', () => ({
   sendReactionMessage: async (args: Record<string, unknown>) => { h.sent.push(args); return {}; },
+  MetaApiError: class MetaApiError extends Error {},
+}));
+vi.mock('@/lib/instagram/config', () => ({ instagramConfig: () => ({ humanAgentEnabled: false }) }));
+vi.mock('@/lib/instagram/reactions', () => ({
+  reactOnInstagram: async (args: Record<string, unknown>) => { h.igReactions.push(args); },
 }));
 
 import { POST } from './route';
@@ -54,7 +62,7 @@ const react = () => POST(new Request('http://localhost/api/whatsapp/react', {
 }));
 
 describe('POST /api/whatsapp/react with two numbers', () => {
-  beforeEach(() => { h.sent = []; h.numbers = NUMBERS; h.conversationNumber = null; h.blocked = false; });
+  beforeEach(() => { h.sent = []; h.numbers = NUMBERS; h.conversationNumber = null; h.blocked = false; h.channel = null; });
 
   it('refuses a reaction while a platform admin blocks manual replies, before any Meta call', async () => {
     h.blocked = true;
@@ -91,5 +99,34 @@ describe('POST /api/whatsapp/react with two numbers', () => {
     const res = await react();
     expect(res.status).toBe(400);
     expect(h.sent).toHaveLength(0);
+  });
+});
+
+describe('POST /api/whatsapp/react on Instagram', () => {
+  beforeEach(() => { h.sent = []; h.igReactions = []; h.upserts = []; h.numbers = NUMBERS; h.channel = 'instagram'; h.blocked = false; });
+  const reactWith = (emoji: string) => POST(new Request('http://localhost/api/whatsapp/react', {
+    method: 'POST', body: JSON.stringify({ message_id: 'm-1', emoji }),
+  }));
+
+  it('sends the heart through the Instagram sender, never from a WhatsApp number', async () => {
+    const res = await reactWith('❤️');
+    expect(res.status).toBe(200);
+    expect(h.igReactions).toEqual([{ accountId: 'acct', conversationId: 'cv-1', mid: 'wamid.in', react: true }]);
+    expect(h.sent).toEqual([]);
+    expect(h.upserts[0]).toMatchObject({ emoji: '❤️', actor_type: 'agent', actor_id: 'u-1' });
+  });
+
+  it('refuses any other emoji before calling Meta', async () => {
+    const res = await reactWith('👍');
+    expect(res.status).toBe(409);
+    expect((await res.json()).code).toBe('channel_not_supported');
+    expect(h.igReactions).toEqual([]);
+    expect(h.sent).toEqual([]);
+  });
+
+  it('removes the heart with an empty emoji', async () => {
+    const res = await reactWith('');
+    expect(res.status).toBe(200);
+    expect(h.igReactions[0]).toMatchObject({ react: false });
   });
 });

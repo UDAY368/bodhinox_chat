@@ -36,6 +36,9 @@ test('the AI page opens a tab from its link, including the assistant features', 
   await login(page, fixtures().users.admin);
   await page.goto('/agents?tab=features');
   await expect(page.getByRole('tab', { name: 'Assistant features' })).toHaveAttribute('aria-selected', 'true');
-  await expect(page.getByText('Choose which AI assistant features your team can use.')).toBeVisible();
+  // The four-tab AI console's features panel: a region with the feature switches.
+  const features = page.getByRole('region', { name: 'Assistant features' });
+  await expect(features.getByText('Help for your team inside the inbox.', { exact: false })).toBeVisible();
+  await expect(features.getByRole('switch', { name: 'Suggested replies' })).toBeVisible();
   await shot(page, 'ai-features');
 });

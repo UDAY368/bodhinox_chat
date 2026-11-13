@@ -1,5 +1,40 @@
 import { describe, expect, it } from 'vitest';
-import { AuditQueryError, decodeCursor, encodeCursor, parseAuditQuery, safeMetadata, safeResourceId } from './audit-log';
+import {
+  AUDIT_CATEGORIES, AuditQueryError, categoryOf, containsPattern, csvCell, decodeCursor, encodeCursor, parseAuditQuery, safeMetadata, safeResourceId,
+} from './audit-log';
+
+describe('audit log search, categories and export', () => {
+  const parse = (s: string) => parseAuditQuery(new URLSearchParams(s));
+  it('parses free text and a known category', () => {
+    expect(parse('q=%20team.created%20&category=team')).toMatchObject({ q: 'team.created', category: 'team' });
+    for (const bad of ['category=everything', `q=${'x'.repeat(81)}`, 'q=a%00b'])
+      expect(() => parse(bad), bad).toThrow(AuditQueryError);
+  });
+
+  it('escapes LIKE wildcards in the search text', () => {
+    expect(containsPattern('50%_off\\')).toBe('%50\\%\\_off\\\\%');
+  });
+
+  it('files actions under the prototype categories', () => {
+    expect(categoryOf('team.created')).toBe('team');
+    expect(categoryOf('whatsapp_number.disconnected')).toBe('channels');
+    expect(categoryOf('settings.billing')).toBe('billing');
+    expect(categoryOf('auth.google_linked')).toBe('security');
+    expect(categoryOf('integrations.zoom_connect')).toBe('integrations');
+    expect(categoryOf('settings.workspace')).toBe('settings');
+    expect(categoryOf('contacts.export')).toBeNull();
+    expect(Object.keys(AUDIT_CATEGORIES).sort()).toEqual(['billing', 'channels', 'integrations', 'security', 'settings', 'team']);
+  });
+
+  it('neutralises spreadsheet formulas and quotes every CSV cell', () => {
+    expect(csvCell('=HYPERLINK("x")')).toBe(`"'=HYPERLINK(""x"")"`);
+    expect(csvCell('+1')).toBe(`"'+1"`);
+    expect(csvCell('-1')).toBe(`"'-1"`);
+    expect(csvCell('@sum')).toBe(`"'@sum"`);
+    expect(csvCell('team.created')).toBe('"team.created"');
+    expect(csvCell(null)).toBe('""');
+  });
+});
 
 const ID = '11111111-1111-4111-8111-111111111111';
 const q = (s: string) => parseAuditQuery(new URLSearchParams(s));

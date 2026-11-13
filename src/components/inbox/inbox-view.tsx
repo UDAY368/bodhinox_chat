@@ -40,7 +40,9 @@ import type {
   ConversationStatus,
 } from '@/types';
 import { useRealtime } from '@/hooks/use-realtime';
-import { ConversationList } from '@/components/inbox/conversation-list';
+import { ConversationList, type RowAction } from '@/components/inbox/conversation-list';
+import { NewMessageDialog } from '@/components/inbox/new-message-dialog';
+import { useAuth } from '@/hooks/use-auth';
 import { MessageThread } from '@/components/inbox/message-thread';
 import { ContactSidebar } from '@/components/inbox/contact-sidebar';
 import { conversationChannel } from '@/components/inbox/channel-badge';
@@ -81,8 +83,12 @@ export function InboxView({ channel }: { channel: InboxScope }) {
 function InboxViewInner({ scope }: { scope: InboxScope }) {
   const t = useTranslations('Inbox.page');
   const tThread = useTranslations('Inbox.messageThread');
+  const tSidebar = useTranslations('Inbox.sidebar');
   const tChannel = useTranslations('Inbox.channel');
   const tSearch = useTranslations('InboxSearch');
+  const tRow = useTranslations('Inbox.rowMenu');
+  const { user, canSendMessages } = useAuth();
+  const [newMessageOpen, setNewMessageOpen] = useState(false);
   const router = useRouter();
   const searchParams = useSearchParams();
   const basePath = inboxPath(scope);
@@ -171,6 +177,25 @@ function InboxViewInner({ scope }: { scope: InboxScope }) {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [widePanel, overlayFor]);
+
+  // The slide-over is modal: the list and thread behind it leave the focus order and the
+  // accessibility tree, focus moves into the panel, and it returns to the toggle on close.
+  const overlayRef = useRef<HTMLDivElement>(null);
+  const overlayOpen = panelShown && !widePanel;
+  useEffect(() => {
+    const panel = overlayRef.current;
+    if (!overlayOpen || !panel?.parentElement) return;
+    const opener = document.activeElement as HTMLElement | null;
+    const behind = [...panel.parentElement.children].filter(
+      (el): el is HTMLElement => el !== panel && el instanceof HTMLElement && el.tagName !== 'BUTTON',
+    );
+    behind.forEach((el) => el.setAttribute('inert', ''));
+    panel.focus();
+    return () => {
+      behind.forEach((el) => el.removeAttribute('inert'));
+      if (opener?.isConnected) opener.focus();
+    };
+  }, [overlayOpen]);
 
   // Fire the deep-link auto-select exactly once per URL — subsequent
   // list refreshes (realtime, manual refetch) must not snap the user
@@ -370,8 +395,8 @@ function InboxViewInner({ scope }: { scope: InboxScope }) {
   }, [scope]);
 
   // Stage 5 folders (labels, favourites, the member's pending reminders and snoozes).
-  const folders = useInboxFolders(scope, resyncToken);
   const folderFilter = parseInboxFilter(searchParams.get('filter'));
+  const folders = useInboxFolders(scope, resyncToken, folderFilter === 'failed');
   // The member's own pending snoozes: a snoozed conversation leaves their list until the time passes
   // (or they wake it) and comes back by itself. Personal; nobody else's list changes. The Reminders
   // folder lists snoozed conversations too.
@@ -768,10 +793,33 @@ function InboxViewInner({ scope }: { scope: InboxScope }) {
     [activeConversation]
   );
 
+  // The contact changed (contact panel edits, block / unblock in the thread).
+  const handleContactUpdated = useCallback((updated: Contact) => {
+    setActiveContact((previous) => (previous?.id === updated.id ? updated : previous));
+    setConversations((previous) =>
+      previous.map((item) =>
+        item.contact_id === updated.id ? { ...item, contact: { ...item.contact, ...updated } } : item
+      )
+    );
+  }, []);
+
+  // A field of a conversation changed in the thread (automation paused or resumed).
+  const handleConversationPatch = useCallback((conversationId: string, patch: Partial<Conversation>) => {
+    setConversations((prev) => prev.map((c) => (c.id === conversationId ? { ...c, ...patch } : c)));
+    setActiveConversation((prev) => (prev && prev.id === conversationId ? { ...prev, ...patch } : prev));
+  }, []);
+
+  // Marked unread from the thread: it shows unread in the list, and the chat
+  // closes (an open chat would read itself straight away).
+  const markUnreadInList = useCallback((conversationId: string, unread: boolean) => {
+    setConversations((prev) =>
+      prev.map((c) => (c.id === conversationId ? { ...c, unread_count: unread ? Math.max(1, c.unread_count) : 0 } : c))
+    );
+  }, []);
+
   // Message search: picking a hit opens its conversation (loading it when the
   // list doesn't hold it) and asks the thread to scroll to the message.
   const [searchOpen, setSearchOpen] = useState(false);
-  const [toolbarSlot, setToolbarSlot] = useState<HTMLDivElement | null>(null);
   const handleOpenSearchResult = useCallback(
     async (conversationId: string, messageId: string) => {
       setSearchOpen(false);
@@ -805,6 +853,56 @@ function InboxViewInner({ scope }: { scope: InboxScope }) {
     },
     [conversations, handleSelectConversation, t, scope, router, enabledChannels]
   );
+
+  // The New message dialog opened (or started) a conversation: list and open it,
+  // or go to its channel's inbox when this inbox does not show that channel.
+  const handleOpenConversation = useCallback((conversation: Conversation) => {
+    if (!inScope(scope, conversation)) {
+      router.push(conversationInboxPath(channelOfConversation(conversation), enabledChannels ?? [], conversation.id));
+      return;
+    }
+    setConversations((prev) => (prev.some((c) => c.id === conversation.id) ? prev : [conversation, ...prev]));
+    handleSelectConversation(conversation);
+  }, [scope, router, enabledChannels, handleSelectConversation]);
+
+  const handleMarkedUnread = useCallback((conversationId: string) => {
+    markUnreadInList(conversationId, true);
+    if (activeConversation?.id === conversationId) handleCloseConversation();
+  }, [markUnreadInList, activeConversation?.id, handleCloseConversation]);
+
+  // A row's right-click menu.
+  const handleRowAction = useCallback(async (conversation: Conversation, action: RowAction) => {
+    try {
+      if (action === 'read' || action === 'unread') {
+        const res = await authFetch(`/api/conversations/${encodeURIComponent(conversation.id)}/unread`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ unread: action === 'unread' }),
+        });
+        if (!res.ok) throw new Error('unread');
+        markUnreadInList(conversation.id, action === 'unread');
+        if (action === 'unread' && activeConversation?.id === conversation.id) handleCloseConversation();
+        toast.success(action === 'unread' ? tRow('markedUnread') : tRow('markedRead'));
+        return;
+      }
+      const db = createClient();
+      if (action === 'assign-me') {
+        if (!user?.id || conversation.assigned_agent_id === user.id) return;
+        const { error } = await db.from('conversations').update({ assigned_agent_id: user.id }).eq('id', conversation.id);
+        if (error) throw new Error('assign');
+        handleAssignChange(conversation.id, user.id);
+        toast.success(tRow('assignedToYou'));
+        return;
+      }
+      const status: ConversationStatus = action === 'close' ? 'closed' : 'open';
+      const { error } = await db.from('conversations').update({ status }).eq('id', conversation.id);
+      if (error) throw new Error('status');
+      handleStatusChange(conversation.id, status);
+      toast.success(action === 'close' ? tRow('closed') : tRow('reopened'));
+    } catch {
+      toast.error(tRow('failed'));
+    }
+  }, [markUnreadInList, activeConversation?.id, handleCloseConversation, user?.id, handleAssignChange, handleStatusChange, tRow]);
 
   // On mobile (<lg) we show a SINGLE pane — either the list or the
   // thread — rather than cramming both side-by-side. Selecting a
@@ -862,10 +960,6 @@ function InboxViewInner({ scope }: { scope: InboxScope }) {
         </div>
       ))}
 
-      {/* The list's filter toolbar renders here, across the list and the thread.
-          Hidden on phones while a conversation is open, like the list itself. */}
-      <div ref={setToolbarSlot} className={cn('shrink-0', hasActiveConv ? 'hidden lg:block' : 'block')} />
-
       <div className="relative flex min-h-0 flex-1 overflow-hidden">
         {/* Left panel: Conversation list.
             Hidden on mobile when a conversation is selected so the
@@ -886,7 +980,8 @@ function InboxViewInner({ scope }: { scope: InboxScope }) {
             resyncToken={resyncToken}
             channel={scope}
             folders={folders}
-            toolbarSlot={toolbarSlot}
+            onNewMessage={canSendMessages ? () => setNewMessageOpen(true) : undefined}
+            onRowAction={canSendMessages ? (conversation, action) => void handleRowAction(conversation, action) : undefined}
             headerAction={
               <button
                 type="button"
@@ -933,6 +1028,10 @@ function InboxViewInner({ scope }: { scope: InboxScope }) {
             onToggleContactPanel={handleToggleContactPanel}
             jumpRequest={jumpRequestFor(jumpRequest, activeConversation?.id)}
             instagramHumanAgent={instagramHumanAgent}
+            onMarkedUnread={handleMarkedUnread}
+            onContactUpdated={handleContactUpdated}
+            onConversationPatch={handleConversationPatch}
+            onStartNew={canSendMessages ? () => setNewMessageOpen(true) : undefined}
           />
         </div>
 
@@ -949,8 +1048,13 @@ function InboxViewInner({ scope }: { scope: InboxScope }) {
         )}
         {panelShown && (widePanel || activeConversation) && (
           <div
+            ref={overlayRef}
             data-contact-panel={widePanel ? 'column' : 'overlay'}
+            {...(widePanel
+              ? {}
+              : { role: 'dialog', 'aria-modal': true, 'aria-label': tSidebar('contactDetails'), tabIndex: -1 })}
             className={cn(
+              !widePanel && 'outline-none',
               widePanel
                 ? 'shrink-0'
                 : 'absolute inset-y-0 right-0 z-30 flex w-full max-w-sm shadow-2xl [&>aside]:w-full'
@@ -965,22 +1069,20 @@ function InboxViewInner({ scope }: { scope: InboxScope }) {
               onCollapse={handleToggleContactPanel}
               refreshToken={`${resyncToken}:${messages.length}`}
               handlingKey={`${activeConversation?.assigned_agent_id ?? ''}:${activeConversation?.status ?? ''}`}
-              onUpdated={(updated) => {
-                setActiveContact((previous) =>
-                  previous?.id === updated.id ? updated : previous
-                );
-                setConversations((previous) =>
-                  previous.map((item) =>
-                    item.contact_id === updated.id
-                      ? { ...item, contact: { ...item.contact, ...updated } }
-                      : item
-                  )
-                );
-              }}
+              onUpdated={handleContactUpdated}
+              botPaused={activeConversation?.bot_paused ?? false}
+              pauseKey={`${activeConversation?.id ?? ''}:${activeConversation?.updated_at ?? ''}:${activeConversation?.bot_paused ?? ''}:${(activeConversation as { bot_paused_until?: string | null } | null)?.bot_paused_until ?? ''}`}
             />
           </div>
         )}
       </div>
+
+      <NewMessageDialog
+        open={newMessageOpen}
+        onOpenChange={setNewMessageOpen}
+        channels={(scope === 'all' ? (enabledChannels?.length ? enabledChannels : ['whatsapp']) : [scope]) as ('whatsapp' | 'instagram')[]}
+        onOpen={handleOpenConversation}
+      />
 
       <Dialog open={searchOpen} onOpenChange={setSearchOpen}>
         <DialogContent className="flex max-h-[85vh] flex-col sm:max-w-2xl">

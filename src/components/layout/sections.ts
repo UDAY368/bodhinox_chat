@@ -24,8 +24,8 @@ export interface Section {
   unread?: Channel | 'all';
 }
 
-// A tab whose link carries a query (Templates lives at /settings?tab=templates) never claims a path:
-// otherwise every Settings page would count as Campaigns.
+// A tab whose link carries a query never claims a path: otherwise every page under it would count
+// as that tab (Templates used to live at /settings?tab=templates; it is /templates now).
 const under = (pathname: string, href: string) =>
   !href.includes('?') && (pathname === href || pathname.startsWith(`${href}/`));
 
@@ -40,9 +40,10 @@ export function buildSections(enabled: readonly Channel[] | null | undefined): S
     { id: 'contacts', href: '/contacts', labelKey: 'contacts', tabs: [] },
     {
       id: 'automation', href: '/automation', labelKey: 'automation',
+      // Flows, rules and sequences share one list at /automation (All / Flows / Rules / Sequences);
+      // the per-channel rule pages keep their URLs and open from that list.
       tabs: [
         { href: '/automation', labelKey: 'automation' },
-        ...channels.map((channel) => ({ href: channelPath(channel, 'automations'), labelKey: 'rules', channel })),
         ...(channels.includes('instagram') ? [{ href: channelPath('instagram', 'home'), labelKey: 'instagramTools' }] : []),
       ],
     },
@@ -53,8 +54,9 @@ export function buildSections(enabled: readonly Channel[] | null | undefined): S
       tabs: [
         { href: channelPath('whatsapp', 'broadcasts'), labelKey: 'broadcasts' },
         { href: channelPath('whatsapp', 'templates'), labelKey: 'templates' },
-        { href: channelPath('whatsapp', 'forms'), labelKey: 'forms' },
+        // The prototype's order: Broadcasts, Templates, Ads, Forms.
         { href: channelPath('whatsapp', 'ads'), labelKey: 'ads' },
+        { href: channelPath('whatsapp', 'forms'), labelKey: 'forms' },
       ],
     });
   }
@@ -77,6 +79,9 @@ export function buildSections(enabled: readonly Channel[] | null | undefined): S
       tabs: [
         { href: '/dashboard', labelKey: 'overview' },
         { href: '/analytics', labelKey: 'analytics' },
+        { href: '/analytics/conversations', labelKey: 'analyticsConversations' },
+        { href: '/analytics/team', labelKey: 'analyticsTeam' },
+        { href: '/analytics/campaigns', labelKey: 'analyticsCampaigns' },
         { href: '/reports', labelKey: 'reports' },
       ],
     },
@@ -101,6 +106,10 @@ export function sectionFor(pathname: string, sections: readonly Section[]): Sect
 export function activeTab(pathname: string, section: Section): SectionTab | null {
   const matching = section.tabs.filter((tab) => under(pathname, tab.href));
   if (matching.length) return matching.sort((a, b) => b.href.length - a.href.length)[0];
+  // Rules, sequences and the Instagram automation rail open from the one Automation list.
+  if (/^\/(whatsapp|instagram)\/automations(\/|$)/.test(pathname) || /^\/instagram\/(sequences|basics)(\/|$)/.test(pathname)) {
+    return section.tabs.find((tab) => tab.href === '/automation') ?? null;
+  }
   // Instagram tools other than its home page sit under the Instagram tools tab.
   if (/^\/instagram(\/|$)/.test(pathname) && !/^\/instagram\/(automations|inbox)(\/|$)/.test(pathname)) {
     return section.tabs.find((tab) => tab.labelKey === 'instagramTools') ?? null;

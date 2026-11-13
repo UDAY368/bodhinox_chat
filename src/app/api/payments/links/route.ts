@@ -1,5 +1,5 @@
 // GET  /api/payments/links — payment links, newest first (agent and above).
-//      ?status=&conversation_id=&order_id=&contact_id=&before=<ISO>&limit=
+//      ?status=&conversation_id=&order_id=&contact_id=&before=<ISO>&limit=&q=<description or customer name>
 // POST /api/payments/links — create a Razorpay link (agent and above).
 //      { amount (major units, e.g. "499.50") | amount_minor, currency, description?,
 //        conversation_id? | contact_id? | order_id?, expire_minutes?,
@@ -56,7 +56,9 @@ export async function GET(request: Request) {
     const before = beforeRaw ? new Date(beforeRaw) : undefined;
     if (before && Number.isNaN(before.getTime())) return NextResponse.json({ error: t('invalidFilter') }, { status: 400 });
     const limit = Number(params.get('limit') ?? 50);
+    const q = params.get('q')?.trim().slice(0, 100) || undefined;
     const links = await withTenant(tenantOf(ctx), (tx) => listPaymentLinks(tx, ctx.accountId, {
+      q,
       status: (status as PaymentLinkStatus) || undefined,
       conversationId: ids.conversationId || undefined,
       orderId: ids.orderId || undefined,

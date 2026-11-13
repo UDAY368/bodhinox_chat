@@ -20,7 +20,7 @@ const routeModules = import.meta.glob('/src/app/api/**/route.ts');
 const databases = fixtureDatabaseUrls();
 
 type Extra = Record<'list' | 'segment' | 'team' | 'paymentLink' | 'media' | 'note' | 'attribute' | 'schedule'
-  | 'savedFilter' | 'form' | 'mediaKey' | 'igTemplate', string>;
+  | 'savedFilter' | 'form' | 'mediaKey' | 'igTemplate' | 'customField' | 'dealNote' | 'shopProduct' | 'aiAgent' | 'aiSource' | 'savedReport', string>;
 type Ids = TenantFixture & { extra: Extra };
 
 type Case = {
@@ -57,6 +57,16 @@ export const CASES: Case[] = [
   // WhatsApp consent: another workspace's contact is not found and keeps its consent.
   { route: 'contacts/[id]/consent', method: 'POST', params: id('contactId'), body: () => ({ state: 'opted_out' }) },
   { route: 'contacts/[id]/consent', method: 'POST', params: id('contactId'), body: () => ({ state: 'opted_in' }), as: 'agent' },
+  { route: 'contacts/[id]/consent', method: 'POST', params: id('contactId'), body: () => ({ state: 'opted_out', channel: 'instagram' }), as: 'agent' },
+  // Contact profile: another workspace's contact is not found, its fields, owner and values stay as they are.
+  { route: 'contacts/[id]', method: 'GET', params: id('contactId') },
+  { route: 'contacts/[id]', method: 'PATCH', params: id('contactId'), body: () => ({ field: 'city', value: 'p15 taken over' }), as: 'agent' },
+  { route: 'contacts/[id]', method: 'PATCH', params: id('contactId'), body: () => ({ field: 'blocked', value: true }) },
+  { route: 'contacts/[id]', method: 'PATCH', params: id('contactId'), body: (a) => ({ field: 'owner_id', value: a.users.owner.userId }) },
+  { route: 'contacts/[id]', method: 'PATCH', params: id('contactId'), body: (_a, b) => ({ customFieldId: b.extra.customField, value: 'Growth' }) },
+  // Custom fields: another workspace's field cannot be renamed, re-choiced or deleted.
+  { route: 'custom-fields/[id]', method: 'PATCH', params: extra('customField'), body: () => ({ name: 'p15 taken over', choices: ['A', 'B'] }) },
+  { route: 'custom-fields/[id]', method: 'DELETE', params: extra('customField') },
   // Saved Instagram templates: another workspace's template cannot be edited or deleted.
   { route: 'instagram/message-templates/[id]', method: 'PATCH', params: extra('igTemplate'), env: INSTAGRAM_ON,
     body: () => ({ name: 'p15 taken over', kind: 'button', payload: { text: 'x', buttons: [{ type: 'reply', title: 'Hi' }] } }) },
@@ -66,6 +76,15 @@ export const CASES: Case[] = [
   { route: 'conversations/[id]/notes/[noteId]', method: 'PATCH', params: (b) => ({ id: b.conversationId, noteId: b.extra.note }), body: () => ({ body: 'p15 edit' }) },
   { route: 'conversations/[id]/notes/[noteId]', method: 'DELETE', params: (b) => ({ id: b.conversationId, noteId: b.extra.note }) },
   { route: 'conversations/[id]/ad-referral', method: 'GET', params: id('conversationId') },
+  // Inbox More menu: another workspace's conversation cannot be marked unread or exported.
+  { route: 'conversations/[id]/unread', method: 'POST', params: id('conversationId'), body: () => ({ unread: true }) },
+  { route: 'conversations/[id]/unread', method: 'POST', params: id('conversationId'), body: () => ({ unread: false }), as: 'agent' },
+  { route: 'conversations/[id]/export', method: 'GET', params: id('conversationId') },
+  // Deal team notes (Sales pipeline): another workspace's deal is not found; its notes cannot be read, added to or deleted.
+  { route: 'deals/[id]/notes', method: 'GET', params: rid('deals') },
+  { route: 'deals/[id]/notes', method: 'POST', params: rid('deals'), body: () => ({ body: 'p15 cross-tenant deal note' }) },
+  { route: 'deals/[id]/notes', method: 'POST', params: rid('deals'), body: () => ({ body: 'p15 cross-tenant deal note' }), as: 'agent' },
+  { route: 'deals/[id]/notes/[noteId]', method: 'DELETE', params: (b) => ({ id: b.ids.deals, noteId: b.extra.dealNote }) },
   // Orders and payments
   { route: 'commerce/orders/[id]', method: 'GET', params: id('orderId') },
   { route: 'commerce/orders/[id]', method: 'PATCH', params: id('orderId'), body: () => ({ status: 'cancelled' }) },
@@ -79,6 +98,8 @@ export const CASES: Case[] = [
   { route: 'commerce/orders/[id]/shipment/pickup', method: 'POST', params: id('orderId') },
   { route: 'payments/links/[id]', method: 'GET', params: extra('paymentLink') },
   { route: 'payments/links/[id]', method: 'POST', params: extra('paymentLink'), body: () => ({ action: 'cancel' }) },
+  // Catalogue: another workspace's product cannot be duplicated.
+  { route: 'commerce/shop/products/[id]/duplicate', method: 'POST', params: extra('shopProduct'), body: () => ({}) },
   // Appointments
   { route: 'appointments/[id]', method: 'GET', params: id('appointmentId') },
   { route: 'appointments/[id]', method: 'PATCH', params: id('appointmentId'), body: () => ({ action: 'cancel', reason: 'staff', expected_version: 1 }) },
@@ -87,6 +108,7 @@ export const CASES: Case[] = [
   // Broadcasts
   { route: 'broadcasts/[id]/schedule', method: 'PATCH', params: id('broadcastId'), body: () => ({ scheduledAt: new Date(Date.now() + 86400000).toISOString() }) },
   { route: 'broadcasts/[id]/schedule', method: 'DELETE', params: id('broadcastId') },
+  { route: 'broadcasts/[id]/pause', method: 'POST', params: id('broadcastId'), body: () => ({}) },
   { route: 'whatsapp/broadcast/[id]/resume', method: 'POST', params: id('broadcastId'), body: () => ({}) },
   { route: 'whatsapp/broadcast/[id]/reconcile', method: 'GET', params: id('broadcastId') },
   // Flows and automations
@@ -129,6 +151,15 @@ export const CASES: Case[] = [
   { route: 'ai/knowledge/[id]', method: 'GET', params: rid('ai_knowledge_documents') },
   { route: 'ai/knowledge/[id]', method: 'PATCH', params: rid('ai_knowledge_documents'), body: () => ({ title: 'p15 tamper' }) },
   { route: 'ai/knowledge/[id]', method: 'DELETE', params: rid('ai_knowledge_documents') },
+  { route: 'ai/agents/[id]', method: 'GET', params: extra('aiAgent') },
+  { route: 'ai/agents/[id]', method: 'PATCH', params: extra('aiAgent'), body: () => ({ name: 'p15 tamper' }) },
+  { route: 'ai/agents/[id]', method: 'DELETE', params: extra('aiAgent') },
+  { route: 'ai/agents/[id]/duplicate', method: 'POST', params: extra('aiAgent'), body: () => ({}) },
+  { route: 'ai/knowledge/sources/[id]', method: 'GET', params: extra('aiSource') },
+  { route: 'ai/knowledge/sources/[id]', method: 'POST', params: extra('aiSource'), body: () => ({}) },
+  { route: 'ai/knowledge/sources/[id]', method: 'PATCH', params: extra('aiSource'), body: () => ({ min_role: 'admin' }) },
+  { route: 'ai/knowledge/sources/[id]', method: 'PUT', params: extra('aiSource'), body: () => ({ title: 'p15 tamper', content: 'Tampered text' }) },
+  { route: 'ai/knowledge/sources/[id]', method: 'DELETE', params: extra('aiSource') },
   { route: 'whatsapp/forms/[id]', method: 'GET', params: extra('form') },
   { route: 'whatsapp/forms/[id]', method: 'DELETE', params: extra('form') },
   { route: 'whatsapp/forms/[id]/responses', method: 'GET', params: extra('form') },
@@ -139,6 +170,16 @@ export const CASES: Case[] = [
   { route: 'inbox/saved-filters/[id]', method: 'DELETE', params: extra('savedFilter') },
   { route: 'analytics/reports/schedules/[id]', method: 'PATCH', params: extra('schedule'), body: () => ({ paused: true }) },
   { route: 'analytics/reports/schedules/[id]', method: 'DELETE', params: extra('schedule') },
+  // Saved analytics reports (admins and owners): another workspace's report is never read, exported, changed or scheduled.
+  { route: 'analytics/saved-reports/[id]', method: 'PATCH', params: extra('savedReport'),
+    body: () => ({ name: 'p15 taken over', metrics: ['new'], group: 'day', channel: 'all', preset: '7d', format: 'csv' }) },
+  { route: 'analytics/saved-reports/[id]', method: 'DELETE', params: extra('savedReport') },
+  { route: 'analytics/saved-reports/[id]/duplicate', method: 'POST', params: extra('savedReport') },
+  { route: 'analytics/saved-reports/[id]/preview', method: 'GET', params: extra('savedReport') },
+  { route: 'analytics/saved-reports/[id]/export', method: 'GET', params: extra('savedReport'), query: () => 'format=csv' },
+  { route: 'analytics/saved-reports/[id]/schedule', method: 'PUT', params: extra('savedReport'),
+    body: (a) => ({ cadence: 'weekly', hour_local: 9, minute_local: 30, recipients: [a.users.owner.userId] }) },
+  { route: 'analytics/saved-reports/[id]/schedule', method: 'DELETE', params: extra('savedReport') },
 ];
 
 /**
@@ -178,7 +219,6 @@ export const KNOWN_UNMAPPED = [
   'ai/assist/suggestions/[id]/decision',
   'ai/autoreply/[conversationId]',
   'ai/insights/[id]',
-  'ai/knowledge/sources/[id]',
   'ai/unanswered/[id]',
   'analytics/reports/[id]/download',
   'analytics/reports/[id]/shares',
@@ -305,9 +345,11 @@ describe('[TEN-01][SEC-03] cross-tenant route coverage', () => {
 const TABLES = ['contacts', 'conversations', 'messages', 'tags', 'contact_tags', 'orders', 'appointments', 'appointment_services',
   'appointment_locations', 'broadcasts', 'broadcast_recipients', 'flows', 'flow_nodes', 'flow_runs', 'automations', 'automation_steps',
   'contact_lists', 'contact_list_members', 'segments', 'teams', 'payment_links', 'media_objects', 'conversation_notes',
-  'workspace_attributes', 'report_schedules', 'saved_filters', 'whatsapp_forms', 'webhook_endpoints', 'api_keys',
+  'workspace_attributes', 'report_schedules', 'analytics_saved_reports', 'saved_filters', 'whatsapp_forms', 'webhook_endpoints', 'api_keys',
   'account_memberships', 'quick_replies', 'message_templates', 'ai_knowledge_documents', 'whatsapp_config', 'accounts',
-  'instagram_message_templates'];
+  'instagram_message_templates', 'custom_fields', 'contact_custom_values', 'contact_activity',
+  'deal_notes', 'shop_products', 'shop_variants', 'ai_agents',
+  'ai_knowledge_sources'];
 
 async function existingTables(): Promise<string[]> {
   const rows = await fixtureOwnerPool().query<{ t: string }>(
@@ -348,9 +390,30 @@ async function addExtras(t: TenantFixture, tag: string): Promise<Extra> {
     savedFilter: await one("INSERT INTO saved_filters(account_id,user_id,name) VALUES($1,$2,'p15 view')", [a, u]),
     form: await one("INSERT INTO whatsapp_forms(account_id,user_id,name,category,definition) VALUES($1,$2,$3,'OTHER',$4::jsonb)",
       [a, u, `p15 form ${tag}`, JSON.stringify({ screens: [] })]),
+    dealNote: await one('INSERT INTO deal_notes(account_id,deal_id,body,created_by) VALUES($1,$2,$3,$4)', [a, t.ids.deals, `p15 deal note ${tag}`, u]),
+    shopProduct: await one('INSERT INTO shop_products(account_id,name,created_by) VALUES($1,$2,$3)', [a, `p15 product ${tag}`, u]),
     igTemplate: await one("INSERT INTO instagram_message_templates(account_id,name,kind,payload,created_by) VALUES($1,$2,'button',$3::jsonb,$4)",
       [a, `p15 template ${tag}`, JSON.stringify({ text: 'Hello', buttons: [{ type: 'postback', title: 'Hi', payload: 'reply:Hi' }] }), u]),
+    customField: await one("INSERT INTO custom_fields(account_id,user_id,field_name,field_type,field_options) VALUES($1,$2,$3,'choice',$4::jsonb)",
+      [a, u, `p15 plan ${tag}`, JSON.stringify(['Starter', 'Growth'])]),
+    // A non-default, switched-off agent (the default one cannot be deleted, which would be an own-row refusal).
+    aiAgent: await one("INSERT INTO ai_agents(account_id,name,role,instructions,channels) VALUES($1,$2,'support','Synthetic agent',ARRAY['whatsapp'])",
+      [a, `p15 agent ${tag}`]),
+    // A ready text source (a queued one would make the re-index case a 409 busy).
+    aiSource: await one("INSERT INTO ai_knowledge_sources(account_id,kind,title,status) VALUES($1,'text',$2,'ready')", [a, `p15 source ${tag}`]),
+    savedReport: await savedReportWithSchedule(a, u, tag),
   };
+}
+
+/** A saved analytics report with an email schedule, so "Stop sending" has something to stop on the caller's own row. */
+async function savedReportWithSchedule(accountId: string, userId: string, tag: string): Promise<string> {
+  const pool = fixtureOwnerPool();
+  const report = String((await pool.query<{ id: string }>(
+    "INSERT INTO analytics_saved_reports(account_id,name,metrics,group_by,channel,range_preset,format,created_by) VALUES($1,$2,ARRAY['new','resolved'],'day','all','7d','csv',$3) RETURNING id",
+    [accountId, `p15 report ${tag}`, userId])).rows[0].id);
+  await pool.query("INSERT INTO report_schedules(account_id,kind,cadence,recipients,created_by,next_run_at,saved_report_id,minute_local) VALUES($1,'saved_report','weekly',ARRAY[$2::uuid],$2,NOW()+interval '1 day',$3,15)",
+    [accountId, userId, report]);
+  return report;
 }
 
 async function invoke(c: Case, caller: Ids, target: Ids): Promise<Response> {
@@ -485,6 +548,7 @@ describe.skipIf(!databases)('[TEN-01][SEC-03] cross-tenant id routes', () => {
     { route: 'ai/knowledge/[id]', method: 'DELETE', as: 'agent', permission: 'ai.knowledge', params: rid('ai_knowledge_documents'), target: rid('ai_knowledge_documents') },
     { route: 'whatsapp/broadcast/[id]/resume', method: 'POST', as: 'viewer', permission: 'campaigns.send', params: id('broadcastId'), body: () => ({}), target: id('broadcastId') },
     { route: 'broadcasts/[id]/schedule', method: 'DELETE', as: 'viewer', permission: 'campaigns.send', params: id('broadcastId'), target: id('broadcastId') },
+    { route: 'broadcasts/[id]/pause', method: 'POST', as: 'viewer', permission: 'campaigns.send', params: id('broadcastId'), body: () => ({}), target: id('broadcastId') },
     { route: 'commerce/orders/[id]/offline-payment', method: 'POST', as: 'agent', permission: 'commerce.record_payments', params: id('orderId'), body: () => ({ amount: '10.00', method: 'cash', client_request_id: randomUUID() }), target: id('orderId') },
     { route: 'appointments/[id]', method: 'PATCH', as: 'viewer', permission: 'appointments.manage', params: id('appointmentId'), body: () => ({ action: 'cancel', reason: 'staff', expected_version: 1 }), target: id('appointmentId') },
     { route: 'appointments/services/[id]', method: 'PATCH', as: 'agent', permission: 'appointments.settings', params: rid('appointment_services'), body: () => ({ name: 'p15 tamper' }), target: rid('appointment_services') },

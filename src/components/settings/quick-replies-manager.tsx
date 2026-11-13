@@ -2,7 +2,7 @@
 import { authFetch } from "@/lib/auth/client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Loader2, MessageSquare, Pencil, Plus, Trash2, Zap } from "lucide-react";
+import { Loader2, MessageSquare, Pencil, Plus, Search, Trash2, Zap } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslations } from "next-intl";
 
@@ -51,6 +51,8 @@ export function QuickRepliesManager() {
   const [loading, setLoading] = useState(true);
   const [draft, setDraft] = useState<DraftState | null>(null);
   const [saving, setSaving] = useState(false);
+  const [query, setQuery] = useState("");
+  const tSearch = useTranslations("SettingsRedesign.quickReplies");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -131,6 +133,13 @@ export function QuickRepliesManager() {
     [load, t],
   );
 
+  // Search by name, text or the interactive message's preview.
+  const needle = query.trim().toLowerCase();
+  const visible = needle
+    ? items.filter((qr) => [qr.title, qr.content_text ?? "", qr.interactive_payload ? interactivePayloadPreviewText(qr.interactive_payload) : ""]
+      .some((text) => text.toLowerCase().includes(needle)))
+    : items;
+
   return (
     <div>
       <SettingsPanelHead
@@ -144,6 +153,14 @@ export function QuickRepliesManager() {
         }
       />
 
+      {items.length > 0 && (
+        <label className="relative mb-3 block sm:max-w-sm">
+          <span className="sr-only">{tSearch("search")}</span>
+          <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
+          <Input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder={tSearch("search")} className="bg-card pl-8" />
+        </label>
+      )}
+
       {loading ? (
         <div className="flex justify-center py-10">
           <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
@@ -152,9 +169,16 @@ export function QuickRepliesManager() {
         <p className="rounded-lg border border-dashed border-border py-10 text-center text-sm text-muted-foreground">
           {t("empty")}
         </p>
+      ) : visible.length === 0 ? (
+        <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed border-border py-10 text-center">
+          <Search className="size-5 text-muted-foreground" aria-hidden />
+          <p className="text-sm font-medium text-foreground">{tSearch("noMatch")}</p>
+          <p className="text-xs text-muted-foreground">{tSearch("noMatchHint")}</p>
+          <Button type="button" variant="outline" size="sm" onClick={() => setQuery("")}>{tSearch("clear")}</Button>
+        </div>
       ) : (
         <ul className="flex flex-col gap-2">
-          {items.map((qr) => (
+          {visible.map((qr) => (
             <li
               key={qr.id}
               className="flex items-start gap-3 rounded-lg border border-border bg-card p-3"

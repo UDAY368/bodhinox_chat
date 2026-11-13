@@ -79,6 +79,24 @@ describe('sendInstagramFromComposer', () => {
     expect(sqlOf(h.executeRaw).some((s) => s.includes("SET status='sent'"))).toBe(true);
   });
 
+  it('quotes a message of this conversation by its mid and stores the reply link', async () => {
+    const PARENT = '55555555-5555-4555-8555-555555555555';
+    h.queryRaw.mockImplementation(async (sql: TemplateStringsArray) =>
+      sql.join('?').includes('SELECT message_id FROM messages') ? [{ message_id: 'aWdfZAG1-parent' }] : [{ id: ROW }]);
+    await sendInstagramFromComposer(input({ replyToMessageId: PARENT }));
+    expect(h.sendText).toHaveBeenCalledWith(TARGET, 'hello', expect.anything(), { replyToMid: 'aWdfZAG1-parent' });
+    expect(insertCall()).toContain(PARENT);
+  });
+
+  it('refuses a quoted message outside the conversation, or a malformed id, before anything is sent', async () => {
+    h.queryRaw.mockImplementation(async (sql: TemplateStringsArray) =>
+      sql.join('?').includes('SELECT message_id FROM messages') ? [] : [{ id: ROW }]);
+    await expect(sendInstagramFromComposer(input({ replyToMessageId: '55555555-5555-4555-8555-555555555555' })))
+      .rejects.toBeInstanceOf(InstagramError);
+    await expect(sendInstagramFromComposer(input({ replyToMessageId: 'not-a-uuid' }))).rejects.toBeInstanceOf(InstagramError);
+    expect(h.dispatch).not.toHaveBeenCalled();
+  });
+
   it.each([
     ['template', ChannelUnavailableError],
     ['interactive', ChannelUnavailableError],
@@ -148,7 +166,7 @@ describe('sendInstagramFromComposer', () => {
     expect(h.providerUrl).toHaveBeenCalledWith(ACCOUNT, appLink);
     const signed = { type: 'image', url: 'https://s3.example.test/signed/photo.jpg?X-Amz-Signature=abc' };
     expect(h.checkMedia).toHaveBeenCalledWith(TARGET, signed, expect.anything());
-    expect(h.sendMedia).toHaveBeenCalledWith(TARGET, signed, expect.anything());
+    expect(h.sendMedia).toHaveBeenCalledWith(TARGET, signed, expect.anything(), { replyToMid: undefined });
     expect(insertCall()).toContain(appLink);
     expect(insertCall()).not.toContain(signed.url);
   });

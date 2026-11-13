@@ -1,25 +1,36 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+// Knowledge sources for the AI agents (AI page, Knowledge tab; also the setup
+// wizard's knowledge step): an optional "Ask the knowledge base" box, type
+// chips (All, Websites, Documents, Q&A) with a search, and a table of sources
+// with their status and sync progress, size, last update, an "In replies"
+// switch and a row menu (view content, edit a Q&A or text source, copy the
+// address, sync again, who may see it, delete). Sources are added in a dialog
+// (website, sitemap, upload, Q&A or text). Admins change sources; the
+// 'ai.knowledge' permission also decides who may change access (server-checked).
+
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useFormatter, useTranslations } from 'next-intl';
 import { toast } from 'sonner';
-import { BookOpen, FileUp, Globe, Loader2, Map as MapIcon, RefreshCw, Trash2, Type } from 'lucide-react';
+import {
+  BookOpen, Copy, Eye, FileText, Globe, HelpCircle, Loader2, Lock, MoreHorizontal, Pencil, Plus, RefreshCw, Search, Trash2, Users,
+} from 'lucide-react';
 import { authFetch } from '@/lib/auth/client';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Switch } from '@/components/ui/switch';
-import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
+import { AskBox } from './ask-box';
+import { SourceDetailDialog, SourceDialog, type SourceDialogState } from './source-dialogs';
 import {
-  ACCEPTED_UPLOADS, isCrawled, isRunning, nextAccess, shouldPoll, sourceReason, statusVariant, UPLOAD_MAX_BYTES,
-  type AccessPatch, type KnowledgeSourceView,
+  filterSources, isCrawled, isRunning, kindKey, nextAccess, shouldPoll, sourceGroup, sourceReason, SOURCE_GROUPS, syncProgress,
+  type AccessPatch, type KnowledgeSourceView, type SourceGroup,
 } from './source-view';
 
 export interface KnowledgePanelProps {
-  /** Admins may add, re-crawl and delete; everyone else sees the list. */
+  /** Admins may add, re-crawl, edit and delete; everyone else sees the list. */
   canEdit: boolean;
   /** When false, a notice explains that sources cannot be indexed until an embeddings key is saved. */
   hasEmbeddingsKey?: boolean;
@@ -30,27 +41,34 @@ export interface KnowledgePanelProps {
    * replies (the server also requires the 'ai.knowledge' permission). Defaults to canEdit.
    */
   canManageAccess?: boolean;
+  /** Show the "Ask the knowledge base" box (agents and above). */
+  canAsk?: boolean;
+  /**
+   * A page-level "Add source" request opens the add dialog (a new object each
+   * time; `preset` starts a Q&A answer with that question).
+   */
+  addRequest?: { preset?: string } | null;
 }
 
-type AddMode = 'website' | 'sitemap' | 'text' | 'file';
 const POLL_MS = 5_000;
+const GROUP_ICON = { website: Globe, document: FileText, qa: HelpCircle } as const;
+// Wide: source | type | status | size | updated | in replies | actions. Medium: type and updated hidden. Phones: two rows.
+const ROW = 'grid items-center gap-x-3.5 gap-y-2.5 px-4 py-3 grid-cols-[minmax(0,1fr)_auto] [grid-template-areas:"name_acts""status_use"] md:[grid-template-areas:none] md:grid-cols-[minmax(0,2fr)_minmax(130px,1fr)_88px_70px_76px] xl:grid-cols-[minmax(0,2.2fr)_96px_minmax(140px,1.1fr)_92px_116px_70px_76px]';
 
-/** Knowledge sources for the AI agent: websites, sitemaps, files and text, with crawl status. */
-export function KnowledgePanel({ canEdit, hasEmbeddingsKey = true, onChange, canManageAccess = canEdit }: KnowledgePanelProps) {
-  const t = useTranslations('AiKnowledgeSources');
+export function KnowledgePanel({ canEdit, hasEmbeddingsKey = true, onChange, canManageAccess = canEdit, canAsk = false, addRequest = null }: KnowledgePanelProps) {
+  const t = useTranslations('AiStudio.knowledge');
+  const tc = useTranslations('AiStudio.common');
+  const tk = useTranslations('AiKnowledgeSources');
   const ta = useTranslations('AiKnowledgeAccess');
   const format = useFormatter();
   const [sources, setSources] = useState<KnowledgeSourceView[]>([]);
   const [loading, setLoading] = useState(true);
-  const [mode, setMode] = useState<AddMode>('website');
-  const [url, setUrl] = useState('');
-  const [pageLimit, setPageLimit] = useState('50');
-  const [title, setTitle] = useState('');
-  const [content, setContent] = useState('');
-  const [file, setFile] = useState<File | null>(null);
-  const [busy, setBusy] = useState(false);
+  const [group, setGroup] = useState<SourceGroup>('all');
+  const [query, setQuery] = useState('');
   const [pending, setPending] = useState<string | null>(null);
-  const fileInput = useRef<HTMLInputElement>(null);
+  const [dialog, setDialog] = useState<SourceDialogState | null>(null);
+  const [viewing, setViewing] = useState<KnowledgeSourceView | null>(null);
+  const [deleting, setDeleting] = useState<KnowledgeSourceView | null>(null);
 
   const load = useCallback(async (quiet = false) => {
     if (!quiet) setLoading(true);
@@ -58,14 +76,13 @@ export function KnowledgePanel({ canEdit, hasEmbeddingsKey = true, onChange, can
       const res = await authFetch('/api/ai/knowledge/sources');
       const data = await res.json().catch(() => ({}));
       if (res.ok) setSources(data.sources ?? []);
-      else if (!quiet) toast.error(data.error ?? t('loadFailed'));
+      else if (!quiet) toast.error(data.error ?? tk('loadFailed'));
     } catch {
-      if (!quiet) toast.error(t('loadFailed'));
+      if (!quiet) toast.error(tk('loadFailed'));
     } finally {
       if (!quiet) setLoading(false);
     }
-  }, [t]);
-
+  }, [tk]);
   useEffect(() => { void load(); }, [load]);
 
   const polling = shouldPoll(sources);
@@ -75,59 +92,33 @@ export function KnowledgePanel({ canEdit, hasEmbeddingsKey = true, onChange, can
     return () => clearInterval(timer);
   }, [polling, load]);
 
-  const resetForm = () => {
-    setUrl(''); setTitle(''); setContent(''); setFile(null); setPageLimit('50');
-    if (fileInput.current) fileInput.current.value = '';
-  };
+  // A page-level "Add source" request opens the dialog once (also when it arrives with the first render).
+  const [seenRequest, setSeenRequest] = useState<object | null>(null);
+  if (addRequest && seenRequest !== addRequest) {
+    setSeenRequest(addRequest);
+    if (canEdit) setDialog({ kind: 'add', preset: addRequest.preset });
+  }
 
-  const add = async () => {
-    setBusy(true);
-    try {
-      let res: Response;
-      if (mode === 'file') {
-        if (!file) { toast.error(t('chooseFile')); return; }
-        if (file.size > UPLOAD_MAX_BYTES) { toast.error(t('errors.file_too_large')); return; }
-        const form = new FormData();
-        form.set('file', file);
-        if (title.trim()) form.set('title', title.trim());
-        res = await authFetch('/api/ai/knowledge/upload', { method: 'POST', body: form });
-      } else {
-        const body = mode === 'text'
-          ? { kind: 'text', title: title.trim(), content: content.trim() }
-          : { kind: mode, url: url.trim(), ...(title.trim() ? { title: title.trim() } : {}), page_limit: Number(pageLimit) || 50 };
-        res = await authFetch('/api/ai/knowledge/sources', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
-        });
-      }
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) { toast.error(data.error ?? t('actionFailed')); return; }
-      toast.success(data.truncated ? t('uploadedTruncated') : t('added'));
-      resetForm();
-      await load(true);
-      onChange?.();
-    } catch {
-      toast.error(t('actionFailed'));
-    } finally {
-      setBusy(false);
-    }
-  };
+  const list = useMemo(() => filterSources(sources, group, query), [sources, group, query]);
+  const count = (g: SourceGroup) => (g === 'all' ? sources.length : sources.filter((s) => sourceGroup(s) === g).length);
+  const replace = (source: KnowledgeSourceView) => setSources((all) => all.map((s) => (s.id === source.id ? source : s)));
 
   const recrawl = async (source: KnowledgeSourceView) => {
     setPending(source.id);
     try {
       const res = await authFetch(`/api/ai/knowledge/sources/${source.id}`, { method: 'POST' });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) { toast.error(data.error ?? t('actionFailed')); return; }
-      toast.success(t('recrawlQueued'));
-      setSources((list) => list.map((s) => (s.id === source.id ? data.source : s)));
+      if (!res.ok) { toast.error(data.error ?? t('toasts.failed')); return; }
+      replace(data.source);
+      toast.success(t('toasts.syncing', { title: source.title }));
     } catch {
-      toast.error(t('actionFailed'));
+      toast.error(t('toasts.failed'));
     } finally {
       setPending(null);
     }
   };
 
-  const changeAccess = async (source: KnowledgeSourceView, patch: AccessPatch) => {
+  const changeAccess = async (source: KnowledgeSourceView, patch: AccessPatch, message: string) => {
     if (!nextAccess(source, patch)) { toast.error(ta('adminOnlyNotCustomer')); return; }
     setPending(source.id);
     try {
@@ -135,192 +126,240 @@ export function KnowledgePanel({ canEdit, hasEmbeddingsKey = true, onChange, can
         method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(patch),
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) { toast.error(res.status === 403 ? ta('forbidden') : data.error ?? t('actionFailed')); return; }
-      toast.success(ta('saved'));
-      setSources((list) => list.map((s) => (s.id === source.id ? data.source : s)));
+      if (!res.ok) { toast.error(res.status === 403 ? ta('forbidden') : data.error ?? t('toasts.failed')); return; }
+      replace(data.source);
+      toast.success(message);
     } catch {
-      toast.error(t('actionFailed'));
+      toast.error(t('toasts.failed'));
     } finally {
       setPending(null);
     }
   };
 
   const remove = async (source: KnowledgeSourceView) => {
-    if (!window.confirm(t('deleteConfirm', { title: source.title }))) return;
     setPending(source.id);
     try {
       const res = await authFetch(`/api/ai/knowledge/sources/${source.id}`, { method: 'DELETE' });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) { toast.error(data.error ?? t('actionFailed')); return; }
-      toast.success(t('deleted'));
-      setSources((list) => list.filter((s) => s.id !== source.id));
+      if (!res.ok) { toast.error(data.error ?? t('toasts.failed')); return; }
+      setSources((all) => all.filter((s) => s.id !== source.id));
+      setDeleting(null);
+      toast.success(t('toasts.deleted'));
       onChange?.();
     } catch {
-      toast.error(t('actionFailed'));
+      toast.error(t('toasts.failed'));
     } finally {
       setPending(null);
     }
   };
 
-  const canSubmit = !busy && (mode === 'file' ? !!file
-    : mode === 'text' ? !!title.trim() && !!content.trim()
-    : !!url.trim());
+  // "Edit" reads the stored question and answer (or text) first, then opens the editor.
+  const openEdit = async (source: KnowledgeSourceView) => {
+    setPending(source.id);
+    try {
+      const res = await authFetch(`/api/ai/knowledge/sources/${source.id}`, { cache: 'no-store' });
+      const data = await res.json().catch(() => ({}));
+      const content = data.content;
+      if (!res.ok || !content || (content.kind === 'text' && content.truncated)) { setViewing(source); return; }
+      setDialog(content.kind === 'qa'
+        ? { kind: 'edit', source, question: content.question, answer: content.answer }
+        : { kind: 'edit', source, title: source.title, content: content.text });
+    } catch {
+      toast.error(t('toasts.failed'));
+    } finally {
+      setPending(null);
+    }
+  };
 
-  const modes: { key: AddMode; icon: typeof Globe }[] = [
-    { key: 'website', icon: Globe }, { key: 'sitemap', icon: MapIcon }, { key: 'file', icon: FileUp }, { key: 'text', icon: Type },
-  ];
-  const kindIcon = (kind: string) => modes.find((m) => m.key === kind)?.icon ?? BookOpen;
+  const copy = async (source: KnowledgeSourceView) => {
+    try {
+      await navigator.clipboard.writeText(source.url ?? '');
+      toast.success(t('toasts.copied'));
+    } catch {
+      toast.error(t('toasts.failed'));
+    }
+  };
+
+  const size = (s: KnowledgeSourceView) => {
+    if (!s.pages_indexed) return '—';
+    if (isCrawled(s.kind)) return t('size.pages', { count: s.pages_indexed });
+    if (s.qa || s.kind === 'learning') return t('size.answers', { count: s.pages_indexed });
+    return t('size.documents', { count: s.pages_indexed });
+  };
+
+  const status = (s: KnowledgeSourceView) => {
+    const progress = syncProgress(s);
+    const reason = sourceReason(s.error);
+    if (isRunning(s)) {
+      return (
+        <div className="flex min-w-0 flex-col items-start gap-1.5">
+          <Badge variant="secondary" className="rounded-full">
+            <Loader2 className="animate-spin" aria-hidden />{t(`status.${s.status}`)}{progress !== null && <b className="font-semibold tabular-nums">{progress}%</b>}
+          </Badge>
+          {progress !== null && (
+            <div className="h-1.5 w-full max-w-40 overflow-hidden rounded-full bg-muted" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress}
+              aria-label={t('progressLabel', { title: s.title })}>
+              <i className="block h-full rounded-full bg-primary transition-[width] duration-300" style={{ width: `${progress}%` }} />
+            </div>
+          )}
+        </div>
+      );
+    }
+    return (
+      <div className="flex min-w-0 flex-col items-start gap-1">
+        <Badge variant={s.status === 'failed' ? 'destructive' : s.status === 'ready' ? 'secondary' : 'outline'} className="rounded-full">{t(`status.${s.status}`)}</Badge>
+        {reason && <small className={cn('text-xs', s.status === 'failed' ? 'text-muted-foreground' : 'text-amber-700 dark:text-amber-300')}>{tk(`reasons.${reason}`)}</small>}
+      </div>
+    );
+  };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{t('title')}</CardTitle>
-        <CardDescription>{t('description')}</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-6">
-        {!hasEmbeddingsKey && (
-          <p role="status" className="rounded-lg bg-amber-500/10 px-3 py-2 text-[13px] text-amber-800 dark:text-amber-200">{t('noEmbeddingsKey')}</p>
-        )}
+    <div className="min-w-0 space-y-4">
+      {canAsk && <AskBox canWrite={canEdit} onWriteAnswer={(q) => setDialog({ kind: 'add', preset: q })} />}
+      {!hasEmbeddingsKey && (
+        <p role="status" className="rounded-lg bg-amber-500/10 px-3 py-2 text-[13px] text-amber-800 dark:text-amber-200">{tk('noEmbeddingsKey')}</p>
+      )}
 
-        {canEdit && (
-          <div className="space-y-4 rounded-xl bg-muted/60 p-4">
-            <div className="flex w-fit max-w-full gap-1 overflow-x-auto rounded-xl bg-muted p-[3px] [scrollbar-width:none]" role="tablist" aria-label={t('addLabel')}>
-              {modes.map(({ key, icon: Icon }) => (
-                <button key={key} type="button" role="tab" aria-selected={mode === key} onClick={() => setMode(key)}
-                  className={cn('inline-flex h-[30px] shrink-0 items-center gap-1.5 rounded-[9px] px-3 text-[13px] font-medium whitespace-nowrap transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                    mode === key ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground')}>
-                  <Icon className="h-4 w-4" aria-hidden />{t(`modes.${key}`)}
-                </button>
-              ))}
-            </div>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex min-w-0 flex-wrap gap-1.5" role="group" aria-label={t('typeLabel')}>
+          {SOURCE_GROUPS.map((g) => (
+            <button key={g} type="button" aria-pressed={group === g} onClick={() => setGroup(g)}
+              className={cn('inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-[13px] font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50',
+                group === g ? 'border-primary bg-primary-soft text-primary' : 'border-border bg-card text-muted-foreground hover:text-foreground')}>
+              {t(`types.${g}`)}<b className="font-semibold tabular-nums">{count(g)}</b>
+            </button>
+          ))}
+        </div>
+        <div className="flex w-full min-w-0 items-center gap-2 sm:w-auto">
+          <label className="relative flex h-9 min-w-0 flex-1 items-center sm:w-56 sm:flex-none">
+            <Search className="pointer-events-none absolute left-3 size-4 text-muted-foreground" aria-hidden />
+            <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t('search')} aria-label={t('search')}
+              className="h-9 w-full rounded-full border border-border bg-card pr-3 pl-9 text-sm outline-none transition-colors duration-150 placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30" />
+          </label>
+          {canEdit && <Button type="button" variant="outline" className="h-9 shrink-0" onClick={() => setDialog({ kind: 'add' })}><Plus aria-hidden />{t('addShort')}</Button>}
+        </div>
+      </div>
 
-            {(mode === 'website' || mode === 'sitemap') && (
-              <div className="grid gap-3 sm:grid-cols-[1fr_8rem]">
-                <div className="space-y-1">
-                  <Label htmlFor="ks-url">{t(mode === 'website' ? 'fields.websiteUrl' : 'fields.sitemapUrl')}</Label>
-                  <Input id="ks-url" type="url" inputMode="url" autoComplete="off" value={url} maxLength={2048}
-                    placeholder={mode === 'website' ? 'https://example.com' : 'https://example.com/sitemap.xml'}
-                    onChange={(e) => setUrl(e.target.value)} />
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="ks-limit">{t('fields.pageLimit')}</Label>
-                  <Input id="ks-limit" type="number" min={1} max={500} value={pageLimit} onChange={(e) => setPageLimit(e.target.value)} />
-                </div>
-                <p className="text-xs text-muted-foreground sm:col-span-2">{t(mode === 'website' ? 'hints.website' : 'hints.sitemap')}</p>
-              </div>
-            )}
-
-            {(mode === 'text' || mode === 'file') && (
-              <div className="space-y-1">
-                <Label htmlFor="ks-title">{t(mode === 'file' ? 'fields.titleOptional' : 'fields.title')}</Label>
-                <Input id="ks-title" value={title} maxLength={300} onChange={(e) => setTitle(e.target.value)} />
-              </div>
-            )}
-
-            {mode === 'text' && (
-              <div className="space-y-1">
-                <Label htmlFor="ks-content">{t('fields.content')}</Label>
-                <Textarea id="ks-content" rows={8} value={content} maxLength={100_000} onChange={(e) => setContent(e.target.value)} />
-              </div>
-            )}
-
-            {mode === 'file' && (
-              <div className="space-y-1">
-                <Label htmlFor="ks-file">{t('fields.file')}</Label>
-                <Input id="ks-file" ref={fileInput} type="file" accept={ACCEPTED_UPLOADS}
-                  onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
-                <p className="text-xs text-muted-foreground">{t('hints.file')}</p>
-              </div>
-            )}
-
-            <Button type="button" onClick={add} disabled={!canSubmit}>
-              {busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />}
-              {mode === 'file' ? t('upload') : t('add')}
-            </Button>
+      {loading ? (
+        <div className="flex justify-center py-8"><Loader2 className="size-5 animate-spin text-muted-foreground" aria-label={tc('loading')} /></div>
+      ) : sources.length === 0 ? (
+        <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-border px-4 py-12 text-center">
+          <span className="flex size-11 items-center justify-center rounded-xl bg-primary-soft text-primary"><BookOpen className="size-5" aria-hidden /></span>
+          <h2 className="text-base font-semibold">{t('emptyTitle')}</h2>
+          <p className="max-w-sm text-sm text-muted-foreground">{t('emptyBody')}</p>
+          {canEdit && <Button type="button" variant="outline" onClick={() => setDialog({ kind: 'add' })}><Plus aria-hidden />{t('addFirst')}</Button>}
+        </div>
+      ) : list.length === 0 ? (
+        <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-border px-4 py-12 text-center">
+          <h2 className="text-base font-semibold">{t('noMatchTitle')}</h2>
+          <p className="text-sm text-muted-foreground">{t('noMatchBody')}</p>
+          <Button type="button" variant="outline" onClick={() => { setGroup('all'); setQuery(''); }}>{t('clearFilters')}</Button>
+        </div>
+      ) : (
+        <div className="overflow-hidden rounded-xl border border-border bg-card" role="table" aria-label={t('tableLabel')}>
+          <div role="row" className={cn(ROW, 'hidden bg-muted py-2 text-xs font-semibold text-muted-foreground md:grid')}>
+            <span role="columnheader">{t('cols.source')}</span>
+            <span role="columnheader" className="hidden xl:block">{t('cols.type')}</span>
+            <span role="columnheader">{t('cols.status')}</span>
+            <span role="columnheader">{t('cols.size')}</span>
+            <span role="columnheader" className="hidden xl:block">{t('cols.updated')}</span>
+            <span role="columnheader" title={t('cols.inRepliesHint')}>{t('cols.inReplies')}</span>
+            <span role="columnheader" className="sr-only">{t('cols.actions')}</span>
           </div>
-        )}
-
-        {loading ? (
-          <div className="flex justify-center py-6"><Loader2 className="h-5 w-5 animate-spin" aria-label={t('loading')} /></div>
-        ) : sources.length === 0 ? (
-          <div className="flex flex-col items-center gap-2 py-10 text-center">
-            <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary"><BookOpen className="h-5 w-5" aria-hidden /></span>
-            <p className="max-w-sm text-sm text-muted-foreground">{t('empty')}</p>
-          </div>
-        ) : (
-          <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border">
-            {sources.map((source) => {
-              const reason = sourceReason(source.error);
-              const running = isRunning(source);
-              const KindIcon = kindIcon(source.kind);
-              return (
-                <li key={source.id} className="flex flex-col gap-3 px-4 py-3 transition-colors duration-150 hover:bg-muted/40 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="flex min-w-0 gap-3">
-                  <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-[11px] bg-primary/10 text-primary"><KindIcon className="h-4 w-4" aria-hidden /></span>
-                  <div className="min-w-0 space-y-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="truncate font-semibold">{source.title}</span>
-                      <Badge variant="secondary" className="rounded-full">{t(`kinds.${source.kind}`)}</Badge>
-                      <Badge variant={statusVariant(source.status)} className="rounded-full">
-                        {running && <Loader2 className="h-3 w-3 animate-spin" aria-hidden />}
-                        {t(`statuses.${source.status}`)}
-                      </Badge>
-                    </div>
-                    {source.url && <p className="truncate text-xs text-muted-foreground" title={source.url}>{source.url}</p>}
-                    <p className="text-xs text-muted-foreground">
-                      {t('pages', { count: source.pages_indexed })}
-                      {' · '}
-                      {source.last_crawled_at
-                        ? t('lastCrawled', { when: format.relativeTime(new Date(source.last_crawled_at)) })
-                        : t('neverCrawled')}
-                    </p>
-                    {reason && (
-                      <p className={`text-xs ${source.status === 'failed' ? 'text-destructive' : 'text-amber-700 dark:text-amber-300'}`}>{t(`reasons.${reason}`)}</p>
-                    )}
-                    {canManageAccess ? (
-                      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 pt-1 text-xs">
-                        <label className="flex items-center gap-2">
-                          <span className="text-muted-foreground">{ta('visibleTo')}</span>
-                          <select className="h-8 rounded-lg border border-border bg-card px-2 text-xs text-foreground transition-colors duration-150 focus:border-ring focus:outline-none"
-                            value={source.min_role} disabled={pending === source.id}
-                            onChange={(e) => changeAccess(source, { min_role: e.target.value === 'admin' ? 'admin' : 'agent' })}>
-                            <option value="agent">{ta('roles.agent')}</option>
-                            <option value="admin">{ta('roles.admin')}</option>
-                          </select>
-                        </label>
-                        <label className="flex items-center gap-2">
-                          <Switch checked={source.customer_facing} disabled={pending === source.id || source.min_role === 'admin'}
-                            onCheckedChange={(checked) => changeAccess(source, { customer_facing: checked === true })} />
-                          <span className="text-muted-foreground">{ta('customerFacing')}</span>
-                        </label>
-                        {source.min_role === 'admin' && <span className="text-muted-foreground">{ta('adminOnlyHint')}</span>}
-                      </div>
-                    ) : (
-                      <p className="text-xs text-muted-foreground">
-                        {ta(source.customer_facing ? 'summaryCustomer' : 'summaryStaff')}
-                      </p>
-                    )}
-                  </div>
-                  </div>
+          {list.map((s) => {
+            const Icon = GROUP_ICON[sourceGroup(s)];
+            const running = isRunning(s);
+            const busy = pending === s.id;
+            return (
+              <div key={s.id} role="row" className={cn(ROW, 'border-t border-border transition-colors duration-150 hover:bg-muted/50 [&:nth-child(2)]:border-t-0')}>
+                <div role="cell" className="flex min-w-0 items-center gap-3 [grid-area:name] md:[grid-area:auto]">
+                  <span className="flex size-9 shrink-0 items-center justify-center rounded-[11px] bg-primary-soft text-primary"><Icon className="size-4" aria-hidden /></span>
+                  <button type="button" className="min-w-0 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 rounded-md" onClick={() => setViewing(s)}>
+                    <strong className="block truncate text-sm font-semibold">{s.title}</strong>
+                    <small className="block truncate text-xs text-muted-foreground">
+                      {s.url ?? t(`kind.${kindKey(s)}`)}{s.min_role === 'admin' ? ` · ${ta('roles.admin')}` : ''}
+                    </small>
+                  </button>
+                </div>
+                <span role="cell" className="hidden xl:block"><Badge variant="outline" className="rounded-full">{t(`kind.${kindKey(s)}`)}</Badge></span>
+                <div role="cell" className="min-w-0 [grid-area:status] md:[grid-area:auto]">{status(s)}</div>
+                <span role="cell" className="hidden text-[13px] whitespace-nowrap text-muted-foreground tabular-nums md:block">{size(s)}</span>
+                <span role="cell" className="hidden text-[13px] whitespace-nowrap text-muted-foreground xl:block">
+                  {s.last_crawled_at ? format.relativeTime(new Date(s.last_crawled_at)) : t('never')}
+                </span>
+                <span role="cell" className="flex items-center gap-2 justify-self-end text-xs text-muted-foreground [grid-area:use] md:justify-self-start md:[grid-area:auto]">
+                  <span className="md:sr-only">{t('cols.inReplies')}</span>
+                  <Switch checked={s.customer_facing} disabled={!canManageAccess || busy || s.min_role === 'admin'}
+                    aria-label={t('useInReplies', { title: s.title })}
+                    onCheckedChange={(v: boolean) => void changeAccess(s, { customer_facing: v }, t(v ? 'toasts.inReplies' : 'toasts.teamOnly', { title: s.title }))} />
+                </span>
+                <span role="cell" className="flex items-center justify-end gap-0.5 [grid-area:acts] md:[grid-area:auto]">
                   {canEdit && (
-                    <div className="flex shrink-0 gap-1 sm:justify-end">
-                      <Button type="button" size="sm" variant="outline" disabled={running || pending === source.id}
-                        onClick={() => recrawl(source)}>
-                        <RefreshCw className="mr-1 h-4 w-4" aria-hidden />
-                        {isCrawled(source.kind) ? t('recrawl') : t('reindex')}
-                      </Button>
-                      <Button type="button" size="sm" variant="ghost" disabled={pending === source.id}
-                        aria-label={t('deleteLabel', { title: source.title })} onClick={() => remove(source)}>
-                        <Trash2 className="h-4 w-4" aria-hidden />
-                      </Button>
-                    </div>
+                    <Button type="button" variant="ghost" size="icon-sm" disabled={running || busy} aria-label={t('syncAgainLabel', { title: s.title })}
+                      title={s.status === 'failed' ? t('menu.tryAgain') : t('menu.syncAgain')} onClick={() => void recrawl(s)}>
+                      <RefreshCw aria-hidden />
+                    </Button>
                   )}
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </CardContent>
-    </Card>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger aria-label={t('more', { title: s.title })}
+                      className="inline-flex size-8 items-center justify-center rounded-full text-muted-foreground transition-colors duration-150 hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 data-[popup-open]:bg-muted">
+                      <MoreHorizontal className="size-4" aria-hidden />
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => setViewing(s)}><Eye className="size-4" />{t('menu.view')}</DropdownMenuItem>
+                      {canEdit && s.kind === 'text' && (
+                        <DropdownMenuItem onClick={() => void openEdit(s)}><Pencil className="size-4" />{s.qa ? t('menu.editAnswer') : t('menu.editText')}</DropdownMenuItem>
+                      )}
+                      {s.url && <DropdownMenuItem onClick={() => void copy(s)}><Copy className="size-4" />{t('menu.copy')}</DropdownMenuItem>}
+                      {canEdit && !running && (
+                        <DropdownMenuItem onClick={() => void recrawl(s)}><RefreshCw className="size-4" />{s.status === 'failed' ? t('menu.tryAgain') : t('menu.syncAgain')}</DropdownMenuItem>
+                      )}
+                      {canManageAccess && (
+                        s.min_role === 'admin'
+                          ? <DropdownMenuItem onClick={() => void changeAccess(s, { min_role: 'agent' }, ta('saved'))}><Users className="size-4" />{t('menu.showAgents')}</DropdownMenuItem>
+                          : <DropdownMenuItem onClick={() => void changeAccess(s, { min_role: 'admin' }, ta('saved'))}><Lock className="size-4" />{t('menu.adminsOnly')}</DropdownMenuItem>
+                      )}
+                      {canEdit && (
+                        <>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem variant="destructive" onClick={() => setDeleting(s)}><Trash2 className="size-4" />{t('menu.delete')}</DropdownMenuItem>
+                        </>
+                      )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {dialog && (
+        <SourceDialog state={dialog} onClose={() => setDialog(null)}
+          onSaved={(source, message) => {
+            toast.success(message);
+            setGroup('all'); setQuery('');
+            setSources((all) => (all.some((s) => s.id === source.id) ? all.map((s) => (s.id === source.id ? source : s)) : [source, ...all]));
+            void load(true);
+            onChange?.();
+          }} />
+      )}
+      {viewing && (
+        <SourceDetailDialog source={viewing} canEdit={canEdit} onClose={() => setViewing(null)}
+          onEdit={(state) => { setViewing(null); setDialog(state); }} />
+      )}
+      <Dialog open={deleting !== null} onOpenChange={(open) => { if (!open) setDeleting(null); }}>
+        <DialogContent className="border-border bg-popover sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="break-words">{t('deleteTitle', { title: deleting?.title ?? '' })}</DialogTitle>
+            <DialogDescription>{t('deleteBody')}</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setDeleting(null)}>{tc('cancel')}</Button>
+            <Button type="button" variant="destructive" disabled={!deleting || pending === deleting.id} onClick={() => deleting && void remove(deleting)}>{t('deleteConfirm')}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
   );
 }

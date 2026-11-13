@@ -42,7 +42,9 @@ describe('Stage 3A migration inventory', () => {
   it('adds the Live comment and ref link triggers to the flow check', () => {
     const values = inList(sql('20261117130000_flow_ig_phase2_triggers'), 'trigger_type');
     // Stage 4 adds ig_share_to_story in 20261117190300 (the latest check is covered in phase1-schema.test.ts).
-    expect(values.sort()).toEqual(FLOW_TRIGGER_TYPES.filter((type) => type !== 'ig_share_to_story').sort());
+    // Later migrations add ig_share_to_story (20261117190300) and the event triggers (20261123014000).
+    const later = ['ig_share_to_story', 'contact_created', 'tag_added', 'outside_hours'];
+    expect(values.sort()).toEqual(FLOW_TRIGGER_TYPES.filter((type) => !later.includes(type)).sort());
     expect(values).toEqual(expect.arrayContaining(['ig_live_comment', 'ig_ref']));
   });
 

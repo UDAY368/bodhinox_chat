@@ -35,7 +35,7 @@ const FIELDS: Field[] = ['tags', 'list', 'campaign', 'ad', 'lead_form', 'custom_
 const STAGE5_FIELD_LABELS: Partial<Record<Field, string>> = { whatsapp: 'whatsappField', instagram_subscription: 'instagramSubscriptionField' };
 /** Same list as IG_SEGMENT_FACTS in lib/audience/filter (a server module, so not imported here). */
 const IG_SEGMENT_FACTS = ['follows_business', 'business_follows', 'is_verified'] as const;
-const selectClass = 'h-8 rounded-lg border border-border bg-card px-2 text-sm text-foreground';
+const selectClass = 'h-8 min-w-0 max-w-full rounded-lg border border-border bg-card px-2 text-sm text-foreground';
 
 function blank(field: Field): AudienceCondition {
   switch (field) {
@@ -174,7 +174,7 @@ export function SegmentBuilderDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="border-border bg-popover sm:max-w-2xl">
+      <DialogContent className="max-h-[90dvh] overflow-y-auto border-border bg-popover sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle className="text-popover-foreground">{segment ? t('editTitle') : t('newTitle')}</DialogTitle>
           <DialogDescription className="text-muted-foreground">{t('builderDesc')}</DialogDescription>

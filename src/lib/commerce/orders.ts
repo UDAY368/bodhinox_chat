@@ -115,6 +115,9 @@ export interface OrderListItem {
   /** 'cod': cash on delivery (the cash is recorded with Record offline payment). */
   payment_method: 'online' | 'cod';
   item_count: number;
+  /** When a payment was credited (null while unpaid); with refund_state it gives the order's payment state. */
+  paid_at: string | null;
+  refund_state: RefundState;
   contact: { id: string; name: string | null; phone: string | null } | null;
   conversation_id: string | null;
   created_at: string;
@@ -220,7 +223,7 @@ const EPOCH_MICROS = Prisma.sql`(extract(epoch from date_trunc('second', created
 
 const listSelect = {
   id: true, source: true, external_id: true, status: true, currency: true, subtotal_minor: true, total_minor: true,
-  contact_id: true, conversation_id: true, created_at: true, updated_at: true, payment_method: true,
+  contact_id: true, conversation_id: true, created_at: true, updated_at: true, payment_method: true, paid_at: true, refund_state: true,
 } as const;
 type ListRow = Prisma.ordersGetPayload<{ select: typeof listSelect }>;
 
@@ -239,6 +242,7 @@ async function decorate(tx: TenantTransaction, accountId: string, rows: ListRow[
       id: r.id, source: r.source as OrderSource, external_id: r.external_id, status: r.status as OrderStatus,
       currency: r.currency, subtotal_minor: minorFromDb(r.subtotal_minor)!, total_minor: minorFromDb(r.total_minor),
       payment_method: r.payment_method === 'cod' ? 'cod' : 'online', item_count: countOf.get(r.id) ?? 0,
+      paid_at: r.paid_at ? r.paid_at.toISOString() : null, refund_state: (r.refund_state ?? 'none') as RefundState,
       contact: contact ? { id: contact.id, name: contact.name ?? null, phone: contact.phone || null } : null,
       conversation_id: r.conversation_id, created_at: r.created_at.toISOString(), updated_at: r.updated_at.toISOString(),
     };
@@ -300,8 +304,8 @@ async function readOrder(tx: TenantTransaction, accountId: string, id: string): 
     select: {
       ...listSelect, catalog_id: true, whatsapp_config_id: true, note: true, customer_note: true,
       priced_at: true, discount_minor: true, shipping_minor: true, cod_fee_minor: true, tax_minor: true, tax_inclusive: true, coupon_code: true,
-      shipping_address: true, reservation_expires_at: true, paid_at: true, amount_paid_minor: true, amount_refunded_minor: true,
-      refund_state: true, dispatched_at: true, delivered_at: true, tracking_note: true, feedback_score: true,
+      shipping_address: true, reservation_expires_at: true, amount_paid_minor: true, amount_refunded_minor: true,
+      dispatched_at: true, delivered_at: true, tracking_note: true, feedback_score: true,
     },
   });
   if (!row) throw new OrderError(404, 'not_found', 'Order not found');

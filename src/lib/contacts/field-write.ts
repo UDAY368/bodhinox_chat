@@ -5,6 +5,7 @@ import type { DataClient } from '@/lib/data/types'
 import { withTenant } from '@/lib/db/tenant'
 import { getWorkerPrisma } from '@/lib/db/prisma'
 import { queueContactEvent } from './tag-write'
+import { fieldType, normalizeFieldValue, type TypedField } from './custom-field-types'
 
 import { WRITABLE_CONTACT_FIELDS } from './writable-fields'
 export { WRITABLE_CONTACT_FIELDS }
@@ -20,16 +21,18 @@ export interface ContactFieldWriteOptions {
 /**
  * Writes `name` / `email` / `company`, or a custom field given as
  * `custom:<custom_field_id>`. Returns false when the field is not
- * writable, the custom field is not this account's, or the contact is not
- * this account's.
+ * writable, the custom field is not this account's, the value does not fit
+ * a number, date or choice field (custom-field-types.ts), or the contact is
+ * not this account's.
  *
  * Stage 5: when the value really changes, the field_changed event (field id
  * and whether it had and has a value, never the values) is queued for the
  * matching automations in the same transaction as the write.
  */
-export async function writeContactField(db: DataClient, accountId: string, contactId: string, field: string, value: string,
+export async function writeContactField(db: DataClient, accountId: string, contactId: string, field: string, rawValue: string,
   options: ContactFieldWriteOptions = {}): Promise<boolean> {
   if (!UUID.test(contactId)) return false
+  let value = rawValue
   if (field.startsWith('custom:')) {
     const customFieldId = field.slice('custom:'.length)
     if (!UUID.test(customFieldId)) return false
@@ -37,11 +40,17 @@ export async function writeContactField(db: DataClient, accountId: string, conta
     // definition belongs to this account before writing.
     const { data: definition } = await db
       .from('custom_fields')
-      .select('id')
+      .select('id,field_type,field_options')
       .eq('id', customFieldId)
       .eq('account_id', accountId)
       .maybeSingle()
     if (!definition) return false
+    // A number, date or choice field only stores a value of its type; text takes any value as before.
+    if (fieldType(definition as TypedField) !== 'text') {
+      const typed = normalizeFieldValue(definition as TypedField, value)
+      if (!typed.ok) return false
+      value = typed.value
+    }
     return withTenant({ accountId, role: 'owner' }, async (tx) => {
       const [contact] = await tx.$queryRaw<{ id: string }[]>`SELECT id::text AS id FROM contacts
         WHERE account_id=${accountId}::uuid AND id=${contactId}::uuid FOR UPDATE`

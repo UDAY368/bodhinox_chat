@@ -1,12 +1,14 @@
 // PATCH  /api/broadcasts/[id]/schedule { scheduledAt } — move a scheduled campaign (agent+ with campaigns.send)
+//        { sendNow: true } — start it now instead (the same queued job, moved to now)
 // DELETE /api/broadcasts/[id]/schedule — cancel it before it starts (agent+ with campaigns.send)
 
 import { NextResponse } from 'next/server';
 
 import { requireRole, toErrorResponse } from '@/lib/auth/account';
+import { AuthError } from '@/lib/auth/errors';
 import { tenantOf } from '@/lib/audience/http';
 import { requirePermission } from '@/lib/auth/permissions';
-import { cancelScheduledBroadcast, rescheduleBroadcast } from '@/lib/broadcasts/schedule';
+import { cancelScheduledBroadcast, rescheduleBroadcast, startScheduledNow } from '@/lib/broadcasts/schedule';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const notFound = () => NextResponse.json({ error: 'Broadcast unavailable' }, { status: 404 });
@@ -17,10 +19,13 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     await requirePermission(tenantOf(ctx), 'campaigns.send');
     const { id } = await params;
     if (!UUID.test(id)) return notFound();
-    const body = (await request.json().catch(() => null)) as { scheduledAt?: unknown } | null;
-    await rescheduleBroadcast(tenantOf(ctx), id, body?.scheduledAt);
+    const body = (await request.json().catch(() => null)) as { scheduledAt?: unknown; sendNow?: unknown } | null;
+    if (body?.sendNow === true) await startScheduledNow(tenantOf(ctx), id);
+    else await rescheduleBroadcast(tenantOf(ctx), id, body?.scheduledAt);
     return NextResponse.json({ success: true });
   } catch (error) {
+    // A refused start carries its reason code, so the page can say why in the member's language.
+    if (error instanceof AuthError && error.status === 409) return NextResponse.json({ error: error.message, code: error.code }, { status: 409 });
     return toErrorResponse(error);
   }
 }

@@ -128,6 +128,12 @@ export interface Contact {
   name?: string;
   email?: string;
   company?: string;
+  /** Contacts redesign (20261121000200). */
+  city?: string | null;
+  /** The member responsible for the contact; set through PATCH /api/contacts/[id] only. */
+  owner_id?: string | null;
+  /** Instagram-only subscription (Stage 5); opted_out_at stays the WhatsApp STOP. */
+  instagram_opted_out_at?: string | null;
   avatar_url?: string;
   created_at: string;
   updated_at: string;
@@ -756,7 +762,7 @@ export interface Deal {
 }
 
 export type BroadcastStatus =
-  'draft' | 'scheduled' | 'sending' | 'sent' | 'failed' | 'cancelled';
+  'draft' | 'scheduled' | 'sending' | 'sent' | 'failed' | 'cancelled' | 'paused';
 export type RecipientStatus =
   'pending' | 'sent' | 'delivered' | 'read' | 'replied' | 'failed';
 
@@ -775,6 +781,16 @@ export interface Broadcast {
   tracked_url?: string | null;
   /** Recipients who clicked the tracked link at least once. */
   click_count?: number;
+  /** 'whatsapp' (approved template) or 'instagram' (free text inside the 24-hour window). */
+  channel?: 'whatsapp' | 'instagram';
+  /** The Instagram message ({first name} is replaced per recipient). */
+  message_text?: string | null;
+  /** When a member paused it; null while not paused. */
+  paused_at?: string | null;
+  /** When it first started sending (set by the database on the move to 'sending'). */
+  started_at?: string | null;
+  /** When it last finished ('sent' or 'failed'); null while sending again. */
+  finished_at?: string | null;
   status: BroadcastStatus;
   total_recipients: number;
   sent_count: number;

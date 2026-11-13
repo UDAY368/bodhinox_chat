@@ -309,7 +309,7 @@ export function TemplateEditorDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
           <div className="space-y-4 py-2 min-w-0">
             <div className="space-y-2">
               <Label className="text-muted-foreground">{t('templateKind')}</Label>

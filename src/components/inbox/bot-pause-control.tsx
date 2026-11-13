@@ -3,7 +3,7 @@
 // Paused: who paused, until when, and Resume. Not paused: a small "Pause
 // automations" menu with the pause lengths, for this conversation or all of
 // the contact's conversations. Writes go through POST /api/inbox/pause.
-// It sits in the composer's toolbar row, beside Remind me and Schedule send.
+// It sits in the contact panel's Automation section (the thread's More menu and banner pause and resume too).
 import { useEffect, useState } from 'react'
 import { useFormatter, useTranslations } from 'next-intl'
 import { toast } from 'sonner'

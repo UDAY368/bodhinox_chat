@@ -65,12 +65,14 @@ There are 151 dynamic route files. `CASES` covers 47 routes. The exempt routes, 
 - public share links;
 - `public/*`, `platform/*` and `v1/*`.
 
-The following 67 dynamic routes have no cross-tenant case yet. The coverage test pins this list (`KNOWN_UNMAPPED`), so it can only shrink, and a new dynamic route fails CI until it is mapped or exempted.
+The AI page's routes `ai/agents/[id]` (GET, PATCH, DELETE), `ai/agents/[id]/duplicate` (POST) and `ai/knowledge/sources/[id]` (GET, POST, PATCH, PUT, DELETE) are mapped in `CASES`, with a switched-off agent and a ready text source created per tenant.
+
+The following dynamic routes have no cross-tenant case yet. The coverage test pins this list (`KNOWN_UNMAPPED`), so it can only shrink, and a new dynamic route fails CI until it is mapped or exempted.
 
 ```
 account/export/[id]/download, account/invitations/[id], account/support-grants/[id], ai/activity/[id],
 ai/assess/conversation/[id], ai/assess/conversation/[id]/refresh, ai/assist/suggestions/[id]/decision,
-ai/autoreply/[conversationId], ai/insights/[id], ai/knowledge/sources/[id], ai/unanswered/[id],
+ai/autoreply/[conversationId], ai/insights/[id], ai/unanswered/[id],
 analytics/reports/[id]/download, analytics/reports/[id]/shares, analytics/reports/[id]/shares/[shareId],
 appointments/[id]/meeting, appointments/booking-pages/[id], appointments/exceptions/[id],
 appointments/messages/[id]/resolve, appointments/staff/[id], appointments/tasks/[id], billing/invoices/[id],

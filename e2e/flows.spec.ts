@@ -6,6 +6,8 @@ test('an agent adds a location question with a reply timeout to a new flow', asy
   await page.goto('/flows');
   await page.getByRole('button', { name: 'New automation' }).first().click();
   const dialog = page.getByRole('dialog');
+  // Gallery first: "Start from scratch" opens the name, type and channel form.
+  await dialog.getByRole('button', { name: /Start from scratch/ }).click();
   await dialog.getByPlaceholder('e.g. Welcome menu').fill(`Location ${fixtures().runId}`);
   await dialog.getByRole('button', { name: 'Create blank flow' }).click();
   await expect(page).toHaveURL(/\/flows\/[0-9a-f-]{36}/);
@@ -41,14 +43,14 @@ test('an agent starts from a gallery template, previews it, duplicates it and fi
   await expect(page.getByRole('button', { name: 'Restart preview' })).toBeVisible();
 
   await page.goto('/flows');
-  await page.getByPlaceholder('Search flows').fill('Welcome menu');
+  await page.getByPlaceholder('Search automations').fill('Welcome menu');
   // The search also matches Journey menu flows (their description says "welcome menu"), so duplicate the card named Welcome menu.
   // Each row's actions are in its "More actions" menu (Stage 5 list rows).
   await page.getByRole('button', { name: 'More actions: Welcome menu', exact: true }).last().click();
   await page.getByRole('menuitem', { name: 'Duplicate' }).click();
   await expect(page).toHaveURL(/\/flows\/[0-9a-f-]{36}/);
   await page.goto('/flows');
-  await page.getByPlaceholder('Search flows').fill('Copy of Welcome menu');
+  await page.getByPlaceholder('Search automations').fill('Copy of Welcome menu');
   await expect(page.getByText(/Copy of Welcome menu/).first()).toBeVisible();
   await expect(page.getByText(/Created by/).first()).toBeVisible();
 });

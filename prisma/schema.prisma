@@ -51,7 +51,21 @@ model contacts {
   /// Stage 5 (20261118000400): Instagram-only subscription; opted_out_at stays the contact-wide WhatsApp STOP.
   instagram_opted_out_at DateTime? @db.Timestamptz(6)
   instagram_opted_in_at DateTime? @db.Timestamptz(6)
+  /// 20261121000200: the member responsible for the contact (written by /api/contacts/[id] and bulk assign only).
+  owner_id String? @db.Uuid
+  city String?
   @@unique([account_id, id])
+}
+
+/// 20261121000200: append-only contact timeline written by member actions; detail holds ids and field names only.
+model contact_activity {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  contact_id String @db.Uuid
+  actor_id String? @db.Uuid
+  kind String
+  detail Json @default("{}") @db.JsonB
+  created_at DateTime @default(now()) @db.Timestamptz(6)
 }
 
 model tags {
@@ -338,6 +352,13 @@ model broadcasts {
   click_count Int @default(0)
   whatsapp_config_id String? @db.Uuid
   retry_request_id String? @db.Uuid
+  /// 20261121000200: 'whatsapp' (template) or 'instagram' (free text inside the 24-hour window).
+  channel String @default("whatsapp")
+  message_text String?
+  paused_at DateTime? @db.Timestamptz(6)
+  /// 20261123016500: first move into 'sending' and last move into 'sent'/'failed' (set by a trigger).
+  started_at DateTime? @db.Timestamptz(6)
+  finished_at DateTime? @db.Timestamptz(6)
   @@unique([account_id, id])
 }
 
@@ -359,6 +380,8 @@ model broadcast_recipients {
   account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
   retry_generation Int @default(0)
   outcome_uncertain_at DateTime? @db.Timestamptz(6)
+  /// 20261121000200: the Instagram conversation an Instagram broadcast row is sent through.
+  conversation_id String? @db.Uuid
   @@unique([account_id, id])
 }
 
@@ -557,6 +580,7 @@ model accounts {
   created_at DateTime @db.Timestamptz(6) @default(now())
   updated_at DateTime @db.Timestamptz(6) @default(now())
   default_currency String  @default("USD")
+  default_language String?
 }
 
 model account_invitations {
@@ -1354,6 +1378,7 @@ model notification_preferences {
   event String
   in_app Boolean  @default(true)
   email Boolean  @default(false)
+  push Boolean  @default(false)
   @@id([account_id, user_id, event])
 }
 
@@ -1369,6 +1394,46 @@ model notification_email_queue {
   dedupe_key String?
   created_at DateTime @db.Timestamptz(6) @default(now())
   sent_at DateTime? @db.Timestamptz(6)
+  @@unique([account_id, id])
+}
+
+model member_preferences {
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  user_id String @db.Uuid
+  language String?
+  quiet_enabled Boolean @default(false)
+  quiet_start Int @db.SmallInt @default(1320)
+  quiet_end Int @db.SmallInt @default(420)
+  quiet_time_zone String @default("UTC")
+  quiet_allow_mentions Boolean @default(true)
+  updated_at DateTime @db.Timestamptz(6) @default(now())
+  @@id([account_id, user_id])
+}
+
+model push_subscriptions {
+  id String @db.Uuid @id @default(dbgenerated("gen_random_uuid()"))
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  user_id String @db.Uuid
+  endpoint String
+  p256dh String
+  auth String
+  created_at DateTime @db.Timestamptz(6) @default(now())
+  last_sent_at DateTime? @db.Timestamptz(6)
+  @@unique([account_id, user_id, endpoint])
+}
+
+model notification_push_queue {
+  id String @db.Uuid @id @default(dbgenerated("gen_random_uuid()"))
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  user_id String @db.Uuid
+  event String
+  notification_id String? @db.Uuid
+  dedupe_key String?
+  created_at DateTime @db.Timestamptz(6) @default(now())
+  sent_at DateTime? @db.Timestamptz(6)
+  /// Held by the member's quiet hours until this time.
+  not_before DateTime? @db.Timestamptz(6)
+  outcome String?
   @@unique([account_id, id])
 }
 
@@ -1592,6 +1657,8 @@ model ai_knowledge_sources {
   /// Phase 13: may ground customer-facing text (only with min_role 'agent', CHECK-enforced).
   customer_facing Boolean @default(true)
   @@unique([account_id, id])
+  /// 20261114006100: a question-and-answer text source (title = the question).
+  qa Boolean @default(false)
 }
 
 model ai_agent_profiles {
@@ -1681,9 +1748,38 @@ model report_schedules {
   last_run_id String? @db.Uuid
   created_at DateTime @db.Timestamptz(6) @default(now())
   updated_at DateTime @db.Timestamptz(6) @default(now())
-  // The partial index report_schedules_due_idx (WHERE paused_at IS NULL) is owned by the SQL.
+  /// 20261122000000: the analytics_saved_reports row a 'saved_report' schedule emails (composite FK, ON DELETE CASCADE, owned by the SQL).
+  saved_report_id String? @db.Uuid
+  /// Local minute past hour_local (0-59).
+  minute_local Int @db.SmallInt @default(0)
+  // The partial indexes report_schedules_due_idx (WHERE paused_at IS NULL) and report_schedules_saved_report_idx
+  // (unique, WHERE saved_report_id IS NOT NULL) are owned by the SQL.
   @@unique([account_id, id])
   @@index([account_id, created_at], map: "report_schedules_account_idx")
+}
+
+/// Analytics redesign (20261122000000): a saved report definition (metrics, grouping, channel, range, file type).
+/// Admins and owners read and write; the worker reads. Read and written only through withTenant raw SQL.
+model analytics_saved_reports {
+  id String @db.Uuid @id @default(dbgenerated("gen_random_uuid()"))
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  name String
+  /// Subset of 'new' | 'resolved' | 'first_response' | 'resolution' | 'messages' | 'failed'.
+  metrics String[]
+  /// 'day' | 'week' | 'channel' | 'agent' | 'label'
+  group_by String
+  /// 'all' | 'whatsapp' | 'instagram'
+  channel String @default("all")
+  range_preset String
+  from_day DateTime? @db.Date
+  to_day DateTime? @db.Date
+  format String @default("csv")
+  created_by String? @db.Uuid
+  created_at DateTime @db.Timestamptz(6) @default(now())
+  updated_at DateTime @db.Timestamptz(6) @default(now())
+  // The unique index analytics_saved_reports_name_idx (account_id, lower(name)) is owned by the SQL.
+  @@unique([account_id, id])
+  @@index([account_id, created_at(sort: Desc)], map: "analytics_saved_reports_account_idx")
 }
 
 /// Phase 12: a permission-controlled link to a ready report. No token; opened only through
@@ -2868,6 +2964,12 @@ model ai_workspace_settings {
   updated_at DateTime @db.Timestamptz(6) @default(now())
   /// Stage 5 (20261118000800): at most 3 goals for the Instagram AI auto-reply.
   instagram_goals Json @db.JsonB @default(dbgenerated("'[]'::jsonb"))
+  /// 20261123006000_ai_assistant_features: auto-labelling, translation, route to staff and the budget pause switch.
+  labelling_enabled Boolean @default(false)
+  translation_enabled Boolean @default(false)
+  translation_language String @default("en")
+  route_to_staff_enabled Boolean @default(false)
+  pause_at_cap Boolean @default(true)
 }
 
 /// Phase 13 (20261111100100_ai_suggestions): staff-reviewed summaries and suggested replies; never sent by the system.
@@ -2972,6 +3074,8 @@ model ai_reply_events {
   total_tokens Int @default(0)
   latency_ms Int?
   created_at DateTime @db.Timestamptz(6) @default(now())
+  /// 20261121006000: the AI agent that handled the message (null before agents existed).
+  agent_id String? @db.Uuid
   @@unique([account_id, id])
   @@index([account_id, created_at(sort: Desc), id(sort: Desc)], map: "ai_reply_events_list_idx")
   @@index([account_id, outcome, created_at(sort: Desc)], map: "ai_reply_events_outcome_idx")
@@ -3324,4 +3428,54 @@ model sequence_message_sends {
   @@unique([account_id, id])
   @@unique([account_id, subscription_id, round_started_at, sequence_message_id])
   @@index([account_id, sequence_id, sequence_message_id], map: "sequence_message_sends_stats_idx")
+}
+
+/// Sales (20261122000000): author-stamped team notes on a deal (FORCE RLS; author or admin deletes).
+model deal_notes {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  deal_id String @db.Uuid
+  body String
+  created_by String? @db.Uuid
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  @@unique([account_id, id])
+  @@index([account_id, deal_id, created_at(sort: Desc)], map: "deal_notes_deal_idx")
+}
+
+/// 20261123005000_ai_multi_agents: AI agents (channels, working hours, handoff rules); is_default reads the agent profile.
+model ai_agents {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  name String
+  role String @default("general")
+  instructions String?
+  tone String?
+  channels String[] @default(["whatsapp", "instagram"])
+  hours_mode String @default("always")
+  hours_from DateTime? @db.Time(6)
+  hours_to DateTime? @db.Time(6)
+  handoff_rules Json @db.JsonB @default("{}")
+  enabled Boolean @default(false)
+  is_default Boolean @default(false)
+  position Int @default(0)
+  created_by String? @db.Uuid
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @default(now()) @db.Timestamptz(6)
+  @@unique([account_id, id])
+  @@index([account_id, position, created_at], map: "ai_agents_order_idx")
+}
+
+/// 20261123009000_ai_reply_ratings: one helpful / not helpful rating per member per AI reply.
+model ai_reply_ratings {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  suggestion_id String? @db.Uuid
+  reply_event_id String? @db.Uuid
+  user_id String @db.Uuid
+  /// 'up' | 'down'
+  vote String
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @default(now()) @db.Timestamptz(6)
+  @@unique([account_id, id])
+  @@index([account_id, created_at(sort: Desc)], map: "ai_reply_ratings_account_idx")
 }

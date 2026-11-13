@@ -35,7 +35,7 @@ import {
   type InstagramTarget,
 } from '@/lib/channels/sender';
 import { InstagramError } from './errors';
-import type { SentMessage } from './graph';
+import { validMessageMid, type SentMessage } from './graph';
 import { InstagramTemplateError, readInstagramTemplate } from './message-templates';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -54,6 +54,8 @@ export interface InstagramComposerInput {
   filename?: unknown;
   /** messageType 'ig_template': a saved card or button template of this workspace. */
   templateId?: unknown;
+  /** Text or media only: an earlier message of this conversation to quote (Meta's reply_to). */
+  replyToMessageId?: unknown;
 }
 
 export interface InstagramComposerResult {
@@ -208,20 +210,33 @@ export async function sendInstagramFromComposer(input: InstagramComposerInput): 
     : null;
   const ctx: InstagramSendContext = { sender: 'staff', now: new Date() };
 
+  const replyTo = isTemplate || input.replyToMessageId === undefined || input.replyToMessageId === null || input.replyToMessageId === ''
+    ? null : input.replyToMessageId;
+  if (replyTo !== null && (typeof replyTo !== 'string' || !UUID.test(replyTo))) throw new InstagramError('invalid_request');
+
   const { target, messageId, plan } = await tenant(input.accountId, async (tx) => {
     const target: InstagramTarget = await loadInstagramTarget(tx, input.accountId, input.conversationId);
+    // The quoted message must be in this same conversation; one Meta never
+    // acknowledged (no mid) is sent without the quote, as on WhatsApp.
+    let replyToMid: string | undefined;
+    if (replyTo) {
+      const [parent] = await tx.$queryRaw<{ message_id: string | null }[]>`SELECT message_id FROM messages
+        WHERE account_id=${input.accountId}::uuid AND conversation_id=${input.conversationId}::uuid AND id=${replyTo}::uuid`;
+      if (!parent) throw new InstagramError('invalid_request');
+      replyToMid = validMessageMid(parent.message_id) ? parent.message_id : undefined;
+    }
     let plan: Plan;
     if (!prepared) plan = await templatePlan(tx, input.accountId, input.templateId, target, ctx);
     else if (prepared.kind === 'text') {
       const text = prepared.text;
       checkInstagramText(target, text, ctx);
-      plan = { row: { contentType: 'text', text, mediaUrl: null, payload: null }, deliver: (t) => sendInstagramText(t, text, ctx), preview: text };
+      plan = { row: { contentType: 'text', text, mediaUrl: null, payload: null }, deliver: (t) => sendInstagramText(t, text, ctx, { replyToMid }), preview: text };
     } else {
       const media = signedMedia!;
       checkInstagramMedia(target, media, ctx);
       plan = {
         row: { contentType: input.messageType as string, text: prepared.caption, mediaUrl: prepared.media.url, payload: null },
-        deliver: (t) => sendInstagramMedia(t, media, ctx),
+        deliver: (t) => sendInstagramMedia(t, media, ctx, { replyToMid }),
         preview: `[${input.messageType as string}]`,
       };
     }
@@ -230,9 +245,9 @@ export async function sendInstagramFromComposer(input: InstagramComposerInput): 
     await pauseForAgentReply(tx, input.accountId, input.conversationId, input.userId);
     const payload = plan.row.payload ? JSON.stringify(plan.row.payload) : null;
     const [row] = await tx.$queryRaw<{ id: string }[]>`INSERT INTO messages(account_id,conversation_id,sender_type,sender_id,
-        content_type,content_text,media_url,interactive_payload,status)
+        content_type,content_text,media_url,interactive_payload,status,reply_to_message_id)
       VALUES(${input.accountId}::uuid,${input.conversationId}::uuid,'agent',${input.userId}::uuid,${plan.row.contentType},
-        ${plan.row.text},${plan.row.mediaUrl},${payload}::jsonb,'sending')
+        ${plan.row.text},${plan.row.mediaUrl},${payload}::jsonb,'sending',${replyTo}::uuid)
       RETURNING id::text AS id`;
     return { target, messageId: row.id, plan };
   });

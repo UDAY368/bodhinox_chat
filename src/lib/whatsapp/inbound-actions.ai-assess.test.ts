@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-const h = vi.hoisted(() => ({ assess: vi.fn(), webhook: vi.fn(), ai: vi.fn(), stages: [] as string[], completed: new Map<string, unknown>(),
+const h = vi.hoisted(() => ({ assess: vi.fn(), webhook: vi.fn(), ai: vi.fn(), route: vi.fn(), label: vi.fn(), stages: [] as string[], completed: new Map<string, unknown>(),
   contact: { blocked_at: null as string | null } }));
 vi.mock('@/lib/data/admin', () => ({ createAdminClient: () => ({ from: (table: string) => {
   const b = { select: () => b, eq: () => b, in: () => b, is: () => b, gte: () => b, order: () => b, limit: async () => ({ data: [], error: null }),
@@ -16,6 +16,8 @@ vi.mock('@/lib/inbox/lifecycle', () => ({ applyInboundLifecycle: async () => ({ 
 vi.mock('@/lib/inbox/away-message', () => ({ sendAwayMessage: async () => 'skipped' }));
 vi.mock('@/lib/contacts/consent', async (original) => ({ ...(await original<typeof import('@/lib/contacts/consent')>()), applyConsentKeyword: async () => {} }));
 vi.mock('@/lib/ai/assess/enqueue', () => ({ enqueueAssessmentForInbound: h.assess }));
+vi.mock('@/lib/ai/route-to-staff', () => ({ routeSensitiveInbound: h.route }));
+vi.mock('@/lib/ai/auto-label', () => ({ enqueueAutoLabelForInbound: h.label }));
 vi.mock('./ingest', () => ({ runInboundStage: async (_account: string, _message: string, stage: string, action: () => Promise<unknown>) => {
   h.stages.push(stage);
   if (h.completed.has(stage)) return h.completed.get(stage);
@@ -31,7 +33,8 @@ const text = (contentText: string, over: Partial<MessageActionsPayload> = {}): M
   interactiveReplyId: null, contentType: 'text', contentText, wasContactCreated: false, wasConversationCreated: false, isFirstInboundMessage: false, ...over,
 } as MessageActionsPayload);
 
-beforeEach(() => { delete process.env.AI_ENABLED; h.stages = []; h.completed.clear(); h.contact = { blocked_at: null }; h.assess.mockReset().mockResolvedValue(true); });
+beforeEach(() => { delete process.env.AI_ENABLED; h.stages = []; h.completed.clear(); h.contact = { blocked_at: null }; h.assess.mockReset().mockResolvedValue(true);
+  h.route.mockReset().mockResolvedValue(false); h.label.mockReset().mockResolvedValue(true); });
 afterEach(() => { vi.unstubAllEnvs(); vi.clearAllMocks(); });
 
 it('queues the advisory assessment after the message webhook, once, in its own stage', async () => {
@@ -63,4 +66,33 @@ it('does not assess a blocked contact', async () => {
   h.contact = { blocked_at: '2026-11-01T00:00:00Z' };
   await processInboundActions(text('How much?'));
   expect(h.assess).not.toHaveBeenCalled();
+});
+
+it('routes a sensitive question to staff and queues auto-labelling of a new conversation, each once, after the bots', async () => {
+  const first = text('I have a fever, which tablet should I take?', { wasConversationCreated: true, isFirstInboundMessage: true });
+  await processInboundActions(first);
+  await processInboundActions(first);
+  expect(h.route).toHaveBeenCalledOnce();
+  expect(h.route).toHaveBeenCalledWith({ accountId: id, conversationId: conv, contactId: id, configOwnerUserId: id,
+    text: 'I have a fever, which tablet should I take?' });
+  expect(h.label).toHaveBeenCalledOnce();
+  expect(h.label).toHaveBeenCalledWith(id, conv);
+  expect(h.stages.indexOf('ai_route_staff')).toBeGreaterThan(h.stages.indexOf('ai_reply'));
+});
+
+it('labels only new conversations', async () => {
+  await processInboundActions(text('Any update on my order?'));
+  expect(h.route).toHaveBeenCalledOnce();
+  expect(h.label).not.toHaveBeenCalled();
+});
+
+it('runs neither for a STOP keyword, a blocked contact or with the deployment switch off', async () => {
+  await processInboundActions(text('STOP', { wasConversationCreated: true }));
+  h.contact = { blocked_at: '2026-11-01T00:00:00Z' };
+  await processInboundActions(text('fever', { messageId: conv, wasConversationCreated: true }));
+  vi.stubEnv('AI_ENABLED', 'false');
+  h.contact = { blocked_at: null };
+  await processInboundActions(text('fever', { metaMessageId: 'wamid.3', wasConversationCreated: true }));
+  expect(h.route).not.toHaveBeenCalled();
+  expect(h.label).not.toHaveBeenCalled();
 });

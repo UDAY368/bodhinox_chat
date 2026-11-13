@@ -1,13 +1,14 @@
-// GET /api/contacts/bulk/view?segmentId=|listId=|tagIds=a,b&search=&channel=whatsapp|instagram&subscribed=1&offset=&limit=
+// GET /api/contacts/bulk/view?segmentId=|listId=|tagIds=a,b&search=&channel=whatsapp|instagram&subscribed=1
+//   &ownerId=<uuid>|none&consent=opted_in|opted_out&sort=created|name|city|owner|seen&dir=asc|desc&offset=&limit=
 //   (any member) — one page of the contacts a bulk action on that view would reach, plus the
-//   total match count. The contacts page lists through this while its Stage 5 channel filter or
-//   "subscribed only" switch is on, so the count it shows is the count POST /api/contacts/bulk
-//   checks. 400 for an invalid view; a list or segment of another workspace is 404.
+//   total match count. The contacts page lists through this, so the count it shows is the
+//   count POST /api/contacts/bulk checks. 400 for an invalid view; a list or segment of
+//   another workspace is 404.
 import { NextResponse } from 'next/server';
 
 import { getCurrentAccount } from '@/lib/auth/account';
 import { audienceError, tenantOf } from '@/lib/audience/http';
-import { scopeContacts, scopeFromQuery } from '@/lib/contacts/bulk';
+import { scopeContacts, scopeFromQuery, sortFromQuery } from '@/lib/contacts/bulk';
 
 const int = (value: string | null, fallback: number, max: number) => {
   const n = Number(value);
@@ -22,6 +23,7 @@ export async function GET(request: Request) {
       await scopeContacts(tenantOf(ctx), scopeFromQuery(query), {
         offset: int(query.get('offset'), 0, 1_000_000),
         limit: int(query.get('limit'), 25, 100) || 25,
+        ...sortFromQuery(query),
       }),
       { headers: { 'Cache-Control': 'private, no-store' } },
     );

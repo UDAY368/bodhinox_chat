@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => ({
   add: vi.fn(),
   dispatch: vi.fn(),
+  startFlows: vi.fn(),
 }));
 
 vi.mock('./tag-write', () => ({
@@ -11,6 +12,10 @@ vi.mock('./tag-write', () => ({
 
 vi.mock('@/lib/automations/engine', () => ({
   runAutomationsForTrigger: mocks.dispatch,
+}));
+
+vi.mock('@/lib/flows/engine', () => ({
+  startTagAddedFlows: mocks.startFlows,
 }));
 
 import {
@@ -30,6 +35,41 @@ beforeEach(() => {
   mocks.add.mockReset();
   mocks.dispatch.mockReset();
   mocks.dispatch.mockResolvedValue(undefined);
+  mocks.startFlows.mockReset();
+  mocks.startFlows.mockResolvedValue({ outcome: 'none' });
+});
+
+describe('tag_added flows', () => {
+  it('starts tag_added flows on the conversation with the next chain depth', async () => {
+    mocks.add.mockResolvedValue(true);
+    await addContactTagAndDispatch({ ...base, context: { conversation_id: 'conv-1', vars: { _tag_chain_depth: 1 } } });
+    expect(mocks.startFlows).toHaveBeenCalledWith({
+      accountId: 'account-1', contactId: 'contact-1', conversationId: 'conv-1', tagId: 'tag-1', chainDepth: 2,
+    });
+  });
+
+  it('lets the engine pick the latest conversation when the tag came without one', async () => {
+    mocks.add.mockResolvedValue(true);
+    await addContactTagAndDispatch(base);
+    expect(mocks.startFlows).toHaveBeenCalledWith(expect.objectContaining({ conversationId: undefined, chainDepth: 1 }));
+  });
+
+  it('starts no flow for a duplicate tag or at the depth limit', async () => {
+    mocks.add.mockResolvedValue(false);
+    await addContactTagAndDispatch(base);
+    mocks.add.mockResolvedValue(true);
+    await addContactTagAndDispatch({ ...base, context: { vars: { _tag_chain_depth: MAX_TAG_CHAIN_DEPTH } } });
+    expect(mocks.startFlows).not.toHaveBeenCalled();
+  });
+
+  it('never fails the tag write when a flow cannot start, and logs ids only', async () => {
+    mocks.add.mockResolvedValue(true);
+    mocks.startFlows.mockRejectedValue(new Error('secret customer text'));
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+    await expect(addContactTagAndDispatch(base)).resolves.toEqual({ added: true, dispatched: true });
+    expect(JSON.stringify(log.mock.calls)).not.toContain('secret customer text');
+    log.mockRestore();
+  });
 });
 
 describe('addContactTagAndDispatch', () => {

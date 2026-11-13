@@ -4,6 +4,8 @@ const claimOnAgentReply = vi.hoisted(() => vi.fn(async () => true))
 vi.mock('@/lib/inbox/lifecycle', () => ({ claimOnAgentReply }))
 const manualBlock = vi.hoisted(() => ({ blocked: false }))
 vi.mock('@/lib/platform/lifecycle', () => ({ manualRepliesBlocked: async () => manualBlock.blocked }))
+const logContactActivity = vi.hoisted(() => vi.fn(async () => undefined))
+vi.mock('@/lib/contacts/profile', () => ({ logContactActivity }))
 
 // ---------------------------------------------------------------------------
 // Tests for the `contact_id` send path (issue #296): sending an approved
@@ -265,6 +267,27 @@ describe('POST /api/whatsapp/send — contact_id template path', () => {
       template_name: 'order_update',
       sender_type: 'agent',
     })
+
+    // The send goes on the contact's timeline: the template's name only.
+    expect(logContactActivity).toHaveBeenCalledWith(
+      expect.objectContaining({ accountId: 'acct-1', userId: 'user-1' }),
+      'contact-1',
+      'template_sent',
+      { template: 'order_update' },
+    )
+  })
+
+  it('still answers 200 when the timeline row cannot be written', async () => {
+    logContactActivity.mockRejectedValueOnce(new Error('db down'))
+    const res = await postContactTemplate()
+    expect(res.status).toBe(200)
+    expect(sendTemplateMessage).toHaveBeenCalledTimes(1)
+  })
+
+  it('writes no timeline row when the send is refused', async () => {
+    contactRow = null
+    await postContactTemplate()
+    expect(logContactActivity).not.toHaveBeenCalled()
   })
 
   it('reuses an existing conversation instead of creating a duplicate', async () => {

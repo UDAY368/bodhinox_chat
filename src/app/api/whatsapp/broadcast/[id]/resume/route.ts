@@ -6,6 +6,7 @@ import { BroadcastError, broadcastNumberError } from '@/lib/whatsapp/broadcast-c
 import { loadSenderConfig } from '@/lib/whatsapp/sender-config'
 import { flagLegacyUncertain, RESUME_MAX_PER_REQUEST, scopeStatuses } from '@/lib/whatsapp/broadcast-resume'
 import { randomUUID } from 'node:crypto'
+import { unpauseBroadcast } from '@/lib/broadcasts/pause'
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -14,7 +15,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const { id } = await params
     const body = await request.json().catch(() => ({}))
     const scope = body.scope === 'failed' || body.scope === 'all' ? body.scope : 'pending'
-    const { data, error } = await db.from('broadcasts').select('id,status,scheduled_at,whatsapp_config_id').eq('id', id).eq('account_id', accountId).single()
+    const { data, error } = await db.from('broadcasts').select('id,status,scheduled_at,whatsapp_config_id,channel').eq('id', id).eq('account_id', accountId).single()
     if (error || !data) return NextResponse.json({ error: 'Broadcast unavailable' }, { status: 404 })
     // A scheduled campaign whose time has passed but has not started was held
     // (its number was disconnected) and may be resumed; one still due later may not.
@@ -22,16 +23,22 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     // A draft was never sent: it must go through create/schedule, not resume.
     if ((data.status === 'scheduled' && !due) || data.status === 'cancelled' || data.status === 'draft')
       return NextResponse.json({ error: 'Draft, scheduled or cancelled campaigns cannot be resumed' }, { status: 409 })
+    // Retrying failed rows of a paused campaign would unpause it with only a retry pass queued, leaving its
+    // pending rows stalled: resume it (scope 'pending') first, then retry its failed recipients.
+    if (data.status === 'paused' && scope !== 'pending')
+      return NextResponse.json({ error: 'Resume this paused campaign first, then retry its failed recipients', code: 'resume_paused_first' }, { status: 409 })
+    const instagram = data.channel === 'instagram'
     // Its own number (the default when it has none) must be connected: a held
-    // campaign stays held, never moved to another number.
-    try {
+    // campaign stays held, never moved to another number. Instagram campaigns
+    // check their account per recipient when they send.
+    if (!instagram) try {
       await loadSenderConfig(db, accountId, (data.whatsapp_config_id as string | null | undefined) ?? null)
     } catch (numberError) {
       const mapped = broadcastNumberError(numberError)
       if (mapped instanceof BroadcastError) return NextResponse.json({ error: mapped.message, code: mapped.code }, { status: mapped.status })
       throw numberError
     }
-    const headerMediaUrl = typeof body.headerMediaUrl === 'string' ? body.headerMediaUrl.trim() : undefined
+    const headerMediaUrl = !instagram && typeof body.headerMediaUrl === 'string' ? body.headerMediaUrl.trim() : undefined
     if (headerMediaUrl && headerMediaUrl.length > 2048) return NextResponse.json({ error: 'Invalid media URL' }, { status: 400 })
     // The recipients this request covers, for the confirmation. Uncertain sends are
     // left out: they wait for reconciliation on the campaign page.
@@ -44,6 +51,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const resuming = scope === 'pending' ? inScope : Math.min(inScope, RESUME_MAX_PER_REQUEST)
     // A retry request id lets the worker give rows Meta failed after accepting them one new send.
     const retryId = scope === 'pending' ? undefined : randomUUID()
+    // A paused campaign goes back to sending before its pass is queued (the dispatcher skips paused ones).
+    if (data.status === 'paused') await unpauseBroadcast({ accountId, userId, role }, id)
     const jobId = await enqueueJob('broadcast.dispatch', { broadcastId: id, scope, ...(retryId ? { retryId } : {}), ...(headerMediaUrl ? { headerMediaUrl } : {}) }, { tenantId: accountId, requeueCompleted: true, dedupeKey: retryId ? `broadcast:${id}:retry:${retryId}` : `broadcast:${id}:initial` })
     return NextResponse.json({ success: true, broadcast_id: id, scope, job_id: jobId, queued: true, resuming, remaining: inScope - resuming, unsendable: 0 }, { status: 202 })
   } catch (error) { return toErrorResponse(error) }

@@ -19,6 +19,9 @@ export interface OrderListItem {
   /** 'cod': cash on delivery; absent from older responses (= online). */
   payment_method?: 'online' | 'cod';
   item_count: number;
+  /** When a payment was credited; absent from older responses. */
+  paid_at?: string | null;
+  refund_state?: RefundState;
   contact: { id: string; name: string | null; phone: string | null } | null;
   conversation_id: string | null;
   created_at: string;
@@ -216,4 +219,31 @@ export async function listShipmentExceptions(status: "open" | "resolved" = "open
 
 export async function resolveShipmentException(id: string, resolution: ShipmentExceptionResolution): Promise<ApiResult<ShipmentExceptionView>> {
   return result(await post(`/api/commerce/shipment-exceptions/${encodeURIComponent(id)}`, { resolution }), "exception");
+}
+
+// ---------------------------------------------------------------------------
+// Manual orders (Sales → Orders → New order)
+
+export interface SellableVariant {
+  id: string;
+  product_id: string;
+  name: string;
+  sku: string;
+  price_minor: number;
+  available: number | null;
+}
+
+export async function listSellableVariants(q = ""): Promise<{ variants: SellableVariant[]; currency: string | null } | null> {
+  const params = new URLSearchParams();
+  if (q.trim()) params.set("q", q.trim());
+  const res = await authFetch(`/api/commerce/orders/manual-options?${params}`, { cache: "no-store" });
+  if (!res.ok) return null;
+  return (await res.json()) as { variants: SellableVariant[]; currency: string | null };
+}
+
+/** Create a manual order: ids and quantities only; the server prices every line from the catalogue. */
+export async function createManualOrder(input: {
+  contact_id: string; lines: Array<{ variant_id: string; qty: number }>; note?: string | null; client_request_id: string;
+}): Promise<ApiResult<OrderDetail>> {
+  return result(await post("/api/commerce/orders", input), "order");
 }

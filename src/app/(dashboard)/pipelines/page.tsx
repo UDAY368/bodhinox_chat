@@ -1,13 +1,13 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { createClient } from "@/lib/data/client";
 import { loadPipelineDeals } from "@/lib/pipelines/deals";
-import type { Pipeline, PipelineStage, Deal } from "@/types";
+import type { Pipeline, PipelineStage, Deal, Profile } from "@/types";
 import { PipelineBoard } from "@/components/pipelines/pipeline-board";
 import { PipelineSettings } from "@/components/pipelines/pipeline-settings";
 import { DealForm } from "@/components/pipelines/deal-form";
-import { PipelineAnalytics } from "@/components/pipelines/pipeline-analytics";
+import { PipelineAnalytics, PipelineSummary } from "@/components/pipelines/pipeline-analytics";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -25,7 +25,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { GitBranch, Plus, ChevronDown, Settings } from "lucide-react";
+import { GitBranch, Plus, ChevronDown, Settings, Search, User, Check, BarChart3 } from "lucide-react";
 import { toast } from "sonner";
 import { useCan } from "@/hooks/use-can";
 import { useAuth } from "@/hooks/use-auth";
@@ -62,6 +62,14 @@ export default function PipelinesPage() {
   const [stages, setStages] = useState<PipelineStage[]>([]);
   const [deals, setDeals] = useState<Deal[]>([]);
   const [loading, setLoading] = useState(true);
+  // Board filters (prototype bar): owner ("all", "none" = unassigned, or a member id) and a deal search.
+  const [owner, setOwner] = useState<string>("all");
+  const [dealQuery, setDealQuery] = useState("");
+  const [members, setMembers] = useState<Profile[]>([]);
+  const [showAnalytics, setShowAnalytics] = useState(false);
+  const [deletingDeal, setDeletingDeal] = useState<Deal | null>(null);
+  const [deleteBusy, setDeleteBusy] = useState(false);
+  const tSales = useTranslations("Sales.pipeline");
 
   // Dialog / sheet state
   const [newPipelineOpen, setNewPipelineOpen] = useState(false);
@@ -176,6 +184,17 @@ export default function PipelinesPage() {
     };
   }, [loadPipelines, seedDefaultPipeline]);
 
+  // Team members for the owner filter.
+  useEffect(() => {
+    let cancelled = false;
+    void db.from("profiles").select("id,full_name,email").order("full_name").then(({ data }) => {
+      if (!cancelled) setMembers((data ?? []) as Profile[]);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [db]);
+
   // Load stages + deals whenever selected pipeline changes.
   // Clearing on no-selection is a legitimate sync with URL/prop
   // state; the load completion uses async setters inside promise
@@ -184,7 +203,7 @@ export default function PipelinesPage() {
     if (!selectedPipelineId) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setStages([]);
-      // eslint-disable-next-line react-hooks/set-state-in-effect
+       
       setDeals([]);
       return;
     }
@@ -234,10 +253,41 @@ export default function PipelinesPage() {
       if (error) {
         toast.error(t("toastFailedMoveDeal"));
         refreshDeals();
+        return;
       }
+      const stage = stages.find((s) => s.id === newStageId);
+      if (stage) toast.success(tSales("moved", { stage: stage.name }));
     },
-    [db, refreshDeals, t],
+    [db, refreshDeals, t, stages, tSales],
   );
+
+  const visibleDeals = useMemo(() => {
+    const q = dealQuery.trim().toLowerCase();
+    return deals.filter((d) => {
+      if (owner === "none" ? Boolean(d.assigned_to) : owner !== "all" && d.assigned_to !== owner) return false;
+      if (!q) return true;
+      return [d.title, d.contact?.name, d.contact?.phone].some((v) => (v ?? "").toLowerCase().includes(q));
+    });
+  }, [deals, owner, dealQuery]);
+  const filtering = owner !== "all" || dealQuery.trim() !== "";
+  const ownerMember = members.find((m) => m.id === owner);
+  const ownerLabel = owner === "all" ? tSales("allOwners") : owner === "none" ? tSales("unassigned")
+    : (ownerMember?.full_name || ownerMember?.email || tSales("allOwners"));
+
+  async function confirmDeleteDeal() {
+    if (!deletingDeal) return;
+    setDeleteBusy(true);
+    const { error } = await db.from("deals").delete().eq("id", deletingDeal.id);
+    setDeleteBusy(false);
+    if (error) {
+      toast.error(tSales("deleteFailed"));
+      return;
+    }
+    toast.success(tSales("deleted"));
+    if (editingDeal?.id === deletingDeal.id) setDealFormOpen(false);
+    setDeletingDeal(null);
+    refreshDeals();
+  }
 
   const handleAddDeal = useCallback(
     (stageId?: string) => {
@@ -396,6 +446,45 @@ export default function PipelinesPage() {
               )}
             </DropdownMenuContent>
           </DropdownMenu>
+          {selectedPipeline && canEditSettings && (
+            <Button variant="ghost" size="sm" onClick={() => setSettingsOpen(true)}>
+              <Settings className="h-4 w-4" />
+              {tSales("manageStages")}
+            </Button>
+          )}
+          <span className="hidden flex-1 sm:block" />
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              aria-label={tSales("owner")}
+              className="inline-flex h-8 max-w-[12rem] items-center gap-2 rounded-full border border-border bg-card px-3.5 text-sm text-foreground transition-colors duration-150 hover:bg-muted data-[popup-open]:bg-muted"
+            >
+              <User className="h-4 w-4 shrink-0 text-muted-foreground" />
+              <span className="truncate">{ownerLabel}</span>
+              <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="max-h-80 w-56 overflow-y-auto border-border bg-popover text-popover-foreground">
+              {[["all", tSales("allOwners")] as const,
+                ...members.map((m) => [m.id, m.full_name || m.email || m.id.slice(0, 8)] as const),
+                ["none", tSales("unassigned")] as const].map(([value, label]) => (
+                <DropdownMenuItem key={value} onClick={() => setOwner(value)}>
+                  <Check className={`mr-2 h-3.5 w-3.5 ${owner === value ? "opacity-100" : "opacity-0"}`} />
+                  <span className="truncate">{label}</span>
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <div className="relative w-full min-w-0 sm:w-56">
+            <Search className="pointer-events-none absolute top-1/2 left-2.5 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              type="search"
+              value={dealQuery}
+              onChange={(e) => setDealQuery(e.target.value)}
+              placeholder={tSales("searchDeals")}
+              aria-label={tSales("searchDeals")}
+              maxLength={100}
+              className="h-8 pl-8"
+            />
+          </div>
         </div>
       )}
 
@@ -423,13 +512,22 @@ export default function PipelinesPage() {
         </div>
       ) : (
         <>
-          <PipelineAnalytics stages={stages} deals={deals} />
+          <PipelineSummary deals={visibleDeals} />
+          <div>
+            <Button variant="ghost" size="sm" aria-expanded={showAnalytics} onClick={() => setShowAnalytics((v) => !v)}>
+              <BarChart3 className="h-4 w-4" />
+              {showAnalytics ? tSales("fewerStats") : tSales("moreStats")}
+            </Button>
+            {showAnalytics && <div className="mt-2"><PipelineAnalytics stages={stages} deals={visibleDeals} /></div>}
+          </div>
           <PipelineBoard
             stages={stages}
-            deals={deals}
-            onDealMoved={handleDealMoved}
+            deals={visibleDeals}
+            onDealMoved={canCreateDeals ? handleDealMoved : undefined}
             onAddDeal={handleAddDeal}
             onEditDeal={handleEditDeal}
+            onDeleteDeal={canCreateDeals ? setDeletingDeal : undefined}
+            emptyText={filtering ? tSales("noMatches") : undefined}
           />
         </>
       )}
@@ -490,6 +588,22 @@ export default function PipelinesPage() {
         />
       )}
 
+      {/* Delete a deal from its card menu or the deal panel */}
+      <Dialog open={deletingDeal !== null} onOpenChange={(open) => { if (!open) setDeletingDeal(null); }}>
+        <DialogContent className="sm:max-w-sm bg-popover border-border">
+          <DialogHeader>
+            <DialogTitle className="text-popover-foreground">{tSales("deleteTitle")}</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">{tSales("deleteBody", { title: deletingDeal?.title ?? "" })}</p>
+          <DialogFooter className="bg-popover/50 border-border">
+            <Button variant="outline" onClick={() => setDeletingDeal(null)}>{t("cancel")}</Button>
+            <Button variant="destructive" disabled={deleteBusy} onClick={() => void confirmDeleteDeal()}>
+              {tSales("deleteDeal")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Deal Form (Sheet) */}
       <DealForm
         open={dealFormOpen}
@@ -499,6 +613,7 @@ export default function PipelinesPage() {
         stages={stages}
         defaultStageId={defaultStageId}
         onSaved={refreshDeals}
+        onDelete={(deal) => setDeletingDeal(deal)}
       />
     </div>
   );

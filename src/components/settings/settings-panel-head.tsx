@@ -21,11 +21,11 @@ export function SettingsPanelHead({
   return (
     <div
       className={cn(
-        'mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between',
+        'mb-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between',
         className,
       )}
     >
-      <div className="min-w-0">
+      <div className="min-w-0 sm:flex-[1_1_16rem]">
         <h2 className="text-[19px] font-bold tracking-tight text-foreground">
           {title}
         </h2>
@@ -35,7 +35,7 @@ export function SettingsPanelHead({
           </p>
         ) : null}
       </div>
-      {action ? <div className="shrink-0">{action}</div> : null}
+      {action ? <div className="max-w-full">{action}</div> : null}
     </div>
   );
 }

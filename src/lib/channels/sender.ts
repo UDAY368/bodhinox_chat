@@ -29,8 +29,10 @@ import {
   sendButtonTemplate,
   sendGenericTemplate,
   sendQuickReplies,
+  sendReaction,
   sendText,
   validInstagramText,
+  validMessageMid,
   type IgGenericCard,
   type IgTemplateButton,
   type InstagramAttachmentType,
@@ -182,14 +184,28 @@ export function checkInstagramChoices(target: InstagramTarget, text: string, cho
   return window;
 }
 
-export async function sendInstagramText(target: InstagramTarget, text: string, ctx: InstagramSendContext): Promise<SentMessage> {
+/** `replyToMid`: quote that earlier message of this thread (its Meta mid) as an inline reply. */
+export async function sendInstagramText(target: InstagramTarget, text: string, ctx: InstagramSendContext,
+  options: { replyToMid?: string } = {}): Promise<SentMessage> {
   const { humanAgentTag } = checkInstagramText(target, text, ctx);
-  return sendText(target.igUserId, decrypt(target.accessTokenEnc), target.igsid, text, { humanAgentTag });
+  return sendText(target.igUserId, decrypt(target.accessTokenEnc), target.igsid, text, { humanAgentTag, replyToMid: options.replyToMid });
 }
 
-export async function sendInstagramMedia(target: InstagramTarget, media: InstagramMedia, ctx: InstagramSendContext): Promise<SentMessage> {
+export async function sendInstagramMedia(target: InstagramTarget, media: InstagramMedia, ctx: InstagramSendContext,
+  options: { replyToMid?: string } = {}): Promise<SentMessage> {
   const { humanAgentTag } = checkInstagramMedia(target, media, ctx);
-  return sendAttachment(target.igUserId, decrypt(target.accessTokenEnc), target.igsid, media, { humanAgentTag });
+  return sendAttachment(target.igUserId, decrypt(target.accessTokenEnc), target.igsid, media, { humanAgentTag, replyToMid: options.replyToMid });
+}
+
+/** The heart reaction (Instagram's only one) inside the messaging window, or its removal. */
+export function checkInstagramReaction(target: InstagramTarget, mid: string, ctx: InstagramSendContext): void {
+  checkWindow(target, ctx);
+  if (!validMessageMid(mid)) throw new InstagramError('invalid_request');
+}
+
+export async function sendInstagramReaction(target: InstagramTarget, mid: string, react: boolean, ctx: InstagramSendContext): Promise<void> {
+  checkInstagramReaction(target, mid, ctx);
+  await sendReaction(target.igUserId, decrypt(target.accessTokenEnc), target.igsid, mid, react);
 }
 
 /** Buttons, or list rows that fit, as Instagram quick replies. */

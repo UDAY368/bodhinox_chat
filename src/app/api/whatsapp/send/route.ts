@@ -26,6 +26,7 @@ import { instagramErrorResponse, NO_STORE } from '@/lib/instagram/http'
 import { recordSuggestionUse } from '@/lib/ai/assist/suggestions'
 import { logAiEvent } from '@/lib/ai/log'
 import { manualRepliesBlocked } from '@/lib/platform/lifecycle'
+import { logContactActivity } from '@/lib/contacts/profile'
 
 const t = getT('Api')
 const tForm = getT('Validation.formSend')
@@ -90,6 +91,8 @@ export async function POST(request: Request) {
       template_message_params,
       interactive_payload,
       reply_to_message_id,
+      // message_type 'location' (WhatsApp only): { latitude, longitude, name?, address? }
+      location,
     } = body
     // A text that started as an AI suggested reply (inserted into the composer
     // by staff). Only used to record the suggestion after the send.
@@ -137,6 +140,7 @@ export async function POST(request: Request) {
         templateName: template_name,
         interactivePayload: interactive_payload,
         templateMessageParams: template_message_params,
+        location,
       })
     } catch (err) {
       if (err instanceof SendMessageError) {
@@ -242,6 +246,7 @@ export async function POST(request: Request) {
         templateParams: template_params,
         templateMessageParams: template_message_params,
         interactivePayload: interactive_payload,
+        location,
         replyToMessageId: reply_to_message_id,
         senderId: userId,
       })
@@ -252,6 +257,13 @@ export async function POST(request: Request) {
       )
       if (aiSuggestionId && message_type === 'text') {
         await noteSuggestionUse({ accountId, userId, role }, aiSuggestionId, conversationId, result.messageId, content_text)
+      }
+      // A template started from the contact profile goes on its timeline
+      // (the template's name only). Best effort: the message is already sent.
+      if (message_type === 'template' && typeof contact_id === 'string' && !conversationIdInput) {
+        await logContactActivity({ accountId, userId, role }, contact_id, 'template_sent', {
+          template: typeof template_name === 'string' ? template_name.slice(0, 512) : null,
+        }).catch(() => console.error('[send] contact timeline row failed'))
       }
 
       return NextResponse.json({
@@ -350,6 +362,7 @@ async function sendInstagramMessage(args: {
       mediaUrl: body.media_url,
       filename: body.filename,
       templateId: body.template_id,
+      replyToMessageId: body.reply_to_message_id,
     })
     await claimOnAgentReply({ accountId: args.accountId, userId: args.userId, role: args.role }, args.conversationId).catch(() =>
       console.error('[send] conversation claim failed')

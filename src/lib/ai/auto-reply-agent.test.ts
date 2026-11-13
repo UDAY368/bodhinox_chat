@@ -13,6 +13,7 @@ const h = vi.hoisted(() => ({
   recordUnanswered: vi.fn(),
   withTenant: vi.fn(),
   recordReplyEvent: vi.fn(),
+  pickAgent: vi.fn(),
   state: {
     conv: null as Record<string, unknown> | null,
     updatePayload: null as Record<string, unknown> | null,
@@ -30,6 +31,10 @@ vi.mock('./reply-events', () => ({ recordReplyEvent: h.recordReplyEvent }))
 vi.mock('./agent-profile', async (importOriginal) => ({
   ...(await importOriginal<typeof import('./agent-profile')>()),
   loadAgentProfileTx: h.loadAgentProfileTx,
+}))
+vi.mock('./agents', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('./agents')>()),
+  pickAgent: h.pickAgent,
 }))
 vi.mock('@/lib/db/tenant', () => ({ withTenant: h.withTenant }))
 vi.mock('@/lib/db/prisma', () => ({ getWorkerPrisma: () => ({ worker: true }) }))
@@ -89,6 +94,7 @@ beforeEach(() => {
   h.generateReply.mockResolvedValue({ text: 'We ship worldwide.', handoff: false, usage: null })
   h.engineSendText.mockResolvedValue({})
   h.loadAgentProfileTx.mockResolvedValue(null)
+  h.pickAgent.mockResolvedValue({ kind: 'legacy' })
   h.recordUnanswered.mockResolvedValue({ id: 'q1', occurrences: 1 })
   h.withTenant.mockImplementation((_ctx: unknown, fn: (tx: unknown) => unknown) => fn({ tx: true }))
   logs = []
@@ -302,5 +308,61 @@ describe('autoReplyThreshold', () => {
     expect(autoReplyThreshold(0.9, { lexicalRanks: [1] })).toBe(0.9)
     expect(autoReplyThreshold(3, { lexicalRanks: [1] })).toBe(1)
     expect(autoReplyThreshold(Number.NaN, null)).toBe(0)
+  })
+})
+
+describe('auto-reply with several agents', () => {
+  const agent = (over: Record<string, unknown> = {}) => ({
+    id: '6f9619ff-8b86-4011-b42d-00cf4fc964ff', name: 'Maya', role: 'sales', instructions: 'Offer a demo slot.', tone: 'friendly',
+    channels: ['whatsapp'], hours: { mode: 'always', from: null, to: null },
+    handoff_rules: { ...DEFAULT_HANDOFF_RULES, keywords: ['refund'] }, enabled: true, is_default: false, position: 1,
+    created_at: '2026-11-01T00:00:00.000Z', updated_at: '2026-11-01T00:00:00.000Z', ...over,
+  })
+
+  it('stays quiet and leaves the message for a person when no agent is on for this channel and hour', async () => {
+    h.pickAgent.mockResolvedValue({ kind: 'none' })
+    await dispatchInboundToAiReply(ARGS)
+    expect(h.pickAgent).toHaveBeenCalledWith('acct-1', 'whatsapp', 'conv-1')
+    expect(h.generateReply).not.toHaveBeenCalled()
+    expect(h.engineSendText).not.toHaveBeenCalled()
+    expect(h.recordReplyEvent).toHaveBeenCalledWith(expect.objectContaining({ outcome: 'skipped', reason: 'no_agent' }))
+  })
+
+  it("replies with the chosen agent's own instructions and name, and records the agent", async () => {
+    h.loadAgentProfileTx.mockResolvedValue(profile({}, { business_name: 'Acme Tea', instructions: 'Workspace instructions.' }))
+    h.pickAgent.mockResolvedValue({ kind: 'agent', agent: agent() })
+    await dispatchInboundToAiReply(ARGS)
+    const prompt = h.generateReply.mock.calls[0][0].systemPrompt as string
+    expect(prompt).toContain('Offer a demo slot.')
+    expect(prompt).toContain('You are Maya')
+    expect(prompt).toContain('Acme Tea')
+    expect(prompt).not.toContain('Workspace instructions.')
+    expect(h.recordReplyEvent).toHaveBeenCalledWith(expect.objectContaining({ outcome: 'replied', agentId: agent().id }))
+  })
+
+  it("hands off on the chosen agent's keywords, not the workspace profile's", async () => {
+    h.loadAgentProfileTx.mockResolvedValue(profile({ keywords: ['iceland'] }))
+    h.pickAgent.mockResolvedValue({ kind: 'agent', agent: agent() })
+    h.buildConversationContext.mockResolvedValue([{ role: 'user', content: 'I want a refund please' }])
+    await dispatchInboundToAiReply(ARGS)
+    expect(h.generateReply).not.toHaveBeenCalled()
+    expect(h.recordReplyEvent).toHaveBeenCalledWith(expect.objectContaining({ outcome: 'handed_off', reason: 'handoff_keyword' }))
+  })
+
+  it('the default agent replies with the workspace profile exactly as the single agent did', async () => {
+    h.loadAgentProfileTx.mockResolvedValue(profile({}, { instructions: 'Workspace instructions.' }))
+    h.pickAgent.mockResolvedValue({ kind: 'agent', agent: agent({ is_default: true, instructions: 'Workspace instructions.' }) })
+    await dispatchInboundToAiReply(ARGS)
+    const prompt = h.generateReply.mock.calls[0][0].systemPrompt as string
+    expect(prompt).toContain('Workspace instructions.')
+    expect(prompt).not.toContain('You are Maya')
+  })
+
+  it('fails closed when the agents cannot be read: nothing is sent', async () => {
+    h.pickAgent.mockRejectedValue(new Error('db down'))
+    await dispatchInboundToAiReply(ARGS)
+    expect(h.generateReply).not.toHaveBeenCalled()
+    expect(h.engineSendText).not.toHaveBeenCalled()
+    expect(h.recordReplyEvent).toHaveBeenCalledWith(expect.objectContaining({ outcome: 'error', reason: 'dispatch_failed' }))
   })
 })

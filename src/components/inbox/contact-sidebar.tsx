@@ -3,7 +3,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useFormatter, useTranslations } from 'next-intl';
-import { RefreshCw, Copy, Check, ChevronRight, Pencil, Plus, UserRound } from 'lucide-react';
+import { RefreshCw, Copy, Check, ChevronRight, Pencil, Plus, UserRound, Sparkles } from 'lucide-react';
+import { BotPauseControl } from '@/components/inbox/bot-pause-control';
+import { AiSummaryPanel } from '@/components/inbox/ai-assist/ai-summary-panel';
+import { useAssistAvailability } from '@/components/inbox/ai-assist/use-ai-assist';
 import { useAuth } from '@/hooks/use-auth';
 import { createClient } from '@/lib/data/client';
 import { addContactTag, deleteContactTag } from '@/lib/contacts/tag-api';
@@ -42,6 +45,9 @@ interface ContactSidebarProps {
   conversationId?: string | null;
   /** Stage 5: labels and favourites of the open conversation (hidden without them). */
   folders?: InboxFolders;
+  /** The open conversation's pause flag, for the Automation section (remounts the control when it changes). */
+  botPaused?: boolean;
+  pauseKey?: string;
 }
 
 export function ContactSidebar({
@@ -53,12 +59,17 @@ export function ContactSidebar({
   channel = 'whatsapp',
   conversationId,
   folders,
+  botPaused = false,
+  pauseKey,
 }: ContactSidebarProps) {
+  const tPanel = useTranslations('Inbox.contactPanel');
   const t = useTranslations('Inbox.sidebar');
   const tThread = useTranslations('Inbox.messageThread');
   const tChannel = useTranslations('Inbox.channel');
   const format = useFormatter();
   const { accountId, user, canSendMessages, canEditSettings } = useAuth();
+  // AI summary for staff, when the workspace turned it on.
+  const assist = useAssistAvailability(canSendMessages);
   const [data, setData] = useState<ContactDetails | null>(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -229,7 +240,7 @@ export function ContactSidebar({
             )}
             <div className="mt-3 flex justify-center">
               <Link
-                href={`/contacts?contact=${encodeURIComponent(contact.id)}`}
+                href={`/contacts/${encodeURIComponent(contact.id)}`}
                 className="border-border hover:bg-muted inline-flex h-8 items-center gap-1.5 rounded-full border px-3.5 text-[13px] font-semibold transition-colors duration-150"
               >
                 <UserRound className="size-3.5" aria-hidden />
@@ -261,6 +272,15 @@ export function ContactSidebar({
                   onUpdated?.({ ...current, ...fields, tags: data.tags });
                 }}
               />}
+              {conversationId && canSendMessages && assist?.summary.ok && (
+                <details open data-panel-section="ai-summary">
+                  <summary className={summaryClass}>
+                    <Sparkles className="text-primary size-3.5" aria-hidden />
+                    <h3>{tPanel('aiSummary')}</h3>
+                  </summary>
+                  <AiSummaryPanel key={conversationId} conversationId={conversationId} embedded />
+                </details>
+              )}
               <AssessmentPanel conversationId={conversationId} refreshToken={refreshToken} />
               <details open>
                 <summary className={summaryClass}><h3>{t('details')}</h3></summary>
@@ -362,6 +382,15 @@ export function ContactSidebar({
                   </div>
                 )}
               </details>
+              {conversationId && (
+                <details open data-panel-section="automation">
+                  <summary className={summaryClass}><h3>{tPanel('automation')}</h3></summary>
+                  <p className="text-muted-foreground mt-1 text-xs leading-relaxed">{tPanel('automationHint')}</p>
+                  <div className="mt-2 flex min-w-0 flex-wrap items-center gap-2">
+                    <BotPauseControl key={pauseKey ?? conversationId} conversationId={conversationId} paused={botPaused} />
+                  </div>
+                </details>
+              )}
               {conversationId && folders && (
                 <LabelPicker conversationId={conversationId} folders={folders} canEdit={canSendMessages} />
               )}

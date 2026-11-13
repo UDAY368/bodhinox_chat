@@ -41,7 +41,9 @@ describe('Stage 4A migration inventory', () => {
 
   it('adds the Share-to-Story trigger to the flow check, on top of every existing trigger', () => {
     const values = inList(sql('20261117190300_flow_ig_share_trigger'), 'trigger_type');
-    expect(values.sort()).toEqual([...FLOW_TRIGGER_TYPES].sort());
+    // The automation list's event triggers came later (20261122003000, flow-event-triggers-schema.test.ts).
+    const later = ['contact_created', 'tag_added', 'outside_hours'];
+    expect(values.sort()).toEqual([...FLOW_TRIGGER_TYPES].filter((type) => !later.includes(type)).sort());
     expect(values).toContain('ig_share_to_story');
     expect(columnsDefinition('flows', 'trigger_type')).toContain("'ig_share_to_story'");
   });

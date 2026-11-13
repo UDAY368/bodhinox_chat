@@ -115,7 +115,10 @@
     "automation": "자동화",
     "ai": "AI",
     "collapseSidebar": "접기",
-    "expandSidebar": "펼치기"
+    "expandSidebar": "펼치기",
+    "analyticsConversations": "대화",
+    "analyticsTeam": "팀",
+    "analyticsCampaigns": "캠페인"
   },
   "Header": {
     "notificationsUnread": "알림, 읽지 않음 {count}개",
@@ -414,7 +417,13 @@
       "filterMyTeam": "내 팀",
       "addFilter": "필터",
       "filterSearch": "필터 검색",
-      "noFilterMatches": "일치하는 필터가 없습니다"
+      "noFilterMatches": "일치하는 필터가 없습니다",
+      "title": "받은편지함",
+      "newMessage": "새 메시지",
+      "moreViews": "보기 더보기",
+      "views": "보기",
+      "clearFilters": "필터 지우기",
+      "reminderTag": "{when}에 후속 조치"
     },
     "messageThread": {
       "backToConversations": "대화 목록으로 돌아가기",
@@ -462,7 +471,31 @@
       "senderAutomation": "자동화",
       "senderTeam": "우리 팀",
       "senderFormerMember": "이전 멤버",
-      "moreActions": "더 보기"
+      "moreActions": "더 보기",
+      "newMessage": "새 메시지",
+      "markedUnread": "읽지 않음으로 표시했습니다",
+      "actionFailed": "처리하지 못했습니다. 다시 시도하세요.",
+      "exported": "{name}(으)로 채팅을 내보냈습니다",
+      "exportFailed": "이 채팅을 내보내지 못했습니다.",
+      "automationPausedToast": "이 채팅의 자동화를 일시 중지했습니다",
+      "automationResumedToast": "자동화를 다시 시작했습니다",
+      "blockedToast": "{name}님을 차단했습니다",
+      "unblockedToast": "{name}님의 차단을 해제했습니다",
+      "markUnread": "읽지 않음으로 표시",
+      "resumeAutomation": "자동화 다시 시작",
+      "pauseAutomation": "자동화 일시 중지",
+      "exportChat": "채팅 내보내기",
+      "unblockContact": "연락처 차단 해제",
+      "blockContact": "연락처 차단",
+      "blockedBanner": "차단된 연락처입니다.",
+      "blockedBannerHint": "자동 메시지, 플로우, AI 답장이 전송되지 않으며 답장도 꺼져 있습니다.",
+      "unblock": "차단 해제",
+      "automationPausedBanner": "이 채팅의 자동화가 일시 중지되었습니다.",
+      "automationPausedHint": "플로우와 AI 답장이 실행되지 않습니다.",
+      "blockTitle": "{name}님을 차단할까요?",
+      "blockBody": "자동 메시지, 플로우, AI 답장이 더 이상 전송되지 않고 이 대화는 종료됩니다. 언제든지 차단을 해제할 수 있습니다.",
+      "cancel": "취소",
+      "blockConfirm": "차단"
     },
     "sessionTimer": {
       "expired": "만료됨",
@@ -476,7 +509,7 @@
       "templates": "템플릿",
       "readOnlyPlaceholder": "읽기 전용 — 뷰어는 열람만 가능하고 답장할 수 없습니다",
       "sessionExpiredPlaceholder": "세션 만료 - 템플릿을 사용하세요",
-      "typeMessagePlaceholder": "메시지를 입력하세요",
+      "typeMessagePlaceholder": "메시지를 입력하거나 /로 빠른 답장을 찾으세요",
       "readOnlyTitle": "읽기 전용 — 현재 역할로는 메시지를 보낼 수 없습니다",
       "recording": "녹음 중… {current} / {max}",
       "cancel": "취소",
@@ -519,7 +552,18 @@
       "sendPaymentLink": "결제 링크 보내기",
       "mediaLibrary": "미디어 라이브러리",
       "sendStorefrontLink": "스토어 링크 보내기",
-      "newLineHint": "줄바꿈은 Shift+Enter"
+      "newLineHint": "줄바꿈은 Shift+Enter",
+      "emoji": "이모지",
+      "quickRepliesLoading": "빠른 답장을 불러오는 중…",
+      "slashNoMatch": "“{query}”와 일치하는 빠른 답장이 없습니다.",
+      "composeMode": "답장 또는 내부 메모",
+      "tabReply": "답장",
+      "tabNote": "메모",
+      "noteLabel": "내부 메모",
+      "messageLabel": "메시지",
+      "notePlaceholder": "팀을 위한 메모를 작성하세요 (고객에게는 보이지 않습니다)",
+      "location": "위치",
+      "addNote": "메모 추가"
     },
     "bubble": {
       "photo": "사진",
@@ -722,7 +766,10 @@
       "tooLong": "메모는 최대 {max}자까지 입력할 수 있습니다.",
       "hint": "Ctrl+Enter로 저장",
       "cancel": "취소",
-      "add": "메모 추가"
+      "add": "메모 추가",
+      "added": "메모를 추가했습니다",
+      "deleted": "메모를 삭제했습니다",
+      "internalNote": "내부 메모"
     },
     "savedFilters": {
       "views": "보기",
@@ -738,7 +785,11 @@
       "saveFailed": "보기를 저장하지 못했습니다",
       "delete": "{name} 보기 삭제",
       "deleteFailed": "보기를 삭제하지 못했습니다",
-      "close": "닫기"
+      "close": "닫기",
+      "apply": "“{name}” 보기",
+      "deleteTitle": "저장된 보기를 삭제할까요?",
+      "deleteBody": "“{name}” 보기가 저장된 보기에서 삭제됩니다.",
+      "deleteConfirm": "삭제"
     },
     "quickReplyFavourites": {
       "add": "{title}을(를) 즐겨찾기에 추가",
@@ -815,7 +866,13 @@
         "notFound": "이 리마인더는 더 이상 존재하지 않습니다.",
         "failed": "리마인더를 저장하지 못했습니다. 다시 시도하세요.",
         "forbidden": "현재 역할로는 리마인더를 설정할 수 없습니다."
-      }
+      },
+      "changeTitle": "알림 변경",
+      "followUp": "{when}에 후속 조치",
+      "done": "완료",
+      "change": "변경",
+      "woken": "대화를 다시 깨웠습니다",
+      "cleared": "알림을 지웠습니다"
     },
     "scheduled": {
       "title": "예약 답장",
@@ -920,7 +977,8 @@
       "unassigned": "미배정",
       "favourites": "즐겨찾기",
       "reminders": "리마인더",
-      "labels": "라벨"
+      "labels": "라벨",
+      "failed": "실패"
     },
     "history": {
       "title": "채팅 기록",
@@ -1056,6 +1114,65 @@
         "tooLarge": "너무 커서 저장할 수 없습니다. 링크를 줄이거나 카드 수를 줄이세요.",
         "more": "(외 {count}개)"
       }
+    },
+    "rowMenu": {
+      "label": "대화 작업",
+      "markRead": "읽음으로 표시",
+      "markUnread": "읽지 않음으로 표시",
+      "assignToMe": "나에게 배정",
+      "close": "종료",
+      "reopen": "다시 열기",
+      "markedUnread": "읽지 않음으로 표시했습니다",
+      "markedRead": "읽음으로 표시했습니다",
+      "assignedToYou": "나에게 배정했습니다",
+      "closed": "대화를 종료했습니다",
+      "reopened": "대화를 다시 열었습니다",
+      "failed": "처리하지 못했습니다. 다시 시도하세요."
+    },
+    "location": {
+      "title": "위치 보내기",
+      "description": "고객은 WhatsApp에서 열 수 있는 지도 핀을 받습니다.",
+      "name": "장소 이름 (선택)",
+      "namePlaceholder": "예: 강남역 매장",
+      "address": "주소 (선택)",
+      "addressPlaceholder": "도로명, 지역, 도시",
+      "latitude": "위도",
+      "longitude": "경도",
+      "latitudeError": "-90에서 90 사이의 위도를 입력하세요.",
+      "longitudeError": "-180에서 180 사이의 경도를 입력하세요.",
+      "useCurrent": "현재 위치 사용",
+      "locateUnsupported": "이 브라우저는 위치를 공유할 수 없습니다.",
+      "locateFailed": "위치를 읽지 못했습니다. 위치 접근을 허용하거나 좌표를 입력하세요.",
+      "cancel": "취소",
+      "send": "위치 보내기"
+    },
+    "contactPanel": {
+      "aiSummary": "AI 요약",
+      "automation": "자동화",
+      "automationHint": "이 채팅의 플로우와 AI 답장을 일시 중지합니다. 선택한 시간까지 또는 다시 시작할 때까지 꺼져 있습니다."
+    },
+    "newMessage": {
+      "title": "새 메시지",
+      "description": "메시지를 보낼 사람과 채널을 선택하세요.",
+      "contact": "연락처",
+      "searchPlaceholder": "이름으로 연락처 검색",
+      "searching": "검색 중…",
+      "noContacts": "일치하는 연락처가 없습니다.",
+      "unnamed": "이름 없는 연락처",
+      "channel": "채널",
+      "hintPick": "메시지를 보낼 사람을 선택하세요.",
+      "hintWhatsapp": "{to}(으)로 보냅니다. 새 WhatsApp 채팅은 승인된 템플릿으로 시작합니다.",
+      "hintInstagram": "해당 고객과의 Instagram 채팅을 엽니다. Instagram 채팅은 고객이 먼저 메시지를 보내야 시작됩니다.",
+      "chooseContact": "연락처를 선택하세요",
+      "noNumber": "{name}님은 WhatsApp 번호가 없습니다.",
+      "thisContact": "이 연락처",
+      "openedExisting": "기존 대화를 열었습니다",
+      "instagramStartsWithCustomer": "이 연락처와의 Instagram 채팅이 아직 없습니다. Instagram에서는 고객만 채팅을 시작할 수 있습니다.",
+      "failed": "대화를 시작하지 못했습니다. 다시 시도하세요.",
+      "sendFailed": "템플릿을 보내지 못했습니다: {reason}",
+      "started": "{name}님과의 대화를 시작했습니다",
+      "cancel": "취소",
+      "start": "대화 시작"
     }
   },
   "Contacts": {
@@ -1517,6 +1634,314 @@
       "yes": "예",
       "no": "아니요",
       "unknown": "아직 알 수 없음"
+    },
+    "redesign": {
+      "title": "연락처",
+      "subtitle": "메시지를 보냈거나 팀이 추가한 모든 사람입니다.",
+      "loading": "불러오는 중…",
+      "cancel": "취소",
+      "tabs": {
+        "label": "연락처 섹션",
+        "people": "사람",
+        "segments": "세그먼트",
+        "fields": "사용자 지정 필드"
+      },
+      "fields": {
+        "name": "이름",
+        "phone": "전화번호",
+        "email": "이메일",
+        "company": "회사",
+        "city": "도시",
+        "owner": "담당자"
+      },
+      "owner": {
+        "noOne": "없음",
+        "unnamedMember": "이름 없는 멤버",
+        "formerMember": "이전 멤버",
+        "saveFailed": "연락처는 저장되었지만 담당자를 지정하지 못했습니다"
+      },
+      "columns": {
+        "channels": "채널",
+        "owner": "담당자",
+        "city": "도시",
+        "lastSeen": "최근 활동",
+        "actions": "작업"
+      },
+      "badges": {
+        "optedOut": "수신 거부",
+        "blocked": "차단됨"
+      },
+      "filters": {
+        "owner": "담당자",
+        "anyOwner": "모든 담당자",
+        "consent": "수신 동의",
+        "anyConsent": "동의 여부 전체",
+        "optedIn": "수신 동의",
+        "optedOut": "수신 거부",
+        "clear": "지우기",
+        "clearAll": "검색어와 필터 지우기"
+      },
+      "sort": {
+        "label": "정렬: {order}",
+        "name": "이름",
+        "city": "도시",
+        "owner": "담당자",
+        "seen": "최근 활동",
+        "created": "추가한 날짜",
+        "reverse": "순서 뒤집기"
+      },
+      "bulk": {
+        "assignOwner": "담당자 지정",
+        "export": "내보내기"
+      },
+      "row": {
+        "open": "열기",
+        "message": "메시지 보내기"
+      },
+      "dates": {
+        "today": "오늘",
+        "yesterday": "어제",
+        "at": "{day} {time}"
+      },
+      "profile": {
+        "backToPeople": "사람",
+        "added": "{date}에 추가됨",
+        "lastSeen": "최근 활동 {when}",
+        "more": "작업 더 보기",
+        "copyHandle": "전화번호 또는 사용자 이름 복사",
+        "copied": "{value} 복사됨",
+        "copyFailed": "복사하지 못했습니다",
+        "exportOne": "이 연락처 내보내기",
+        "block": "차단",
+        "unblock": "차단 해제",
+        "blockedToast": "{name}님을 차단했습니다. 자동 메시지를 보내지 않습니다.",
+        "unblockedToast": "{name}님의 차단을 해제했습니다",
+        "details": "세부 정보",
+        "add": "추가",
+        "saved": "저장됨",
+        "customFields": "사용자 지정 필드",
+        "manageFields": "필드 관리",
+        "noCustomFields": "아직 사용자 지정 필드가 없습니다. 추가 정보를 여기에 보관하려면 필드를 만드세요.",
+        "notes": "메모",
+        "notesHint": "메모는 팀만 볼 수 있습니다.",
+        "newNote": "새 메모",
+        "notePlaceholder": "{name}님에 대한 메모 작성",
+        "addNote": "메모 추가",
+        "deleteNoteTitle": "이 메모를 삭제할까요?",
+        "deleteNoteText": "팀 전체에서 메모가 삭제됩니다.",
+        "timeline": "타임라인",
+        "noEvents": "아직 기록이 없습니다.",
+        "showAll": "{count}개 모두 보기",
+        "showLess": "간단히 보기",
+        "labels": "라벨",
+        "addLabel": "라벨 추가",
+        "removeLabel": "{name} 삭제",
+        "noLabels": "라벨이 없습니다.",
+        "messaging": "메시지",
+        "conversations": "대화",
+        "noConversations": "아직 대화가 없습니다.",
+        "startConversation": "대화 시작",
+        "open": "진행 중",
+        "pending": "대기 중",
+        "closed": "종료됨",
+        "orders": "주문",
+        "noOrders": "아직 주문이 없습니다.",
+        "orderName": "주문 {ref}",
+        "deals": "거래",
+        "ok": "확인",
+        "notFoundTitle": "연락처를 찾을 수 없습니다",
+        "notFoundText": "삭제되었거나 다른 워크스페이스의 연락처일 수 있습니다.",
+        "message": {
+          "button": "메시지 보내기",
+          "blocked": "메시지를 보내려면 먼저 {name}님의 차단을 해제하세요",
+          "optedOut": "{name}님은 WhatsApp 메시지 수신을 거부했습니다",
+          "igOnlyTitle": "상대가 먼저 메시지를 보내야 합니다",
+          "igOnlyText": "Instagram에서는 비즈니스가 답장만 할 수 있습니다. {name}님이 메시지를 보내면 받은편지함에 대화가 나타납니다."
+        },
+        "consent": {
+          "whatsappLabel": "WhatsApp 메시지",
+          "instagramLabel": "Instagram 메시지",
+          "notConnected": "연결되지 않음",
+          "optedOut": "수신 거부. 캠페인과 자동화를 보내지 않습니다.",
+          "optedInOn": "{date}에 수신 동의함",
+          "noRecord": "메시지를 받습니다. 기록된 수신 동의는 없습니다.",
+          "subscribed": "메시지 구독 중",
+          "askTitle": "{name}님의 WhatsApp 메시지를 켤까요?",
+          "askText": "메시지 수신에 동의한 경우에만 수신 동의를 기록하세요. 변경 내용은 내 이름으로 저장됩니다.",
+          "yesAgreed": "네, 동의했습니다",
+          "onlyClear": "수신 거부만 해제"
+        },
+        "errors": {
+          "failed": "저장하지 못했습니다. 다시 시도하세요.",
+          "too_long": "너무 깁니다.",
+          "invalid_email": "이메일 형식이 올바르지 않습니다.",
+          "invalid_phone": "+와 국가 코드를 포함한 전체 번호를 입력하세요.",
+          "duplicate_phone": "이 번호를 가진 다른 연락처가 이미 있습니다.",
+          "phone_masked": "내 계정에서는 전화번호가 숨겨져 있어 이 번호를 바꿀 수 없습니다.",
+          "phone_required": "전화번호는 필수입니다.",
+          "not_member": "이 워크스페이스의 멤버를 선택하세요.",
+          "not_a_number": "12 또는 4.5처럼 숫자를 입력하세요.",
+          "not_a_date": "날짜를 입력하세요.",
+          "not_a_choice": "선택지 중 하나를 고르세요.",
+          "field_not_found": "이 필드는 삭제되었습니다."
+        }
+      },
+      "timeline": {
+        "by": "{text} ({name})",
+        "created": "연락처 추가됨",
+        "conversation": "{channel}으로 메시지를 보냄",
+        "order": "주문함",
+        "tagAdded": "라벨 \"{name}\" 추가됨",
+        "tagRemoved": "라벨 \"{name}\" 삭제됨",
+        "tagRemovedDeleted": "라벨이 삭제됨",
+        "note": "메모 추가됨",
+        "fieldChanged": "{field} 변경됨",
+        "customSet": "{field} 설정됨",
+        "customCleared": "{field} 비워짐",
+        "deletedField": "삭제된 필드",
+        "assigned": "{name}님에게 지정됨",
+        "ownerRemoved": "담당자 해제됨",
+        "optedIn": "{channel} 메시지 수신 동의",
+        "optedOut": "{channel} 메시지 수신 거부",
+        "optOutCleared": "{channel} 수신 거부 해제됨",
+        "blocked": "차단됨",
+        "unblocked": "차단 해제됨",
+        "templateSent": "템플릿 보냄",
+        "templateSentNamed": "템플릿 ‘{name}’ 보냄"
+      },
+      "segmentsTab": {
+        "hint": "세그먼트는 연락처가 바뀌면 자동으로 업데이트됩니다.",
+        "loadFailed": "세그먼트를 불러오지 못했습니다",
+        "emptyTitle": "아직 세그먼트가 없습니다",
+        "emptyText": "조건을 저장해 두면 캠페인에서 같은 대상을 다시 쓸 수 있습니다.",
+        "people": "{count, plural, other {명}}",
+        "matchesAll": "다음 조건을 모두 충족",
+        "matchesAny": "다음 조건 중 하나 이상 충족",
+        "view": "사람 보기",
+        "useInCampaign": "캠페인에 사용",
+        "nobodyToMessage": "이 세그먼트에는 캠페인을 받을 수 있는 사람이 없습니다",
+        "actionsFor": "{name} 작업",
+        "edit": "수정",
+        "duplicate": "복제",
+        "export": "사람 내보내기",
+        "delete": "삭제",
+        "duplicated": "세그먼트를 복제했습니다",
+        "duplicateFailed": "세그먼트를 복제하지 못했습니다",
+        "copyName": "{name} 사본",
+        "copyNameN": "{name} 사본 {n}",
+        "deleteTitle": "\"{name}\"을(를) 삭제할까요?",
+        "deleteText": "연락처는 그대로 남고 저장된 대상만 삭제됩니다.",
+        "deleted": "세그먼트를 삭제했습니다",
+        "deleteFailed": "세그먼트를 삭제하지 못했습니다",
+        "exportFailed": "세그먼트를 내보내지 못했습니다",
+        "broken": "이 세그먼트가 사용하는 라벨, 목록, 필드 또는 캠페인이 삭제되었습니다. 다시 사용하려면 세그먼트를 수정하세요.",
+        "deletedItem": "삭제된 항목",
+        "subscribed": "구독 중",
+        "unsubscribed": "구독 취소"
+      },
+      "fieldsTab": {
+        "hint": "사용자 지정 필드는 모든 연락처에 표시되며 세그먼트에서 사용할 수 있습니다.",
+        "newField": "새 필드",
+        "newTitle": "새 필드",
+        "editTitle": "필드 수정",
+        "dialogDesc": "요금제, 팀 규모, 갱신일 같은 정보를 연락처마다 보관하세요.",
+        "name": "이름",
+        "namePlaceholder": "예: 생일",
+        "type": "유형",
+        "typeFixed": "필드를 만든 후에는 유형을 바꿀 수 없습니다.",
+        "choices": "선택지",
+        "choicesPlaceholder": "한 줄에 하나씩",
+        "choicesHint": "한 줄에 하나씩, 두 개 이상 입력하세요.",
+        "choicesEditHint": "한 줄에 하나씩 입력하세요. 삭제한 선택지를 가진 연락처는 그 값이 지워집니다.",
+        "filled": "입력됨",
+        "contacts": "연락처 {count}개",
+        "anyValue": "모든 {type}",
+        "notSet": "설정 안 함",
+        "types": {
+          "text": "텍스트",
+          "number": "숫자",
+          "date": "날짜",
+          "choice": "선택"
+        },
+        "create": "필드 만들기",
+        "save": "저장",
+        "created": "\"{name}\" 필드를 만들었습니다",
+        "saved": "필드를 저장했습니다",
+        "saveFailed": "필드를 저장하지 못했습니다",
+        "emptyTitle": "아직 사용자 지정 필드가 없습니다",
+        "emptyText": "요금제, 회사, 갱신일 같은 정보를 연락처마다 보관하세요.",
+        "editField": "{name} 수정",
+        "deleteField": "{name} 삭제",
+        "deleteTitle": "\"{name}\"을(를) 삭제할까요?",
+        "deleteLosesValues": "연락처 {count}개에서 이 값이 지워집니다.",
+        "deleteSegments": "세그먼트 {count}개에서도 이 조건이 삭제됩니다.",
+        "cannotUndo": "되돌릴 수 없습니다.",
+        "delete": "삭제",
+        "deleted": "\"{name}\" 필드를 삭제했습니다",
+        "deleteFailed": "필드를 삭제하지 못했습니다",
+        "segmentNeedsField": "다음 세그먼트는 이 필드만 사용합니다: {names}. 먼저 세그먼트를 수정하세요.",
+        "errors": {
+          "name_required": "이름을 입력하세요.",
+          "name_too_long": "이름은 최대 60자입니다.",
+          "name_taken": "같은 이름의 필드가 이미 있습니다.",
+          "name_reserved": "연락처에 같은 이름의 기본 필드가 이미 있습니다.",
+          "invalid_type": "유형을 선택하세요.",
+          "too_few": "선택지를 두 개 이상 추가하세요.",
+          "too_many": "필드 하나에 선택지는 최대 50개입니다.",
+          "too_long": "선택지는 각각 최대 100자입니다."
+        },
+        "choiceInSegment": "다음 저장된 세그먼트가 삭제한 선택지로 필터링합니다: {names}. 저장하면 해당 조건이 세그먼트에서 제거됩니다.",
+        "choiceSegmentNeedsField": "다음 세그먼트는 삭제된 선택지로만 필터링합니다: {names}. 먼저 세그먼트를 수정하세요.",
+        "saveAndUpdateSegments": "저장하고 세그먼트 업데이트"
+      },
+      "importMap": {
+        "desc": "CSV 파일을 고른 다음 각 열을 연락처 필드에 연결하세요. 전화번호 열이 필요합니다.",
+        "steps": {
+          "label": "가져오기 단계",
+          "file": "파일 선택",
+          "match": "열 연결",
+          "done": "완료"
+        },
+        "chooseFile": "CSV 파일 선택",
+        "dropHere": "여기에 CSV 파일을 놓으세요",
+        "orChoose": "또는 클릭해서 컴퓨터에서 파일을 고르세요",
+        "notCsv": ".csv로 끝나는 파일을 선택하세요",
+        "recognised": "인식하는 열: 이름, 전화번호 또는 휴대폰, 이메일, 회사, 도시, 태그 또는 라벨, 사용자 지정 필드.",
+        "fileSummary": "{rows}행 · {columns}열",
+        "columnInFile": "파일의 열",
+        "sample": "예시",
+        "saveTo": "저장 위치",
+        "saveColumnTo": "{column} 저장 위치",
+        "unnamedColumn": "{n}번째 열",
+        "skip": "가져오지 않음",
+        "targets": {
+          "phone": "전화번호",
+          "name": "이름",
+          "firstName": "이름(성 제외)",
+          "lastName": "성",
+          "email": "이메일",
+          "company": "회사",
+          "city": "도시",
+          "tags": "태그",
+          "optedOut": "수신 거부 날짜",
+          "blocked": "차단 날짜"
+        },
+        "problems": {
+          "no_phone": "열 하나를 전화번호에 연결하세요.",
+          "duplicate": "두 열이 같은 필드에 저장됩니다. 하나를 바꾸세요."
+        },
+        "everyoneTag": "가져온 모든 사람에게 라벨 추가",
+        "noTag": "라벨 없음",
+        "back": "뒤로",
+        "again": "다른 파일 가져오기",
+        "done": "완료",
+        "stats": {
+          "added": "추가됨",
+          "updated": "업데이트됨",
+          "skipped": "이미 있어 건너뜀"
+        },
+        "fieldsRejected": "필드 유형에 맞지 않는 사용자 지정 값 {count}개를 건너뛰었습니다"
+      }
     }
   },
   "Pipelines": {
@@ -1684,7 +2109,8 @@
       "read": "읽음",
       "replied": "응답함",
       "unknown": "알 수 없음",
-      "cancelled": "취소됨"
+      "cancelled": "취소됨",
+      "paused": "일시 중지됨"
     },
     "detail": {
       "backToBroadcasts": "브로드캐스트로 돌아가기",
@@ -2406,7 +2832,10 @@
       "unifiedDescription": "WhatsApp과 Instagram의 모든 자동화를 한곳에서 관리합니다. 만들 때 채널을 고르세요.",
       "channelFilterLabel": "채널",
       "allChannels": "모든 채널",
-      "chooseChannel": "새 자동화의 채널"
+      "chooseChannel": "새 자동화의 채널",
+      "triggerContactCreated": "트리거: 새 연락처의 첫 메시지",
+      "triggerTagAdded": "트리거: 태그가 추가됨",
+      "triggerOutsideHours": "트리거: 근무 시간 외 메시지"
     },
     "edit": {
       "notFound": "플로우를 찾을 수 없습니다.",
@@ -2454,7 +2883,16 @@
         "unconnectedHint": "이 단계로 이어지는 단계가 없어 실행되지 않습니다. 다른 단계에서 연결하거나 삭제하세요.",
         "phoneTitle": "고객에게 보이는 화면",
         "phonePick": "단계를 선택하면 고객이 보게 될 모습을 확인할 수 있습니다.",
-        "phoneNothing": "이 단계는 고객에게 보이는 내용을 보내지 않고 백그라운드에서 동작합니다."
+        "phoneNothing": "이 단계는 고객에게 보이는 내용을 보내지 않고 백그라운드에서 동작합니다.",
+        "whenCaption": "언제…",
+        "thenCaption": "그다음… ({count})",
+        "stepOf": "{total}단계 중 {index}단계",
+        "stepTools": "{step} 도구",
+        "moveUp": "위로 이동",
+        "moveDown": "아래로 이동",
+        "cantMove": "일직선상에 있는 단계만 이동할 수 있습니다. 분기의 순서를 바꾸려면 연결을 변경하세요.",
+        "duplicateStep": "단계 복제",
+        "stepDuplicated": "단계를 복제했습니다. 실행 취소하면 사본이 삭제됩니다."
       },
       "triggerTitle": "트리거",
       "whenLabel": "조건…",
@@ -3079,7 +3517,10 @@
         "characters": "{count}자",
         "charactersLeft": "{count}자 남음",
         "bytesLeft": "{count}바이트 남음"
-      }
+      },
+      "triggerContactCreatedTitle": "새 연락처가 생성됨",
+      "triggerTagAddedTitle": "태그가 추가됨",
+      "triggerOutsideHoursTitle": "근무 시간 외 메시지"
     },
     "validation": {
       "noIssues": "문제가 없습니다. 활성화할 준비가 되었습니다.",
@@ -3483,6 +3924,22 @@
         "needsAi": "의미로 일치시키려면 이 워크스페이스에서 AI를 켜세요.",
         "tooLong": "300자 이내로 입력하세요.",
         "required": "인식할 의미를 입력하세요."
+      },
+      "contactCreated": {
+        "help": "아직 연락처가 아니었던 사람이 처음 보낸 메시지에서 시작합니다."
+      },
+      "tagAdded": {
+        "help": "사람, 규칙, 플로우 또는 API로 이 태그가 연락처에 추가되면 시작합니다.",
+        "tag": "태그",
+        "pick": "태그 선택",
+        "none": "아직 태그가 없습니다. 설정 › 필드 & 태그에서 만드세요.",
+        "loading": "태그를 불러오는 중…",
+        "missing": "삭제된 태그",
+        "conversationNote": "태그가 추가된 대화 또는 연락처의 가장 최근 대화에서 실행됩니다. 대화가 없는 연락처는 건너뜁니다."
+      },
+      "outsideHours": {
+        "help": "<link>근무 시간</link> 외에 메시지가 도착하면 시작합니다.",
+        "noHours": "근무 시간이 설정되지 않으면 시작하지 않습니다."
       }
     },
     "nodes": {
@@ -3878,7 +4335,10 @@
         "ig_story_mention": "스토리 멘션",
         "ig_live_comment": "라이브 댓글",
         "ig_ref": "Ref 링크",
-        "ig_share_to_story": "스토리에 공유"
+        "ig_share_to_story": "스토리에 공유",
+        "contact_created": "새 연락처",
+        "tag_added": "태그 추가",
+        "outside_hours": "근무 시간 외"
       }
     },
     "canvas": {
@@ -4429,7 +4889,10 @@
       "connections": "회의 및 배송",
       "instagram": "Instagram",
       "privacy": "개인정보 및 접근",
-      "conversion-events": "전환 이벤트"
+      "conversion-events": "전환 이벤트",
+      "workspace": "워크스페이스",
+      "integrations": "연동",
+      "audit-log": "감사 로그"
     },
     "groups": {
       "account": "계정",
@@ -5770,7 +6233,8 @@
       "cancel": "취소",
       "recent": "최근 30일",
       "loadFailed": "전환 이벤트를 불러오지 못했어요."
-    }
+    },
+    "unsavedChanges": "저장하지 않은 변경 사항"
   },
   "SignupPage": {
     "passwordsMismatch": "비밀번호가 일치하지 않습니다",
@@ -6032,7 +6496,8 @@
         "slot_lost": "다른 응답이 마지막 슬롯을 사용함",
         "claim_failed": "응답 슬롯을 예약하지 못함",
         "stale": "전송 전에 대화가 변경됨",
-        "dispatch_failed": "문제가 발생함"
+        "dispatch_failed": "문제가 발생함",
+        "no_agent": "이 채널과 시간에 켜진 에이전트가 없습니다"
       },
       "unknownReason": "기타({code})",
       "detailTitle": "활동 세부 정보",
@@ -7318,7 +7783,9 @@
       "storefrontNeedsNext": "링크를 보낸 후 이어질 단계를 연결하세요.",
       "capabilityUnavailable": "\"{key}\" 단계에는 아직 이 워크스페이스에 설정되지 않은 {capability}이(가) 필요합니다.",
       "crossFlowLoop": "고객 응답 없이 플로우 연결 단계가 순환합니다: {flows}.",
-      "stage5Pending": "이 단계나 설정은 아직 사용할 수 없습니다. 플로를 게시하려면 제거하세요."
+      "stage5Pending": "이 단계나 설정은 아직 사용할 수 없습니다. 플로를 게시하려면 제거하세요.",
+      "triggerTagRequired": "이 플로우를 시작할 태그를 선택하세요.",
+      "triggerBadFrequency": "한 사람에게 얼마나 자주 시작할 수 있는지 선택하세요."
     },
     "automations": {
       "needsStep": "활성 자동화에는 단계가 하나 이상 필요합니다",
@@ -7735,7 +8202,13 @@
       "scheduleCreatorLostAccess": "이 예약을 만든 사람이 더 이상 관리자가 아닙니다. 새 예약을 만드세요.",
       "invalidShare": "링크를 열 수 있는 사람과 최대 7일의 만료 기간을 선택하세요.",
       "shareRoleTooLow": "이 보고서에는 해당 역할이 볼 수 없는 데이터가 있습니다. 더 높은 역할을 선택하세요.",
-      "shareNotFound": "이 보고서를 사용할 수 없습니다."
+      "shareNotFound": "이 보고서를 사용할 수 없습니다.",
+      "invalidSavedReport": "보고서 이름을 60자 이내로 입력하고, 지표를 하나 이상 고른 뒤 그룹, 채널, 올바른 기간을 선택하세요.",
+      "savedReportNameTaken": "같은 이름의 보고서가 이미 있습니다.",
+      "savedReportNotFound": "보고서를 찾을 수 없습니다.",
+      "tooManySavedReports": "이 워크스페이스에는 이미 저장된 보고서가 50개 있습니다. 먼저 하나를 삭제하세요.",
+      "invalidSavedSchedule": "빈도(매일, 매주, 매월)와 시간을 선택하세요.",
+      "scheduleFormatLocked": "이 예약은 저장된 보고서를 해당 보고서의 파일 형식으로 보냅니다. 저장된 보고서에서 파일 형식을 변경하세요."
     },
     "meetings": {
       "not_configured": "이 배포에서는 Zoom을 사용할 수 없습니다.",
@@ -7967,7 +8440,8 @@
       "unknownMetaError": "알 수 없는 Meta API 오류",
       "metaError": "Meta API 오류: {message}",
       "dbDeleteFailed": "반응은 Meta로 전송되었지만 DB에서 삭제하지 못했습니다",
-      "dbUpsertFailed": "반응은 Meta로 전송되었지만 DB에 저장하지 못했습니다"
+      "dbUpsertFailed": "반응은 Meta로 전송되었지만 DB에 저장하지 못했습니다",
+      "instagramHeartOnly": "Instagram에서는 하트 반응만 보낼 수 있습니다."
     },
     "send": {
       "idsRequired": "conversation_id 또는 contact_id와 message_type이 필요합니다",
@@ -9290,7 +9764,8 @@
           "cod_confirmed": "착불 결제 선택",
           "payment_link_failed": "결제 링크를 만들 수 없음",
           "shipment_pickup_requested": "택배 픽업 다시 요청함",
-          "return_refunded_outside": "Bodhinox 외부에서 반품 환불함"
+          "return_refunded_outside": "Bodhinox 외부에서 반품 환불함",
+          "manual_created": "팀원이 만든 주문"
         },
         "documents": "문서",
         "documentKinds": {
@@ -11150,7 +11625,8 @@
         "agent_performance": "일별 상담원 실적",
         "product_summary": "상품별 판매",
         "service_summary": "서비스별 예약",
-        "commerce_daily": "일별 수금"
+        "commerce_daily": "일별 수금",
+        "saved_report": "저장된 보고서"
       },
       "range": "기간",
       "presets": {
@@ -11392,6 +11868,373 @@
       "whatsapp": "WhatsApp",
       "instagram": "Instagram",
       "whatsappOnlyNote": "캠페인과 템플릿 수치는 WhatsApp 전용입니다."
+    },
+    "insights": {
+      "chart": {
+        "nothing": "이 기간에 표시할 내용이 없습니다.",
+        "roleDescription": "차트",
+        "lineLabel": "{label}. {count, plural, other {#개 지점}}. 왼쪽과 오른쪽 화살표 키로 값을 확인하세요.",
+        "donutLabel": "{label}: {parts}. 화살표 키로 각 부분을 확인하세요.",
+        "heatmapLabel": "시간대별 새 대화"
+      },
+      "delta": {
+        "new": "신규",
+        "same": "변화 없음",
+        "up": "+{value}%",
+        "down": "−{value}%"
+      },
+      "hourSpan": "{day}, {from}~{to}",
+      "weekSpan": "{from} – {to}",
+      "bucket": {
+        "hour": "시간",
+        "day": "일",
+        "week": "주"
+      },
+      "caption": "{from}~{to} · {channel}.",
+      "comparedWith": "변화는 {from}~{to}와 비교한 값입니다.",
+      "custom": {
+        "title": "사용자 지정 날짜",
+        "description": "최대 366일까지 원하는 기간을 고르세요. 하루를 고르면 시간별로 보여 줍니다.",
+        "cancel": "취소",
+        "errors": {
+          "missing": "두 날짜를 모두 고르세요.",
+          "order": "시작일이 종료일보다 늦습니다.",
+          "future": "종료일은 미래일 수 없습니다.",
+          "too_long": "366일 이하의 기간을 고르세요."
+        }
+      },
+      "tabs": {
+        "overview": {
+          "title": "분석",
+          "description": "대화, 팀, 자동화가 어떻게 진행되고 있는지 확인하세요."
+        },
+        "conversations": {
+          "title": "대화",
+          "description": "고객이 얼마나 빨리 답변을 받고 대화가 어떻게 끝나는지 보여 줍니다."
+        },
+        "team": {
+          "title": "팀",
+          "description": "각 구성원이 무엇을 얼마나 빨리 처리했는지 보여 줍니다."
+        },
+        "campaigns": {
+          "title": "캠페인",
+          "description": "브로드캐스트와 자동화의 성과를 보여 줍니다."
+        }
+      },
+      "overview": {
+        "stats": {
+          "new": "새 대화",
+          "resolved": "해결됨",
+          "firstResponse": "첫 응답 중앙값",
+          "resolution": "해결 시간 중앙값",
+          "messages": "보낸 메시지",
+          "teamReply": "팀 첫 답변"
+        },
+        "series": {
+          "new": "신규",
+          "resolved": "해결됨"
+        },
+        "trendTitle": "새 대화와 해결된 대화",
+        "trendSub": "{bucket} 단위",
+        "attentionTitle": "확인 필요",
+        "attentionSub": "지금",
+        "splitTitle": "채널별 비율",
+        "splitSub": "새 대화 기준입니다. 채널을 고르면 모든 탭이 필터링됩니다.",
+        "conversations": "대화",
+        "busiestTitle": "가장 바쁜 시간대",
+        "busiestSub": "새 대화는 주로 {hour}쯤 시작됩니다.",
+        "busiestNone": "이 기간에 새 대화가 없습니다.",
+        "busiestCell": "{from}~{to}: {count, plural, other {새 대화 #건}}"
+      },
+      "attention": {
+        "allClear": "모두 처리되었습니다. 팀을 기다리는 항목이 없습니다.",
+        "unowned": {
+          "title": "{count, plural, other {담당자 없는 대화 {shown}건}}",
+          "sub": "누군가 답할 수 있도록 배정하세요"
+        },
+        "unread": {
+          "title": "{count, plural, other {읽지 않은 대화 {shown}건}}",
+          "sub": "답변을 기다리는 고객이 있습니다"
+        },
+        "closingSoon": {
+          "title": "{count, plural, other {곧 닫히는 답장 창 {shown}건}}",
+          "sub": "24시간 안에 답하면 템플릿이 필요 없습니다"
+        },
+        "needsTemplate": {
+          "title": "{count, plural, other {템플릿이 필요한 대화 {shown}건}}",
+          "sub": "24시간 답장 창이 닫혔습니다"
+        },
+        "failedToday": {
+          "title": "{count, plural, other {오늘 실패한 메시지 {shown}건}}",
+          "sub": "번호를 확인한 뒤 다시 보내세요"
+        },
+        "switchedOff": {
+          "title": "{count, plural, other {꺼진 자동화 {shown}개}}",
+          "sub": "이전에 실행되었지만 지금은 꺼져 있습니다"
+        }
+      },
+      "conversations": {
+        "stats": {
+          "firstResponse": "첫 응답 중앙값",
+          "p90": "90번째 백분위 응답",
+          "resolution": "해결 시간 중앙값",
+          "rate": "해결률"
+        },
+        "median": "중앙값",
+        "p90": "90번째 백분위",
+        "spread": {
+          "under1h": "1시간 미만",
+          "1to4h": "1~4시간",
+          "4to12h": "4~12시간",
+          "12to24h": "12~24시간",
+          "overDay": "하루 이상"
+        },
+        "noLabel": "라벨 없음",
+        "cols": {
+          "new": "신규",
+          "resolved": "해결됨",
+          "firstResponse": "첫 응답",
+          "resolution": "해결 시간",
+          "failed": "실패한 메시지",
+          "firstResponseSeconds": "첫 응답 중앙값(초)",
+          "resolutionSeconds": "해결 시간 중앙값(초)"
+        },
+        "fileName": "conversations",
+        "responseTitle": "첫 응답 시간",
+        "responseSub": "고객이 첫 답변을 받기까지 기다린 시간",
+        "minutesValue": "{value}분",
+        "minutesAxis": "{value}분",
+        "openTitle": "진행 중과 종료",
+        "openSub": "이 기간에 시작된 대화",
+        "closedWord": "종료",
+        "closed": "종료됨",
+        "open": "진행 중",
+        "spreadTitle": "해결 시간",
+        "spreadSub": "해결된 대화에 걸린 시간",
+        "conversations": "대화",
+        "channelTitle": "채널별",
+        "channelSub": "새 대화와 해결된 대화",
+        "labelTitle": "라벨별",
+        "labelSub": "대화 라벨별 새 대화",
+        "breakdownTitle": "{bucket}별 상세",
+        "breakdownSub": "열을 선택해 정렬하세요",
+        "exportCsv": "CSV 내보내기",
+        "showFewer": "행 줄여 보기",
+        "showAll": "{count}개 행 모두 보기"
+      },
+      "team": {
+        "unnamed": "이름 없는 구성원",
+        "stats": {
+          "handled": "사람이 처리한 대화",
+          "resolved": "팀이 해결한 대화",
+          "firstResponse": "팀 첫 응답",
+          "messages": "팀이 보낸 메시지",
+          "online": "현재 온라인"
+        },
+        "onlineOf": "{total}명 중 {online}명",
+        "cols": {
+          "member": "구성원",
+          "handled": "처리",
+          "messages": "보낸 메시지",
+          "resolved": "해결됨",
+          "firstResponse": "첫 응답 중앙값",
+          "status": "상태",
+          "role": "역할",
+          "firstResponseSeconds": "첫 응답 중앙값(초)"
+        },
+        "openMember": "{name}님의 상세 열기",
+        "presence": {
+          "online": "온라인",
+          "away": "자리 비움",
+          "offline": "오프라인"
+        },
+        "fileName": "team",
+        "resolvedTitle": "구성원별 해결",
+        "resolvedSub": "각 구성원에게 배정된 상태에서 해결된 대화입니다. 한 명을 선택하면 상세가 열립니다.",
+        "noMembers": "아직 구성원이 없습니다.",
+        "tableTitle": "구성원",
+        "tableSub": "구성원을 선택해 상세를 확인하세요",
+        "search": "구성원 검색",
+        "exportCsv": "CSV 내보내기",
+        "noMatch": "일치하는 구성원이 없습니다",
+        "noMatchHint": "다른 이름이나 역할로 검색해 보세요.",
+        "clearSearch": "검색 지우기",
+        "attribution": "메시지와 첫 응답은 보낸 구성원에게, 해결은 현재 담당자에게 집계됩니다. 봇, 플로우, AI 에이전트는 여기에 포함되지 않습니다.",
+        "detailChart": "처리와 해결",
+        "byChannel": "채널별",
+        "medianResolution": "해결 시간 중앙값",
+        "resolutionRate": "해결률",
+        "openChats": "이 구성원의 대화 열기"
+      },
+      "campaigns": {
+        "stats": {
+          "broadcasts": "보낸 브로드캐스트",
+          "sent": "보낸 메시지",
+          "delivered": "전달됨",
+          "read": "읽음",
+          "replied": "답장함",
+          "runs": "자동화 실행"
+        },
+        "kinds": {
+          "flow": "플로우",
+          "rule": "규칙",
+          "sequence": "시퀀스",
+          "flowOne": "플로우",
+          "ruleOne": "규칙",
+          "sequenceOne": "시퀀스"
+        },
+        "cols": {
+          "broadcast": "브로드캐스트",
+          "sentOn": "보낸 날짜",
+          "template": "템플릿",
+          "step": "단계",
+          "people": "인원",
+          "shareOfSent": "보낸 수 대비 비율"
+        },
+        "openBroadcast": "{name}의 퍼널 열기",
+        "fileName": "broadcasts",
+        "whatsappOnly": "브로드캐스트 수치는 WhatsApp 전용입니다. 자동화는 선택한 채널 기준으로 표시됩니다.",
+        "funnelTitle": "브로드캐스트 성과",
+        "funnelSub": "이 기간의 브로드캐스트 {count, plural, other {#개}}",
+        "funnelMode": "건수 또는 비율 보기",
+        "counts": "건수",
+        "rates": "비율",
+        "noBroadcasts": "이 기간에 브로드캐스트가 없습니다",
+        "noBroadcastsHint": "더 긴 기간을 고르거나 캠페인에서 하나 보내세요.",
+        "openCampaigns": "캠페인 열기",
+        "topTitle": "주요 자동화",
+        "topSubRuns": "각 자동화가 실행된 횟수",
+        "topSubCtr": "추적 버튼이나 링크를 누른 사람",
+        "topMode": "실행 수 또는 클릭률로 정렬",
+        "runs": "실행",
+        "clickRate": "클릭률",
+        "openAutomation": "{name} 열기",
+        "noAutomations": "실행된 자동화가 없습니다",
+        "noAutomationsHint": "이 기간에 실행된 플로우, 규칙, 시퀀스가 없습니다.",
+        "noClicksHint": "이 기간에 추적 링크가 있는 플로우가 실행되지 않았습니다.",
+        "tableTitle": "브로드캐스트",
+        "tableSub": "브로드캐스트를 선택해 퍼널을 확인하세요",
+        "exportCsv": "CSV 내보내기",
+        "nothingSent": "이 기간에 보낸 것이 없습니다.",
+        "kindsTitle": "유형별 실행",
+        "kindsSub": "플로우, 규칙, 시퀀스",
+        "runsWord": "실행",
+        "sentOn": "{date}에 보냄"
+      },
+      "saved": {
+        "pageTitle": "보고서",
+        "pageDescription": "미리 보고 내보내거나 이메일로 보낼 수 있는 저장된 보고서와, 백그라운드에서 만든 보고서 파일입니다.",
+        "title": "저장된 보고서",
+        "description": "지표를 한 번 고른 뒤 보고서를 내보내거나 일정에 맞춰 이메일로 보내세요.",
+        "build": "보고서 만들기",
+        "search": "보고서 검색",
+        "count": "{total, plural, other {보고서 #개}} 중 {shown}개 · 이메일 발송 {scheduled}개",
+        "loadFailed": "저장된 보고서를 불러오지 못했습니다.",
+        "retry": "다시 시도",
+        "noMatch": "일치하는 보고서가 없습니다",
+        "noMatchHint": "다른 이름으로 검색해 보세요.",
+        "empty": "저장된 보고서가 아직 없습니다",
+        "emptyHint": "보고서를 만들어 내보내거나 이메일로 보내세요.",
+        "clearSearch": "검색 지우기",
+        "failed": "처리하지 못했습니다. 다시 시도하세요.",
+        "duplicated": "보고서를 복제했습니다",
+        "saved": "\"{name}\" 보고서를 저장했습니다",
+        "updated": "보고서를 수정했습니다",
+        "deleteTitle": "이 보고서를 삭제할까요?",
+        "deleteText": "\"{name}\" 보고서가 삭제됩니다.",
+        "deleteScheduled": "\"{name}\" 보고서가 삭제되고 이메일 발송도 중단됩니다.",
+        "cancel": "취소",
+        "delete": "삭제",
+        "deleted": "보고서를 삭제했습니다",
+        "scheduleBadge": "{freq}, {time} · {count, plural, other {#명}}",
+        "freq": {
+          "daily": "매일",
+          "weekly": "매주 월요일",
+          "monthly": "매월 1일"
+        },
+        "ranges": {
+          "today": "오늘",
+          "7d": "최근 7일",
+          "30d": "최근 30일",
+          "90d": "최근 90일",
+          "this_week": "이번 주",
+          "last_week": "지난주",
+          "this_month": "이번 달",
+          "last_month": "지난달",
+          "custom": "사용자 지정 날짜"
+        },
+        "summary": "{group}별 {count, plural, other {지표 #개}} · {range} · {channel}",
+        "groups": {
+          "day": "일",
+          "week": "주",
+          "channel": "채널",
+          "agent": "구성원",
+          "label": "라벨"
+        },
+        "openReport": "{name} 열기",
+        "changeSchedule": "이메일 일정 변경",
+        "scheduleEmail": "이메일 예약",
+        "paused": "일시 중지됨",
+        "notScheduled": "예약 안 됨",
+        "more": "{name} 추가 작업",
+        "moreShort": "추가 작업",
+        "open": "열기",
+        "edit": "편집",
+        "duplicate": "복제",
+        "exportReport": "{name} 내보내기",
+        "export": "내보내기",
+        "exportCsv": "CSV 내보내기",
+        "exportPdf": "PDF 내보내기",
+        "errors": {
+          "name": "보고서 이름을 입력하세요.",
+          "nameTaken": "같은 이름의 보고서가 이미 있습니다.",
+          "metrics": "지표를 하나 이상 고르세요.",
+          "missing": "두 날짜를 모두 고르세요.",
+          "order": "시작일이 종료일보다 늦습니다.",
+          "future": "종료일은 미래일 수 없습니다.",
+          "too_long": "366일 이하의 기간을 고르세요.",
+          "time": "시간을 고르세요.",
+          "recipients": "한 명 이상 고르세요."
+        },
+        "editTitle": "보고서 편집",
+        "buildTitle": "보고서 만들기",
+        "builderHint": "건수와 시간만 담기며 메시지 내용은 포함되지 않습니다.",
+        "name": "이름",
+        "namePlaceholder": "주간 지원 요약",
+        "metrics": "지표",
+        "metric": {
+          "new": "새 대화",
+          "resolved": "해결됨",
+          "first_response": "첫 응답 중앙값",
+          "resolution": "해결 시간 중앙값",
+          "messages": "보낸 메시지",
+          "failed": "실패한 메시지"
+        },
+        "groupBy": "그룹 기준",
+        "range": "기간",
+        "fileType": "파일 형식",
+        "saveChanges": "변경 사항 저장",
+        "saveReport": "보고서 저장",
+        "weekOf": "{date} 주",
+        "noLabel": "라벨 없음",
+        "formerMember": "이전 구성원",
+        "previewMeta": "{from}~{to} · {channel} · {count, plural, other {#개 행}}",
+        "loading": "불러오는 중…",
+        "previewFailed": "미리보기를 불러오지 못했습니다.",
+        "done": "완료",
+        "scheduleRemoved": "일정을 삭제했습니다",
+        "scheduleSaved": "\"{name}\" 보고서가 이 일정으로 이메일 발송됩니다",
+        "scheduleTitle": "이메일 보고서 예약",
+        "scheduleHint": "\"{name}\" 보고서를 {format} 파일로 보냅니다. 각 이메일은 방금 끝난 기간을 다루며, 파일이 아닌 로그인 링크만 담습니다.",
+        "howOften": "빈도",
+        "time": "시간(워크스페이스 시간대)",
+        "sendTo": "받는 사람",
+        "noAdmins": "관리자나 소유자를 찾을 수 없습니다.",
+        "unnamed": "이름 없는 구성원",
+        "adminsOnly": "소유자와 관리자만 보고서를 받을 수 있습니다. 보고서를 보낼 때 다시 확인합니다.",
+        "stopSending": "발송 중지",
+        "saveSchedule": "일정 저장"
+      }
     }
   },
   "Ads": {
@@ -11436,7 +12279,8 @@
       "from": "시작일",
       "to": "종료일",
       "syncFailed": "동기화를 예약하지 못했습니다. 다시 시도하세요.",
-      "retargetSaved": "세그먼트를 저장했습니다. 브로드캐스트 대상으로 선택하세요."
+      "retargetSaved": "세그먼트를 저장했습니다. 브로드캐스트 대상으로 선택하세요.",
+      "openDetails": "{name} 세부 정보 열기"
     },
     "leads": {
       "empty": "아직 잠재 고객이 없습니다.",
@@ -13732,6 +14576,1203 @@
       "loadFailed": "이 설정을 불러오지 못했습니다.",
       "retry": "다시 시도",
       "loading": "불러오는 중"
+    }
+  },
+  "AutomationList": {
+    "description": "WhatsApp과 Instagram의 플로우, 규칙, 시퀀스를 한곳에서 관리하세요.",
+    "kindFilterLabel": "자동화 유형",
+    "tabs": {
+      "flow": "플로우",
+      "rule": "규칙",
+      "sequence": "시퀀스"
+    },
+    "kinds": {
+      "flow": "플로우",
+      "rule": "규칙",
+      "sequence": "시퀀스"
+    },
+    "anyStatus": "모든 상태",
+    "searchPlaceholder": "자동화 검색",
+    "noMatches": "일치하는 항목이 없습니다. 다른 검색어를 쓰거나 필터를 지우세요.",
+    "clearFilters": "필터 지우기",
+    "typeColumn": "유형",
+    "startsWhen": "시작 조건",
+    "liveColumn": "라이브",
+    "liveLabel": "{name} 라이브",
+    "liveOn": "“{name}” 라이브 중",
+    "liveOff": "“{name}” 중지됨. 새로 시작하는 사람이 없습니다.",
+    "hasProblems": "“{name}”에 문제가 {count}개 있습니다. 열어서 수정하세요.",
+    "openToFix": "열기",
+    "liveError": "변경하지 못했습니다. 다시 시도하세요.",
+    "working": "저장 중…",
+    "archivedNoSwitch": "켜려면 먼저 복원하세요.",
+    "subscribers": "구독자",
+    "sequenceStarts": "{count, plural, =0 {아직 메시지 없음} other {며칠에 걸친 메시지 #개}}",
+    "logs": "로그 보기",
+    "createRuleError": "규칙을 만들지 못했습니다.",
+    "duplicateRuleError": "규칙을 복제하지 못했습니다.",
+    "deleteError": "삭제하지 못했습니다.",
+    "ruleDeleted": "규칙을 삭제했습니다.",
+    "sequenceArchived": "시퀀스를 보관했습니다. 구독자는 더 이상 메시지를 받지 않습니다.",
+    "deleteRuleHint": "규칙과 단계가 삭제됩니다. 되돌릴 수 없습니다.",
+    "deleteSequenceHint": "시퀀스가 보관되고 구독자 {count}명이 더 이상 메시지를 받지 않습니다.",
+    "rename": {
+      "action": "이름 변경",
+      "title": "자동화 이름 변경",
+      "name": "이름",
+      "required": "이름을 입력하세요.",
+      "cancel": "취소",
+      "save": "저장",
+      "error": "이름을 변경하지 못했습니다.",
+      "done": "이름을 변경했습니다"
+    },
+    "dialog": {
+      "scratch": "처음부터 시작",
+      "scratchHint": "유형과 채널을 고른 뒤 원하는 대로 만드세요.",
+      "scratchTitle": "처음부터 시작",
+      "scratchDesc": "이름을 정하고, 어떤 자동화인지와 실행할 채널을 고르세요.",
+      "backToTemplates": "템플릿",
+      "name": "이름",
+      "nameRequired": "이름을 입력하세요.",
+      "type": "유형",
+      "channel": "채널",
+      "hints": {
+        "flow": "메시지, 질문, 버튼으로 이루어진 대화입니다.",
+        "rule": "어떤 일이 생기면 동작합니다. 대화가 필요 없습니다.",
+        "sequence": "몇 시간 또는 며칠에 걸쳐 나눠 보내는 메시지입니다."
+      },
+      "sequenceInstagramOnly": "시퀀스는 Instagram에서 실행됩니다.",
+      "createRule": "빈 규칙 만들기",
+      "createSequence": "시퀀스 만들기",
+      "templateKind": "{kind} · {channel}",
+      "flowTemplates": "플로우 템플릿"
+    }
+  },
+  "Campaigns": {
+    "title": "캠페인",
+    "blurbs": {
+      "broadcasts": "한 번에 많은 사람에게 메시지 하나를 보냅니다.",
+      "templates": "WhatsApp이 승인한 메시지로, 먼저 연락할 수 있습니다.",
+      "ads": "WhatsApp 또는 Instagram 채팅을 여는 광고입니다.",
+      "forms": "WhatsApp을 벗어나지 않고 작성하는 짧은 양식입니다."
+    },
+    "textMessage": "텍스트 메시지",
+    "sentProgress": "이미 발송된 대상 비율",
+    "noMatchesHint": "다른 상태나 검색어를 사용해 보세요.",
+    "clearFilters": "필터 지우기",
+    "pausedHint": "이 브로드캐스트는 일시 중지되었습니다. 아직 {count}명이 대기 중입니다. 계속 보내려면 재개하세요.",
+    "stats": {
+      "audience": "대상",
+      "sent": "발송",
+      "delivered": "전달",
+      "read": "읽음",
+      "replied": "답장"
+    },
+    "when": {
+      "draft": "아직 발송 안 됨",
+      "scheduled": "{when} 발송 예정",
+      "sending": "{when} 시작",
+      "paused": "일시 중지됨",
+      "cancelled": "취소됨",
+      "sent": "{when} 발송됨",
+      "failed": "{when} 실패"
+    },
+    "channels": {
+      "whatsapp": "WhatsApp",
+      "instagram": "Instagram"
+    },
+    "actions": {
+      "moreFor": "{name} 추가 작업",
+      "more": "추가 작업",
+      "open": "열기",
+      "viewReport": "보고서 보기",
+      "edit": "편집",
+      "editAndSend": "편집 후 발송",
+      "reschedule": "편집 또는 일정 변경",
+      "sendNow": "지금 발송",
+      "cancelSchedule": "예약 취소",
+      "pause": "일시 중지",
+      "resume": "재개",
+      "retryFailed": "실패 건 재시도",
+      "duplicate": "복제",
+      "delete": "삭제",
+      "cancel": "취소",
+      "actionFailed": "작업에 실패했습니다. {error}",
+      "toastDeleted": "브로드캐스트가 삭제되었습니다",
+      "cannotDeleteSending": "삭제하기 전에 브로드캐스트를 일시 중지하세요.",
+      "toastUnscheduled": "예약이 취소되었습니다",
+      "toastPaused": "브로드캐스트가 일시 중지되었습니다",
+      "toastResumed": "다시 발송 중입니다",
+      "toastRetry": "실패한 수신자에게 다시 발송 중입니다",
+      "toastStarted": "발송이 시작되었습니다",
+      "confirmDeleteTitle": "브로드캐스트를 삭제할까요?",
+      "confirmDeleteBody": "\"{name}\"과(와) 보고서가 삭제됩니다.",
+      "confirmSendTitle": "지금 발송할까요?",
+      "confirmSendBody": "\"{name}\"이(가) {count}명에게 바로 발송을 시작합니다.",
+      "errors": {
+        "not_scheduled": "이 캠페인은 더 이상 예약 상태가 아니므로 지금 시작할 수 없습니다.",
+        "already_starting": "이 캠페인은 이미 시작되는 중입니다.",
+        "workspace_held": "워크스페이스가 정지된 동안에는 캠페인이 보류됩니다. 워크스페이스가 다시 활성화되면 발송됩니다.",
+        "job_missing": "이 캠페인은 더 이상 예약에서 시작할 수 없습니다. 지금 보내려면 복제하세요.",
+        "resume_paused_first": "먼저 일시 중지된 이 캠페인을 재개한 다음 실패한 수신자에게 다시 시도하세요."
+      }
+    },
+    "recipients": {
+      "search": "수신자 검색",
+      "filter": "상태별 수신자 필터",
+      "range": "{total}개 중 {start}–{end}",
+      "previous": "이전",
+      "next": "다음"
+    },
+    "message": {
+      "title": "메시지",
+      "textMessage": "텍스트 메시지",
+      "yourBusiness": "내 비즈니스",
+      "empty": "메시지 내용이 없습니다.",
+      "loading": "메시지를 불러오는 중",
+      "templateMissing": "이 템플릿은 더 이상 워크스페이스에 없습니다.",
+      "customField": "사용자 지정 필드"
+    },
+    "wizard": {
+      "steps": {
+        "details": "세부 정보",
+        "message": "메시지",
+        "review": "검토"
+      },
+      "detailsTitle": "이름과 채널",
+      "detailsSubtitle": "브로드캐스트 이름을 정하고 보낼 채널을 선택하세요.",
+      "nameLabel": "이름",
+      "namePlaceholder": "예: 디왈리 할인",
+      "nameHint": "이 이름은 팀원만 볼 수 있습니다.",
+      "nameRequired": "브로드캐스트 이름을 입력하세요.",
+      "channelLabel": "채널",
+      "channelWhatsapp": "WhatsApp",
+      "channelWhatsappHint": "수신에 동의한 모든 사람에게 승인된 템플릿을 보냅니다.",
+      "channelInstagram": "Instagram",
+      "channelInstagramHint": "지난 24시간 안에 메시지를 보낸 사람에게 보냅니다.",
+      "channelInstagramOff": "Instagram 브로드캐스트를 보내려면 설정에서 Instagram을 켜세요.",
+      "back": "뒤로",
+      "next": "다음",
+      "messageTitle": "메시지 작성",
+      "messageSubtitle": "Instagram 브로드캐스트는 텍스트만 보낼 수 있습니다. 짧고 친근하게 작성하세요.",
+      "messageLabel": "메시지",
+      "insertFirstName": "이름",
+      "messagePlaceholder": "메시지를 입력하세요",
+      "messageHint": "'{first name}'을 입력하면 각 사람의 이름으로 인사합니다.",
+      "messageRequired": "메시지를 입력하세요.",
+      "preview": "미리보기",
+      "yourBusiness": "내 비즈니스",
+      "sampleName": "Priya",
+      "previewEmpty": "입력하는 동안 여기에 메시지가 표시됩니다.",
+      "reviewTitle": "검토 후 발송",
+      "reviewSubtitle": "보내기 전에 받는 사람을 확인하세요.",
+      "reviewName": "이름",
+      "reviewChannel": "채널",
+      "reviewAudience": "대상",
+      "reviewWhen": "시점",
+      "reviewNow": "지금",
+      "willGetIt": "{count, plural, other {명이 받게 됩니다}}",
+      "leftOutWindow": "{count}명 제외: 마지막 메시지가 24시간보다 오래되었습니다",
+      "leftOutRule": "Instagram은 지난 24시간 안에 메시지를 보낸 사람에게만 메시지를 허용합니다. 수신 거부했거나 차단된 연락처는 항상 제외됩니다.",
+      "countFailed": "대상 수를 계산하지 못했습니다. 뒤로 가서 다시 시도하세요.",
+      "counting": "받는 사람을 계산하는 중…",
+      "instagramNoSchedule": "Instagram 브로드캐스트는 바로 발송됩니다. 나중 시간에는 24시간 창이 닫힐 수 있습니다.",
+      "sendNow": "지금 발송",
+      "instagramReach": "명이 지난 24시간 안에 메시지를 보냈고 받게 됩니다",
+      "templateNotApproved": "아직 승인되지 않은 템플릿이라 브로드캐스트에 사용할 수 없습니다.",
+      "copyName": "{name} 사본",
+      "templateGone": "원래 템플릿이 더 이상 승인 상태가 아닙니다. 다른 템플릿을 선택하세요.",
+      "loadFailed": "복사할 브로드캐스트를 불러오지 못했습니다.",
+      "audience": {
+        "all": "모든 연락처",
+        "tags": "라벨별",
+        "customField": "사용자 지정 필드별",
+        "csv": "CSV 파일에서",
+        "segment": "세그먼트",
+        "list": "목록"
+      }
+    },
+    "templates": {
+      "category": "카테고리",
+      "allCategories": "모든 카테고리",
+      "counts": "변수 {variables}개 · 버튼 {buttons}개",
+      "use": "사용"
+    },
+    "forms": {
+      "summary": "양식 {count}개 · 게시됨 {published}개",
+      "search": "양식 검색",
+      "noMatches": "일치하는 양식이 없습니다.",
+      "searchResponses": "응답 검색",
+      "noResponseMatches": "검색과 일치하는 응답이 없습니다."
+    },
+    "adDrawer": {
+      "ad": "광고",
+      "campaign": "캠페인",
+      "rangeNote": "광고 탭에서 선택한 날짜의 합계입니다.",
+      "spend": "지출",
+      "clicks": "클릭",
+      "conversations": "대화",
+      "purchases": "구매",
+      "last14": "최근 14일",
+      "metric": "차트 지표",
+      "loadFailed": "일별 수치를 불러오지 못했습니다.",
+      "loading": "일별 수치를 불러오는 중…",
+      "chartLabel": "최근 14일 동안의 일별 {metric}, 합계 {total}",
+      "total": "합계 {total}",
+      "openInAdsManager": "광고 관리자에서 열기"
+    }
+  },
+  "Sales": {
+    "pipeline": {
+      "openDeals": "진행 중인 거래",
+      "won": "성사",
+      "winRate": "성사율",
+      "dealsCount": "{count, plural, other {거래 #건}}",
+      "lostCount": "실패 {count}건",
+      "dealActions": "{title} 작업",
+      "openDeal": "거래 열기",
+      "moveTo": "{stage}(으)로 이동",
+      "deleteDeal": "거래 삭제",
+      "moved": "{stage}(으)로 이동했습니다",
+      "allOwners": "모든 담당자",
+      "unassigned": "담당자 없음",
+      "owner": "담당자로 필터",
+      "manageStages": "단계 관리",
+      "searchDeals": "거래 검색",
+      "moreStats": "통계 더 보기",
+      "fewerStats": "통계 줄이기",
+      "noMatches": "일치하는 거래가 없습니다",
+      "deleteTitle": "이 거래를 삭제할까요?",
+      "deleteBody": "\"{title}\" 거래가 파이프라인에서 삭제됩니다.",
+      "deleted": "거래를 삭제했습니다",
+      "deleteFailed": "거래를 삭제하지 못했습니다"
+    },
+    "deal": {
+      "saving": "저장 중…",
+      "saved": "저장됨",
+      "autosaveHint": "변경 사항은 바로 저장됩니다.",
+      "saveFailed": "변경 사항을 저장하지 못했습니다",
+      "contactButton": "연락처",
+      "chatButton": "채팅",
+      "summary": "요약",
+      "teamNotes": "팀 메모",
+      "noNotes": "아직 메모가 없습니다.",
+      "teamMember": "팀원",
+      "deleteNote": "메모 삭제",
+      "notePlaceholder": "팀을 위한 메모를 남기세요",
+      "addNote": "메모 추가",
+      "paymentLink": "결제 링크",
+      "noteEmpty": "먼저 메모를 입력하세요",
+      "noteFailed": "메모를 저장하지 못했습니다",
+      "noteAdded": "메모를 추가했습니다",
+      "noteDeleted": "메모를 삭제했습니다",
+      "delete": "삭제",
+      "markLost": "실패로 표시",
+      "markWon": "성사로 표시"
+    },
+    "paymentLink": {
+      "sendNow": "지금 고객에게 보내기",
+      "sent": "고객에게 결제 링크를 보냈습니다",
+      "sendRefused": "링크는 만들었지만 보내지 못했습니다: {reason}"
+    },
+    "appointments": {
+      "viewWeek": "주간",
+      "viewList": "목록",
+      "bookingLink": "예약 링크",
+      "servicesHours": "서비스 및 영업시간",
+      "gridLabel": "주간 캘린더",
+      "closed": "휴무",
+      "clickToBook": "이 시간을 예약하려면 클릭하세요",
+      "noContact": "고객 대기 중",
+      "hint": "빈 시간을 클릭해 예약하세요. 음영 표시된 날은 휴무입니다.",
+      "hintReadOnly": "음영 표시된 날은 휴무입니다.",
+      "requestedTime": "요청한 시간: {when}. 서비스와 장소를 고르면 그 시간부터 비어 있는 시간이 표시됩니다."
+    },
+    "orders": {
+      "colPayment": "결제",
+      "colFulfilment": "배송",
+      "pay": {
+        "paid": "결제 완료",
+        "pending": "결제 대기",
+        "refunded": "환불됨",
+        "partlyRefunded": "부분 환불",
+        "cod": "착불 결제"
+      },
+      "ful": {
+        "new": "신규",
+        "confirmed": "확정",
+        "shipped": "발송됨",
+        "delivered": "배송 완료",
+        "cancelled": "취소됨",
+        "expired": "만료됨",
+        "review": "검토 중"
+      },
+      "stepFailed": "주문을 업데이트하지 못했습니다",
+      "stepDone": "주문을 확정했습니다",
+      "linkDescription": "주문 {ref}",
+      "linkFailed": "결제 링크를 만들지 못했습니다",
+      "linkExisting": "이 주문에는 이미 열린 결제 링크가 있어 다시 보내고 복사했습니다.",
+      "linkSent": "고객에게 결제 링크를 보내고 복사했습니다",
+      "linkNoChat": "결제 링크를 복사했습니다. 보낼 채팅이 없습니다.",
+      "linkNotSent": "결제 링크를 복사했지만 보내지 못했습니다: {reason}",
+      "updateFailed": "보내지 못했습니다: {reason}",
+      "updateSent": "고객에게 소식을 보냈습니다",
+      "placed": "{date} 주문 · {count, plural, other {상품 #개}}",
+      "title": "주문 {ref}",
+      "loadingTitle": "주문",
+      "contact": "연락처",
+      "chat": "채팅",
+      "items": "상품",
+      "noChat": "이 주문에는 보낼 채팅이 없습니다.",
+      "sendUpdate": "소식 보내기",
+      "sendPaymentLink": "결제 링크 보내기",
+      "recordPayment": "결제 기록",
+      "cancelOrder": "주문 취소",
+      "nextLabel": "다음: {step}",
+      "next": {
+        "confirm": "주문 확정",
+        "ship": "발송됨으로 표시",
+        "deliver": "배송 완료로 표시"
+      },
+      "complete": "완료된 주문입니다.",
+      "noStep": "여기서 진행할 다음 단계가 없습니다.",
+      "openFullPage": "전체 페이지",
+      "shipTitle": "{ref} 발송",
+      "trackingHelp": "선택 사항입니다. 발송 안내와 함께 고객에게 전달됩니다.",
+      "tracking": "운송장 번호 또는 메모",
+      "cancel": "취소",
+      "updateTitle": "고객에게 소식 보내기",
+      "updateHelp": "고객 채팅으로 보냅니다. 24시간 창이 지나면 WhatsApp에서는 승인된 템플릿이 필요하니 채팅을 열어 보내세요.",
+      "updateSend": "보내기",
+      "cancelTitle": "{ref} 주문을 취소할까요?",
+      "cancelBody": "주문이 취소되고, 확보한 재고가 풀리며, 열린 결제 링크도 취소됩니다.",
+      "keep": "주문 유지",
+      "cancelled": "주문을 취소했습니다",
+      "updateText": {
+        "confirmed": "주문 {ref}이(가) 확정되었습니다.",
+        "paid": "주문 {ref}의 결제를 받았습니다.",
+        "dispatched": "주문 {ref}이(가) 발송되었습니다.",
+        "fulfilled": "주문 {ref}이(가) 배송 완료되었습니다.",
+        "cancelled": "주문 {ref}이(가) 취소되었습니다.",
+        "other": "주문 {ref}에 대한 소식을 알려드립니다."
+      },
+      "export": "내보내기",
+      "exported": "{count, plural, other {주문 #건을 내보냈습니다}}",
+      "exportFailed": "주문을 내보내지 못했습니다",
+      "newOrder": "새 주문",
+      "actions": "작업",
+      "openOrderLabel": "주문 {ref} 열기",
+      "orderActions": "주문 {ref} 작업",
+      "openOrder": "주문 열기",
+      "refund": "환불",
+      "shown": "{count, plural, other {주문 #건 표시.}}",
+      "seePayments": "결제 보기",
+      "csv": {
+        "order": "주문",
+        "date": "날짜",
+        "customer": "고객",
+        "items": "상품 수",
+        "total": "합계",
+        "currency": "통화",
+        "payment": "결제",
+        "fulfilment": "배송",
+        "source": "출처"
+      },
+      "new": {
+        "title": "새 주문",
+        "totalHelp": "가격은 카탈로그에서 가져옵니다. 세금은 주문을 만들 때 더해집니다.",
+        "customer": "고객",
+        "customerSearch": "이름으로 고객 검색",
+        "chooseCustomer": "고객을 선택하세요",
+        "items": "상품",
+        "product": "상품",
+        "qty": "수량",
+        "removeItem": "상품 빼기",
+        "productSearch": "이름 또는 SKU로 제품 검색",
+        "madeToOrder": "주문 제작",
+        "stock": "재고 {count}개",
+        "addItem": "상품 추가",
+        "total": "합계",
+        "note": "내부 메모(선택)",
+        "sendLink": "고객에게 결제 링크 보내기",
+        "create": "주문 만들기",
+        "created": "주문 {ref}을(를) 만들었습니다",
+        "needCustomer": "고객을 선택하세요",
+        "needItems": "상품을 하나 이상 추가하세요",
+        "noProducts": "가격이 있는 게시된 상품이 아직 없습니다. 먼저 카탈로그에서 추가하세요.",
+        "errors": {
+          "invalid": "상품과 수량을 확인하고 다시 시도하세요.",
+          "contact_not_found": "이 고객은 더 이상 이 워크스페이스에 없습니다.",
+          "store_not_configured": "먼저 스토어 설정에서 통화를 지정하세요.",
+          "out_of_stock": "상품 중 하나의 재고가 부족합니다.",
+          "variant_unavailable": "상품 중 하나가 더 이상 판매되지 않습니다.",
+          "price_not_configured": "상품 중 하나에 가격이 없습니다.",
+          "tax_not_configured": "먼저 상품이나 스토어의 세율을 지정하세요.",
+          "amount_out_of_range": "주문 합계가 너무 큽니다.",
+          "cart_empty": "상품을 하나 이상 추가하세요",
+          "invalid_cart": "상품과 수량을 확인하고 다시 시도하세요.",
+          "generic": "주문을 만들지 못했습니다. 다시 시도하세요."
+        }
+      }
+    },
+    "products": {
+      "copyName": "{name}(사본)",
+      "shown": "{name}이(가) 스토어에 표시됩니다",
+      "hiddenToast": "{name}이(가) 스토어에서 숨겨졌습니다",
+      "duplicated": "사본을 초안으로 추가했습니다",
+      "archived": "상품을 보관했습니다",
+      "restored": "상품을 초안으로 복원했습니다",
+      "productActions": "{name} 작업",
+      "edit": "편집",
+      "duplicate": "복제",
+      "hide": "스토어에서 숨기기",
+      "show": "스토어에 표시",
+      "restore": "복원",
+      "archive": "보관",
+      "activeFor": "{name} 스토어 표시",
+      "all": "전체",
+      "categories": "카테고리",
+      "viewLabel": "보기",
+      "gridView": "격자 보기",
+      "tableView": "표 보기",
+      "activeInShop": "스토어에 표시 중",
+      "hidden": "스토어에서 숨김",
+      "active": "표시",
+      "actionsColumn": "작업",
+      "newHelp": "이름을 정하세요. 가격, 옵션, 사진은 다음 페이지에서 추가합니다.",
+      "cancel": "취소",
+      "createAndEdit": "만들고 편집"
+    },
+    "payments": {
+      "collected": "받은 금액",
+      "paidCount": "결제 {count}건",
+      "waiting": "결제 대기 금액",
+      "pendingCount": "대기 {count}건",
+      "expired": "만료",
+      "expiredCount": "기한 내 미결제 {count}건",
+      "paidRate": "결제율",
+      "ofClosed": "종료된 링크 기준",
+      "otherCurrencies": "{list} 통화도 있습니다. 카드는 한 통화만 보여 줍니다.",
+      "reminderSent": "고객에게 알림을 보냈습니다",
+      "reminderFailed": "보내지 못했습니다: {reason}",
+      "sentAgain": "새 링크를 만들어 보냈습니다",
+      "madeAgain": "새 링크를 만들었습니다",
+      "all": "전체",
+      "pending": "대기",
+      "moreStatuses": "다른 상태",
+      "search": "결제 링크 검색",
+      "noMatches": "일치하는 결제 링크가 없습니다.",
+      "clearFilters": "필터 지우기",
+      "expires": "{date} 만료",
+      "linkActions": "링크 작업",
+      "sendReminder": "알림 보내기",
+      "recordPayment": "결제 기록",
+      "sendAgain": "다시 보내기",
+      "openOrder": "주문 열기",
+      "openChat": "채팅 열기",
+      "openContact": "연락처 열기",
+      "expireNow": "지금 만료"
+    }
+  },
+  "AiStudio": {
+    "title": "AI",
+    "description": "대신 답장하는 에이전트, 에이전트가 아는 내용, 그리고 얼마나 잘하고 있는지 확인하세요.",
+    "newAgent": "새 에이전트",
+    "addSource": "소스 추가",
+    "sectionsLabel": "AI 섹션",
+    "tabs": {
+      "agents": "에이전트",
+      "knowledge": "지식",
+      "features": "어시스턴트 기능",
+      "quality": "품질",
+      "setup": "설정",
+      "learnings": "학습",
+      "usage": "사용량",
+      "activity": "활동"
+    },
+    "common": {
+      "cancel": "취소",
+      "retry": "다시 시도",
+      "loading": "불러오는 중",
+      "loadFailed": "불러오지 못했습니다.",
+      "failed": "실패했습니다. 다시 시도하세요."
+    },
+    "agents": {
+      "filterAll": "전체",
+      "filterOn": "켜짐",
+      "filterOff": "꺼짐",
+      "filterLabel": "에이전트 보기",
+      "search": "에이전트 검색",
+      "orderHint": "대화마다 에이전트 한 명이 답합니다. 이미 그 대화에 답한 에이전트가 먼저이고, 없으면 해당 채널과 시간에 켜져 있는 이 목록의 첫 번째 에이전트가 답합니다.",
+      "emptyTitle": "아직 에이전트가 없습니다",
+      "emptyBody": "에이전트는 지식 베이스를 사용해 고객에게 대신 답합니다.",
+      "createFirst": "에이전트 만들기",
+      "noMatchTitle": "일치하는 에이전트가 없습니다",
+      "noMatchBody": "다른 검색어나 필터를 사용해 보세요.",
+      "clearFilters": "필터 지우기",
+      "roles": {
+        "sales": "영업",
+        "support": "지원",
+        "bookings": "예약",
+        "orders": "주문",
+        "general": "일반"
+      },
+      "tones": {
+        "friendly": "친근함",
+        "professional": "전문적",
+        "concise": "간결함",
+        "enthusiastic": "열정적",
+        "formal": "격식"
+      },
+      "channels": {
+        "whatsapp": "WhatsApp",
+        "instagram": "Instagram"
+      },
+      "hoursAlways": "항상 켜짐",
+      "hoursDuring": "{from}~{to}",
+      "hoursOutside": "{from}~{to} 외 시간",
+      "roleTone": "{role} 에이전트 · {tone} 어조",
+      "roleOnly": "{role} 에이전트",
+      "toggleLabel": "{name}이(가) 고객에게 답장",
+      "noGoal": "설정의 지침을 사용합니다.",
+      "defaultBadge": "기본",
+      "handled": "처리한 대화",
+      "solved": "사람 없이 해결",
+      "newLabel": "신규",
+      "noChats": "아직 대화 없음",
+      "statusOn": "켜짐",
+      "statusOff": "꺼짐",
+      "test": "에이전트 테스트",
+      "edit": "편집",
+      "more": "{name} 더 보기",
+      "duplicate": "복제",
+      "moveUp": "위로 이동",
+      "moveDown": "아래로 이동",
+      "delete": "삭제",
+      "readOnly": "관리자만 에이전트를 변경할 수 있습니다.",
+      "defaultHint": "처음부터 있던 에이전트입니다. 지침, 어조, 인계 규칙은 설정에 있는 내용을 사용합니다.",
+      "deleteTitle": "{name}을(를) 삭제할까요?",
+      "deleteOn": "이 에이전트는 켜져 있습니다. 즉시 고객 응답을 멈춥니다.",
+      "deleteOff": "이 에이전트와 설정이 삭제됩니다.",
+      "deleteConfirm": "에이전트 삭제",
+      "toasts": {
+        "created": "에이전트를 만들었습니다. 준비되면 켜세요.",
+        "saved": "에이전트를 저장했습니다",
+        "duplicated": "{name}을(를) 만들었습니다. 지금은 꺼져 있습니다.",
+        "deleted": "에이전트를 삭제했습니다",
+        "on": "{name}이(가) 켜져 고객에게 답하고 있습니다",
+        "off": "{name}이(가) 꺼졌습니다",
+        "moved": "순서를 저장했습니다",
+        "failed": "실패했습니다. 다시 시도하세요.",
+        "loadFailed": "에이전트를 불러오지 못했습니다."
+      },
+      "errors": {
+        "forbidden": "관리자만 에이전트를 변경할 수 있습니다.",
+        "invalid_input": "에이전트 정보를 확인하고 다시 시도하세요.",
+        "not_found": "이 에이전트는 더 이상 없습니다.",
+        "name_taken": "다른 에이전트가 이미 이 이름을 사용합니다.",
+        "limit_reached": "워크스페이스에는 에이전트를 최대 20개까지 둘 수 있습니다.",
+        "default_agent": "기본 에이전트는 삭제할 수 없습니다. 대신 끄세요."
+      },
+      "legacyHint": "현재 모든 채널에서 언제든지 고객에게 답하는 에이전트입니다. 관리자가 이 페이지를 열면 편집 가능한 에이전트로 바뀝니다."
+    },
+    "editor": {
+      "newTitle": "새 에이전트",
+      "editTitle": "{name} 편집",
+      "name": "이름",
+      "namePlaceholder": "예: 마야",
+      "role": "역할",
+      "goal": "목표와 지침",
+      "goalPlaceholder": "이 에이전트가 할 일과 절대 하지 말아야 할 일은 무엇인가요?",
+      "tone": "어조",
+      "channels": "채널",
+      "handoffLegend": "사람에게 인계",
+      "keywords": "고객이 이렇게 말하면",
+      "keywordsPlaceholder": "환불, 불만, 상담원 연결",
+      "keywordsHint": "단어는 쉼표로 구분하세요.",
+      "maxTurns": "AI 답장 횟수가 이만큼 되면",
+      "maxTurnsHint": "0은 제한 없음입니다.",
+      "unsure": "에이전트가 확신하지 못할 때",
+      "unsureHint": "답을 추측하는 대신 인계합니다.",
+      "hoursLegend": "운영 시간",
+      "hoursMode": "답장하는 시간",
+      "modeAlways": "항상",
+      "modeDuring": "이 시간에만",
+      "modeOutside": "이 시간 외에만",
+      "from": "시작",
+      "to": "종료",
+      "timezone": "시간은 받은편지함 설정의 시간대를 따릅니다.",
+      "create": "에이전트 만들기",
+      "save": "변경 사항 저장",
+      "errors": {
+        "name": "다른 에이전트가 쓰지 않는 이름을 입력하세요.",
+        "goal": "에이전트가 할 일을 입력하세요.",
+        "channels": "채널을 하나 이상 선택하세요.",
+        "maxTurns": "0에서 50 사이의 숫자를 입력하세요.",
+        "hours": "시작 시간은 종료 시간보다 빨라야 합니다."
+      },
+      "overnightHint": "시작 시간은 종료 시간보다 빨라야 합니다. 야간 운영(예: 22:00~06:00)은 \"이 시간 외에만\"을 선택하고 06:00~22:00을 입력하세요."
+    },
+    "test": {
+      "panelLabel": "{name} 테스트",
+      "subtitle": "테스트 채팅 · 고객에게 아무것도 보내지 않습니다",
+      "reset": "다시 시작",
+      "close": "테스트 채팅 닫기",
+      "hint": "고객처럼 메시지를 입력하세요. {name}이(가) 지식 베이스를 바탕으로 답합니다.",
+      "hintOff": "고객에게는 꺼져 있지만 테스트는 할 수 있습니다.",
+      "placeholder": "고객으로 메시지 입력",
+      "lockedPlaceholder": "계속 테스트하려면 다시 시작하세요",
+      "inputLabel": "테스트 메시지",
+      "send": "보내기",
+      "from": "출처: {source}",
+      "typing": "에이전트가 입력 중입니다",
+      "handoverReply": "도와드릴 수 있는 팀원을 연결해 드릴게요. 곧 여기에서 답변드립니다.",
+      "handoff": {
+        "keyword": "사람에게 인계됨: 고객이 인계 단어를 사용했습니다",
+        "turns": "답장 한도에 도달해 사람에게 인계됨",
+        "unsure": "사람에게 인계됨: 에이전트가 확신하지 못했습니다"
+      },
+      "starters": {
+        "sales1": "연간 요금제는 얼마인가요?",
+        "sales2": "데모를 받을 수 있나요?",
+        "sales3": "진행 중인 할인이 있나요?",
+        "support1": "주문은 언제 발송되나요?",
+        "support2": "연락처는 어떻게 내보내나요?",
+        "support3": "환불하고 싶어요",
+        "bookings1": "상담을 예약할 수 있나요?",
+        "bookings2": "영업시간이 어떻게 되나요?",
+        "bookings3": "일정을 바꿔야 해요",
+        "orders1": "주문은 언제 발송되나요?",
+        "orders2": "청구서를 보내 주세요",
+        "orders3": "상품이 파손되어 도착했어요",
+        "general1": "영업시간이 어떻게 되나요?",
+        "general2": "가격이 얼마인가요?",
+        "general3": "급한 일이에요"
+      }
+    },
+    "knowledge": {
+      "askTitle": "지식 베이스에 질문하기",
+      "askBody": "고객이 묻기 전에 AI가 무엇을 찾을지 확인하세요.",
+      "askPlaceholder": "예: 환불은 얼마나 걸리나요?",
+      "askLabel": "질문",
+      "ask": "질문하기",
+      "askEmpty": "먼저 질문을 입력하세요.",
+      "askFailed": "지식 베이스를 검색하지 못했습니다. 다시 시도하세요.",
+      "noMatch": "“{q}”와(과) 일치하는 내용이 없습니다.",
+      "noMatchBody": "다른 검색어나 유형을 사용해 보세요.",
+      "writeAnswer": "답변 작성",
+      "untitled": "제목 없음",
+      "matchPct": "{n}% 일치",
+      "teamOnly": "팀 전용, 답장에는 사용하지 않음",
+      "typeLabel": "소스 유형",
+      "types": {
+        "all": "전체",
+        "website": "웹사이트",
+        "document": "문서",
+        "qa": "질문과 답변"
+      },
+      "search": "소스 검색",
+      "addShort": "추가",
+      "tableLabel": "지식 소스",
+      "cols": {
+        "source": "소스",
+        "type": "유형",
+        "status": "상태",
+        "size": "크기",
+        "updated": "업데이트",
+        "inReplies": "답장에 사용",
+        "inRepliesHint": "고객에게 답할 때 이 소스를 사용합니다",
+        "actions": "작업"
+      },
+      "kind": {
+        "website": "웹사이트",
+        "sitemap": "사이트맵",
+        "file": "문서",
+        "text": "텍스트",
+        "qa": "질문과 답변",
+        "learning": "학습한 답변"
+      },
+      "status": {
+        "queued": "대기 중",
+        "crawling": "동기화 중",
+        "ready": "동기화됨",
+        "failed": "실패",
+        "disabled": "꺼짐"
+      },
+      "progressLabel": "{title} 동기화 진행률",
+      "size": {
+        "pages": "{count, plural, other {#페이지}}",
+        "answers": "{count, plural, other {답변 #개}}",
+        "documents": "{count, plural, other {문서 #개}}"
+      },
+      "never": "아직 동기화되지 않음",
+      "useInReplies": "고객 답장에 {title} 사용",
+      "syncAgainLabel": "{title} 다시 동기화",
+      "more": "{title} 더 보기",
+      "menu": {
+        "view": "내용 보기",
+        "editAnswer": "답변 편집",
+        "editText": "텍스트 편집",
+        "copy": "주소 복사",
+        "syncAgain": "다시 동기화",
+        "tryAgain": "다시 시도",
+        "showAgents": "상담원에게 공개",
+        "adminsOnly": "관리자 전용",
+        "delete": "삭제"
+      },
+      "emptyTitle": "아직 소스가 없습니다",
+      "emptyBody": "웹사이트, 문서 또는 몇 가지 질문과 답변을 추가하세요.",
+      "addFirst": "소스 추가",
+      "noMatchTitle": "일치하는 소스가 없습니다",
+      "clearFilters": "필터 지우기",
+      "deleteTitle": "{title}을(를) 삭제할까요?",
+      "deleteBody": "AI가 이 소스를 즉시 사용하지 않습니다. 되돌릴 수 없습니다.",
+      "deleteConfirm": "소스 삭제",
+      "toasts": {
+        "added": "소스를 추가했습니다. 지금 읽는 중입니다.",
+        "saved": "저장했습니다. 지금 다시 읽는 중입니다.",
+        "deleted": "소스를 삭제했습니다",
+        "syncing": "{title} 동기화 중",
+        "inReplies": "{title}을(를) 고객 답장에 사용합니다",
+        "teamOnly": "{title}은(는) 팀 전용입니다",
+        "copied": "주소를 복사했습니다",
+        "failed": "실패했습니다. 다시 시도하세요."
+      },
+      "add": {
+        "title": "소스 추가",
+        "editAnswerTitle": "답변 편집",
+        "editTextTitle": "텍스트 편집",
+        "modeLabel": "소스 종류",
+        "modes": {
+          "website": "웹사이트",
+          "sitemap": "사이트맵",
+          "file": "파일 업로드",
+          "qa": "질문과 답변 작성",
+          "text": "텍스트"
+        },
+        "url": "페이지 주소",
+        "sitemapUrl": "사이트맵 주소",
+        "name": "이름",
+        "namePlaceholder": "고객센터",
+        "nameHint": "선택 사항입니다. 비워 두면 사이트 이름을 사용합니다.",
+        "file": "파일 선택",
+        "fileHint": "PDF, Word, 텍스트 또는 Markdown, 최대 10MB",
+        "question": "질문",
+        "questionPlaceholder": "일요일에도 배송하나요?",
+        "answer": "답변",
+        "answerPlaceholder": "AI가 해야 할 답변입니다.",
+        "textTitle": "제목",
+        "textContent": "텍스트",
+        "submit": "소스 추가",
+        "save": "저장",
+        "errors": {
+          "url": "웹 주소를 입력하세요. 예: https://yourshop.com/help",
+          "pageLimit": "1에서 500 사이의 페이지 수를 입력하세요.",
+          "file": "업로드할 파일을 선택하세요.",
+          "fileType": "PDF, Word, 텍스트 또는 Markdown 파일을 사용하세요.",
+          "fileSize": "이 파일은 10MB보다 큽니다.",
+          "question": "질문을 입력하세요.",
+          "answer": "답변을 입력하세요.",
+          "title": "텍스트 제목을 입력하세요.",
+          "content": "텍스트를 입력하세요."
+        }
+      },
+      "detail": {
+        "updated": "{when} 업데이트",
+        "never": "아직 동기화되지 않음",
+        "truncated": "텍스트의 앞부분만 보여 줍니다.",
+        "pages": "{count, plural, other {#페이지}}",
+        "noPreview": "이 소스는 텍스트 미리보기가 없습니다. 동기화되면 검색에 사용됩니다.",
+        "close": "닫기"
+      }
+    },
+    "features": {
+      "title": "어시스턴트 기능",
+      "body": "받은편지함에서 팀을 돕는 기능입니다. AI가 이것을 스스로 보내지는 않습니다.",
+      "onCount": "{total}개 중 {on}개 켜짐",
+      "teamLanguage": "팀 언어",
+      "languageSaved": "팀 언어를 {language}(으)로 설정했습니다",
+      "turnedOn": "{name}을(를) 켰습니다",
+      "turnedOff": "{name}을(를) 껐습니다",
+      "setupLink": "에이전트 및 제공업체 설정",
+      "items": {
+        "suggest": {
+          "name": "추천 답장",
+          "desc": "받은편지함에서 답장을 최대 세 개 제안합니다. 하나를 골라 보내기 전에 편집할 수 있습니다."
+        },
+        "summary": {
+          "name": "대화 요약",
+          "desc": "긴 대화를 몇 줄로 요약합니다. 팀에게만 보입니다."
+        },
+        "assess": {
+          "name": "리드 점수",
+          "desc": "고객이 원하는 것을 파악하고 리드마다 0~100점의 점수를 매깁니다."
+        },
+        "label": {
+          "name": "자동 라벨",
+          "desc": "새 대화에 가격이나 지원 같은 받은편지함 라벨을 최대 두 개까지 붙입니다."
+        },
+        "translate": {
+          "name": "번역",
+          "desc": "받은편지함에서 요청하면 고객 메시지를 팀 언어로 보여 주고 답장을 고객 언어로 번역합니다."
+        },
+        "route": {
+          "name": "직원에게 연결",
+          "desc": "모든 대화에서 건강 및 기타 민감한 질문은 답하지 않고 사람에게 보냅니다."
+        },
+        "insights": {
+          "name": "비즈니스 인사이트",
+          "desc": "요청하면 분석 수치를 짧게 요약해 줍니다."
+        }
+      }
+    },
+    "languages": {
+      "en": "영어",
+      "hi": "힌디어",
+      "te": "텔루구어",
+      "ta": "타밀어",
+      "mr": "마라티어",
+      "kn": "칸나다어",
+      "ml": "말라얄람어",
+      "bn": "벵골어",
+      "gu": "구자라트어",
+      "pa": "펀자브어",
+      "es": "스페인어",
+      "pt": "포르투갈어",
+      "ko": "한국어",
+      "fr": "프랑스어",
+      "de": "독일어",
+      "ar": "아랍어"
+    },
+    "budget": {
+      "title": "월간 토큰 예산",
+      "states": {
+        "ok": "정상",
+        "warn": "얼마 남지 않음",
+        "over": "예산 소진",
+        "none": "제한 없음"
+      },
+      "usedNoLimit": "이번 달 사용한 토큰",
+      "ofLimit": "/ {limit} 토큰",
+      "barLabel": "사용한 예산",
+      "pct": "{n}% 사용",
+      "resets": "{date}에 초기화",
+      "overNote": "한도를 넘었습니다. 일시 중지가 꺼져 있어 어시스턴트 기능은 계속 작동합니다.",
+      "pausedNote": "예산이 초기화되거나 한도를 올릴 때까지 AI가 일시 중지됩니다.",
+      "planLimit": "요금제에서 매월 {n} 토큰을 사용할 수 있습니다.",
+      "limitLabel": "월간 한도(토큰)",
+      "preset": "{n}백만",
+      "saveLimit": "한도 저장",
+      "removeLimit": "제한 없음",
+      "setLimit": "한도 설정",
+      "change": "한도 변경",
+      "pause": "예산을 다 쓰면 AI 일시 중지",
+      "pauseHint": "한도에 도달하면 어시스턴트 기능이 멈춥니다. 팀은 계속 직접 답할 수 있습니다. 요금제 한도는 항상 적용됩니다.",
+      "pauseOn": "예산을 다 쓰면 AI가 일시 중지됩니다",
+      "pauseOff": "한도를 넘어도 AI가 계속 작동합니다",
+      "tokensNote": "토큰은 AI가 읽고 쓰는 텍스트의 양입니다. 영어 약 750단어가 1,000토큰입니다.",
+      "saved": "월간 한도를 {n} 토큰으로 설정했습니다",
+      "removed": "월간 한도를 없앴습니다",
+      "errors": {
+        "invalid": "토큰 수를 정수로 입력하세요.",
+        "min": "최소 한도는 100,000 토큰입니다.",
+        "max": "한도가 너무 큽니다."
+      }
+    },
+    "usage": {
+      "title": "이번 달 토큰 사용처",
+      "empty": "이번 달에는 아직 사용한 토큰이 없습니다.",
+      "off": "꺼짐",
+      "modes": {
+        "auto_reply": "AI 에이전트",
+        "draft": "초안",
+        "summary": "대화 요약",
+        "suggest": "추천 답장",
+        "assess": "리드 점수",
+        "insights": "비즈니스 인사이트",
+        "label": "자동 라벨",
+        "translate": "번역",
+        "other": "테스트 및 기타"
+      }
+    },
+    "quality": {
+      "windowTitle": "최근 {days}일",
+      "shown": "추천 {n}개 표시됨",
+      "outcomes": {
+        "accepted": {
+          "label": "그대로 보냄",
+          "hint": "처음부터 맞는 추천이었습니다"
+        },
+        "edited": {
+          "label": "수정 후 보냄",
+          "hint": "거의 맞았지만 팀이 수정했습니다"
+        },
+        "rejected": {
+          "label": "거절됨",
+          "hint": "팀이 닫았습니다"
+        },
+        "unused": {
+          "label": "사용 안 함",
+          "hint": "표시되었지만 무시되었습니다"
+        }
+      },
+      "pctOf": "추천의 {n}%",
+      "chartDay": "일별 표시된 추천",
+      "chartOutcome": "추천의 결과",
+      "chartLabel": "차트 보기",
+      "byDay": "일별",
+      "byOutcome": "결과별",
+      "dayChartLabel": "일별 표시된 추천, 최고 {max}개",
+      "dayBar": "{day}: 추천 {n}개",
+      "busiest": "가장 많았던 날: 추천 {max}개. 막대에 마우스를 올리면 날짜가 보입니다.",
+      "safetyTitle": "작동한 안전 점검",
+      "safetyNote": "각 점검은 위험한 답변이 고객에게 보이기 전에 막았습니다.",
+      "checks": {
+        "sensitive_routed": "민감한 주제를 직원에게 보냄",
+        "guard_blocked": "위험한 답변을 보류함",
+        "claims": "결제·환불·의료 관련 주장을 대체함",
+        "personal_data": "개인 정보를 AI에게서 숨김",
+        "links": "알 수 없는 링크를 제거함",
+        "injection": "지시처럼 보이는 텍스트를 무시함"
+      },
+      "ratingsTitle": "팀 평가",
+      "helpfulPct": "{n}% 도움 됨",
+      "helpful": "도움 됨",
+      "notHelpful": "도움 안 됨",
+      "noRatings": "아래 답장을 평가하면 팀이 얼마나 도움이 된다고 느끼는지 볼 수 있습니다.",
+      "repliesTitle": "최근 AI 답장",
+      "filterLabel": "답장 보기",
+      "filters": {
+        "all": "전체",
+        "suggestion": "추천",
+        "agent": "에이전트 답장",
+        "down": "도움 안 됨",
+        "unrated": "평가 안 함"
+      },
+      "nothing": "항목이 없습니다",
+      "nothingYet": "최근 30일의 AI 답장이 여기에 표시됩니다.",
+      "nothingBody": "이 필터와 일치하는 답장이 없습니다.",
+      "showAll": "모든 답장 보기",
+      "cols": {
+        "customer": "고객",
+        "reply": "질문과 AI 답장",
+        "result": "결과",
+        "helpful": "도움 됨?"
+      },
+      "unknownContact": "고객",
+      "openReply": "{name}에게 보낸 답장 열기",
+      "results": {
+        "accepted": "그대로 보냄",
+        "edited": "수정됨",
+        "rejected": "거절됨",
+        "shown": "사용 안 함",
+        "sent": "에이전트가 보냄"
+      },
+      "agentReply": "에이전트 답장",
+      "suggestion": "추천 답장",
+      "rateUp": "도움 됨",
+      "rateDown": "도움 안 됨",
+      "toasts": {
+        "up": "도움 됨으로 표시했습니다",
+        "down": "도움 안 됨으로 표시했습니다",
+        "cleared": "평가를 지웠습니다"
+      },
+      "detail": {
+        "title": "{name}에게 보낸 답장",
+        "asked": "{name}의 질문",
+        "suggested": "AI 추천",
+        "agentReplied": "{name}의 답장",
+        "source": "답변 출처",
+        "agent": "에이전트",
+        "shownTo": "표시 대상",
+        "rating": "내 평가",
+        "notRated": "평가 안 함",
+        "openConversation": "대화 열기",
+        "writeBetter": "더 나은 답변 작성"
+      }
+    },
+    "translate": {
+      "button": "번역",
+      "incoming": "고객 메시지 번역",
+      "outgoing": "내 답장 번역",
+      "panelTitle": "{language}(으)로",
+      "panelTitleAny": "번역",
+      "close": "번역 닫기",
+      "needText": "먼저 답장을 입력하세요.",
+      "replaced": "답장을 번역했습니다. 확인한 뒤 보내세요.",
+      "failed": "번역하지 못했습니다. 다시 시도하세요."
+    }
+  },
+  "SettingsRedesign": {
+    "saveBar": {
+      "label": "저장하지 않은 변경 사항",
+      "unsaved": "저장하지 않은 변경 사항",
+      "discard": "취소",
+      "save": "변경 사항 저장",
+      "leaveConfirm": "저장하지 않은 변경 사항이 있습니다. 이 섹션을 떠나고 변경 사항을 버릴까요?"
+    },
+    "profile": {
+      "language": "언어",
+      "languageHint": "Bodhinox가 나에게 표시되는 언어입니다.",
+      "languageWorkspace": "워크스페이스 기본값 ({language})",
+      "languageDefault": "워크스페이스 기본값",
+      "languageFailed": "언어를 저장하지 못했습니다."
+    },
+    "workspace": {
+      "title": "워크스페이스",
+      "description": "팀 전체에 적용되는 정보입니다.",
+      "loadFailed": "워크스페이스 설정을 불러오지 못했습니다.",
+      "loading": "불러오는 중",
+      "adminsOnly": "관리자와 소유자만 이 설정을 변경할 수 있습니다.",
+      "name": "워크스페이스 이름",
+      "nameHint": "팀원에게 표시되는 이름",
+      "timezoneHint": "근무 시간과 보고서에 사용됩니다",
+      "language": "기본 언어",
+      "languageHint": "직접 언어를 고르지 않은 멤버에게 적용",
+      "languageUnset": "설정 안 함 (앱 기본값)",
+      "copyMonday": "월요일을 평일에 복사",
+      "copied": "월요일 시간을 화요일부터 금요일까지 복사했습니다",
+      "hoursHint": "이 시간 외에는 고객에게 근무 외 시간 자동 답장이 전송됩니다.",
+      "checkFields": "표시된 항목을 확인하세요",
+      "saveFailed": "워크스페이스 설정을 저장하지 못했습니다.",
+      "saved": "변경 사항을 저장했습니다",
+      "errors": {
+        "nameRequired": "워크스페이스 이름을 입력하세요",
+        "closeAfterOpen": "종료 시간은 시작 시간보다 늦어야 합니다"
+      }
+    },
+    "notifications": {
+      "checkFields": "표시된 항목을 확인하세요",
+      "saved": "변경 사항을 저장했습니다",
+      "push": "푸시",
+      "pushFor": "{event} 푸시",
+      "pushUnavailable": "이 서버에는 아직 푸시 알림이 설정되지 않았습니다.",
+      "pushTitle": "Bodhinox",
+      "pushBody": "새 알림이 있습니다",
+      "pushOn": "이 브라우저에서 푸시가 켜졌습니다",
+      "pushOff": "이 브라우저에서 푸시가 꺼졌습니다",
+      "pushDenied": "브라우저가 알림을 차단했습니다. 사이트 설정에서 허용한 뒤 다시 시도하세요.",
+      "pushUnsupported": "이 브라우저는 푸시 알림을 받을 수 없습니다.",
+      "pushFailed": "이 브라우저에서 푸시를 켜지 못했습니다.",
+      "quietTitle": "방해 금지 시간",
+      "quietPause": "이메일과 푸시 일시 중지",
+      "quietPauseHint": "앱 내 알림은 조용히 계속 쌓입니다.",
+      "quietBetween": "방해 금지 시간대",
+      "quietZone": "{zone} 기준 시간",
+      "quietStart": "방해 금지 시작",
+      "quietEnd": "방해 금지 종료",
+      "and": "~",
+      "sameTimes": "서로 다른 두 시간을 선택하세요",
+      "quietMentions": "멘션은 허용",
+      "quietMentionsHint": "팀원이 나를 멘션하면 그래도 알림을 받습니다.",
+      "deviceTitle": "이 브라우저",
+      "thisBrowser": "이 브라우저의 푸시",
+      "thisBrowserOn": "{count, plural, other {켜짐. #대의 기기에서 푸시 알림을 받습니다.}}",
+      "thisBrowserOff": "Bodhinox가 닫혀 있어도 여기에서 푸시 알림을 받으려면 켜세요.",
+      "turnOn": "켜기",
+      "turnOff": "끄기",
+      "tryIt": "테스트하기",
+      "tryItHint": "이 브라우저로 샘플 알림을 보냅니다.",
+      "sendTest": "테스트 보내기",
+      "testSent": "테스트를 보냈습니다. 곧 표시됩니다.",
+      "testBody": "테스트 알림입니다.",
+      "testShown": "테스트 알림을 표시했습니다",
+      "testNeedsPermission": "먼저 푸시 또는 브라우저 알림을 켜세요.",
+      "testFailed": "테스트 알림을 보내지 못했습니다."
+    },
+    "audit": {
+      "description": "누가 언제 무엇을 바꿨는지 보여 줍니다. 항목에는 식별자와 숫자만 표시되며 메시지 내용은 표시되지 않습니다.",
+      "export": "내보내기",
+      "nothingToExport": "내보낼 항목이 없습니다",
+      "exported": "{count, plural, other {이벤트 #개를 내보냈습니다}}",
+      "exportedTruncated": "처음 {count}개 이벤트를 내보냈습니다. 나머지를 내보내려면 필터를 좁히세요.",
+      "exportFailed": "감사 로그를 내보내지 못했습니다.",
+      "search": "이벤트 검색",
+      "person": "사람별 필터",
+      "everyone": "모든 사람",
+      "categories": "카테고리",
+      "moreFilters": "추가 필터",
+      "noMatch": "일치하는 이벤트가 없습니다",
+      "noMatchHint": "다른 단어를 입력하거나 필터를 지우세요.",
+      "clear": "필터 지우기",
+      "loading": "불러오는 중",
+      "shown": "{count, plural, other {이벤트 #개 표시}}",
+      "chips": {
+        "all": "전체",
+        "team": "팀",
+        "channels": "채널",
+        "billing": "결제",
+        "security": "보안",
+        "integrations": "연동",
+        "settings": "설정",
+        "other": "기타"
+      }
+    },
+    "team": {
+      "tabs": "팀 섹션",
+      "members": "멤버",
+      "groups": "그룹",
+      "permissions": "권한",
+      "seats": "{total}석 중 {used}석 사용 중",
+      "seatsOnPlan": "{plan} 요금제 {total}석 중 {used}석 사용 중"
+    },
+    "channels": {
+      "tabs": "채널",
+      "overview": "개요",
+      "whatsapp": "WhatsApp",
+      "instagram": "Instagram"
+    },
+    "integrations": {
+      "title": "연동",
+      "description": "이미 사용하는 도구를 연결하세요.",
+      "connected": "연결됨",
+      "attention": "확인 필요",
+      "disconnected": "연결 끊김",
+      "notConnected": "연결 안 됨",
+      "manage": "관리",
+      "setUp": "설정",
+      "apps": {
+        "shopify": {
+          "name": "Shopify",
+          "text": "스토어, 주문, 장바구니 이탈을 동기화합니다."
+        },
+        "woocommerce": {
+          "name": "WooCommerce",
+          "text": "WordPress 쇼핑몰의 주문을 가져옵니다."
+        },
+        "razorpay": {
+          "name": "Razorpay",
+          "text": "결제 링크를 보내고 결제를 추적합니다."
+        },
+        "zoom": {
+          "name": "Zoom",
+          "text": "예약된 약속에 회의 링크를 추가합니다."
+        },
+        "shiprocket": {
+          "name": "Shiprocket",
+          "text": "배송을 만들고 배송 추적 업데이트를 보냅니다."
+        },
+        "sheets": {
+          "name": "Google Sheets",
+          "text": "플로우에서 시트에 행을 추가합니다."
+        },
+        "webhooks": {
+          "name": "웹훅",
+          "text": "이벤트가 생길 때마다 내 시스템으로 보냅니다."
+        }
+      }
+    },
+    "quickReplies": {
+      "search": "빠른 답장 검색",
+      "noMatch": "일치하는 항목이 없습니다",
+      "noMatchHint": "다른 단어로 검색해 보세요.",
+      "clear": "검색 지우기"
+    },
+    "languages": {
+      "en": "영어 (English)",
+      "es": "스페인어 (Español)",
+      "ko": "한국어",
+      "pt": "포르투갈어 (Português)"
     }
   }
 }

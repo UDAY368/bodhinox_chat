@@ -20,7 +20,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { authFetch } from "@/lib/auth/client";
-import { REPORT_FORMATS, REPORT_KINDS, type ReportFormat } from "@/lib/analytics/report-kinds";
+import { REPORT_FORMATS, REPORT_KINDS, type ReportFormat, type RunKind } from "@/lib/analytics/report-kinds";
 import { SchedulesPanel } from "./schedules-panel";
 import { SharePanel } from "./share-panel";
 
@@ -32,7 +32,9 @@ type Status = "queued" | "running" | "ready" | "failed" | "expired";
 
 export interface ReportRunView {
   id: string;
-  kind: Kind;
+  kind: RunKind;
+  /** A saved report run's name. */
+  reportName?: string | null;
   format?: ReportFormat;
   scheduled?: boolean;
   status: Status;
@@ -135,7 +137,7 @@ export function ReportsTab({ canManage }: { canManage: boolean }) {
           <CardDescription className="text-muted-foreground">{t("description")}</CardDescription>
         </CardHeader>
         <CardContent>
-          <form className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[1.5fr_1fr_1fr_auto_auto] lg:items-end" onSubmit={submit}>
+          <form className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-[1.5fr_1fr_1fr_auto_auto] lg:items-end" onSubmit={submit}>
             <div className="space-y-1.5">
               <Label htmlFor="report-kind">{t("kind")}</Label>
               <select id="report-kind" value={kind} onChange={(e) => setKind(e.target.value as Kind)} className={selectClass}>
@@ -213,7 +215,7 @@ export function ReportsTab({ canManage }: { canManage: boolean }) {
                     <Fragment key={r.id}>
                     <tr className="border-t border-border align-top transition-colors duration-150 hover:bg-muted/50">
                       <td className="px-3.5 py-2.5 text-foreground">
-                        {t(`kinds.${r.kind}`)}
+                        {r.reportName ?? t(`kinds.${r.kind}`)}
                         <span className="block text-xs text-muted-foreground">
                           {t(`formats.${r.format ?? "csv"}`)}{r.scheduled ? ` · ${t("scheduledRun")}` : ""}
                         </span>

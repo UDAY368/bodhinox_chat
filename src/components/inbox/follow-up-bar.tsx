@@ -67,6 +67,8 @@ interface FollowUpBarProps {
   onScheduled: () => void;
   /** More composer tools on the same row (pause automations, typing hints). */
   trailing?: React.ReactNode;
+  /** The thread shows reminders in its own banner (ReminderBanner); the bar then lists scheduled replies only. */
+  hideReminders?: boolean;
 }
 
 /**
@@ -74,7 +76,7 @@ interface FollowUpBarProps {
  * decides everything (role, channel, window); this only collects the time and
  * shows what is queued.
  */
-export function FollowUpBar({ conversationId, channel, draftText, readOnly, scheduleDisabled, onScheduled, trailing }: FollowUpBarProps) {
+export function FollowUpBar({ conversationId, channel, draftText, readOnly, scheduleDisabled, onScheduled, trailing, hideReminders = false }: FollowUpBarProps) {
   const t = useTranslations("Inbox.reminders");
   const ts = useTranslations("Inbox.scheduled");
   const format = useFormatter();
@@ -157,17 +159,19 @@ export function FollowUpBar({ conversationId, channel, draftText, readOnly, sche
   const openReminder = () => setReminderOpen(true);
   const openSchedule = () => { setWhen(toLocalInput(presetTime("oneHour"))); setScheduleOpen(true); };
 
-  const visibleReminders = reminders.filter((r) => r.status === "pending" || r.status === "fired");
+  const visibleReminders = hideReminders ? [] : reminders.filter((r) => r.status === "pending" || r.status === "fired");
   const hasItems = visibleReminders.length > 0 || scheduled.length > 0;
 
   return (
     <div className="pb-1" data-follow-up-bar>
       <div className="flex min-w-0 items-center gap-1">
-        <Button type="button" variant="ghost" size="sm" disabled={readOnly} onClick={openReminder}
-          className="text-muted-foreground hover:text-foreground h-7 gap-1 px-2 text-xs">
-          <BellRing className="h-3.5 w-3.5" aria-hidden />
-          {t("add")}
-        </Button>
+        {!hideReminders && (
+          <Button type="button" variant="ghost" size="sm" disabled={readOnly} onClick={openReminder}
+            className="text-muted-foreground hover:text-foreground h-7 gap-1 px-2 text-xs">
+            <BellRing className="h-3.5 w-3.5" aria-hidden />
+            {t("add")}
+          </Button>
+        )}
         <Button type="button" variant="ghost" size="sm" disabled={readOnly || scheduleDisabled || !draftText.trim()} onClick={openSchedule}
           title={draftText.trim() ? undefined : ts("errors.empty")}
           className="text-muted-foreground hover:text-foreground h-7 gap-1 px-2 text-xs">
@@ -260,10 +264,12 @@ interface ReminderDialogProps {
   conversationId: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** Change this pending reminder (its time and note) instead of adding one. */
+  reminder?: Pick<ConversationReminder, "id" | "remind_at" | "note"> | null;
 }
 
 /** Set a reminder or snooze for one conversation. Opened from the follow-up bar and the thread header's bell. */
-export function ReminderDialog({ conversationId, open, onOpenChange }: ReminderDialogProps) {
+export function ReminderDialog({ conversationId, open, onOpenChange, reminder = null }: ReminderDialogProps) {
   const t = useTranslations("Inbox.reminders");
   const [when, setWhen] = useState("");
   const [note, setNote] = useState("");
@@ -271,12 +277,12 @@ export function ReminderDialog({ conversationId, open, onOpenChange }: ReminderD
 
   // Each opening starts an hour from now with an empty note.
   const [openedFor, setOpenedFor] = useState<string | null>(null);
-  const openKey = open ? conversationId : null;
+  const openKey = open ? `${conversationId}:${reminder?.id ?? ""}` : null;
   if (openKey !== openedFor) {
     setOpenedFor(openKey);
     if (openKey) {
-      setWhen(toLocalInput(presetTime("oneHour")));
-      setNote("");
+      setWhen(toLocalInput(reminder ? new Date(reminder.remind_at) : presetTime("oneHour")));
+      setNote(reminder?.note ?? "");
     }
   }
 
@@ -285,11 +291,17 @@ export function ReminderDialog({ conversationId, open, onOpenChange }: ReminderD
     if (!when || Number.isNaN(at.getTime()) || busy) return;
     setBusy(true);
     try {
-      const res = await authFetch("/api/inbox/reminders", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ conversation_id: conversationId, kind, remind_at: at.toISOString(), note: note.trim() || undefined }),
-      });
+      const res = reminder
+        ? await authFetch(`/api/inbox/reminders/${encodeURIComponent(reminder.id)}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ remind_at: at.toISOString(), note: note.trim() }),
+          })
+        : await authFetch("/api/inbox/reminders", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ conversation_id: conversationId, kind, remind_at: at.toISOString(), note: note.trim() || undefined }),
+          });
       if (!res.ok) {
         const data = (await res.json().catch(() => null)) as { error?: unknown } | null;
         toast.error(t(`errors.${errorKey(data?.error, REMINDER_ERRORS)}` as never));
@@ -307,7 +319,7 @@ export function ReminderDialog({ conversationId, open, onOpenChange }: ReminderD
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
-        <DialogHeader><DialogTitle>{t("title")}</DialogTitle></DialogHeader>
+        <DialogHeader><DialogTitle>{reminder ? t("changeTitle") : t("title")}</DialogTitle></DialogHeader>
         <div className="space-y-3">
           <div className="flex flex-wrap gap-1">
             {(["oneHour", "threeHours", "tomorrow", "nextWeek"] as const).map((p) => (
@@ -325,10 +337,12 @@ export function ReminderDialog({ conversationId, open, onOpenChange }: ReminderD
             <Textarea value={note} maxLength={CONVERSATION_REMINDER_LIMITS.noteChars} placeholder={t("notePlaceholder")}
               onChange={(e) => setNote(e.target.value)} className="mt-1" />
           </label>
-          <p className="text-muted-foreground text-xs">{t("snoozeHelp")}</p>
+          {!reminder && <p className="text-muted-foreground text-xs">{t("snoozeHelp")}</p>}
         </div>
         <DialogFooter className="gap-2 sm:gap-2">
-          <Button type="button" variant="outline" disabled={busy || !when} onClick={() => void save("snooze")}>{t("snooze")}</Button>
+          {!reminder && (
+            <Button type="button" variant="outline" disabled={busy || !when} onClick={() => void save("snooze")}>{t("snooze")}</Button>
+          )}
           <Button type="button" disabled={busy || !when} onClick={() => void save("reminder")}>
             {busy && <Loader2 className="mr-1 h-4 w-4 animate-spin" aria-hidden />}
             {t("save")}
@@ -336,5 +350,96 @@ export function ReminderDialog({ conversationId, open, onOpenChange }: ReminderD
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+/**
+ * The thread's follow-up banner (top of the chat): the member's due or next
+ * reminder on this conversation, with Done and Change; a snooze shows with
+ * Wake. Reads /api/inbox/reminders and follows SNOOZES_CHANGED_EVENT.
+ */
+export function ReminderBanner({ conversationId, readOnly }: { conversationId: string; readOnly: boolean }) {
+  const t = useTranslations("Inbox.reminders");
+  const format = useFormatter();
+  const [reminders, setReminders] = useState<ConversationReminder[]>([]);
+  const [changing, setChanging] = useState<ConversationReminder | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const load = useCallback(async () => {
+    try {
+      const res = await authFetch(`/api/inbox/reminders?conversation_id=${encodeURIComponent(conversationId)}`);
+      if (res.ok) setReminders(((await res.json()) as { reminders: ConversationReminder[] }).reminders);
+    } catch {
+      // Advisory: nothing shows when the read fails.
+    }
+  }, [conversationId]);
+
+  useEffect(() => {
+    void load();
+    const timer = setInterval(() => void load(), 60_000);
+    const onChange = () => void load();
+    window.addEventListener(SNOOZES_CHANGED_EVENT, onChange);
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener(SNOOZES_CHANGED_EVENT, onChange);
+    };
+  }, [load]);
+
+  const visible = reminders
+    .filter((r) => r.conversation_id === conversationId && (r.status === "pending" || r.status === "fired"))
+    .sort((a, b) => (a.status === "fired" ? -1 : b.status === "fired" ? 1 : Date.parse(a.remind_at) - Date.parse(b.remind_at)));
+  const current = visible[0];
+  if (!current) return null;
+
+  const when = format.dateTime(new Date(current.remind_at), { dateStyle: "medium", timeStyle: "short" });
+  const done = async () => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      const res = await authFetch(`/api/inbox/reminders/${encodeURIComponent(current.id)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: current.status === "fired" ? "dismissed" : "cancelled" }),
+      });
+      if (!res.ok) {
+        toast.error(t("errors.failed"));
+        return;
+      }
+      toast.success(current.kind === "snooze" ? t("woken") : t("cleared"));
+      window.dispatchEvent(new Event(SNOOZES_CHANGED_EVENT));
+      await load();
+    } catch {
+      toast.error(t("errors.failed"));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div role="status" data-reminder-banner className="border-border bg-muted/50 flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1.5 border-b px-3 py-2 text-[13px] @md:px-4">
+      <BellRing className="text-primary h-4 w-4 shrink-0" aria-hidden />
+      <span className="min-w-0 flex-1 basis-40">
+        <strong className="text-foreground font-semibold">
+          {current.status === "fired" ? t("due") : current.kind === "snooze" ? t("snoozedUntil", { when }) : t("followUp", { when })}
+        </strong>
+        {current.note ? <span className="text-muted-foreground"> · {current.note}</span> : null}
+      </span>
+      <span className="flex shrink-0 items-center gap-1.5">
+        <Button type="button" variant="outline" size="sm" className="h-7 px-2.5 text-xs" disabled={busy || readOnly} onClick={() => void done()}>
+          {current.status === "fired" ? t("dismiss") : current.kind === "snooze" ? t("wake") : t("done")}
+        </Button>
+        {current.kind === "reminder" && current.status === "pending" && (
+          <Button type="button" variant="ghost" size="sm" className="h-7 px-2.5 text-xs" disabled={readOnly} onClick={() => setChanging(current)}>
+            {t("change")}
+          </Button>
+        )}
+      </span>
+      <ReminderDialog
+        conversationId={conversationId}
+        open={changing !== null}
+        onOpenChange={(open) => !open && setChanging(null)}
+        reminder={changing}
+      />
+    </div>
   );
 }

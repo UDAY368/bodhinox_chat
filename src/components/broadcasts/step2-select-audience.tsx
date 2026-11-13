@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { createClient } from '@/lib/data/client';
+import { estimateInstagramAudience } from '@/lib/broadcasts/campaign-client';
 import { audienceReach, fetchLists, fetchSegments, type ListSummary, type SegmentSummary } from '@/lib/audience/client';
 import { csvValueColumns, parseBroadcastCsv } from '@/lib/broadcast-csv';
 import { CustomField, Tag } from '@/types';
@@ -45,6 +46,8 @@ interface AudienceConfig {
 }
 
 interface Step2Props {
+  /** Instagram campaigns cannot use a CSV and count only people inside their 24-hour window. */
+  channel?: 'whatsapp' | 'instagram';
   audience: AudienceConfig;
   onUpdate: (audience: AudienceConfig) => void;
   onNext: () => void;
@@ -52,12 +55,14 @@ interface Step2Props {
 }
 
 export function Step2SelectAudience({
+  channel = 'whatsapp',
   audience,
   onUpdate,
   onNext,
   onBack,
 }: Step2Props) {
   const t = useTranslations('Broadcasts.wizard');
+  const tc = useTranslations('Campaigns');
 
   const OPERATOR_OPTIONS = useMemo<{ value: CustomFieldOperator; label: string }[]>(() => [
     { value: 'is', label: t('selectAudience.operatorIs') },
@@ -65,12 +70,8 @@ export function Step2SelectAudience({
     { value: 'contains', label: t('selectAudience.operatorContains') },
   ], [t]);
 
-  const audienceOptions = useMemo<{
-    type: AudienceType;
-    label: string;
-    description: string;
-    icon: typeof Users;
-  }[]>(() => [
+  type AudienceOption = { type: AudienceType; label: string; description: string; icon: typeof Users };
+  const audienceOptions = useMemo<AudienceOption[]>(() => ([
     {
       type: 'all',
       label: t('selectAudience.method.all'),
@@ -107,7 +108,7 @@ export function Step2SelectAudience({
       description: t('selectAudience.listDesc'),
       icon: List,
     },
-  ], [t]);
+  ] satisfies AudienceOption[]).filter((option) => channel !== 'instagram' || option.type !== 'csv'), [t, channel]);
   const [segments, setSegments] = useState<SegmentSummary[] | null>(null);
   const [lists, setLists] = useState<ListSummary[] | null>(null);
 
@@ -171,6 +172,18 @@ export function Step2SelectAudience({
   const fetchEstimatedCount = useCallback(async () => {
     setLoadingCount(true);
     try {
+      if (channel === 'instagram') {
+        // Who an Instagram campaign reaches now: contacts inside their 24-hour window.
+        setEstimatedCount((await estimateInstagramAudience({
+          type: audience.type,
+          tagIds: audience.tagIds,
+          customField: audience.customField,
+          excludeTagIds: audience.excludeTagIds,
+          segmentId: audience.segmentId,
+          listId: audience.listId,
+        })).eligible);
+        return;
+      }
       setEstimatedCount(
         await audienceReach({
           type: audience.type,
@@ -188,6 +201,7 @@ export function Step2SelectAudience({
       setLoadingCount(false);
     }
   }, [
+    channel,
     audience.type,
     audience.tagIds,
     audience.customField,
@@ -588,7 +602,9 @@ export function Step2SelectAudience({
             <span className="text-sm text-foreground">
               {estimatedCount.toLocaleString()}
             </span>
-            <span className="text-xs text-muted-foreground">{t('selectAudience.estimatedRecipients')}</span>
+            <span className="text-xs text-muted-foreground">
+              {channel === 'instagram' ? tc('wizard.instagramReach') : t('selectAudience.estimatedRecipients')}
+            </span>
           </div>
         ) : (
           <p className="text-xs text-muted-foreground">

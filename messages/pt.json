@@ -115,7 +115,10 @@
     "automation": "Automação",
     "ai": "IA",
     "collapseSidebar": "Recolher",
-    "expandSidebar": "Expandir"
+    "expandSidebar": "Expandir",
+    "analyticsConversations": "Conversas",
+    "analyticsTeam": "Equipe",
+    "analyticsCampaigns": "Campanhas"
   },
   "Header": {
     "notificationsUnread": "{count, plural, =1 {Notificações, 1 não lida} other {Notificações, # não lidas}}",
@@ -414,7 +417,13 @@
       "filterMyTeam": "Minha equipe",
       "addFilter": "Filtro",
       "filterSearch": "Buscar filtros",
-      "noFilterMatches": "Nenhum filtro encontrado"
+      "noFilterMatches": "Nenhum filtro encontrado",
+      "title": "Caixa de entrada",
+      "newMessage": "Nova mensagem",
+      "moreViews": "Mais visualizações",
+      "views": "Visualizações",
+      "clearFilters": "Limpar filtros",
+      "reminderTag": "Acompanhar em {when}"
     },
     "messageThread": {
       "backToConversations": "Voltar às conversas",
@@ -462,7 +471,31 @@
       "senderAutomation": "Automação",
       "senderTeam": "Sua equipe",
       "senderFormerMember": "Ex-membro",
-      "moreActions": "Mais ações"
+      "moreActions": "Mais ações",
+      "newMessage": "Nova mensagem",
+      "markedUnread": "Marcada como não lida",
+      "actionFailed": "Não deu certo. Tente novamente.",
+      "exported": "Conversa exportada como {name}",
+      "exportFailed": "Não foi possível exportar esta conversa.",
+      "automationPausedToast": "Automação pausada nesta conversa",
+      "automationResumedToast": "Automação retomada",
+      "blockedToast": "{name} bloqueado",
+      "unblockedToast": "{name} desbloqueado",
+      "markUnread": "Marcar como não lida",
+      "resumeAutomation": "Retomar automação",
+      "pauseAutomation": "Pausar automação",
+      "exportChat": "Exportar conversa",
+      "unblockContact": "Desbloquear contato",
+      "blockContact": "Bloquear contato",
+      "blockedBanner": "Contato bloqueado.",
+      "blockedBannerHint": "Nenhuma mensagem automática, fluxo ou resposta de IA chega até ele, e as respostas estão desativadas.",
+      "unblock": "Desbloquear",
+      "automationPausedBanner": "Automação pausada nesta conversa.",
+      "automationPausedHint": "Fluxos e respostas de IA não serão executados.",
+      "blockTitle": "Bloquear {name}?",
+      "blockBody": "Nenhuma mensagem automática, fluxo ou resposta de IA chegará até ele e esta conversa será fechada. Você pode desbloquear quando quiser.",
+      "cancel": "Cancelar",
+      "blockConfirm": "Bloquear"
     },
     "sessionTimer": {
       "expired": "Expirada",
@@ -476,7 +509,7 @@
       "templates": "Modelos",
       "readOnlyPlaceholder": "Somente leitura — visualizadores podem navegar, mas não responder",
       "sessionExpiredPlaceholder": "Sessão expirada - use um modelo",
-      "typeMessagePlaceholder": "Digite uma mensagem",
+      "typeMessagePlaceholder": "Digite uma mensagem, ou / para respostas rápidas",
       "readOnlyTitle": "Somente leitura — sua função não pode enviar mensagens",
       "recording": "Gravando… {current} / {max}",
       "cancel": "Cancelar",
@@ -519,7 +552,18 @@
       "sendPaymentLink": "Enviar link de pagamento",
       "mediaLibrary": "Biblioteca de mídia",
       "sendStorefrontLink": "Enviar link da loja",
-      "newLineHint": "Shift+Enter para nova linha"
+      "newLineHint": "Shift+Enter para nova linha",
+      "emoji": "Emoji",
+      "quickRepliesLoading": "Carregando respostas rápidas…",
+      "slashNoMatch": "Nenhuma resposta rápida corresponde a “{query}”.",
+      "composeMode": "Resposta ou nota interna",
+      "tabReply": "Responder",
+      "tabNote": "Nota",
+      "noteLabel": "Nota interna",
+      "messageLabel": "Mensagem",
+      "notePlaceholder": "Escreva uma nota para a equipe (o cliente nunca vê)",
+      "location": "Localização",
+      "addNote": "Adicionar nota"
     },
     "bubble": {
       "photo": "Foto",
@@ -722,7 +766,10 @@
       "tooLong": "As notas podem ter até {max} caracteres.",
       "hint": "Ctrl+Enter para salvar",
       "cancel": "Cancelar",
-      "add": "Adicionar nota"
+      "add": "Adicionar nota",
+      "added": "Nota adicionada",
+      "deleted": "Nota excluída",
+      "internalNote": "Nota interna"
     },
     "savedFilters": {
       "views": "Visualizações",
@@ -738,7 +785,11 @@
       "saveFailed": "Não foi possível salvar a visualização",
       "delete": "Excluir a visualização {name}",
       "deleteFailed": "Não foi possível excluir a visualização",
-      "close": "Fechar"
+      "close": "Fechar",
+      "apply": "Mostrar “{name}”",
+      "deleteTitle": "Excluir a visualização salva?",
+      "deleteBody": "“{name}” será removida das suas visualizações salvas.",
+      "deleteConfirm": "Excluir"
     },
     "quickReplyFavourites": {
       "add": "Adicionar {title} aos favoritos",
@@ -815,7 +866,13 @@
         "notFound": "Este lembrete não existe mais.",
         "failed": "Não foi possível salvar o lembrete. Tente novamente.",
         "forbidden": "Sua função não pode criar lembretes."
-      }
+      },
+      "changeTitle": "Alterar lembrete",
+      "followUp": "Acompanhar em {when}",
+      "done": "Concluído",
+      "change": "Alterar",
+      "woken": "Conversa reativada",
+      "cleared": "Lembrete removido"
     },
     "scheduled": {
       "title": "Respostas agendadas",
@@ -920,7 +977,8 @@
       "unassigned": "Não atribuídas",
       "favourites": "Favoritas",
       "reminders": "Lembretes",
-      "labels": "Etiquetas"
+      "labels": "Etiquetas",
+      "failed": "Com falha"
     },
     "history": {
       "title": "Histórico do chat",
@@ -1056,6 +1114,65 @@
         "tooLarge": "Grande demais: use links mais curtos ou menos cartões.",
         "more": "(+{count})"
       }
+    },
+    "rowMenu": {
+      "label": "Ações da conversa",
+      "markRead": "Marcar como lida",
+      "markUnread": "Marcar como não lida",
+      "assignToMe": "Atribuir a mim",
+      "close": "Fechar",
+      "reopen": "Reabrir",
+      "markedUnread": "Marcada como não lida",
+      "markedRead": "Marcada como lida",
+      "assignedToYou": "Atribuída a você",
+      "closed": "Conversa fechada",
+      "reopened": "Conversa reaberta",
+      "failed": "Não deu certo. Tente novamente."
+    },
+    "location": {
+      "title": "Enviar uma localização",
+      "description": "O cliente recebe um alfinete no mapa que pode abrir no WhatsApp.",
+      "name": "Nome do local (opcional)",
+      "namePlaceholder": "Por exemplo, nossa loja no centro",
+      "address": "Endereço (opcional)",
+      "addressPlaceholder": "Rua, bairro, cidade",
+      "latitude": "Latitude",
+      "longitude": "Longitude",
+      "latitudeError": "Digite uma latitude entre -90 e 90.",
+      "longitudeError": "Digite uma longitude entre -180 e 180.",
+      "useCurrent": "Usar minha localização atual",
+      "locateUnsupported": "Este navegador não consegue compartilhar sua localização.",
+      "locateFailed": "Não foi possível ler sua localização. Permita o acesso ou digite as coordenadas.",
+      "cancel": "Cancelar",
+      "send": "Enviar localização"
+    },
+    "contactPanel": {
+      "aiSummary": "Resumo de IA",
+      "automation": "Automação",
+      "automationHint": "Pause fluxos e respostas de IA nesta conversa; ficam desligados até o horário escolhido ou até você retomar."
+    },
+    "newMessage": {
+      "title": "Nova mensagem",
+      "description": "Escolha para quem enviar e por qual canal.",
+      "contact": "Contato",
+      "searchPlaceholder": "Buscar contatos pelo nome",
+      "searching": "Buscando…",
+      "noContacts": "Nenhum contato corresponde.",
+      "unnamed": "Contato sem nome",
+      "channel": "Canal",
+      "hintPick": "Escolha para quem você quer enviar.",
+      "hintWhatsapp": "Envia para {to}. Uma nova conversa no WhatsApp começa com um modelo aprovado.",
+      "hintInstagram": "Abre sua conversa do Instagram com a pessoa. Conversas do Instagram começam quando o cliente envia uma mensagem.",
+      "chooseContact": "Escolha um contato",
+      "noNumber": "{name} não tem número de WhatsApp.",
+      "thisContact": "Este contato",
+      "openedExisting": "A conversa existente foi aberta",
+      "instagramStartsWithCustomer": "Ainda não há conversa do Instagram com este contato. O Instagram só deixa o cliente começar.",
+      "failed": "Não foi possível iniciar a conversa. Tente novamente.",
+      "sendFailed": "O modelo não foi enviado: {reason}",
+      "started": "Conversa com {name} iniciada",
+      "cancel": "Cancelar",
+      "start": "Iniciar conversa"
     }
   },
   "Contacts": {
@@ -1517,6 +1634,314 @@
       "yes": "Sim",
       "no": "Não",
       "unknown": "Ainda não se sabe"
+    },
+    "redesign": {
+      "title": "Contatos",
+      "subtitle": "Todas as pessoas que enviaram mensagens para você ou que sua equipe adicionou.",
+      "loading": "Carregando…",
+      "cancel": "Cancelar",
+      "tabs": {
+        "label": "Seções de contatos",
+        "people": "Pessoas",
+        "segments": "Segmentos",
+        "fields": "Campos personalizados"
+      },
+      "fields": {
+        "name": "Nome",
+        "phone": "Telefone",
+        "email": "E-mail",
+        "company": "Empresa",
+        "city": "Cidade",
+        "owner": "Responsável"
+      },
+      "owner": {
+        "noOne": "Ninguém",
+        "unnamedMember": "Membro sem nome",
+        "formerMember": "Ex-membro",
+        "saveFailed": "O contato foi salvo, mas não foi possível definir o responsável"
+      },
+      "columns": {
+        "channels": "Canais",
+        "owner": "Responsável",
+        "city": "Cidade",
+        "lastSeen": "Última atividade",
+        "actions": "Ações"
+      },
+      "badges": {
+        "optedOut": "Descadastrado",
+        "blocked": "Bloqueado"
+      },
+      "filters": {
+        "owner": "Responsável",
+        "anyOwner": "Qualquer responsável",
+        "consent": "Consentimento",
+        "anyConsent": "Com ou sem consentimento",
+        "optedIn": "Aceita mensagens",
+        "optedOut": "Descadastrado",
+        "clear": "Limpar",
+        "clearAll": "Limpar busca e filtros"
+      },
+      "sort": {
+        "label": "Ordenar: {order}",
+        "name": "Nome",
+        "city": "Cidade",
+        "owner": "Responsável",
+        "seen": "Última atividade",
+        "created": "Data de inclusão",
+        "reverse": "Inverter a ordem"
+      },
+      "bulk": {
+        "assignOwner": "Definir responsável",
+        "export": "Exportar"
+      },
+      "row": {
+        "open": "Abrir",
+        "message": "Enviar mensagem"
+      },
+      "dates": {
+        "today": "Hoje",
+        "yesterday": "Ontem",
+        "at": "{day}, {time}"
+      },
+      "profile": {
+        "backToPeople": "Pessoas",
+        "added": "Adicionado em {date}",
+        "lastSeen": "Última atividade: {when}",
+        "more": "Mais ações",
+        "copyHandle": "Copiar telefone ou usuário",
+        "copied": "Copiado: {value}",
+        "copyFailed": "Não foi possível copiar",
+        "exportOne": "Exportar este contato",
+        "block": "Bloquear",
+        "unblock": "Desbloquear",
+        "blockedToast": "{name} foi bloqueado. Nenhuma mensagem automática será enviada.",
+        "unblockedToast": "{name} foi desbloqueado",
+        "details": "Dados",
+        "add": "Adicionar",
+        "saved": "Salvo",
+        "customFields": "Campos personalizados",
+        "manageFields": "Gerenciar campos",
+        "noCustomFields": "Ainda não há campos personalizados. Crie um para guardar mais informações aqui.",
+        "notes": "Anotações",
+        "notesHint": "Só sua equipe vê as anotações.",
+        "newNote": "Nova anotação",
+        "notePlaceholder": "Escreva uma anotação sobre {name}",
+        "addNote": "Adicionar anotação",
+        "deleteNoteTitle": "Excluir esta anotação?",
+        "deleteNoteText": "A anotação é removida para toda a equipe.",
+        "timeline": "Histórico",
+        "noEvents": "Nada aconteceu ainda.",
+        "showAll": "Ver todos os {count}",
+        "showLess": "Ver menos",
+        "labels": "Etiquetas",
+        "addLabel": "Adicionar etiqueta",
+        "removeLabel": "Remover {name}",
+        "noLabels": "Sem etiquetas.",
+        "messaging": "Mensagens",
+        "conversations": "Conversas",
+        "noConversations": "Ainda não há conversas.",
+        "startConversation": "Iniciar uma conversa",
+        "open": "Aberta",
+        "pending": "Pendente",
+        "closed": "Encerrada",
+        "orders": "Pedidos",
+        "noOrders": "Ainda não há pedidos.",
+        "orderName": "Pedido {ref}",
+        "deals": "Negócios",
+        "ok": "Entendi",
+        "notFoundTitle": "Contato não encontrado",
+        "notFoundText": "Ele pode ter sido excluído ou pertencer a outro espaço de trabalho.",
+        "message": {
+          "button": "Enviar mensagem",
+          "blocked": "Desbloqueie {name} antes de enviar uma mensagem",
+          "optedOut": "{name} se descadastrou das mensagens do WhatsApp",
+          "igOnlyTitle": "A pessoa precisa escrever primeiro",
+          "igOnlyText": "O Instagram só permite que uma empresa responda. Quando {name} enviar uma mensagem, a conversa aparecerá na sua caixa de entrada."
+        },
+        "consent": {
+          "whatsappLabel": "Mensagens do WhatsApp",
+          "instagramLabel": "Mensagens do Instagram",
+          "notConnected": "Não conectado",
+          "optedOut": "Descadastrado. Sem campanhas nem automações.",
+          "optedInOn": "Aceitou receber mensagens em {date}",
+          "noRecord": "Recebe mensagens. Nenhum consentimento registrado.",
+          "subscribed": "Inscrito nas mensagens",
+          "askTitle": "Ativar as mensagens do WhatsApp para {name}?",
+          "askText": "Registre o consentimento somente se a pessoa aceitou receber suas mensagens. A alteração é salva com o seu nome.",
+          "yesAgreed": "Sim, a pessoa aceitou",
+          "onlyClear": "Só remover o descadastro"
+        },
+        "errors": {
+          "failed": "Não foi possível salvar. Tente de novo.",
+          "too_long": "Está longo demais.",
+          "invalid_email": "Este e-mail não parece correto.",
+          "invalid_phone": "Digite o número completo com + e o código do país.",
+          "duplicate_phone": "Outro contato já tem este número.",
+          "phone_masked": "Os números de telefone ficam ocultos para sua conta, então você não pode alterar este.",
+          "phone_required": "O telefone é obrigatório.",
+          "not_member": "Escolha um membro deste espaço de trabalho.",
+          "not_a_number": "Digite um número, como 12 ou 4.5.",
+          "not_a_date": "Digite uma data.",
+          "not_a_choice": "Escolha uma das opções.",
+          "field_not_found": "Este campo foi excluído."
+        }
+      },
+      "timeline": {
+        "by": "{text} por {name}",
+        "created": "Contato adicionado",
+        "conversation": "Enviou mensagem pelo {channel}",
+        "order": "Fez um pedido",
+        "tagAdded": "Etiqueta \"{name}\" adicionada",
+        "tagRemoved": "Etiqueta \"{name}\" removida",
+        "tagRemovedDeleted": "Uma etiqueta foi removida",
+        "note": "Anotação adicionada",
+        "fieldChanged": "{field} alterado",
+        "customSet": "{field} preenchido",
+        "customCleared": "{field} apagado",
+        "deletedField": "Um campo excluído",
+        "assigned": "Atribuído a {name}",
+        "ownerRemoved": "Responsável removido",
+        "optedIn": "Aceitou as mensagens do {channel}",
+        "optedOut": "Descadastrou-se das mensagens do {channel}",
+        "optOutCleared": "Descadastro do {channel} removido",
+        "blocked": "Bloqueado",
+        "unblocked": "Desbloqueado",
+        "templateSent": "Modelo enviado",
+        "templateSentNamed": "Enviou o modelo “{name}”"
+      },
+      "segmentsTab": {
+        "hint": "Os segmentos se atualizam sozinhos quando os contatos mudam.",
+        "loadFailed": "Não foi possível carregar os segmentos",
+        "emptyTitle": "Ainda não há segmentos",
+        "emptyText": "Salve um conjunto de condições para reutilizar um público em campanhas.",
+        "people": "{count, plural, one {pessoa} other {pessoas}}",
+        "matchesAll": "Atende a todas estas condições",
+        "matchesAny": "Atende a alguma destas condições",
+        "view": "Ver pessoas",
+        "useInCampaign": "Usar em campanha",
+        "nobodyToMessage": "Ninguém neste segmento pode receber campanhas",
+        "actionsFor": "Ações de {name}",
+        "edit": "Editar",
+        "duplicate": "Duplicar",
+        "export": "Exportar pessoas",
+        "delete": "Excluir",
+        "duplicated": "Segmento duplicado",
+        "duplicateFailed": "Não foi possível duplicar o segmento",
+        "copyName": "{name} cópia",
+        "copyNameN": "{name} cópia {n}",
+        "deleteTitle": "Excluir \"{name}\"?",
+        "deleteText": "Os contatos continuam. Só este público salvo é removido.",
+        "deleted": "Segmento excluído",
+        "deleteFailed": "Não foi possível excluir o segmento",
+        "exportFailed": "Não foi possível exportar o segmento",
+        "broken": "Uma etiqueta, lista, campo ou campanha usada por este segmento foi excluída. Edite o segmento para usá-lo de novo.",
+        "deletedItem": "um item excluído",
+        "subscribed": "inscrito",
+        "unsubscribed": "descadastrado"
+      },
+      "fieldsTab": {
+        "hint": "Os campos personalizados aparecem em cada contato e podem ser usados em segmentos.",
+        "newField": "Novo campo",
+        "newTitle": "Novo campo",
+        "editTitle": "Editar campo",
+        "dialogDesc": "Guarde informações como plano, tamanho da equipe ou data de renovação em cada contato.",
+        "name": "Nome",
+        "namePlaceholder": "Por exemplo, Aniversário",
+        "type": "Tipo",
+        "typeFixed": "O tipo não pode mudar depois que o campo é criado.",
+        "choices": "Opções",
+        "choicesPlaceholder": "Uma opção por linha",
+        "choicesHint": "Uma opção por linha, pelo menos duas.",
+        "choicesEditHint": "Uma opção por linha. Contatos com uma opção removida perdem esse valor.",
+        "filled": "Preenchido",
+        "contacts": "{count, plural, one {# contato} other {# contatos}}",
+        "anyValue": "Qualquer {type}",
+        "notSet": "Não definido",
+        "types": {
+          "text": "Texto",
+          "number": "Número",
+          "date": "Data",
+          "choice": "Opção"
+        },
+        "create": "Criar campo",
+        "save": "Salvar",
+        "created": "Campo \"{name}\" criado",
+        "saved": "Campo salvo",
+        "saveFailed": "Não foi possível salvar o campo",
+        "emptyTitle": "Ainda não há campos personalizados",
+        "emptyText": "Guarde informações como plano, empresa ou data de renovação em cada contato.",
+        "editField": "Editar {name}",
+        "deleteField": "Excluir {name}",
+        "deleteTitle": "Excluir \"{name}\"?",
+        "deleteLosesValues": "{count, plural, one {# contato perde este valor.} other {# contatos perdem este valor.}}",
+        "deleteSegments": "{count, plural, one {Ele também sai de # segmento.} other {Ele também sai de # segmentos.}}",
+        "cannotUndo": "Não é possível desfazer.",
+        "delete": "Excluir",
+        "deleted": "Campo \"{name}\" excluído",
+        "deleteFailed": "Não foi possível excluir o campo",
+        "segmentNeedsField": "Estes segmentos usam somente este campo: {names}. Edite-os primeiro.",
+        "errors": {
+          "name_required": "Digite um nome.",
+          "name_too_long": "Os nomes têm no máximo 60 caracteres.",
+          "name_taken": "Outro campo já tem este nome.",
+          "name_reserved": "Os contatos já têm um campo com este nome.",
+          "invalid_type": "Escolha um tipo.",
+          "too_few": "Adicione pelo menos duas opções.",
+          "too_many": "Um campo tem no máximo 50 opções.",
+          "too_long": "Cada opção tem no máximo 100 caracteres."
+        },
+        "choiceInSegment": "Estes segmentos salvos filtram por uma opção que você removeu: {names}. Ao salvar, essas condições serão removidas deles.",
+        "choiceSegmentNeedsField": "Estes segmentos só filtram por opções removidas: {names}. Edite-os primeiro.",
+        "saveAndUpdateSegments": "Salvar e atualizar segmentos"
+      },
+      "importMap": {
+        "desc": "Escolha um arquivo CSV e relacione as colunas aos campos do contato. É preciso ter uma coluna de telefone.",
+        "steps": {
+          "label": "Etapas da importação",
+          "file": "Escolher arquivo",
+          "match": "Relacionar colunas",
+          "done": "Concluído"
+        },
+        "chooseFile": "Escolher um arquivo CSV",
+        "dropHere": "Solte um arquivo CSV aqui",
+        "orChoose": "ou clique para escolher um no seu computador",
+        "notCsv": "Escolha um arquivo que termine em .csv",
+        "recognised": "Colunas que reconhecemos: Nome, Telefone ou Celular, E-mail, Empresa, Cidade, Tags ou Etiquetas e seus campos personalizados.",
+        "fileSummary": "{rows, plural, one {# linha} other {# linhas}} · {columns, plural, one {# coluna} other {# colunas}}",
+        "columnInFile": "Coluna do arquivo",
+        "sample": "Exemplo",
+        "saveTo": "Salvar em",
+        "saveColumnTo": "Salvar {column} em",
+        "unnamedColumn": "Coluna {n}",
+        "skip": "Não importar",
+        "targets": {
+          "phone": "Telefone",
+          "name": "Nome",
+          "firstName": "Primeiro nome",
+          "lastName": "Sobrenome",
+          "email": "E-mail",
+          "company": "Empresa",
+          "city": "Cidade",
+          "tags": "Tags",
+          "optedOut": "Data do descadastro",
+          "blocked": "Data do bloqueio"
+        },
+        "problems": {
+          "no_phone": "Relacione uma coluna a Telefone.",
+          "duplicate": "Duas colunas estão sendo salvas no mesmo campo. Altere uma delas."
+        },
+        "everyoneTag": "Adicionar uma etiqueta a todos os importados",
+        "noTag": "Sem etiqueta",
+        "back": "Voltar",
+        "again": "Importar outro arquivo",
+        "done": "Concluir",
+        "stats": {
+          "added": "Adicionados",
+          "updated": "Atualizados",
+          "skipped": "Ignorados, já existiam"
+        },
+        "fieldsRejected": "{count, plural, one {# valor personalizado não combinava com o campo e foi ignorado} other {# valores personalizados não combinavam com os campos e foram ignorados}}"
+      }
     }
   },
   "Pipelines": {
@@ -1684,7 +2109,8 @@
       "read": "Lida",
       "replied": "Respondida",
       "unknown": "Desconhecido",
-      "cancelled": "Cancelada"
+      "cancelled": "Cancelada",
+      "paused": "Pausada"
     },
     "detail": {
       "backToBroadcasts": "Voltar aos disparos",
@@ -2406,7 +2832,10 @@
       "unifiedDescription": "Todas as automações de WhatsApp e Instagram em um só lugar. Escolha o canal ao criar uma.",
       "channelFilterLabel": "Canal",
       "allChannels": "Todos os canais",
-      "chooseChannel": "Canal da nova automação"
+      "chooseChannel": "Canal da nova automação",
+      "triggerContactCreated": "Dispara com: a primeira mensagem de um novo contato",
+      "triggerTagAdded": "Dispara com: uma tag é adicionada",
+      "triggerOutsideHours": "Dispara com: uma mensagem fora do horário de atendimento"
     },
     "edit": {
       "notFound": "Fluxo não encontrado.",
@@ -2454,7 +2883,16 @@
         "unconnectedHint": "Nenhuma etapa leva a estas, então elas nunca rodam. Conecte-as a partir de outra etapa ou exclua-as.",
         "phoneTitle": "O que o cliente vê",
         "phonePick": "Escolha uma etapa para vê-la como o cliente verá.",
-        "phoneNothing": "Esta etapa não envia nada visível ao cliente. Ela funciona nos bastidores."
+        "phoneNothing": "Esta etapa não envia nada visível ao cliente. Ela funciona nos bastidores.",
+        "whenCaption": "Quando…",
+        "thenCaption": "Então… ({count})",
+        "stepOf": "Etapa {index} de {total}",
+        "stepTools": "Ferramentas de {step}",
+        "moveUp": "Mover para cima",
+        "moveDown": "Mover para baixo",
+        "cantMove": "Só uma etapa em linha reta pode ser movida. Altere os links para reordenar um ramo.",
+        "duplicateStep": "Duplicar etapa",
+        "stepDuplicated": "Etapa duplicada. Desfazer remove a cópia."
       },
       "triggerTitle": "Gatilho",
       "whenLabel": "Quando…",
@@ -3079,7 +3517,10 @@
         "characters": "{count, plural, =1 {# caractere} other {# caracteres}}",
         "charactersLeft": "{count, plural, =1 {Resta # caractere} other {Restam # caracteres}}",
         "bytesLeft": "{count, plural, =1 {Resta # byte} other {Restam # bytes}}"
-      }
+      },
+      "triggerContactCreatedTitle": "Um novo contato é criado",
+      "triggerTagAddedTitle": "Uma tag é adicionada",
+      "triggerOutsideHoursTitle": "Mensagem fora do horário de atendimento"
     },
     "validation": {
       "noIssues": "Nenhum problema. Pronto para ativar.",
@@ -3483,6 +3924,22 @@
         "needsAi": "Ative a IA neste espaço de trabalho para corresponder pelo sentido.",
         "tooLong": "Use até 300 caracteres.",
         "required": "Descreva o significado a reconhecer."
+      },
+      "contactCreated": {
+        "help": "Começa na primeira mensagem de alguém que ainda não era contato."
+      },
+      "tagAdded": {
+        "help": "Começa quando esta tag é adicionada a um contato, por uma pessoa, uma regra, um fluxo ou a API.",
+        "tag": "Tag",
+        "pick": "Escolha uma tag",
+        "none": "Ainda não há tags. Crie uma em Configurações › Campos e tags.",
+        "loading": "Carregando tags…",
+        "missing": "Uma tag que foi excluída",
+        "conversationNote": "Roda na conversa em que a tag foi adicionada, ou na conversa mais recente do contato. Um contato sem conversa é ignorado."
+      },
+      "outsideHours": {
+        "help": "Começa quando uma mensagem chega fora do seu <link>horário de atendimento</link>.",
+        "noHours": "Sem horário de atendimento configurado, nunca começa."
       }
     },
     "nodes": {
@@ -3878,7 +4335,10 @@
         "ig_story_mention": "Menção no story",
         "ig_live_comment": "Comentário na live",
         "ig_ref": "Link ref",
-        "ig_share_to_story": "Compartilhar no story"
+        "ig_share_to_story": "Compartilhar no story",
+        "contact_created": "Novo contato",
+        "tag_added": "Tag adicionada",
+        "outside_hours": "Fora do horário"
       }
     },
     "canvas": {
@@ -4429,7 +4889,10 @@
       "connections": "Reuniões e envios",
       "instagram": "Instagram",
       "privacy": "Privacidade e acesso",
-      "conversion-events": "Eventos de conversão"
+      "conversion-events": "Eventos de conversão",
+      "workspace": "Espaço de trabalho",
+      "integrations": "Integrações",
+      "audit-log": "Registro de auditoria"
     },
     "groups": {
       "account": "Conta",
@@ -5770,7 +6233,8 @@
       "cancel": "Cancelar",
       "recent": "Últimos 30 dias",
       "loadFailed": "Não foi possível carregar os eventos de conversão."
-    }
+    },
+    "unsavedChanges": "Alterações não salvas"
   },
   "SignupPage": {
     "passwordsMismatch": "As senhas não coincidem",
@@ -6032,7 +6496,8 @@
         "slot_lost": "Outra resposta ocupou a última vaga",
         "claim_failed": "Não foi possível reservar uma vaga de resposta",
         "stale": "A conversa mudou antes do envio",
-        "dispatch_failed": "Algo deu errado"
+        "dispatch_failed": "Algo deu errado",
+        "no_agent": "Nenhum agente está ligado para este canal neste horário"
       },
       "unknownReason": "Outro ({code})",
       "detailTitle": "Detalhes da atividade",
@@ -7318,7 +7783,9 @@
       "storefrontNeedsNext": "Conecte a etapa seguinte ao envio do link.",
       "capabilityUnavailable": "A etapa \"{key}\" precisa de {capability}, que este espaço de trabalho ainda não configurou.",
       "crossFlowLoop": "As etapas Conectar fluxo formam um ciclo sem resposta do cliente: {flows}.",
-      "stage5Pending": "Esta etapa ou configuração ainda não está disponível. Remova-a para publicar o fluxo."
+      "stage5Pending": "Esta etapa ou configuração ainda não está disponível. Remova-a para publicar o fluxo.",
+      "triggerTagRequired": "Escolha a tag que inicia este fluxo.",
+      "triggerBadFrequency": "Escolha com que frequência isso pode começar para a mesma pessoa."
     },
     "automations": {
       "needsStep": "automações ativas precisam de pelo menos uma etapa",
@@ -7735,7 +8202,13 @@
       "scheduleCreatorLostAccess": "O criador deste agendamento não é mais administrador. Crie um novo agendamento.",
       "invalidShare": "Escolha quem pode abrir o link e uma validade de até 7 dias.",
       "shareRoleTooLow": "Este relatório contém dados que essa função não pode ver. Escolha uma função superior.",
-      "shareNotFound": "Este relatório não está disponível."
+      "shareNotFound": "Este relatório não está disponível.",
+      "invalidSavedReport": "Dê ao relatório um nome de até 60 caracteres e escolha pelo menos uma métrica, um agrupamento, um canal e um período válido.",
+      "savedReportNameTaken": "Já existe um relatório com este nome.",
+      "savedReportNotFound": "Relatório não encontrado.",
+      "tooManySavedReports": "Este espaço de trabalho já tem 50 relatórios salvos. Exclua um primeiro.",
+      "invalidSavedSchedule": "Escolha a frequência (diária, semanal ou mensal) e um horário.",
+      "scheduleFormatLocked": "Este agendamento envia um relatório salvo no tipo de arquivo do próprio relatório. Altere o tipo de arquivo no relatório salvo."
     },
     "meetings": {
       "not_configured": "O Zoom não está disponível nesta instalação.",
@@ -7967,7 +8440,8 @@
       "unknownMetaError": "Erro desconhecido da API da Meta",
       "metaError": "Erro da API da Meta: {message}",
       "dbDeleteFailed": "Reação enviada à Meta, mas falhou ao removê-la do banco de dados",
-      "dbUpsertFailed": "Reação enviada à Meta, mas falhou ao salvá-la no banco de dados"
+      "dbUpsertFailed": "Reação enviada à Meta, mas falhou ao salvá-la no banco de dados",
+      "instagramHeartOnly": "O Instagram só permite reagir com um coração."
     },
     "send": {
       "idsRequired": "É necessário informar conversation_id ou contact_id, além de message_type",
@@ -9290,7 +9764,8 @@
           "cod_confirmed": "Pagamento na entrega escolhido",
           "payment_link_failed": "Não foi possível criar o link de pagamento",
           "shipment_pickup_requested": "Coleta da transportadora solicitada novamente",
-          "return_refunded_outside": "Devolução reembolsada fora do Bodhinox"
+          "return_refunded_outside": "Devolução reembolsada fora do Bodhinox",
+          "manual_created": "Criado por um membro da equipe"
         },
         "documents": "Documentos",
         "documentKinds": {
@@ -11150,7 +11625,8 @@
         "agent_performance": "Desempenho dos agentes por dia",
         "product_summary": "Vendas por produto",
         "service_summary": "Agendamentos por serviço",
-        "commerce_daily": "Recebimentos por dia"
+        "commerce_daily": "Recebimentos por dia",
+        "saved_report": "Relatório salvo"
       },
       "range": "Período",
       "presets": {
@@ -11392,6 +11868,373 @@
       "whatsapp": "WhatsApp",
       "instagram": "Instagram",
       "whatsappOnlyNote": "Os números de campanhas e modelos são só do WhatsApp."
+    },
+    "insights": {
+      "chart": {
+        "nothing": "Nada para mostrar neste período.",
+        "roleDescription": "gráfico",
+        "lineLabel": "{label}. {count, plural, one {# ponto} other {# pontos}}. Use as setas para a esquerda e para a direita para ler os valores.",
+        "donutLabel": "{label}: {parts}. Use as setas para ler cada parte.",
+        "heatmapLabel": "Novas conversas por hora do dia"
+      },
+      "delta": {
+        "new": "Novo",
+        "same": "Sem mudança",
+        "up": "+{value}%",
+        "down": "−{value}%"
+      },
+      "hourSpan": "{day}, das {from} às {to}",
+      "weekSpan": "{from} – {to}",
+      "bucket": {
+        "hour": "Hora",
+        "day": "Dia",
+        "week": "Semana"
+      },
+      "caption": "De {from} a {to} · {channel}.",
+      "comparedWith": "As mudanças são comparadas com o período de {from} a {to}.",
+      "custom": {
+        "title": "Datas personalizadas",
+        "description": "Escolha qualquer período de até 366 dias. Um único dia é mostrado hora a hora.",
+        "cancel": "Cancelar",
+        "errors": {
+          "missing": "Escolha as duas datas.",
+          "order": "A data inicial é posterior à data final.",
+          "future": "A data final não pode estar no futuro.",
+          "too_long": "Escolha um período de 366 dias ou menos."
+        }
+      },
+      "tabs": {
+        "overview": {
+          "title": "Análises",
+          "description": "Como estão suas conversas, sua equipe e suas automações."
+        },
+        "conversations": {
+          "title": "Conversas",
+          "description": "Com que rapidez os clientes recebem resposta e como as conversas terminam."
+        },
+        "team": {
+          "title": "Equipe",
+          "description": "O que cada pessoa atendeu e com que rapidez."
+        },
+        "campaigns": {
+          "title": "Campanhas",
+          "description": "Como seus disparos e automações se saíram."
+        }
+      },
+      "overview": {
+        "stats": {
+          "new": "Novas conversas",
+          "resolved": "Resolvidas",
+          "firstResponse": "Mediana da primeira resposta",
+          "resolution": "Mediana do tempo de resolução",
+          "messages": "Mensagens enviadas",
+          "teamReply": "Primeira resposta da equipe"
+        },
+        "series": {
+          "new": "Novas",
+          "resolved": "Resolvidas"
+        },
+        "trendTitle": "Conversas novas e resolvidas",
+        "trendSub": "Por {bucket}",
+        "attentionTitle": "Precisa de atenção",
+        "attentionSub": "Agora",
+        "splitTitle": "Divisão por canal",
+        "splitSub": "Novas conversas. Escolha um canal para filtrar todas as abas.",
+        "conversations": "conversas",
+        "busiestTitle": "Horários de maior movimento",
+        "busiestSub": "A maioria das novas conversas começa por volta das {hour}.",
+        "busiestNone": "Nenhuma conversa nova neste período.",
+        "busiestCell": "Das {from} às {to}: {count, plural, one {# conversa nova} other {# conversas novas}}"
+      },
+      "attention": {
+        "allClear": "Tudo certo. Nada está esperando sua equipe.",
+        "unowned": {
+          "title": "{count, plural, one {{shown} conversa sem responsável} other {{shown} conversas sem responsável}}",
+          "sub": "Atribua para que alguém responda"
+        },
+        "unread": {
+          "title": "{count, plural, one {{shown} conversa não lida} other {{shown} conversas não lidas}}",
+          "sub": "Há clientes esperando resposta"
+        },
+        "closingSoon": {
+          "title": "{count, plural, one {{shown} janela de resposta fecha em breve} other {{shown} janelas de resposta fecham em breve}}",
+          "sub": "Responda em até 24 horas para não precisar de modelo"
+        },
+        "needsTemplate": {
+          "title": "{count, plural, one {{shown} conversa precisa de um modelo} other {{shown} conversas precisam de um modelo}}",
+          "sub": "A janela de resposta de 24 horas fechou"
+        },
+        "failedToday": {
+          "title": "{count, plural, one {{shown} mensagem falhou hoje} other {{shown} mensagens falharam hoje}}",
+          "sub": "Confira o número e envie de novo"
+        },
+        "switchedOff": {
+          "title": "{count, plural, one {{shown} automação está desligada} other {{shown} automações estão desligadas}}",
+          "sub": "Elas rodaram antes e agora estão desligadas"
+        }
+      },
+      "conversations": {
+        "stats": {
+          "firstResponse": "Mediana da primeira resposta",
+          "p90": "Resposta no percentil 90",
+          "resolution": "Mediana do tempo de resolução",
+          "rate": "Taxa de resolução"
+        },
+        "median": "Mediana",
+        "p90": "Percentil 90",
+        "spread": {
+          "under1h": "Menos de 1 h",
+          "1to4h": "De 1 a 4 h",
+          "4to12h": "De 4 a 12 h",
+          "12to24h": "De 12 a 24 h",
+          "overDay": "Mais de um dia"
+        },
+        "noLabel": "Sem etiqueta",
+        "cols": {
+          "new": "Novas",
+          "resolved": "Resolvidas",
+          "firstResponse": "Primeira resposta",
+          "resolution": "Tempo de resolução",
+          "failed": "Mensagens com falha",
+          "firstResponseSeconds": "Mediana da primeira resposta (segundos)",
+          "resolutionSeconds": "Mediana do tempo de resolução (segundos)"
+        },
+        "fileName": "conversas",
+        "responseTitle": "Tempo da primeira resposta",
+        "responseSub": "Quanto tempo um cliente espera pela primeira resposta",
+        "minutesValue": "{value} min",
+        "minutesAxis": "{value} min",
+        "openTitle": "Abertas e fechadas",
+        "openSub": "Conversas iniciadas neste período",
+        "closedWord": "fechadas",
+        "closed": "Fechadas",
+        "open": "Ainda abertas",
+        "spreadTitle": "Tempo de resolução",
+        "spreadSub": "Quanto tempo as conversas resolvidas levaram",
+        "conversations": "Conversas",
+        "channelTitle": "Por canal",
+        "channelSub": "Conversas novas e resolvidas",
+        "labelTitle": "Por etiqueta",
+        "labelSub": "Novas conversas por etiqueta de conversa",
+        "breakdownTitle": "Detalhamento por {bucket}",
+        "breakdownSub": "Escolha uma coluna para ordenar",
+        "exportCsv": "Exportar CSV",
+        "showFewer": "Mostrar menos linhas",
+        "showAll": "Mostrar todas as {count} linhas"
+      },
+      "team": {
+        "unnamed": "Membro sem nome",
+        "stats": {
+          "handled": "Atendidas por pessoas",
+          "resolved": "Resolvidas pela equipe",
+          "firstResponse": "Primeira resposta da equipe",
+          "messages": "Mensagens enviadas pela equipe",
+          "online": "Online agora"
+        },
+        "onlineOf": "{online} de {total}",
+        "cols": {
+          "member": "Membro",
+          "handled": "Atendidas",
+          "messages": "Mensagens enviadas",
+          "resolved": "Resolvidas",
+          "firstResponse": "Mediana da primeira resposta",
+          "status": "Status",
+          "role": "Função",
+          "firstResponseSeconds": "Mediana da primeira resposta (segundos)"
+        },
+        "openMember": "Abrir os detalhes de {name}",
+        "presence": {
+          "online": "Online",
+          "away": "Ausente",
+          "offline": "Offline"
+        },
+        "fileName": "equipe",
+        "resolvedTitle": "Resolvidas por membro",
+        "resolvedSub": "Conversas resolvidas enquanto estavam atribuídas a cada pessoa. Escolha uma para ver os detalhes.",
+        "noMembers": "Ainda não há membros.",
+        "tableTitle": "Membros",
+        "tableSub": "Escolha uma pessoa para ver os detalhes",
+        "search": "Pesquisar membros",
+        "exportCsv": "Exportar CSV",
+        "noMatch": "Ninguém corresponde",
+        "noMatchHint": "Tente outro nome ou função.",
+        "clearSearch": "Limpar pesquisa",
+        "attribution": "Mensagens e primeiras respostas contam para o membro que as enviou; resoluções, para o responsável atual. Bots, fluxos e o agente de IA não entram aqui.",
+        "detailChart": "Atendidas e resolvidas",
+        "byChannel": "Por canal",
+        "medianResolution": "Mediana do tempo de resolução",
+        "resolutionRate": "Taxa de resolução",
+        "openChats": "Abrir as conversas"
+      },
+      "campaigns": {
+        "stats": {
+          "broadcasts": "Disparos enviados",
+          "sent": "Mensagens enviadas",
+          "delivered": "Entregues",
+          "read": "Lidas",
+          "replied": "Respondidas",
+          "runs": "Execuções de automações"
+        },
+        "kinds": {
+          "flow": "Fluxos",
+          "rule": "Regras",
+          "sequence": "Sequências",
+          "flowOne": "Fluxo",
+          "ruleOne": "Regra",
+          "sequenceOne": "Sequência"
+        },
+        "cols": {
+          "broadcast": "Disparo",
+          "sentOn": "Enviado em",
+          "template": "Modelo",
+          "step": "Etapa",
+          "people": "Pessoas",
+          "shareOfSent": "Parcela dos enviados"
+        },
+        "openBroadcast": "Abrir o funil de {name}",
+        "fileName": "disparos",
+        "whatsappOnly": "Os números de disparos são só do WhatsApp. As automações aparecem para o canal escolhido.",
+        "funnelTitle": "Desempenho dos disparos",
+        "funnelSub": "{count, plural, one {# disparo} other {# disparos}} neste período",
+        "funnelMode": "Mostrar quantidades ou taxas",
+        "counts": "Quantidades",
+        "rates": "Taxas",
+        "noBroadcasts": "Nenhum disparo neste período",
+        "noBroadcastsHint": "Escolha um período maior ou envie um em Campanhas.",
+        "openCampaigns": "Abrir campanhas",
+        "topTitle": "Principais automações",
+        "topSubRuns": "Quantas vezes cada automação rodou",
+        "topSubCtr": "Pessoas que tocaram em um botão ou link rastreado",
+        "topMode": "Ordenar por execuções ou taxa de cliques",
+        "runs": "Execuções",
+        "clickRate": "Taxa de cliques",
+        "openAutomation": "Abrir {name}",
+        "noAutomations": "Nenhuma execução aqui",
+        "noAutomationsHint": "Nenhum fluxo, regra ou sequência rodou neste período.",
+        "noClicksHint": "Nenhum fluxo com link rastreado rodou neste período.",
+        "tableTitle": "Disparos",
+        "tableSub": "Escolha um disparo para ver o funil",
+        "exportCsv": "Exportar CSV",
+        "nothingSent": "Nada foi enviado neste período.",
+        "kindsTitle": "Execuções por tipo",
+        "kindsSub": "Fluxos, regras e sequências",
+        "runsWord": "execuções",
+        "sentOn": "enviado em {date}"
+      },
+      "saved": {
+        "pageTitle": "Relatórios",
+        "pageDescription": "Relatórios salvos que você pode visualizar, exportar ou enviar por e-mail, e arquivos de relatório gerados em segundo plano.",
+        "title": "Relatórios salvos",
+        "description": "Escolha as métricas uma vez e depois exporte o relatório ou envie-o por e-mail com uma programação.",
+        "build": "Criar relatório",
+        "search": "Pesquisar relatórios",
+        "count": "{shown} de {total, plural, one {# relatório} other {# relatórios}} · {scheduled} enviados por e-mail",
+        "loadFailed": "Não foi possível carregar os relatórios salvos.",
+        "retry": "Tentar de novo",
+        "noMatch": "Nenhum relatório corresponde",
+        "noMatchHint": "Tente outro nome.",
+        "empty": "Ainda não há relatórios salvos",
+        "emptyHint": "Crie um para exportá-lo ou enviá-lo por e-mail.",
+        "clearSearch": "Limpar pesquisa",
+        "failed": "Não deu certo. Tente de novo.",
+        "duplicated": "Relatório duplicado",
+        "saved": "Relatório \"{name}\" salvo",
+        "updated": "Relatório atualizado",
+        "deleteTitle": "Excluir este relatório?",
+        "deleteText": "\"{name}\" será removido.",
+        "deleteScheduled": "\"{name}\" será removido e os e-mails dele vão parar.",
+        "cancel": "Cancelar",
+        "delete": "Excluir",
+        "deleted": "Relatório excluído",
+        "scheduleBadge": "{freq}, {time} · {count, plural, one {# pessoa} other {# pessoas}}",
+        "freq": {
+          "daily": "Todos os dias",
+          "weekly": "Toda segunda-feira",
+          "monthly": "No dia 1º de cada mês"
+        },
+        "ranges": {
+          "today": "Hoje",
+          "7d": "Últimos 7 dias",
+          "30d": "Últimos 30 dias",
+          "90d": "Últimos 90 dias",
+          "this_week": "Esta semana",
+          "last_week": "Semana passada",
+          "this_month": "Este mês",
+          "last_month": "Mês passado",
+          "custom": "Datas personalizadas"
+        },
+        "summary": "{count, plural, one {# métrica} other {# métricas}} por {group} · {range} · {channel}",
+        "groups": {
+          "day": "Dia",
+          "week": "Semana",
+          "channel": "Canal",
+          "agent": "Membro",
+          "label": "Etiqueta"
+        },
+        "openReport": "Abrir {name}",
+        "changeSchedule": "Alterar o envio por e-mail",
+        "scheduleEmail": "Agendar e-mail",
+        "paused": "pausado",
+        "notScheduled": "Não agendado",
+        "more": "Mais ações para {name}",
+        "moreShort": "Mais ações",
+        "open": "Abrir",
+        "edit": "Editar",
+        "duplicate": "Duplicar",
+        "exportReport": "Exportar {name}",
+        "export": "Exportar",
+        "exportCsv": "Exportar CSV",
+        "exportPdf": "Exportar PDF",
+        "errors": {
+          "name": "Dê um nome ao relatório.",
+          "nameTaken": "Já existe um relatório com este nome.",
+          "metrics": "Escolha pelo menos uma métrica.",
+          "missing": "Escolha as duas datas.",
+          "order": "A data inicial é posterior à data final.",
+          "future": "A data final não pode estar no futuro.",
+          "too_long": "Escolha um período de 366 dias ou menos.",
+          "time": "Escolha um horário.",
+          "recipients": "Escolha pelo menos uma pessoa."
+        },
+        "editTitle": "Editar relatório",
+        "buildTitle": "Criar relatório",
+        "builderHint": "Somente quantidades e durações, nunca o conteúdo das mensagens.",
+        "name": "Nome",
+        "namePlaceholder": "Resumo semanal do suporte",
+        "metrics": "Métricas",
+        "metric": {
+          "new": "Novas conversas",
+          "resolved": "Resolvidas",
+          "first_response": "Mediana da primeira resposta",
+          "resolution": "Mediana do tempo de resolução",
+          "messages": "Mensagens enviadas",
+          "failed": "Mensagens com falha"
+        },
+        "groupBy": "Agrupar por",
+        "range": "Período",
+        "fileType": "Tipo de arquivo",
+        "saveChanges": "Salvar alterações",
+        "saveReport": "Salvar relatório",
+        "weekOf": "Semana de {date}",
+        "noLabel": "Sem etiqueta",
+        "formerMember": "Ex-membro",
+        "previewMeta": "De {from} a {to} · {channel} · {count, plural, one {# linha} other {# linhas}}",
+        "loading": "Carregando…",
+        "previewFailed": "Não foi possível carregar a prévia.",
+        "done": "Concluir",
+        "scheduleRemoved": "Agendamento removido",
+        "scheduleSaved": "\"{name}\" será enviado por e-mail com este agendamento",
+        "scheduleTitle": "Agendar relatório por e-mail",
+        "scheduleHint": "Envie \"{name}\" como arquivo {format}. Cada e-mail cobre o período que acabou de terminar e traz um link de acesso, nunca o arquivo.",
+        "howOften": "Frequência",
+        "time": "Horário (fuso do espaço de trabalho)",
+        "sendTo": "Enviar para",
+        "noAdmins": "Nenhum administrador ou proprietário encontrado.",
+        "unnamed": "Membro sem nome",
+        "adminsOnly": "Somente proprietários e administradores podem receber relatórios. Cada um é verificado de novo no envio.",
+        "stopSending": "Parar de enviar",
+        "saveSchedule": "Salvar agendamento"
+      }
     }
   },
   "Ads": {
@@ -11436,7 +12279,8 @@
       "from": "De",
       "to": "Até",
       "syncFailed": "Não foi possível agendar a sincronização. Tente novamente.",
-      "retargetSaved": "Segmento salvo. Escolha-o como público de uma transmissão."
+      "retargetSaved": "Segmento salvo. Escolha-o como público de uma transmissão.",
+      "openDetails": "Abrir os detalhes de {name}"
     },
     "leads": {
       "empty": "Ainda não há leads.",
@@ -13732,6 +14576,1203 @@
       "loadFailed": "Não foi possível carregar estas configurações.",
       "retry": "Tentar novamente",
       "loading": "Carregando"
+    }
+  },
+  "AutomationList": {
+    "description": "Fluxos, regras e sequências para WhatsApp e Instagram em um só lugar.",
+    "kindFilterLabel": "Tipo de automação",
+    "tabs": {
+      "flow": "Fluxos",
+      "rule": "Regras",
+      "sequence": "Sequências"
+    },
+    "kinds": {
+      "flow": "Fluxo",
+      "rule": "Regra",
+      "sequence": "Sequência"
+    },
+    "anyStatus": "Qualquer status",
+    "searchPlaceholder": "Buscar automações",
+    "noMatches": "Nada encontrado. Tente outra busca ou limpe os filtros.",
+    "clearFilters": "Limpar filtros",
+    "typeColumn": "Tipo",
+    "startsWhen": "Começa quando",
+    "liveColumn": "Ativa",
+    "liveLabel": "{name} ativa",
+    "liveOn": "“{name}” está ativa",
+    "liveOff": "“{name}” está parada. Ninguém novo a inicia.",
+    "hasProblems": "“{name}” tem {count, plural, one {# problema} other {# problemas}}. Abra para corrigir.",
+    "openToFix": "Abrir",
+    "liveError": "Não foi possível alterar. Tente novamente.",
+    "working": "Salvando…",
+    "archivedNoSwitch": "Restaure primeiro para ativar.",
+    "subscribers": "Inscritos",
+    "sequenceStarts": "{count, plural, =0 {Ainda sem mensagens} one {# mensagem ao longo de dias} other {# mensagens ao longo de dias}}",
+    "logs": "Ver registros",
+    "createRuleError": "Não foi possível criar a regra.",
+    "duplicateRuleError": "Não foi possível duplicar a regra.",
+    "deleteError": "Não foi possível excluir.",
+    "ruleDeleted": "Regra excluída.",
+    "sequenceArchived": "Sequência arquivada. Os inscritos deixam de receber mensagens.",
+    "deleteRuleHint": "A regra e suas etapas são excluídas. Isso não pode ser desfeito.",
+    "deleteSequenceHint": "A sequência é arquivada e {count, plural, one {# inscrito deixa} other {# inscritos deixam}} de receber mensagens.",
+    "rename": {
+      "action": "Renomear",
+      "title": "Renomear automação",
+      "name": "Nome",
+      "required": "Dê um nome.",
+      "cancel": "Cancelar",
+      "save": "Salvar",
+      "error": "Não foi possível renomear.",
+      "done": "Renomeada"
+    },
+    "dialog": {
+      "scratch": "Começar do zero",
+      "scratchHint": "Escolha um tipo e um canal e monte do seu jeito.",
+      "scratchTitle": "Começar do zero",
+      "scratchDesc": "Dê um nome, escolha o tipo de automação e onde ela roda.",
+      "backToTemplates": "Modelos",
+      "name": "Nome",
+      "nameRequired": "Dê um nome.",
+      "type": "Tipo",
+      "channel": "Canal",
+      "hints": {
+        "flow": "Uma conversa com mensagens, perguntas e botões.",
+        "rule": "Quando algo acontece, faça algo. Sem precisar de conversa.",
+        "sequence": "Mensagens espaçadas ao longo de horas ou dias."
+      },
+      "sequenceInstagramOnly": "Sequências rodam no Instagram.",
+      "createRule": "Criar regra em branco",
+      "createSequence": "Criar sequência",
+      "templateKind": "{kind} · {channel}",
+      "flowTemplates": "Modelos de fluxo"
+    }
+  },
+  "Campaigns": {
+    "title": "Campanhas",
+    "blurbs": {
+      "broadcasts": "Envie uma mensagem para muitas pessoas de uma vez.",
+      "templates": "Mensagens aprovadas pelo WhatsApp para você escrever primeiro.",
+      "ads": "Anúncios que abrem uma conversa no WhatsApp ou no Instagram.",
+      "forms": "Formulários curtos preenchidos sem sair do WhatsApp."
+    },
+    "textMessage": "Mensagem de texto",
+    "sentProgress": "Parte do público já enviada",
+    "noMatchesHint": "Tente outro status ou outra busca.",
+    "clearFilters": "Limpar filtros",
+    "pausedHint": "Esta transmissão está pausada. {count, plural, one {# pessoa ainda aguarda} other {# pessoas ainda aguardam}}. Retome para continuar enviando.",
+    "stats": {
+      "audience": "Público",
+      "sent": "Enviadas",
+      "delivered": "Entregues",
+      "read": "Lidas",
+      "replied": "Respondidas"
+    },
+    "when": {
+      "draft": "Ainda não enviada",
+      "scheduled": "Envia {when}",
+      "sending": "Iniciada {when}",
+      "paused": "Pausada",
+      "cancelled": "Cancelada",
+      "sent": "Enviada {when}",
+      "failed": "Falhou {when}"
+    },
+    "channels": {
+      "whatsapp": "WhatsApp",
+      "instagram": "Instagram"
+    },
+    "actions": {
+      "moreFor": "Mais ações para {name}",
+      "more": "Mais ações",
+      "open": "Abrir",
+      "viewReport": "Ver relatório",
+      "edit": "Editar",
+      "editAndSend": "Editar e enviar",
+      "reschedule": "Editar ou reagendar",
+      "sendNow": "Enviar agora",
+      "cancelSchedule": "Cancelar agendamento",
+      "pause": "Pausar",
+      "resume": "Retomar",
+      "retryFailed": "Reenviar falhas",
+      "duplicate": "Duplicar",
+      "delete": "Excluir",
+      "cancel": "Cancelar",
+      "actionFailed": "Não deu certo. {error}",
+      "toastDeleted": "Transmissão excluída",
+      "cannotDeleteSending": "Pause a transmissão antes de excluí-la.",
+      "toastUnscheduled": "Agendamento cancelado",
+      "toastPaused": "Transmissão pausada",
+      "toastResumed": "Enviando novamente",
+      "toastRetry": "Enviando novamente para os destinatários com falha",
+      "toastStarted": "Envio iniciado",
+      "confirmDeleteTitle": "Excluir transmissão?",
+      "confirmDeleteBody": "\"{name}\" e o relatório dela serão removidos.",
+      "confirmSendTitle": "Enviar agora?",
+      "confirmSendBody": "\"{name}\" começará a ser enviada para {count, plural, one {# pessoa} other {# pessoas}} imediatamente.",
+      "errors": {
+        "not_scheduled": "Esta campanha não está mais agendada, então não pode ser iniciada agora.",
+        "already_starting": "Esta campanha já está sendo iniciada.",
+        "workspace_held": "As campanhas ficam em espera enquanto este espaço de trabalho estiver suspenso. Ela será enviada quando o espaço voltar a ficar ativo.",
+        "job_missing": "Esta campanha não pode mais ser iniciada pelo agendamento. Duplique-a para enviá-la agora.",
+        "resume_paused_first": "Primeiro retome esta campanha pausada e depois tente novamente os destinatários que falharam."
+      }
+    },
+    "recipients": {
+      "search": "Buscar destinatários",
+      "filter": "Filtrar destinatários por status",
+      "range": "{start}–{end} de {total}",
+      "previous": "Anterior",
+      "next": "Próxima"
+    },
+    "message": {
+      "title": "Mensagem",
+      "textMessage": "Mensagem de texto",
+      "yourBusiness": "Sua empresa",
+      "empty": "Sem texto de mensagem.",
+      "loading": "Carregando a mensagem",
+      "templateMissing": "Este modelo não está mais no espaço de trabalho.",
+      "customField": "campo personalizado"
+    },
+    "wizard": {
+      "steps": {
+        "details": "Detalhes",
+        "message": "Mensagem",
+        "review": "Revisão"
+      },
+      "detailsTitle": "Nome e canal",
+      "detailsSubtitle": "Dê um nome à transmissão e escolha para onde ela vai.",
+      "nameLabel": "Nome",
+      "namePlaceholder": "ex.: Oferta de Diwali",
+      "nameHint": "Só a sua equipe vê este nome.",
+      "nameRequired": "Dê um nome à transmissão.",
+      "channelLabel": "Canal",
+      "channelWhatsapp": "WhatsApp",
+      "channelWhatsappHint": "Um modelo aprovado para quem deu consentimento.",
+      "channelInstagram": "Instagram",
+      "channelInstagramHint": "Uma mensagem para quem escreveu para você nas últimas 24 horas.",
+      "channelInstagramOff": "Ative o Instagram em Configurações para enviar transmissões pelo Instagram.",
+      "back": "Voltar",
+      "next": "Avançar",
+      "messageTitle": "Escreva a mensagem",
+      "messageSubtitle": "Transmissões do Instagram são só texto. Seja breve e pessoal.",
+      "messageLabel": "Mensagem",
+      "insertFirstName": "Primeiro nome",
+      "messagePlaceholder": "Escreva sua mensagem",
+      "messageHint": "Digite '{first name}' para cumprimentar cada pessoa pelo nome.",
+      "messageRequired": "Escreva uma mensagem.",
+      "preview": "Prévia",
+      "yourBusiness": "Sua empresa",
+      "sampleName": "Priya",
+      "previewEmpty": "Sua mensagem aparece aqui enquanto você digita.",
+      "reviewTitle": "Revisar e enviar",
+      "reviewSubtitle": "Confira quem vai receber antes do envio.",
+      "reviewName": "Nome",
+      "reviewChannel": "Canal",
+      "reviewAudience": "Público",
+      "reviewWhen": "Quando",
+      "reviewNow": "Agora",
+      "willGetIt": "{count, plural, one {pessoa vai receber} other {pessoas vão receber}}",
+      "leftOutWindow": "{count, plural, one {# pessoa ficou de fora} other {# pessoas ficaram de fora}}: escreveram há mais de 24 horas",
+      "leftOutRule": "O Instagram só permite mensagens para quem escreveu para você nas últimas 24 horas. Contatos descadastrados ou bloqueados sempre ficam de fora.",
+      "countFailed": "Não foi possível contar o público. Volte e tente de novo.",
+      "counting": "Contando quem vai receber…",
+      "instagramNoSchedule": "Transmissões do Instagram são enviadas na hora: a janela de 24 horas fecharia antes de um horário posterior.",
+      "sendNow": "Enviar agora",
+      "instagramReach": "pessoas escreveram nas últimas 24 horas e vão receber",
+      "templateNotApproved": "Esse modelo ainda não foi aprovado, então não pode ser usado em uma transmissão.",
+      "copyName": "{name} cópia",
+      "templateGone": "O modelo original não está mais aprovado. Escolha outro.",
+      "loadFailed": "Não foi possível carregar a transmissão para copiar.",
+      "audience": {
+        "all": "Todos os contatos",
+        "tags": "Por etiqueta",
+        "customField": "Por campo personalizado",
+        "csv": "De um arquivo CSV",
+        "segment": "Um segmento",
+        "list": "Uma lista"
+      }
+    },
+    "templates": {
+      "category": "Categoria",
+      "allCategories": "Todas as categorias",
+      "counts": "{variables, plural, one {# variável} other {# variáveis}} · {buttons, plural, one {# botão} other {# botões}}",
+      "use": "Usar"
+    },
+    "forms": {
+      "summary": "{count, plural, one {# formulário} other {# formulários}} · {published} publicados",
+      "search": "Buscar formulários",
+      "noMatches": "Nenhum formulário encontrado.",
+      "searchResponses": "Buscar respostas",
+      "noResponseMatches": "Nenhuma resposta corresponde à busca."
+    },
+    "adDrawer": {
+      "ad": "Anúncio",
+      "campaign": "Campanha",
+      "rangeNote": "Totais das datas escolhidas na aba Anúncios.",
+      "spend": "Gasto",
+      "clicks": "Cliques",
+      "conversations": "Conversas",
+      "purchases": "Compras",
+      "last14": "Últimos 14 dias",
+      "metric": "Métrica do gráfico",
+      "loadFailed": "Não foi possível carregar os números diários.",
+      "loading": "Carregando números diários…",
+      "chartLabel": "{metric} por dia nos últimos 14 dias, {total} no total",
+      "total": "Total {total}",
+      "openInAdsManager": "Abrir no Gerenciador de Anúncios"
+    }
+  },
+  "Sales": {
+    "pipeline": {
+      "openDeals": "Negócios abertos",
+      "won": "Ganhos",
+      "winRate": "Taxa de sucesso",
+      "dealsCount": "{count, plural, one {# negócio} other {# negócios}}",
+      "lostCount": "{count} perdidos",
+      "dealActions": "Ações de {title}",
+      "openDeal": "Abrir negócio",
+      "moveTo": "Mover para {stage}",
+      "deleteDeal": "Excluir negócio",
+      "moved": "Movido para {stage}",
+      "allOwners": "Todos os responsáveis",
+      "unassigned": "Sem responsável",
+      "owner": "Filtrar por responsável",
+      "manageStages": "Gerenciar etapas",
+      "searchDeals": "Buscar negócios",
+      "moreStats": "Mais estatísticas",
+      "fewerStats": "Menos estatísticas",
+      "noMatches": "Nenhum negócio encontrado",
+      "deleteTitle": "Excluir este negócio?",
+      "deleteBody": "\"{title}\" será removido do funil.",
+      "deleted": "Negócio excluído",
+      "deleteFailed": "Não foi possível excluir o negócio"
+    },
+    "deal": {
+      "saving": "Salvando…",
+      "saved": "Salvo",
+      "autosaveHint": "As alterações são salvas na hora.",
+      "saveFailed": "Não foi possível salvar a alteração",
+      "contactButton": "Contato",
+      "chatButton": "Chat",
+      "summary": "Resumo",
+      "teamNotes": "Notas da equipe",
+      "noNotes": "Ainda não há notas.",
+      "teamMember": "Membro da equipe",
+      "deleteNote": "Excluir nota",
+      "notePlaceholder": "Adicione uma nota para a sua equipe",
+      "addNote": "Adicionar nota",
+      "paymentLink": "Link de pagamento",
+      "noteEmpty": "Escreva uma nota primeiro",
+      "noteFailed": "Não foi possível salvar a nota",
+      "noteAdded": "Nota adicionada",
+      "noteDeleted": "Nota excluída",
+      "delete": "Excluir",
+      "markLost": "Marcar como perdido",
+      "markWon": "Marcar como ganho"
+    },
+    "paymentLink": {
+      "sendNow": "Enviar agora para o cliente",
+      "sent": "Link de pagamento enviado ao cliente",
+      "sendRefused": "O link foi criado, mas não enviado: {reason}"
+    },
+    "appointments": {
+      "viewWeek": "Semana",
+      "viewList": "Lista",
+      "bookingLink": "Link de agendamento",
+      "servicesHours": "Serviços e horários",
+      "gridLabel": "Calendário semanal",
+      "closed": "fechado",
+      "clickToBook": "Clique para agendar este horário",
+      "noContact": "Aguardando cliente",
+      "hint": "Clique em um horário livre para agendá-lo. Os dias sombreados estão fechados.",
+      "hintReadOnly": "Os dias sombreados estão fechados.",
+      "requestedTime": "Horário pedido: {when}. Escolha um serviço e um local para ver os horários livres a partir dele."
+    },
+    "orders": {
+      "colPayment": "Pagamento",
+      "colFulfilment": "Entrega",
+      "pay": {
+        "paid": "Pago",
+        "pending": "Pendente",
+        "refunded": "Reembolsado",
+        "partlyRefunded": "Reembolso parcial",
+        "cod": "Pagamento na entrega"
+      },
+      "ful": {
+        "new": "Novo",
+        "confirmed": "Confirmado",
+        "shipped": "Enviado",
+        "delivered": "Entregue",
+        "cancelled": "Cancelado",
+        "expired": "Expirado",
+        "review": "Em análise"
+      },
+      "stepFailed": "Não foi possível atualizar o pedido",
+      "stepDone": "Pedido confirmado",
+      "linkDescription": "Pedido {ref}",
+      "linkFailed": "Não foi possível criar um link de pagamento",
+      "linkExisting": "Este pedido já tinha um link de pagamento aberto. Ele foi reenviado e copiado.",
+      "linkSent": "Link de pagamento enviado ao cliente e copiado",
+      "linkNoChat": "Link de pagamento copiado. Não há chat para enviá-lo.",
+      "linkNotSent": "O link de pagamento foi copiado, mas não enviado: {reason}",
+      "updateFailed": "Não enviado: {reason}",
+      "updateSent": "Atualização enviada ao cliente",
+      "placed": "Feito em {date} · {count, plural, one {# item} other {# itens}}",
+      "title": "Pedido {ref}",
+      "loadingTitle": "Pedido",
+      "contact": "Contato",
+      "chat": "Chat",
+      "items": "Itens",
+      "noChat": "Este pedido não tem um chat para onde enviar.",
+      "sendUpdate": "Enviar atualização",
+      "sendPaymentLink": "Enviar link de pagamento",
+      "recordPayment": "Registrar pagamento",
+      "cancelOrder": "Cancelar pedido",
+      "nextLabel": "Próximo: {step}",
+      "next": {
+        "confirm": "Confirmar pedido",
+        "ship": "Marcar como enviado",
+        "deliver": "Marcar como entregue"
+      },
+      "complete": "Este pedido está concluído.",
+      "noStep": "Não há próximo passo a partir daqui.",
+      "openFullPage": "Página completa",
+      "shipTitle": "Enviar {ref}",
+      "trackingHelp": "Opcional. O cliente recebe junto com o aviso de envio.",
+      "tracking": "Código de rastreio ou nota",
+      "cancel": "Cancelar",
+      "updateTitle": "Enviar atualização ao cliente",
+      "updateHelp": "Enviado no chat do cliente. Fora da janela de 24 horas o WhatsApp exige um modelo aprovado: abra o chat para enviá-lo.",
+      "updateSend": "Enviar",
+      "cancelTitle": "Cancelar {ref}?",
+      "cancelBody": "O pedido é cancelado, o estoque reservado é liberado e qualquer link de pagamento aberto é cancelado.",
+      "keep": "Manter pedido",
+      "cancelled": "Pedido cancelado",
+      "updateText": {
+        "confirmed": "Seu pedido {ref} está confirmado.",
+        "paid": "Recebemos o pagamento do seu pedido {ref}.",
+        "dispatched": "Seu pedido {ref} foi enviado.",
+        "fulfilled": "Seu pedido {ref} foi entregue.",
+        "cancelled": "Seu pedido {ref} foi cancelado.",
+        "other": "Temos uma atualização sobre o seu pedido {ref}."
+      },
+      "export": "Exportar",
+      "exported": "{count, plural, one {# pedido exportado} other {# pedidos exportados}}",
+      "exportFailed": "Não foi possível exportar os pedidos",
+      "newOrder": "Novo pedido",
+      "actions": "Ações",
+      "openOrderLabel": "Abrir pedido {ref}",
+      "orderActions": "Ações do pedido {ref}",
+      "openOrder": "Abrir pedido",
+      "refund": "Reembolsar",
+      "shown": "{count, plural, one {# pedido exibido.} other {# pedidos exibidos.}}",
+      "seePayments": "Ver pagamentos",
+      "csv": {
+        "order": "Pedido",
+        "date": "Data",
+        "customer": "Cliente",
+        "items": "Itens",
+        "total": "Total",
+        "currency": "Moeda",
+        "payment": "Pagamento",
+        "fulfilment": "Entrega",
+        "source": "Origem"
+      },
+      "new": {
+        "title": "Novo pedido",
+        "totalHelp": "Os preços vêm do seu catálogo. Os impostos são somados ao criar o pedido.",
+        "customer": "Cliente",
+        "customerSearch": "Buscar clientes pelo nome",
+        "chooseCustomer": "Escolha um cliente",
+        "items": "Itens",
+        "product": "Produto",
+        "qty": "Quantidade",
+        "removeItem": "Remover item",
+        "productSearch": "Pesquisar produtos por nome ou SKU",
+        "madeToOrder": "Sob encomenda",
+        "stock": "{count} em estoque",
+        "addItem": "Adicionar item",
+        "total": "Total",
+        "note": "Nota interna (opcional)",
+        "sendLink": "Enviar um link de pagamento ao cliente",
+        "create": "Criar pedido",
+        "created": "Pedido {ref} criado",
+        "needCustomer": "Escolha um cliente",
+        "needItems": "Adicione pelo menos um produto",
+        "noProducts": "Ainda não há produtos publicados com preço. Adicione um primeiro no Catálogo.",
+        "errors": {
+          "invalid": "Confira os produtos e as quantidades e tente de novo.",
+          "contact_not_found": "Esse cliente não está mais neste espaço de trabalho.",
+          "store_not_configured": "Defina primeiro a moeda da loja nas Configurações da loja.",
+          "out_of_stock": "Não há estoque suficiente de um dos produtos.",
+          "variant_unavailable": "Um dos produtos não está mais à venda.",
+          "price_not_configured": "Um dos produtos não tem preço.",
+          "tax_not_configured": "Defina primeiro uma alíquota de imposto para o produto ou a loja.",
+          "amount_out_of_range": "O total do pedido é alto demais.",
+          "cart_empty": "Adicione pelo menos um produto",
+          "invalid_cart": "Confira os produtos e as quantidades e tente de novo.",
+          "generic": "Não foi possível criar o pedido. Tente de novo."
+        }
+      }
+    },
+    "products": {
+      "copyName": "{name} (cópia)",
+      "shown": "{name} está ativo na loja",
+      "hiddenToast": "{name} está oculto na loja",
+      "duplicated": "Cópia adicionada como rascunho",
+      "archived": "Produto arquivado",
+      "restored": "Produto restaurado como rascunho",
+      "productActions": "Ações de {name}",
+      "edit": "Editar",
+      "duplicate": "Duplicar",
+      "hide": "Ocultar na loja",
+      "show": "Mostrar na loja",
+      "restore": "Restaurar",
+      "archive": "Arquivar",
+      "activeFor": "{name} ativo na loja",
+      "all": "Todos",
+      "categories": "Categorias",
+      "viewLabel": "Visualização",
+      "gridView": "Visualização em grade",
+      "tableView": "Visualização em tabela",
+      "activeInShop": "Ativo na loja",
+      "hidden": "Oculto na loja",
+      "active": "Ativo",
+      "actionsColumn": "Ações",
+      "newHelp": "Dê um nome; preços, variações e fotos são adicionados na próxima página.",
+      "cancel": "Cancelar",
+      "createAndEdit": "Criar e editar"
+    },
+    "payments": {
+      "collected": "Recebido",
+      "paidCount": "{count} pagos",
+      "waiting": "Aguardando pagamento",
+      "pendingCount": "{count} pendentes",
+      "expired": "Expirados",
+      "expiredCount": "{count} não pagos a tempo",
+      "paidRate": "Taxa de pagamento",
+      "ofClosed": "dos links encerrados",
+      "otherCurrencies": "Também em {list}; os cartões mostram uma só moeda.",
+      "reminderSent": "Lembrete enviado ao cliente",
+      "reminderFailed": "Não enviado: {reason}",
+      "sentAgain": "Um novo link foi criado e enviado",
+      "madeAgain": "Um novo link foi criado",
+      "all": "Todos",
+      "pending": "Pendentes",
+      "moreStatuses": "Mais status",
+      "search": "Buscar links de pagamento",
+      "noMatches": "Nenhum link de pagamento encontrado.",
+      "clearFilters": "Limpar filtros",
+      "expires": "Expira em {date}",
+      "linkActions": "Ações do link",
+      "sendReminder": "Enviar lembrete",
+      "recordPayment": "Registrar pagamento",
+      "sendAgain": "Enviar de novo",
+      "openOrder": "Abrir pedido",
+      "openChat": "Abrir chat",
+      "openContact": "Abrir contato",
+      "expireNow": "Expirar agora"
+    }
+  },
+  "AiStudio": {
+    "title": "IA",
+    "description": "Agentes que respondem por você, o que eles sabem e como estão se saindo.",
+    "newAgent": "Novo agente",
+    "addSource": "Adicionar fonte",
+    "sectionsLabel": "Seções de IA",
+    "tabs": {
+      "agents": "Agentes",
+      "knowledge": "Conhecimento",
+      "features": "Recursos do assistente",
+      "quality": "Qualidade",
+      "setup": "Configuração",
+      "learnings": "Aprendizados",
+      "usage": "Uso",
+      "activity": "Atividade"
+    },
+    "common": {
+      "cancel": "Cancelar",
+      "retry": "Tentar novamente",
+      "loading": "Carregando",
+      "loadFailed": "Não foi possível carregar.",
+      "failed": "Não deu certo. Tente novamente."
+    },
+    "agents": {
+      "filterAll": "Todos",
+      "filterOn": "Ligados",
+      "filterOff": "Desligados",
+      "filterLabel": "Mostrar agentes",
+      "search": "Buscar agentes",
+      "orderHint": "Cada conversa é respondida por um único agente: o que já respondeu nela ou, se não houver, o primeiro agente desta lista que esteja ligado para o canal naquele horário.",
+      "emptyTitle": "Nenhum agente ainda",
+      "emptyBody": "Um agente responde aos clientes por você usando sua base de conhecimento.",
+      "createFirst": "Criar um agente",
+      "noMatchTitle": "Nenhum agente encontrado",
+      "noMatchBody": "Tente outra busca ou outro filtro.",
+      "clearFilters": "Limpar filtros",
+      "roles": {
+        "sales": "Vendas",
+        "support": "Suporte",
+        "bookings": "Agendamentos",
+        "orders": "Pedidos",
+        "general": "Geral"
+      },
+      "tones": {
+        "friendly": "Simpático",
+        "professional": "Profissional",
+        "concise": "Breve",
+        "enthusiastic": "Entusiasmado",
+        "formal": "Formal"
+      },
+      "channels": {
+        "whatsapp": "WhatsApp",
+        "instagram": "Instagram"
+      },
+      "hoursAlways": "Sempre ligado",
+      "hoursDuring": "Das {from} às {to}",
+      "hoursOutside": "Fora das {from} às {to}",
+      "roleTone": "Agente de {role} · tom {tone}",
+      "roleOnly": "Agente de {role}",
+      "toggleLabel": "{name} responde aos clientes",
+      "noGoal": "Usa as instruções da Configuração.",
+      "defaultBadge": "Padrão",
+      "handled": "conversas atendidas",
+      "solved": "resolvidas sem uma pessoa",
+      "newLabel": "Novo",
+      "noChats": "ainda sem conversas",
+      "statusOn": "Ligado",
+      "statusOff": "Desligado",
+      "test": "Testar agente",
+      "edit": "Editar",
+      "more": "Mais opções de {name}",
+      "duplicate": "Duplicar",
+      "moveUp": "Mover para cima",
+      "moveDown": "Mover para baixo",
+      "delete": "Excluir",
+      "readOnly": "Somente administradores podem alterar os agentes.",
+      "defaultHint": "Este é o seu agente original. As instruções, o tom e as regras de transferência dele são os da Configuração.",
+      "deleteTitle": "Excluir {name}?",
+      "deleteOn": "Este agente está ligado. Ele vai parar de responder aos clientes imediatamente.",
+      "deleteOff": "Este agente e as configurações dele serão removidos.",
+      "deleteConfirm": "Excluir agente",
+      "toasts": {
+        "created": "Agente criado. Ligue-o quando estiver pronto.",
+        "saved": "Agente salvo",
+        "duplicated": "{name} foi criado. Por enquanto está desligado.",
+        "deleted": "Agente excluído",
+        "on": "{name} está ligado e respondendo aos clientes",
+        "off": "{name} está desligado",
+        "moved": "Ordem salva",
+        "failed": "Não deu certo. Tente novamente.",
+        "loadFailed": "Não foi possível carregar os agentes."
+      },
+      "errors": {
+        "forbidden": "Somente administradores podem alterar os agentes.",
+        "invalid_input": "Confira os dados do agente e tente novamente.",
+        "not_found": "Este agente não existe mais.",
+        "name_taken": "Outro agente já tem este nome.",
+        "limit_reached": "Um espaço de trabalho pode ter até 20 agentes.",
+        "default_agent": "O agente padrão não pode ser excluído. Desligue-o."
+      },
+      "legacyHint": "Este é o agente que responde aos seus clientes hoje, em todos os canais e a qualquer hora. Um administrador pode transformá-lo em um agente editável ao abrir esta página."
+    },
+    "editor": {
+      "newTitle": "Novo agente",
+      "editTitle": "Editar {name}",
+      "name": "Nome",
+      "namePlaceholder": "Por exemplo, Maya",
+      "role": "Função",
+      "goal": "Objetivo e instruções",
+      "goalPlaceholder": "O que este agente deve fazer e o que nunca deve fazer?",
+      "tone": "Tom",
+      "channels": "Canais",
+      "handoffLegend": "Transferir para uma pessoa",
+      "keywords": "Quando um cliente diz",
+      "keywordsPlaceholder": "reembolso, reclamação, falar com uma pessoa",
+      "keywordsHint": "Separe as palavras com vírgulas.",
+      "maxTurns": "Depois de tantas respostas da IA",
+      "maxTurnsHint": "0 significa sem limite.",
+      "unsure": "Quando o agente não tem certeza",
+      "unsureHint": "Transfere a conversa em vez de chutar uma resposta.",
+      "hoursLegend": "Horário de funcionamento",
+      "hoursMode": "Quando responde",
+      "modeAlways": "Sempre",
+      "modeDuring": "Somente neste horário",
+      "modeOutside": "Somente fora deste horário",
+      "from": "De",
+      "to": "Até",
+      "timezone": "Os horários usam o fuso das configurações da sua caixa de entrada.",
+      "create": "Criar agente",
+      "save": "Salvar alterações",
+      "errors": {
+        "name": "Dê ao agente um nome que nenhum outro agente use.",
+        "goal": "Diga o que o agente deve fazer.",
+        "channels": "Escolha pelo menos um canal.",
+        "maxTurns": "Digite um número de 0 a 50.",
+        "hours": "O horário de início deve ser antes do horário de término."
+      },
+      "overnightHint": "O início deve ser antes do fim. Para cobrir a noite (por exemplo, das 22:00 às 06:00), escolha \"Somente fora deste horário\" e informe das 06:00 às 22:00."
+    },
+    "test": {
+      "panelLabel": "Testar {name}",
+      "subtitle": "Chat de teste · nada é enviado aos clientes",
+      "reset": "Começar de novo",
+      "close": "Fechar chat de teste",
+      "hint": "Digite uma mensagem como um cliente faria. {name} responde com base na sua base de conhecimento.",
+      "hintOff": "Ele está desligado para os clientes, mas você ainda pode testá-lo.",
+      "placeholder": "Escreva como cliente",
+      "lockedPlaceholder": "Comece de novo para continuar testando",
+      "inputLabel": "Mensagem de teste",
+      "send": "Enviar",
+      "from": "Fonte: {source}",
+      "typing": "O agente está digitando",
+      "handoverReply": "Vou chamar um colega que pode ajudar com isso. Ele vai responder aqui em breve.",
+      "handoff": {
+        "keyword": "Transferido para uma pessoa: o cliente usou uma palavra de transferência",
+        "turns": "Transferido para uma pessoa após o limite de respostas",
+        "unsure": "Transferido para uma pessoa: o agente não tinha certeza"
+      },
+      "starters": {
+        "sales1": "Quanto custa o plano anual?",
+        "sales2": "Posso ver uma demonstração?",
+        "sales3": "Tem alguma oferta?",
+        "support1": "Quando meu pedido será enviado?",
+        "support2": "Como exporto meus contatos?",
+        "support3": "Quero um reembolso",
+        "bookings1": "Posso agendar uma consulta?",
+        "bookings2": "Qual é o horário de atendimento?",
+        "bookings3": "Preciso remarcar",
+        "orders1": "Quando meu pedido será enviado?",
+        "orders2": "Me envie minha nota fiscal",
+        "orders3": "Meu item chegou danificado",
+        "general1": "Qual é o horário de atendimento?",
+        "general2": "Quanto custa?",
+        "general3": "É urgente"
+      }
+    },
+    "knowledge": {
+      "askTitle": "Pergunte à base de conhecimento",
+      "askBody": "Veja o que a IA encontraria antes que um cliente pergunte.",
+      "askPlaceholder": "Por exemplo, quanto tempo levam os reembolsos?",
+      "askLabel": "Pergunta",
+      "ask": "Perguntar",
+      "askEmpty": "Digite uma pergunta primeiro.",
+      "askFailed": "Não foi possível pesquisar a base de conhecimento. Tente novamente.",
+      "noMatch": "Nada corresponde a “{q}”.",
+      "noMatchBody": "Tente outra busca ou outro tipo.",
+      "writeAnswer": "Escrever uma resposta",
+      "untitled": "Sem título",
+      "matchPct": "{n}% de correspondência",
+      "teamOnly": "Só para a equipe, não usado nas respostas",
+      "typeLabel": "Tipo de fonte",
+      "types": {
+        "all": "Todas",
+        "website": "Sites",
+        "document": "Documentos",
+        "qa": "Perguntas e respostas"
+      },
+      "search": "Buscar fontes",
+      "addShort": "Adicionar",
+      "tableLabel": "Fontes de conhecimento",
+      "cols": {
+        "source": "Fonte",
+        "type": "Tipo",
+        "status": "Status",
+        "size": "Tamanho",
+        "updated": "Atualizada",
+        "inReplies": "Nas respostas",
+        "inRepliesHint": "Usar esta fonte ao responder aos clientes",
+        "actions": "Ações"
+      },
+      "kind": {
+        "website": "Site",
+        "sitemap": "Mapa do site",
+        "file": "Documento",
+        "text": "Texto",
+        "qa": "Pergunta e resposta",
+        "learning": "Respostas aprendidas"
+      },
+      "status": {
+        "queued": "Aguardando",
+        "crawling": "Sincronizando",
+        "ready": "Sincronizada",
+        "failed": "Falhou",
+        "disabled": "Desligada"
+      },
+      "progressLabel": "Progresso da sincronização de {title}",
+      "size": {
+        "pages": "{count, plural, one {# página} other {# páginas}}",
+        "answers": "{count, plural, one {# resposta} other {# respostas}}",
+        "documents": "{count, plural, one {# documento} other {# documentos}}"
+      },
+      "never": "Ainda não sincronizada",
+      "useInReplies": "Usar {title} nas respostas aos clientes",
+      "syncAgainLabel": "Sincronizar {title} novamente",
+      "more": "Mais opções de {title}",
+      "menu": {
+        "view": "Ver conteúdo",
+        "editAnswer": "Editar resposta",
+        "editText": "Editar texto",
+        "copy": "Copiar endereço",
+        "syncAgain": "Sincronizar novamente",
+        "tryAgain": "Tentar novamente",
+        "showAgents": "Permitir que agentes vejam",
+        "adminsOnly": "Somente administradores",
+        "delete": "Excluir"
+      },
+      "emptyTitle": "Nenhuma fonte ainda",
+      "emptyBody": "Adicione seu site, um documento ou algumas perguntas e respostas.",
+      "addFirst": "Adicionar uma fonte",
+      "noMatchTitle": "Nenhuma fonte encontrada",
+      "clearFilters": "Limpar filtros",
+      "deleteTitle": "Excluir {title}?",
+      "deleteBody": "A IA vai parar de usar esta fonte imediatamente. Não é possível desfazer.",
+      "deleteConfirm": "Excluir fonte",
+      "toasts": {
+        "added": "Fonte adicionada. Lendo agora.",
+        "saved": "Salvo. Lendo novamente agora.",
+        "deleted": "Fonte excluída",
+        "syncing": "Sincronizando {title}",
+        "inReplies": "{title} é usada nas respostas aos clientes",
+        "teamOnly": "{title} é só para a sua equipe",
+        "copied": "Endereço copiado",
+        "failed": "Não deu certo. Tente novamente."
+      },
+      "add": {
+        "title": "Adicionar uma fonte",
+        "editAnswerTitle": "Editar resposta",
+        "editTextTitle": "Editar texto",
+        "modeLabel": "Tipo de fonte",
+        "modes": {
+          "website": "Site",
+          "sitemap": "Mapa do site",
+          "file": "Enviar um arquivo",
+          "qa": "Escrever pergunta e resposta",
+          "text": "Texto"
+        },
+        "url": "Endereço da página",
+        "sitemapUrl": "Endereço do mapa do site",
+        "name": "Nome",
+        "namePlaceholder": "Central de ajuda",
+        "nameHint": "Opcional. Se deixar em branco, usamos o nome do site.",
+        "file": "Escolher um arquivo",
+        "fileHint": "PDF, Word, texto ou Markdown, até 10 MB",
+        "question": "Pergunta",
+        "questionPlaceholder": "Vocês entregam aos domingos?",
+        "answer": "Resposta",
+        "answerPlaceholder": "A resposta que a IA deve dar.",
+        "textTitle": "Título",
+        "textContent": "Texto",
+        "submit": "Adicionar fonte",
+        "save": "Salvar",
+        "errors": {
+          "url": "Digite um endereço da web, por exemplo https://sualoja.com/ajuda.",
+          "pageLimit": "Digite um número de páginas de 1 a 500.",
+          "file": "Escolha um arquivo para enviar.",
+          "fileType": "Use um arquivo PDF, Word, de texto ou Markdown.",
+          "fileSize": "Este arquivo tem mais de 10 MB.",
+          "question": "Escreva a pergunta.",
+          "answer": "Escreva a resposta.",
+          "title": "Dê um título ao texto.",
+          "content": "Escreva o texto."
+        }
+      },
+      "detail": {
+        "updated": "Atualizada {when}",
+        "never": "Ainda não sincronizada",
+        "truncated": "Mostrando a primeira parte do texto.",
+        "pages": "{count, plural, one {# página} other {# páginas}}",
+        "noPreview": "Esta fonte não tem prévia de texto. Ela é pesquisada depois de sincronizada.",
+        "close": "Fechar"
+      }
+    },
+    "features": {
+      "title": "Recursos do assistente",
+      "body": "Ajuda para a sua equipe dentro da caixa de entrada. A IA nunca envia isto por conta própria.",
+      "onCount": "{on} de {total} ligados",
+      "teamLanguage": "Idioma da equipe",
+      "languageSaved": "Idioma da equipe definido como {language}",
+      "turnedOn": "{name} ligado",
+      "turnedOff": "{name} desligado",
+      "setupLink": "Configuração do agente e do provedor",
+      "items": {
+        "suggest": {
+          "name": "Respostas sugeridas",
+          "desc": "Oferece até três respostas na caixa de entrada. Você escolhe uma e pode editá-la antes de enviar."
+        },
+        "summary": {
+          "name": "Resumos de conversas",
+          "desc": "Resume uma conversa longa em poucas linhas, só para a sua equipe."
+        },
+        "assess": {
+          "name": "Pontuação de leads",
+          "desc": "Descobre o que o cliente quer e dá a cada lead uma pontuação de 0 a 100."
+        },
+        "label": {
+          "name": "Etiquetas automáticas",
+          "desc": "Adiciona até duas das suas etiquetas da caixa de entrada, como Preços ou Suporte, às novas conversas."
+        },
+        "translate": {
+          "name": "Tradução",
+          "desc": "Mostra as mensagens dos clientes no idioma da sua equipe e traduz suas respostas, quando você pede na caixa de entrada."
+        },
+        "route": {
+          "name": "Encaminhar para a equipe",
+          "desc": "Envia perguntas de saúde e outros assuntos delicados para uma pessoa em vez de respondê-las, em todas as conversas."
+        },
+        "insights": {
+          "name": "Insights do negócio",
+          "desc": "Escreve um resumo curto dos seus números de análise quando alguém pede."
+        }
+      }
+    },
+    "languages": {
+      "en": "Inglês",
+      "hi": "Hindi",
+      "te": "Télugo",
+      "ta": "Tâmil",
+      "mr": "Marati",
+      "kn": "Canarês",
+      "ml": "Malaiala",
+      "bn": "Bengali",
+      "gu": "Guzerate",
+      "pa": "Panjabi",
+      "es": "Espanhol",
+      "pt": "Português",
+      "ko": "Coreano",
+      "fr": "Francês",
+      "de": "Alemão",
+      "ar": "Árabe"
+    },
+    "budget": {
+      "title": "Orçamento mensal de tokens",
+      "states": {
+        "ok": "Dentro do previsto",
+        "warn": "Acabando",
+        "over": "Orçamento esgotado",
+        "none": "Sem limite"
+      },
+      "usedNoLimit": "tokens usados este mês",
+      "ofLimit": "de {limit} tokens",
+      "barLabel": "Orçamento usado",
+      "pct": "{n}% usado",
+      "resets": "Renova em {date}",
+      "overNote": "Você passou do seu limite. Os recursos do assistente continuam funcionando porque a pausa está desligada.",
+      "pausedNote": "A IA está pausada até o orçamento renovar ou você aumentar o limite.",
+      "planLimit": "Seu plano permite {n} tokens por mês.",
+      "limitLabel": "Limite mensal, em tokens",
+      "preset": "{n} milhões",
+      "saveLimit": "Salvar limite",
+      "removeLimit": "Sem limite",
+      "setLimit": "Definir um limite",
+      "change": "Alterar limite",
+      "pause": "Pausar a IA quando o orçamento acabar",
+      "pauseHint": "Os recursos do assistente param no seu limite; sua equipe ainda pode responder manualmente. O limite do seu plano sempre vale.",
+      "pauseOn": "A IA vai pausar quando o orçamento acabar",
+      "pauseOff": "A IA vai continuar funcionando depois do seu limite",
+      "tokensNote": "Os tokens medem quanto texto a IA lê e escreve. Cerca de 750 palavras equivalem a 1.000 tokens.",
+      "saved": "Limite mensal definido em {n} tokens",
+      "removed": "Limite mensal removido",
+      "errors": {
+        "invalid": "Digite um número inteiro de tokens.",
+        "min": "O limite mínimo é de 100.000 tokens.",
+        "max": "Esse limite é alto demais."
+      }
+    },
+    "usage": {
+      "title": "Onde os tokens foram usados este mês",
+      "empty": "Nenhum token usado ainda este mês.",
+      "off": "desligado",
+      "modes": {
+        "auto_reply": "Agentes de IA",
+        "draft": "Rascunhos",
+        "summary": "Resumos de conversas",
+        "suggest": "Respostas sugeridas",
+        "assess": "Pontuação de leads",
+        "insights": "Insights do negócio",
+        "label": "Etiquetas automáticas",
+        "translate": "Tradução",
+        "other": "Testes e outros"
+      }
+    },
+    "quality": {
+      "windowTitle": "Últimos {days} dias",
+      "shown": "{n} sugestões mostradas",
+      "outcomes": {
+        "accepted": {
+          "label": "Enviadas como estavam",
+          "hint": "A sugestão acertou de primeira"
+        },
+        "edited": {
+          "label": "Editadas e enviadas",
+          "hint": "Quase, mas sua equipe mudou"
+        },
+        "rejected": {
+          "label": "Rejeitadas",
+          "hint": "Sua equipe descartou"
+        },
+        "unused": {
+          "label": "Não usadas",
+          "hint": "Mostradas e ignoradas"
+        }
+      },
+      "pctOf": "{n}% das sugestões",
+      "chartDay": "Sugestões mostradas por dia",
+      "chartOutcome": "O que aconteceu com as sugestões",
+      "chartLabel": "Visualização do gráfico",
+      "byDay": "Por dia",
+      "byOutcome": "Por resultado",
+      "dayChartLabel": "Sugestões mostradas por dia, máximo {max}",
+      "dayBar": "{day}: {n} sugestões",
+      "busiest": "Dia mais movimentado: {max} sugestões. Passe o cursor sobre uma barra para ver o dia.",
+      "safetyTitle": "Verificações de segurança acionadas",
+      "safetyNote": "Cada verificação barrou uma resposta arriscada antes que um cliente a visse.",
+      "checks": {
+        "sensitive_routed": "Assunto delicado enviado para a equipe",
+        "guard_blocked": "Resposta arriscada retida",
+        "claims": "Afirmação de pagamento, reembolso ou médica substituída",
+        "personal_data": "Dados pessoais ocultados da IA",
+        "links": "Link desconhecido removido",
+        "injection": "Texto com cara de instrução ignorado"
+      },
+      "ratingsTitle": "Avaliações da equipe",
+      "helpfulPct": "{n}% úteis",
+      "helpful": "úteis",
+      "notHelpful": "não úteis",
+      "noRatings": "Avalie as respostas abaixo para ver o quanto sua equipe as acha úteis.",
+      "repliesTitle": "Respostas recentes da IA",
+      "filterLabel": "Mostrar respostas",
+      "filters": {
+        "all": "Todas",
+        "suggestion": "Sugestões",
+        "agent": "Respostas de agentes",
+        "down": "Não úteis",
+        "unrated": "Sem avaliação"
+      },
+      "nothing": "Nada por aqui",
+      "nothingYet": "As respostas da IA dos últimos 30 dias aparecem aqui.",
+      "nothingBody": "Nenhuma resposta corresponde a este filtro.",
+      "showAll": "Mostrar todas as respostas",
+      "cols": {
+        "customer": "Cliente",
+        "reply": "Pergunta e resposta da IA",
+        "result": "Resultado",
+        "helpful": "Útil?"
+      },
+      "unknownContact": "Cliente",
+      "openReply": "Abrir a resposta para {name}",
+      "results": {
+        "accepted": "Enviada como estava",
+        "edited": "Editada",
+        "rejected": "Rejeitada",
+        "shown": "Não usada",
+        "sent": "Enviada pelo agente"
+      },
+      "agentReply": "Resposta do agente",
+      "suggestion": "Resposta sugerida",
+      "rateUp": "Útil",
+      "rateDown": "Não útil",
+      "toasts": {
+        "up": "Marcada como útil",
+        "down": "Marcada como não útil",
+        "cleared": "Avaliação removida"
+      },
+      "detail": {
+        "title": "Resposta para {name}",
+        "asked": "{name} perguntou",
+        "suggested": "A IA sugeriu",
+        "agentReplied": "{name} respondeu",
+        "source": "Respondida com base em",
+        "agent": "Agente",
+        "shownTo": "Mostrada para",
+        "rating": "Sua avaliação",
+        "notRated": "Sem avaliação",
+        "openConversation": "Abrir conversa",
+        "writeBetter": "Escrever uma resposta melhor"
+      }
+    },
+    "translate": {
+      "button": "Traduzir",
+      "incoming": "Traduzir as mensagens do cliente",
+      "outgoing": "Traduzir minha resposta",
+      "panelTitle": "Em {language}",
+      "panelTitleAny": "Tradução",
+      "close": "Fechar tradução",
+      "needText": "Escreva uma resposta primeiro.",
+      "replaced": "Resposta traduzida. Revise e depois envie.",
+      "failed": "A tradução não deu certo. Tente novamente."
+    }
+  },
+  "SettingsRedesign": {
+    "saveBar": {
+      "label": "Alterações não salvas",
+      "unsaved": "Alterações não salvas",
+      "discard": "Descartar",
+      "save": "Salvar alterações",
+      "leaveConfirm": "Você tem alterações não salvas. Sair desta seção e descartá-las?"
+    },
+    "profile": {
+      "language": "Idioma",
+      "languageHint": "O idioma em que o Bodhinox aparece para você.",
+      "languageWorkspace": "Padrão do espaço ({language})",
+      "languageDefault": "Padrão do espaço",
+      "languageFailed": "Não foi possível salvar seu idioma."
+    },
+    "workspace": {
+      "title": "Espaço de trabalho",
+      "description": "Dados que valem para toda a equipe.",
+      "loadFailed": "Não foi possível carregar as configurações do espaço de trabalho.",
+      "loading": "Carregando",
+      "adminsOnly": "Somente administradores e proprietários podem alterar estas configurações.",
+      "name": "Nome do espaço",
+      "nameHint": "Sua equipe vê este nome",
+      "timezoneHint": "Usado no horário de atendimento e nos relatórios",
+      "language": "Idioma padrão",
+      "languageHint": "Para membros que não escolheram o próprio",
+      "languageUnset": "Não definido (padrão do app)",
+      "copyMonday": "Copiar segunda para os dias úteis",
+      "copied": "Segunda copiada de terça a sexta",
+      "hoursHint": "Fora deste horário, os clientes recebem sua resposta de fora do expediente.",
+      "checkFields": "Confira os campos marcados",
+      "saveFailed": "Não foi possível salvar as configurações do espaço de trabalho.",
+      "saved": "Alterações salvas",
+      "errors": {
+        "nameRequired": "Informe um nome para o espaço",
+        "closeAfterOpen": "O horário de fechamento deve ser depois do de abertura"
+      }
+    },
+    "notifications": {
+      "checkFields": "Confira os campos marcados",
+      "saved": "Alterações salvas",
+      "push": "Push",
+      "pushFor": "Push para {event}",
+      "pushUnavailable": "As notificações push ainda não estão configuradas neste servidor.",
+      "pushTitle": "Bodhinox",
+      "pushBody": "Você tem uma nova notificação",
+      "pushOn": "Push ativado neste navegador",
+      "pushOff": "Push desativado neste navegador",
+      "pushDenied": "O navegador bloqueou as notificações. Permita nas configurações do site e tente de novo.",
+      "pushUnsupported": "Este navegador não recebe notificações push.",
+      "pushFailed": "Não foi possível ativar o push neste navegador.",
+      "quietTitle": "Horário de silêncio",
+      "quietPause": "Pausar e-mail e push",
+      "quietPauseHint": "As notificações no app continuam chegando em silêncio.",
+      "quietBetween": "Silêncio entre",
+      "quietZone": "Horários em {zone}",
+      "quietStart": "Início do horário de silêncio",
+      "quietEnd": "Fim do horário de silêncio",
+      "and": "e",
+      "sameTimes": "Escolha dois horários diferentes",
+      "quietMentions": "Deixar menções passarem",
+      "quietMentionsHint": "Um colega que mencionar você ainda consegue avisá-lo.",
+      "deviceTitle": "Este navegador",
+      "thisBrowser": "Push neste navegador",
+      "thisBrowserOn": "{count, plural, one {Ativado. Este é seu único dispositivo.} other {Ativado. # dispositivos recebem suas notificações push.}}",
+      "thisBrowserOff": "Ative para receber notificações push aqui, mesmo com o Bodhinox fechado.",
+      "turnOn": "Ativar",
+      "turnOff": "Desativar",
+      "tryIt": "Experimente",
+      "tryItHint": "Envia uma notificação de exemplo para este navegador.",
+      "sendTest": "Enviar um teste",
+      "testSent": "Teste enviado. Ele aparece em instantes.",
+      "testBody": "Esta é uma notificação de teste.",
+      "testShown": "Notificação de teste exibida",
+      "testNeedsPermission": "Ative o push ou as notificações do navegador primeiro.",
+      "testFailed": "Não foi possível enviar a notificação de teste."
+    },
+    "audit": {
+      "description": "Quem mudou o quê, e quando. As entradas mostram identificadores e contagens, nunca o conteúdo das mensagens.",
+      "export": "Exportar",
+      "nothingToExport": "Não há nada para exportar",
+      "exported": "{count, plural, one {# evento exportado} other {# eventos exportados}}",
+      "exportedTruncated": "Os primeiros {count} eventos foram exportados. Refine os filtros para exportar o restante.",
+      "exportFailed": "Não foi possível exportar o registro de auditoria.",
+      "search": "Buscar eventos",
+      "person": "Filtrar por pessoa",
+      "everyone": "Todos",
+      "categories": "Categorias",
+      "moreFilters": "Mais filtros",
+      "noMatch": "Nenhum evento encontrado",
+      "noMatchHint": "Tente outra palavra ou limpe os filtros.",
+      "clear": "Limpar filtros",
+      "loading": "Carregando",
+      "shown": "{count, plural, one {# evento exibido} other {# eventos exibidos}}",
+      "chips": {
+        "all": "Todos",
+        "team": "Equipe",
+        "channels": "Canais",
+        "billing": "Cobrança",
+        "security": "Segurança",
+        "integrations": "Integrações",
+        "settings": "Configurações",
+        "other": "Outros"
+      }
+    },
+    "team": {
+      "tabs": "Seções da equipe",
+      "members": "Membros",
+      "groups": "Grupos",
+      "permissions": "Permissões",
+      "seats": "{used} de {total} assentos em uso",
+      "seatsOnPlan": "{used} de {total} assentos em uso no plano {plan}"
+    },
+    "channels": {
+      "tabs": "Canais",
+      "overview": "Visão geral",
+      "whatsapp": "WhatsApp",
+      "instagram": "Instagram"
+    },
+    "integrations": {
+      "title": "Integrações",
+      "description": "Conecte as ferramentas que você já usa.",
+      "connected": "Conectado",
+      "attention": "Precisa de atenção",
+      "disconnected": "Desconectado",
+      "notConnected": "Não conectado",
+      "manage": "Gerenciar",
+      "setUp": "Configurar",
+      "apps": {
+        "shopify": {
+          "name": "Shopify",
+          "text": "Sincronize sua loja, pedidos e carrinhos abandonados."
+        },
+        "woocommerce": {
+          "name": "WooCommerce",
+          "text": "Traga os pedidos da sua loja WordPress."
+        },
+        "razorpay": {
+          "name": "Razorpay",
+          "text": "Envie links de pagamento e acompanhe os pagamentos."
+        },
+        "zoom": {
+          "name": "Zoom",
+          "text": "Adicione links de reunião aos agendamentos."
+        },
+        "shiprocket": {
+          "name": "Shiprocket",
+          "text": "Crie envios e mande atualizações de rastreio."
+        },
+        "sheets": {
+          "name": "Google Sheets",
+          "text": "Adicione linhas a uma planilha a partir dos fluxos."
+        },
+        "webhooks": {
+          "name": "Webhooks",
+          "text": "Envie eventos para seus sistemas assim que acontecem."
+        }
+      }
+    },
+    "quickReplies": {
+      "search": "Buscar respostas rápidas",
+      "noMatch": "Nada encontrado",
+      "noMatchHint": "Tente outra palavra.",
+      "clear": "Limpar busca"
+    },
+    "languages": {
+      "en": "Inglês (English)",
+      "es": "Espanhol (Español)",
+      "ko": "Coreano (한국어)",
+      "pt": "Português"
     }
   }
 }

@@ -25,9 +25,14 @@ import { useTranslations } from "next-intl";
 interface PipelineBoardProps {
   stages: PipelineStage[];
   deals: Deal[];
-  onDealMoved: (dealId: string, newStageId: string) => void;
+  /** Moving a deal (drag and the card menu's "Move to"); omitted for viewers, who cannot move deals. */
+  onDealMoved?: (dealId: string, newStageId: string) => void;
   onAddDeal: (stageId: string) => void;
   onEditDeal: (deal: Deal) => void;
+  /** The card menu's Delete (omitted for members who cannot delete). */
+  onDeleteDeal?: (deal: Deal) => void;
+  /** Text shown in an empty column while a search or owner filter is on. */
+  emptyText?: string;
 }
 
 export function PipelineBoard({
@@ -36,6 +41,8 @@ export function PipelineBoard({
   onDealMoved,
   onAddDeal,
   onEditDeal,
+  onDeleteDeal,
+  emptyText,
 }: PipelineBoardProps) {
   const { defaultCurrency } = useAuth();
   const [activeDealId, setActiveDealId] = useState<string | null>(null);
@@ -82,7 +89,7 @@ export function PipelineBoard({
     if (!deal || deal.stage_id === targetStageId) return;
     if (!sortedStages.some((s) => s.id === targetStageId)) return;
 
-    onDealMoved(dealId, targetStageId);
+    onDealMoved?.(dealId, targetStageId);
   }
 
   function handleDragCancel() {
@@ -119,6 +126,10 @@ export function PipelineBoard({
               currency={defaultCurrency}
               onAddDeal={onAddDeal}
               onEditDeal={onEditDeal}
+              stages={sortedStages}
+              onMove={onDealMoved ? (deal, stageId) => onDealMoved(deal.id, stageId) : undefined}
+              onDelete={onDeleteDeal}
+              emptyText={emptyText}
             />
           );
         })}
@@ -193,6 +204,10 @@ function StageColumn({
   currency,
   onAddDeal,
   onEditDeal,
+  stages,
+  onMove,
+  onDelete,
+  emptyText,
 }: {
   stage: PipelineStage;
   deals: Deal[];
@@ -200,6 +215,10 @@ function StageColumn({
   currency: string;
   onAddDeal: (stageId: string) => void;
   onEditDeal: (deal: Deal) => void;
+  stages: PipelineStage[];
+  onMove?: (deal: Deal, stageId: string) => void;
+  onDelete?: (deal: Deal) => void;
+  emptyText?: string;
 }) {
   const t = useTranslations("Pipelines.board");
   const { setNodeRef, isOver } = useDroppable({ id: stage.id });
@@ -237,7 +256,7 @@ function StageColumn({
       >
         {deals.length === 0 ? (
           <div className="flex flex-1 items-center justify-center rounded-lg border border-dashed border-border px-2 py-[18px] text-center text-xs text-muted-foreground">
-            {t("dropDealHere")}
+            {emptyText ?? t("dropDealHere")}
           </div>
         ) : (
           deals.map((deal) => (
@@ -246,6 +265,9 @@ function StageColumn({
               deal={deal}
               stage={stage}
               onEdit={onEditDeal}
+              stages={stages}
+              onMove={onMove}
+              onDelete={onDelete}
             />
           ))
         )}
@@ -268,23 +290,32 @@ function DraggableDealCard({
   deal,
   stage,
   onEdit,
+  stages,
+  onMove,
+  onDelete,
 }: {
   deal: Deal;
   stage: PipelineStage;
   onEdit: (deal: Deal) => void;
+  stages: PipelineStage[];
+  onMove?: (deal: Deal, stageId: string) => void;
+  onDelete?: (deal: Deal) => void;
 }) {
+  // Without a move handler (viewers) the card is not draggable at all.
+  const canMove = Boolean(onMove);
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: deal.id,
+    disabled: !canMove,
   });
 
   return (
     <div
       ref={setNodeRef}
-      {...listeners}
-      {...attributes}
-      style={{ opacity: isDragging ? 0.3 : 1, touchAction: "none" }}
+      {...(canMove ? listeners : {})}
+      {...(canMove ? attributes : {})}
+      style={{ opacity: isDragging ? 0.3 : 1, touchAction: canMove ? "none" : undefined }}
     >
-      <DealCard deal={deal} stage={stage} onEdit={onEdit} />
+      <DealCard deal={deal} stage={stage} onEdit={onEdit} stages={stages} onMove={onMove} onDelete={onDelete} />
     </div>
   );
 }

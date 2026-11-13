@@ -8,7 +8,7 @@ import { writeContactField } from '@/lib/contacts/field-write';
 import { clockTimezone, conditionRules, predicateHolds, ruleHolds } from './conditions';
 import {
   adClickMatch, byPrecedence, defaultReplyApplies, igAdClickMatch, instagramFactsFrom, isTestContact, isTestUsername, keywordTriggerMatches,
-  normalizeTestUsername, orderReceivedMatch, phoneDigits, refTriggerMatch, shareToStoryMatches, storyReplyMatches, templateReplyMatch, type InstagramInboundFacts,
+  normalizeTestUsername, orderReceivedMatch, outsideHoursApplies, phoneDigits, refTriggerMatch, shareToStoryMatches, storyReplyMatches, templateReplyMatch, type InstagramInboundFacts,
 } from './triggers';
 import { instagramConfig } from '@/lib/instagram/config';
 import { decodePostback, encodePostback } from '@/lib/instagram/postback-payloads';
@@ -28,6 +28,8 @@ import { CommerceSendError, commerceMessageFromNode, isCommerceNodeType, sendCom
 import { isCurrencyCode, minorFromDb, parseMoney } from '@/lib/commerce/money';
 import { getWorkerPrisma } from '@/lib/db/prisma';
 import { withTenant, type TenantTransaction } from '@/lib/db/tenant';
+import { readInboxSettings } from '@/lib/inbox/inbox-settings';
+import { DEFAULT_INBOX_SETTINGS, type InboxSettings } from '@/lib/inbox/working-hours';
 import { runStorefrontLinkNode, type StorefrontNodeResult } from './storefront-node';
 import { createPaymentLinkRecord, findLinkByReference, flowOutcomeFor, flowPaymentReference, paymentLinkMessageText, PaymentLinkError } from '@/lib/payments/links';
 import { flowAiTurnStarted, runFlowAiReply } from '@/lib/ai/flow-reply';
@@ -155,6 +157,8 @@ import {
   type TemplateReplyTriggerConfig,
   type AdClickTriggerConfig,
   type DefaultReplyTriggerConfig,
+  type OutsideHoursTriggerConfig,
+  type TagAddedTriggerConfig,
   type IgCard,
   type IgCommentReplyNodeConfig,
   type IgCommentTriggerConfig,
@@ -699,6 +703,8 @@ async function findEntryFlow(
   contactDigits: () => Promise<string>,
   /** Stage 5: the contact's stored Instagram username on this conversation (lowercase), for test-username drafts. */
   contactUsername: () => Promise<string> = async () => "",
+  /** This message created the contact (contact_created triggers). */
+  isNewContact = false,
 ): Promise<{ flow: EffectiveFlow; vars: Record<string, string>; version?: FlowVersionRow } | null> {
   // A tap used to be rejected outright here, on the reasoning that
   // interactive replies are responses to existing prompts. That holds
@@ -799,6 +805,14 @@ async function findEntryFlow(
   // Flag off: a share to story is treated as any other unrecognised attachment (the default reply still applies), exactly as before Stage 4.
   const igFacts: InstagramInboundFacts = storedFacts.shareToStory && !instagramConfig()?.shareToStoryEnabled
     ? { ...storedFacts, shareToStory: undefined } : storedFacts;
+  // The workspace's working hours, read at most once and only for an outside_hours trigger.
+  // A failed read counts as open: an away flow then stays quiet rather than firing by mistake.
+  let hours: Promise<Pick<InboxSettings, "timezone" | "working_hours">> | undefined;
+  const workingHours = () => (hours ??= withTenant({ accountId, role: "owner" }, (tx) => readInboxSettings(tx, accountId), getWorkerPrisma())
+    .catch(() => {
+      console.error("[flows] working hours lookup failed", { accountId });
+      return DEFAULT_INBOX_SETTINGS;
+    }));
   // Stage 5: keyword triggers matched by meaning wait until every exact trigger
   // failed, and are asked once (one AI call for all of them) before default_reply.
   const intents: Array<{ flow: EffectiveFlow; candidate: IntentCandidate }> = [];
@@ -838,6 +852,16 @@ async function findEntryFlow(
       if (defaultReplyApplies(message, igFacts, ourPostback) && await frequencyAllows(db, accountId, flow.id, contactId, cfg?.frequency)) {
         return found(flow, {});
       }
+    } else if (trigger.trigger_type === "contact_created") {
+      // The message that created the contact (above first_inbound_message, triggers.ts).
+      if (isNewContact) return found(flow, {});
+    } else if (trigger.trigger_type === "outside_hours") {
+      // Between first_inbound_message and default_reply: a keyword meant by intent still wins.
+      const meant = await askIntents();
+      if (meant) return meant;
+      const cfg = config as OutsideHoursTriggerConfig;
+      if (outsideHoursApplies(message, await workingHours(), ourPostback)
+        && await frequencyAllows(db, accountId, flow.id, contactId, cfg?.frequency)) return found(flow, {});
     } else if (trigger.trigger_type === "order_received") {
       const vars = orderReceivedMatch(message);
       if (vars) return found(flow, vars);
@@ -873,7 +897,8 @@ async function findEntryFlow(
       // the inconsistent half.
       return found(flow, {});
     }
-    // 'manual' triggers do not auto-start from inbound messages; comment triggers start from comments.
+    // 'manual' triggers do not auto-start from inbound messages; comment triggers start from comments;
+    // tag_added starts from the tag writer (startTagAddedFlows).
   }
   return askIntents();
 }
@@ -3727,6 +3752,75 @@ export async function startFlowById(input: DispatchInboundInput & {
   return { outcome: result.consumed && result.outcome !== 'no_match' ? 'started' : 'unavailable' };
 }
 
+/** What startTagAddedFlows did with a newly added tag. */
+export type TagAddedFlowStart = "started" | "none" | "unavailable" | "conflict";
+
+/**
+ * A tag newly added to a contact (the tag writer, contacts/tag-events.ts):
+ * starts the oldest live flow whose trigger is tag_added with that tag, on the
+ * conversation the tag was added in. Live flows only (drafts are tested by
+ * message); the flow must run on the conversation's channel and number, the
+ * contact must not be blocked or (Instagram) unsubscribed, and one run per
+ * conversation still holds (startFlowById answers "conflict" while a run is
+ * active, so a flow's own set_tag step never starts a second run). The chain
+ * depth goes into the run's variables, so tag steps in the new run keep
+ * counting towards MAX_TAG_CHAIN_DEPTH.
+ */
+export async function startTagAddedFlows(input: {
+  accountId: string;
+  contactId: string;
+  /** The conversation the tag was added in; absent: the contact's most recently active one. */
+  conversationId?: string;
+  tagId: string;
+  chainDepth: number;
+}): Promise<{ outcome: TagAddedFlowStart; flowId?: string }> {
+  const db = databaseAdmin();
+  const conversationQuery = db.from("conversations").select("id, channel, whatsapp_config_id").eq("account_id", input.accountId)
+    .eq("contact_id", input.contactId);
+  const [conversation, contact] = await Promise.all([
+    input.conversationId
+      ? conversationQuery.eq("id", input.conversationId).maybeSingle()
+      : conversationQuery.order("last_message_at", { ascending: false, nullsFirst: false }).limit(1).maybeSingle(),
+    db.from("contacts").select("id, blocked_at, opted_out_at").eq("account_id", input.accountId).eq("id", input.contactId).maybeSingle(),
+  ]);
+  if (conversation.error || contact.error) throw new Error("Tag flow ownership lookup failed");
+  const row = (Array.isArray(conversation.data) ? conversation.data[0] : conversation.data) as
+    { id: string; channel?: string | null; whatsapp_config_id?: string | null } | null | undefined;
+  // A tag start is business-initiated (nobody just wrote in): a blocked contact, or one who
+  // sent STOP (opted_out_at, either channel), gets no flow, like a template send.
+  const person = contact.data as { blocked_at?: string | null; opted_out_at?: string | null } | null;
+  if (!row || !person || person.blocked_at || person.opted_out_at) return { outcome: "none" };
+  const channel: Channel = row.channel === "instagram" ? "instagram" : "whatsapp";
+  if (channel === "instagram" && !(await instagramAutomationAllowed(input.accountId, input.contactId))) return { outcome: "none" };
+
+  // Not narrowed by the row's trigger_type: that is the draft's, and a live flow runs its published version.
+  const active = await db.from("flows").select("*").eq("account_id", input.accountId).eq("status", "active")
+    .order("created_at", { ascending: true });
+  if (active.error) throw new Error("Tag flow lookup failed");
+  const live = ((active.data ?? []) as FlowRow[]).filter((f) => f.status === "active" && f.published_version_id);
+  if (!live.length) return { outcome: "none" };
+  // Matched on the published version (what the run starts on), like an inbound message.
+  const versions = await loadPublishedVersions(input.accountId, live.map((f) => f.published_version_id as string));
+  const target = { channel, whatsappConfigId: row.whatsapp_config_id ?? null };
+  const match = live.flatMap((f) => {
+    const version = versions.get(f.published_version_id as string);
+    return version && version.flow_id === f.id ? [effectiveFlow(f, version)] : [];
+  }).find((flow) => flow.trigger_type === "tag_added" && flowListensOnConversation(flow, target)
+    && (flow.trigger_config as unknown as TagAddedTriggerConfig | null)?.tag_id === input.tagId);
+  if (!match) return { outcome: "none" };
+  const result = await startFlowById({
+    accountId: input.accountId,
+    userId: match.user_id,
+    contactId: input.contactId,
+    conversationId: row.id,
+    flowId: match.id,
+    // A synthetic start event: no customer text.
+    message: { kind: "text", text: "", meta_message_id: `tag-added:${row.id}:${input.tagId}:${Date.now()}` },
+    vars: { _tag_chain_depth: input.chainDepth },
+  });
+  return { outcome: result.outcome, flowId: match.id };
+}
+
 /**
  * A conversation starter (ice breaker) tap with no run waiting: starts the
  * flow its payload names (`ib:<flow id>`), whatever that flow's trigger. The
@@ -3939,7 +4033,7 @@ async function resumeCommentRun(db: AdminClient, accountId: string, runId: strin
 }
 
 export async function dispatchInboundToFlows(
-  input: DispatchInboundInput & { isFirstInboundMessage: boolean },
+  input: DispatchInboundInput & { isFirstInboundMessage: boolean; /** This message created the contact. */ isNewContact?: boolean },
 ): Promise<DispatchInboundResult> {
   const db = databaseAdmin();
   // The contact's number is needed only when a draft flow is being tested; read it at most once.
@@ -4013,6 +4107,7 @@ export async function dispatchInboundToFlows(
       input.isFirstInboundMessage,
       contactDigits,
       contactUsername,
+      input.isNewContact === true,
     );
     if (!entry || !entry.flow.entry_node_id) {
       return { consumed: false, outcome: "no_match" };

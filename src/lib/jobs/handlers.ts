@@ -38,6 +38,8 @@ import {
   prepareFailedRetry,
   unlockBroadcastDelivery,
 } from '@/lib/broadcasts/schedule';
+import { broadcastHalted } from '@/lib/broadcasts/pause';
+import { broadcastChannel, deliverInstagramBroadcast } from '@/lib/broadcasts/instagram';
 import { NUMBER_DISCONNECTED_REASON } from '@/lib/whatsapp/number-admin';
 import { withJobScope } from './scope';
 import { enqueueJob, type Job } from './queue';
@@ -98,6 +100,9 @@ export async function scheduleWork() {
     .catch(() => console.error('[worker] inbox follow-up scheduling failed'));
   // Notification email digests every 30 minutes per workspace; nothing while SMTP is not configured.
   await scheduleNotificationDigests().catch(() => console.error('[worker] notification digest scheduling failed'));
+  // Browser push wake-ups every 30 seconds per workspace; nothing while VAPID keys are not configured.
+  await import('@/lib/notifications/push-delivery').then((m) => m.scheduleNotificationPushes())
+    .catch(() => console.error('[worker] notification push scheduling failed'));
   // Billing grace expiry, trial ends, scheduled changes and unconfirmed provider calls; nothing while billing is off.
   await import('@/lib/billing/subscriptions').then((m) => m.scheduleBillingSweeps())
     .catch(() => console.error('[worker] billing sweep scheduling failed'));
@@ -209,6 +214,22 @@ export async function handleJob(job: Job, assertLease: () => void = () => {}) {
         return;
       }
       try {
+        // A member's Pause is read between recipients; a paused pass leaves the rest pending.
+        const shouldStop = () => broadcastHalted(accountId, broadcastId);
+        if ((await broadcastChannel(accountId, broadcastId)) === 'instagram') {
+          // Instagram: free text inside each recipient's 24-hour window (lib/broadcasts/instagram).
+          if (!(await claimBroadcastStart(accountId, broadcastId))) return;
+          const pass = await deliverInstagramBroadcast(accountId, broadcastId, scope, { assertLease, shouldStop });
+          if (pass.stopped) return;
+          if (pass.remaining > 0 && scope === 'pending')
+            await enqueueJob('broadcast.dispatch', { broadcastId, scope: 'pending' }, {
+              tenantId: accountId,
+              requeueCompleted: true,
+              dedupeKey: `broadcast:${broadcastId}:next:${job.id}`,
+            });
+          await finalizeBroadcastStatus(db, broadcastId);
+          return;
+        }
         // One "Retry failed" request: rows Meta failed after accepting them get a new send.
         if (scope !== 'pending' && job.payload.retryId !== undefined)
           await prepareFailedRetry(accountId, broadcastId, uuid(job.payload.retryId));
@@ -231,7 +252,10 @@ export async function handleJob(job: Job, assertLease: () => void = () => {}) {
           // Only intents Meta definitively refused (4xx, e.g. throttled) are re-sent;
           // an uncertain outcome still waits for reconciliation.
           retryRejected: true,
+          shouldStop,
         });
+        // Paused by a member: the rest stays pending until Resume queues the next pass.
+        if (result.stopped) return;
         if (result.throttled) {
           const next = result.sent > 0 ? 1 : throttles + 1;
           // Still throttled after about an hour with no progress: stop and leave the rest
@@ -408,6 +432,9 @@ export async function handleJob(job: Job, assertLease: () => void = () => {}) {
     else if (job.type === NOTIFICATION_DIGEST_JOB)
       // Entries are claimed before sending; only a provably undelivered email is retried.
       await sendNotificationDigest(accountId);
+    else if (job.type === 'inbox.notification_push')
+      // Entries are claimed before sending, so a retried job never wakes a device twice for one entry.
+      await (await import('@/lib/notifications/push-delivery')).sendNotificationPushes(accountId);
     else if (job.type === 'payments.razorpay_event')
       // One verified Razorpay delivery: link status; a paid link is settled only after an authoritative fetch.
       await (await import('@/lib/payments/links')).handlePaymentEventJob(accountId, job.payload);
@@ -492,6 +519,9 @@ export async function handleJob(job: Job, assertLease: () => void = () => {}) {
       // that it is still the newest readable message and that no person took over,
       // under the inbound's stage checkpoint so a re-leased job never sends twice.
       await (await import('@/lib/ai/auto-reply')).handleAutoReplyRetryJob(accountId, job.payload, assertLease);
+    else if (job.type === 'ai.auto_label')
+      // Adds up to two of the workspace's labels to a new conversation; never sends.
+      await (await import('@/lib/ai/auto-label')).handleAutoLabelJob(accountId, job.payload);
     else if (job.type === 'ai.insight_run')
       // One insight run from a fixed reporting query; skipped (not failed) when AI is unavailable.
       await (await import('@/lib/ai/insights/job')).handleInsightRunJob(accountId, job.payload, { attempts: job.attempts, maxAttempts: job.max_attempts });

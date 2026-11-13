@@ -8,13 +8,11 @@ import { Sparkles } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { useTheme } from '@/hooks/use-theme';
 import { useWorkspaceChannels } from '@/hooks/use-workspace-channels';
-import { ChannelsCard } from '@/components/settings/channels-card';
 import { SettingsRail, type RailExtraItem } from '@/components/settings/settings-rail';
 import { SettingsOverview } from '@/components/settings/settings-overview';
 import { ProfileForm } from '@/components/settings/profile-form';
 import { SecurityPanel } from '@/components/settings/security-panel';
 import { AppearancePanel } from '@/components/settings/appearance-panel';
-import { WhatsAppConfig } from '@/components/settings/whatsapp-config';
 import { TemplateManager } from '@/components/settings/template-manager';
 import { QuickRepliesManager } from '@/components/settings/quick-replies-manager';
 import { FieldsAndTagsPanel } from '@/components/settings/fields-and-tags-panel';
@@ -26,32 +24,27 @@ import { AutomationPauseCard } from '@/components/settings/inbox/automation-paus
 import { AssignmentModeCard } from '@/components/settings/inbox/assignment-mode-card';
 import { VisibilityCard } from '@/components/settings/inbox/visibility-card';
 import { ConversionEventsSettings } from '@/components/settings/conversion-events-settings';
-import { GoogleSheetsCard } from '@/components/settings/integrations/google-sheets-card';
 import { MediaLibraryCard } from '@/components/settings/media-library-card';
 import { NotificationPreferences } from '@/components/settings/notification-preferences';
-import { MembersTab } from '@/components/settings/members-tab';
-import { TeamsCard } from '@/components/settings/teams/teams-card';
-import { PermissionsMatrix } from '@/components/settings/teams/permissions-matrix';
-import { AuditLogLink } from '@/components/settings/audit-log/audit-log-link';
+import { TeamSection } from '@/components/settings/team-section';
+import { AuditLogTable } from '@/components/settings/audit-log/audit-log-table';
+import { WorkspaceSection } from '@/components/settings/workspace-section';
+import { ChannelsSection } from '@/components/settings/channels-section';
+import { IntegrationsSection } from '@/components/settings/integrations-section';
+import { SettingsDraftProvider, SettingsSaveBar, useUnsavedSections } from '@/components/settings/settings-draft';
 import { ApiKeysSettings } from '@/components/settings/api-keys-settings';
 import { WebhooksSettings } from '@/components/settings/webhooks-settings';
-import { ShopifyCard } from '@/components/settings/shopify-card';
-import { WooCommerceCard } from '@/components/settings/woocommerce-card';
 import { PlanPanel } from '@/components/settings/plan-panel';
 import { BillingSection } from '@/components/settings/billing/billing-section';
-import { PaymentsCard } from '@/components/settings/payments-card';
 import { MetaAdsCard } from '@/components/settings/meta-ads-card';
-import { InstagramCard } from '@/components/settings/instagram-card';
-import { ZoomCard } from '@/components/settings/zoom-card';
-import { ShiprocketCard } from '@/components/settings/shiprocket-card';
 import { RateCardEditor } from '@/components/settings/rate-card-editor';
 import { AiAssistantSettings } from '@/components/settings/ai-assistant-settings';
 import { AiQuality } from '@/components/settings/ai-quality';
 import { PrivacySection } from '@/components/settings/privacy/privacy-section';
 import { HelpLink } from '@/components/help/help-link';
-import { IntegrationHealthCard } from '@/components/settings/integrations/health-card';
 import {
   hiddenSections,
+  railSection,
   resolveSection,
   visibleSection,
   type SettingsSection,
@@ -71,7 +64,9 @@ const AI_SECTION = 'ai';
 export default function SettingsPage() {
   return (
     <Suspense fallback={null}>
-      <SettingsPageInner />
+      <SettingsDraftProvider>
+        <SettingsPageInner />
+      </SettingsDraftProvider>
     </Suspense>
   );
 }
@@ -80,6 +75,8 @@ function SettingsPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { accountId, defaultCurrency, canEditSettings, canManageMembers } = useAuth();
+  const unsaved = useUnsavedSections();
+  const tLeave = useTranslations('SettingsRedesign.saveBar');
   const { mode } = useTheme();
   const t = useTranslations('Settings');
   const tAi = useTranslations('AiAssistantSettings');
@@ -96,7 +93,12 @@ function SettingsPageInner() {
   // and WhatsApp's templates); an old link to one opens Settings › Channels,
   // where it is turned on. Until the channel state loads nothing is hidden.
   const { data: channels, refresh: refreshChannels } = useWorkspaceChannels();
-  const hidden = useMemo(() => hiddenSections(channels?.enabled ?? null), [channels?.enabled]);
+  // The audit log is for admins and owners only (the API refuses everyone else).
+  const hidden = useMemo(() => {
+    const set = new Set(hiddenSections(channels?.enabled ?? null));
+    if (!canManageMembers) set.add('audit-log');
+    return set as ReadonlySet<SettingsSection>;
+  }, [channels?.enabled, canManageMembers]);
   const section = visibleSection(resolveSection(rawTab), hidden);
   // Connecting or removing a number or account here changes a channel's
   // state; reload it when leaving a section so the nav and banners agree.
@@ -106,9 +108,18 @@ function SettingsPageInner() {
     : [];
 
   const go = (next: SettingsSection | typeof AI_SECTION) => {
+    // Leaving a section with unsaved changes drops them; ask first.
+    const current = showAi ? AI_SECTION : section;
+    if (next !== current && unsaved.size > 0 && !window.confirm(tLeave('leaveConfirm'))) return;
     const params = new URLSearchParams(searchParams.toString());
     params.set('tab', next);
     router.replace(`/settings?${params.toString()}`, { scroll: false });
+  };
+
+  // The Integrations grid's Webhooks card opens API & webhooks at the webhooks list.
+  const openWebhooks = () => {
+    go('api');
+    window.setTimeout(() => document.getElementById('webhooks')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 150);
   };
 
   // Cheap, fetch-free rail hints. The Overview landing carries the
@@ -129,9 +140,10 @@ function SettingsPageInner() {
     appearance: <AppearancePanel />,
     notifications: <NotificationPreferences key={accountId} />,
     privacy: <PrivacySection key={accountId} />,
-    channels: <ChannelsCard key={accountId} />,
-    whatsapp: <WhatsAppConfig />,
-    instagram: <InstagramCard key={accountId} />,
+    workspace: <WorkspaceSection key={accountId} />,
+    channels: <ChannelsSection active="channels" hidden={hidden} onSelect={go} />,
+    whatsapp: <ChannelsSection active="whatsapp" hidden={hidden} onSelect={go} />,
+    instagram: <ChannelsSection active="instagram" hidden={hidden} onSelect={go} />,
     templates: <TemplateManager />,
     'quick-replies': <QuickRepliesManager />,
     fields: <FieldsAndTagsPanel />,
@@ -149,32 +161,18 @@ function SettingsPageInner() {
     ),
     'conversion-events': <ConversionEventsSettings key={accountId} canEdit={canEditSettings} />,
     media: <MediaLibraryCard key={accountId} />,
-    members: (
-      <div key={accountId} className="space-y-10">
-        <MembersTab />
-        <TeamsCard canEdit={canManageMembers} />
-        <PermissionsMatrix canEdit={canManageMembers} />
-        {canManageMembers && <AuditLogLink />}
-      </div>
-    ),
+    members: <TeamSection key={accountId} />,
     api: (
       <div className="space-y-10">
         <ApiKeysSettings />
-        <WebhooksSettings />
-        <ShopifyCard />
-        <WooCommerceCard />
+        <div id="webhooks" className="scroll-mt-4"><WebhooksSettings /></div>
       </div>
     ),
-    payments: <PaymentsCard />,
-    connections: (
-      <div key={accountId} className="space-y-10">
-        <IntegrationHealthCard />
-        <ZoomCard />
-        <ShiprocketCard />
-        {/* Stage 5 (5G): Google Sheets, behind GOOGLE_SHEETS_ENABLED. */}
-        <GoogleSheetsCard canEdit={canEditSettings} />
-      </div>
-    ),
+    // One Integrations card grid; old Payments and Meetings & shipping links land on their card.
+    integrations: <IntegrationsSection onOpenApi={openWebhooks} />,
+    payments: <IntegrationsSection focus="payments" onOpenApi={openWebhooks} />,
+    connections: <IntegrationsSection focus="connections" onOpenApi={openWebhooks} />,
+    'audit-log': <AuditLogTable key={accountId} canView={canManageMembers} />,
     ads: <MetaAdsCard key={accountId} />,
     plan: (
       <div className="space-y-10">
@@ -195,10 +193,10 @@ function SettingsPageInner() {
         <p className="text-muted-foreground mt-1 text-sm">{t('pageDesc')}</p>
       </div>
 
-      <div className="mt-6 grid gap-6 lg:grid-cols-[224px_minmax(0,1fr)] lg:items-start lg:gap-8 xl:grid-cols-[232px_minmax(0,1fr)]">
+      <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-[224px_minmax(0,1fr)] lg:items-start lg:gap-8 xl:grid-cols-[232px_minmax(0,1fr)]">
         <div className="min-w-0 lg:sticky lg:top-0 lg:self-start lg:border-r lg:border-border lg:pr-3">
-          <SettingsRail active={showAi ? AI_SECTION : section} onSelect={go} hints={hints}
-            extraItems={aiItems} onSelectExtra={() => go(AI_SECTION)} hidden={hidden} />
+          <SettingsRail active={showAi ? AI_SECTION : railSection(section)} onSelect={go} hints={hints}
+            extraItems={aiItems} onSelectExtra={() => go(AI_SECTION)} hidden={hidden} unsaved={unsaved} />
         </div>
         <div className="mx-auto w-full min-w-0 max-w-[880px] pb-16">
           {showAi ? (
@@ -207,6 +205,7 @@ function SettingsPageInner() {
               <AiQuality />
             </div>
           ) : panel[section]}
+          <SettingsSaveBar />
         </div>
       </div>
     </div>

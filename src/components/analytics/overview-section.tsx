@@ -169,6 +169,7 @@ export function ConversationCharts({
                   colors={['chart1', 'soft']}
                   valueFormatter={(v) => t('minutesValue', { value: format.number(v, { maximumFractionDigits: 1 }) })}
                   yAxisLabel={minutes}
+                  yAxisWidth={84}
                 />
               }
               columns={[t('metricColumn'), median, p90, t('samples')]}

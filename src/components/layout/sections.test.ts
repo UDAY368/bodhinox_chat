@@ -13,7 +13,9 @@ describe('sections', () => {
   it('leaves Campaigns out without WhatsApp, and Instagram tools out without Instagram', () => {
     expect(buildSections(['instagram']).map((s) => s.id)).not.toContain('campaigns');
     const waOnly = buildSections(['whatsapp']);
-    expect(waOnly.find((s) => s.id === 'automation')!.tabs.map((t) => t.labelKey)).toEqual(['automation', 'rules']);
+    // Rules list with flows and sequences under one Automation tab.
+    expect(waOnly.find((s) => s.id === 'automation')!.tabs.map((t) => t.labelKey)).toEqual(['automation']);
+    expect(both.find((s) => s.id === 'automation')!.tabs.map((t) => t.labelKey)).toEqual(['automation', 'instagramTools']);
     expect(waOnly.find((s) => s.id === 'inbox')!.href).toBe('/whatsapp/inbox');
   });
 
@@ -37,8 +39,11 @@ describe('sections', () => {
   });
 
   it('picks the most specific tab', () => {
-    expect(tab('/whatsapp/automations/new')).toBe('/whatsapp/automations');
-    expect(tab('/instagram/automations')).toBe('/instagram/automations');
+    // A rule, a sequence and the Instagram automation rail open from the Automation list.
+    expect(tab('/whatsapp/automations/new')).toBe('/automation');
+    expect(tab('/instagram/automations')).toBe('/automation');
+    expect(tab('/instagram/sequences/9')).toBe('/automation');
+    expect(tab('/instagram/basics')).toBe('/automation');
     expect(tab('/instagram/ref-links')).toBe('/instagram/home');
     expect(tab('/whatsapp/flows/abc')).toBe('/automation');
     expect(tab('/commerce/products/9')).toBe('/commerce/products');

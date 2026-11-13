@@ -707,6 +707,10 @@ const BarChart = React.forwardRef<HTMLDivElement, BarChartProps>(
               tick={{
                 transform:
                   layout !== "vertical" ? "translate(0, 6)" : undefined,
+                // Recharts 3 draws tick labels outside the axis group, so the
+                // axis className never reaches them: size and colour them here.
+                fontSize: 12,
+                className: "fill-muted-foreground",
               }}
               fill=""
               stroke=""
@@ -764,6 +768,8 @@ const BarChart = React.forwardRef<HTMLDivElement, BarChartProps>(
                   layout !== "vertical"
                     ? "translate(-3, 0)"
                     : "translate(0, 0)",
+                fontSize: 12,
+                className: "fill-muted-foreground",
               }}
               {...(layout !== "vertical"
                 ? {
