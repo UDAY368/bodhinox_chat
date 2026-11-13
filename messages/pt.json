@@ -6032,7 +6032,8 @@
         "slot_lost": "Outra resposta ocupou a última vaga",
         "claim_failed": "Não foi possível reservar uma vaga de resposta",
         "stale": "A conversa mudou antes do envio",
-        "dispatch_failed": "Algo deu errado"
+        "dispatch_failed": "Algo deu errado",
+        "no_agent": "Nenhum agente está ligado para este canal neste horário"
       },
       "unknownReason": "Outro ({code})",
       "detailTitle": "Detalhes da atividade",
@@ -13732,6 +13733,533 @@
       "loadFailed": "Não foi possível carregar estas configurações.",
       "retry": "Tentar novamente",
       "loading": "Carregando"
+    }
+  },
+  "AiStudio": {
+    "title": "IA",
+    "description": "Agentes que respondem por você, o que eles sabem e como estão se saindo.",
+    "newAgent": "Novo agente",
+    "addSource": "Adicionar fonte",
+    "sectionsLabel": "Seções de IA",
+    "tabs": {
+      "agents": "Agentes",
+      "knowledge": "Conhecimento",
+      "features": "Recursos do assistente",
+      "quality": "Qualidade",
+      "setup": "Configuração",
+      "learnings": "Aprendizados",
+      "usage": "Uso",
+      "activity": "Atividade"
+    },
+    "common": {
+      "cancel": "Cancelar",
+      "retry": "Tentar novamente",
+      "loading": "Carregando",
+      "loadFailed": "Não foi possível carregar.",
+      "failed": "Não deu certo. Tente novamente."
+    },
+    "agents": {
+      "filterAll": "Todos",
+      "filterOn": "Ligados",
+      "filterOff": "Desligados",
+      "filterLabel": "Mostrar agentes",
+      "search": "Buscar agentes",
+      "orderHint": "Cada conversa é respondida por um único agente: o que já respondeu nela ou, se não houver, o primeiro agente desta lista que esteja ligado para o canal naquele horário.",
+      "emptyTitle": "Nenhum agente ainda",
+      "emptyBody": "Um agente responde aos clientes por você usando sua base de conhecimento.",
+      "createFirst": "Criar um agente",
+      "noMatchTitle": "Nenhum agente encontrado",
+      "noMatchBody": "Tente outra busca ou outro filtro.",
+      "clearFilters": "Limpar filtros",
+      "roles": {
+        "sales": "Vendas",
+        "support": "Suporte",
+        "bookings": "Agendamentos",
+        "orders": "Pedidos",
+        "general": "Geral"
+      },
+      "tones": {
+        "friendly": "Simpático",
+        "professional": "Profissional",
+        "concise": "Breve",
+        "enthusiastic": "Entusiasmado",
+        "formal": "Formal"
+      },
+      "channels": {
+        "whatsapp": "WhatsApp",
+        "instagram": "Instagram"
+      },
+      "hoursAlways": "Sempre ligado",
+      "hoursDuring": "Das {from} às {to}",
+      "hoursOutside": "Fora das {from} às {to}",
+      "roleTone": "Agente de {role} · tom {tone}",
+      "roleOnly": "Agente de {role}",
+      "toggleLabel": "{name} responde aos clientes",
+      "noGoal": "Usa as instruções da Configuração.",
+      "defaultBadge": "Padrão",
+      "handled": "conversas atendidas",
+      "solved": "resolvidas sem uma pessoa",
+      "newLabel": "Novo",
+      "noChats": "ainda sem conversas",
+      "statusOn": "Ligado",
+      "statusOff": "Desligado",
+      "test": "Testar agente",
+      "edit": "Editar",
+      "more": "Mais opções de {name}",
+      "duplicate": "Duplicar",
+      "moveUp": "Mover para cima",
+      "moveDown": "Mover para baixo",
+      "delete": "Excluir",
+      "readOnly": "Somente administradores podem alterar os agentes.",
+      "defaultHint": "Este é o seu agente original. As instruções, o tom e as regras de transferência dele são os da Configuração.",
+      "deleteTitle": "Excluir {name}?",
+      "deleteOn": "Este agente está ligado. Ele vai parar de responder aos clientes imediatamente.",
+      "deleteOff": "Este agente e as configurações dele serão removidos.",
+      "deleteConfirm": "Excluir agente",
+      "toasts": {
+        "created": "Agente criado. Ligue-o quando estiver pronto.",
+        "saved": "Agente salvo",
+        "duplicated": "{name} foi criado. Por enquanto está desligado.",
+        "deleted": "Agente excluído",
+        "on": "{name} está ligado e respondendo aos clientes",
+        "off": "{name} está desligado",
+        "moved": "Ordem salva",
+        "failed": "Não deu certo. Tente novamente.",
+        "loadFailed": "Não foi possível carregar os agentes."
+      },
+      "errors": {
+        "forbidden": "Somente administradores podem alterar os agentes.",
+        "invalid_input": "Confira os dados do agente e tente novamente.",
+        "not_found": "Este agente não existe mais.",
+        "name_taken": "Outro agente já tem este nome.",
+        "limit_reached": "Um espaço de trabalho pode ter até 20 agentes.",
+        "default_agent": "O agente padrão não pode ser excluído. Desligue-o."
+      }
+    },
+    "editor": {
+      "newTitle": "Novo agente",
+      "editTitle": "Editar {name}",
+      "name": "Nome",
+      "namePlaceholder": "Por exemplo, Maya",
+      "role": "Função",
+      "goal": "Objetivo e instruções",
+      "goalPlaceholder": "O que este agente deve fazer e o que nunca deve fazer?",
+      "tone": "Tom",
+      "channels": "Canais",
+      "handoffLegend": "Transferir para uma pessoa",
+      "keywords": "Quando um cliente diz",
+      "keywordsPlaceholder": "reembolso, reclamação, falar com uma pessoa",
+      "keywordsHint": "Separe as palavras com vírgulas.",
+      "maxTurns": "Depois de tantas respostas da IA",
+      "maxTurnsHint": "0 significa sem limite.",
+      "unsure": "Quando o agente não tem certeza",
+      "unsureHint": "Transfere a conversa em vez de chutar uma resposta.",
+      "hoursLegend": "Horário de funcionamento",
+      "hoursMode": "Quando responde",
+      "modeAlways": "Sempre",
+      "modeDuring": "Somente neste horário",
+      "modeOutside": "Somente fora deste horário",
+      "from": "De",
+      "to": "Até",
+      "timezone": "Os horários usam o fuso das configurações da sua caixa de entrada.",
+      "create": "Criar agente",
+      "save": "Salvar alterações",
+      "errors": {
+        "name": "Dê ao agente um nome que nenhum outro agente use.",
+        "goal": "Diga o que o agente deve fazer.",
+        "channels": "Escolha pelo menos um canal.",
+        "maxTurns": "Digite um número de 0 a 50.",
+        "hours": "O horário de início deve ser antes do horário de término."
+      }
+    },
+    "test": {
+      "panelLabel": "Testar {name}",
+      "subtitle": "Chat de teste · nada é enviado aos clientes",
+      "reset": "Começar de novo",
+      "close": "Fechar chat de teste",
+      "hint": "Digite uma mensagem como um cliente faria. {name} responde com base na sua base de conhecimento.",
+      "hintOff": "Ele está desligado para os clientes, mas você ainda pode testá-lo.",
+      "placeholder": "Escreva como cliente",
+      "lockedPlaceholder": "Comece de novo para continuar testando",
+      "inputLabel": "Mensagem de teste",
+      "send": "Enviar",
+      "from": "Fonte: {source}",
+      "typing": "O agente está digitando",
+      "handoverReply": "Vou chamar um colega que pode ajudar com isso. Ele vai responder aqui em breve.",
+      "handoff": {
+        "keyword": "Transferido para uma pessoa: o cliente usou uma palavra de transferência",
+        "turns": "Transferido para uma pessoa após o limite de respostas",
+        "unsure": "Transferido para uma pessoa: o agente não tinha certeza"
+      },
+      "starters": {
+        "sales1": "Quanto custa o plano anual?",
+        "sales2": "Posso ver uma demonstração?",
+        "sales3": "Tem alguma oferta?",
+        "support1": "Quando meu pedido será enviado?",
+        "support2": "Como exporto meus contatos?",
+        "support3": "Quero um reembolso",
+        "bookings1": "Posso agendar uma consulta?",
+        "bookings2": "Qual é o horário de atendimento?",
+        "bookings3": "Preciso remarcar",
+        "orders1": "Quando meu pedido será enviado?",
+        "orders2": "Me envie minha nota fiscal",
+        "orders3": "Meu item chegou danificado",
+        "general1": "Qual é o horário de atendimento?",
+        "general2": "Quanto custa?",
+        "general3": "É urgente"
+      }
+    },
+    "knowledge": {
+      "askTitle": "Pergunte à base de conhecimento",
+      "askBody": "Veja o que a IA encontraria antes que um cliente pergunte.",
+      "askPlaceholder": "Por exemplo, quanto tempo levam os reembolsos?",
+      "askLabel": "Pergunta",
+      "ask": "Perguntar",
+      "askEmpty": "Digite uma pergunta primeiro.",
+      "askFailed": "Não foi possível pesquisar a base de conhecimento. Tente novamente.",
+      "noMatch": "Nada corresponde a “{q}”.",
+      "noMatchBody": "Tente outra busca ou outro tipo.",
+      "writeAnswer": "Escrever uma resposta",
+      "untitled": "Sem título",
+      "matchPct": "{n}% de correspondência",
+      "teamOnly": "Só para a equipe, não usado nas respostas",
+      "typeLabel": "Tipo de fonte",
+      "types": {
+        "all": "Todas",
+        "website": "Sites",
+        "document": "Documentos",
+        "qa": "Perguntas e respostas"
+      },
+      "search": "Buscar fontes",
+      "addShort": "Adicionar",
+      "tableLabel": "Fontes de conhecimento",
+      "cols": {
+        "source": "Fonte",
+        "type": "Tipo",
+        "status": "Status",
+        "size": "Tamanho",
+        "updated": "Atualizada",
+        "inReplies": "Nas respostas",
+        "inRepliesHint": "Usar esta fonte ao responder aos clientes",
+        "actions": "Ações"
+      },
+      "kind": {
+        "website": "Site",
+        "sitemap": "Mapa do site",
+        "file": "Documento",
+        "text": "Texto",
+        "qa": "Pergunta e resposta",
+        "learning": "Respostas aprendidas"
+      },
+      "status": {
+        "queued": "Aguardando",
+        "crawling": "Sincronizando",
+        "ready": "Sincronizada",
+        "failed": "Falhou",
+        "disabled": "Desligada"
+      },
+      "progressLabel": "Progresso da sincronização de {title}",
+      "size": {
+        "pages": "{count, plural, one {# página} other {# páginas}}",
+        "answers": "{count, plural, one {# resposta} other {# respostas}}",
+        "documents": "{count, plural, one {# documento} other {# documentos}}"
+      },
+      "never": "Ainda não sincronizada",
+      "useInReplies": "Usar {title} nas respostas aos clientes",
+      "syncAgainLabel": "Sincronizar {title} novamente",
+      "more": "Mais opções de {title}",
+      "menu": {
+        "view": "Ver conteúdo",
+        "editAnswer": "Editar resposta",
+        "editText": "Editar texto",
+        "copy": "Copiar endereço",
+        "syncAgain": "Sincronizar novamente",
+        "tryAgain": "Tentar novamente",
+        "showAgents": "Permitir que agentes vejam",
+        "adminsOnly": "Somente administradores",
+        "delete": "Excluir"
+      },
+      "emptyTitle": "Nenhuma fonte ainda",
+      "emptyBody": "Adicione seu site, um documento ou algumas perguntas e respostas.",
+      "addFirst": "Adicionar uma fonte",
+      "noMatchTitle": "Nenhuma fonte encontrada",
+      "clearFilters": "Limpar filtros",
+      "deleteTitle": "Excluir {title}?",
+      "deleteBody": "A IA vai parar de usar esta fonte imediatamente. Não é possível desfazer.",
+      "deleteConfirm": "Excluir fonte",
+      "toasts": {
+        "added": "Fonte adicionada. Lendo agora.",
+        "saved": "Salvo. Lendo novamente agora.",
+        "deleted": "Fonte excluída",
+        "syncing": "Sincronizando {title}",
+        "inReplies": "{title} é usada nas respostas aos clientes",
+        "teamOnly": "{title} é só para a sua equipe",
+        "copied": "Endereço copiado",
+        "failed": "Não deu certo. Tente novamente."
+      },
+      "add": {
+        "title": "Adicionar uma fonte",
+        "editAnswerTitle": "Editar resposta",
+        "editTextTitle": "Editar texto",
+        "modeLabel": "Tipo de fonte",
+        "modes": {
+          "website": "Site",
+          "sitemap": "Mapa do site",
+          "file": "Enviar um arquivo",
+          "qa": "Escrever pergunta e resposta",
+          "text": "Texto"
+        },
+        "url": "Endereço da página",
+        "sitemapUrl": "Endereço do mapa do site",
+        "name": "Nome",
+        "namePlaceholder": "Central de ajuda",
+        "nameHint": "Opcional. Se deixar em branco, usamos o nome do site.",
+        "file": "Escolher um arquivo",
+        "fileHint": "PDF, Word, texto ou Markdown, até 10 MB",
+        "question": "Pergunta",
+        "questionPlaceholder": "Vocês entregam aos domingos?",
+        "answer": "Resposta",
+        "answerPlaceholder": "A resposta que a IA deve dar.",
+        "textTitle": "Título",
+        "textContent": "Texto",
+        "submit": "Adicionar fonte",
+        "save": "Salvar",
+        "errors": {
+          "url": "Digite um endereço da web, por exemplo https://sualoja.com/ajuda.",
+          "pageLimit": "Digite um número de páginas de 1 a 500.",
+          "file": "Escolha um arquivo para enviar.",
+          "fileType": "Use um arquivo PDF, Word, de texto ou Markdown.",
+          "fileSize": "Este arquivo tem mais de 10 MB.",
+          "question": "Escreva a pergunta.",
+          "answer": "Escreva a resposta.",
+          "title": "Dê um título ao texto.",
+          "content": "Escreva o texto."
+        }
+      },
+      "detail": {
+        "updated": "Atualizada {when}",
+        "never": "Ainda não sincronizada",
+        "truncated": "Mostrando a primeira parte do texto.",
+        "pages": "{count, plural, one {# página} other {# páginas}}",
+        "noPreview": "Esta fonte não tem prévia de texto. Ela é pesquisada depois de sincronizada.",
+        "close": "Fechar"
+      }
+    },
+    "features": {
+      "title": "Recursos do assistente",
+      "body": "Ajuda para a sua equipe dentro da caixa de entrada. A IA nunca envia isto por conta própria.",
+      "onCount": "{on} de {total} ligados",
+      "teamLanguage": "Idioma da equipe",
+      "languageSaved": "Idioma da equipe definido como {language}",
+      "turnedOn": "{name} ligado",
+      "turnedOff": "{name} desligado",
+      "setupLink": "Configuração do agente e do provedor",
+      "items": {
+        "suggest": {
+          "name": "Respostas sugeridas",
+          "desc": "Oferece até três respostas na caixa de entrada. Você escolhe uma e pode editá-la antes de enviar."
+        },
+        "summary": {
+          "name": "Resumos de conversas",
+          "desc": "Resume uma conversa longa em poucas linhas, só para a sua equipe."
+        },
+        "assess": {
+          "name": "Pontuação de leads",
+          "desc": "Descobre o que o cliente quer e dá a cada lead uma pontuação de 0 a 100."
+        },
+        "label": {
+          "name": "Etiquetas automáticas",
+          "desc": "Adiciona até duas das suas etiquetas da caixa de entrada, como Preços ou Suporte, às novas conversas."
+        },
+        "translate": {
+          "name": "Tradução",
+          "desc": "Mostra as mensagens dos clientes no idioma da sua equipe e traduz suas respostas, quando você pede na caixa de entrada."
+        },
+        "route": {
+          "name": "Encaminhar para a equipe",
+          "desc": "Envia perguntas de saúde e outros assuntos delicados para uma pessoa em vez de respondê-las, em todas as conversas."
+        },
+        "insights": {
+          "name": "Insights do negócio",
+          "desc": "Escreve um resumo curto dos seus números de análise quando alguém pede."
+        }
+      }
+    },
+    "languages": {
+      "en": "Inglês",
+      "hi": "Hindi",
+      "te": "Télugo",
+      "ta": "Tâmil",
+      "mr": "Marati",
+      "kn": "Canarês",
+      "ml": "Malaiala",
+      "bn": "Bengali",
+      "gu": "Guzerate",
+      "pa": "Panjabi",
+      "es": "Espanhol",
+      "pt": "Português",
+      "ko": "Coreano",
+      "fr": "Francês",
+      "de": "Alemão",
+      "ar": "Árabe"
+    },
+    "budget": {
+      "title": "Orçamento mensal de tokens",
+      "states": {
+        "ok": "Dentro do previsto",
+        "warn": "Acabando",
+        "over": "Orçamento esgotado",
+        "none": "Sem limite"
+      },
+      "usedNoLimit": "tokens usados este mês",
+      "ofLimit": "de {limit} tokens",
+      "barLabel": "Orçamento usado",
+      "pct": "{n}% usado",
+      "resets": "Renova em {date}",
+      "overNote": "Você passou do seu limite. Os recursos do assistente continuam funcionando porque a pausa está desligada.",
+      "pausedNote": "A IA está pausada até o orçamento renovar ou você aumentar o limite.",
+      "planLimit": "Seu plano permite {n} tokens por mês.",
+      "limitLabel": "Limite mensal, em tokens",
+      "preset": "{n} milhões",
+      "saveLimit": "Salvar limite",
+      "removeLimit": "Sem limite",
+      "setLimit": "Definir um limite",
+      "change": "Alterar limite",
+      "pause": "Pausar a IA quando o orçamento acabar",
+      "pauseHint": "Os recursos do assistente param no seu limite; sua equipe ainda pode responder manualmente. O limite do seu plano sempre vale.",
+      "pauseOn": "A IA vai pausar quando o orçamento acabar",
+      "pauseOff": "A IA vai continuar funcionando depois do seu limite",
+      "tokensNote": "Os tokens medem quanto texto a IA lê e escreve. Cerca de 750 palavras equivalem a 1.000 tokens.",
+      "saved": "Limite mensal definido em {n} tokens",
+      "removed": "Limite mensal removido",
+      "errors": {
+        "invalid": "Digite um número inteiro de tokens.",
+        "min": "O limite mínimo é de 100.000 tokens.",
+        "max": "Esse limite é alto demais."
+      }
+    },
+    "usage": {
+      "title": "Onde os tokens foram usados este mês",
+      "empty": "Nenhum token usado ainda este mês.",
+      "off": "desligado",
+      "modes": {
+        "auto_reply": "Agentes de IA",
+        "draft": "Rascunhos",
+        "summary": "Resumos de conversas",
+        "suggest": "Respostas sugeridas",
+        "assess": "Pontuação de leads",
+        "insights": "Insights do negócio",
+        "label": "Etiquetas automáticas",
+        "translate": "Tradução",
+        "other": "Testes e outros"
+      }
+    },
+    "quality": {
+      "windowTitle": "Últimos {days} dias",
+      "shown": "{n} sugestões mostradas",
+      "outcomes": {
+        "accepted": {
+          "label": "Enviadas como estavam",
+          "hint": "A sugestão acertou de primeira"
+        },
+        "edited": {
+          "label": "Editadas e enviadas",
+          "hint": "Quase, mas sua equipe mudou"
+        },
+        "rejected": {
+          "label": "Rejeitadas",
+          "hint": "Sua equipe descartou"
+        },
+        "unused": {
+          "label": "Não usadas",
+          "hint": "Mostradas e ignoradas"
+        }
+      },
+      "pctOf": "{n}% das sugestões",
+      "chartDay": "Sugestões mostradas por dia",
+      "chartOutcome": "O que aconteceu com as sugestões",
+      "chartLabel": "Visualização do gráfico",
+      "byDay": "Por dia",
+      "byOutcome": "Por resultado",
+      "dayChartLabel": "Sugestões mostradas por dia, máximo {max}",
+      "dayBar": "{day}: {n} sugestões",
+      "busiest": "Dia mais movimentado: {max} sugestões. Passe o cursor sobre uma barra para ver o dia.",
+      "safetyTitle": "Verificações de segurança acionadas",
+      "safetyNote": "Cada verificação barrou uma resposta arriscada antes que um cliente a visse.",
+      "checks": {
+        "sensitive_routed": "Assunto delicado enviado para a equipe",
+        "guard_blocked": "Resposta arriscada retida",
+        "claims": "Afirmação de pagamento, reembolso ou médica substituída",
+        "personal_data": "Dados pessoais ocultados da IA",
+        "links": "Link desconhecido removido",
+        "injection": "Texto com cara de instrução ignorado"
+      },
+      "ratingsTitle": "Avaliações da equipe",
+      "helpfulPct": "{n}% úteis",
+      "helpful": "úteis",
+      "notHelpful": "não úteis",
+      "noRatings": "Avalie as respostas abaixo para ver o quanto sua equipe as acha úteis.",
+      "repliesTitle": "Respostas recentes da IA",
+      "filterLabel": "Mostrar respostas",
+      "filters": {
+        "all": "Todas",
+        "suggestion": "Sugestões",
+        "agent": "Respostas de agentes",
+        "down": "Não úteis",
+        "unrated": "Sem avaliação"
+      },
+      "nothing": "Nada por aqui",
+      "nothingYet": "As respostas da IA dos últimos 30 dias aparecem aqui.",
+      "nothingBody": "Nenhuma resposta corresponde a este filtro.",
+      "showAll": "Mostrar todas as respostas",
+      "cols": {
+        "customer": "Cliente",
+        "reply": "Pergunta e resposta da IA",
+        "result": "Resultado",
+        "helpful": "Útil?"
+      },
+      "unknownContact": "Cliente",
+      "openReply": "Abrir a resposta para {name}",
+      "results": {
+        "accepted": "Enviada como estava",
+        "edited": "Editada",
+        "rejected": "Rejeitada",
+        "shown": "Não usada",
+        "sent": "Enviada pelo agente"
+      },
+      "agentReply": "Resposta do agente",
+      "suggestion": "Resposta sugerida",
+      "rateUp": "Útil",
+      "rateDown": "Não útil",
+      "toasts": {
+        "up": "Marcada como útil",
+        "down": "Marcada como não útil",
+        "cleared": "Avaliação removida"
+      },
+      "detail": {
+        "title": "Resposta para {name}",
+        "asked": "{name} perguntou",
+        "suggested": "A IA sugeriu",
+        "agentReplied": "{name} respondeu",
+        "source": "Respondida com base em",
+        "agent": "Agente",
+        "shownTo": "Mostrada para",
+        "rating": "Sua avaliação",
+        "notRated": "Sem avaliação",
+        "openConversation": "Abrir conversa",
+        "writeBetter": "Escrever uma resposta melhor"
+      }
+    },
+    "translate": {
+      "button": "Traduzir",
+      "incoming": "Traduzir as mensagens do cliente",
+      "outgoing": "Traduzir minha resposta",
+      "panelTitle": "Em {language}",
+      "panelTitleAny": "Tradução",
+      "close": "Fechar tradução",
+      "needText": "Escreva uma resposta primeiro.",
+      "replaced": "Resposta traduzida. Revise e depois envie.",
+      "failed": "A tradução não deu certo. Tente novamente."
     }
   }
 }

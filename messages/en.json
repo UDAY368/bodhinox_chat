@@ -6032,7 +6032,8 @@
         "slot_lost": "Another reply took the last slot",
         "claim_failed": "Could not reserve a reply slot",
         "stale": "Conversation changed before sending",
-        "dispatch_failed": "Something went wrong"
+        "dispatch_failed": "Something went wrong",
+        "no_agent": "No agent is on for this channel at this hour"
       },
       "unknownReason": "Other ({code})",
       "detailTitle": "Activity details",
@@ -13732,6 +13733,533 @@
       "loadFailed": "Could not load these settings.",
       "retry": "Try again",
       "loading": "Loading"
+    }
+  },
+  "AiStudio": {
+    "title": "AI",
+    "description": "Agents that reply for you, what they know, and how well they are doing.",
+    "newAgent": "New agent",
+    "addSource": "Add source",
+    "sectionsLabel": "AI sections",
+    "tabs": {
+      "agents": "Agents",
+      "knowledge": "Knowledge",
+      "features": "Assistant features",
+      "quality": "Quality",
+      "setup": "Setup",
+      "learnings": "Learnings",
+      "usage": "Usage",
+      "activity": "Activity"
+    },
+    "common": {
+      "cancel": "Cancel",
+      "retry": "Try again",
+      "loading": "Loading",
+      "loadFailed": "This could not be loaded.",
+      "failed": "That did not work. Try again."
+    },
+    "agents": {
+      "filterAll": "All",
+      "filterOn": "On",
+      "filterOff": "Off",
+      "filterLabel": "Show agents",
+      "search": "Search agents",
+      "orderHint": "Each conversation is answered by one agent: the one that already replied there, otherwise the first agent in this list that is on for the channel at that hour.",
+      "emptyTitle": "No agents yet",
+      "emptyBody": "An agent answers customers for you, using your knowledge base.",
+      "createFirst": "Create an agent",
+      "noMatchTitle": "No agents match",
+      "noMatchBody": "Try a different search or filter.",
+      "clearFilters": "Clear filters",
+      "roles": {
+        "sales": "Sales",
+        "support": "Support",
+        "bookings": "Bookings",
+        "orders": "Orders",
+        "general": "General"
+      },
+      "tones": {
+        "friendly": "Friendly",
+        "professional": "Professional",
+        "concise": "Brief",
+        "enthusiastic": "Enthusiastic",
+        "formal": "Formal"
+      },
+      "channels": {
+        "whatsapp": "WhatsApp",
+        "instagram": "Instagram"
+      },
+      "hoursAlways": "Always on",
+      "hoursDuring": "{from} to {to}",
+      "hoursOutside": "Outside {from} to {to}",
+      "roleTone": "{role} agent · {tone} tone",
+      "roleOnly": "{role} agent",
+      "toggleLabel": "{name} replies to customers",
+      "noGoal": "Uses the instructions from Setup.",
+      "defaultBadge": "Default",
+      "handled": "conversations handled",
+      "solved": "solved without a person",
+      "newLabel": "New",
+      "noChats": "no chats yet",
+      "statusOn": "On",
+      "statusOff": "Off",
+      "test": "Test agent",
+      "edit": "Edit",
+      "more": "More for {name}",
+      "duplicate": "Duplicate",
+      "moveUp": "Move up",
+      "moveDown": "Move down",
+      "delete": "Delete",
+      "readOnly": "Only admins can change agents.",
+      "defaultHint": "This is your original agent. Its instructions, tone and handover rules are the ones in Setup.",
+      "deleteTitle": "Delete {name}?",
+      "deleteOn": "This agent is on. It will stop replying to customers straight away.",
+      "deleteOff": "This agent and its settings will be removed.",
+      "deleteConfirm": "Delete agent",
+      "toasts": {
+        "created": "Agent created. Turn it on when you are ready.",
+        "saved": "Agent saved",
+        "duplicated": "{name} created. It is off for now.",
+        "deleted": "Agent deleted",
+        "on": "{name} is on and replying to customers",
+        "off": "{name} is off",
+        "moved": "Order saved",
+        "failed": "That did not work. Try again.",
+        "loadFailed": "The agents could not be loaded."
+      },
+      "errors": {
+        "forbidden": "Only admins can change agents.",
+        "invalid_input": "Check the agent's details and try again.",
+        "not_found": "This agent no longer exists.",
+        "name_taken": "Another agent already has this name.",
+        "limit_reached": "A workspace can have up to 20 agents.",
+        "default_agent": "The default agent cannot be deleted. Turn it off instead."
+      }
+    },
+    "editor": {
+      "newTitle": "New agent",
+      "editTitle": "Edit {name}",
+      "name": "Name",
+      "namePlaceholder": "For example, Maya",
+      "role": "Role",
+      "goal": "Goal and instructions",
+      "goalPlaceholder": "What should this agent do, and what should it never do?",
+      "tone": "Tone",
+      "channels": "Channels",
+      "handoffLegend": "Hand over to a person",
+      "keywords": "When a customer says",
+      "keywordsPlaceholder": "refund, complaint, speak to a person",
+      "keywordsHint": "Separate words with commas.",
+      "maxTurns": "After this many AI replies",
+      "maxTurnsHint": "0 means no limit.",
+      "unsure": "When the agent is unsure",
+      "unsureHint": "Hands over instead of guessing an answer.",
+      "hoursLegend": "Working hours",
+      "hoursMode": "When it replies",
+      "modeAlways": "Always",
+      "modeDuring": "Only during these hours",
+      "modeOutside": "Only outside these hours",
+      "from": "From",
+      "to": "To",
+      "timezone": "Times use the time zone in your inbox settings.",
+      "create": "Create agent",
+      "save": "Save changes",
+      "errors": {
+        "name": "Give the agent a name that no other agent uses.",
+        "goal": "Say what the agent should do.",
+        "channels": "Pick at least one channel.",
+        "maxTurns": "Enter a number from 0 to 50.",
+        "hours": "The start time must be before the end time."
+      }
+    },
+    "test": {
+      "panelLabel": "Test {name}",
+      "subtitle": "Test chat · nothing is sent to customers",
+      "reset": "Start again",
+      "close": "Close test chat",
+      "hint": "Type a message as a customer would. {name} answers from your knowledge base.",
+      "hintOff": "It is off for customers, but you can still test it.",
+      "placeholder": "Message as a customer",
+      "lockedPlaceholder": "Start again to keep testing",
+      "inputLabel": "Test message",
+      "send": "Send",
+      "from": "From: {source}",
+      "typing": "The agent is typing",
+      "handoverReply": "I will bring in a teammate who can help with this. They will reply here shortly.",
+      "handoff": {
+        "keyword": "Handed to a person: the customer used a handover word",
+        "turns": "Handed to a person after the reply limit",
+        "unsure": "Handed to a person: the agent was unsure"
+      },
+      "starters": {
+        "sales1": "What does the annual plan cost?",
+        "sales2": "Can I get a demo?",
+        "sales3": "Any offer running?",
+        "support1": "When will my order ship?",
+        "support2": "How do I export contacts?",
+        "support3": "I want a refund",
+        "bookings1": "Can I book a consultation?",
+        "bookings2": "What are your working hours?",
+        "bookings3": "I need to reschedule",
+        "orders1": "When will my order ship?",
+        "orders2": "Send me my invoice",
+        "orders3": "My item arrived damaged",
+        "general1": "What are your working hours?",
+        "general2": "How much is it?",
+        "general3": "This is urgent"
+      }
+    },
+    "knowledge": {
+      "askTitle": "Ask the knowledge base",
+      "askBody": "Check what the AI would find before a customer asks.",
+      "askPlaceholder": "For example, how long do refunds take?",
+      "askLabel": "Question",
+      "ask": "Ask",
+      "askEmpty": "Type a question first.",
+      "askFailed": "The knowledge base could not be searched. Try again.",
+      "noMatch": "Nothing matches “{q}”.",
+      "noMatchBody": "Try a different search or type.",
+      "writeAnswer": "Write an answer",
+      "untitled": "Untitled",
+      "matchPct": "{n}% match",
+      "teamOnly": "Team only, not used in replies",
+      "typeLabel": "Source type",
+      "types": {
+        "all": "All",
+        "website": "Websites",
+        "document": "Documents",
+        "qa": "Q&A"
+      },
+      "search": "Search sources",
+      "addShort": "Add",
+      "tableLabel": "Knowledge sources",
+      "cols": {
+        "source": "Source",
+        "type": "Type",
+        "status": "Status",
+        "size": "Size",
+        "updated": "Updated",
+        "inReplies": "In replies",
+        "inRepliesHint": "Use this source when replying to customers",
+        "actions": "Actions"
+      },
+      "kind": {
+        "website": "Website",
+        "sitemap": "Sitemap",
+        "file": "Document",
+        "text": "Text",
+        "qa": "Q&A",
+        "learning": "Learned answers"
+      },
+      "status": {
+        "queued": "Waiting",
+        "crawling": "Syncing",
+        "ready": "Synced",
+        "failed": "Failed",
+        "disabled": "Off"
+      },
+      "progressLabel": "{title} sync progress",
+      "size": {
+        "pages": "{count, plural, one {# page} other {# pages}}",
+        "answers": "{count, plural, one {# answer} other {# answers}}",
+        "documents": "{count, plural, one {# document} other {# documents}}"
+      },
+      "never": "Not synced yet",
+      "useInReplies": "Use {title} in customer replies",
+      "syncAgainLabel": "Sync {title} again",
+      "more": "More for {title}",
+      "menu": {
+        "view": "View content",
+        "editAnswer": "Edit answer",
+        "editText": "Edit text",
+        "copy": "Copy address",
+        "syncAgain": "Sync again",
+        "tryAgain": "Try again",
+        "showAgents": "Let agents see it",
+        "adminsOnly": "Admins only",
+        "delete": "Delete"
+      },
+      "emptyTitle": "No sources yet",
+      "emptyBody": "Add your website, a document or a few questions and answers.",
+      "addFirst": "Add a source",
+      "noMatchTitle": "No sources match",
+      "clearFilters": "Clear filters",
+      "deleteTitle": "Delete {title}?",
+      "deleteBody": "The AI will stop using this source straight away. This cannot be undone.",
+      "deleteConfirm": "Delete source",
+      "toasts": {
+        "added": "Source added. Reading it now.",
+        "saved": "Saved. Reading it again now.",
+        "deleted": "Source deleted",
+        "syncing": "Syncing {title}",
+        "inReplies": "{title} is used in customer replies",
+        "teamOnly": "{title} is for your team only",
+        "copied": "Address copied",
+        "failed": "That did not work. Try again."
+      },
+      "add": {
+        "title": "Add a source",
+        "editAnswerTitle": "Edit answer",
+        "editTextTitle": "Edit text",
+        "modeLabel": "Kind of source",
+        "modes": {
+          "website": "Website",
+          "sitemap": "Sitemap",
+          "file": "Upload a file",
+          "qa": "Write Q&A",
+          "text": "Text"
+        },
+        "url": "Page address",
+        "sitemapUrl": "Sitemap address",
+        "name": "Name",
+        "namePlaceholder": "Help centre",
+        "nameHint": "Optional. We use the site name if you leave this empty.",
+        "file": "Choose a file",
+        "fileHint": "PDF, Word, text or Markdown, up to 10 MB",
+        "question": "Question",
+        "questionPlaceholder": "Do you deliver on Sundays?",
+        "answer": "Answer",
+        "answerPlaceholder": "The answer the AI should give.",
+        "textTitle": "Title",
+        "textContent": "Text",
+        "submit": "Add source",
+        "save": "Save",
+        "errors": {
+          "url": "Enter a web address, for example https://yourshop.com/help.",
+          "pageLimit": "Enter a number of pages from 1 to 500.",
+          "file": "Choose a file to upload.",
+          "fileType": "Use a PDF, Word, text or Markdown file.",
+          "fileSize": "This file is larger than 10 MB.",
+          "question": "Write the question.",
+          "answer": "Write the answer.",
+          "title": "Give the text a title.",
+          "content": "Write the text."
+        }
+      },
+      "detail": {
+        "updated": "Updated {when}",
+        "never": "Not synced yet",
+        "truncated": "Showing the first part of the text.",
+        "pages": "{count, plural, one {# page} other {# pages}}",
+        "noPreview": "There is no text preview for this source. It is still searched once it is synced.",
+        "close": "Close"
+      }
+    },
+    "features": {
+      "title": "Assistant features",
+      "body": "Help for your team inside the inbox. The AI never sends these on its own.",
+      "onCount": "{on} of {total} on",
+      "teamLanguage": "Team language",
+      "languageSaved": "Team language set to {language}",
+      "turnedOn": "{name} turned on",
+      "turnedOff": "{name} turned off",
+      "setupLink": "Agent and provider setup",
+      "items": {
+        "suggest": {
+          "name": "Suggested replies",
+          "desc": "Offers up to three replies in the inbox. You choose one and can edit it before sending."
+        },
+        "summary": {
+          "name": "Conversation summaries",
+          "desc": "Sums up a long chat in a few lines, for your team only."
+        },
+        "assess": {
+          "name": "Lead scoring",
+          "desc": "Works out what the customer wants and gives each lead a score from 0 to 100."
+        },
+        "label": {
+          "name": "Auto-labelling",
+          "desc": "Adds up to two of your inbox labels, such as Pricing or Support, to new conversations."
+        },
+        "translate": {
+          "name": "Translation",
+          "desc": "Shows customer messages in your team language and translates your replies back, when you ask in the inbox."
+        },
+        "route": {
+          "name": "Route to staff",
+          "desc": "Sends health and other sensitive questions to a person instead of answering, in every conversation."
+        },
+        "insights": {
+          "name": "Business insights",
+          "desc": "Writes a short summary of your analytics numbers when someone asks."
+        }
+      }
+    },
+    "languages": {
+      "en": "English",
+      "hi": "Hindi",
+      "te": "Telugu",
+      "ta": "Tamil",
+      "mr": "Marathi",
+      "kn": "Kannada",
+      "ml": "Malayalam",
+      "bn": "Bengali",
+      "gu": "Gujarati",
+      "pa": "Punjabi",
+      "es": "Spanish",
+      "pt": "Portuguese",
+      "ko": "Korean",
+      "fr": "French",
+      "de": "German",
+      "ar": "Arabic"
+    },
+    "budget": {
+      "title": "Monthly token budget",
+      "states": {
+        "ok": "On track",
+        "warn": "Running low",
+        "over": "Budget used up",
+        "none": "No limit"
+      },
+      "usedNoLimit": "tokens used this month",
+      "ofLimit": "of {limit} tokens",
+      "barLabel": "Budget used",
+      "pct": "{n}% used",
+      "resets": "Resets {date}",
+      "overNote": "You are over your limit. The assistant features keep working because pausing is off.",
+      "pausedNote": "The AI is paused until the budget resets or you raise the limit.",
+      "planLimit": "Your plan allows {n} tokens a month.",
+      "limitLabel": "Monthly limit, in tokens",
+      "preset": "{n} million",
+      "saveLimit": "Save limit",
+      "removeLimit": "No limit",
+      "setLimit": "Set a limit",
+      "change": "Change limit",
+      "pause": "Pause the AI when the budget is used up",
+      "pauseHint": "Assistant features stop at your limit; your team can still reply by hand. Your plan's limit always applies.",
+      "pauseOn": "The AI will pause when the budget is used up",
+      "pauseOff": "The AI will keep working past your limit",
+      "tokensNote": "Tokens measure how much text the AI reads and writes. About 750 words is 1,000 tokens.",
+      "saved": "Monthly limit set to {n} tokens",
+      "removed": "Monthly limit removed",
+      "errors": {
+        "invalid": "Enter a whole number of tokens.",
+        "min": "The lowest limit is 100,000 tokens.",
+        "max": "That limit is too high."
+      }
+    },
+    "usage": {
+      "title": "Where tokens went this month",
+      "empty": "No tokens used yet this month.",
+      "off": "off",
+      "modes": {
+        "auto_reply": "AI agents",
+        "draft": "Drafts",
+        "summary": "Conversation summaries",
+        "suggest": "Suggested replies",
+        "assess": "Lead scoring",
+        "insights": "Business insights",
+        "label": "Auto-labelling",
+        "translate": "Translation",
+        "other": "Tests and other"
+      }
+    },
+    "quality": {
+      "windowTitle": "Last {days} days",
+      "shown": "{n} suggestions shown",
+      "outcomes": {
+        "accepted": {
+          "label": "Sent as written",
+          "hint": "The suggestion was right first time"
+        },
+        "edited": {
+          "label": "Edited, then sent",
+          "hint": "Close, but your team changed it"
+        },
+        "rejected": {
+          "label": "Rejected",
+          "hint": "Your team dismissed it"
+        },
+        "unused": {
+          "label": "Not used",
+          "hint": "Shown, then ignored"
+        }
+      },
+      "pctOf": "{n}% of suggestions",
+      "chartDay": "Suggestions shown each day",
+      "chartOutcome": "What happened to suggestions",
+      "chartLabel": "Chart view",
+      "byDay": "By day",
+      "byOutcome": "By outcome",
+      "dayChartLabel": "Suggestions shown per day, highest {max}",
+      "dayBar": "{day}: {n} suggestions",
+      "busiest": "Busiest day: {max} suggestions. Hover a bar for the day.",
+      "safetyTitle": "Safety checks fired",
+      "safetyNote": "Each check stopped a risky answer before a customer saw it.",
+      "checks": {
+        "sensitive_routed": "Sensitive topic sent to staff",
+        "guard_blocked": "Risky answer held back",
+        "claims": "Payment, refund or medical claim replaced",
+        "personal_data": "Personal details hidden from the AI",
+        "links": "Unknown link removed",
+        "injection": "Instruction-like text ignored"
+      },
+      "ratingsTitle": "Team ratings",
+      "helpfulPct": "{n}% helpful",
+      "helpful": "helpful",
+      "notHelpful": "not helpful",
+      "noRatings": "Rate replies below to see how helpful your team finds them.",
+      "repliesTitle": "Recent AI replies",
+      "filterLabel": "Show replies",
+      "filters": {
+        "all": "All",
+        "suggestion": "Suggestions",
+        "agent": "Agent replies",
+        "down": "Not helpful",
+        "unrated": "Not rated"
+      },
+      "nothing": "Nothing here",
+      "nothingYet": "AI replies from the last 30 days appear here.",
+      "nothingBody": "No replies match this filter.",
+      "showAll": "Show all replies",
+      "cols": {
+        "customer": "Customer",
+        "reply": "Question and AI reply",
+        "result": "Result",
+        "helpful": "Helpful?"
+      },
+      "unknownContact": "Customer",
+      "openReply": "Open the reply to {name}",
+      "results": {
+        "accepted": "Sent as written",
+        "edited": "Edited",
+        "rejected": "Rejected",
+        "shown": "Not used",
+        "sent": "Sent by agent"
+      },
+      "agentReply": "Agent reply",
+      "suggestion": "Suggested reply",
+      "rateUp": "Helpful",
+      "rateDown": "Not helpful",
+      "toasts": {
+        "up": "Marked as helpful",
+        "down": "Marked as not helpful",
+        "cleared": "Rating removed"
+      },
+      "detail": {
+        "title": "Reply to {name}",
+        "asked": "{name} asked",
+        "suggested": "The AI suggested",
+        "agentReplied": "{name} replied",
+        "source": "Answered from",
+        "agent": "Agent",
+        "shownTo": "Shown to",
+        "rating": "Your rating",
+        "notRated": "Not rated",
+        "openConversation": "Open conversation",
+        "writeBetter": "Write a better answer"
+      }
+    },
+    "translate": {
+      "button": "Translate",
+      "incoming": "Translate the customer's messages",
+      "outgoing": "Translate my reply",
+      "panelTitle": "In {language}",
+      "panelTitleAny": "Translation",
+      "close": "Close translation",
+      "needText": "Write a reply first.",
+      "replaced": "Reply translated. Check it, then send.",
+      "failed": "The translation did not work. Try again."
     }
   }
 }
