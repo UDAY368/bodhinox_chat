@@ -15,8 +15,8 @@ test.describe('ads with META_ADS_ENABLED unset', () => {
   test('the Ads page shows the not-enabled state', async ({ page }) => {
     await login(page, fixtures().users.admin);
     await page.goto('/ads');
-    // The dashboard header also shows an "Ads" h1, so look inside the page content only.
-    await expect(page.getByRole('main').getByRole('heading', { level: 1, name: 'Ads', exact: true })).toBeVisible();
+    // Ads is a Campaigns tab: the page heading is "Campaigns" (the dashboard header also has an h1, so look in the page content only).
+    await expect(page.getByRole('main').getByRole('heading', { level: 1, name: 'Campaigns', exact: true })).toBeVisible();
     await expect(page.getByText('Ads are not enabled')).toBeVisible();
   });
 

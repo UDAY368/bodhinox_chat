@@ -17,6 +17,7 @@ import { Label } from '@/components/ui/label';
 import { SegmentBuilderDialog } from '@/components/contacts/segment-builder-dialog';
 import { authFetch } from '@/lib/auth/client';
 import type { AudienceCondition } from '@/lib/audience/filter';
+import { AdDetailDrawer } from './ad-detail-drawer';
 
 export interface AdRow {
   id: string;
@@ -61,9 +62,11 @@ export interface AdsTableProps {
   canManage: boolean;
   /** Agents and above may save a retargeting segment. */
   canSegment: boolean;
+  /** The connected ad account, for the drawer's "Open in Ads Manager" link. */
+  adAccountId?: string | null;
 }
 
-export function AdsTable({ canManage, canSegment }: AdsTableProps) {
+export function AdsTable({ canManage, canSegment, adAccountId }: AdsTableProps) {
   const t = useTranslations('Ads.table');
   const tAds = useTranslations('Ads');
   const [level, setLevel] = useState<Level>('campaign');
@@ -74,6 +77,7 @@ export function AdsTable({ canManage, canSegment }: AdsTableProps) {
   const [failed, setFailed] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [retarget, setRetarget] = useState<AudienceCondition[] | null>(null);
+  const [opened, setOpened] = useState<AdRow | null>(null);
 
   const load = useCallback(async () => {
     setFailed(false);
@@ -170,7 +174,15 @@ export function AdsTable({ canManage, canSegment }: AdsTableProps) {
               {rows.map((row) => (
                 <tr key={row.id} className="border-t border-border/70 transition-colors duration-150 hover:bg-muted/60">
                   <td className="px-3.5 py-3">
-                    <div className="font-semibold text-foreground">{row.name ?? row.id}</div>
+                    {/* Opens the detail drawer: KPIs and the last 14 days. */}
+                    <button
+                      type="button"
+                      onClick={() => setOpened(row)}
+                      aria-label={t('openDetails', { name: row.name ?? row.id })}
+                      className="rounded-sm text-left font-semibold text-foreground outline-none transition-colors duration-150 hover:text-primary focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                      {row.name ?? row.id}
+                    </button>
                     <div className="text-xs text-muted-foreground">{row.id}</div>
                   </td>
                   <td className="px-3.5 py-3 text-muted-foreground">{row.status ?? '-'}</td>
@@ -198,6 +210,8 @@ export function AdsTable({ canManage, canSegment }: AdsTableProps) {
           </table>
         </div>
       )}
+
+      <AdDetailDrawer row={opened} level={level} adAccountId={adAccountId} onClose={() => setOpened(null)} />
 
       <SegmentBuilderDialog
         open={retarget !== null}
