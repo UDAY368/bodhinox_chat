@@ -230,6 +230,10 @@ const FLOW_TRIGGER_CHANNELS = {
   ig_ref: ['instagram'],
   // Stage 4: only while INSTAGRAM_SHARE_TO_STORY_ENABLED is on (the picker hides it and the webhook path ignores it while off; this map is pure and a flag-off flow is stored but never fires).
   ig_share_to_story: ['instagram'],
+  // The automation list's triggers: a new contact's first message, a tag added, a message after hours.
+  contact_created: ['whatsapp', 'instagram'],
+  tag_added: ['whatsapp', 'instagram'],
+  outside_hours: ['whatsapp', 'instagram'],
 } as const satisfies Record<TriggerType, readonly Channel[]>;
 
 const triggersOn = (channel: Channel): readonly TriggerType[] =>

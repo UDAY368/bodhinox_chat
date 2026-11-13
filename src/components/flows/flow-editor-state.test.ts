@@ -221,8 +221,9 @@ describe("channel palettes (Stage 1)", () => {
     const whatsappSteps = ADD_NODE_TYPES.filter((type) => !(INSTAGRAM_ONLY_NODE_TYPES as readonly string[]).includes(type));
     expect(nodeTypesForScope("whatsapp")).toEqual(whatsappSteps);
     expect(nodeTypesForScope(undefined)).toEqual(whatsappSteps);
-    expect(triggerTypesForScope("whatsapp")).toEqual(["keyword", "template_reply", "first_inbound_message", "order_received", "ad_click",
-      "default_reply", "manual"]);
+    // The automation list's event triggers sit after first_inbound_message.
+    expect(triggerTypesForScope("whatsapp")).toEqual(["keyword", "template_reply", "first_inbound_message", "contact_created", "tag_added",
+      "outside_hours", "order_received", "ad_click", "default_reply", "manual"]);
   });
 
   it("offers an Instagram flow only what Instagram runs", () => {
@@ -234,14 +235,16 @@ describe("channel palettes (Stage 1)", () => {
     for (const instagramOnly of INSTAGRAM_ONLY_NODE_TYPES) expect(steps).toContain(instagramOnly);
     // Stage 3: Live comments, ref links and click-to-Direct ads (ad_click).
     expect(triggerTypesForScope("instagram")).toEqual(["keyword", "ig_comment", "ig_live_comment", "ig_story_reply", "ig_story_mention",
-      "ig_ref", "first_inbound_message", "ad_click", "default_reply", "manual", "ig_share_to_story"]);
+      "ig_ref", "first_inbound_message", "contact_created", "tag_added", "outside_hours", "ad_click", "default_reply", "manual",
+      "ig_share_to_story"]);
   });
 
   it("offers a legacy flow on both channels only what both run", () => {
     const instagram = nodeTypesForScope("instagram");
     expect(nodeTypesForScope("any")).toEqual(nodeTypesForScope("whatsapp").filter((type) => instagram.includes(type)));
     for (const instagramOnly of INSTAGRAM_ONLY_NODE_TYPES) expect(nodeTypesForScope("any")).not.toContain(instagramOnly);
-    expect(triggerTypesForScope("any")).toEqual(["keyword", "first_inbound_message", "ad_click", "default_reply", "manual"]);
+    expect(triggerTypesForScope("any")).toEqual(["keyword", "first_inbound_message", "contact_created", "tag_added", "outside_hours",
+      "ad_click", "default_reply", "manual"]);
   });
 
   it("makes an added private reply the first step, continuing to the old entry", () => {

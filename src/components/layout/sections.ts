@@ -40,9 +40,10 @@ export function buildSections(enabled: readonly Channel[] | null | undefined): S
     { id: 'contacts', href: '/contacts', labelKey: 'contacts', tabs: [] },
     {
       id: 'automation', href: '/automation', labelKey: 'automation',
+      // Flows, rules and sequences share one list at /automation (All / Flows / Rules / Sequences);
+      // the per-channel rule pages keep their URLs and open from that list.
       tabs: [
         { href: '/automation', labelKey: 'automation' },
-        ...channels.map((channel) => ({ href: channelPath(channel, 'automations'), labelKey: 'rules', channel })),
         ...(channels.includes('instagram') ? [{ href: channelPath('instagram', 'home'), labelKey: 'instagramTools' }] : []),
       ],
     },
@@ -101,6 +102,10 @@ export function sectionFor(pathname: string, sections: readonly Section[]): Sect
 export function activeTab(pathname: string, section: Section): SectionTab | null {
   const matching = section.tabs.filter((tab) => under(pathname, tab.href));
   if (matching.length) return matching.sort((a, b) => b.href.length - a.href.length)[0];
+  // Rules, sequences and the Instagram automation rail open from the one Automation list.
+  if (/^\/(whatsapp|instagram)\/automations(\/|$)/.test(pathname) || /^\/instagram\/(sequences|basics)(\/|$)/.test(pathname)) {
+    return section.tabs.find((tab) => tab.href === '/automation') ?? null;
+  }
   // Instagram tools other than its home page sit under the Instagram tools tab.
   if (/^\/instagram(\/|$)/.test(pathname) && !/^\/instagram\/(automations|inbox)(\/|$)/.test(pathname)) {
     return section.tabs.find((tab) => tab.labelKey === 'instagramTools') ?? null;

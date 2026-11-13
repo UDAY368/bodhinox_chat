@@ -2824,7 +2824,10 @@
       "unifiedDescription": "Todas las automatizaciones de WhatsApp e Instagram en un solo lugar. Elige el canal al crear una.",
       "channelFilterLabel": "Canal",
       "allChannels": "Todos los canales",
-      "chooseChannel": "Canal de la nueva automatización"
+      "chooseChannel": "Canal de la nueva automatización",
+      "triggerContactCreated": "Se activa con: el primer mensaje de un contacto nuevo",
+      "triggerTagAdded": "Se activa con: se agrega una etiqueta",
+      "triggerOutsideHours": "Se activa con: un mensaje fuera del horario laboral"
     },
     "edit": {
       "notFound": "Flujo no encontrado.",
@@ -2872,7 +2875,16 @@
         "unconnectedHint": "Ningún paso lleva a estos, así que nunca se ejecutan. Conéctalos desde otro paso o elimínalos.",
         "phoneTitle": "Lo que ve el cliente",
         "phonePick": "Elige un paso para verlo como lo verá el cliente.",
-        "phoneNothing": "Este paso no envía nada visible para el cliente. Funciona en segundo plano."
+        "phoneNothing": "Este paso no envía nada visible para el cliente. Funciona en segundo plano.",
+        "whenCaption": "Cuando…",
+        "thenCaption": "Entonces… ({count})",
+        "stepOf": "Paso {index} de {total}",
+        "stepTools": "Herramientas de {step}",
+        "moveUp": "Subir",
+        "moveDown": "Bajar",
+        "cantMove": "Solo se puede mover un paso que está en línea recta. Cambia sus enlaces para reordenar una rama.",
+        "duplicateStep": "Duplicar paso",
+        "stepDuplicated": "Paso duplicado. Deshacer elimina la copia."
       },
       "triggerTitle": "Disparador",
       "whenLabel": "Cuando…",
@@ -3497,7 +3509,10 @@
         "characters": "{count, plural, =1 {# carácter} other {# caracteres}}",
         "charactersLeft": "{count, plural, =1 {Queda # carácter} other {Quedan # caracteres}}",
         "bytesLeft": "{count, plural, =1 {Queda # byte} other {Quedan # bytes}}"
-      }
+      },
+      "triggerContactCreatedTitle": "Se crea un contacto nuevo",
+      "triggerTagAddedTitle": "Se agrega una etiqueta",
+      "triggerOutsideHoursTitle": "Mensaje fuera del horario laboral"
     },
     "validation": {
       "noIssues": "Sin problemas. Listo para activar.",
@@ -3901,6 +3916,22 @@
         "needsAi": "Activa la IA en este espacio de trabajo para coincidir por significado.",
         "tooLong": "Usa hasta 300 caracteres.",
         "required": "Describe el significado que debe reconocer."
+      },
+      "contactCreated": {
+        "help": "Empieza con el primer mensaje de alguien que aún no era contacto."
+      },
+      "tagAdded": {
+        "help": "Empieza cuando se agrega esta etiqueta a un contacto, ya sea una persona, una regla, un flujo o la API.",
+        "tag": "Etiqueta",
+        "pick": "Elige una etiqueta",
+        "none": "Aún no hay etiquetas. Crea una en Configuración › Campos y etiquetas.",
+        "loading": "Cargando etiquetas…",
+        "missing": "Una etiqueta que se eliminó",
+        "conversationNote": "Se ejecuta en la conversación donde se agregó la etiqueta, o en la conversación más reciente del contacto. Un contacto sin conversación se omite."
+      },
+      "outsideHours": {
+        "help": "Empieza cuando llega un mensaje fuera de tu <link>horario laboral</link>.",
+        "noHours": "Si no hay horario laboral configurado, nunca empieza."
       }
     },
     "nodes": {
@@ -4296,7 +4327,10 @@
         "ig_story_mention": "Mención en historia",
         "ig_live_comment": "Comentario en directo",
         "ig_ref": "Enlace ref",
-        "ig_share_to_story": "Compartir en historia"
+        "ig_share_to_story": "Compartir en historia",
+        "contact_created": "Contacto nuevo",
+        "tag_added": "Etiqueta agregada",
+        "outside_hours": "Fuera de horario"
       }
     },
     "canvas": {
@@ -7736,7 +7770,9 @@
       "storefrontNeedsNext": "Conecta el paso que sigue cuando se envía el enlace.",
       "capabilityUnavailable": "El paso \"{key}\" necesita {capability}, que este espacio de trabajo aún no ha configurado.",
       "crossFlowLoop": "Los pasos Conectar flujo forman un bucle sin respuesta del cliente: {flows}.",
-      "stage5Pending": "Este paso o ajuste aún no está disponible. Quítalo para publicar el flujo."
+      "stage5Pending": "Este paso o ajuste aún no está disponible. Quítalo para publicar el flujo.",
+      "triggerTagRequired": "Elige la etiqueta que inicia este flujo.",
+      "triggerBadFrequency": "Elige con qué frecuencia puede empezar para una misma persona."
     },
     "automations": {
       "needsStep": "las automatizaciones activas necesitan al menos un paso",
@@ -14151,6 +14187,76 @@
       "loadFailed": "No se pudo cargar esta configuración.",
       "retry": "Reintentar",
       "loading": "Cargando"
+    }
+  },
+  "AutomationList": {
+    "description": "Flujos, reglas y secuencias para WhatsApp e Instagram en un solo lugar.",
+    "kindFilterLabel": "Tipo de automatización",
+    "tabs": {
+      "flow": "Flujos",
+      "rule": "Reglas",
+      "sequence": "Secuencias"
+    },
+    "kinds": {
+      "flow": "Flujo",
+      "rule": "Regla",
+      "sequence": "Secuencia"
+    },
+    "anyStatus": "Cualquier estado",
+    "searchPlaceholder": "Buscar automatizaciones",
+    "noMatches": "No hay coincidencias. Prueba otra búsqueda o borra los filtros.",
+    "clearFilters": "Borrar filtros",
+    "typeColumn": "Tipo",
+    "startsWhen": "Empieza cuando",
+    "liveColumn": "Activa",
+    "liveLabel": "{name} activa",
+    "liveOn": "“{name}” está activa",
+    "liveOff": "“{name}” está detenida. Nadie nuevo la inicia.",
+    "hasProblems": "“{name}” tiene {count, plural, one {# problema} other {# problemas}}. Ábrela para corregirlo.",
+    "openToFix": "Abrir",
+    "liveError": "No se pudo cambiar. Inténtalo de nuevo.",
+    "working": "Guardando…",
+    "archivedNoSwitch": "Restáurala primero para activarla.",
+    "subscribers": "Suscriptores",
+    "sequenceStarts": "{count, plural, =0 {Aún no hay mensajes} one {# mensaje a lo largo de días} other {# mensajes a lo largo de días}}",
+    "logs": "Ver registros",
+    "createRuleError": "No se pudo crear la regla.",
+    "duplicateRuleError": "No se pudo duplicar la regla.",
+    "deleteError": "No se pudo eliminar.",
+    "ruleDeleted": "Regla eliminada.",
+    "sequenceArchived": "Secuencia archivada. Sus suscriptores dejan de recibir mensajes.",
+    "deleteRuleHint": "La regla y sus pasos se eliminan. No se puede deshacer.",
+    "deleteSequenceHint": "La secuencia se archiva y {count, plural, one {# suscriptor deja} other {# suscriptores dejan}} de recibir mensajes.",
+    "rename": {
+      "action": "Cambiar nombre",
+      "title": "Cambiar nombre de la automatización",
+      "name": "Nombre",
+      "required": "Ponle un nombre.",
+      "cancel": "Cancelar",
+      "save": "Guardar",
+      "error": "No se pudo cambiar el nombre.",
+      "done": "Nombre cambiado"
+    },
+    "dialog": {
+      "scratch": "Empezar desde cero",
+      "scratchHint": "Elige un tipo y un canal, y créala a tu manera.",
+      "scratchTitle": "Empezar desde cero",
+      "scratchDesc": "Ponle nombre, elige qué tipo de automatización es y dónde se ejecuta.",
+      "backToTemplates": "Plantillas",
+      "name": "Nombre",
+      "nameRequired": "Ponle un nombre.",
+      "type": "Tipo",
+      "channel": "Canal",
+      "hints": {
+        "flow": "Una conversación con mensajes, preguntas y botones.",
+        "rule": "Cuando pasa algo, haz algo. No hace falta una conversación.",
+        "sequence": "Mensajes repartidos a lo largo de horas o días."
+      },
+      "sequenceInstagramOnly": "Las secuencias funcionan en Instagram.",
+      "createRule": "Crear regla en blanco",
+      "createSequence": "Crear secuencia",
+      "templateKind": "{kind} · {channel}",
+      "flowTemplates": "Plantillas de flujos"
     }
   }
 }

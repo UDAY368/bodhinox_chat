@@ -9,6 +9,8 @@ async function newBlankFlow(page: Page, name: string) {
   await page.goto('/flows');
   await page.getByRole('button', { name: 'New automation' }).first().click();
   const dialog = page.getByRole('dialog');
+  // Gallery first: "Start from scratch" opens the name, type and channel form.
+  await dialog.getByRole('button', { name: /Start from scratch/ }).click();
   await dialog.getByPlaceholder('e.g. Welcome menu').fill(name);
   await dialog.getByRole('button', { name: 'Create blank flow' }).click();
   await expect(page).toHaveURL(/\/flows\/[0-9a-f-]{36}/);
@@ -134,6 +136,8 @@ test('an Instagram flow starts on two triggers', async ({ page }) => {
   await page.goto('/instagram/flows');
   await page.getByRole('button', { name: 'New automation' }).first().click();
   const dialog = page.getByRole('dialog');
+  // Gallery first: "Start from scratch" opens the name, type and channel form.
+  await dialog.getByRole('button', { name: /Start from scratch/ }).click();
   await dialog.getByPlaceholder('e.g. Welcome menu').fill(`Two triggers ${fixtures().runId}`);
   await dialog.getByRole('button', { name: 'Create blank flow' }).click();
   await expect(page.getByTestId('when-card')).toBeVisible();

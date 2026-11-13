@@ -47,7 +47,13 @@ export function defaultTriggerConfig(type: FlowTriggerType): Config {
       return { keywords: [], match_mode: "contains" satisfies IgKeywordMode };
     case "ig_ref":
       return { refs: [] };
+    case "outside_hours":
+      // An away flow answers once a day per person, not every message of the night.
+      return { frequency: "once_per_24h" satisfies TriggerFrequency };
+    case "tag_added":
+      return { tag_id: "" };
     case "first_inbound_message":
+    case "contact_created":
     case "order_received":
     case "ad_click":
     case "manual":

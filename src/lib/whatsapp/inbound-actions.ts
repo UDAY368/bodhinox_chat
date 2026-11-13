@@ -215,6 +215,7 @@ async function processInstagramActions(db:Db,input:MessageInput,stage:Stage): Pr
       accountId:input.accountId,userId:input.userId,contactId:input.contactId,conversationId:input.conversationId,
       message,
       isFirstInboundMessage:input.isFirstInboundMessage,
+      isNewContact:input.wasContactCreated===true,
     }));
     const automations=flow?.consumed ? {replied:false as const,matched:false} : await respondWithInstagramAutomations(input,text,stage);
     const aiFallback=flow?.outcome==="ai_fallback"||automations.replied==="ai_fallback";
@@ -444,6 +445,7 @@ async function respondAutomatically(db:ReturnType<typeof createAdminClient>,inpu
       accountId:input.accountId,userId:input.userId,contactId:input.contactId,conversationId:input.conversationId,
       message,
       isFirstInboundMessage:input.isFirstInboundMessage,
+      isNewContact:input.wasContactCreated===true,
     }));
     const replied=flow.consumed ? false : await stage("reply_resume",()=>resumeAwaitingReply({
       accountId:input.accountId,contactId:input.contactId,channel:"whatsapp",reserveMenuTextForAi:input.contentType==="text",context:{message_text:text,conversation_id:input.conversationId,interactive_reply_id:input.interactiveReplyId??undefined},

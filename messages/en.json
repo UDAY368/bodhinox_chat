@@ -2824,7 +2824,10 @@
       "unifiedDescription": "Every automation for WhatsApp and Instagram in one place. Pick the channel when you create one.",
       "channelFilterLabel": "Channel",
       "allChannels": "All channels",
-      "chooseChannel": "Channel for the new automation"
+      "chooseChannel": "Channel for the new automation",
+      "triggerContactCreated": "Triggers on: a new contact's first message",
+      "triggerTagAdded": "Triggers on: a tag is added",
+      "triggerOutsideHours": "Triggers on: a message outside working hours"
     },
     "edit": {
       "notFound": "Flow not found.",
@@ -2872,7 +2875,16 @@
         "unconnectedHint": "Nothing leads to these steps, so they never run. Connect them from another step or delete them.",
         "phoneTitle": "What the customer sees",
         "phonePick": "Pick a step to see it as the customer will.",
-        "phoneNothing": "This step sends nothing the customer sees. It works behind the scenes."
+        "phoneNothing": "This step sends nothing the customer sees. It works behind the scenes.",
+        "whenCaption": "When…",
+        "thenCaption": "Then… ({count})",
+        "stepOf": "Step {index} of {total}",
+        "stepTools": "Tools for {step}",
+        "moveUp": "Move up",
+        "moveDown": "Move down",
+        "cantMove": "Only a step in a straight line can move. Change its links to reorder a branch.",
+        "duplicateStep": "Duplicate step",
+        "stepDuplicated": "Step duplicated. Undo removes the copy."
       },
       "triggerTitle": "Trigger",
       "whenLabel": "When…",
@@ -3497,7 +3509,10 @@
         "characters": "{count, plural, =1 {# character} other {# characters}}",
         "charactersLeft": "{count, plural, =1 {# character left} other {# characters left}}",
         "bytesLeft": "{count, plural, =1 {# byte left} other {# bytes left}}"
-      }
+      },
+      "triggerContactCreatedTitle": "New contact is created",
+      "triggerTagAddedTitle": "Tag is added",
+      "triggerOutsideHoursTitle": "Message outside working hours"
     },
     "validation": {
       "noIssues": "No issues. Ready to activate.",
@@ -3901,6 +3916,22 @@
         "needsAi": "Turn on AI for this workspace to match by meaning.",
         "tooLong": "Use up to 300 characters.",
         "required": "Describe the meaning to match."
+      },
+      "contactCreated": {
+        "help": "Starts on the first message from someone who was not a contact yet."
+      },
+      "tagAdded": {
+        "help": "Starts when this tag is added to a contact, by a person, a rule, a flow or the API.",
+        "tag": "Tag",
+        "pick": "Choose a tag",
+        "none": "No tags yet. Create one under Settings › Fields & tags.",
+        "loading": "Loading tags…",
+        "missing": "A tag that was deleted",
+        "conversationNote": "It runs in the conversation the tag was added in, or the contact's latest conversation. A contact with no conversation is skipped."
+      },
+      "outsideHours": {
+        "help": "Starts when a message arrives outside your <link>working hours</link>.",
+        "noHours": "With no working hours set, it never starts."
       }
     },
     "nodes": {
@@ -4296,7 +4327,10 @@
         "ig_story_mention": "Story mention",
         "ig_live_comment": "Live comment",
         "ig_ref": "Ref link",
-        "ig_share_to_story": "Share to story"
+        "ig_share_to_story": "Share to story",
+        "contact_created": "New contact",
+        "tag_added": "Tag added",
+        "outside_hours": "Outside hours"
       }
     },
     "canvas": {
@@ -7736,7 +7770,9 @@
       "storefrontNeedsNext": "Connect the step that follows once the link is sent.",
       "capabilityUnavailable": "Step \"{key}\" needs {capability}, which this workspace has not set up yet.",
       "crossFlowLoop": "Connect Flow steps form a loop with no customer reply in between: {flows}.",
-      "stage5Pending": "This step or setting is not available yet. Remove it to publish the flow."
+      "stage5Pending": "This step or setting is not available yet. Remove it to publish the flow.",
+      "triggerTagRequired": "Choose the tag that starts this flow.",
+      "triggerBadFrequency": "Choose how often this can start for one person."
     },
     "automations": {
       "needsStep": "active automations need at least one step",
@@ -14151,6 +14187,76 @@
       "loadFailed": "Could not load these settings.",
       "retry": "Try again",
       "loading": "Loading"
+    }
+  },
+  "AutomationList": {
+    "description": "Flows, rules and sequences for WhatsApp and Instagram in one place.",
+    "kindFilterLabel": "Type of automation",
+    "tabs": {
+      "flow": "Flows",
+      "rule": "Rules",
+      "sequence": "Sequences"
+    },
+    "kinds": {
+      "flow": "Flow",
+      "rule": "Rule",
+      "sequence": "Sequence"
+    },
+    "anyStatus": "Any status",
+    "searchPlaceholder": "Search automations",
+    "noMatches": "Nothing matches. Try another search or clear the filters.",
+    "clearFilters": "Clear filters",
+    "typeColumn": "Type",
+    "startsWhen": "Starts when",
+    "liveColumn": "Live",
+    "liveLabel": "{name} live",
+    "liveOn": "“{name}” is live",
+    "liveOff": "“{name}” is stopped. Nobody new starts it.",
+    "hasProblems": "“{name}” has {count, plural, one {# problem} other {# problems}}. Open it to fix.",
+    "openToFix": "Open",
+    "liveError": "Couldn't change it. Try again.",
+    "working": "Saving…",
+    "archivedNoSwitch": "Restore it first to turn it on.",
+    "subscribers": "Subscribers",
+    "sequenceStarts": "{count, plural, =0 {No messages yet} one {# message over days} other {# messages over days}}",
+    "logs": "View logs",
+    "createRuleError": "Couldn't create the rule.",
+    "duplicateRuleError": "Couldn't duplicate the rule.",
+    "deleteError": "Couldn't delete it.",
+    "ruleDeleted": "Rule deleted.",
+    "sequenceArchived": "Sequence archived. Its subscribers stop getting messages.",
+    "deleteRuleHint": "The rule and its steps are deleted. This cannot be undone.",
+    "deleteSequenceHint": "The sequence is archived and its {count, plural, one {# subscriber stops} other {# subscribers stop}} getting messages.",
+    "rename": {
+      "action": "Rename",
+      "title": "Rename automation",
+      "name": "Name",
+      "required": "Give it a name.",
+      "cancel": "Cancel",
+      "save": "Save",
+      "error": "Couldn't rename it.",
+      "done": "Renamed"
+    },
+    "dialog": {
+      "scratch": "Start from scratch",
+      "scratchHint": "Pick a type and channel, then build it your way.",
+      "scratchTitle": "Start from scratch",
+      "scratchDesc": "Name it, choose what kind of automation it is and where it runs.",
+      "backToTemplates": "Templates",
+      "name": "Name",
+      "nameRequired": "Give it a name.",
+      "type": "Type",
+      "channel": "Channel",
+      "hints": {
+        "flow": "A conversation with messages, questions and buttons.",
+        "rule": "When something happens, do something. No conversation needed.",
+        "sequence": "Messages spaced out over hours or days."
+      },
+      "sequenceInstagramOnly": "Sequences run on Instagram.",
+      "createRule": "Create blank rule",
+      "createSequence": "Create sequence",
+      "templateKind": "{kind} · {channel}",
+      "flowTemplates": "Flow templates"
     }
   }
 }

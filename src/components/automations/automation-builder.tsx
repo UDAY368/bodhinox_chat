@@ -85,6 +85,7 @@ import { cn } from '@/lib/utils';
 import type { ScheduledAudience } from '@/lib/automations/scheduled-contract';
 import { automationStepsFor, automationTriggersFor } from '@/lib/channels/capabilities';
 import { channelPath } from '@/lib/channels/routes';
+import { RulePhonePreview } from './rule-phone-preview';
 
 // ------------------------------------------------------------
 // Types (builder-local — mirror the flattened rows we POST)
@@ -842,6 +843,7 @@ export function AutomationBuilder({
   const t = useTranslations('Automations.builder');
   const tSection = useTranslations('Automations.channelSection');
   const tChannels = useTranslations('Channels.names');
+  const tBasic = useTranslations('Flows.builder.basic');
   const isEditing = !!initial.id;
   const [state, setState] = useState<BuilderInitial>(initial);
   const [saving, setSaving] = useState(false);
@@ -947,7 +949,8 @@ export function AutomationBuilder({
       <header className="border-border bg-card flex flex-shrink-0 items-center gap-2 border-b px-3 py-2.5 sm:gap-3 sm:px-4">
         <button
           type="button"
-          onClick={() => router.push(channelPath(channel, 'automations'))}
+          // Back to the one Automation list, on its Rules tab.
+          onClick={() => router.push(`/automation?kind=rule&channel=${channel}`)}
           className="text-muted-foreground hover:bg-muted hover:text-foreground flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full transition-colors duration-150"
           aria-label={t('backToAutomations')}
         >
@@ -984,8 +987,9 @@ export function AutomationBuilder({
         </Button>
       </header>
 
-      {/* Canvas */}
-      <div className="relative flex-1 overflow-y-auto">
+      {/* Canvas, with the rule in a phone beside it on wide screens (as the flow editor). */}
+      <div className="flex min-h-0 flex-1">
+      <div className="relative min-w-0 flex-1 overflow-y-auto">
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle,var(--border)_1px,transparent_1px)] [background-size:20px_20px]" />
         <div className="relative mx-auto flex max-w-2xl flex-col items-center gap-0 px-4 py-10">
           {channel === 'instagram' && (
@@ -995,6 +999,7 @@ export function AutomationBuilder({
           )}
           <BuilderChannelContext.Provider value={channel}>
           <ResourcesProvider>
+            <p className="text-muted-foreground mb-2 w-full max-w-[320px] text-[11px] font-semibold tracking-wider uppercase sm:w-80">{tBasic('whenCaption')}</p>
             <TriggerCard
               type={state.trigger_type}
               config={state.trigger_config}
@@ -1002,6 +1007,9 @@ export function AutomationBuilder({
               onConfigChange={(c) => patchTop('trigger_config', c)}
               t={t}
             />
+            <p className="text-muted-foreground mt-4 w-full max-w-[320px] text-[11px] font-semibold tracking-wider uppercase sm:w-80">
+              {tBasic('thenCaption', { count: state.steps.length })}
+            </p>
             <StepList
               steps={state.steps}
               basePath={[]}
@@ -1016,6 +1024,8 @@ export function AutomationBuilder({
           </ResourcesProvider>
           </BuilderChannelContext.Provider>
         </div>
+      </div>
+      <RulePhonePreview steps={state.steps} channel={channel} />
       </div>
     </div>
   );
