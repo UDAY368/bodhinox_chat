@@ -5,7 +5,14 @@ const mocks = vi.hoisted(() => ({
   get: vi.fn(),
   save: vi.fn(),
   rate: vi.fn(() => ({ success: true })),
+  member: vi.fn(),
+  writeQuiet: vi.fn(),
 }));
+vi.mock('@/lib/settings/member-preferences', () => ({
+  getMemberPreferences: mocks.member,
+  writeQuietHours: mocks.writeQuiet,
+}));
+vi.mock('@/lib/notifications/web-push', () => ({ webPushAvailable: () => false }));
 vi.mock('@/lib/auth/account', () => ({
   getCurrentAccount: mocks.getCurrentAccount,
   toErrorResponse: (error: { status?: number }) => Response.json({ error: 'Denied' }, { status: error.status ?? 500 }),
@@ -32,12 +39,14 @@ beforeEach(() => {
   mocks.get.mockResolvedValue(prefs);
   mocks.save.mockResolvedValue(prefs);
   mocks.rate.mockReturnValue({ success: true });
+  mocks.member.mockResolvedValue({ language: null, quiet_hours: { enabled: true, start: 1320, end: 420, time_zone: 'Asia/Kolkata', allow_mentions: true } });
 });
+const QUIET_VIEW = { enabled: true, start: '22:00', end: '07:00', time_zone: 'Asia/Kolkata', allow_mentions: true };
 const put = (body: unknown) => new Request('http://local.test/api/notifications/preferences', { method: 'PUT', body: JSON.stringify(body) });
 
 it('returns the caller’s own preferences, privately, with email availability', async () => {
   const response = await GET();
-  expect(await response.json()).toEqual({ preferences: prefs, email_available: false });
+  expect(await response.json()).toEqual({ preferences: prefs, email_available: false, push_available: false, quiet_hours: QUIET_VIEW });
   expect(response.headers.get('Cache-Control')).toContain('private');
   expect(mocks.get).toHaveBeenCalledWith({ accountId: 'tenant-a', userId: 'user-a', role: 'viewer' });
 });
@@ -48,7 +57,28 @@ it('lets any member save their own preferences, scoped to the session identity',
   expect(mocks.save).toHaveBeenCalledWith(
     { accountId: 'tenant-a', userId: 'user-a', role: 'viewer' },
     [{ event: 'mention', in_app: false, email: true }],
+    undefined,
   );
+});
+
+it('saves quiet hours in the same transaction as the preferences, for the session member only', async () => {
+  const tx = {};
+  mocks.save.mockImplementation(async (_ctx: unknown, _updates: unknown, extra?: (t: unknown) => Promise<void>) => { await extra?.(tx); return prefs; });
+  const response = await PUT(put({ preferences: prefs, quiet_hours: { enabled: true, start: '22:30', end: '06:00', time_zone: 'Asia/Kolkata', allow_mentions: false } }));
+  expect(response.status).toBe(200);
+  expect(mocks.writeQuiet).toHaveBeenCalledWith(tx, 'tenant-a', 'user-a',
+    { enabled: true, start: 1350, end: 360, time_zone: 'Asia/Kolkata', allow_mentions: false });
+});
+
+it.each([
+  { enabled: true, start: '22:00', end: '22:00', time_zone: 'UTC', allow_mentions: true },
+  { enabled: true, start: '25:00', end: '07:00', time_zone: 'UTC', allow_mentions: true },
+  { enabled: true, start: '22:00', end: '07:00', time_zone: 'Not/AZone', allow_mentions: true },
+  { enabled: true, start: '22:00', end: '07:00', time_zone: 'UTC', allow_mentions: true, user_id: 'other' },
+])('rejects invalid quiet hours %j without writing', async (quiet_hours) => {
+  const response = await PUT(put({ preferences: prefs, quiet_hours }));
+  expect(response.status).toBe(400);
+  expect(mocks.save).not.toHaveBeenCalled();
 });
 
 it('rejects an invalid body without writing', async () => {

@@ -7,7 +7,7 @@ const alice = '22222222-2222-4222-8222-222222222222';
 const bob = '33333333-3333-4333-8333-333333333333';
 const carol = '44444444-4444-4444-8444-444444444444';
 
-type Pref = { user_id: string; in_app: boolean; email: boolean };
+type Pref = { user_id: string; in_app: boolean; email: boolean; push?: boolean };
 function fakeTx(prefs: Pref[], { duplicate = false } = {}) {
   const queries: unknown[][] = [];
   const writes: { sql: string; values: unknown[] }[] = [];
@@ -59,6 +59,19 @@ describe('createNotification', () => {
     const result = await createNotification(tx, { ...base, userIds: [bob], dedupeKey: 'note:1' });
     expect(result).toEqual({ inApp: [], emailQueued: [] });
     expect(writes).toHaveLength(1);
+  });
+
+  it('queues a payload-free push entry only for members who turned push on', async () => {
+    const { tx, writes } = fakeTx([
+      { user_id: bob, in_app: true, email: false, push: true } as Pref,
+      { user_id: carol, in_app: true, email: false } as Pref,
+    ]);
+    await createNotification(tx, { ...base, userIds: [bob, carol], dedupeKey: 'note:2' });
+    const pushes = writes.filter((w) => w.sql.includes('notification_push_queue'));
+    expect(pushes).toHaveLength(1);
+    expect(pushes[0].values).toContain(bob);
+    expect(pushes[0].values).not.toContain(base.title);
+    expect(pushes[0].values).toContain('note:2');
   });
 
   it('does nothing without recipients', async () => {

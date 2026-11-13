@@ -369,6 +369,10 @@ describe('fixed CRM resource authorization', () => {
       'workspace_inbox_settings',
       'away_message_sends',
       'quick_reply_favourites',
+      // Settings redesign: own quiet hours and language, browser push devices and queue.
+      'member_preferences',
+      'push_subscriptions',
+      'notification_push_queue',
     ]) {
       expect(() => getResource(table, true)).toThrow();
       expect(() => getResource(table)).toThrow();

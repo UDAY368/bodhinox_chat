@@ -45,7 +45,7 @@ export const NOTIFICATION_TYPE_BY_EVENT: Record<NotificationEvent, string> = {
   webhook_disabled: 'webhook_disabled',
 };
 
-export const DEFAULT_NOTIFICATION_PREFERENCE = { in_app: true, email: false } as const;
+export const DEFAULT_NOTIFICATION_PREFERENCE = { in_app: true, email: false, push: false } as const;
 export const MAX_NOTIFICATION_RECIPIENTS = 200;
 
 export interface CreateNotificationInput {
@@ -108,10 +108,11 @@ export async function createNotification(
   const result: CreateNotificationResult = { inApp: [], emailQueued: [] };
   if (!userIds.length) return result;
 
-  const recipients = await tx.$queryRaw<{ user_id: string; in_app: boolean; email: boolean }[]>`
+  const recipients = await tx.$queryRaw<{ user_id: string; in_app: boolean; email: boolean; push?: boolean }[]>`
     SELECT m.user_id::text AS user_id,
       COALESCE(p.in_app, ${DEFAULT_NOTIFICATION_PREFERENCE.in_app}) AS in_app,
-      COALESCE(p.email, ${DEFAULT_NOTIFICATION_PREFERENCE.email}) AS email
+      COALESCE(p.email, ${DEFAULT_NOTIFICATION_PREFERENCE.email}) AS email,
+      COALESCE(p.push, ${DEFAULT_NOTIFICATION_PREFERENCE.push}) AS push
     FROM account_memberships m
     LEFT JOIN notification_preferences p
       ON p.account_id=m.account_id AND p.user_id=m.user_id AND p.event=${input.event}
@@ -143,6 +144,14 @@ export async function createNotification(
           ${title},${body},${link},${dedupeKey})
         ON CONFLICT DO NOTHING`;
       if (queued) result.emailQueued.push(recipient.user_id);
+    }
+    // Browser push: a payload-free wake-up sent by the worker (push-delivery.ts),
+    // which applies quiet hours at send time. Nothing here leaves the database.
+    if (recipient.push) {
+      await tx.$executeRaw`
+        INSERT INTO notification_push_queue(account_id,user_id,event,notification_id,dedupe_key)
+        VALUES(${input.accountId}::uuid,${recipient.user_id}::uuid,${input.event},${notificationId}::uuid,${dedupeKey})
+        ON CONFLICT DO NOTHING`;
     }
   }
   return result;
