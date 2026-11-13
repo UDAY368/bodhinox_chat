@@ -10,8 +10,8 @@
 //   3. the row becomes 'sent' (+ Meta's mid), 'failed' (Meta rejected it) or
 //      'unknown' (ambiguous outcome). An 'unknown' row is never retried or
 //      cleared automatically: staff check Instagram before resending.
-// Text, image, audio, video and PDF only; everything else is
-// channel_not_supported. Nothing from the message is logged.
+// Text, image, audio, video and PDF, and the workspace's saved card and button
+// templates (ig_template); everything else is channel_not_supported. Nothing from the message is logged.
 import type { TenantTransaction } from '@/lib/db/tenant';
 import { withTenant } from '@/lib/db/tenant';
 import { getWorkerPrisma } from '@/lib/db/prisma';
@@ -21,9 +21,13 @@ import { MetaApiError } from '@/lib/whatsapp/meta-api';
 import { providerMediaUrl } from '@/lib/storage/server';
 import {
   ChannelUnavailableError,
+  checkInstagramButtonTemplate,
+  checkInstagramCards,
   checkInstagramMedia,
   checkInstagramText,
   loadInstagramTarget,
+  sendInstagramButtonTemplate,
+  sendInstagramCards,
   sendInstagramMedia,
   sendInstagramText,
   type InstagramMedia,
@@ -31,6 +35,8 @@ import {
   type InstagramTarget,
 } from '@/lib/channels/sender';
 import { InstagramError } from './errors';
+import type { SentMessage } from './graph';
+import { InstagramTemplateError, readInstagramTemplate } from './message-templates';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -46,6 +52,8 @@ export interface InstagramComposerInput {
   contentText: unknown;
   mediaUrl: unknown;
   filename?: unknown;
+  /** messageType 'ig_template': a saved card or button template of this workspace. */
+  templateId?: unknown;
 }
 
 export interface InstagramComposerResult {
@@ -132,37 +140,106 @@ async function settle(accountId: string, messageId: string, status: 'sent' | 'fa
     WHERE account_id=${accountId}::uuid AND id=${messageId}::uuid AND status='sending'`);
 }
 
+/** What one composer send stores and delivers, once the target is known. */
+interface Plan {
+  row: { contentType: string; text: string | null; mediaUrl: string | null; payload: Record<string, unknown> | null };
+  deliver: (target: InstagramTarget) => Promise<SentMessage>;
+  preview: string;
+}
+
+/**
+ * A saved card or button template of this workspace, read inside the send's
+ * own tenant transaction and checked against the window and Instagram's limits
+ * again (the stored row is never trusted). Stored like a flow's cards/buttons.
+ */
+async function templatePlan(tx: TenantTransaction, accountId: string, templateId: unknown, target: InstagramTarget,
+  ctx: InstagramSendContext): Promise<Plan> {
+  if (typeof templateId !== 'string') throw new InstagramError('invalid_request');
+  let template;
+  try {
+    template = await readInstagramTemplate(tx, accountId, templateId);
+  } catch (error) {
+    if (error instanceof InstagramTemplateError) throw new InstagramError('invalid_request');
+    throw error;
+  }
+  const ig = { template_id: template.id, template_name: template.name };
+  if ('cards' in template.payload) {
+    const { cards } = template.payload;
+    checkInstagramCards(target, cards, ctx);
+    return {
+      row: {
+        contentType: 'interactive', text: cards[0]?.title ?? null, mediaUrl: null,
+        payload: {
+          kind: 'cards',
+          cards: cards.map((card) => ({ title: card.title, subtitle: card.subtitle ?? null, image_url: card.imageUrl ?? null,
+            buttons: (card.buttons ?? []).map((b) => ({ type: b.type, title: b.title })) })),
+          ig: { generic_template: true, ...ig },
+        },
+      },
+      deliver: (t) => sendInstagramCards(t, cards, ctx),
+      preview: cards[0]?.title ?? '[card]',
+    };
+  }
+  const { text, buttons } = template.payload;
+  checkInstagramButtonTemplate(target, text, buttons, ctx);
+  return {
+    row: {
+      contentType: 'interactive', text, mediaUrl: null,
+      payload: {
+        kind: 'buttons', body: text,
+        buttons: buttons.map((b) => (b.type === 'postback' ? { id: b.payload, title: b.title } : { url: b.url, title: b.title })),
+        ig: { button_template: true, ...ig },
+      },
+    },
+    deliver: (t) => sendInstagramButtonTemplate(t, text, buttons, ctx),
+    preview: text,
+  };
+}
+
 export async function sendInstagramFromComposer(input: InstagramComposerInput): Promise<InstagramComposerResult> {
   if (!UUID.test(input.accountId) || !UUID.test(input.conversationId) || !UUID.test(input.userId))
     throw new InstagramError('invalid_request');
-  const prepared = prepare(input);
+  const isTemplate = input.messageType === 'ig_template';
+  const prepared = isTemplate ? null : prepare(input);
   // Resolved before the transaction (a signed URL lasts 15 minutes; the send follows within seconds).
   // The row keeps the app link; only Meta gets the signed one.
-  const sendable: Prepared = prepared.kind === 'media'
-    ? { ...prepared, media: { type: prepared.media.type, url: await providerUrl(input.accountId, prepared.media.url) } }
-    : prepared;
+  const signedMedia = prepared?.kind === 'media'
+    ? { type: prepared.media.type, url: await providerUrl(input.accountId, prepared.media.url) }
+    : null;
   const ctx: InstagramSendContext = { sender: 'staff', now: new Date() };
 
-  const { target, messageId } = await tenant(input.accountId, async (tx) => {
+  const { target, messageId, plan } = await tenant(input.accountId, async (tx) => {
     const target: InstagramTarget = await loadInstagramTarget(tx, input.accountId, input.conversationId);
-    if (sendable.kind === 'text') checkInstagramText(target, sendable.text, ctx);
-    else checkInstagramMedia(target, sendable.media, ctx);
+    let plan: Plan;
+    if (!prepared) plan = await templatePlan(tx, input.accountId, input.templateId, target, ctx);
+    else if (prepared.kind === 'text') {
+      const text = prepared.text;
+      checkInstagramText(target, text, ctx);
+      plan = { row: { contentType: 'text', text, mediaUrl: null, payload: null }, deliver: (t) => sendInstagramText(t, text, ctx), preview: text };
+    } else {
+      const media = signedMedia!;
+      checkInstagramMedia(target, media, ctx);
+      plan = {
+        row: { contentType: input.messageType as string, text: prepared.caption, mediaUrl: prepared.media.url, payload: null },
+        deliver: (t) => sendInstagramMedia(t, media, ctx),
+        preview: `[${input.messageType as string}]`,
+      };
+    }
     // The agent stepping in: automated replies pause before the send, as on WhatsApp.
     // Stage 5: for the workspace's agent_reply_pause_minutes, or until resumed when unset.
     await pauseForAgentReply(tx, input.accountId, input.conversationId, input.userId);
-    const contentType = prepared.kind === 'text' ? 'text' : (input.messageType as string);
+    const payload = plan.row.payload ? JSON.stringify(plan.row.payload) : null;
     const [row] = await tx.$queryRaw<{ id: string }[]>`INSERT INTO messages(account_id,conversation_id,sender_type,sender_id,
-        content_type,content_text,media_url,status)
-      VALUES(${input.accountId}::uuid,${input.conversationId}::uuid,'agent',${input.userId}::uuid,${contentType},
-        ${prepared.kind === 'text' ? prepared.text : prepared.caption},${prepared.kind === 'media' ? prepared.media.url : null},'sending')
+        content_type,content_text,media_url,interactive_payload,status)
+      VALUES(${input.accountId}::uuid,${input.conversationId}::uuid,'agent',${input.userId}::uuid,${plan.row.contentType},
+        ${plan.row.text},${plan.row.mediaUrl},${payload}::jsonb,'sending')
       RETURNING id::text AS id`;
-    return { target, messageId: row.id };
+    return { target, messageId: row.id, plan };
   });
 
   let mid: string;
   try {
-    const sent = await dispatchOnce(input.accountId, `ig_send:${messageId}`, () =>
-      sendable.kind === 'text' ? sendInstagramText(target, sendable.text, ctx) : sendInstagramMedia(target, sendable.media, ctx));
+    const sent = await dispatchOnce(input.accountId, `ig_send:${messageId}`, () => plan.deliver(target));
     mid = sent.messageId;
   } catch (error) {
     if (error instanceof UncertainDispatchError) {
@@ -182,8 +259,7 @@ export async function sendInstagramFromComposer(input: InstagramComposerInput): 
       AND sender_type='agent' AND interactive_payload->'ig'->>'external_echo'='true'`;
     await tx.$executeRaw`UPDATE messages SET status='sent', message_id=${mid}
       WHERE account_id=${input.accountId}::uuid AND id=${messageId}::uuid AND status='sending'`;
-    const preview = prepared.kind === 'text' ? prepared.text : `[${input.messageType as string}]`;
-    await tx.$executeRaw`UPDATE conversations SET last_message_text=${preview}, last_message_at=now(), updated_at=now()
+    await tx.$executeRaw`UPDATE conversations SET last_message_text=${plan.preview}, last_message_at=now(), updated_at=now()
       WHERE account_id=${input.accountId}::uuid AND id=${input.conversationId}::uuid`;
     // The active flow run on this conversation yields to the agent, as on WhatsApp.
     await tx.$executeRaw`UPDATE flow_runs SET status='paused_by_agent', ended_at=now(), end_reason='agent_replied'

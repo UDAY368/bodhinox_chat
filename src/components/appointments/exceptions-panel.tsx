@@ -73,13 +73,13 @@ export function ExceptionsPanel({ config, canEdit }: { config: AppointmentConfig
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <h2 className="text-lg font-semibold">{t('exceptions.title')}</h2>
+        <h2 className="text-base font-semibold tracking-tight">{t('exceptions.title')}</h2>
         <select aria-label={t('sheet.location')} className={`${selectClass} ml-auto w-48`} value={locationId} onChange={(e) => setLocationId(e.target.value)}>
           {locations.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
         </select>
       </div>
       {rows && rows.length === 0 && <p className="text-sm text-muted-foreground">{t('exceptions.empty')}</p>}
-      <ul className="divide-y divide-border rounded-lg border border-border bg-card text-sm">
+      <ul className="divide-y divide-border rounded-xl border border-border bg-card text-sm">
         {(rows ?? []).map((e) => (
           <li key={e.id} className="flex flex-wrap items-center gap-2 p-3">
             <span className="font-medium">{formatDay(e.starts_on, locale)}{e.ends_on !== e.starts_on ? ` – ${formatDay(e.ends_on, locale)}` : ''}</span>
@@ -92,7 +92,7 @@ export function ExceptionsPanel({ config, canEdit }: { config: AppointmentConfig
         ))}
       </ul>
       {canEdit && (
-        <div className="grid gap-3 rounded-lg border border-border p-3 text-sm sm:grid-cols-2">
+        <div className="grid gap-3 rounded-xl border border-border p-3 text-sm sm:grid-cols-2">
           <div className="font-medium sm:col-span-2">{t('exceptions.add')}</div>
           <div className="space-y-1">
             <Label htmlFor="exc-scope">{t('exceptions.scope')}</Label>

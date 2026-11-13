@@ -16,7 +16,7 @@ import {
 } from "@/lib/themes";
 
 const inter = Inter({
-  variable: "--font-sans",
+  variable: "--font-inter",
   subsets: ["latin"],
 });
 

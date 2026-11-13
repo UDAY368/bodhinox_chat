@@ -20,6 +20,7 @@ import { useTranslations } from 'next-intl';
 import { Badge } from '@/components/ui/badge';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { cn } from '@/lib/utils';
 import { Switch } from '@/components/ui/switch';
 import { useCan } from '@/hooks/use-can';
 import { ChannelsSaveError, useWorkspaceChannels } from '@/hooks/use-workspace-channels';
@@ -79,11 +80,15 @@ export function ChannelsCard() {
             <Button type="button" variant="outline" size="sm" onClick={() => void refresh()}>{tGate('retry')}</Button>
           </div>
         )}
-        {data && CHANNELS.map((channel) => (
-          <ChannelRow key={channel} state={data.channels[channel]} block={switchBlock(data, channel)}
-            canEdit={canEdit} busy={saving !== null} saving={saving === channel}
-            onToggle={(on) => void toggle(channel, on)} />
-        ))}
+        {data && (
+          <div className="divide-border border-border divide-y overflow-hidden rounded-xl border">
+            {CHANNELS.map((channel) => (
+              <ChannelRow key={channel} state={data.channels[channel]} block={switchBlock(data, channel)}
+                canEdit={canEdit} busy={saving !== null} saving={saving === channel}
+                onToggle={(on) => void toggle(channel, on)} />
+            ))}
+          </div>
+        )}
         {data && !canEdit && <p className="text-muted-foreground text-xs">{t('adminOnly')}</p>}
       </CardContent>
     </Card>
@@ -112,15 +117,20 @@ function ChannelRow({ state, block, canEdit, busy, saving, onToggle }: {
     : null;
 
   return (
-    <div className="border-border flex flex-wrap items-center gap-3 rounded-lg border p-4" data-channel-row={state.channel}
+    <div className="flex min-h-14 flex-wrap items-center gap-3 px-4 py-3" data-channel-row={state.channel}
       data-channel-state={state.state}>
-      <span className="bg-primary-soft text-primary flex size-9 shrink-0 items-center justify-center rounded-lg">
+      {/* Channel marks are the one place brand colours (and the Instagram gradient) are allowed. */}
+      <span className={cn('flex size-9 shrink-0 items-center justify-center rounded-[10px] text-white',
+        state.channel === 'instagram'
+          ? 'bg-[linear-gradient(45deg,#f9a03f,#d6338a_55%,#7b3fe4)]'
+          : 'bg-[#1fa855]')}>
         <Icon className="size-4" aria-hidden="true" />
       </span>
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-foreground text-sm font-semibold">{name}</span>
-          <Badge variant={state.state === 'attention' ? 'destructive' : state.state === 'live' ? 'secondary' : 'outline'}>
+          <Badge variant={state.state === 'attention' ? 'destructive' : state.state === 'live' ? 'secondary' : 'outline'}
+            className={state.state === 'live' ? 'border-transparent bg-emerald-500/12 text-emerald-700 dark:text-emerald-300' : undefined}>
             {tStates(state.state)}
           </Badge>
         </div>

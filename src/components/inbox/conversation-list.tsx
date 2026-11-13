@@ -1,6 +1,11 @@
 'use client';
 
 import './inbox.css';
+import { avatarTone, initials } from '@/lib/ui/avatar-tone';
+import { SessionRail } from './session-rail';
+import { useMatchMedia } from '@/hooks/use-match-media';
+import { matchesConsentFilter, type ConsentFilter } from '@/lib/contacts/consent-view';
+import { contactHandle } from '@/lib/whatsapp/wa-identity';
 
 import { useRouter, useSearchParams } from 'next/navigation';
 import { inboxPath, inScope, type InboxScope } from '@/lib/inbox/inbox-scope';
@@ -25,6 +30,7 @@ import {
   useCallback,
   useMemo,
   useRef,
+  useSyncExternalStore,
   type ReactNode,
 } from 'react';
 import { createClient } from '@/lib/data/client';
@@ -39,13 +45,30 @@ import { matchesSessionFilter, type SessionFilter } from '@/lib/inbox/session';
 import { useSessionClock } from '@/hooks/use-session-clock';
 import { cn } from '@/lib/utils';
 import type { Conversation, Tag } from '@/types';
-import { Search, ChevronDown, X, Bot, Clock, AlertTriangle, Star } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import {
+  Search,
+  ChevronDown,
+  X,
+  Bot,
+  Clock,
+  AlertTriangle,
+  Star,
+  MessageSquare,
+  UserRound,
+  Tag as TagIcon,
+  Building2,
+  Timer,
+  Phone,
+  ShieldCheck,
+  BellOff,
+} from 'lucide-react';
+import { InboxFilterPicker, type FilterCategory } from '@/components/inbox/inbox-filter-picker';
 import { formatDistanceToNow } from 'date-fns';
 import { useTranslations } from 'next-intl';
 import { Input } from '@/components/ui/input';
 import {
   DropdownMenu,
-  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuGroup,
   DropdownMenuItem,
@@ -99,8 +122,13 @@ interface ConversationListProps {
    * or the tab was throttled. Optional so existing callers keep working.
    */
   resyncToken?: number;
-  /** Extra control beside the "Chats" heading (the page puts message search here). */
+  /** Extra control at the end of the toolbar (the page puts message search here). */
   headerAction?: ReactNode;
+  /**
+   * Where the filter toolbar renders: a full-width row the page places above
+   * the list and the thread. Without it the toolbar sits on top of the list.
+   */
+  toolbarSlot?: HTMLElement | null;
   /**
    * The inbox this list is in. A channel inbox loads only its channel's
    * conversations and has no channel filter; the All view loads every
@@ -124,6 +152,7 @@ export function ConversationList({
   headerAction,
   channel: scope = 'all',
   folders,
+  toolbarSlot = null,
 }: ConversationListProps) {
   const t = useTranslations('Inbox.conversationList');
   const tFolders = useTranslations('Inbox.folders');
@@ -163,6 +192,7 @@ export function ConversationList({
   const myTeam = useMyTeamMembers();
   const ta = useTranslations('Inbox.agentFilter');
   const agentFilter = useAgentFilter(resyncToken);
+  const setAgentFilter = agentFilter.setAgent;
   const agentName = (id: string) => agentFilter.members.find((m) => m.id === id)?.name || ta('anyAgent');
   const FILTER_OPTIONS: { label: string; value: InboxFilter }[] = useMemo(
     () => [
@@ -206,6 +236,9 @@ export function ConversationList({
   );
 
   const [search, setSearch] = useState('');
+  // The page header's middle slot (layout/header.tsx), where the conversation search goes.
+  const headerSlot = useSyncExternalStore(noSubscribe, findHeaderSlot, noHeaderSlot);
+  const inHeader = useMatchMedia('(min-width: 768px)') && headerSlot !== null;
   const searchParams = useSearchParams();
   const router = useRouter();
   const filter = parseInboxFilter(searchParams.get('filter'));
@@ -235,6 +268,9 @@ export function ConversationList({
   const [tags, setTags] = useState<Tag[]>([]);
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
   const [selectedCompany, setSelectedCompany] = useState<string | null>(null);
+  // WhatsApp consent (opt-in / opt-out); not part of saved views.
+  const [consentFilter, setConsentFilter] = useState<ConsentFilter>('any');
+  const tConsent = useTranslations('Inbox.consent');
 
   // Keep the latest callback in a ref so the fetch effect below can
   // have a stable, empty-dep identity. Previously the fetch useCallback
@@ -375,6 +411,11 @@ export function ConversationList({
       );
     }
 
+    if (consentFilter !== 'any') {
+      // WhatsApp consent: Instagram chats have their own subscription, so they drop out here.
+      result = result.filter((c) => conversationChannel(c) === 'whatsapp' && matchesConsentFilter(c.contact, consentFilter));
+    }
+
     if (search.trim()) {
       const q = search.toLowerCase();
       result = result.filter((c) => {
@@ -386,7 +427,18 @@ export function ConversationList({
     }
 
     return result;
-  }, [conversations, allChannels, scope, filter, search, selectedTagIds, selectedCompany, now, activeNumberFilter, activeChannelFilter, myTeam, folderContext, agentFilter.agent, agentFilter.handledIds]);
+  }, [conversations, allChannels, scope, filter, search, selectedTagIds, selectedCompany, now, activeNumberFilter, activeChannelFilter, myTeam, folderContext, agentFilter.agent, agentFilter.handledIds, consentFilter]);
+
+  // Quick views above the list, each with how many of this inbox's chats it holds.
+  const quickViews = useMemo(() => {
+    const inThisInbox = allChannels ? conversations : conversations.filter((c) => inScope(scope, c));
+    const values: InboxFilter[] = ['all', 'unread', 'unassigned', ...(folders ? (['mine'] as const) : []), 'closed'];
+    return values.map((value) => ({
+      value,
+      label: (FILTER_OPTIONS.find((o) => o.value === value) ?? FOLDER_OPTIONS.find((o) => o.value === value))?.label ?? value,
+      count: inThisInbox.filter((c) => matchesInboxFilter(c, value, now, myTeam ?? undefined, folderContext)).length,
+    }));
+  }, [allChannels, conversations, scope, folders, FILTER_OPTIONS, FOLDER_OPTIONS, now, myTeam, folderContext]);
 
   const sessionCounts = useMemo(() => {
     const active = baseFiltered.filter((c) =>
@@ -398,13 +450,14 @@ export function ConversationList({
       expired: baseFiltered.length - active,
     };
   }, [baseFiltered, now]);
-  const filtered = useMemo(
-    () =>
-      baseFiltered.filter((c) =>
-        matchesSessionFilter(c.last_customer_message_at, sessionFilter, now)
-      ),
-    [baseFiltered, sessionFilter, now]
-  );
+  const filtered = useMemo(() => {
+    const sessionMatched = baseFiltered.filter((c) =>
+      matchesSessionFilter(c.last_customer_message_at, sessionFilter, now)
+    );
+    // Stable sort on the last message time; chats with no message go last when newest first.
+    const at = (c: Conversation) => (c.last_message_at ? Date.parse(c.last_message_at) : 0);
+    return sessionMatched.sort((a, b) => at(b) - at(a));
+  }, [baseFiltered, sessionFilter, now]);
 
   const toggleTag = useCallback((id: string) => {
     setSelectedTagIds((prev) =>
@@ -418,7 +471,9 @@ export function ConversationList({
     setSessionFilter('all');
     setNumberFilter(null);
     setChannelFilter(null);
-  }, []);
+    setAgentFilter(null);
+    setConsentFilter('any');
+  }, [setAgentFilter]);
 
   const hasContactFilters =
     selectedTagIds.length > 0 ||
@@ -471,53 +526,161 @@ export function ConversationList({
     selectFilter(next.filter);
   };
 
-  return (
-    // w-full on mobile so the list occupies the whole viewport when it's
-    // the single pane showing; fixed 320px on desktop where it shares the
-    // row with the thread + contact sidebar.
-    <div className="studio-conversation-list border-border bg-card flex h-full w-full flex-col border-r lg:w-72 xl:w-80 2xl:w-88">
-      <div className="studio-chats-header flex items-center justify-between gap-2 px-4 py-2.5">
-        <h1 className="text-foreground text-lg leading-tight font-semibold tracking-tight">
-          {t('chats')}
-        </h1>
-        {headerAction}
-      </div>
-      {/* Search + Filter */}
-      <div className="studio-chat-filters border-border space-y-1.5 border-b px-3 py-2">
-        <div className="relative">
-          <Search className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
-          <Input
-            value={search}
-            onChange={handleSearchChange}
-            placeholder={t('searchPlaceholder')}
-            aria-label={t('searchPlaceholder')}
-            className="border-border bg-muted text-foreground placeholder-muted-foreground focus:border-primary/50 pl-9 text-sm"
-          />
-        </div>
+  const pill =
+    'inline-flex h-8 shrink-0 items-center gap-1 rounded-full border px-2.5 text-[13px] font-medium whitespace-nowrap transition-colors duration-150';
+  const pillIdle = 'border-border text-foreground hover:bg-muted';
+  const pillOn = 'bg-primary/10 text-primary border-transparent';
+  const chip =
+    'bg-muted text-foreground hover:bg-muted/70 inline-flex h-7 shrink-0 items-center gap-1 rounded-full px-2.5 text-xs transition-colors duration-150';
 
-        {/* One row that scrolls sideways when the filters do not fit, instead of wrapping. */}
-        <div className="-mx-1 flex items-center gap-1 overflow-x-auto px-1 [scrollbar-width:none] *:shrink-0" data-filter-row>
+  const viewCount = (value: InboxFilter) => quickViews.find((v) => v.value === value)?.count;
+  const unreadCount = viewCount('unread') ?? 0;
+
+  // Everything that narrows the list besides the view, channel and sort: the "+ Filter" picker.
+  const consentLabel = (value: ConsentFilter) =>
+    value === 'any' ? tConsent('any') : tConsent(value === 'opted_in' ? 'optedIn' : value === 'opted_out' ? 'optedOut' : 'none');
+  const filterCategories: FilterCategory[] = [
+    {
+      id: 'consent',
+      label: tConsent('filter'),
+      icon: <ShieldCheck />,
+      options: (['any', 'opted_in', 'opted_out', 'none'] as const).map((value) => ({
+        id: value,
+        label: consentLabel(value),
+        reset: value === 'any',
+        selected: consentFilter === value,
+        onSelect: () => setConsentFilter(value),
+      })),
+    },
+    ...(agentFilter.members.length > 1
+      ? [
+          {
+            id: 'agent',
+            label: ta('agent'),
+            icon: <UserRound />,
+            options: [
+              {
+                id: 'any',
+                label: ta('anyAgent'),
+                reset: true,
+                selected: agentFilter.agent === null,
+                onSelect: () => agentFilter.setAgent(null),
+              },
+              ...(['assigned', 'handled'] as const).flatMap((mode) =>
+                agentFilter.members.map((m) => ({
+                  id: `${mode}-${m.id}`,
+                  label: ta(mode === 'handled' ? 'handledBy' : 'assignedTo', { name: m.name || ta('anyAgent') }),
+                  section: ta(mode === 'handled' ? 'sectionHandled' : 'sectionAssigned'),
+                  selected: agentFilter.agent?.memberId === m.id && agentFilter.agent.mode === mode,
+                  onSelect: () => agentFilter.setAgent({ memberId: m.id, mode }),
+                }))
+              ),
+            ],
+          },
+        ]
+      : []),
+    ...(tags.length > 0
+      ? [
+          {
+            id: 'tags',
+            label: t('tags'),
+            icon: <TagIcon />,
+            multi: true,
+            options: tags.map((tag) => ({
+              id: tag.id,
+              label: tag.name,
+              mark: <span className="size-2 shrink-0 rounded-full" style={{ backgroundColor: tag.color }} aria-hidden />,
+              selected: selectedTagIds.includes(tag.id),
+              onSelect: () => toggleTag(tag.id),
+            })),
+          },
+        ]
+      : []),
+    ...(companies.length > 0
+      ? [
+          {
+            id: 'company',
+            label: t('company'),
+            icon: <Building2 />,
+            options: [
+              { id: '', label: t('allCompanies'), reset: true, selected: selectedCompany === null, onSelect: () => setSelectedCompany(null) },
+              ...companies.map((co) => ({
+                id: co,
+                label: co,
+                selected: selectedCompany === co,
+                onSelect: () => setSelectedCompany(co),
+              })),
+            ],
+          },
+        ]
+      : []),
+    ...(multiNumber
+      ? [
+          {
+            id: 'number',
+            label: tn('picker.inboxFilter'),
+            icon: <Phone />,
+            options: [
+              { id: '', label: tn('picker.allNumbers'), reset: true, selected: activeNumberFilter === null, onSelect: () => setNumberFilter(null) },
+              ...filterNumbers.map((n) => ({
+                id: n.id,
+                label: numberOptionLabel(n, tn),
+                selected: activeNumberFilter === n.id,
+                onSelect: () => setNumberFilter(n.id),
+              })),
+              {
+                id: NO_NUMBER,
+                label: tn('picker.noNumber'),
+                selected: activeNumberFilter === NO_NUMBER,
+                onSelect: () => setNumberFilter(NO_NUMBER),
+              },
+            ],
+          },
+        ]
+      : []),
+  ];
+  const pickedCount =
+    selectedTagIds.length +
+    (selectedCompany !== null ? 1 : 0) +
+    (activeNumberFilter !== null ? 1 : 0) +
+    (agentFilter.agent ? 1 : 0) +
+    (consentFilter !== 'any' ? 1 : 0);
+
+  const searchBox = (className?: string) => (
+    <div className={cn('relative', className)}>
+      <Search className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
+      <Input
+        value={search}
+        onChange={handleSearchChange}
+        placeholder={t('searchPlaceholder')}
+        aria-label={t('searchPlaceholder')}
+        className="border-border bg-muted text-foreground placeholder-muted-foreground focus:border-primary/50 h-8 rounded-full pl-9 text-[13px]"
+      />
+    </div>
+  );
+
+  // The filter pills, active-filter chips and the page's action, shared by both layouts.
+  const filterBar = (
+    <>
+        <div className="-my-1 flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto py-1 [scrollbar-width:none]" data-filter-row>
+          {/* View: every inbox view, with counts on the everyday ones. */}
           <DropdownMenu>
-            <DropdownMenuTrigger className="text-muted-foreground hover:text-foreground hover:bg-muted inline-flex h-7 items-center justify-center gap-1 rounded-md px-2 text-xs">
-              {activeFilter?.label ?? t('filterAll')}
-              <ChevronDown className="h-3 w-3" />
+            <DropdownMenuTrigger data-view-menu className={cn(pill, filter === 'all' || filter === 'unread' ? pillIdle : pillOn)}>
+              <MessageSquare className="size-3.5" aria-hidden />
+              {filter === 'unread' ? t('filterAll') : (activeFilter?.label ?? t('filterAll'))}
+              <ChevronDown className="size-3.5 opacity-60" aria-hidden />
             </DropdownMenuTrigger>
-            <DropdownMenuContent
-              align="start"
-              className="border-border bg-popover"
-            >
+            <DropdownMenuContent align="start" className="border-border bg-popover max-h-[70vh] w-60 overflow-y-auto">
               {FILTER_OPTIONS.map((opt) => (
                 <DropdownMenuItem
                   key={opt.value}
                   onClick={() => selectFilter(opt.value)}
-                  className={cn(
-                    'text-sm',
-                    filter === opt.value
-                      ? 'text-primary'
-                      : 'text-popover-foreground'
-                  )}
+                  className={cn('gap-3 text-sm', filter === opt.value ? 'text-primary' : 'text-popover-foreground')}
                 >
-                  {opt.label}
+                  <span className="flex-1">{opt.label}</span>
+                  {viewCount(opt.value) !== undefined && (
+                    <span className="text-muted-foreground text-xs tabular-nums">{viewCount(opt.value)}</span>
+                  )}
                 </DropdownMenuItem>
               ))}
               {FOLDER_OPTIONS.length > 0 && (
@@ -527,9 +690,12 @@ export function ConversationList({
                     <DropdownMenuItem
                       key={opt.value}
                       onClick={() => selectFilter(opt.value)}
-                      className={cn('text-sm', filter === opt.value ? 'text-primary' : 'text-popover-foreground')}
+                      className={cn('gap-3 text-sm', filter === opt.value ? 'text-primary' : 'text-popover-foreground')}
                     >
-                      {opt.label}
+                      <span className="flex-1">{opt.label}</span>
+                      {viewCount(opt.value) !== undefined && (
+                        <span className="text-muted-foreground text-xs tabular-nums">{viewCount(opt.value)}</span>
+                      )}
                     </DropdownMenuItem>
                   ))}
                 </>
@@ -559,12 +725,7 @@ export function ConversationList({
                   <DropdownMenuItem
                     key={opt.value}
                     onClick={() => selectFilter(opt.value)}
-                    className={cn(
-                      'text-sm',
-                      filter === opt.value
-                        ? 'text-primary'
-                        : 'text-popover-foreground'
-                    )}
+                    className={cn('text-sm', filter === opt.value ? 'text-primary' : 'text-popover-foreground')}
                   >
                     {opt.label}
                   </DropdownMenuItem>
@@ -573,331 +734,154 @@ export function ConversationList({
             </DropdownMenuContent>
           </DropdownMenu>
 
-          <SavedFiltersMenu
-            current={currentFilters}
-            onApply={applySavedFilters}
-            scope={scope}
-          />
+          {/* Unread: one tap on, one tap off. */}
+          <button
+            type="button"
+            aria-pressed={filter === 'unread'}
+            onClick={() => selectFilter(filter === 'unread' ? 'all' : 'unread')}
+            className={cn(pill, filter === 'unread' ? pillOn : pillIdle)}
+          >
+            {t('filterUnread')}
+            {unreadCount > 0 && (
+              <span className={cn('text-xs tabular-nums', filter === 'unread' ? 'text-primary' : 'text-muted-foreground')}>
+                {unreadCount}
+              </span>
+            )}
+          </button>
 
-          {agentFilter.members.length > 1 && (
-            <DropdownMenu>
-              <DropdownMenuTrigger
-                data-agent-filter
-                className={cn(
-                  'hover:bg-muted inline-flex h-7 max-w-44 items-center justify-center gap-1 rounded-md px-2 text-xs',
-                  agentFilter.agent ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
-                )}
-              >
-                <span className="truncate">
-                  {agentFilter.agent
-                    ? ta(agentFilter.agent.mode === 'handled' ? 'handledBy' : 'assignedTo', { name: agentName(agentFilter.agent.memberId) })
-                    : ta('agent')}
-                </span>
-                <ChevronDown className="h-3 w-3 shrink-0" />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="border-border bg-popover max-h-80 w-64 overflow-y-auto">
-                <DropdownMenuItem
-                  onClick={() => agentFilter.setAgent(null)}
-                  className={cn('text-sm', agentFilter.agent === null ? 'text-primary' : 'text-popover-foreground')}
-                >
-                  {ta('anyAgent')}
-                </DropdownMenuItem>
-                {(['assigned', 'handled'] as const).map((mode) => (
-                  <Fragment key={mode}>
-                    <DropdownMenuSeparator className="bg-border" />
-                    <DropdownMenuGroup>
-                    <DropdownMenuLabel title={mode === 'handled' ? ta('handledHelp') : undefined}>
-                      {ta(mode === 'handled' ? 'sectionHandled' : 'sectionAssigned')}
-                    </DropdownMenuLabel>
-                    {agentFilter.members.map((m) => {
-                      const on = agentFilter.agent?.memberId === m.id && agentFilter.agent.mode === mode;
-                      return (
-                        <DropdownMenuItem
-                          key={`${mode}-${m.id}`}
-                          onClick={() => agentFilter.setAgent({ memberId: m.id, mode })}
-                          className={cn('text-sm', on ? 'text-primary' : 'text-popover-foreground')}
-                        >
-                          <span className="truncate">{ta(mode === 'handled' ? 'handledBy' : 'assignedTo', { name: m.name || ta('anyAgent') })}</span>
-                        </DropdownMenuItem>
-                      );
-                    })}
-                    </DropdownMenuGroup>
-                  </Fragment>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
-
-          {tags.length > 0 && (
-            <DropdownMenu>
-              <DropdownMenuTrigger
-                className={cn(
-                  'hover:bg-muted inline-flex h-7 items-center justify-center gap-1 rounded-md px-2 text-xs',
-                  selectedTagIds.length > 0
-                    ? 'text-primary'
-                    : 'text-muted-foreground hover:text-foreground'
-                )}
-              >
-                {t('tags')}
-                {selectedTagIds.length > 0 && (
-                  <span className="bg-primary text-primary-foreground flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-bold">
-                    {selectedTagIds.length}
-                  </span>
-                )}
-                <ChevronDown className="h-3 w-3" />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent
-                align="start"
-                className="border-border bg-popover max-h-64 w-56"
-              >
-                {tags.map((t) => (
-                  <DropdownMenuCheckboxItem
-                    key={t.id}
-                    checked={selectedTagIds.includes(t.id)}
-                    onCheckedChange={() => toggleTag(t.id)}
-                    className="text-popover-foreground text-sm"
-                  >
-                    <span className="flex items-center gap-2">
-                      <span
-                        className="h-2 w-2 shrink-0 rounded-full"
-                        style={{ backgroundColor: t.color }}
-                      />
-                      <span className="truncate">{t.name}</span>
-                    </span>
-                  </DropdownMenuCheckboxItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
-
-          {companies.length > 0 && (
-            <DropdownMenu>
-              <DropdownMenuTrigger
-                className={cn(
-                  'hover:bg-muted inline-flex h-7 max-w-40 items-center justify-center gap-1 rounded-md px-2 text-xs',
-                  selectedCompany
-                    ? 'text-primary'
-                    : 'text-muted-foreground hover:text-foreground'
-                )}
-              >
-                <span className="truncate">
-                  {selectedCompany ?? t('company')}
-                </span>
-                <ChevronDown className="h-3 w-3 shrink-0" />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent
-                align="start"
-                className="border-border bg-popover max-h-64 w-56"
-              >
-                <DropdownMenuItem
-                  onClick={() => setSelectedCompany(null)}
-                  className={cn(
-                    'text-sm',
-                    selectedCompany === null
-                      ? 'text-primary'
-                      : 'text-popover-foreground'
-                  )}
-                >
-                  {t('allCompanies')}
-                </DropdownMenuItem>
-                {companies.map((co) => (
-                  <DropdownMenuItem
-                    key={co}
-                    onClick={() => setSelectedCompany(co)}
-                    className={cn(
-                      'text-sm',
-                      selectedCompany === co
-                        ? 'text-primary'
-                        : 'text-popover-foreground'
-                    )}
-                  >
-                    <span className="truncate">{co}</span>
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
+          {/* Channel: only the All inbox lists more than one channel. */}
           {allChannels && (
             <DropdownMenu>
               <DropdownMenuTrigger
                 aria-label={`${tc('filterLabel')}: ${activeChannelFilter ? tc(activeChannelFilter) : tc('all')}`}
-                className={cn(
-                  'hover:bg-muted inline-flex h-7 max-w-40 items-center justify-center gap-1 rounded-md px-2 text-xs',
-                  activeChannelFilter === null
-                    ? 'text-muted-foreground hover:text-foreground'
-                    : 'text-primary'
-                )}
+                className={cn(pill, activeChannelFilter ? pillOn : pillIdle)}
               >
-                <span className="truncate">
-                  {activeChannelFilter ? tc(activeChannelFilter) : tc('all')}
-                </span>
-                <ChevronDown className="h-3 w-3 shrink-0" />
+                {activeChannelFilter && <ChannelDot channel={activeChannelFilter} />}
+                {activeChannelFilter ? tc(activeChannelFilter) : tc('all')}
+                <ChevronDown className="size-3.5 opacity-60" aria-hidden />
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="border-border bg-popover w-48">
                 <DropdownMenuRadioGroup
                   value={activeChannelFilter ?? ''}
-                  onValueChange={(value) =>
-                    setChannelFilter(value === 'whatsapp' || value === 'instagram' ? value : null)
-                  }
+                  onValueChange={(value) => setChannelFilter((value || null) as ConversationChannel | null)}
                 >
-                  <DropdownMenuRadioItem value="" className="text-sm">
-                    {tc('all')}
-                  </DropdownMenuRadioItem>
-                  <DropdownMenuRadioItem value="whatsapp" className="text-sm">
-                    {tc('whatsapp')}
-                  </DropdownMenuRadioItem>
-                  <DropdownMenuRadioItem value="instagram" className="text-sm">
-                    {tc('instagram')}
-                  </DropdownMenuRadioItem>
-                </DropdownMenuRadioGroup>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
-          {multiNumber && (
-            <DropdownMenu>
-              <DropdownMenuTrigger
-                aria-label={`${tn('picker.inboxFilter')}: ${numberFilterLabel}`}
-                className={cn(
-                  'hover:bg-muted inline-flex h-7 max-w-40 items-center justify-center gap-1 rounded-md px-2 text-xs',
-                  activeNumberFilter === null
-                    ? 'text-muted-foreground hover:text-foreground'
-                    : 'text-primary'
-                )}
-              >
-                <span className="truncate">{numberFilterLabel}</span>
-                <ChevronDown className="h-3 w-3 shrink-0" />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent
-                align="start"
-                className="border-border bg-popover max-h-64 w-56"
-              >
-                <DropdownMenuRadioGroup
-                  value={activeNumberFilter ?? ''}
-                  onValueChange={(value) => setNumberFilter(value || null)}
-                >
-                  <DropdownMenuRadioItem value="" className="text-sm">
-                    {tn('picker.allNumbers')}
-                  </DropdownMenuRadioItem>
-                  {filterNumbers.map((n) => (
-                    <DropdownMenuRadioItem key={n.id} value={n.id} className="text-sm">
-                      <span className="truncate">{numberOptionLabel(n, tn)}</span>
+                  <DropdownMenuRadioItem value="" className="text-sm">{tc('all')}</DropdownMenuRadioItem>
+                  {(['whatsapp', 'instagram'] as const).map((value) => (
+                    <DropdownMenuRadioItem key={value} value={value} className="gap-2 text-sm">
+                      <ChannelDot channel={value} />
+                      {tc(value)}
                     </DropdownMenuRadioItem>
                   ))}
-                  <DropdownMenuRadioItem value={NO_NUMBER} className="text-sm">
-                    {tn('picker.noNumber')}
-                  </DropdownMenuRadioItem>
                 </DropdownMenuRadioGroup>
               </DropdownMenuContent>
             </DropdownMenu>
           )}
+
+          {/* Session: whether the 24-hour reply window is still open. */}
           <DropdownMenu>
             <DropdownMenuTrigger
               aria-label={`${t('session')}: ${sessionLabel}`}
-              className={cn(
-                'hover:bg-muted inline-flex h-7 items-center justify-center gap-1 rounded-md px-2 text-xs',
-                sessionFilter === 'all'
-                  ? 'text-muted-foreground hover:text-foreground'
-                  : 'text-primary'
-              )}
+              className={cn(pill, sessionFilter === 'all' ? pillIdle : pillOn)}
             >
-              {sessionFilter === 'all' ? t('session') : sessionLabel}
-              <ChevronDown className="h-3 w-3" />
+              <Timer className="size-3.5" aria-hidden />
+              {sessionLabel}
+              <ChevronDown className="size-3.5 opacity-60" aria-hidden />
             </DropdownMenuTrigger>
-            <DropdownMenuContent
-              align="start"
-              className="border-border bg-popover"
-            >
-              <DropdownMenuRadioGroup
-                value={sessionFilter}
-                onValueChange={(value) =>
-                  setSessionFilter(value as SessionFilter)
-                }
-              >
+            <DropdownMenuContent align="start" className="border-border bg-popover w-52">
+              <DropdownMenuRadioGroup value={sessionFilter} onValueChange={(value) => setSessionFilter(value as SessionFilter)}>
                 {sessionOptions.map((option) => (
-                  <DropdownMenuRadioItem
-                    key={option.value}
-                    value={option.value}
-                    className="gap-4 text-sm"
-                  >
+                  <DropdownMenuRadioItem key={option.value} value={option.value} className="gap-4 text-sm">
                     {option.label}
-                    <span className="text-muted-foreground ml-auto text-xs tabular-nums">
-                      {sessionCounts[option.value]}
-                    </span>
+                    <span className="text-muted-foreground ml-auto text-xs tabular-nums">{sessionCounts[option.value]}</span>
                   </DropdownMenuRadioItem>
                 ))}
               </DropdownMenuRadioGroup>
             </DropdownMenuContent>
           </DropdownMenu>
-        </div>
 
-        {hasContactFilters && (
-          <div className="flex flex-wrap items-center gap-1">
-            {selectedTagIds.map((id) => {
-              const tag = tagsById.get(id);
-              return (
-                <button
-                  key={id}
-                  onClick={() => toggleTag(id)}
-                  className="bg-muted text-foreground hover:bg-muted/70 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px]"
-                >
-                  <span
-                    className="h-1.5 w-1.5 shrink-0 rounded-full"
-                    style={{
-                      backgroundColor: tag?.color ?? 'var(--muted-foreground)',
-                    }}
-                  />
-                  <span className="max-w-24 truncate">
-                    {tag?.name ?? t('tags')}
-                  </span>
-                  <X className="h-3 w-3" />
-                </button>
-              );
-            })}
-            {selectedCompany && (
-              <button
-                onClick={() => setSelectedCompany(null)}
-                className="bg-muted text-foreground hover:bg-muted/70 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px]"
-              >
-                <span className="max-w-24 truncate">{selectedCompany}</span>
-                <X className="h-3 w-3" />
+          <SavedFiltersMenu current={currentFilters} onApply={applySavedFilters} scope={scope} />
+
+          <InboxFilterPicker categories={filterCategories} activeCount={pickedCount} />
+
+          {/* What the picker has on, each removable. */}
+          {agentFilter.agent && (
+            <button type="button" data-agent-filter onClick={() => agentFilter.setAgent(null)} className={chip}>
+              <span className="max-w-40 truncate">
+                {ta(agentFilter.agent.mode === 'handled' ? 'handledBy' : 'assignedTo', { name: agentName(agentFilter.agent.memberId) })}
+              </span>
+              <X className="h-3 w-3" aria-hidden />
+            </button>
+          )}
+          {selectedTagIds.map((id) => {
+            const tag = tagsById.get(id);
+            return (
+              <button type="button" key={id} onClick={() => toggleTag(id)} className={chip}>
+                <span className="size-1.5 shrink-0 rounded-full" style={{ backgroundColor: tag?.color ?? 'var(--muted-foreground)' }} />
+                <span className="max-w-28 truncate">{tag?.name ?? t('tags')}</span>
+                <X className="h-3 w-3" aria-hidden />
               </button>
-            )}
-            {activeChannelFilter !== null && (
-              <button
-                onClick={() => setChannelFilter(null)}
-                className="bg-muted text-foreground hover:bg-muted/70 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px]"
-              >
-                <span className="max-w-24 truncate">{tc(activeChannelFilter)}</span>
-                <X className="h-3 w-3" />
-              </button>
-            )}
-            {activeNumberFilter !== null && (
-              <button
-                onClick={() => setNumberFilter(null)}
-                className="bg-muted text-foreground hover:bg-muted/70 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px]"
-              >
-                <span className="max-w-24 truncate">{numberFilterLabel}</span>
-                <X className="h-3 w-3" />
-              </button>
-            )}
-            {sessionFilter !== 'all' && (
-              <button
-                onClick={() => setSessionFilter('all')}
-                className="bg-muted text-foreground hover:bg-muted/70 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px]"
-              >
-                {sessionLabel}
-                <X className="h-3 w-3" />
-              </button>
-            )}
-            <button
-              onClick={clearContactFilters}
-              className="text-muted-foreground hover:text-foreground px-1 text-[11px]"
-            >
+            );
+          })}
+          {selectedCompany && (
+            <button type="button" onClick={() => setSelectedCompany(null)} className={chip}>
+              <span className="max-w-28 truncate">{selectedCompany}</span>
+              <X className="h-3 w-3" aria-hidden />
+            </button>
+          )}
+          {consentFilter !== 'any' && (
+            <button type="button" onClick={() => setConsentFilter('any')} className={chip} data-consent-filter={consentFilter}>
+              <ShieldCheck className="h-3 w-3" aria-hidden />
+              <span className="max-w-28 truncate">{consentLabel(consentFilter)}</span>
+              <X className="h-3 w-3" aria-hidden />
+            </button>
+          )}
+          {activeNumberFilter !== null && (
+            <button type="button" onClick={() => setNumberFilter(null)} className={chip}>
+              <span className="max-w-28 truncate">{numberFilterLabel}</span>
+              <X className="h-3 w-3" aria-hidden />
+            </button>
+          )}
+          {(pickedCount > 0 || hasContactFilters) && (
+            <button type="button" onClick={clearContactFilters} className="text-muted-foreground hover:text-foreground shrink-0 px-1 text-xs">
               {t('clearAll')}
             </button>
-          </div>
-        )}
+          )}
+        </div>
+        {headerAction && <div className="shrink-0">{headerAction}</div>}
+    </>
+  );
+
+  // Phones: its own two rows above the list (search, then the pills).
+  const toolbar = (
+    <div data-inbox-toolbar className="studio-chat-filters border-border bg-card border-b">
+      <div className="px-3 pt-3">{searchBox()}</div>
+      <div className="flex items-center gap-2 px-3 py-2.5 lg:px-4">
+        {filterBar}
       </div>
+    </div>
+  );
+
+  // From 768px: one row inside the page header, next to the page title.
+  const headerBar = (
+    <div data-inbox-toolbar data-inbox-header-bar className="flex min-w-0 flex-1 items-center gap-2">
+      {searchBox('w-44 shrink-0 xl:w-56')}
+      <span aria-hidden className="bg-border h-5 w-px shrink-0" />
+      {filterBar}
+    </div>
+  );
+
+  return (
+    <>
+      {/* md and up: search and filters share the page header's row; phones keep their own rows. */}
+      {inHeader ? createPortal(headerBar, headerSlot!) : toolbarSlot && createPortal(toolbar, toolbarSlot)}
+      {/* w-full on mobile so the list occupies the whole viewport when it's
+          the single pane showing; a fixed column on desktop where it shares
+          the row with the thread + contact sidebar. */}
+      <div className="studio-conversation-list border-border bg-card flex h-full w-full flex-col border-r lg:w-72 xl:w-80 2xl:w-[340px]">
+        {!toolbarSlot && !inHeader && toolbar}
+
+        {/* Open 24-hour windows, closing first; a chat rolls out when its window ends. */}
+        <SessionRail conversations={baseFiltered} now={now} activeConversationId={activeConversationId} onSelect={handleSelect} />
 
       {/* Conversation Items.
           `min-h-0` is load-bearing: a flex child defaults to
@@ -911,7 +895,10 @@ export function ConversationList({
             <div className="border-primary h-5 w-5 animate-spin rounded-full border-2 border-t-transparent" />
           </div>
         ) : filtered.length === 0 ? (
-          <div className="px-4 py-12 text-center">
+          <div className="flex flex-col items-center px-4 py-12 text-center">
+            <span className="bg-muted text-muted-foreground mb-3 flex size-11 items-center justify-center rounded-2xl" aria-hidden>
+              <Search className="size-5" />
+            </span>
             <p className="text-muted-foreground text-sm">
               {/* An empty channel inbox (nothing to filter) names its channel. */}
               {scope !== 'all' && !conversations.some((c) => inScope(scope, c))
@@ -920,7 +907,7 @@ export function ConversationList({
             </p>
           </div>
         ) : (
-          <div className="flex flex-col">
+          <div className="flex flex-col gap-0.5 px-2 pt-1 pb-3">
             {filtered.map((conv) => (
               <ConversationItem
                 key={conv.id}
@@ -935,13 +922,23 @@ export function ConversationList({
                 favourite={folderContext?.favouriteIds?.has(conv.id) ?? false}
                 labels={labelsFor(folderContext?.labelsByConversation?.get(conv.id), labelsById)}
                 favouriteLabel={tFolders('favourites')}
+                optedOutLabel={tConsent('optedOut')}
               />
             ))}
           </div>
         )}
       </ScrollArea>
-    </div>
+      </div>
+    </>
   );
+}
+
+const noSubscribe = () => () => {};
+const findHeaderSlot = () => document.getElementById('studio-header-center');
+const noHeaderSlot = () => null;
+
+function ChannelDot({ channel }: { channel: ConversationChannel }) {
+  return <span aria-hidden className={cn('size-2 shrink-0 rounded-full', channel === 'whatsapp' ? 'bg-emerald-500' : 'bg-pink-500')} />;
 }
 
 interface ConversationItemProps {
@@ -961,6 +958,8 @@ interface ConversationItemProps {
   /** Stage 5: its labels, in name order. */
   labels?: ConversationLabel[];
   favouriteLabel?: string;
+  /** Accessible name of the opted-out mark. */
+  optedOutLabel?: string;
 }
 
 const NO_NUMBERS: WhatsAppNumberDto[] = [];
@@ -984,13 +983,16 @@ function ConversationItem({
   favourite = false,
   labels = NO_LABELS,
   favouriteLabel,
+  optedOutLabel,
 }: ConversationItemProps) {
   const contact = conversation.contact;
   const channel = conversationChannel(conversation);
   const lifecycle = lifecycleOf(conversation);
   const sla = firstResponseSla(conversation, now);
   const displayName = contact?.name || contact?.phone || t('unknown');
-  const initials = displayName.charAt(0).toUpperCase();
+  // Same seed as the thread header and contact panel, so a person keeps one colour.
+  const avatarSeed = contact?.name || (contact ? contactHandle(contact) : '') || displayName;
+  const avatarText = initials(avatarSeed);
 
   const handleClick = useCallback(() => {
     onSelect(conversation);
@@ -1009,47 +1011,58 @@ function ConversationItem({
       aria-current={isActive ? 'true' : undefined}
       data-unread={conversation.unread_count > 0 || undefined}
       className={cn(
-        'studio-conversation hover:bg-muted/50 border-border flex w-full min-w-0 items-center gap-3 border-b px-3 py-2.5 text-left transition-colors',
-        isActive && 'bg-muted'
+        'studio-conversation hover:bg-muted/60 flex w-full min-w-0 items-start gap-3 rounded-xl px-2.5 py-2.5 text-left',
+        isActive && 'bg-primary/10 hover:bg-primary/10'
       )}
     >
       {/* Avatar */}
-      <div className="bg-muted text-foreground flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-medium">
+      <div className={cn('relative flex size-10 shrink-0 items-center justify-center rounded-full text-[13px] font-semibold', avatarTone(avatarSeed))}>
         {contact?.avatar_url ? (
           <img
             src={contact.avatar_url}
             alt={displayName}
-            className="h-10 w-10 rounded-full object-cover"
+            className="size-10 rounded-full object-cover"
           />
         ) : (
-          initials
+          avatarText
         )}
+        <span
+          aria-hidden
+          data-channel-dot={channel}
+          className={cn(
+            'border-card absolute -right-0.5 -bottom-0.5 size-[15px] rounded-full border-2',
+            channel === 'instagram' ? 'bg-[linear-gradient(45deg,#f9a03f,#d6338a_55%,#7b3fe4)]' : 'bg-emerald-500'
+          )}
+        />
       </div>
 
       {/* Content */}
       <div className="min-w-0 flex-1">
-        <div className="flex items-center justify-between gap-2">
-          <span className="text-foreground flex min-w-0 items-center gap-1 truncate text-sm font-medium">
+        <div className="flex items-baseline justify-between gap-2">
+          <span className="text-foreground flex min-w-0 items-center gap-1 truncate text-sm font-semibold">
             <span className="truncate">{displayName}</span>
             {favourite && (
               <Star className="h-3 w-3 shrink-0 fill-amber-400 text-amber-500" aria-label={favouriteLabel} />
             )}
+            {channel === 'whatsapp' && contact?.opted_out_at && (
+              <BellOff className="h-3 w-3 shrink-0 text-red-500" aria-label={optedOutLabel} data-row-opted-out />
+            )}
           </span>
-          <span className="text-muted-foreground shrink-0 text-[10px]">
+          <span className="text-muted-foreground shrink-0 text-xs tabular-nums">
             {timeAgo}
           </span>
         </div>
         <div className="mt-0.5 flex items-center justify-between gap-2">
-          <p className="text-muted-foreground truncate text-xs">
+          <p className={cn('truncate text-[13px]', conversation.unread_count > 0 ? 'text-foreground font-medium' : 'text-muted-foreground')}>
             {conversation.last_message_text || t('noMessagesYet')}
           </p>
           {conversation.unread_count > 0 && (
-            <span className="studio-unread-count bg-primary text-primary-foreground flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full px-1 text-[10px] font-bold">
+            <span className="studio-unread-count bg-primary text-primary-foreground flex h-[18px] min-w-[18px] shrink-0 items-center justify-center rounded-full px-1.5 text-[11px] font-semibold tabular-nums">
               {conversation.unread_count}
             </span>
           )}
         </div>
-        <div className="mt-0.5 flex min-w-0 items-center gap-1.5 overflow-hidden">
+        <div className="mt-1.5 flex min-w-0 items-center gap-1.5 overflow-hidden">
           <LifecycleChip state={lifecycle} label={tl(lifecycle)} />
           {sla && <SlaBadge sla={sla} t={t} tl={tl} />}
           {multiChannel && <ChannelBadge channel={channel} showWhatsApp compact />}
@@ -1057,7 +1070,7 @@ function ConversationItem({
             <ConversationNumberBadge conversation={conversation} numbers={numbers} className="min-w-0" />
           )}
           {labels.map((label) => (
-            <span key={label.id} className="text-muted-foreground inline-flex min-w-0 items-center gap-1 text-[10px]">
+            <span key={label.id} className="bg-muted text-muted-foreground inline-flex min-w-0 items-center gap-1 rounded-full px-2 py-px text-[11px] font-medium">
               <LabelDot color={label.color} className="h-1.5 w-1.5" />
               <span className="max-w-20 truncate">{label.name}</span>
             </span>
@@ -1089,7 +1102,7 @@ export function LifecycleChip({
     <span
       data-lifecycle={state}
       className={cn(
-        'inline-flex shrink-0 items-center gap-0.5 rounded-full px-1.5 py-px text-[10px] font-medium',
+        'inline-flex shrink-0 items-center gap-0.5 rounded-full px-2 py-px text-[11px] font-medium',
         LIFECYCLE_CHIP_CLASSES[state],
         className
       )}

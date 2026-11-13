@@ -208,10 +208,10 @@ export function PipelineSettings({
 
         {showDeleteConfirm ? (
           <div className="py-4">
-            <div className="flex items-center gap-3 rounded-lg border border-red-500/30 bg-red-500/10 p-4">
-              <AlertTriangle className="h-5 w-5 shrink-0 text-red-400" />
+            <div className="flex items-center gap-3 rounded-lg border border-destructive/30 bg-destructive/10 p-4">
+              <AlertTriangle className="h-5 w-5 shrink-0 text-destructive" />
               <div>
-                <p className="text-sm font-medium text-red-400">
+                <p className="text-sm font-medium text-destructive">
                   {t("deletePipeline")}
                 </p>
                 <p className="mt-1 text-xs text-muted-foreground">
@@ -244,7 +244,7 @@ export function PipelineSettings({
                 <Input
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="border-border bg-muted text-foreground"
+                  className="border-border bg-card text-foreground"
                 />
               </div>
 
@@ -307,7 +307,7 @@ export function PipelineSettings({
                     value={newStageName}
                     onChange={(e) => setNewStageName(e.target.value)}
                     placeholder={t("newStageNamePlaceholder")}
-                    className="border-border bg-muted text-sm text-foreground"
+                    className="border-border bg-card text-sm text-foreground"
                     onKeyDown={(e) => {
                       if (e.key === "Enter") handleAddStage();
                     }}
@@ -393,7 +393,7 @@ function SortableStageRow({
     <div
       ref={setNodeRef}
       style={style}
-      className="flex items-center gap-2 rounded-lg border border-border bg-muted p-2"
+      className="flex items-center gap-2 rounded-xl border border-border bg-card p-2"
     >
       <button
         type="button"
@@ -415,7 +415,7 @@ function SortableStageRow({
         size="icon-xs"
         onClick={onRemove}
         aria-label={t("removeStage")}
-        className="text-muted-foreground hover:text-red-400"
+        className="text-muted-foreground hover:text-destructive"
       >
         <Trash2 className="h-3 w-3" />
       </Button>

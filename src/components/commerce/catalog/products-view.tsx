@@ -68,23 +68,23 @@ export function ProductsView() {
     set(v);
     setOffset(0);
   };
-  const select = "h-9 rounded-md border border-border bg-muted px-2 text-sm text-foreground";
+  const select = "h-9 rounded-lg border border-border bg-card px-2.5 text-sm text-foreground";
 
   return (
-    <div className="space-y-6 p-4 sm:p-6">
+    <div className="space-y-5">
       <header>
-        <h1 className="text-2xl font-semibold text-foreground">{t("title")}</h1>
+        <h1 className="text-[22px] font-bold tracking-tight text-foreground">{t("title")}</h1>
         <p className="mt-1 max-w-2xl text-sm text-muted-foreground">{t("description")}</p>
       </header>
 
       <CatalogManager canManage={canManage} onChanged={setCatalogs} />
 
       <section className="space-y-3" aria-labelledby="products-heading">
-        <h2 id="products-heading" className="text-base font-medium text-foreground">{t("listTitle")}</h2>
+        <h2 id="products-heading" className="text-base font-semibold tracking-tight text-foreground">{t("listTitle")}</h2>
         <div className="flex flex-wrap items-center gap-2">
           <div className="relative min-w-[12rem] flex-1">
             <Search className="pointer-events-none absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input value={q} onChange={(e) => filterChanged(setQ)(e.target.value)} placeholder={t("search")} aria-label={t("search")} className="bg-muted pl-8" />
+            <Input value={q} onChange={(e) => filterChanged(setQ)(e.target.value)} placeholder={t("search")} aria-label={t("search")} className="pl-8" />
           </div>
           <select aria-label={t("availabilityFilter")} className={select} value={availability}
             onChange={(e) => filterChanged(setAvailability)(e.target.value as Availability)}>
@@ -108,17 +108,17 @@ export function ProductsView() {
         {page === null ? (
           <div className="flex justify-center p-6"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" aria-label={t("loading")} /></div>
         ) : page.products.length === 0 ? (
-          <div className="flex flex-col items-center rounded-lg border border-dashed border-border bg-card/50 px-6 py-10 text-center">
-            <Package className="h-6 w-6 text-muted-foreground" />
+          <div className="flex flex-col items-center rounded-xl border border-dashed border-border px-6 py-10 text-center">
+            <span className="flex size-[52px] items-center justify-center rounded-2xl bg-primary/10 text-primary"><Package className="size-6" /></span>
             <p className="mt-3 text-sm text-muted-foreground">
               {failed ? t("loadError") : q || availability || catalogId ? t("noMatches") : t("empty")}
             </p>
           </div>
         ) : (
           <>
-            <div className="rounded-lg border border-border bg-card">
-              <Table>
-                <TableHeader>
+            <div className="overflow-x-auto rounded-xl border border-border bg-card">
+              <Table className="[&_td]:px-3.5 [&_td]:py-2.5">
+                <TableHeader className="bg-muted [&_th]:h-9 [&_th]:px-3.5 [&_th]:text-xs [&_th]:font-semibold [&_th]:text-muted-foreground">
                   <TableRow>
                     <TableHead>{t("colProduct")}</TableHead>
                     <TableHead>{t("colContentId")}</TableHead>
@@ -133,9 +133,9 @@ export function ProductsView() {
                         <div className="flex items-center gap-3">
                           {p.image_url ? (
                             // eslint-disable-next-line @next/next/no-img-element -- catalogue images are on Meta's CDN, not optimisable here
-                            <img src={p.image_url} alt="" className="h-10 w-10 shrink-0 rounded object-cover" loading="lazy" referrerPolicy="no-referrer" />
+                            <img src={p.image_url} alt="" className="h-10 w-10 shrink-0 rounded-lg object-cover" loading="lazy" referrerPolicy="no-referrer" />
                           ) : (
-                            <span className="h-10 w-10 shrink-0 rounded bg-muted" aria-hidden />
+                            <span className="h-10 w-10 shrink-0 rounded-lg bg-muted" aria-hidden />
                           )}
                           <div className="min-w-0">
                             <p className="truncate font-medium text-foreground">{p.name}</p>

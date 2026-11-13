@@ -167,57 +167,50 @@ function NewBroadcastWizard() {
   }
 
   return (
-    <div className="mx-auto max-w-3xl space-y-8">
+    <div className="mx-auto max-w-3xl space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-foreground">{t('title')}</h1>
+        <h1 className="text-[22px] font-bold leading-tight tracking-tight text-foreground">{t('title')}</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           {t('subtitle')}
         </p>
       </div>
 
-      {/* Step Indicator */}
-      <div className="flex items-center justify-between">
+      {/* Step Indicator: underlined steps, numbered dots */}
+      <ol className="flex gap-1 overflow-x-auto [scrollbar-width:none]">
         {steps.map((step, index) => {
           const isActive = index === currentStep;
           const isCompleted = index < currentStep;
 
           return (
-            <div key={step.key} className="flex flex-1 items-center">
-              <div className="flex items-center gap-2">
-                <div
-                  className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-medium transition-all ${
-                    isCompleted
-                      ? 'bg-primary text-primary-foreground'
-                      : isActive
-                        ? 'border-2 border-primary bg-primary/10 text-primary'
-                        : 'border border-border bg-muted text-muted-foreground'
-                  }`}
-                >
-                  {isCompleted ? <Check className="h-4 w-4" /> : index + 1}
-                </div>
-                <span
-                  className={`hidden text-sm font-medium sm:block ${
-                    isActive ? 'text-foreground' : isCompleted ? 'text-primary' : 'text-muted-foreground'
-                  }`}
-                >
-                  {t(`steps.${step.label}`)}
-                </span>
-              </div>
-              {index < steps.length - 1 && (
-                <div
-                  className={`mx-3 h-px flex-1 ${
-                    index < currentStep ? 'bg-primary' : 'bg-muted'
-                  }`}
-                />
-              )}
-            </div>
+            <li
+              key={step.key}
+              aria-current={isActive ? 'step' : undefined}
+              className={`flex min-w-0 items-center gap-2 border-b-2 px-1 pb-2.5 pt-1.5 text-[13px] font-medium whitespace-nowrap transition-colors duration-150 ${
+                isActive ? 'flex-1 border-primary text-foreground' : isCompleted ? 'flex-1 border-primary text-muted-foreground' : 'flex-none border-border text-muted-foreground sm:flex-1'
+              }`}
+            >
+              <span
+                className={`inline-flex size-5 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold ${
+                  isActive
+                    ? 'bg-primary text-primary-foreground'
+                    : isCompleted
+                      ? 'bg-primary/10 text-primary'
+                      : 'bg-muted text-muted-foreground'
+                }`}
+              >
+                {isCompleted ? <Check className="size-3" /> : index + 1}
+              </span>
+              <span className={isActive ? 'truncate' : 'hidden truncate sm:inline'}>
+                {t(`steps.${step.label}`)}
+              </span>
+            </li>
           );
         })}
-      </div>
+      </ol>
 
       {/* Step Content */}
-      <div className="relative min-h-[400px]">
+      <div className="relative min-h-[400px] rounded-xl border border-border bg-card p-4 sm:p-6">
         <div
           className="transition-all duration-300 ease-in-out"
           style={{

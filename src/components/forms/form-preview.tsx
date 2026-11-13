@@ -35,7 +35,7 @@ export function FormPreview({
 
   return (
     <div className="mx-auto w-full max-w-[340px]" aria-label={t("label")} role="region">
-      <div className="overflow-hidden rounded-[1.75rem] border-4 border-foreground/70 bg-muted shadow-lg">
+      <div className="overflow-hidden rounded-[1.75rem] border border-border bg-muted shadow-sm">
         <div className="bg-primary px-4 py-2 text-xs font-medium text-primary-foreground">{formName}</div>
         <div className="flex min-h-[520px] flex-col bg-card text-foreground">
           <div className="flex items-center gap-3 border-b border-border px-3 py-3">

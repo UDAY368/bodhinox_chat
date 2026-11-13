@@ -265,7 +265,7 @@ export function DealForm({
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder={t("titlePlaceholder")}
-                className="border-border bg-muted text-foreground"
+                className="border-border bg-card text-foreground"
               />
             </div>
 
@@ -274,7 +274,7 @@ export function DealForm({
               <select
                 value={contactId}
                 onChange={(e) => setContactId(e.target.value)}
-                className="h-9 w-full rounded-lg border border-border bg-muted px-2.5 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                className="h-9 w-full rounded-lg border border-border bg-card px-2.5 text-sm text-foreground outline-none transition-[border-color,box-shadow] duration-150 focus:border-primary focus:ring-3 focus:ring-ring/30"
               >
                 <option value="">{t("selectContact")}</option>
                 {contacts.map((c) => (
@@ -305,7 +305,7 @@ export function DealForm({
                     value={value}
                     onChange={(e) => setValue(e.target.value)}
                     placeholder="0"
-                    className="border-border bg-muted pl-7 text-foreground"
+                    className="border-border bg-card pl-7 text-foreground"
                   />
                 </div>
               </div>
@@ -314,7 +314,7 @@ export function DealForm({
                 <select
                   value={currency}
                   onChange={(e) => setCurrency(e.target.value)}
-                  className="h-9 w-full rounded-lg border border-border bg-muted px-2.5 text-sm text-foreground outline-none focus:border-primary"
+                  className="h-9 w-full rounded-lg border border-border bg-card px-2.5 text-sm text-foreground outline-none transition-[border-color,box-shadow] duration-150 focus:border-primary focus:ring-3 focus:ring-ring/30"
                 >
                   {CURRENCIES.map((c) => (
                     <option key={c.code} value={c.code}>
@@ -331,7 +331,7 @@ export function DealForm({
                 type="date"
                 value={expectedCloseDate}
                 onChange={(e) => setExpectedCloseDate(e.target.value)}
-                className="border-border bg-muted text-foreground"
+                className="border-border bg-card text-foreground"
               />
             </div>
 
@@ -340,7 +340,7 @@ export function DealForm({
               <select
                 value={stageId}
                 onChange={(e) => setStageId(e.target.value)}
-                className="h-9 w-full rounded-lg border border-border bg-muted px-2.5 text-sm text-foreground outline-none focus:border-primary"
+                className="h-9 w-full rounded-lg border border-border bg-card px-2.5 text-sm text-foreground outline-none transition-[border-color,box-shadow] duration-150 focus:border-primary focus:ring-3 focus:ring-ring/30"
               >
                 {stages.map((s) => (
                   <option key={s.id} value={s.id}>
@@ -355,7 +355,7 @@ export function DealForm({
               <select
                 value={assignedTo}
                 onChange={(e) => setAssignedTo(e.target.value)}
-                className="h-9 w-full rounded-lg border border-border bg-muted px-2.5 text-sm text-foreground outline-none focus:border-primary"
+                className="h-9 w-full rounded-lg border border-border bg-card px-2.5 text-sm text-foreground outline-none transition-[border-color,box-shadow] duration-150 focus:border-primary focus:ring-3 focus:ring-ring/30"
               >
                 <option value="">{t("unassigned")}</option>
                 {profiles.map((p) => (
@@ -372,13 +372,13 @@ export function DealForm({
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 placeholder={t("notesPlaceholder")}
-                className="min-h-[100px] border-border bg-muted text-foreground"
+                className="min-h-[100px] border-border bg-card text-foreground"
               />
             </div>
 
             {deal && (
-              <div className="space-y-2 rounded-lg border border-border bg-muted/50 p-3">
-                <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+              <div className="space-y-2 rounded-xl border border-border p-3">
+                <p className="text-[13px] font-semibold text-muted-foreground">
                   {t("status")}
                 </p>
                 <div className="flex gap-2">
@@ -428,7 +428,7 @@ export function DealForm({
             )}
           </div>
 
-          <div className="border-t border-border/50 bg-popover/80 p-4">
+          <div className="border-t border-border bg-popover p-4">
             <div className="flex gap-2">
               <Button
                 variant="outline"
@@ -448,8 +448,8 @@ export function DealForm({
 
             {deal &&
               (confirmDelete ? (
-                <div className="mt-3 flex items-center justify-between gap-2 rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs">
-                  <span className="text-red-300">{t("deletePrompt")}</span>
+                <div className="mt-3 flex items-center justify-between gap-2 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs">
+                  <span className="text-destructive">{t("deletePrompt")}</span>
                   <div className="flex gap-1">
                     <button
                       type="button"
@@ -473,7 +473,7 @@ export function DealForm({
                 <button
                   type="button"
                   onClick={() => setConfirmDelete(true)}
-                  className="mt-3 flex w-full items-center justify-center gap-1 text-xs text-red-400 hover:text-red-300"
+                  className="mt-3 flex w-full items-center justify-center gap-1 text-xs text-destructive hover:opacity-80"
                 >
                   <Trash2 className="h-3 w-3" />
                   {t("deleteDeal")}

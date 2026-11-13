@@ -145,7 +145,7 @@ export function ConversionsPanel({ canResolve }: ConversionsPanelProps) {
   return (
     <div className="space-y-4">
       {review.length > 0 ? (
-        <section className="rounded-lg border border-amber-500/40 bg-amber-500/5 p-4" aria-labelledby="capi-review-title">
+        <section className="rounded-xl border border-amber-500/40 bg-amber-500/5 p-4" aria-labelledby="capi-review-title">
           <div className="flex items-start gap-2">
             <AlertTriangle className="mt-0.5 size-4 shrink-0 text-amber-600" aria-hidden />
             <div className="min-w-0">
@@ -179,7 +179,7 @@ export function ConversionsPanel({ canResolve }: ConversionsPanelProps) {
       <label className="flex items-center gap-2 text-sm">
         <span className="text-muted-foreground">{t('filterLabel')}</span>
         <select
-          className="h-8 rounded-md border border-border bg-background px-2 text-sm"
+          className="h-8 rounded-lg border border-border bg-card px-2.5 text-sm"
           value={filter}
           onChange={(ev) => {
             // Drop the old filter's rows and cursor so "Load more" cannot mix two filters.
@@ -196,32 +196,32 @@ export function ConversionsPanel({ canResolve }: ConversionsPanelProps) {
       </label>
 
       {events === null ? null : events.length === 0 ? (
-        <p className="text-sm text-muted-foreground">{t('empty')}</p>
+        <p className="rounded-xl border border-border bg-card px-4 py-12 text-center text-sm text-muted-foreground">{t('empty')}</p>
       ) : (
-        <div className="overflow-x-auto rounded-lg border border-border">
+        <div className="overflow-x-auto rounded-xl border border-border bg-card">
           <table className="w-full text-sm">
-            <thead className="bg-muted/50 text-left text-xs text-muted-foreground">
+            <thead className="bg-muted text-left text-xs text-muted-foreground">
               <tr>
-                <th className="px-3 py-2 font-medium">{t('event')}</th>
-                <th className="px-3 py-2 font-medium">{t('source')}</th>
-                <th className="px-3 py-2 font-medium">{t('contact')}</th>
-                <th className="px-3 py-2 text-right font-medium">{t('value')}</th>
-                <th className="px-3 py-2 font-medium">{t('statusLabel')}</th>
-                <th className="px-3 py-2 font-medium">{t('createdAt')}</th>
+                <th className="px-3.5 py-2.5 font-semibold">{t('event')}</th>
+                <th className="px-3.5 py-2.5 font-semibold">{t('source')}</th>
+                <th className="px-3.5 py-2.5 font-semibold">{t('contact')}</th>
+                <th className="px-3.5 py-2.5 text-right font-semibold">{t('value')}</th>
+                <th className="px-3.5 py-2.5 font-semibold">{t('statusLabel')}</th>
+                <th className="px-3.5 py-2.5 font-semibold">{t('createdAt')}</th>
               </tr>
             </thead>
-            <tbody className="divide-y">
+            <tbody className="divide-y divide-border/70">
               {events.map((e) => (
                 <tr key={e.id}>
-                  <td className="px-3 py-2">{eventLabel(e.eventName)}</td>
-                  <td className="px-3 py-2">{t(`sources.${e.source}`)}</td>
-                  <td className="max-w-48 truncate px-3 py-2">{e.contactName ?? t('unknownContact')}</td>
-                  <td className="px-3 py-2 text-right tabular-nums">{amount(e)}</td>
-                  <td className="px-3 py-2">
+                  <td className="px-3.5 py-3">{eventLabel(e.eventName)}</td>
+                  <td className="px-3.5 py-3">{t(`sources.${e.source}`)}</td>
+                  <td className="max-w-48 truncate px-3.5 py-3">{e.contactName ?? t('unknownContact')}</td>
+                  <td className="px-3.5 py-3 text-right tabular-nums">{amount(e)}</td>
+                  <td className="px-3.5 py-3">
                     <Badge variant={STATUS_VARIANT[e.status]}>{t(`status.${e.status}`)}</Badge>
                     {detail(e) ? <span className="ml-2 text-xs text-muted-foreground">{detail(e)}</span> : null}
                   </td>
-                  <td className="whitespace-nowrap px-3 py-2 text-muted-foreground">{when(e.createdAt)}</td>
+                  <td className="whitespace-nowrap px-3.5 py-3 text-muted-foreground">{when(e.createdAt)}</td>
                 </tr>
               ))}
             </tbody>

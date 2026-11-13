@@ -56,7 +56,7 @@ export default function InstagramInsightsPage() {
     <div className="studio-dashboard space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-foreground">{t('title')}</h1>
+          <h1 className="text-[22px] font-bold tracking-tight text-foreground">{t('title')}</h1>
           <p className="mt-2 max-w-xl text-sm leading-relaxed text-muted-foreground">{t('description')}</p>
         </div>
         <div className="flex flex-col items-start gap-2 sm:items-end">

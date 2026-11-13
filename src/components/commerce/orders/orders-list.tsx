@@ -78,10 +78,10 @@ export function OrdersList() {
   };
 
   return (
-    <div className="space-y-6 p-4 sm:p-6">
+    <div className="space-y-5">
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold text-foreground">{t("title")}</h1>
+          <h1 className="text-[22px] font-bold tracking-tight text-foreground">{t("title")}</h1>
           <p className="mt-1 max-w-2xl text-sm text-muted-foreground">{t("description")}</p>
         </div>
         {canAct && (
@@ -125,17 +125,17 @@ export function OrdersList() {
           <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" aria-label={t("loading")} />
         </div>
       ) : orders.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border bg-card/50 px-6 py-16 text-center">
-          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-muted">
-            <ShoppingBag className="h-6 w-6 text-muted-foreground" />
+        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border px-6 py-16 text-center">
+          <div className="flex size-[52px] items-center justify-center rounded-2xl bg-primary/10">
+            <ShoppingBag className="h-6 w-6 text-primary" />
           </div>
-          <h2 className="mt-4 text-base font-medium text-foreground">{q || status || source ? t("noMatches") : t("emptyTitle")}</h2>
+          <h2 className="mt-4 text-base font-semibold text-foreground">{q || status || source ? t("noMatches") : t("emptyTitle")}</h2>
           {!(q || status || source) && <p className="mt-1 max-w-md text-sm text-muted-foreground">{t("emptyDesc")}</p>}
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-lg border border-border bg-card">
-          <Table>
-            <TableHeader>
+        <div className="overflow-x-auto rounded-xl border border-border bg-card">
+          <Table className="[&_td]:px-3.5 [&_td]:py-2.5">
+            <TableHeader className="bg-muted [&_th]:h-9 [&_th]:px-3.5 [&_th]:text-xs [&_th]:font-semibold [&_th]:text-muted-foreground">
               <TableRow>
                 <TableHead>{t("colOrder")}</TableHead>
                 <TableHead>{t("colCustomer")}</TableHead>

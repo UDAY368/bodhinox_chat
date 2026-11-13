@@ -13,6 +13,7 @@ import type { ProductStatsRow } from '@/lib/analytics/products';
 import type { CampaignFunnel, FunnelCounts } from '@/lib/analytics/queries';
 import { formatMoney } from '@/lib/commerce/money';
 import { BarChart } from '@/components/tremor/bar-chart';
+import { THEME_SERIES } from '@/components/tremor/chart-colors';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ChartWithTable, DataTable, Panel, ReportState, reportQuery, useReport } from './shared';
 
@@ -116,7 +117,7 @@ function CampaignCompare({ campaigns }: { campaigns: Campaign[] }) {
             return (
               <label
                 key={campaign.id}
-                className="flex items-center gap-2 rounded-md border border-border px-2 py-1 text-sm has-[:disabled]:opacity-50"
+                className="flex h-8 cursor-pointer items-center gap-2 rounded-full border border-border px-3 text-[13px] font-medium text-muted-foreground transition-colors duration-150 hover:bg-muted has-[:checked]:border-transparent has-[:checked]:bg-primary/10 has-[:checked]:text-primary has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-50"
               >
                 <input
                   type="checkbox"
@@ -145,6 +146,7 @@ function CampaignCompare({ campaigns }: { campaigns: Campaign[] }) {
                 }))}
                 index="stage"
                 categories={labels}
+                colors={THEME_SERIES}
                 valueFormatter={(n) => t('percent', { value: format.number(n) })}
                 allowDecimals={false}
               />
@@ -182,6 +184,7 @@ function ServiceCompare({ query }: { query: string }) {
             data={rows.slice(0, 12).map((row) => ({ service: row.name, [booked]: row.booked, [completed]: row.completed, [noShow]: row.noShow }))}
             index="service"
             categories={[booked, completed, noShow]}
+            colors={['chart1', 'chart3', 'soft']}
             valueFormatter={(n) => format.number(n)}
             allowDecimals={false}
           />
@@ -226,6 +229,7 @@ function ProductCompare({ query }: { query: string }) {
                   data={inCurrency.slice(0, 12).map((row) => ({ product: label(row), [net]: row.netMinor }))}
                   index="product"
                   categories={[net]}
+                  colors={['chart1']}
                   valueFormatter={(n) => money(n)}
                   showLegend={false}
                   yAxisWidth={160}

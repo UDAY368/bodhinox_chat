@@ -18,15 +18,15 @@ import { useTranslations } from 'next-intl'
 export function PipelineDonut({ data, loading, currency }: PipelineDonutProps) {
   const t = useTranslations('Dashboard.pipelineDonut')
   return (
-    <section className="studio-panel flex h-full flex-col rounded-xl border border-border bg-card">
-      <header className="border-b border-border px-5 py-4">
-        <h2 className="text-sm font-semibold text-foreground">{t('title')}</h2>
+    <section className="flex h-full flex-col rounded-xl border border-border bg-card">
+      <header className="px-5 pt-5">
+        <h2 className="text-[15px] font-semibold tracking-tight text-foreground">{t('title')}</h2>
         <p className="mt-0.5 text-xs text-muted-foreground">
           {t('description')}
         </p>
       </header>
 
-      <div className="flex flex-1 flex-col p-5">
+      <div className="flex flex-1 flex-col px-5 pt-4 pb-5">
         {loading || !data ? (
           <Skeleton className="h-56 w-full" />
         ) : data.stages.length === 0 ? (
@@ -38,19 +38,19 @@ export function PipelineDonut({ data, loading, currency }: PipelineDonutProps) {
         ) : (
           <>
             <Donut data={data} currency={currency} />
-            <ul className="mt-5 space-y-2">
+            <ul className="mt-4 space-y-0.5">
               {data.stages.map((s) => (
-                <li key={s.id} className="flex items-center gap-3 text-xs">
+                <li key={s.id} className="flex items-center gap-3 rounded-md px-2 py-1.5 text-[13px] transition-colors duration-150 hover:bg-muted/60">
                   <span
                     className="h-2.5 w-2.5 flex-shrink-0 rounded-full"
                     style={{ background: s.color }}
                     aria-hidden
                   />
-                  <span className="flex-1 truncate text-muted-foreground">{s.name}</span>
-                  <span className="text-muted-foreground tabular-nums">
+                  <span className="flex-1 truncate text-foreground">{s.name}</span>
+                  <span className="text-xs text-muted-foreground tabular-nums">
                     {t('dealCount', { count: s.dealCount })}
                   </span>
-                  <span className="w-20 text-right text-muted-foreground tabular-nums">
+                  <span className="w-20 text-right font-semibold text-foreground tabular-nums">
                     {formatCurrencyShort(s.totalValue, currency)}
                   </span>
                 </li>
@@ -66,14 +66,14 @@ export function PipelineDonut({ data, loading, currency }: PipelineDonutProps) {
 // ------------------------------------------------------------
 // SVG ring. 200×200 viewBox, 12px ring width. We draw one <path>
 // per stage using an SVG arc from startAngle → endAngle. Gaps
-// between segments are implied by a thin slate-900 stroke between
-// them for a cleaner look.
+// between segments are implied by the ring's own background showing
+// through, which keeps the ring calm.
 // ------------------------------------------------------------
 function Donut({ data, currency }: { data: PipelineDonutData; currency: string }) {
   const t = useTranslations('Dashboard.pipelineDonut')
   const size = 200
   const r = 80
-  const ringWidth = 18
+  const ringWidth = 14
   const cx = size / 2
   const cy = size / 2
 
@@ -100,7 +100,7 @@ function Donut({ data, currency }: { data: PipelineDonutData; currency: string }
 
   return (
     <div className="flex items-center justify-center">
-      <svg viewBox={`0 0 ${size} ${size}`} className="h-48 w-48" role="img" aria-label={t('ariaLabel')}>
+      <svg viewBox={`0 0 ${size} ${size}`} className="h-40 w-40" role="img" aria-label={t('ariaLabel')}>
         {/* background ring */}
         <circle cx={cx} cy={cy} r={r} fill="none" stroke="var(--muted)" strokeWidth={ringWidth} />
         {segments.map((seg) => (
@@ -126,7 +126,7 @@ function Donut({ data, currency }: { data: PipelineDonutData; currency: string }
           x={cx}
           y={cy + 14}
           textAnchor="middle"
-          className="fill-foreground text-[18px] font-semibold tabular-nums"
+          className="fill-foreground text-[19px] font-bold tabular-nums"
         >
           {formatCurrencyShort(data.totalValue, currency)}
         </text>

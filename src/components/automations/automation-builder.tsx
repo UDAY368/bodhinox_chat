@@ -944,11 +944,11 @@ export function AutomationBuilder({
       {/* Top bar. At sub-sm widths the "Active" label is hidden and the
           switch moves to the right of the save button, so the name input
           gets maximum width. */}
-      <header className="border-border bg-card/80 flex flex-shrink-0 items-center gap-2 border-b px-3 py-3 sm:gap-3 sm:px-4">
+      <header className="border-border bg-card flex flex-shrink-0 items-center gap-2 border-b px-3 py-2.5 sm:gap-3 sm:px-4">
         <button
           type="button"
           onClick={() => router.push(channelPath(channel, 'automations'))}
-          className="text-muted-foreground hover:bg-muted hover:text-foreground flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md transition-colors"
+          className="text-muted-foreground hover:bg-muted hover:text-foreground flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full transition-colors duration-150"
           aria-label={t('backToAutomations')}
         >
           <ArrowLeft className="h-4 w-4" />
@@ -957,7 +957,7 @@ export function AutomationBuilder({
         <span
           data-automation-channel={channel}
           title={tSection('locked')}
-          className="border-border text-muted-foreground hidden flex-shrink-0 rounded-full border px-2 py-0.5 text-[11px] font-medium sm:inline"
+          className="bg-muted text-muted-foreground hidden flex-shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium sm:inline"
         >
           {tSection('runsOn', { channel: tChannels(channel) })}
         </span>
@@ -965,7 +965,7 @@ export function AutomationBuilder({
           value={state.name}
           onChange={(e) => patchTop('name', e.target.value)}
           placeholder={t('untitled')}
-          className="text-foreground placeholder:text-muted-foreground focus:bg-muted min-w-0 flex-1 rounded-md bg-transparent px-2 py-1 text-sm font-semibold focus:outline-none sm:text-base"
+          className="text-foreground placeholder:text-muted-foreground hover:bg-muted focus:border-primary focus:bg-card focus:ring-primary/15 min-w-0 flex-1 rounded-lg border border-transparent bg-transparent px-2 py-1 text-sm font-semibold tracking-tight transition-colors duration-150 focus:ring-[3px] focus:outline-none sm:text-base"
         />
         <div className="text-muted-foreground flex items-center gap-2 text-xs">
           <span className="hidden sm:inline">{t('active')}</span>
@@ -978,7 +978,6 @@ export function AutomationBuilder({
         <Button
           onClick={save}
           disabled={saving}
-          className="bg-primary text-primary-foreground hover:bg-primary/90"
         >
           {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
           {isEditing ? t('save') : t('saveDraft')}
@@ -990,7 +989,7 @@ export function AutomationBuilder({
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle,var(--border)_1px,transparent_1px)] [background-size:20px_20px]" />
         <div className="relative mx-auto flex max-w-2xl flex-col items-center gap-0 px-4 py-10">
           {channel === 'instagram' && (
-            <p className="border-border bg-card text-muted-foreground mb-4 w-full max-w-[320px] rounded-md border px-3 py-2 text-center text-xs sm:w-80">
+            <p className="border-border bg-card text-muted-foreground mb-4 w-full max-w-[320px] rounded-xl border px-3 py-2 text-center text-xs sm:w-80">
               {tSection('instagramWindowHint')}
             </p>
           )}
@@ -1051,17 +1050,17 @@ function TriggerCard({
     // Card width: full on mobile, fixed 320px on sm+. The canvas wrapper
     // (max-w-2xl + px-4) keeps this tidy on tablet/desktop.
     <div className="z-10 w-full max-w-[320px] sm:w-80">
-      <div className="border-border bg-card rounded-lg border border-l-4 border-l-blue-500 shadow-lg">
+      <div className="border-border bg-card rounded-xl border border-l-4 border-l-primary">
         <button
           type="button"
           onClick={() => setOpen((v) => !v)}
           className="flex w-full items-center gap-3 px-4 py-3 text-left"
         >
-          <div className="flex h-8 w-8 items-center justify-center rounded-md bg-blue-500/10 text-blue-400">
+          <div className="bg-primary/10 text-primary flex h-8 w-8 items-center justify-center rounded-[10px]">
             <Zap className="h-4 w-4" />
           </div>
           <div className="min-w-0 flex-1">
-            <div className="text-[11px] tracking-wide text-blue-300 uppercase">
+            <div className="text-primary text-xs font-medium">
               {t('trigger')}
             </div>
             <div className="text-foreground truncate text-sm font-medium">
@@ -1653,7 +1652,7 @@ function StepRenderer({
       <div className={cn('z-10 flex min-w-0 flex-col', width)}>
         <div
           className={cn(
-            'border-border bg-card rounded-lg border border-l-4 shadow-lg',
+            'border-border bg-card rounded-xl border border-l-4',
             meta.border
           )}
         >
@@ -1666,11 +1665,11 @@ function StepRenderer({
               className="text-muted-foreground h-4 w-4 flex-shrink-0"
               aria-hidden
             />
-            <div className="bg-muted text-muted-foreground flex h-8 w-8 items-center justify-center rounded-md">
+            <div className="bg-muted text-muted-foreground flex h-8 w-8 items-center justify-center rounded-[10px]">
               <Icon className="h-4 w-4" />
             </div>
             <div className="min-w-0 flex-1">
-              <div className="text-muted-foreground text-[11px] tracking-wide uppercase">
+              <div className="text-muted-foreground text-xs font-medium">
                 {isCondition
                   ? t('kindCondition')
                   : step.step_type === 'wait'
@@ -1797,7 +1796,7 @@ function BranchColumn({
 }) {
   return (
     <div className="flex min-w-0 flex-col items-center">
-      <div className={cn('mb-2 text-[11px] font-semibold uppercase', color)}>
+      <div className={cn('mb-2 text-xs font-semibold', color)}>
         {label}
       </div>
       {children}

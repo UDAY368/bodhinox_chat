@@ -137,7 +137,7 @@ export function CatalogManager({ canManage, onChanged }: { canManage: boolean; o
   return (
     <section className="space-y-3" aria-labelledby="catalogs-heading">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 id="catalogs-heading" className="text-base font-medium text-foreground">{t("title")}</h2>
+        <h2 id="catalogs-heading" className="text-base font-semibold tracking-tight text-foreground">{t("title")}</h2>
         <div className="flex gap-2">
           <Button variant="ghost" size="sm" onClick={() => void reload()}>
             <RefreshCw className="h-3.5 w-3.5" />
@@ -153,15 +153,15 @@ export function CatalogManager({ canManage, onChanged }: { canManage: boolean; o
       {catalogs === null ? (
         <div className="flex justify-center p-6"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" aria-label={t("loading")} /></div>
       ) : catalogs.length === 0 ? (
-        <div className="flex flex-col items-center rounded-lg border border-dashed border-border bg-card/50 px-6 py-10 text-center">
-          <Store className="h-6 w-6 text-muted-foreground" />
+        <div className="flex flex-col items-center rounded-xl border border-dashed border-border px-6 py-10 text-center">
+          <span className="flex size-[52px] items-center justify-center rounded-2xl bg-primary/10 text-primary"><Store className="size-6" /></span>
           <p className="mt-3 text-sm font-medium text-foreground">{t("emptyTitle")}</p>
           <p className="mt-1 max-w-md text-xs text-muted-foreground">{t("emptyDesc")}</p>
         </div>
       ) : (
         <ul className="grid gap-3 md:grid-cols-2">
           {catalogs.map((catalog) => (
-            <li key={catalog.id} className="space-y-3 rounded-lg border border-border bg-card p-4">
+            <li key={catalog.id} className="space-y-3 rounded-xl border border-border bg-card p-4">
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
                   <p className="truncate font-medium text-foreground">{catalog.name || catalog.catalog_id}</p>
@@ -303,7 +303,7 @@ function ConnectCatalogDialog({ open, onOpenChange, onConnected }: {
     }
   }
 
-  const select = "h-9 w-full rounded-md border border-border bg-muted px-2 text-sm text-foreground";
+  const select = "h-9 w-full rounded-lg border border-border bg-card px-2.5 text-sm text-foreground";
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">

@@ -15,7 +15,7 @@ import type { FormField, FormSaveTo } from "@/lib/whatsapp/forms/types";
 import type { FlowCustomField } from "@/components/flows/forms/use-pickers";
 import { errorsUnder, fieldCapabilities, newOption } from "./form-editing";
 
-const selectClass = "h-9 w-full rounded-md border border-border bg-muted px-2 text-sm text-foreground disabled:opacity-60";
+const selectClass = "h-9 w-full rounded-lg border border-border bg-card px-2.5 text-sm text-foreground disabled:opacity-60";
 
 function saveToValue(saveTo: FormSaveTo | null | undefined): string {
   if (!saveTo) return "";
@@ -79,7 +79,7 @@ export function FieldEditor({
   const hasErrors = errorsUnder(errors, path).length > 0;
 
   return (
-    <div className={cn("space-y-3 rounded-lg border bg-card p-3", hasErrors ? "border-destructive/60" : "border-border")}>
+    <div className={cn("space-y-3 rounded-xl border bg-card p-3", hasErrors ? "border-destructive/60" : "border-border")}>
       <div className="flex items-center gap-2">
         <span className="rounded bg-muted px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground">{tType(field.type)}</span>
         <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">{field.label || t("untitledField")}</span>

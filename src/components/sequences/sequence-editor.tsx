@@ -132,7 +132,7 @@ export function SequenceEditor({ id }: { id: string }) {
             </form>
           ) : (
             <div className="flex min-w-0 items-center gap-2">
-              <h1 className="text-foreground truncate text-2xl font-bold tracking-tight">{sequence.name}</h1>
+              <h1 className="text-foreground truncate text-[22px] font-bold tracking-tight">{sequence.name}</h1>
               <Badge variant={sequence.status === 'active' ? 'default' : 'secondary'}>{t(`statusLabel.${sequence.status}`)}</Badge>
               {canEdit && (
                 <Button type="button" size="icon-sm" variant="ghost" aria-label={t('rename')} onClick={() => setRenaming(sequence.name)}>

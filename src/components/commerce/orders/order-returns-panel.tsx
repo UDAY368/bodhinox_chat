@@ -115,7 +115,7 @@ export function OrderReturnsPanel({ order, returns, canAct, canAdmin, onChanged 
   }
 
   return (
-    <div className="space-y-3 rounded-lg border border-border bg-card p-4">
+    <div className="space-y-3 rounded-xl border border-border bg-card p-4">
       <div className="flex items-center justify-between gap-2">
         <h2 className="text-sm font-medium text-foreground">{t("title")}</h2>
         {RETURNABLE.has(order.status) && canAct && !open && (

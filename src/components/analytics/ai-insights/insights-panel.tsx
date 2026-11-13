@@ -17,7 +17,7 @@ import {
 } from './insight-view';
 
 const POLL_MS = 3_000;
-const selectClass = 'h-9 rounded-md border border-border bg-card px-2 text-sm text-foreground';
+const selectClass = 'h-9 rounded-lg border border-border bg-card px-2.5 text-[13px] text-foreground transition-colors duration-150 hover:bg-muted outline-none focus-visible:ring-2 focus-visible:ring-ring/50';
 
 /**
  * Business insights from fixed reporting queries: the numbers, their range,
@@ -126,7 +126,7 @@ function InsightRun({ run, formatters }: { run: InsightRunView; formatters: Metr
   const reason = reasonKey(run.errorCode);
   const data = run.data;
   return (
-    <li className="space-y-3 rounded-lg border border-border p-4">
+    <li className="space-y-3 rounded-xl border border-border p-4">
       <div className="flex flex-wrap items-center gap-2">
         <span className="font-medium text-foreground">{t(`keys.${run.key}`)}</span>
         <span className="text-xs text-muted-foreground">{t('range', { from: run.from, to: run.to })}</span>
@@ -161,20 +161,20 @@ function InsightRun({ run, formatters }: { run: InsightRunView; formatters: Metr
           </dl>
 
           {data.rows && data.rows.length > 0 && (
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto rounded-lg border border-border">
               <table className="w-full text-left text-xs">
                 <thead>
-                  <tr className="text-muted-foreground">
-                    <th className="py-1 pr-3 font-medium">{t('rowLabel')}</th>
-                    {Object.keys(data.rows[0].values).map((name) => <th key={name} className="py-1 pr-3 font-medium">{t(`metrics.${name}`)}</th>)}
+                  <tr className="bg-muted text-muted-foreground">
+                    <th className="px-3 py-1.5 font-semibold">{t('rowLabel')}</th>
+                    {Object.keys(data.rows[0].values).map((name) => <th key={name} className="px-3 py-1.5 font-semibold">{t(`metrics.${name}`)}</th>)}
                   </tr>
                 </thead>
                 <tbody>
                   {data.rows.map((row) => (
                     <tr key={row.label} className="border-t border-border">
-                      <td className="py-1 pr-3">{row.name ?? row.label}</td>
+                      <td className="px-3 py-1.5">{row.name ?? row.label}</td>
                       {Object.entries(row.values).map(([name, value]) => (
-                        <td key={name} className="py-1 pr-3 tabular-nums">
+                        <td key={name} className="px-3 py-1.5 tabular-nums">
                           {formatMetric(name, value, run.key === 'commerce_sales' ? row.label : data.currency, formatters)}
                         </td>
                       ))}

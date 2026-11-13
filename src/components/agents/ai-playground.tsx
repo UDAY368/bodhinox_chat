@@ -99,12 +99,12 @@ export function AiPlayground({ onGoToSetup }: { onGoToSetup?: () => void }) {
   };
 
   return (
-    <div className="studio-ai-playground flex h-[60vh] min-h-[420px] flex-col overflow-hidden rounded-2xl border border-border bg-card">
+    <div className="flex h-[60vh] min-h-[420px] flex-col overflow-hidden rounded-xl border border-border bg-card">
       {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-5 py-4">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-3">
         <div className="flex flex-wrap items-center gap-2">
           <KhagaIcon />
-          <span className="text-sm font-medium text-foreground">{t('title')}</span>
+          <span className="text-[15px] font-semibold text-foreground">{t('title')}</span>
           <span className="text-xs text-muted-foreground">
             {t('subtitle')}
           </span>
@@ -121,12 +121,12 @@ export function AiPlayground({ onGoToSetup }: { onGoToSetup?: () => void }) {
       </div>
 
       {/* Transcript */}
-      <div ref={scrollRef} className="flex-1 space-y-5 overflow-y-auto bg-background p-4 sm:p-6">
+      <div ref={scrollRef} className="flex-1 space-y-4 overflow-y-auto bg-card p-4 sm:p-6">
         {turns.length === 0 && (
           <div className="flex h-full flex-col items-center justify-center text-center text-sm text-muted-foreground">
-            <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-2xl border border-border bg-card"><KhagaIcon className="h-12 w-12" /></div>
-            <p className="text-base font-medium tracking-tight text-foreground">{t('emptyTitle')}</p>
-            <p className="mt-2 max-w-sm text-xs leading-relaxed">
+            <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-xl bg-primary/10"><KhagaIcon className="h-10 w-10" /></div>
+            <p className="text-[15px] font-semibold tracking-tight text-foreground">{t('emptyTitle')}</p>
+            <p className="mt-1 max-w-sm text-[13px] leading-relaxed">
               {t('emptyDesc')}
             </p>
             {onGoToSetup && (
@@ -134,7 +134,7 @@ export function AiPlayground({ onGoToSetup }: { onGoToSetup?: () => void }) {
                 variant="link"
                 size="sm"
                 onClick={onGoToSetup}
-                className="mt-1 h-auto p-0 text-xs"
+                className="mt-3 h-auto p-0 text-[13px]"
               >
                 {t('goToSetup')} <ArrowRight className="ml-1 h-3 w-3" />
               </Button>
@@ -155,10 +155,10 @@ export function AiPlayground({ onGoToSetup }: { onGoToSetup?: () => void }) {
             )}
             <div
               className={cn(
-                'max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-relaxed',
+                'max-w-[85%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed',
                 turn.role === 'user'
                   ? 'rounded-br-sm bg-primary text-primary-foreground'
-                  : 'rounded-bl-sm border border-border bg-card text-foreground',
+                  : 'rounded-bl-sm bg-muted text-foreground',
               )}
             >
               {turn.content && <p className="whitespace-pre-wrap break-words">{turn.content}</p>}
@@ -199,23 +199,23 @@ export function AiPlayground({ onGoToSetup }: { onGoToSetup?: () => void }) {
         )}
       </div>
 
-      {requestError && <p role="alert" className="mx-3 mb-2 rounded-md border border-destructive/30 p-2 text-sm text-destructive">{requestError}</p>}
+      {requestError && <p role="alert" className="mx-4 mb-2 rounded-lg bg-destructive/10 px-3 py-2 text-[13px] text-destructive">{requestError}</p>}
 
       {/* Composer */}
-      <div className="flex items-end gap-2 border-t border-border p-4">
+      <div className="flex items-end gap-2 border-t border-border p-3">
         <textarea
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder={t('placeholder')}
           rows={1}
-          className="min-w-0 flex-1 resize-none rounded-xl border border-border bg-background px-4 py-2.5 text-sm text-foreground placeholder-muted-foreground outline-none focus:border-primary/50"
+          className="min-w-0 flex-1 resize-none rounded-[1.25rem] border border-border bg-background px-4 py-2 text-sm text-foreground placeholder-muted-foreground outline-none transition-colors duration-150 focus:border-ring focus:ring-2 focus:ring-ring/20"
         />
         <Button
           size="sm"
           onClick={send}
           disabled={!input.trim() || sending}
-          className="h-9 w-9 shrink-0 p-0"
+          className="h-9 w-9 shrink-0 rounded-full p-0"
         >
           {sending ? (
             <Loader2 className="h-4 w-4 animate-spin" />

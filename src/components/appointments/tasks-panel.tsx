@@ -62,13 +62,13 @@ export function TasksPanel({ canManage, onOpenAppointment }: { canManage: boolea
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-2">
-        <h2 className="text-lg font-semibold">{t('tasks.title')}</h2>
+        <h2 className="text-base font-semibold tracking-tight">{t('tasks.title')}</h2>
         <select aria-label={t('schedule.filterStatus')} className={`${selectClass} ml-auto w-36`} value={status} onChange={(e) => setStatus(e.target.value as TaskStatus)}>
           {TASK_STATUSES.map((s) => <option key={s} value={s}>{t(`tasks.statuses.${s}`)}</option>)}
         </select>
       </div>
       {tasks && tasks.length === 0 && <p className="text-sm text-muted-foreground">{t('tasks.empty')}</p>}
-      <ul className="divide-y divide-border rounded-lg border border-border bg-card text-sm">
+      <ul className="divide-y divide-border rounded-xl border border-border bg-card text-sm">
         {(tasks ?? []).map((task) => (
           <li key={task.id} className="flex flex-wrap items-center gap-2 p-3">
             <span className="rounded bg-muted px-1.5 py-0.5 text-[10px]">{t(`tasks.kinds.${task.kind}`)}</span>

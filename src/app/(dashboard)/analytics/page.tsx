@@ -43,22 +43,23 @@ export default function AnalyticsPage() {
   const shown = overview.data?.range;
 
   return (
-    <div className="studio-dashboard space-y-6">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="eyebrow">{t('eyebrow')}</p>
-          <h1 className="mt-2 text-2xl font-semibold tracking-tight text-foreground">{t('title')}</h1>
-          <p className="mt-2 max-w-xl text-sm leading-relaxed text-muted-foreground">{t('description')}</p>
+    <div className="mx-auto w-full max-w-[1440px] space-y-5">
+      <header className="flex flex-wrap items-start justify-between gap-4">
+        <div className="min-w-0">
+          <h1 className="text-[22px] leading-tight font-bold tracking-tight text-foreground">{t('title')}</h1>
+          <p className="mt-1 max-w-2xl text-sm text-muted-foreground">{t('description')}</p>
         </div>
-        <div className="flex flex-col items-start gap-2 sm:items-end">
+        <div className="flex max-w-full flex-col items-start gap-2 sm:items-end">
           <RangePicker value={range} onChange={setRange} today={range.preset === 'custom' ? undefined : shown?.endDay} />
-          <ChannelFilter value={channel} onChange={setChannel} />
-          {!whatsappOnlyHidden && <NumberFilter numbers={overview.data?.numbers ?? []} value={number} onChange={setNumber} />}
+          <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+            <ChannelFilter value={channel} onChange={setChannel} />
+            {!whatsappOnlyHidden && <NumberFilter numbers={overview.data?.numbers ?? []} value={number} onChange={setNumber} />}
+          </div>
         </div>
-      </div>
+      </header>
 
       {shown && (
-        <p className="text-xs text-muted-foreground" aria-live="polite">
+        <p className="-mt-1 text-[13px] text-muted-foreground" aria-live="polite">
           {t('showing', { from: shown.startDay, to: shown.endDay, previousFrom: overview.data!.previousRange.startDay, previousTo: overview.data!.previousRange.endDay })}
         </p>
       )}

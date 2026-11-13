@@ -41,31 +41,31 @@ export function DealCard({ deal, stage, onEdit, isOverlay }: DealCardProps) {
         e.stopPropagation();
         onEdit(deal);
       }}
-      className={`group relative w-full cursor-pointer rounded-xl border border-border/50 bg-muted/70 pl-4 pr-3 py-3 text-left shadow-sm transition-all ${
+      className={`group relative flex w-full cursor-grab flex-col gap-2 rounded-xl border border-border bg-card py-2.5 pl-3 pr-2.5 text-left transition-[box-shadow,opacity] duration-150 focus-visible:outline-2 focus-visible:outline-primary ${
         isOverlay
-          ? "shadow-xl"
-          : "hover:-translate-y-0.5 hover:border-border hover:bg-muted hover:shadow-lg"
+          ? "shadow-[0_12px_32px_rgb(0_0_0/0.16)]"
+          : "hover:shadow-[0_1px_2px_rgb(0_0_0/0.06),0_4px_14px_rgb(0_0_0/0.06)]"
       }`}
     >
-      {/* 4px left accent bar using stage color */}
-      <span
-        aria-hidden
-        className="absolute left-0 top-0 h-full w-1 rounded-l-xl"
-        style={{ backgroundColor: stage?.color ?? "#94a3b8" }}
-      />
-
-      <div className="flex items-start justify-between gap-2">
-        <h4 className="flex-1 text-sm font-semibold leading-snug text-foreground break-words">
-          {deal.title}
-        </h4>
+      <div className="flex items-start justify-between gap-1.5">
+        <span className="flex min-w-0 flex-1 items-start gap-2">
+          <span
+            aria-hidden
+            className="mt-[5px] size-2 shrink-0 rounded-full"
+            style={{ backgroundColor: stage?.color ?? "var(--muted-foreground)" }}
+          />
+          <h4 className="min-w-0 flex-1 text-sm font-semibold leading-snug text-foreground break-words">
+            {deal.title}
+          </h4>
+        </span>
         {deal.status === "won" && (
-          <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-semibold text-primary">
+          <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-emerald-500/12 px-2 py-0.5 text-[11px] font-medium text-emerald-700 dark:text-emerald-400">
             <Check className="h-3 w-3" />
             {t("won")}
           </span>
         )}
         {deal.status === "lost" && (
-          <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-red-500/15 px-2 py-0.5 text-[10px] font-semibold text-red-400">
+          <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-destructive/10 px-2 py-0.5 text-[11px] font-medium text-destructive">
             <X className="h-3 w-3" />
             {t("lost")}
           </span>
@@ -73,35 +73,34 @@ export function DealCard({ deal, stage, onEdit, isOverlay }: DealCardProps) {
       </div>
 
       {/* Contact row */}
-      <div className="mt-2 flex items-center gap-2">
-        <span className="flex h-5 w-5 items-center justify-center rounded-full bg-muted text-[10px] font-semibold text-foreground">
+      <div className="flex min-w-0 items-center gap-[7px] text-[13px] text-muted-foreground">
+        <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-muted text-[10px] font-semibold text-foreground">
           {initials(deal.contact?.name, deal.contact?.phone)}
         </span>
-        <span className="truncate text-xs text-muted-foreground">{contactLabel}</span>
+        <span className="truncate">{contactLabel}</span>
       </div>
 
-      <div className="mt-2 flex items-center justify-between">
-        <span className="text-sm font-bold text-primary">
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-sm font-semibold tabular-nums text-foreground">
           {formatCurrency(deal.value, deal.currency)}
         </span>
-        {deal.expected_close_date && (
-          <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
-            <Calendar className="h-3 w-3" />
-            {formatDate(deal.expected_close_date)}
-          </span>
-        )}
+        <span className="flex items-center gap-2">
+          {deal.expected_close_date && (
+            <span className="flex items-center gap-1 text-xs text-muted-foreground">
+              <Calendar className="h-3 w-3" />
+              {formatDate(deal.expected_close_date)}
+            </span>
+          )}
+          {assigneeLabel && (
+            <span
+              title={assigneeLabel}
+              className="flex size-5 items-center justify-center rounded-full bg-primary/10 text-[10px] font-semibold text-primary"
+            >
+              {initials(assigneeLabel)}
+            </span>
+          )}
+        </span>
       </div>
-
-      {assigneeLabel && (
-        <div className="mt-2 flex items-center justify-end">
-          <span
-            title={assigneeLabel}
-            className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/15 text-[10px] font-semibold text-primary"
-          >
-            {initials(assigneeLabel)}
-          </span>
-        </div>
-      )}
     </button>
   );
 }

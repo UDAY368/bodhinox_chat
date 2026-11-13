@@ -6,6 +6,7 @@ import { Loader2, Upload, Trash2, Mail, CircleAlert } from 'lucide-react';
 
 import { createClient } from '@/lib/data/client';
 import { useAuth } from '@/hooks/use-auth';
+import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { PasswordInput } from '@/components/ui/password-input';
@@ -344,7 +345,7 @@ export function ProfileForm() {
 
             {/* Read-only block */}
             <div className="border-border bg-muted rounded-lg border p-4">
-              <p className="text-muted-foreground mb-3 text-xs font-semibold tracking-wider uppercase">
+              <p className="text-muted-foreground mb-3 text-xs font-semibold">
                 {t('accountDetails')}
               </p>
               <dl className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
@@ -376,7 +377,10 @@ export function ProfileForm() {
           </CardContent>
         </Card>
 
-        <div className="flex justify-end">
+        {/* Save stays in reach while the form scrolls; it lifts onto a floating pill once something changed. */}
+        <div className="sticky bottom-4 z-10 flex justify-end">
+          <div className={cn('rounded-full transition-[box-shadow,background-color,padding] duration-150',
+            dirty && 'border-border bg-card border p-1.5 shadow-lg')}>
           <Button type="submit" disabled={saving || !dirty || !profile}>
             {saving ? (
               <>
@@ -387,6 +391,7 @@ export function ProfileForm() {
               t('saveChanges')
             )}
           </Button>
+          </div>
         </div>
       </form>
 

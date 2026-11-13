@@ -35,7 +35,7 @@ const FIELDS: Field[] = ['tags', 'list', 'campaign', 'ad', 'lead_form', 'custom_
 const STAGE5_FIELD_LABELS: Partial<Record<Field, string>> = { whatsapp: 'whatsappField', instagram_subscription: 'instagramSubscriptionField' };
 /** Same list as IG_SEGMENT_FACTS in lib/audience/filter (a server module, so not imported here). */
 const IG_SEGMENT_FACTS = ['follows_business', 'business_follows', 'is_verified'] as const;
-const selectClass = 'h-8 rounded-md border border-border bg-muted px-2 text-sm text-foreground';
+const selectClass = 'h-8 rounded-lg border border-border bg-card px-2 text-sm text-foreground';
 
 function blank(field: Field): AudienceCondition {
   switch (field) {
@@ -189,18 +189,18 @@ export function SegmentBuilderDialog({
           <div className="space-y-2">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <Label className="text-muted-foreground">{t('conditionsLabel')}</Label>
-              <div role="radiogroup" aria-label={tf('matchLabel')} className="border-border inline-flex rounded-md border p-0.5">
+              <div role="radiogroup" aria-label={tf('matchLabel')} className="inline-flex rounded-xl bg-muted p-[3px]">
                 {(['all', 'any'] as const).map((mode) => (
                   <button key={mode} type="button" role="radio" aria-checked={match === mode}
                     onClick={() => setMatch(mode)}
-                    className={`focus-visible:ring-ring rounded px-2 py-0.5 text-xs outline-none focus-visible:ring-2 ${match === mode ? 'bg-primary/10 text-primary' : 'text-muted-foreground'}`}>
+                    className={`focus-visible:ring-ring rounded-[9px] px-3 py-1 text-xs font-medium outline-none transition-colors duration-150 focus-visible:ring-2 ${match === mode ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>
                     {mode === 'all' ? tf('matchAll') : tf('matchAny')}
                   </button>
                 ))}
               </div>
             </div>
             {conditions.map((c, index) => (
-              <div key={index} className="flex flex-wrap items-center gap-2 rounded-md border border-border p-2" data-testid="segment-condition">
+              <div key={index} className="flex flex-wrap items-center gap-2 rounded-xl border border-border bg-card p-2" data-testid="segment-condition">
                 <select
                   aria-label={t('fieldLabel')}
                   className={selectClass}

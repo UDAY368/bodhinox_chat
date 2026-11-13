@@ -45,7 +45,7 @@ export function OverviewTiles({
   const format = useFormatter();
   if (loading)
     return (
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {Array.from({ length: 4 }).map((_, i) => <SkeletonCard key={i} />)}
       </div>
     );
@@ -134,12 +134,12 @@ export function ConversationCharts({
   const number = (n: number) => format.number(n);
 
   return (
-    <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+    <div className="grid grid-cols-1 gap-3.5 lg:grid-cols-2">
       <Panel title={t('byStateTitle')} description={t('byStateDescription')}>
         <ReportState loading={loading} error={error} onRetry={onRetry} empty={!!stats && states.every((s) => s[count] === 0)}>
           <ChartWithTable
             label={t('byStateTitle')}
-            chart={<BarChart className="h-56" data={states} index="name" categories={[count]} colors={['blue']} valueFormatter={number} showLegend={false} allowDecimals={false} />}
+            chart={<BarChart className="h-56" data={states} index="name" categories={[count]} colors={['chart1']} valueFormatter={number} showLegend={false} allowDecimals={false} />}
             columns={[t('stateColumn'), count]}
             rows={states.map((s) => [s.name, s[count] as number])}
           />
@@ -149,7 +149,7 @@ export function ConversationCharts({
         <ReportState loading={loading} error={error} onRetry={onRetry} empty={!!stats && stats.started.total === 0}>
           <ChartWithTable
             label={t('bySourceTitle')}
-            chart={<BarChart className="h-56" data={sources} index="name" categories={[count]} colors={['emerald']} valueFormatter={number} showLegend={false} allowDecimals={false} />}
+            chart={<BarChart className="h-56" data={sources} index="name" categories={[count]} colors={['chart1']} valueFormatter={number} showLegend={false} allowDecimals={false} />}
             columns={[t('sourceColumn'), count]}
             rows={sources.map((s) => [s.name, s[count] as number])}
           />
@@ -166,7 +166,7 @@ export function ConversationCharts({
                   data={timing.map((r) => ({ name: r.name, [median]: toMinutes(r.median), [p90]: toMinutes(r.p90) }))}
                   index="name"
                   categories={[median, p90]}
-                  colors={['violet', 'amber']}
+                  colors={['chart1', 'soft']}
                   valueFormatter={(v) => t('minutesValue', { value: format.number(v, { maximumFractionDigits: 1 }) })}
                   yAxisLabel={minutes}
                 />

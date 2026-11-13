@@ -24,7 +24,7 @@ export function AiSection({
     <Panel title={t('title')} description={t('description')}>
       <ReportState loading={loading} error={error} onRetry={onRetry} empty={!!stats && stats.aiReplies === 0 && stats.handoffs === 0}>
         {stats && (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
             <MetricCard
               title={t('resolutionRate')}
               value={stats.resolutionRate == null ? '–' : format.number(stats.resolutionRate, { style: 'percent', maximumFractionDigits: 0 })}

@@ -273,7 +273,7 @@ export function ContactForm({
 
           <div className="space-y-2">
             <Label htmlFor="cf-phone" className="text-muted-foreground">
-              {t('phoneLabel')} <span className="text-red-400">*</span>
+              {t('phoneLabel')} <span className="text-destructive">*</span>
             </Label>
             <Input
               id="cf-phone"
@@ -290,10 +290,10 @@ export function ContactForm({
             />
             {dupMatch ? (
               <div
-                className={`flex items-start gap-2 rounded-md border px-2.5 py-2 text-xs ${
+                className={`flex items-start gap-2 rounded-xl border px-3 py-2 text-xs ${
                   dupMatch.exact
-                    ? 'border-red-500/40 bg-red-500/10 text-red-300'
-                    : 'border-amber-500/40 bg-amber-500/10 text-amber-300'
+                    ? 'border-destructive/30 bg-destructive/10 text-destructive'
+                    : 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300'
                 }`}
               >
                 <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
@@ -399,7 +399,6 @@ export function ContactForm({
             <Button
               type="submit"
               disabled={saving || checkingDup || (!isEdit && !!dupMatch?.exact)}
-              className="bg-primary hover:bg-primary/90 text-primary-foreground"
             >
               {saving && <Loader2 className="size-4 animate-spin" />}
               {isEdit ? t('update') : t('create')}

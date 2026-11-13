@@ -180,7 +180,7 @@ export function NotesPanel({ conversationId, canWrite, members, revision = 0 }: 
             return (
               <li
                 key={note.id}
-                className="rounded-lg border border-amber-200 bg-amber-50 p-2.5 text-sm dark:border-amber-900/60 dark:bg-amber-950/30"
+                className="studio-note rounded-xl px-3 py-2.5 text-[13px]"
               >
                 <div className="mb-1 flex items-center gap-2 text-xs text-muted-foreground">
                   <span className="truncate font-medium text-foreground">{mine ? t("you") : author}</span>

@@ -772,7 +772,7 @@ function ButtonFields({
             size="icon"
             onClick={onRemove}
             aria-label={t('removeButton')}
-            className="text-muted-foreground hover:text-red-400 hover:bg-red-950/30 size-7"
+            className="text-muted-foreground hover:text-red-600 hover:bg-red-500/10 dark:hover:text-red-400 size-7"
           >
             <X className="size-3.5" />
           </Button>
@@ -1104,7 +1104,7 @@ function CarouselFields({
               onClick={() =>
                 setForm((prev) => ({ ...prev, cards: removeCardButton(prev.cards, slot) }))
               }
-              className="text-muted-foreground hover:text-red-400 hover:bg-red-950/30 size-7"
+              className="text-muted-foreground hover:text-red-600 hover:bg-red-500/10 dark:hover:text-red-400 size-7"
             >
               <X className="size-3.5" />
             </Button>
@@ -1128,7 +1128,7 @@ function CarouselFields({
                 aria-label={t('cards.remove', { n: i + 1 })}
                 disabled={!canRemoveCard(form.cards.length, uploading)}
                 onClick={() => setForm((prev) => ({ ...prev, cards: removeCard(prev.cards, i) }))}
-                className="text-muted-foreground hover:text-red-400 hover:bg-red-950/30 size-7"
+                className="text-muted-foreground hover:text-red-600 hover:bg-red-500/10 dark:hover:text-red-400 size-7"
               >
                 <X className="size-3.5" />
               </Button>

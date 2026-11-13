@@ -70,12 +70,12 @@ export function ProductEditor({ id }: { id: string }) {
   if (!product) return <div className="flex justify-center p-6"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>;
 
   return (
-    <div className="space-y-6 p-4 sm:p-6">
+    <div className="space-y-5">
       <Link href="/commerce/catalogue" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
         <ArrowLeft className="h-4 w-4" />{t("back")}
       </Link>
       <header className="flex flex-wrap items-center gap-3">
-        <h1 className="text-2xl font-semibold text-foreground">{product.name}</h1>
+        <h1 className="text-[22px] font-bold tracking-tight text-foreground">{product.name}</h1>
         <StatusBadge status={product.status} />
         <span className="text-xs text-muted-foreground">
           {product.content_reviewed_at ? t("reviewed", { date: new Date(product.content_reviewed_at) }) : t("notReviewed")}
@@ -103,7 +103,7 @@ export function ProductEditor({ id }: { id: string }) {
         onSave={(images) => apply(updateShopProduct(product.id, { images, version: product.version }), t("saved"))} />
 
       <section className="space-y-3">
-        <h2 className="text-base font-medium text-foreground">{t("variants")}</h2>
+        <h2 className="text-base font-semibold tracking-tight text-foreground">{t("variants")}</h2>
         {!product.currency && <p className="rounded-md bg-muted p-2 text-xs text-muted-foreground">{t("currencyMissing")}</p>}
         <div className="space-y-3">
           {product.variants.map((v) => (
@@ -159,12 +159,12 @@ function DetailsForm({ product, categories, canManage, busy, onSave }: {
   });
   const ro = !canManage;
   return (
-    <form className="space-y-3 rounded-lg border border-border bg-card p-4" onSubmit={(e) => { e.preventDefault(); void submit(); }}>
-      <h2 className="text-base font-medium text-foreground">{t("details")}</h2>
+    <form className="space-y-3 rounded-xl border border-border bg-card p-4" onSubmit={(e) => { e.preventDefault(); void submit(); }}>
+      <h2 className="text-base font-semibold tracking-tight text-foreground">{t("details")}</h2>
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="space-y-1">
           <Label htmlFor="p-name">{t("name")}</Label>
-          <Input id="p-name" value={form.name} maxLength={200} readOnly={ro} onChange={set("name")} className="bg-muted" />
+          <Input id="p-name" value={form.name} maxLength={200} readOnly={ro} onChange={set("name")} />
         </div>
         <div className="space-y-1">
           <Label htmlFor="p-cat">{t("category")}</Label>
@@ -178,33 +178,33 @@ function DetailsForm({ product, categories, canManage, busy, onSave }: {
       </div>
       <div className="space-y-1">
         <Label htmlFor="p-desc">{t("description")}</Label>
-        <Textarea id="p-desc" rows={4} maxLength={5000} value={form.description} readOnly={ro} onChange={set("description")} className="bg-muted" />
+        <Textarea id="p-desc" rows={4} maxLength={5000} value={form.description} readOnly={ro} onChange={set("description")} />
       </div>
       <div className="space-y-1">
         <Label htmlFor="p-disc">{t("disclosure")}</Label>
-        <Textarea id="p-disc" rows={3} maxLength={2000} value={form.disclosure} readOnly={ro} onChange={set("disclosure")} className="bg-muted" />
+        <Textarea id="p-disc" rows={3} maxLength={2000} value={form.disclosure} readOnly={ro} onChange={set("disclosure")} />
         <p className="text-xs text-muted-foreground">{t("disclosureHint")}</p>
       </div>
       <fieldset className="grid gap-3 sm:grid-cols-3">
         <legend className="mb-1 text-sm font-medium text-foreground">{t("followUp")}</legend>
         <div className="space-y-1">
           <Label htmlFor="p-fut">{t("followUpTemplate")}</Label>
-          <Input id="p-fut" value={form.follow_up_template} maxLength={512} readOnly={ro} onChange={set("follow_up_template")} className="bg-muted" />
+          <Input id="p-fut" value={form.follow_up_template} maxLength={512} readOnly={ro} onChange={set("follow_up_template")} />
         </div>
         <div className="space-y-1">
           <Label htmlFor="p-ful">{t("followUpLanguage")}</Label>
           <Input id="p-ful" value={form.follow_up_template_language} maxLength={15} readOnly={ro} onChange={set("follow_up_template_language")}
-            placeholder="en" className="bg-muted" />
+            placeholder="en" />
         </div>
         <div className="space-y-1">
           <Label htmlFor="p-fud">{t("followUpDays")}</Label>
-          <Input id="p-fud" inputMode="numeric" value={form.follow_up_after_days} readOnly={ro} onChange={set("follow_up_after_days")} className="bg-muted" />
+          <Input id="p-fud" inputMode="numeric" value={form.follow_up_after_days} readOnly={ro} onChange={set("follow_up_after_days")} />
         </div>
         <p className="text-xs text-muted-foreground sm:col-span-3">{t("followUpHint")}</p>
       </fieldset>
       <div className="space-y-1 sm:max-w-xs">
         <Label htmlFor="p-rpd">{t("repurchaseDays")}</Label>
-        <Input id="p-rpd" inputMode="numeric" value={form.repurchase_after_days} readOnly={ro} onChange={set("repurchase_after_days")} className="bg-muted" />
+        <Input id="p-rpd" inputMode="numeric" value={form.repurchase_after_days} readOnly={ro} onChange={set("repurchase_after_days")} />
         <p className="text-xs text-muted-foreground">{t("repurchaseHint")}</p>
       </div>
       <label className="flex items-start gap-2 text-sm">
@@ -236,8 +236,8 @@ function ImagesForm({ product, canManage, busy, onSave }: {
   const changed = JSON.stringify(images.map(withoutDisplay))
     !== JSON.stringify(product.images.map((i) => (i.media_id ? { media_id: i.media_id } : { url: i.url })));
   return (
-    <section className="space-y-3 rounded-lg border border-border bg-card p-4">
-      <h2 className="text-base font-medium text-foreground">{t("images")}</h2>
+    <section className="space-y-3 rounded-xl border border-border bg-card p-4">
+      <h2 className="text-base font-semibold tracking-tight text-foreground">{t("images")}</h2>
       {images.length === 0 && <p className="text-sm text-muted-foreground">{t("noImages")}</p>}
       <ul className="flex flex-wrap gap-3">
         {images.map((img, i) => (
@@ -263,7 +263,7 @@ function ImagesForm({ product, canManage, busy, onSave }: {
             </Button>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://" aria-label={t("imageUrl")} className="max-w-md bg-muted" />
+            <Input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://" aria-label={t("imageUrl")} className="max-w-md" />
             <Button type="button" variant="outline" disabled={!validUrl || images.length >= 10}
               onClick={() => { setImages((list) => [...list, { url: url.trim(), display: url.trim() }]); setUrl(""); }}>
               <Plus className="h-4 w-4" />{t("addImage")}
@@ -338,7 +338,7 @@ function VariantForm({ variant, currency, canManage, busy, onSave, onAdjust }: {
   const id = variant?.id ?? "new";
 
   return (
-    <form className={`space-y-3 rounded-lg border p-4 ${variant ? "border-border bg-card" : "border-dashed border-border"} ${variant?.archived ? "opacity-60" : ""}`}
+    <form className={`space-y-3 rounded-xl border p-4 ${variant ? "border-border bg-card" : "border-dashed border-border"} ${variant?.archived ? "opacity-60" : ""}`}
       onSubmit={(e) => { e.preventDefault(); void submit(); }}>
       <div className="flex flex-wrap items-center gap-2">
         <h3 className="text-sm font-medium text-foreground">{variant ? variant.sku : t("addVariant")}</h3>
@@ -359,13 +359,13 @@ function VariantForm({ variant, currency, canManage, busy, onSave, onAdjust }: {
         )}
       </div>
       <div className="grid gap-3 sm:grid-cols-4">
-        {field("sku", t("sku"), <Input id={`${id}-sku`} value={form.sku} maxLength={64} readOnly={ro} onChange={set("sku")} className="bg-muted font-mono" />)}
-        {field("options", t("options"), <Input value={form.options} readOnly={ro} onChange={set("options")} placeholder={t("optionsPlaceholder")} className="bg-muted" />)}
-        {field("price", t("price", { currency: currency ?? "—" }), <Input inputMode="decimal" value={form.price} readOnly={ro || !currency} onChange={set("price")} className="bg-muted" />)}
-        {field("compareAt", t("compareAt"), <Input inputMode="decimal" value={form.compareAt} readOnly={ro || !currency} onChange={set("compareAt")} className="bg-muted" />)}
-        {field("tax", t("taxRate"), <Input inputMode="decimal" value={form.tax} readOnly={ro} onChange={set("tax")} placeholder={t("taxDefault")} className="bg-muted" />)}
-        {field("hsn", t("hsn"), <Input inputMode="numeric" value={form.hsn} maxLength={8} readOnly={ro} onChange={set("hsn")} className="bg-muted" />)}
-        {field("weight", t("weight"), <Input inputMode="numeric" value={form.weight} readOnly={ro} onChange={set("weight")} className="bg-muted" />)}
+        {field("sku", t("sku"), <Input id={`${id}-sku`} value={form.sku} maxLength={64} readOnly={ro} onChange={set("sku")} className="font-mono" />)}
+        {field("options", t("options"), <Input value={form.options} readOnly={ro} onChange={set("options")} placeholder={t("optionsPlaceholder")} />)}
+        {field("price", t("price", { currency: currency ?? "—" }), <Input inputMode="decimal" value={form.price} readOnly={ro || !currency} onChange={set("price")} />)}
+        {field("compareAt", t("compareAt"), <Input inputMode="decimal" value={form.compareAt} readOnly={ro || !currency} onChange={set("compareAt")} />)}
+        {field("tax", t("taxRate"), <Input inputMode="decimal" value={form.tax} readOnly={ro} onChange={set("tax")} placeholder={t("taxDefault")} />)}
+        {field("hsn", t("hsn"), <Input inputMode="numeric" value={form.hsn} maxLength={8} readOnly={ro} onChange={set("hsn")} />)}
+        {field("weight", t("weight"), <Input inputMode="numeric" value={form.weight} readOnly={ro} onChange={set("weight")} />)}
         <label className="flex items-center gap-2 self-end pb-2 text-sm text-foreground">
           <input type="checkbox" checked={form.track} disabled={ro} onChange={(e) => setForm((f) => ({ ...f, track: e.target.checked }))} />
           {t("trackInventory")}

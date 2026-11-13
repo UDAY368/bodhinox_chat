@@ -189,16 +189,18 @@ function SettingsPageInner() {
   return (
     <div>
       <div>
-        <h1 className="text-foreground text-2xl font-bold tracking-tight">
+        <h1 className="text-foreground text-[22px] font-bold tracking-tight">
           {t('pageTitle')}
         </h1>
         <p className="text-muted-foreground mt-1 text-sm">{t('pageDesc')}</p>
       </div>
 
-      <div className="mt-6 grid gap-6 lg:grid-cols-[236px_minmax(0,1fr)] lg:items-start">
-        <SettingsRail active={showAi ? AI_SECTION : section} onSelect={go} hints={hints}
-          extraItems={aiItems} onSelectExtra={() => go(AI_SECTION)} hidden={hidden} />
-        <div className="min-w-0">
+      <div className="mt-6 grid gap-6 lg:grid-cols-[224px_minmax(0,1fr)] lg:items-start lg:gap-8 xl:grid-cols-[232px_minmax(0,1fr)]">
+        <div className="min-w-0 lg:sticky lg:top-0 lg:self-start lg:border-r lg:border-border lg:pr-3">
+          <SettingsRail active={showAi ? AI_SECTION : section} onSelect={go} hints={hints}
+            extraItems={aiItems} onSelectExtra={() => go(AI_SECTION)} hidden={hidden} />
+        </div>
+        <div className="mx-auto w-full min-w-0 max-w-[880px] pb-16">
           {showAi ? (
             <div key={accountId} className="space-y-10">
               <AiAssistantSettings />

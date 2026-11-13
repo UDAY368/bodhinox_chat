@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useFormatter, useTranslations } from 'next-intl';
 import { toast } from 'sonner';
-import { FileUp, Globe, Loader2, Map as MapIcon, RefreshCw, Trash2, Type } from 'lucide-react';
+import { BookOpen, FileUp, Globe, Loader2, Map as MapIcon, RefreshCw, Trash2, Type } from 'lucide-react';
 import { authFetch } from '@/lib/auth/client';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -12,6 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
+import { cn } from '@/lib/utils';
 import {
   ACCEPTED_UPLOADS, isCrawled, isRunning, nextAccess, shouldPoll, sourceReason, statusVariant, UPLOAD_MAX_BYTES,
   type AccessPatch, type KnowledgeSourceView,
@@ -168,6 +169,7 @@ export function KnowledgePanel({ canEdit, hasEmbeddingsKey = true, onChange, can
   const modes: { key: AddMode; icon: typeof Globe }[] = [
     { key: 'website', icon: Globe }, { key: 'sitemap', icon: MapIcon }, { key: 'file', icon: FileUp }, { key: 'text', icon: Type },
   ];
+  const kindIcon = (kind: string) => modes.find((m) => m.key === kind)?.icon ?? BookOpen;
 
   return (
     <Card>
@@ -177,17 +179,18 @@ export function KnowledgePanel({ canEdit, hasEmbeddingsKey = true, onChange, can
       </CardHeader>
       <CardContent className="space-y-6">
         {!hasEmbeddingsKey && (
-          <p role="status" className="rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm">{t('noEmbeddingsKey')}</p>
+          <p role="status" className="rounded-lg bg-amber-500/10 px-3 py-2 text-[13px] text-amber-800 dark:text-amber-200">{t('noEmbeddingsKey')}</p>
         )}
 
         {canEdit && (
-          <div className="space-y-3 rounded-lg border p-4">
-            <div className="flex flex-wrap gap-2" role="tablist" aria-label={t('addLabel')}>
+          <div className="space-y-4 rounded-xl bg-muted/60 p-4">
+            <div className="flex w-fit max-w-full gap-1 overflow-x-auto rounded-xl bg-muted p-[3px] [scrollbar-width:none]" role="tablist" aria-label={t('addLabel')}>
               {modes.map(({ key, icon: Icon }) => (
-                <Button key={key} type="button" size="sm" role="tab" aria-selected={mode === key}
-                  variant={mode === key ? 'default' : 'outline'} onClick={() => setMode(key)}>
-                  <Icon className="mr-1 h-4 w-4" aria-hidden />{t(`modes.${key}`)}
-                </Button>
+                <button key={key} type="button" role="tab" aria-selected={mode === key} onClick={() => setMode(key)}
+                  className={cn('inline-flex h-[30px] shrink-0 items-center gap-1.5 rounded-[9px] px-3 text-[13px] font-medium whitespace-nowrap transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                    mode === key ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground')}>
+                  <Icon className="h-4 w-4" aria-hidden />{t(`modes.${key}`)}
+                </button>
               ))}
             </div>
 
@@ -240,19 +243,25 @@ export function KnowledgePanel({ canEdit, hasEmbeddingsKey = true, onChange, can
         {loading ? (
           <div className="flex justify-center py-6"><Loader2 className="h-5 w-5 animate-spin" aria-label={t('loading')} /></div>
         ) : sources.length === 0 ? (
-          <p className="text-sm text-muted-foreground">{t('empty')}</p>
+          <div className="flex flex-col items-center gap-2 py-10 text-center">
+            <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary"><BookOpen className="h-5 w-5" aria-hidden /></span>
+            <p className="max-w-sm text-sm text-muted-foreground">{t('empty')}</p>
+          </div>
         ) : (
-          <ul className="divide-y rounded-lg border">
+          <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border">
             {sources.map((source) => {
               const reason = sourceReason(source.error);
               const running = isRunning(source);
+              const KindIcon = kindIcon(source.kind);
               return (
-                <li key={source.id} className="flex flex-col gap-2 p-3 sm:flex-row sm:items-center sm:justify-between">
+                <li key={source.id} className="flex flex-col gap-3 px-4 py-3 transition-colors duration-150 hover:bg-muted/40 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex min-w-0 gap-3">
+                  <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-[11px] bg-primary/10 text-primary"><KindIcon className="h-4 w-4" aria-hidden /></span>
                   <div className="min-w-0 space-y-1">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="truncate font-medium">{source.title}</span>
-                      <Badge variant="outline">{t(`kinds.${source.kind}`)}</Badge>
-                      <Badge variant={statusVariant(source.status)}>
+                      <span className="truncate font-semibold">{source.title}</span>
+                      <Badge variant="secondary" className="rounded-full">{t(`kinds.${source.kind}`)}</Badge>
+                      <Badge variant={statusVariant(source.status)} className="rounded-full">
                         {running && <Loader2 className="h-3 w-3 animate-spin" aria-hidden />}
                         {t(`statuses.${source.status}`)}
                       </Badge>
@@ -266,13 +275,13 @@ export function KnowledgePanel({ canEdit, hasEmbeddingsKey = true, onChange, can
                         : t('neverCrawled')}
                     </p>
                     {reason && (
-                      <p className={`text-xs ${source.status === 'failed' ? 'text-destructive' : 'text-amber-600'}`}>{t(`reasons.${reason}`)}</p>
+                      <p className={`text-xs ${source.status === 'failed' ? 'text-destructive' : 'text-amber-700 dark:text-amber-300'}`}>{t(`reasons.${reason}`)}</p>
                     )}
                     {canManageAccess ? (
                       <div className="flex flex-wrap items-center gap-x-4 gap-y-2 pt-1 text-xs">
                         <label className="flex items-center gap-2">
                           <span className="text-muted-foreground">{ta('visibleTo')}</span>
-                          <select className="h-8 rounded-md border border-border bg-card px-2 text-xs text-foreground"
+                          <select className="h-8 rounded-lg border border-border bg-card px-2 text-xs text-foreground transition-colors duration-150 focus:border-ring focus:outline-none"
                             value={source.min_role} disabled={pending === source.id}
                             onChange={(e) => changeAccess(source, { min_role: e.target.value === 'admin' ? 'admin' : 'agent' })}>
                             <option value="agent">{ta('roles.agent')}</option>
@@ -292,8 +301,9 @@ export function KnowledgePanel({ canEdit, hasEmbeddingsKey = true, onChange, can
                       </p>
                     )}
                   </div>
+                  </div>
                   {canEdit && (
-                    <div className="flex shrink-0 gap-2">
+                    <div className="flex shrink-0 gap-1 sm:justify-end">
                       <Button type="button" size="sm" variant="outline" disabled={running || pending === source.id}
                         onClick={() => recrawl(source)}>
                         <RefreshCw className="mr-1 h-4 w-4" aria-hidden />

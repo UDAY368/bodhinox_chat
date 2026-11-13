@@ -45,14 +45,14 @@ export interface ReportRunView {
   expiresAt: string;
 }
 
-const selectClass = "border-border bg-card text-foreground h-9 w-full rounded-md border px-2 text-sm";
+const selectClass = "border-border bg-card text-foreground h-9 w-full rounded-lg border px-2.5 text-[13px] transition-colors duration-150 hover:bg-muted outline-none focus-visible:ring-2 focus-visible:ring-ring/50";
 const POLL_MS = 5_000;
 const statusClass: Record<Status, string> = {
-  queued: "text-muted-foreground",
-  running: "text-primary",
-  ready: "text-foreground",
-  failed: "text-destructive",
-  expired: "text-muted-foreground",
+  queued: "bg-muted text-muted-foreground",
+  running: "bg-primary/10 text-primary",
+  ready: "bg-emerald-500/12 text-emerald-700 dark:text-emerald-400",
+  failed: "bg-destructive/10 text-destructive",
+  expired: "bg-muted text-muted-foreground",
 };
 
 export function ReportsTab({ canManage }: { canManage: boolean }) {
@@ -197,36 +197,38 @@ export function ReportsTab({ canManage }: { canManage: boolean }) {
           ) : reports.length === 0 ? (
             <p className="text-sm text-muted-foreground">{t("empty")}</p>
           ) : (
-            <div className="overflow-x-auto">
+            <div className="relative overflow-x-auto rounded-lg border border-border">
               <table className="w-full min-w-[40rem] text-sm">
                 <thead>
-                  <tr className="border-b border-border text-left text-xs text-muted-foreground">
-                    <th scope="col" className="py-2 pr-3 font-medium">{t("kind")}</th>
-                    <th scope="col" className="py-2 pr-3 font-medium">{t("range")}</th>
-                    <th scope="col" className="py-2 pr-3 font-medium">{t("requested")}</th>
-                    <th scope="col" className="py-2 pr-3 font-medium">{t("statusLabel")}</th>
-                    <th scope="col" className="py-2 font-medium"><span className="sr-only">{t("download")}</span></th>
+                  <tr className="bg-muted text-left text-xs text-muted-foreground">
+                    <th scope="col" className="px-3.5 py-2 font-semibold">{t("kind")}</th>
+                    <th scope="col" className="px-3.5 py-2 font-semibold">{t("range")}</th>
+                    <th scope="col" className="px-3.5 py-2 font-semibold">{t("requested")}</th>
+                    <th scope="col" className="px-3.5 py-2 font-semibold">{t("statusLabel")}</th>
+                    <th scope="col" className="px-3.5 py-2 font-semibold"><span className="sr-only">{t("download")}</span></th>
                   </tr>
                 </thead>
                 <tbody>
                   {reports.map((r) => (
                     <Fragment key={r.id}>
-                    <tr className="border-b border-border align-top last:border-0">
-                      <td className="py-2 pr-3 text-foreground">
+                    <tr className="border-t border-border align-top transition-colors duration-150 hover:bg-muted/50">
+                      <td className="px-3.5 py-2.5 text-foreground">
                         {t(`kinds.${r.kind}`)}
                         <span className="block text-xs text-muted-foreground">
                           {t(`formats.${r.format ?? "csv"}`)}{r.scheduled ? ` · ${t("scheduledRun")}` : ""}
                         </span>
                       </td>
-                      <td className="py-2 pr-3 whitespace-nowrap text-muted-foreground">
+                      <td className="px-3.5 py-2.5 whitespace-nowrap text-muted-foreground">
                         {t("rangeValue", { from: day(r.params.from), to: day(r.params.to) })}
                       </td>
-                      <td className="py-2 pr-3 text-muted-foreground">
+                      <td className="px-3.5 py-2.5 text-muted-foreground">
                         {format.dateTime(new Date(r.createdAt), { dateStyle: "medium", timeStyle: "short" })}
                         {r.requestedBy && <span className="block text-xs">{r.requestedBy.name || t("formerMember")}</span>}
                       </td>
-                      <td className={`py-2 pr-3 ${statusClass[r.status]}`}>
-                        {t(`status.${r.status}`)}
+                      <td className="px-3.5 py-2.5">
+                        <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${statusClass[r.status]}`}>
+                          {t(`status.${r.status}`)}
+                        </span>
                         {r.status === "ready" && r.rowCount !== null && (
                           <span className="block text-xs text-muted-foreground">
                             {t("rows", { count: r.rowCount })}{r.truncated ? ` · ${r.format === "pdf" ? t("truncatedPdf") : t("truncated")}` : ""}
@@ -238,7 +240,7 @@ export function ReportsTab({ canManage }: { canManage: boolean }) {
                           </span>
                         )}
                       </td>
-                      <td className="py-2 text-right">
+                      <td className="px-3.5 py-2.5 text-right">
                         {r.status === "ready" ? (
                           <span className="inline-flex gap-1">
                             <a href={`/api/analytics/reports/${r.id}/download`} download
@@ -258,8 +260,8 @@ export function ReportsTab({ canManage }: { canManage: boolean }) {
                       </td>
                     </tr>
                     {sharing === r.id && r.status === "ready" && (
-                      <tr className="border-b border-border">
-                        <td colSpan={5} className="py-2">
+                      <tr className="border-t border-border">
+                        <td colSpan={5} className="px-3.5 py-2.5">
                           <SharePanel reportId={r.id} kind={r.kind} />
                         </td>
                       </tr>

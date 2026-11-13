@@ -72,7 +72,7 @@ export function ReconciliationReport() {
           )}
           <div className="grid gap-3 sm:grid-cols-3">
             {report.totals.length === 0 ? <p className="text-sm text-muted-foreground">{t("empty")}</p> : report.totals.map((total) => (
-              <div key={total.currency} className="rounded-lg border border-border p-4">
+              <div key={total.currency} className="rounded-xl border border-border p-4">
                 <p className="text-xs text-muted-foreground">{t("net", { currency: total.currency })}</p>
                 <p className="text-xl font-semibold">{money(total.net_minor, total.currency)}</p>
                 <p className="mt-1 text-xs text-muted-foreground">
@@ -82,9 +82,9 @@ export function ReconciliationReport() {
             ))}
           </div>
           {report.days.length > 0 && (
-            <div className="rounded-lg border border-border">
-              <Table>
-                <TableHeader>
+            <div className="overflow-x-auto rounded-xl border border-border bg-card">
+              <Table className="[&_td]:px-3.5 [&_td]:py-2.5">
+                <TableHeader className="bg-muted [&_th]:h-9 [&_th]:px-3.5 [&_th]:text-xs [&_th]:font-semibold [&_th]:text-muted-foreground">
                   <TableRow>
                     <TableHead>{t("colDay")}</TableHead>
                     <TableHead>{t("colCaptured")}</TableHead>

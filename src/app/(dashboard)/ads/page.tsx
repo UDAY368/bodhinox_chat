@@ -55,10 +55,10 @@ export default function AdsPage() {
   const active = connection?.status === 'active';
 
   return (
-    <div className="space-y-6 p-4 sm:p-6">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold text-foreground">{t('title')}</h1>
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="min-w-0 flex-1 basis-64">
+          <h1 className="text-[22px] font-bold leading-tight tracking-tight text-foreground">{t('title')}</h1>
           <p className="mt-1 text-sm text-muted-foreground">{t('description')}</p>
         </div>
         {active && connection.adAccountId && (
@@ -66,7 +66,7 @@ export default function AdsPage() {
             href={`https://adsmanager.facebook.com/adsmanager/manage/campaigns?act=${encodeURIComponent(connection.adAccountId)}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline"
+            className="inline-flex h-9 items-center gap-1.5 rounded-full bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors duration-150 hover:bg-primary/90"
           >
             {t('createInAdsManager')} <ExternalLink className="size-3.5" />
           </a>
@@ -82,18 +82,18 @@ export default function AdsPage() {
       )}
       {status && !status.enabled && <AdsNotEnabled reason={status.reason} />}
       {status?.enabled && !active && (
-        <div className="rounded-lg border border-border bg-card p-6 text-sm">
+        <div className="flex flex-col items-center gap-2 rounded-xl border border-border bg-card px-4 py-12 text-center text-sm">
           <p className="text-muted-foreground">
             {connection?.status === 'token_invalid' ? t('tokenInvalid') : t('notConnected')}
           </p>
           {isAdmin && (
-            <Link href="/settings?tab=ads" className="mt-2 inline-block text-primary hover:underline">{t('openSettings')}</Link>
+            <Link href="/settings?tab=ads" className="mt-2 inline-flex h-8 items-center rounded-full border border-border px-3.5 font-medium text-foreground transition-colors duration-150 hover:bg-muted">{t('openSettings')}</Link>
           )}
         </div>
       )}
       {status?.enabled && (active || connection?.status === 'token_invalid') && (
         <Tabs defaultValue="ads">
-          <TabsList>
+          <TabsList className="max-w-full overflow-x-auto">
             <TabsTrigger value="ads">{t('tabs.ads')}</TabsTrigger>
             <TabsTrigger value="campaigns">{t('tabs.campaigns')}</TabsTrigger>
             <TabsTrigger value="leads">{t('tabs.leads')}</TabsTrigger>

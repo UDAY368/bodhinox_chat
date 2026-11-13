@@ -42,7 +42,7 @@ const render = () =>
       <Sidebar />
     </NextIntlClientProvider>,
   );
-const groupsIn = (html: string) => [...html.matchAll(/data-nav-group="([a-z]+)"/g)].map((m) => m[1]);
+const sectionsIn = (html: string) => [...html.matchAll(/data-nav-section="([a-z]+)"/g)].map((m) => m[1]);
 const unreadIn = (html: string) => [...html.matchAll(/data-nav-unread="([a-z]+)"/g)].map((m) => m[1]);
 
 beforeEach(() => {
@@ -53,37 +53,35 @@ beforeEach(() => {
 });
 
 describe('Sidebar per channel set', () => {
-  it('only WhatsApp: a WhatsApp group with its tools, its inbox as the one Inbox, no Instagram', () => {
+  it('only WhatsApp: eight sections, the WhatsApp inbox as the one Inbox, Campaigns on, no Instagram', () => {
     h.data = workspace({}, off);
     const html = render();
-    expect(groupsIn(html)).toEqual(['workspace', 'whatsapp']);
-    for (const href of ['/whatsapp/inbox', '/automation', '/whatsapp/automations', '/broadcasts', '/settings?tab=templates', '/forms', '/ads'])
+    expect(sectionsIn(html)).toEqual(['inbox', 'contacts', 'automation', 'campaigns', 'sales', 'ai', 'analytics', 'settings']);
+    for (const href of ['/whatsapp/inbox', '/contacts', '/automation', '/broadcasts', '/pipelines', '/agents', '/dashboard', '/settings'])
       expect(html).toContain(`href="${href}"`);
     expect(html).not.toContain('href="/inbox"');
     expect(html).not.toContain('/instagram/');
   });
 
-  it('only Instagram: an Instagram group; the WhatsApp tools are hidden', () => {
+  it('only Instagram: no Campaigns (WhatsApp tools), the Instagram inbox', () => {
     h.data = workspace(off, {});
     const html = render();
-    expect(groupsIn(html)).toEqual(['workspace', 'instagram']);
+    expect(sectionsIn(html)).toEqual(['inbox', 'contacts', 'automation', 'sales', 'ai', 'analytics', 'settings']);
     expect(html).toContain('href="/instagram/inbox"');
-    expect(html).toContain('href="/instagram/comments"');
-    for (const href of ['/broadcasts', '/settings?tab=templates', '/forms', '/ads', '/whatsapp/inbox', '/inbox'])
-      expect(html).not.toContain(`href="${href}"`);
+    for (const href of ['/broadcasts', '/whatsapp/inbox', '/inbox']) expect(html).not.toContain(`href="${href}"`);
   });
 
-  it('both: both groups and one Inbox for every channel', () => {
+  it('both: one Inbox for every channel', () => {
     h.data = workspace({}, {});
     const html = render();
-    expect(groupsIn(html)).toEqual(['workspace', 'whatsapp', 'instagram']);
     expect(html).toContain('href="/inbox"');
     expect(html).not.toContain('href="/whatsapp/inbox"');
-    expect(html).not.toContain('href="/instagram/inbox"');
   });
 
   it('shows the no-row default (WhatsApp) until the channel state loads', () => {
-    expect(groupsIn(render())).toEqual(['workspace', 'whatsapp']);
+    const html = render();
+    expect(sectionsIn(html)).toContain('campaigns');
+    expect(html).toContain('href="/whatsapp/inbox"');
   });
 
   it('puts the unread badge on the Inbox, hidden while any inbox is open', () => {
@@ -101,7 +99,7 @@ describe('Sidebar per channel set', () => {
     h.data = workspace({}, {});
     for (const path of ['/inbox', '/instagram/inbox/abc', '/whatsapp/inbox']) {
       h.pathname = path;
-      expect(render()).toMatch(/aria-current="page"[^>]*href="\/inbox"|href="\/inbox"[^>]*aria-current="page"/);
+      expect(render()).toMatch(/href="\/inbox"[^>]*aria-current="page"|aria-current="page"[^>]*href="\/inbox"/);
     }
   });
 
@@ -117,19 +115,26 @@ describe('Sidebar per channel set', () => {
     expect(withToggle(true)).toMatch(/data-testid="sidebar-collapse" aria-expanded="false"[^>]*title="Sidebar.expandSidebar"/);
   });
 
-  it('marks Automation active while a flow is open in either channel', () => {
+  it('marks the right section active for pages that live elsewhere (flows, Instagram tools, commerce, reports)', () => {
     h.data = workspace({}, {});
-    for (const path of ['/automation', '/whatsapp/flows/abc', '/instagram/flows/abc']) {
+    const activeSection = () => /data-nav-section="([a-z]+)"[^>]*aria-current="page"/.exec(render())?.[1];
+    for (const [path, id] of [['/automation', 'automation'], ['/whatsapp/flows/abc', 'automation'], ['/instagram/flows/abc', 'automation'],
+      ['/instagram/comments', 'automation'], ['/commerce/orders', 'sales'], ['/appointments', 'sales'], ['/reports', 'analytics'],
+      ['/ads', 'campaigns'], ['/settings', 'settings']] as const) {
       h.pathname = path;
-      expect(render()).toMatch(/aria-current="page"[^>]*href="\/automation"|href="\/automation"[^>]*aria-current="page"/);
+      expect(activeSection()).toBe(id);
     }
+    h.pathname = '/notifications';
+    expect(activeSection()).toBeUndefined();
   });
 
-  it('puts an amber dot on a channel group that needs attention', () => {
+  it('puts an amber dot on Settings when an enabled channel needs attention', () => {
     h.data = workspace({}, { connection: 'attention', state: 'attention' });
     const html = render();
     expect(html.match(/data-nav-attention/g)).toHaveLength(1);
     expect(html).toContain('Sidebar.groups.needsAttention');
+    h.data = workspace({}, {});
+    expect(render()).not.toContain('data-nav-attention');
   });
 
   it('offers admins of a WhatsApp-only workspace "Add Instagram", with Upgrade when the plan blocks it', () => {
@@ -147,26 +152,11 @@ describe('Sidebar per channel set', () => {
     expect(html).not.toContain('data-nav-add-channel');
   });
 
-  it('keeps each group header a direct child of the nav, so the compact sidebar can hide it', () => {
+  it('names every section link, so the icon rail still says where it goes', () => {
     h.data = workspace({}, {});
     const html = render();
-    // studio.css hides headers in the compact (flow editor) sidebar with `nav > p`.
-    expect(html).toMatch(/<nav[^>]*><p[^>]*data-nav-group="workspace"/);
-    expect(html).toMatch(/<\/ul><p[^>]*data-nav-group="whatsapp"/);
-    expect(html).toMatch(/<\/ul><p[^>]*data-nav-group="instagram"/);
-    expect(html).not.toMatch(/<div[^>]*data-nav-group/);
-  });
-
-  it('names each list by its group and each channel link by its channel', () => {
-    h.data = workspace({}, {});
-    const html = render();
-    for (const id of ['workspace', 'whatsapp', 'instagram'])
-      expect(html).toContain(`aria-labelledby="nav-group-${id}"`);
-    const titleOf = (href: string) => new RegExp(`<a[^>]*title="([^"]*)"[^>]*href="${href}"`).exec(html)?.[1];
-    expect(titleOf('/instagram/comments')).toBe('Sidebar.groups.instagram · Sidebar.comments');
-    expect(titleOf('/whatsapp/automations')).toBe('Sidebar.groups.whatsapp · Sidebar.automations');
-    // Workspace pages are named by their own label (the icon rail hides it).
-    expect(titleOf('/dashboard')).toBe('Sidebar.dashboard');
+    expect(html).toMatch(/<a[^>]*href="\/pipelines"[^>]*title="Sidebar.sales"|<a[^>]*title="Sidebar.sales"[^>]*href="\/pipelines"/);
+    expect(html).toMatch(/title="Sidebar.analytics"/);
   });
 
   it('never links to ?tab=whatsapp', () => {

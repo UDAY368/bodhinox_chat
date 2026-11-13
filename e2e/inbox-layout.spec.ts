@@ -110,8 +110,8 @@ test('the inbox fits every common screen size', async ({ page }) => {
         await expect(page.locator('[data-contact-panel="column"]')).toBeVisible();
       } else {
         await expect(page.locator('[data-contact-panel]')).toHaveCount(0);
-        await more.click();
-        await page.getByRole('menuitem', { name: 'Show contact' }).click();
+        // Tapping the contact in the header opens their details (the panel button shows from medium widths).
+        await header.locator('[data-thread-who]').click();
         await expect(page.locator('[data-contact-panel="overlay"]')).toBeVisible();
         await noSidewaysScroll(page);
         expect((await thread.boundingBox())!.width).toBeCloseTo(threadBox.width, 0);

@@ -4,12 +4,12 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useFormatter, useTranslations } from 'next-intl';
 import { Loader2 } from 'lucide-react';
 import { authFetch } from '@/lib/auth/client';
+import { segmentedItem, segmentedTrack } from '@/components/dashboard/segmented';
 import { BarChart } from '@/components/tremor/bar-chart';
 import type { AvailableChartColorsKeys } from '@/components/tremor/chart-colors';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { cn } from '@/lib/utils';
 import { ChartWithTable } from '@/components/analytics/shared';
 import {
   RATE_KEYS,
@@ -25,7 +25,7 @@ type Mode = 'counts' | 'rates';
 
 const COUNT_KEYS = ['sent', 'delivered', 'read', 'replied', 'clicked', 'failed'] as const;
 const COLORS: Record<(typeof COUNT_KEYS)[number], AvailableChartColorsKeys> = {
-  sent: 'blue', delivered: 'cyan', read: 'violet', replied: 'emerald', clicked: 'amber', failed: 'pink',
+  sent: 'chart1', delivered: 'chart2', read: 'chart5', replied: 'chart3', clicked: 'chart4', failed: 'danger',
 };
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -121,17 +121,14 @@ export function TemplateAnalyticsView({ templateId }: { templateId?: string | nu
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-end gap-2">
-        <div className="flex items-center gap-1 rounded-lg bg-muted/60 p-1" role="group" aria-label={t('rangeLabel')}>
+        <div className={segmentedTrack} role="group" aria-label={t('rangeLabel')}>
           {PRESETS.map((p) => (
             <button
               key={p}
               type="button"
               aria-pressed={preset === p}
               onClick={() => choosePreset(p)}
-              className={cn(
-                'rounded-md px-2.5 py-1 text-xs font-medium transition-colors',
-                preset === p ? 'bg-secondary text-secondary-foreground' : 'text-muted-foreground hover:text-foreground',
-              )}
+              className={segmentedItem(preset === p, 'h-[26px] px-2.5 text-xs')}
             >
               {t(`presets.${p}`)}
             </button>
@@ -185,20 +182,17 @@ export function TemplateAnalyticsView({ templateId }: { templateId?: string | nu
 
           <section className="space-y-2">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <h3 className="text-sm font-medium text-foreground">
+              <h3 className="text-sm font-semibold text-foreground">
                 {data.range.bucket === 'week' ? t('chartTitleWeekly') : t('chartTitleDaily')}
               </h3>
-              <div className="flex items-center gap-1 rounded-lg bg-muted/60 p-1" role="group" aria-label={t('modeLabel')}>
+              <div className={segmentedTrack} role="group" aria-label={t('modeLabel')}>
                 {(['counts', 'rates'] as const).map((m) => (
                   <button
                     key={m}
                     type="button"
                     aria-pressed={mode === m}
                     onClick={() => setMode(m)}
-                    className={cn(
-                      'rounded-md px-2.5 py-1 text-xs font-medium transition-colors',
-                      mode === m ? 'bg-secondary text-secondary-foreground' : 'text-muted-foreground hover:text-foreground',
-                    )}
+                    className={segmentedItem(mode === m, 'h-[26px] px-2.5 text-xs')}
                   >
                     {t(`modes.${m}`)}
                   </button>
@@ -242,7 +236,7 @@ export function TemplateAnalyticsView({ templateId }: { templateId?: string | nu
 
           {!templateId && data.templates.length > 0 && (
             <section className="space-y-2">
-              <h3 className="text-sm font-medium text-foreground">{t('byTemplate')}</h3>
+              <h3 className="text-sm font-semibold text-foreground">{t('byTemplate')}</h3>
               <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
@@ -293,14 +287,14 @@ function Totals({
   const rates = templateRates(totals);
   return (
     <dl className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
-      <div className="rounded-lg border border-border bg-card p-3">
+      <div className="rounded-xl border border-border bg-card p-3">
         <dt className="text-xs text-muted-foreground">{t('metrics.sent')}</dt>
-        <dd className="text-lg font-semibold tabular-nums text-foreground">{num(totals.sent)}</dd>
+        <dd className="text-xl font-bold tracking-tight tabular-nums text-foreground">{num(totals.sent)}</dd>
       </div>
       {RATE_KEYS.map((k) => (
-        <div key={k} className="rounded-lg border border-border bg-card p-3">
+        <div key={k} className="rounded-xl border border-border bg-card p-3">
           <dt className="text-xs text-muted-foreground">{t(`rates.${k}`)}</dt>
-          <dd className="text-lg font-semibold tabular-nums text-foreground">{pct(rates[k])}</dd>
+          <dd className="text-xl font-bold tracking-tight tabular-nums text-foreground">{pct(rates[k])}</dd>
           <dd className="text-xs text-muted-foreground tabular-nums">{t('ofSent', { count: num(totals[k]) })}</dd>
         </div>
       ))}

@@ -102,7 +102,7 @@ export function LabelPicker({ conversationId, folders, canEdit }: LabelPickerPro
   return (
     <section className="border-border space-y-3 border-t pt-4" aria-label={t('title')}>
       <div className="flex items-center justify-between gap-2">
-        <h3 className="text-xs font-semibold uppercase">{t('title')}</h3>
+        <h3 className="text-[13px] font-semibold">{t('title')}</h3>
         <Button
           type="button"
           size="sm"

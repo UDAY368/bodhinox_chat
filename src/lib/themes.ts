@@ -14,6 +14,7 @@
  */
 
 export const THEME_IDS = [
+  "blue",
   "copper",
   "violet",
   "emerald",
@@ -24,7 +25,7 @@ export const THEME_IDS = [
 
 export type ThemeId = (typeof THEME_IDS)[number];
 
-export const DEFAULT_THEME: ThemeId = "copper";
+export const DEFAULT_THEME: ThemeId = "blue";
 
 export const STORAGE_KEY = "wacrm.theme";
 
@@ -66,6 +67,12 @@ export interface ThemeMeta {
 }
 
 export const THEMES: ReadonlyArray<ThemeMeta> = [
+  {
+    id: "blue",
+    name: "Blue",
+    tagline: "Calm and clear. The default.",
+    swatch: "#0071e3",
+  },
   {
     id: "copper",
     name: "Copper",

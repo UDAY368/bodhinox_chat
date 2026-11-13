@@ -71,15 +71,15 @@ export function CustomerPaymentsTable({ orderId, restockByDefault = false }: { o
 
   return (
     <div className="space-y-6">
-      <div className="rounded-lg border border-border">
+      <div className="overflow-x-auto rounded-xl border border-border bg-card">
         {payments.length === 0 ? (
           <div className="flex flex-col items-center gap-2 p-10 text-center text-sm text-muted-foreground">
             <Wallet className="h-6 w-6" />
             <p>{t("empty")}</p>
           </div>
         ) : (
-          <Table>
-            <TableHeader>
+          <Table className="[&_td]:px-3.5 [&_td]:py-2.5">
+            <TableHeader className="bg-muted [&_th]:h-9 [&_th]:px-3.5 [&_th]:text-xs [&_th]:font-semibold [&_th]:text-muted-foreground">
               <TableRow>
                 <TableHead>{t("colDate")}</TableHead>
                 <TableHead>{t("colAmount")}</TableHead>
@@ -132,9 +132,9 @@ export function CustomerPaymentsTable({ orderId, restockByDefault = false }: { o
       {refunds.length > 0 && (
         <div>
           <h3 className="mb-2 text-sm font-semibold">{tr("heading")}</h3>
-          <div className="rounded-lg border border-border">
-            <Table>
-              <TableHeader>
+          <div className="overflow-x-auto rounded-xl border border-border bg-card">
+            <Table className="[&_td]:px-3.5 [&_td]:py-2.5">
+              <TableHeader className="bg-muted [&_th]:h-9 [&_th]:px-3.5 [&_th]:text-xs [&_th]:font-semibold [&_th]:text-muted-foreground">
                 <TableRow>
                   <TableHead>{t("colDate")}</TableHead>
                   <TableHead>{t("colAmount")}</TableHead>

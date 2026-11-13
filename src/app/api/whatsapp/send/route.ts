@@ -101,6 +101,21 @@ export async function POST(request: Request) {
       return sendFormMessage({ accountId, userId, role, body })
     }
 
+    // A saved Instagram card/button template: only into an existing Instagram
+    // conversation of this workspace (the row decides the channel, never the client).
+    if (message_type === 'ig_template') {
+      if (!conversationIdInput) return NextResponse.json({ error: t('send.idsRequired') }, { status: 400 })
+      const { data, error: convError } = await db
+        .from('conversations')
+        .select('id,channel')
+        .eq('id', conversationIdInput)
+        .eq('account_id', accountId)
+        .single()
+      if (convError || !data) return NextResponse.json({ error: t('common.conversationNotFound') }, { status: 404 })
+      if ((data as { channel?: string | null }).channel !== 'instagram') return instagramErrorResponse('channel_not_supported')
+      return sendInstagramMessage({ accountId, userId, role, conversationId: data.id, body, aiSuggestionId: null })
+    }
+
     if ((!conversationIdInput && !contact_id) || !message_type) {
       return NextResponse.json(
         {
@@ -306,8 +321,9 @@ async function sendFormMessage(args: {
 }
 
 /**
- * An Instagram conversation (the row says so): text, image, audio, video or
- * PDF inside the messaging window, through the Instagram composer sender.
+ * An Instagram conversation (the row says so): text, image, audio, video, PDF
+ * or a saved card/button template (ig_template + template_id) inside the
+ * messaging window, through the Instagram composer sender.
  * Every other kind is channel_not_supported. A refusal stores nothing; an
  * ambiguous outcome leaves the row 'unknown' for a person to check.
  */
@@ -333,6 +349,7 @@ async function sendInstagramMessage(args: {
       contentText: body.content_text,
       mediaUrl: body.media_url,
       filename: body.filename,
+      templateId: body.template_id,
     })
     await claimOnAgentReply({ accountId: args.accountId, userId: args.userId, role: args.role }, args.conversationId).catch(() =>
       console.error('[send] conversation claim failed')

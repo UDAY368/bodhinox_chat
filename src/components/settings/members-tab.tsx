@@ -421,7 +421,7 @@ export function MembersTab() {
                           {member.full_name || t('unnamed')}
                         </span>
                         {isSelf && (
-                          <Badge className="bg-muted text-muted-foreground border-border text-[10px] uppercase tracking-wide">
+                          <Badge className="border-transparent bg-muted text-muted-foreground text-[11px] font-medium">
                             {t('you')}
                           </Badge>
                         )}
@@ -536,7 +536,7 @@ export function MembersTab() {
                         onClick={() => setRemovingMember(member)}
                         aria-label={t('removeBtn')}
                         disabled={isBusy}
-                        className="border-red-500/40 bg-red-500/10 text-red-300 hover:bg-red-500/20 hover:border-red-500/60 hover:text-red-200"
+                        className="border-red-500/40 bg-red-500/10 text-red-700 dark:text-red-300 hover:bg-red-500/20 hover:border-red-500/60 hover:text-red-800 dark:hover:text-red-200"
                       >
                         <Trash2 className="size-4" />
                       </Button>
@@ -621,7 +621,7 @@ export function MembersTab() {
                         variant="outline"
                         size="sm"
                         onClick={() => handleRevoke(inv)}
-                        className="border-red-500/40 bg-red-500/10 text-red-300 hover:bg-red-500/20 hover:border-red-500/60 hover:text-red-200"
+                        className="border-red-500/40 bg-red-500/10 text-red-700 dark:text-red-300 hover:bg-red-500/20 hover:border-red-500/60 hover:text-red-800 dark:hover:text-red-200"
                       >
                         <MailX className="size-4" />
                         {t('revoke')}
@@ -651,7 +651,7 @@ export function MembersTab() {
         <DialogContent className="bg-popover border-border sm:max-w-sm">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-popover-foreground">
-              <AlertTriangle className="size-4 text-amber-400" />
+              <AlertTriangle className="size-4 text-amber-500" />
               {t('removeDialogTitle')}
             </DialogTitle>
             <DialogDescription className="text-muted-foreground">

@@ -77,11 +77,11 @@ export default function SharedReportPage({ params }: { params: Promise<{ shareId
   };
 
   return (
-    <div className="studio-dashboard mx-auto max-w-xl space-y-6">
+    <div className="mx-auto w-full max-w-xl space-y-6 pt-4">
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-foreground">
-            <FileText className="size-5 text-primary" />
+            <span className="flex size-9 items-center justify-center rounded-[10px] bg-primary/10 text-primary"><FileText className="size-4" aria-hidden /></span>
             {t("title")}
           </CardTitle>
           <CardDescription className="text-muted-foreground">{t("description")}</CardDescription>

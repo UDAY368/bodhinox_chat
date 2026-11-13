@@ -100,3 +100,29 @@ describe('POST /api/whatsapp/send on an Instagram conversation', () => {
     expect(h.claim).not.toHaveBeenCalled();
   });
 });
+
+describe('POST /api/whatsapp/send with a saved Instagram template', () => {
+  const template = { conversation_id: 'conv-1', message_type: 'ig_template', template_id: '55555555-5555-4555-8555-555555555555' };
+
+  it('passes the template id to the Instagram composer sender', async () => {
+    const res = await send(template);
+    expect(res.status).toBe(200);
+    expect(h.composer).toHaveBeenCalledWith(expect.objectContaining({
+      accountId: 'acct-1', conversationId: 'conv-1', messageType: 'ig_template', templateId: template.template_id,
+    }));
+  });
+
+  it('never sends one into a WhatsApp conversation', async () => {
+    h.row = { id: 'conv-1', channel: 'whatsapp' };
+    const res = await send(template);
+    expect(res.status).toBeGreaterThanOrEqual(400);
+    expect(h.composer).not.toHaveBeenCalled();
+    expect(h.sendWhatsApp).not.toHaveBeenCalled();
+  });
+
+  it('needs a conversation', async () => {
+    const res = await send({ message_type: 'ig_template', template_id: template.template_id });
+    expect(res.status).toBe(400);
+    expect(h.composer).not.toHaveBeenCalled();
+  });
+});

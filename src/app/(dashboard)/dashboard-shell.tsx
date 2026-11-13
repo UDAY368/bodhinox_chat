@@ -6,6 +6,7 @@ import { useTranslations } from 'next-intl';
 import { AuthProvider, useAuth } from '@/hooks/use-auth';
 import { Sidebar } from '@/components/layout/sidebar';
 import { Header } from '@/components/layout/header';
+import { SectionTabs } from '@/components/layout/section-tabs';
 import { AccountAccessAlert } from '@/components/layout/account-access-alert';
 import { TermsBanner } from '@/components/settings/privacy/terms-banner';
 import { PresenceHeartbeat } from '@/components/presence/presence-heartbeat';
@@ -84,6 +85,8 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
           <AccountAccessAlert />
           {/* Nothing unless TERMS_VERSION is set and this user has not accepted it. */}
           <TermsBanner />
+          {/* The section's pages as tabs (none in the full-screen flow editor). */}
+          {!flowEditor && <SectionTabs />}
           {children}
         </main>
       </div>

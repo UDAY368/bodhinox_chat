@@ -245,8 +245,8 @@ export function CampaignsPanel({ canManage }: { canManage: boolean }) {
     const paused = o.status === 'PAUSED';
     const changeable = o.status === 'ACTIVE' || o.status === 'PAUSED';
     return (
-      <tr key={o.id} className="border-t border-border" data-ad-object={o.level}>
-        <td className="px-3 py-2">
+      <tr key={o.id} className="border-t border-border/70 transition-colors duration-150 hover:bg-muted/60" data-ad-object={o.level}>
+        <td className="px-3.5 py-3">
           <div className="flex items-center gap-1" style={{ paddingLeft: depth * 20 }}>
             {expandable ? (
               <button type="button" onClick={() => toggle(o.id)} aria-expanded={open.has(o.id)}
@@ -256,23 +256,23 @@ export function CampaignsPanel({ canManage }: { canManage: boolean }) {
               </button>
             ) : <span className="w-5" />}
             <div className="min-w-0">
-              <div className="truncate font-medium text-foreground">{o.name ?? o.id}</div>
+              <div className="truncate font-semibold text-foreground">{o.name ?? o.id}</div>
               <div className="text-xs text-muted-foreground">{t(`levels.${o.level}`)} · {o.id}</div>
             </div>
           </div>
         </td>
-        <td className="px-3 py-2">
+        <td className="px-3.5 py-3">
           <span className={cn('rounded-full px-2 py-0.5 text-xs font-medium',
             o.effectiveStatus === 'ACTIVE' ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300' : 'bg-muted text-muted-foreground')}>
             {o.effectiveStatus ?? o.status ?? '-'}
           </span>
         </td>
-        <td className="px-3 py-2 tabular-nums">{budgetCell(o)}</td>
-        <td className="px-3 py-2 text-muted-foreground">{o.endTime ? new Date(o.endTime).toLocaleDateString() : '-'}</td>
-        <td className="px-3 py-2 text-right tabular-nums">{o.spend === null ? '-' : formatSpend(o.spend, currency)}</td>
-        <td className="px-3 py-2 text-right tabular-nums">{o.conversationsStarted === null ? '-' : o.conversationsStarted.toLocaleString()}</td>
+        <td className="px-3.5 py-3 tabular-nums">{budgetCell(o)}</td>
+        <td className="px-3.5 py-3 text-muted-foreground">{o.endTime ? new Date(o.endTime).toLocaleDateString() : '-'}</td>
+        <td className="px-3.5 py-3 text-right tabular-nums">{o.spend === null ? '-' : formatSpend(o.spend, currency)}</td>
+        <td className="px-3.5 py-3 text-right tabular-nums">{o.conversationsStarted === null ? '-' : o.conversationsStarted.toLocaleString()}</td>
         {canChange && (
-          <td className="px-3 py-2 text-right">
+          <td className="px-3.5 py-3 text-right">
             <div className="flex items-center justify-end gap-1">
               {changeable && (
                 <Button type="button" variant="outline" size="sm" disabled={!!pending || busy}
@@ -324,9 +324,9 @@ export function CampaignsPanel({ canManage }: { canManage: boolean }) {
 
   return (
     <div className="space-y-4" data-testid="campaigns-panel">
-      {!view.manageEnabled && <p className="rounded-lg border border-border bg-muted/40 p-3 text-sm text-muted-foreground">{t('manageOff')}</p>}
+      {!view.manageEnabled && <p className="rounded-xl bg-muted p-3 text-sm text-muted-foreground">{t('manageOff')}</p>}
       {view.manageEnabled && view.missingScopes.length > 0 && (
-        <p className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-800 dark:text-amber-300">
+        <p className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-800 dark:text-amber-300">
           {t('missingScopes', { scopes: view.missingScopes.join(', ') })}
         </p>
       )}
@@ -349,7 +349,7 @@ export function CampaignsPanel({ canManage }: { canManage: boolean }) {
       </div>
 
       {unknown.length > 0 && (
-        <div className="space-y-2 rounded-lg border border-amber-500/40 bg-amber-500/5 p-3" data-testid="ad-changes-unknown">
+        <div className="space-y-2 rounded-xl border border-amber-500/40 bg-amber-500/5 p-3" data-testid="ad-changes-unknown">
           <p className="text-sm font-medium text-foreground">{t('unknownTitle')}</p>
           <p className="text-xs text-muted-foreground">{t('unknownHelp')}</p>
           {unknown.map((c) => (
@@ -369,18 +369,18 @@ export function CampaignsPanel({ canManage }: { canManage: boolean }) {
       )}
 
       {tree.length === 0 ? (
-        <p className="text-sm text-muted-foreground">{t('empty')}</p>
+        <p className="rounded-xl border border-border bg-card px-4 py-12 text-center text-sm text-muted-foreground">{t('empty')}</p>
       ) : (
-        <div className="overflow-x-auto rounded-lg border border-border">
+        <div className="overflow-x-auto rounded-xl border border-border bg-card">
           <table className="w-full min-w-[820px] text-sm">
-            <thead className="bg-muted/50 text-left text-xs text-muted-foreground">
+            <thead className="bg-muted text-left text-xs text-muted-foreground">
               <tr>
-                <th className="px-3 py-2 font-medium">{t('name')}</th>
-                <th className="px-3 py-2 font-medium">{t('delivery')}</th>
-                <th className="px-3 py-2 font-medium">{t('budget')}</th>
-                <th className="px-3 py-2 font-medium">{t('ends')}</th>
-                <th className="px-3 py-2 text-right font-medium">{t('spend30')}</th>
-                <th className="px-3 py-2 text-right font-medium">{t('chats30')}</th>
+                <th className="px-3.5 py-2.5 font-semibold">{t('name')}</th>
+                <th className="px-3.5 py-2.5 font-semibold">{t('delivery')}</th>
+                <th className="px-3.5 py-2.5 font-semibold">{t('budget')}</th>
+                <th className="px-3.5 py-2.5 font-semibold">{t('ends')}</th>
+                <th className="px-3.5 py-2.5 text-right font-semibold">{t('spend30')}</th>
+                <th className="px-3.5 py-2.5 text-right font-semibold">{t('chats30')}</th>
                 {canChange && <th className="px-3 py-2"><span className="sr-only">{t('actions')}</span></th>}
               </tr>
             </thead>

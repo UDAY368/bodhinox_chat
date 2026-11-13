@@ -20,7 +20,7 @@ const TONE: Record<OrderStatus, string> = {
 export function OrderStatusBadge({ status }: { status: OrderStatus }) {
   const t = useTranslations("Commerce.orders.statuses");
   return (
-    <span className={cn("inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium whitespace-nowrap", TONE[status])}>
+    <span className={cn("inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium whitespace-nowrap", TONE[status])}>
       {t(status)}
     </span>
   );

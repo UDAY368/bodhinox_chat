@@ -201,7 +201,7 @@ export default function InstagramQuickAutomationsPage() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-foreground text-2xl font-bold tracking-tight">{t('title')}</h1>
+        <h1 className="text-foreground text-[22px] font-bold tracking-tight">{t('title')}</h1>
         <p className="text-muted-foreground mt-1 text-sm">{t('description')}</p>
         {!canCreate && <p className="text-muted-foreground mt-2 text-sm" role="note">{t('noPermission')}</p>}
       </div>

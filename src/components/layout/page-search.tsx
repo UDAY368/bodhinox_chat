@@ -53,8 +53,8 @@ export function PageSearch() {
         aria-label={t('trigger')}
       >
         <Search className="size-3.5" />
-        <span className="hidden md:inline">{t('trigger')}</span>
-        <kbd className="border-border ml-5 hidden rounded border px-1.5 py-0.5 text-[9px] font-medium sm:inline">
+        <span className="hidden 2xl:inline">{t('trigger')}</span>
+        <kbd className="border-border ml-5 hidden rounded border px-1.5 py-0.5 text-[9px] font-medium 2xl:inline">
           ⌘ / Ctrl K
         </kbd>
       </DialogTrigger>

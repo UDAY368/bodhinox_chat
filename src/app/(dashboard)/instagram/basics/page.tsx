@@ -88,7 +88,7 @@ export default function InstagramBasicsPage() {
       <AutomationHubRail active="basics" />
       <div className="min-w-0 flex-1 space-y-6" data-testid="instagram-basics">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">{t('title')}</h1>
+          <h1 className="text-[22px] font-bold tracking-tight text-foreground">{t('title')}</h1>
           <p className="mt-1 text-sm text-muted-foreground">{t('description')}</p>
         </div>
         {failed && <p className="text-sm text-destructive" role="alert">{t('loadFailed')}</p>}
@@ -98,7 +98,7 @@ export default function InstagramBasicsPage() {
             const createsFlow = key === 'storyMentions' && !!defaults && !state?.flowId;
             const action = state?.on ? t('edit') : t('setUp');
             return (
-              <li key={key} className="flex flex-col gap-3 rounded-lg border border-border bg-background p-4" data-basic={key}>
+              <li key={key} className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4" data-basic={key}>
                 <div className="flex items-start gap-3">
                   <Icon className="mt-0.5 h-5 w-5 shrink-0 text-primary" aria-hidden />
                   <div className="min-w-0 flex-1">
@@ -132,7 +132,7 @@ export default function InstagramBasicsPage() {
               </li>
             );
           })}
-          <li className="flex flex-col gap-3 rounded-lg border border-dashed border-border bg-muted/30 p-4" data-basic="newFollowers">
+          <li className="flex flex-col gap-3 rounded-xl border border-border bg-muted/30 p-4" data-basic="newFollowers">
             <div className="flex items-start gap-3">
               <UserPlus className="mt-0.5 h-5 w-5 shrink-0 text-muted-foreground" aria-hidden />
               <div className="min-w-0 flex-1">

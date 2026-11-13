@@ -771,6 +771,7 @@ function InboxViewInner({ scope }: { scope: InboxScope }) {
   // Message search: picking a hit opens its conversation (loading it when the
   // list doesn't hold it) and asks the thread to scroll to the message.
   const [searchOpen, setSearchOpen] = useState(false);
+  const [toolbarSlot, setToolbarSlot] = useState<HTMLDivElement | null>(null);
   const handleOpenSearchResult = useCallback(
     async (conversationId: string, messageId: string) => {
       setSearchOpen(false);
@@ -822,7 +823,7 @@ function InboxViewInner({ scope }: { scope: InboxScope }) {
   return (
     <div
       data-inbox-scope={scope}
-      className="studio-inbox bg-background -m-4 flex h-[calc(100vh-3.5rem)] flex-col overflow-hidden sm:-m-6"
+      className="studio-inbox bg-card -m-4 flex h-[calc(100vh-3.5rem)] flex-col overflow-hidden sm:-m-6"
     >
       {statusBanners.map((state) => (
         <div key={state.channel} className="shrink-0 border-b border-amber-500/20 [&>div]:mb-0 [&>div]:rounded-none [&>div]:border-0">
@@ -861,6 +862,10 @@ function InboxViewInner({ scope }: { scope: InboxScope }) {
         </div>
       ))}
 
+      {/* The list's filter toolbar renders here, across the list and the thread.
+          Hidden on phones while a conversation is open, like the list itself. */}
+      <div ref={setToolbarSlot} className={cn('shrink-0', hasActiveConv ? 'hidden lg:block' : 'block')} />
+
       <div className="relative flex min-h-0 flex-1 overflow-hidden">
         {/* Left panel: Conversation list.
             Hidden on mobile when a conversation is selected so the
@@ -881,13 +886,14 @@ function InboxViewInner({ scope }: { scope: InboxScope }) {
             resyncToken={resyncToken}
             channel={scope}
             folders={folders}
+            toolbarSlot={toolbarSlot}
             headerAction={
               <button
                 type="button"
                 onClick={() => setSearchOpen(true)}
                 aria-label={tSearch('placeholder')}
                 title={tSearch('placeholder')}
-                className="text-muted-foreground hover:bg-muted hover:text-foreground inline-flex h-8 w-8 items-center justify-center rounded-md transition-colors"
+                className="text-muted-foreground hover:bg-muted hover:text-foreground inline-flex size-8 items-center justify-center rounded-lg transition-colors duration-150"
               >
                 <TextSearch className="h-4 w-4" />
               </button>

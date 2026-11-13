@@ -3,8 +3,11 @@
 import { useState } from 'react';
 import { useTranslations } from 'next-intl';
 
+import { CalendarDays } from 'lucide-react';
+
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { quietSelect, segmentedItem, segmentedTrack } from '@/components/dashboard/segmented';
 
 export type Preset = 'today' | '7d' | '30d' | '90d' | 'this_week' | 'last_week' | 'this_month' | 'last_month' | 'custom';
 export interface RangeValue {
@@ -39,13 +42,13 @@ export function RangePicker({
   const valid = Boolean(from && to && from <= to);
 
   return (
-    <div className="flex flex-wrap items-end gap-2">
-      <div role="group" aria-label={t('label')} className="flex flex-wrap gap-1">
+    <div className="flex max-w-full flex-wrap items-center gap-2 sm:justify-end">
+      <div role="group" aria-label={t('label')} className={segmentedTrack}>
         {PRESETS.map((preset) => (
-          <Button
+          <button
             key={preset}
-            size="sm"
-            variant={value.preset === preset && !custom ? 'default' : 'outline'}
+            type="button"
+            className={segmentedItem(value.preset === preset && !custom)}
             aria-pressed={value.preset === preset && !custom}
             onClick={() => {
               setCustom(false);
@@ -53,33 +56,34 @@ export function RangePicker({
             }}
           >
             {t(preset)}
-          </Button>
+          </button>
         ))}
-        <select
-          aria-label={t('calendarLabel')}
-          className="h-8 rounded-md border border-border bg-background px-2 text-sm"
-          value={!custom && CALENDAR_PRESETS.includes(value.preset as Exclude<Preset, 'custom'>) ? value.preset : ''}
-          onChange={(e) => {
-            const preset = e.target.value as Exclude<Preset, 'custom'>;
-            if (!CALENDAR_PRESETS.includes(preset)) return;
-            setCustom(false);
-            onChange({ preset });
-          }}
-        >
-          <option value="">{t('calendar')}</option>
-          {CALENDAR_PRESETS.map((preset) => (
-            <option key={preset} value={preset}>
-              {t(preset)}
-            </option>
-          ))}
-        </select>
-        <Button size="sm" variant={custom ? 'default' : 'outline'} aria-pressed={custom} onClick={() => setCustom(true)}>
+        <button type="button" className={segmentedItem(custom)} aria-pressed={custom} onClick={() => setCustom(true)}>
+          <CalendarDays aria-hidden />
           {t('custom')}
-        </Button>
+        </button>
       </div>
+      <select
+        aria-label={t('calendarLabel')}
+        className={quietSelect}
+        value={!custom && CALENDAR_PRESETS.includes(value.preset as Exclude<Preset, 'custom'>) ? value.preset : ''}
+        onChange={(e) => {
+          const preset = e.target.value as Exclude<Preset, 'custom'>;
+          if (!CALENDAR_PRESETS.includes(preset)) return;
+          setCustom(false);
+          onChange({ preset });
+        }}
+      >
+        <option value="">{t('calendar')}</option>
+        {CALENDAR_PRESETS.map((preset) => (
+          <option key={preset} value={preset}>
+            {t(preset)}
+          </option>
+        ))}
+      </select>
       {custom && (
         <form
-          className="flex flex-wrap items-end gap-2"
+          className="flex basis-full flex-wrap items-end gap-2 sm:justify-end"
           onSubmit={(event) => {
             event.preventDefault();
             if (valid) onChange({ preset: 'custom', from, to });
@@ -96,7 +100,7 @@ export function RangePicker({
           <Button size="sm" type="submit" disabled={!valid}>
             {t('apply')}
           </Button>
-          <p className="basis-full text-xs text-muted-foreground">{t('maxDays')}</p>
+          <p className="basis-full text-xs text-muted-foreground sm:text-right">{t('maxDays')}</p>
         </form>
       )}
     </div>
@@ -120,10 +124,10 @@ export function NumberFilter({
   const shown = numbers.length > 0 ? numbers : kept;
   if (shown.length < 2 && !value) return null;
   return (
-    <label className="flex items-center gap-2 text-sm">
+    <label className="flex items-center gap-2 text-[13px]">
       <span className="text-muted-foreground">{t('label')}</span>
       <select
-        className="h-8 rounded-md border border-border bg-background px-2 text-sm"
+        className={quietSelect}
         value={value}
         onChange={(e) => onChange(e.target.value)}
       >

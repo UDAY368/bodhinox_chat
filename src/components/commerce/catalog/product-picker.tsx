@@ -81,7 +81,7 @@ export function ProductPicker({
           onChange={(e) => setQ(e.target.value)}
           placeholder={t("search")}
           aria-label={t("search")}
-          className="bg-muted pl-8"
+          className="pl-8"
         />
       </div>
       <div className="max-h-64 overflow-y-auto rounded-md border border-border" role="listbox" aria-multiselectable="true" aria-label={t("label")}>

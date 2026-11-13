@@ -43,11 +43,19 @@ import {
   LayoutTemplate,
 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
+import { cn } from '@/lib/utils';
 import { contactHandle } from '@/lib/whatsapp/wa-identity';
 import { parseInternationalPhone } from '@/lib/whatsapp/phone-utils';
 import { MASK_CHAR } from '@/lib/inbox/masking';
 import { ContactIdentities } from './contact-identities';
 import { InstagramFacts } from './instagram-facts';
+
+/** A soft inline input that turns card-coloured on focus. */
+const INLINE_INPUT =
+  'h-9 border-transparent bg-muted text-sm text-foreground transition-colors duration-150 hover:border-border focus-visible:bg-card';
+/** A tab drawn as one option of a segmented control. */
+const SEG_TAB =
+  'h-full rounded-[9px] px-3 text-[13px] text-muted-foreground transition-colors duration-150 data-active:bg-card data-active:text-foreground data-active:shadow-sm';
 
 interface ContactDetailViewProps {
   open: boolean;
@@ -252,13 +260,26 @@ export function ContactDetailView({
     if (!contactId) return;
     setSavingConsent(true);
     const now = new Date().toISOString();
+    if (field === 'opted_out_at') {
+      // Consent goes through the audited route; the browser cannot write it directly.
+      const res = await authFetch(`/api/contacts/${encodeURIComponent(contactId)}/consent`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        // Unticking only removes the opt-out; recording an opt-in is a separate, confirmed step.
+        body: JSON.stringify({ state: on ? 'opted_out' : 'cleared' }),
+      }).catch(() => null);
+      const data = res?.ok ? ((await res.json()) as { contact: Partial<Contact> }) : null;
+      if (!data) toast.error(t('toastUpdateFailed'));
+      else {
+        setContact((prev) => (prev ? { ...prev, ...data.contact } : prev));
+        onUpdated();
+      }
+      setSavingConsent(false);
+      return;
+    }
     const { error } = await db
       .from('contacts')
-      .update(
-        field === 'opted_out_at'
-          ? { opted_out_at: on ? now : null, opt_out_source: on ? 'agent' : null, updated_at: now }
-          : { blocked_at: on ? now : null, updated_at: now }
-      )
+      .update({ blocked_at: on ? now : null, updated_at: now })
       .eq('id', contactId);
     if (error) {
       toast.error(t('toastUpdateFailed'));
@@ -421,7 +442,7 @@ export function ContactDetailView({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="right"
-        className="bg-popover border-border text-popover-foreground data-[side=right]:sm:max-w-lg w-full p-0"
+        className="bg-background border-border text-foreground data-[side=right]:sm:max-w-xl w-full p-0"
       >
         {loading || !contact ? (
           <div className="flex items-center justify-center h-full">
@@ -430,24 +451,24 @@ export function ContactDetailView({
         ) : (
           <div className="flex flex-col h-full">
             {/* Header */}
-            <SheetHeader className="p-4 border-b border-border/50">
-              <div className="flex items-center gap-3">
-                <Avatar className="size-12 bg-muted border border-border">
-                  <AvatarFallback className="bg-primary/10 text-primary text-sm font-medium">
+            <SheetHeader className="gap-0 px-5 pt-6 pb-4">
+              <div className="flex items-center gap-4 pr-8">
+                <Avatar className="size-14 bg-muted">
+                  <AvatarFallback className="bg-primary/10 text-primary text-lg font-semibold">
                     {getInitials(contact.name)}
                   </AvatarFallback>
                 </Avatar>
                 <div className="flex-1 min-w-0">
-                  <SheetTitle className="text-popover-foreground truncate">
+                  <SheetTitle className="text-[22px] font-bold tracking-tight text-foreground truncate">
                     {contact.name || t('unnamed')}
                   </SheetTitle>
-                  <SheetDescription className="text-muted-foreground text-xs mt-0.5">
+                  <SheetDescription className="text-muted-foreground text-[13px] mt-0.5">
                     {t('contactDetailsDesc')}
                   </SheetDescription>
-                  <div className="flex flex-wrap items-center gap-3 mt-1.5 text-xs text-muted-foreground">
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2 text-[13px] text-muted-foreground">
                     <button
                       onClick={copyPhone}
-                      className="flex items-center gap-1 hover:text-primary transition-colors cursor-pointer"
+                      className="flex items-center gap-1 tabular-nums hover:text-primary transition-colors duration-150 cursor-pointer"
                     >
                       <Phone className="size-3" />
                       {contactHandle(contact)}
@@ -472,12 +493,10 @@ export function ContactDetailView({
                   </div>
                 </div>
               </div>
-              <div className="mt-3">
+              <div className="mt-4">
                 <Button
-                  size="sm"
                   onClick={() => setTemplatePickerOpen(true)}
                   disabled={sendingTemplate}
-                  className="bg-primary text-primary-foreground hover:bg-primary/90"
                 >
                   {sendingTemplate ? (
                     <Loader2 className="size-4 animate-spin" />
@@ -487,11 +506,11 @@ export function ContactDetailView({
                   {t('sendTemplateBtn')}
                 </Button>
               </div>
-              <div className="mt-3 space-y-2 rounded-md border border-border p-3">
+              <div className="mt-4 divide-y divide-border rounded-xl border border-border bg-card px-4">
                 {(['opted_out_at', 'blocked_at'] as const).map((field) => (
-                  <label key={field} className="flex items-center justify-between gap-3 text-xs">
+                  <label key={field} className="flex items-center justify-between gap-3 py-2.5 text-xs">
                     <span>
-                      <span className="block text-foreground">
+                      <span className="block text-[13px] font-semibold text-foreground">
                         {t(field === 'opted_out_at' ? 'consent.optedOut' : 'consent.blocked')}
                       </span>
                       <span className="block text-muted-foreground">
@@ -511,53 +530,54 @@ export function ContactDetailView({
 
             {/* Tabs */}
             <Tabs defaultValue="details" className="flex-1 flex flex-col min-h-0">
-              <TabsList className="bg-muted/50 border-b border-border mx-4 mt-3 max-w-[calc(100%-2rem)] shrink-0 justify-start overflow-x-auto">
+              <TabsList className="mx-5 h-9 max-w-[calc(100%-2.5rem)] shrink-0 justify-start overflow-x-auto rounded-xl bg-muted p-[3px]">
                 <TabsTrigger
                   value="details"
-                  className="data-active:bg-muted data-active:text-primary text-muted-foreground"
+                  className={SEG_TAB}
                 >
                   {t('tabs.details')}
                 </TabsTrigger>
                 <TabsTrigger
                   value="tags"
-                  className="data-active:bg-muted data-active:text-primary text-muted-foreground"
+                  className={SEG_TAB}
                 >
                   {t('tabs.tags')}
                 </TabsTrigger>
                 <TabsTrigger
                   value="notes"
-                  className="data-active:bg-muted data-active:text-primary text-muted-foreground"
+                  className={SEG_TAB}
                 >
                   {t('tabs.notes')}
                 </TabsTrigger>
                 <TabsTrigger
                   value="custom"
-                  className="data-active:bg-muted data-active:text-primary text-muted-foreground"
+                  className={SEG_TAB}
                 >
                   {t('tabs.custom')}
                 </TabsTrigger>
                 <TabsTrigger
                   value="deals"
-                  className="data-active:bg-muted data-active:text-primary text-muted-foreground"
+                  className={SEG_TAB}
                 >
                   {t('tabs.deals')}
                 </TabsTrigger>
               </TabsList>
 
               {/* Details Tab */}
-              <TabsContent value="details" className="flex-1 overflow-y-auto px-4 py-3">
-                <div className="space-y-3">
+              <TabsContent value="details" className="flex-1 overflow-y-auto px-5 py-4">
+                <div className="space-y-4">
+                  <div className="grid gap-3 rounded-xl border border-border bg-card p-4 sm:grid-cols-2">
                   <div className="space-y-1.5">
                     <Label className="text-muted-foreground text-xs">{t('name')}</Label>
                     <Input
                       value={editName}
                       onChange={(e) => setEditName(e.target.value)}
-                      className="bg-muted border-border text-foreground h-8 text-sm"
+                      className={INLINE_INPUT}
                     />
                   </div>
                   <div className="space-y-1.5">
                     <Label className="text-muted-foreground text-xs">
-                      {t('phone')} <span className="text-red-400">*</span>
+                      {t('phone')} <span className="text-destructive">*</span>
                     </Label>
                     <Input
                       value={editPhone}
@@ -565,7 +585,7 @@ export function ContactDetailView({
                       aria-readonly={phoneMasked}
                       title={phoneMasked ? t('phoneMaskedHint') : undefined}
                       onChange={(e) => setEditPhone(e.target.value)}
-                      className="bg-muted border-border text-foreground h-8 text-sm"
+                      className={INLINE_INPUT}
                     />
                   </div>
                   <div className="space-y-1.5">
@@ -573,7 +593,7 @@ export function ContactDetailView({
                     <Input
                       value={editEmail}
                       onChange={(e) => setEditEmail(e.target.value)}
-                      className="bg-muted border-border text-foreground h-8 text-sm"
+                      className={INLINE_INPUT}
                     />
                   </div>
                   <div className="space-y-1.5">
@@ -581,14 +601,14 @@ export function ContactDetailView({
                     <Input
                       value={editCompany}
                       onChange={(e) => setEditCompany(e.target.value)}
-                      className="bg-muted border-border text-foreground h-8 text-sm"
+                      className={INLINE_INPUT}
                     />
+                  </div>
                   </div>
                   <Button
                     onClick={saveDetails}
                     disabled={savingDetails}
-                    className="bg-primary hover:bg-primary/90 text-primary-foreground w-full"
-                    size="sm"
+                    className="w-full sm:w-auto"
                   >
                     {savingDetails ? (
                       <Loader2 className="size-3.5 animate-spin" />
@@ -604,7 +624,7 @@ export function ContactDetailView({
               </TabsContent>
 
               {/* Tags Tab */}
-              <TabsContent value="tags" className="flex-1 overflow-y-auto px-4 py-3">
+              <TabsContent value="tags" className="flex-1 overflow-y-auto px-5 py-4">
                 <div className="space-y-3">
                   <p className="text-xs text-muted-foreground">
                     {t('tagsTab.clickTagDesc')}
@@ -643,18 +663,17 @@ export function ContactDetailView({
               </TabsContent>
 
               {/* Notes Tab */}
-              <TabsContent value="notes" className="flex-1 flex flex-col min-h-0 px-4 py-3">
+              <TabsContent value="notes" className="flex-1 flex flex-col min-h-0 px-5 py-4">
                 <div className="space-y-2 mb-3">
                   <Textarea
                     value={newNote}
                     onChange={(e) => setNewNote(e.target.value)}
                     placeholder={t('notesTab.placeholder')}
-                    className="bg-muted border-border text-foreground placeholder:text-muted-foreground min-h-[60px] text-sm resize-none"
+                    className="min-h-[64px] resize-none border-border bg-card text-sm text-foreground placeholder:text-muted-foreground"
                   />
                   <Button
                     onClick={addNote}
                     disabled={!newNote.trim() || savingNote}
-                    className="bg-primary hover:bg-primary/90 text-primary-foreground"
                     size="sm"
                   >
                     {savingNote ? (
@@ -679,7 +698,7 @@ export function ContactDetailView({
                     notes.map((note) => (
                       <div
                         key={note.id}
-                        className="rounded-lg bg-muted/50 border border-border/50 p-3 group"
+                        className="rounded-xl border border-border bg-card p-3 group"
                       >
                         <div className="flex items-start justify-between gap-2">
                           <p className="text-sm text-muted-foreground whitespace-pre-wrap flex-1">
@@ -689,7 +708,7 @@ export function ContactDetailView({
                             type="button"
                             onClick={() => deleteNote(note.id)}
                             aria-label={t('deleteNote')}
-                            className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-red-400 transition-all cursor-pointer shrink-0"
+                            className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-all duration-150 cursor-pointer shrink-0"
                           >
                             <Trash2 className="size-3.5" />
                           </button>
@@ -710,7 +729,7 @@ export function ContactDetailView({
               </TabsContent>
 
               {/* Custom Fields Tab */}
-              <TabsContent value="custom" className="flex-1 overflow-y-auto px-4 py-3">
+              <TabsContent value="custom" className="flex-1 overflow-y-auto px-5 py-4">
                 {loadingCustom ? (
                   <div className="flex items-center justify-center py-8">
                     <Loader2 className="size-5 animate-spin text-muted-foreground" />
@@ -720,7 +739,8 @@ export function ContactDetailView({
                     {t('noCustomFields')}
                   </p>
                 ) : (
-                  <div className="space-y-3">
+                  <div className="space-y-4">
+                    <div className="grid gap-3 rounded-xl border border-border bg-card p-4 sm:grid-cols-2">
                     {customFields.map((field) => (
                       <div key={field.id} className="space-y-1.5">
                         <Label className="text-muted-foreground text-xs capitalize">
@@ -735,15 +755,15 @@ export function ContactDetailView({
                             }))
                           }
                           placeholder={t('enterCustomField', { name: field.field_name })}
-                          className="bg-muted border-border text-foreground h-8 text-sm placeholder:text-muted-foreground"
+                          className={cn(INLINE_INPUT, 'placeholder:text-muted-foreground')}
                         />
                       </div>
                     ))}
+                    </div>
                     <Button
                       onClick={saveCustomFields}
                       disabled={savingCustom}
-                      className="bg-primary hover:bg-primary/90 text-primary-foreground w-full"
-                      size="sm"
+                      className="w-full sm:w-auto"
                     >
                       {savingCustom ? (
                         <Loader2 className="size-3.5 animate-spin" />
@@ -757,7 +777,7 @@ export function ContactDetailView({
               </TabsContent>
 
               {/* Deals Tab */}
-              <TabsContent value="deals" className="flex-1 overflow-y-auto px-4 py-3">
+              <TabsContent value="deals" className="flex-1 overflow-y-auto px-5 py-4">
                 {loadingDeals ? (
                   <div className="flex items-center justify-center py-8">
                     <Loader2 className="size-5 animate-spin text-primary" />
@@ -769,7 +789,7 @@ export function ContactDetailView({
                     {deals.map((deal) => (
                       <div
                         key={deal.id}
-                        className="rounded-lg border border-border bg-muted/50 p-3"
+                        className="rounded-xl border border-border bg-card p-3"
                       >
                         <div className="flex items-start justify-between gap-2">
                           <p className="text-sm font-medium text-foreground">
@@ -800,7 +820,7 @@ export function ContactDetailView({
                               className={
                                 deal.status === 'won'
                                   ? 'text-primary'
-                                  : 'text-red-400'
+                                  : 'text-destructive'
                               }
                             >
                               {deal.status}

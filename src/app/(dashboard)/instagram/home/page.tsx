@@ -74,7 +74,7 @@ export default function InstagramHomePage() {
   return (
     <div className="space-y-8" data-testid="instagram-home">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight text-foreground">{t('title')}</h1>
+        <h1 className="text-[22px] font-bold tracking-tight text-foreground">{t('title')}</h1>
         <p className="mt-1 text-sm text-muted-foreground">{t('description')}</p>
       </div>
 
@@ -85,7 +85,7 @@ export default function InstagramHomePage() {
             <Link
               key={wizard}
               href={`${channelPath('instagram', 'quickAutomations')}?wizard=${wizard}`}
-              className="group flex flex-col gap-2 rounded-lg border border-border bg-background p-4 transition-colors hover:border-primary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="group flex flex-col gap-2 rounded-xl border border-border bg-card p-4 transition-colors duration-150 hover:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               <Icon className="h-5 w-5 text-primary" aria-hidden />
               <span className="text-sm font-semibold text-foreground">{tWizards(`${key}.title`)}</span>
@@ -105,7 +105,7 @@ export default function InstagramHomePage() {
         <section className="space-y-3" aria-labelledby="ig-home-week">
           <h2 id="ig-home-week" className="text-sm font-semibold text-foreground">{t('last7Days')}</h2>
           {empty ? (
-            <p className="rounded-lg border border-dashed border-border p-6 text-center text-sm text-muted-foreground">{t('empty')}</p>
+            <p className="rounded-xl border border-border p-6 text-center text-sm text-muted-foreground">{t('empty')}</p>
           ) : (
             <>
               <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -173,7 +173,7 @@ export default function InstagramHomePage() {
         <div className="grid gap-6 lg:grid-cols-2">
           <section className="space-y-3" aria-labelledby="ig-home-defaults">
             <h2 id="ig-home-defaults" className="text-sm font-semibold text-foreground">{t('defaults')}</h2>
-            <ul className="divide-y divide-border rounded-lg border border-border">
+            <ul className="divide-y divide-border/60 overflow-hidden rounded-xl border border-border bg-card">
               {summary.defaults.map((item) => (
                 <li key={item.key} className="flex items-center gap-3 px-4 py-3">
                   <div className="min-w-0 flex-1">
@@ -209,7 +209,7 @@ function Stat({ label, value, note, icon = false, small = false }: {
   label: string; value: string; note?: string; icon?: boolean; small?: boolean;
 }) {
   return (
-    <div className="rounded-lg border border-border bg-background p-4">
+    <div className="rounded-xl border border-border bg-card p-4">
       <p className="flex items-center gap-1 text-xs text-muted-foreground">
         {icon && <Clock className="h-3 w-3" aria-hidden />}
         {label}

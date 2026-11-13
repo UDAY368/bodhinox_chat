@@ -330,6 +330,22 @@
         "definition": "opt_out_source TEXT CHECK (opt_out_source IN ('keyword','agent','api','import'))"
       },
       {
+        "name": "opted_in_at",
+        "type": "timestamptz",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "opted_in_at timestamptz"
+      },
+      {
+        "name": "opt_in_source",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "opt_in_source text CHECK (opt_in_source IN ('keyword','agent','api','import'))"
+      },
+      {
         "name": "blocked_at",
         "type": "timestamptz",
         "nullable": true,
@@ -18598,6 +18614,76 @@
         "default": null,
         "reference": null,
         "definition": "resolved_at timestamptz"
+      },
+      {
+        "name": "created_at",
+        "type": "timestamptz",
+        "nullable": false,
+        "default": "now()",
+        "reference": null,
+        "definition": "created_at timestamptz NOT NULL DEFAULT now()"
+      },
+      {
+        "name": "updated_at",
+        "type": "timestamptz",
+        "nullable": false,
+        "default": "now()",
+        "reference": null,
+        "definition": "updated_at timestamptz NOT NULL DEFAULT now()"
+      }
+    ],
+    "instagram_message_templates": [
+      {
+        "name": "id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "gen_random_uuid()",
+        "reference": null,
+        "definition": "id uuid PRIMARY KEY DEFAULT gen_random_uuid()"
+      },
+      {
+        "name": "account_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "NULLIF(current_setting('app.account_id', true),'')::uuid ",
+        "reference": {
+          "table": "accounts",
+          "column": "id",
+          "onDelete": "CASCADE"
+        },
+        "definition": "account_id uuid NOT NULL DEFAULT NULLIF(current_setting('app.account_id', true),'')::uuid REFERENCES accounts(id) ON DELETE CASCADE"
+      },
+      {
+        "name": "name",
+        "type": "text",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "name text NOT NULL"
+      },
+      {
+        "name": "kind",
+        "type": "text",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "kind text NOT NULL CHECK (kind IN ('cards','button'))"
+      },
+      {
+        "name": "payload",
+        "type": "jsonb",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "payload jsonb NOT NULL"
+      },
+      {
+        "name": "created_by",
+        "type": "uuid",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "created_by uuid"
       },
       {
         "name": "created_at",

@@ -139,7 +139,7 @@ export function OrderDetailView({ id }: { id: string }) {
   }
   if (state !== "ready" || !order) {
     return (
-      <div className="space-y-4 p-4 sm:p-6">
+      <div className="space-y-4">
         <Link href="/commerce/orders" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
           <ArrowLeft className="h-4 w-4" /> {t("detail.back")}
         </Link>
@@ -161,13 +161,13 @@ export function OrderDetailView({ id }: { id: string }) {
   ] : [];
 
   return (
-    <div className="space-y-6 p-4 sm:p-6">
+    <div className="space-y-5">
       <Link href="/commerce/orders" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
         <ArrowLeft className="h-4 w-4" /> {t("detail.back")}
       </Link>
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold text-foreground">
+          <h1 className="text-[22px] font-bold tracking-tight text-foreground">
             {t("detail.title", { ref: order.external_id ? `#${order.external_id}` : order.id.slice(0, 8).toUpperCase() })}
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
@@ -184,9 +184,9 @@ export function OrderDetailView({ id }: { id: string }) {
 
       <div className="grid gap-6 lg:grid-cols-3">
         <section className="space-y-3 lg:col-span-2">
-          <div className="overflow-x-auto rounded-lg border border-border bg-card">
-            <Table>
-              <TableHeader>
+          <div className="overflow-x-auto rounded-xl border border-border bg-card">
+            <Table className="[&_td]:px-3.5 [&_td]:py-2.5">
+              <TableHeader className="bg-muted [&_th]:h-9 [&_th]:px-3.5 [&_th]:text-xs [&_th]:font-semibold [&_th]:text-muted-foreground">
                 <TableRow>
                   <TableHead>{t("detail.colProduct")}</TableHead>
                   <TableHead className="text-right">{t("detail.colQuantity")}</TableHead>
@@ -222,7 +222,7 @@ export function OrderDetailView({ id }: { id: string }) {
             </Table>
           </div>
           {isUnpaidCodOrder(order) && order.status !== "cancelled" && order.status !== "expired" && (
-            <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-card p-4 text-sm">
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card p-4 text-sm">
               <span>{t("cod.collect", { amount: money(total - order.amount_paid_minor, order.currency) })}</span>
               {/* While a COD courier shipment of a still-confirmed order is live, the courier collects the cash (server refuses too). */}
               {canAdmin && canRecordPayment(order) && !(order.status === "confirmed" && order.shipment
@@ -239,7 +239,7 @@ export function OrderDetailView({ id }: { id: string }) {
           <OfflinePaymentDialog orderId={order.id} currency={order.currency} dueMinor={total - order.amount_paid_minor}
             open={paying} onOpenChange={setPaying} onRecorded={() => void reload()} />
           {(order.amount_paid_minor > 0 || order.amount_refunded_minor > 0) && (
-            <div className="flex flex-wrap gap-x-6 gap-y-1 rounded-lg border border-border bg-card p-4 text-sm">
+            <div className="flex flex-wrap gap-x-6 gap-y-1 rounded-xl border border-border bg-card p-4 text-sm">
               <span>{tLife("paid", { amount: money(order.amount_paid_minor, order.currency) })}</span>
               {order.amount_refunded_minor > 0 && (
                 <span>{tLife("refunded", { amount: money(order.amount_refunded_minor, order.currency) })}</span>
@@ -247,7 +247,7 @@ export function OrderDetailView({ id }: { id: string }) {
             </div>
           )}
           {order.customer_note && (
-            <div className="rounded-lg border border-border bg-card p-4">
+            <div className="rounded-xl border border-border bg-card p-4">
               <h2 className="text-sm font-medium text-foreground">{t("detail.customerNote")}</h2>
               <p className="mt-1 text-sm whitespace-pre-wrap break-words text-muted-foreground">{order.customer_note}</p>
             </div>
@@ -256,7 +256,7 @@ export function OrderDetailView({ id }: { id: string }) {
         </section>
 
         <aside className="space-y-4">
-          <div className="space-y-2 rounded-lg border border-border bg-card p-4">
+          <div className="space-y-2 rounded-xl border border-border bg-card p-4">
             <h2 className="text-sm font-medium text-foreground">{t("detail.customer")}</h2>
             <p className="text-sm">{order.contact?.name || t("unknownCustomer")}</p>
             {order.contact?.phone && <p className="text-xs text-muted-foreground">{order.contact.phone}</p>}
@@ -272,7 +272,7 @@ export function OrderDetailView({ id }: { id: string }) {
             )}
           </div>
 
-          <div className="space-y-2 rounded-lg border border-border bg-card p-4">
+          <div className="space-y-2 rounded-xl border border-border bg-card p-4">
             <Label htmlFor="order-status">{t("detail.changeStatus")}</Label>
             {next.length === 0 ? (
               <p className="text-xs text-muted-foreground">{t("detail.finalStatus")}</p>
@@ -289,7 +289,7 @@ export function OrderDetailView({ id }: { id: string }) {
           <OrderFulfilmentPanel order={order} canAct={canAct} canRefund={canAdmin} onChanged={reload} />
           <OrderReturnsPanel order={order} returns={returns} canAct={canAct} canAdmin={canAdmin} onChanged={reload} />
 
-          <div className="space-y-2 rounded-lg border border-border bg-card p-4">
+          <div className="space-y-2 rounded-xl border border-border bg-card p-4">
             <Label htmlFor="order-note">{t("detail.note")}</Label>
             <Textarea id="order-note" rows={4} maxLength={ORDER_LIMITS.noteMaxLength} value={note} disabled={!canAct}
               placeholder={t("detail.notePlaceholder")} onChange={(e) => setNote(e.target.value)} />

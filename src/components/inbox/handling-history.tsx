@@ -72,7 +72,7 @@ export function HandlingHistory({ conversationId, refreshToken, className }: {
   const shown = events ? (showAll ? events : events.slice(0, COLLAPSED)) : [];
   return (
     <section className={className} aria-labelledby={`handling-${conversationId}`}>
-      <h3 id={`handling-${conversationId}`} className="text-xs font-semibold uppercase">{t("title")}</h3>
+      <h3 id={`handling-${conversationId}`} className="text-[13px] font-semibold">{t("title")}</h3>
       {failed ? (
         <p className="text-muted-foreground mt-2 text-xs">{t("loadFailed")}</p>
       ) : events === null ? (

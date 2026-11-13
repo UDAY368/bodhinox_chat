@@ -96,15 +96,15 @@ export function FormResponses({
       </div>
 
       {rows.length === 0 ? (
-        <div className="flex flex-col items-center rounded-lg border border-dashed border-border px-6 py-12 text-center">
-          <Inbox className="h-6 w-6 text-muted-foreground" aria-hidden />
-          <p className="mt-3 text-sm font-medium text-foreground">{t("emptyTitle")}</p>
+        <div className="flex flex-col items-center rounded-xl border border-border bg-card px-6 py-12 text-center">
+          <span className="inline-flex size-13 items-center justify-center rounded-2xl bg-primary/10 text-primary" aria-hidden><Inbox className="h-6 w-6" /></span>
+          <p className="mt-3 text-[15px] font-semibold text-foreground">{t("emptyTitle")}</p>
           <p className="mt-1 max-w-sm text-xs text-muted-foreground">{t("emptyDesc")}</p>
         </div>
       ) : (
-        <div className="rounded-lg border border-border bg-card">
+        <div className="overflow-hidden rounded-xl border border-border bg-card">
           <Table>
-            <TableHeader>
+            <TableHeader className="bg-muted">
               <TableRow>
                 <TableHead className="whitespace-nowrap">{t("colDate")}</TableHead>
                 <TableHead>{t("colContact")}</TableHead>

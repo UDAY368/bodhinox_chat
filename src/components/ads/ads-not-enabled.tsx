@@ -28,19 +28,17 @@ export function AdsNotEnabled({ reason }: { reason: 'flag_off' | 'not_configured
   }, []);
 
   return (
-    <div className="rounded-lg border border-border bg-card p-6">
-      <div className="flex items-start gap-3">
-        <Megaphone className="mt-0.5 size-5 shrink-0 text-muted-foreground" />
-        <div className="space-y-1">
-          <h2 className="text-base font-medium text-foreground">{t('title')}</h2>
-          <p className="text-sm text-muted-foreground">{reason === 'flag_off' ? t('flagOff') : t('notConfigured')}</p>
-          {count !== null && (
-            <p className="pt-2 text-sm text-foreground" data-testid="ads-referral-count">
-              {t('adClicks', { count })}
-            </p>
-          )}
-        </div>
-      </div>
+    <div className="flex flex-col items-center gap-2 rounded-xl border border-border bg-card px-4 py-12 text-center">
+      <span className="mb-1 inline-flex size-13 items-center justify-center rounded-2xl bg-primary/10 text-primary" aria-hidden>
+        <Megaphone className="size-6" />
+      </span>
+      <h2 className="text-[15px] font-semibold text-foreground">{t('title')}</h2>
+      <p className="max-w-md text-sm text-muted-foreground">{reason === 'flag_off' ? t('flagOff') : t('notConfigured')}</p>
+      {count !== null && (
+        <p className="mt-2 rounded-full bg-muted px-3 py-1 text-sm font-medium tabular-nums text-foreground" data-testid="ads-referral-count">
+          {t('adClicks', { count })}
+        </p>
+      )}
     </div>
   );
 }

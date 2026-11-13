@@ -85,72 +85,101 @@
  * project/Color Themes.html — change one, change the other.
  * ============================================================ */
 
+/* System font first (San Francisco on Apple devices), Inter elsewhere. */
+:root {
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", var(--font-inter), "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
 /* ---- MODE: neutral surfaces ---- */
 
 html[data-mode="dark"] {
-  --background: #171715;
-  --foreground: #f3eee7;
-  --card: #22221f;
-  --card-2: #292824;
-  --card-foreground: #f3eee7;
-  --popover: #262521;
-  --popover-foreground: #f3eee7;
-  --secondary: #302d28;
-  --secondary-foreground: #eee7dc;
-  --muted: #2c2b27;
-  --muted-foreground: #bbb3a7;
-  --accent: #343029;
-  --accent-foreground: #f3eee7;
-  --destructive: #f28b7b;
-  --border: #403b33;
-  --input: #514a40;
-  --chart-2: #b69c77;
-  --chart-3: #7f9d8d;
-  --chart-4: #9c9690;
-  --chart-5: #665a4b;
-  --radius: 0.9rem;
-  --sidebar: #111110;
-  --sidebar-foreground: #ede9e2;
-  --sidebar-accent: #2c2924;
-  --sidebar-accent-foreground: #fff5e8;
-  --sidebar-border: #34312b;
-  --studio-glass: #22221ff0;
-  --studio-shadow: 0 12px 36px -24px #0009;
+  --background: #0f0f10;
+  --foreground: #f5f5f7;
+  --card: #1c1c1e;
+  --card-2: #232326;
+  --card-foreground: #f5f5f7;
+  --popover: #232326;
+  --popover-foreground: #f5f5f7;
+  --secondary: #2c2c2f;
+  --secondary-foreground: #f5f5f7;
+  --muted: #2a2a2d;
+  --muted-foreground: #a1a1a8;
+  --accent: #2c2c2f;
+  --accent-foreground: #f5f5f7;
+  --destructive: #ff6961;
+  --border: #2f2f33;
+  --input: #3a3a3e;
+  --chart-2: #64d2ff;
+  --chart-3: #30d158;
+  --chart-4: #ffd60a;
+  --chart-5: #bf5af2;
+  --radius: 0.75rem;
+  --sidebar: #0f0f10;
+  --sidebar-foreground: #f5f5f7;
+  --sidebar-accent: #232326;
+  --sidebar-accent-foreground: #f5f5f7;
+  --sidebar-border: #2f2f33;
+  --studio-glass: #1c1c1ef0;
+  --studio-shadow: 0 1px 2px #0006, 0 8px 24px #0005;
 }
 
 :root,
 html[data-mode="light"] {
-  --background: #f8f7f4;
-  --foreground: #262520;
-  --card: #fffefa;
-  --card-2: #f3f0e9;
-  --card-foreground: #262520;
-  --popover: #fffefa;
-  --popover-foreground: #262520;
-  --secondary: #eee9e0;
-  --secondary-foreground: #353129;
-  --muted: #f0ede7;
-  --muted-foreground: #716c62;
-  --accent: #eee8df;
-  --accent-foreground: #353129;
-  --destructive: #b33e32;
-  --border: #e5e0d7;
-  --input: #d5cec1;
-  --chart-2: #8c9879;
-  --chart-3: #b29f81;
-  --chart-4: #827b71;
-  --chart-5: #ded4c2;
-  --radius: 0.9rem;
-  --sidebar: #111110;
-  --sidebar-foreground: #ede9e2;
-  --sidebar-accent: #2c2924;
-  --sidebar-accent-foreground: #fff5e8;
-  --sidebar-border: #34312b;
-  --studio-glass: #fffefaf0;
-  --studio-shadow: 0 12px 36px -24px #55432235;
+  --background: #f5f5f7;
+  --foreground: #1d1d1f;
+  --card: #ffffff;
+  --card-2: #f5f5f7;
+  --card-foreground: #1d1d1f;
+  --popover: #ffffff;
+  --popover-foreground: #1d1d1f;
+  --secondary: #f2f2f4;
+  --secondary-foreground: #1d1d1f;
+  --muted: #f2f2f4;
+  --muted-foreground: #6e6e73;
+  --accent: #ececef;
+  --accent-foreground: #1d1d1f;
+  --destructive: #d70015;
+  --border: #e3e3e8;
+  --input: #d2d2d7;
+  --chart-2: #5ac8fa;
+  --chart-3: #34c759;
+  --chart-4: #ff9f0a;
+  --chart-5: #af52de;
+  --radius: 0.75rem;
+  --sidebar: #f5f5f7;
+  --sidebar-foreground: #1d1d1f;
+  --sidebar-accent: #ffffff;
+  --sidebar-accent-foreground: #1d1d1f;
+  --sidebar-border: #e3e3e8;
+  --studio-glass: #fffffff0;
+  --studio-shadow: 0 1px 2px #0000000a, 0 8px 24px #0000000f;
 }
 
 :root,
+html[data-theme="blue"] {
+  --primary: #0071e3;
+  --primary-foreground: #ffffff;
+  --primary-hover: #0077ed;
+  --primary-soft: #0071e314;
+  --primary-soft-2: #0071e324;
+  --ring: #0071e3;
+  --chart-1: #0071e3;
+  --sidebar-primary: #0071e3;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-ring: #0071e3;
+}
+html[data-mode="dark"][data-theme="blue"] {
+  --primary: #2997ff;
+  --primary-foreground: #ffffff;
+  --primary-hover: #47a6ff;
+  --primary-soft: #2997ff1c;
+  --primary-soft-2: #2997ff2e;
+  --ring: #2997ff;
+  --chart-1: #2997ff;
+  --sidebar-primary: #2997ff;
+  --sidebar-ring: #2997ff;
+}
+
 html[data-theme="copper"] {
   --primary: #a65328;
   --primary-foreground: #fffaf4;

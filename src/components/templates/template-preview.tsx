@@ -96,7 +96,7 @@ function ButtonRow({ button }: { button: TemplateButton }) {
           ? Copy
           : Reply;
   return (
-    <div className="flex items-center justify-center gap-1.5 border-t border-border/60 py-1.5 text-xs font-medium text-sky-600 dark:text-sky-400">
+    <div className="flex items-center justify-center gap-1.5 border-t border-border/60 py-1.5 text-xs font-semibold text-primary">
       <Icon className="size-3.5" aria-hidden />
       <span className="truncate">{button.text}</span>
     </div>
@@ -116,8 +116,8 @@ export function TemplatePreview({ template }: { template: TemplateDraftInput }) 
   if (kind === 'authentication') {
     const auth = template.auth_options;
     return (
-      <div className="rounded-xl bg-emerald-50 p-3 dark:bg-emerald-950/30" aria-label={t('label')}>
-        <div className="max-w-[18rem] overflow-hidden rounded-lg bg-card text-sm shadow-sm">
+      <div className="rounded-xl bg-muted p-3" aria-label={t('label')}>
+        <div className="max-w-[18rem] overflow-hidden rounded-[4px_14px_14px_14px] bg-card text-sm shadow-sm">
           <div className="space-y-1 px-3 pt-2 pb-1.5">
             <p>
               {t('authBody', { code: SAMPLE_AUTH_CODE })}
@@ -163,8 +163,8 @@ export function TemplatePreview({ template }: { template: TemplateDraftInput }) 
   })();
 
   return (
-    <div className="rounded-xl bg-emerald-50 p-3 dark:bg-emerald-950/30" aria-label={t('label')}>
-      <div className="max-w-[18rem] overflow-hidden rounded-lg bg-card text-sm shadow-sm">
+    <div className="rounded-xl bg-muted p-3" aria-label={t('label')}>
+      <div className="max-w-[18rem] overflow-hidden rounded-[4px_14px_14px_14px] bg-card text-sm shadow-sm">
         {header}
         {kind === 'limited_time_offer' && template.lto && (
           <div className="mx-1 mt-1 flex items-center gap-2 rounded-md bg-muted px-2 py-1.5">

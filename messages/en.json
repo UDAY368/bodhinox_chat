@@ -47,6 +47,12 @@
     }
   },
   "Sidebar": {
+    "campaigns": "Campaigns",
+    "sales": "Sales",
+    "overview": "Overview",
+    "reports": "Reports",
+    "rules": "Rules",
+    "instagramTools": "Instagram tools",
     "title": "BODHINOX",
     "primaryNav": "Primary",
     "dashboard": "Dashboard",
@@ -112,6 +118,7 @@
     "expandSidebar": "Expand"
   },
   "Header": {
+    "notificationsUnread": "{count, plural, =1 {Notifications, 1 unread} other {Notifications, # unread}}",
     "dashboard": "Dashboard",
     "inbox": "Inbox",
     "notifications": "Notifications",
@@ -404,7 +411,10 @@
       "lifecycle": "Lifecycle",
       "slaDueIn": "Reply in {value}{unit, select, m {m} h {h} other {d}}",
       "slaOverdue": "Overdue {value}{unit, select, m {m} h {h} other {d}}",
-      "filterMyTeam": "My team"
+      "filterMyTeam": "My team",
+      "addFilter": "Filter",
+      "filterSearch": "Search filters",
+      "noFilterMatches": "No matching filters"
     },
     "messageThread": {
       "backToConversations": "Back to conversations",
@@ -635,7 +645,12 @@
       "noFlowAnswers": "No saved flow answers for this contact.",
       "addNote": "Add note",
       "copyPhone": "Copy contact number",
-      "copyError": "Could not copy contact number."
+      "copyError": "Could not copy contact number.",
+      "viewContact": "View contact",
+      "editDetails": "Edit details",
+      "channel": "Channel",
+      "phone": "Phone",
+      "firstSeen": "First seen"
     },
     "aiBanner": {
       "pausedTitle": "AI assistant is paused here",
@@ -934,6 +949,113 @@
       "handledHelp": "Assigned to them at any time, or a message they sent",
       "sectionAssigned": "Assigned to now",
       "sectionHandled": "Handled by, any time"
+    },
+    "sessionRail": {
+      "title": "Open windows",
+      "closingSoon": "{count} closing soon",
+      "item": "{name}, window closes in {time}"
+    },
+    "consent": {
+      "title": "Consent",
+      "optedIn": "Opted in",
+      "optedOut": "Opted out",
+      "none": "No opt-in",
+      "since": "Since {when} · {how}",
+      "noneYet": "No opt-in recorded for WhatsApp yet.",
+      "hint": {
+        "opted_in": "Templates and broadcasts are allowed. The customer can reply STOP at any time.",
+        "opted_out": "No templates or broadcasts. You can still reply inside the 24-hour window.",
+        "none": "Get the customer's agreement before sending templates or broadcasts."
+      },
+      "source": {
+        "in": {
+          "keyword": "customer replied START",
+          "agent": "recorded by a teammate",
+          "api": "recorded through the API",
+          "import": "imported"
+        },
+        "out": {
+          "keyword": "customer replied STOP",
+          "agent": "set by a teammate",
+          "api": "set through the API",
+          "import": "imported"
+        },
+        "unknown": "source not recorded"
+      },
+      "recordOptIn": "Record opt-in",
+      "optOut": "Opt out",
+      "confirmOptIn": "Only record an opt-in if this customer agreed to receive WhatsApp messages from your business.",
+      "confirm": "Yes, they agreed",
+      "cancel": "Cancel",
+      "failed": "Couldn't update consent. Try again.",
+      "banner": "Opted out on {when} ({how}). Templates and broadcasts are blocked; you can still reply within the 24-hour window.",
+      "filter": "Consent",
+      "any": "Any consent",
+      "updated": "Consent updated: {status}"
+    },
+    "igTemplates": {
+      "title": "Instagram templates",
+      "newTitle": "New Instagram template",
+      "editTitle": "Edit Instagram template",
+      "back": "Back to templates",
+      "description": "Saved card and button messages for Instagram. Meta approves templates for WhatsApp only, so these send like any message inside the 24-hour window.",
+      "empty": "No Instagram templates yet. Save a card gallery or a button message once and send it from any Instagram chat.",
+      "kindCards": "Cards",
+      "kindButton": "Button message",
+      "kind": "Template type",
+      "edit": "Edit {name}",
+      "delete": "Delete {name}",
+      "send": "Send",
+      "new": "New template",
+      "save": "Save template",
+      "saved": "Template saved",
+      "windowHint": "Sends only while the 24-hour window is open.",
+      "limitsHint": "Up to 10 cards and 3 buttons each; titles up to 80, button labels up to 20 characters.",
+      "name": "Template name",
+      "namePlaceholder": "e.g. Festive offer",
+      "cardN": "Card {n}",
+      "removeCard": "Remove card {n}",
+      "cardTitle": "Title",
+      "cardSubtitle": "Subtitle (optional)",
+      "imageUrl": "Image link",
+      "imageUrlPlaceholder": "Image link (https://, optional)",
+      "addCard": "Add card",
+      "text": "Message text",
+      "preview": "Preview",
+      "buttonType": "Button type",
+      "buttonReply": "Reply",
+      "buttonLink": "Link",
+      "buttonTitle": "Button label",
+      "buttonUrl": "Link address",
+      "removeButton": "Remove button",
+      "addButton": "Add button",
+      "errors": {
+        "duplicate_name": "A template with this name already exists.",
+        "too_many": "This workspace has the maximum of 100 Instagram templates.",
+        "invalid_template": "Instagram would not accept this template. Check the titles, labels and https links.",
+        "failed": "Couldn't save. Try again.",
+        "too_large": "This template is too large to save. Use shorter links or fewer cards.",
+        "deleteFailed": "Couldn't delete. Try again."
+      },
+      "deleted": "Deleted {name}",
+      "confirmDelete": "Delete “{name}” for everyone in this workspace?",
+      "deleteConfirm": "Delete",
+      "cancel": "Cancel",
+      "gallery": "{count, plural, one {# card} other {# cards}}",
+      "problems": {
+        "name": "Add a template name.",
+        "text": "Add the message text.",
+        "textLong": "Message text is over {max} characters.",
+        "buttonLabel": "Every button needs a label.",
+        "buttonLabelLong": "Button labels can be up to {max} characters.",
+        "buttonUrl": "Link buttons need an https:// address.",
+        "cardTitle": "Card {n} needs a title.",
+        "cardTitleLong": "Card {n} title is over {max} characters.",
+        "cardSubtitleLong": "Card {n} subtitle is over {max} characters.",
+        "imageUrl": "Card {n} image link must start with https://.",
+        "tooLarge": "Too large to save: use shorter links or fewer cards.",
+        "more": "(+{count} more)"
+      }
     }
   },
   "Contacts": {
@@ -1031,7 +1153,9 @@
       },
       "rowActions": "Actions for {name}",
       "previousPage": "Previous page",
-      "nextPage": "Next page"
+      "nextPage": "Next page",
+      "paginationLabel": "Pagination",
+      "goToPage": "Page {page}"
     },
     "form": {
       "addTitle": "Add Contact",

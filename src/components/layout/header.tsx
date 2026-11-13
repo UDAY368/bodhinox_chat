@@ -3,7 +3,9 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/hooks/use-auth';
+import { useUnreadNotifications } from '@/hooks/use-unread-notifications';
 import {
+  Bell,
   ChevronRight,
   LogOut,
   Menu,
@@ -37,6 +39,7 @@ export function Header({ onOpenSidebar, showMenuToggle = false, menuExpanded }: 
   const groups = useTranslations('Sidebar.groups');
   const pathname = usePathname();
   const { profile, signOut } = useAuth();
+  const unreadNotifications = useUnreadNotifications();
   const titleKey = getPageTitleKey(pathname);
   // The breadcrumb names the page's nav group: its channel for a channel
   // section or tool (WhatsApp › Inbox, WhatsApp › Broadcasts), else Workspace.
@@ -48,34 +51,54 @@ export function Header({ onOpenSidebar, showMenuToggle = false, menuExpanded }: 
     'U';
 
   return (
-    <header className="studio-header border-border bg-background/90 flex h-[72px] shrink-0 items-center justify-between gap-3 border-b px-4 lg:px-8">
+    <header className="studio-header border-border flex h-[60px] shrink-0 items-center justify-between gap-3 border-b px-4 lg:px-6">
       <div className="flex min-w-0 items-center gap-2">
-        {/* Hamburger — mobile only. 44×44 hit target per Apple HIG. */}
+        {/* Menu: phones only (and the full-screen flow editor). 44×44 hit target per Apple HIG. */}
         <button
           type="button"
           onClick={onOpenSidebar}
           aria-label={t('openMenu')}
           aria-expanded={showMenuToggle ? menuExpanded : undefined}
-          className={`text-muted-foreground hover:bg-muted hover:text-foreground flex h-10 w-10 items-center justify-center rounded-md transition-colors${showMenuToggle ? '' : ' lg:hidden'}`}
+          className={`text-muted-foreground hover:bg-muted hover:text-foreground flex h-10 w-10 items-center justify-center rounded-lg transition-colors${showMenuToggle ? '' : ' lg:hidden'}`}
         >
           <Menu className="h-5 w-5" />
         </button>
-        <span className="text-muted-foreground hidden text-[11px] sm:inline">
-          {group === 'workspace' ? t('workspace') : groups(group)}
-        </span>
-        <ChevronRight className="text-muted-foreground/60 hidden size-3 sm:block" />
-        <h1 className="text-foreground truncate text-xs font-semibold">
+        {/* The channel only when the page belongs to one (WhatsApp › Broadcasts). */}
+        {group !== 'workspace' && (
+          <>
+            <span className="text-muted-foreground hidden text-[13px] sm:inline">{groups(group)}</span>
+            <ChevronRight className="text-muted-foreground/60 hidden size-3.5 sm:block" />
+          </>
+        )}
+        <h1 className="text-foreground truncate text-[15px] font-semibold tracking-[-0.01em]">
           {t(titleKey as string)}
         </h1>
       </div>
 
-      <div className="flex items-center gap-1 sm:gap-2">
+      {/* A page can put its own controls here (the inbox puts its search and filters). */}
+      <div id="studio-header-center" className="hidden min-w-0 flex-1 items-center md:flex" />
+
+      <div className="flex items-center gap-1 sm:gap-1.5">
         <PageSearch />
+        <Link
+          href="/notifications"
+          aria-label={unreadNotifications ? t('notificationsUnread', { count: unreadNotifications }) : t('notifications')}
+          title={t('notifications')}
+          className="text-muted-foreground hover:bg-muted hover:text-foreground relative flex h-9 w-9 items-center justify-center rounded-lg transition-colors"
+        >
+          <Bell className="h-[18px] w-[18px]" />
+          {unreadNotifications > 0 && (
+            <span className="bg-primary text-primary-foreground ring-card absolute top-1 right-1 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-semibold tabular-nums ring-2">
+              {unreadNotifications > 9 ? '9+' : unreadNotifications}
+            </span>
+          )}
+        </Link>
         <ModeToggle />
 
+        {/* The account menu lives in the sidebar on desktop; phones keep it here. */}
         <DropdownMenu>
           <DropdownMenuTrigger
-            className="hover:bg-muted/70 focus:bg-muted/70 data-popup-open:bg-muted/70 flex items-center gap-2 rounded-md px-1 py-1 transition-colors focus:outline-none sm:gap-3 sm:pr-3 sm:pl-1"
+            className="hover:bg-muted/70 focus:bg-muted/70 data-popup-open:bg-muted/70 flex items-center gap-2 rounded-lg px-1 py-1 transition-colors focus:outline-none lg:hidden"
             aria-label={t('openAccountMenu')}
           >
             <Avatar className="size-8">

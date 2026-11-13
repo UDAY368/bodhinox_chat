@@ -74,15 +74,15 @@ export function Panel({
   children: ReactNode;
 }) {
   return (
-    <section className="studio-panel rounded-xl border border-border bg-card" aria-label={title}>
-      <header className="flex flex-wrap items-start justify-between gap-3 border-b border-border px-5 py-4">
-        <div>
-          <h2 className="text-sm font-semibold text-foreground">{title}</h2>
+    <section className="flex min-w-0 flex-col gap-4 rounded-xl border border-border bg-card p-4 sm:p-5" aria-label={title}>
+      <header className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h2 className="text-[15px] font-semibold tracking-tight text-foreground">{title}</h2>
           {description && <p className="mt-0.5 text-xs text-muted-foreground">{description}</p>}
         </div>
         {actions}
       </header>
-      <div className="p-5">{children}</div>
+      <div className="min-w-0">{children}</div>
     </section>
   );
 }
@@ -139,7 +139,7 @@ export function ChartWithTable({
         {chart}
       </div>
       <details className="text-sm">
-        <summary className="cursor-pointer text-xs text-muted-foreground">{t('showTable')}</summary>
+        <summary className="w-fit cursor-pointer rounded-md text-xs font-medium text-muted-foreground transition-colors duration-150 hover:text-foreground">{t('showTable')}</summary>
         <DataTable
           caption={label}
           columns={columns}
@@ -162,13 +162,13 @@ export function DataTable({
   captionHidden?: boolean;
 }) {
   return (
-    <div className="mt-2 overflow-x-auto">
+    <div className="relative mt-2 overflow-x-auto rounded-lg border border-border">
       <table className="w-full text-sm">
-        <caption className={captionHidden ? 'sr-only' : 'pb-2 text-left text-xs text-muted-foreground'}>{caption}</caption>
+        <caption className={captionHidden ? 'sr-only' : 'px-3.5 pt-2.5 pb-2 text-left text-xs text-muted-foreground'}>{caption}</caption>
         <thead>
-          <tr className="border-b border-border text-left text-xs text-muted-foreground">
+          <tr className="bg-muted text-left text-xs text-muted-foreground">
             {columns.map((column, i) => (
-              <th key={column} scope="col" className={i === 0 ? 'py-2 pr-3 font-medium' : 'px-3 py-2 text-right font-medium'}>
+              <th key={column} scope="col" className={i === 0 ? 'px-3.5 py-2 font-semibold whitespace-nowrap' : 'px-3.5 py-2 text-right font-semibold whitespace-nowrap'}>
                 {column}
               </th>
             ))}
@@ -176,14 +176,14 @@ export function DataTable({
         </thead>
         <tbody>
           {rows.map((row, r) => (
-            <tr key={r} className="border-b border-border/60 last:border-0">
+            <tr key={r} className="border-t border-border transition-colors duration-150 hover:bg-muted/50">
               {row.map((cell, i) =>
                 i === 0 ? (
-                  <th key={i} scope="row" className="py-2 pr-3 text-left font-normal text-foreground">
+                  <th key={i} scope="row" className="px-3.5 py-2.5 text-left font-normal text-foreground">
                     {cell}
                   </th>
                 ) : (
-                  <td key={i} className="px-3 py-2 text-right tabular-nums">
+                  <td key={i} className="px-3.5 py-2.5 text-right whitespace-nowrap tabular-nums">
                     {cell}
                   </td>
                 ),

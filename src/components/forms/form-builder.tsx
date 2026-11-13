@@ -89,7 +89,7 @@ const FIELD_ICONS: Record<FormFieldType, LucideIcon> = {
   opt_in: SquareCheck,
 };
 
-const selectClass = "h-9 rounded-md border border-border bg-muted px-2 text-sm text-foreground disabled:opacity-60";
+const selectClass = "h-9 rounded-lg border border-border bg-card px-2.5 text-sm text-foreground disabled:opacity-60";
 
 interface Draft {
   name: string;
@@ -284,7 +284,7 @@ export function FormBuilder({
   const screenErr = (key: string) => errorMap.get(`${screenPath}.${key}`) ?? [];
 
   return (
-    <div className="space-y-4 p-4 sm:p-6">
+    <div className="space-y-4">
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex min-w-0 flex-1 items-start gap-2">
           <Link href="/forms" aria-label={t("backToList")} className={buttonVariants({ variant: "ghost", size: "icon-sm" })}>
@@ -388,19 +388,19 @@ export function FormBuilder({
       </header>
 
       {locked && (
-        <div className="flex items-start gap-2 rounded-lg border border-border bg-muted/50 px-3 py-2 text-sm text-muted-foreground">
+        <div className="flex items-start gap-2 rounded-xl bg-muted px-3 py-2 text-sm text-muted-foreground">
           <Lock className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
           <p>{t("lockedNotice")}</p>
         </div>
       )}
       {!locked && !canManage && (
-        <div className="flex items-start gap-2 rounded-lg border border-border bg-muted/50 px-3 py-2 text-sm text-muted-foreground">
+        <div className="flex items-start gap-2 rounded-xl bg-muted px-3 py-2 text-sm text-muted-foreground">
           <Lock className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
           <p>{t("readOnlyNotice")}</p>
         </div>
       )}
       {(looseErrors.length > 0 || metaErrors.length > 0) && (
-        <div role="alert" className="space-y-1 rounded-lg border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+        <div role="alert" className="space-y-1 rounded-xl border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive">
           <p className="flex items-center gap-2 font-medium">
             <AlertTriangle className="h-4 w-4" aria-hidden /> {metaErrors.length > 0 ? t("metaErrorsTitle") : t("errorsTitle")}
           </p>
@@ -453,7 +453,7 @@ export function FormBuilder({
                 </div>
               </section>
 
-              <section aria-label={t("screenSettings")} className="space-y-3 rounded-lg border border-border bg-card p-4">
+              <section aria-label={t("screenSettings")} className="space-y-3 rounded-xl border border-border bg-card p-4">
                 <div className="flex items-center justify-between gap-2">
                   <h3 className="text-sm font-semibold text-foreground">{t("screenN", { n: current + 1 })}</h3>
                   {!readOnly && (
@@ -505,7 +505,7 @@ export function FormBuilder({
 
               <section aria-label={t("fields")} className="space-y-3">
                 {screen.fields.length === 0 && (
-                  <p className="rounded-lg border border-dashed border-border px-4 py-6 text-center text-sm text-muted-foreground">{t("noFields")}</p>
+                  <p className="rounded-xl border border-dashed border-border px-4 py-6 text-center text-sm text-muted-foreground">{t("noFields")}</p>
                 )}
                 {screen.fields.map((field, i) => (
                   <FieldEditor
@@ -553,7 +553,7 @@ export function FormBuilder({
                 </section>
               )}
 
-              <section aria-label={t("settings")} className="space-y-4 rounded-lg border border-border bg-card p-4">
+              <section aria-label={t("settings")} className="space-y-4 rounded-xl border border-border bg-card p-4">
                 <div className="space-y-1.5">
                   <Label htmlFor="form-success">{t("successMessage")}</Label>
                   <Textarea

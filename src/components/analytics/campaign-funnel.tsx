@@ -37,11 +37,11 @@ export function CampaignFunnel({
     <Panel title={t('title')} description={t('description')}>
       <ReportState loading={loading} error={error} onRetry={onRetry} empty={!!totals && totals.recipients === 0}>
         {totals && (
-          <div className="space-y-6">
+          <div className="space-y-5">
             <ChartWithTable
               label={t('funnelLabel')}
               chart={
-                <BarChart className="h-56" data={stages} index="name" categories={[count]} colors={['blue']}
+                <BarChart className="h-56" data={stages} index="name" categories={[count]} colors={['chart1']}
                   valueFormatter={(n) => format.number(n)} showLegend={false} allowDecimals={false} />
               }
               columns={[t('stageColumn'), count, t('ofSent')]}

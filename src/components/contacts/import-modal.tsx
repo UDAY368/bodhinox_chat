@@ -510,7 +510,7 @@ export function ImportModal({
           {preview.length > 0 && !result && (
             <div className="space-y-3">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <p className="text-[11px] font-semibold tracking-[0.14em] text-muted-foreground uppercase">
+                <p className="text-xs font-semibold text-muted-foreground">
                   {t('preview', { count: preview.length })}
                 </p>
                 <div className="flex flex-wrap items-center gap-1.5">
@@ -622,20 +622,20 @@ export function ImportModal({
                   </div>
                 )}
                 {result.tagsAssigned > 0 && (
-                  <div className="flex items-center gap-1.5 text-sm text-cyan-400">
+                  <div className="flex items-center gap-1.5 text-sm text-primary">
                     <CheckCircle className="size-4 shrink-0" />
                     {t('resultTags', { count: result.tagsAssigned })}
                   </div>
                 )}
                 {result.skipped > 0 && (
-                  <div className="flex items-center gap-1.5 text-sm text-amber-400">
+                  <div className="flex items-center gap-1.5 text-sm text-amber-700 dark:text-amber-300">
                     <AlertTriangle className="size-4 shrink-0" />
                     {t('resultSkipped', { count: result.skipped })}
                   </div>
                 )}
                 {result.invalidPhone > 0 && (
                   <div className="space-y-0.5">
-                    <div className="flex items-center gap-1.5 text-sm text-amber-400">
+                    <div className="flex items-center gap-1.5 text-sm text-amber-700 dark:text-amber-300">
                       <AlertTriangle className="size-4 shrink-0" />
                       {t('resultInvalidPhone', { count: result.invalidPhone })}
                     </div>
@@ -645,7 +645,7 @@ export function ImportModal({
                   </div>
                 )}
                 {result.failed > 0 && (
-                  <div className="flex items-center gap-1.5 text-sm text-red-400">
+                  <div className="flex items-center gap-1.5 text-sm text-destructive">
                     <XCircle className="size-4 shrink-0" />
                     {t('resultFailed', { count: result.failed })}
                   </div>
@@ -655,7 +655,7 @@ export function ImportModal({
               {result.failedDetails.length > 0 && (
                 <div className="mt-3 space-y-1 border-t border-border/80 pt-3">
                   <div className="flex items-center justify-between gap-2">
-                    <p className="text-[11px] font-semibold tracking-[0.14em] text-muted-foreground uppercase">
+                    <p className="text-xs font-semibold text-muted-foreground">
                       {t('failedRowsHeading')}
                     </p>
                     <Button
@@ -702,7 +702,6 @@ export function ImportModal({
               type="button"
               disabled={parsedRows.length === 0 || importing}
               onClick={handleImport}
-              className="bg-primary hover:bg-primary/90 text-primary-foreground"
             >
               {importing && <Loader2 className="size-4 animate-spin" />}
               {progress

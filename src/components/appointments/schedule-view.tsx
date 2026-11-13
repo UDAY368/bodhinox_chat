@@ -109,11 +109,14 @@ export function ScheduleView({
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <div className="flex rounded-md border border-border">
+        <div className="inline-flex rounded-xl bg-muted p-[3px]">
           {(['day', 'week'] as const).map((v) => (
-            <Button key={v} type="button" size="sm" variant={view === v ? 'default' : 'ghost'} onClick={() => setView(v)}>
+            <button key={v} type="button" aria-pressed={view === v} onClick={() => setView(v)}
+              className={`h-[26px] rounded-[9px] px-3 text-[13px] font-medium transition-[background-color,color,box-shadow] duration-150 ${
+                view === v ? 'bg-card text-foreground shadow-[0_1px_3px_rgb(0_0_0/0.12)] dark:bg-input' : 'text-muted-foreground hover:text-foreground'
+              }`}>
               {t(`schedule.${v}`)}
-            </Button>
+            </button>
           ))}
         </div>
         <Button type="button" variant="ghost" size="icon" aria-label={t('schedule.previous')} onClick={() => setAnchor((d) => addDays(d, -step))}>
@@ -123,7 +126,7 @@ export function ScheduleView({
         <Button type="button" variant="ghost" size="icon" aria-label={t('schedule.next')} onClick={() => setAnchor((d) => addDays(d, step))}>
           <ChevronRight className="h-4 w-4" />
         </Button>
-        <span className="text-sm font-medium">
+        <span className="text-[13px] font-semibold tabular-nums">
           {formatDay(range.days[0], locale)}{view === 'week' ? ` – ${formatDay(range.days[6], locale)}` : ''}
         </span>
         <div className="ml-auto">
@@ -157,17 +160,17 @@ export function ScheduleView({
       </div>
 
       {totals && (
-        <dl className="grid grid-cols-3 gap-2 text-center sm:grid-cols-6" data-testid="appointment-stats">
+        <dl className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3 xl:grid-cols-6" data-testid="appointment-stats">
           {([['booked', totals.booked], ['confirmed', totals.confirmed], ['cancelled', totals.cancelled],
             ['completed', totals.completed], ['noShow', totals.no_show]] as const).map(([key, value]) => (
-            <div key={key} className="rounded-lg border border-border bg-card p-2">
-              <dt className="text-[11px] text-muted-foreground">{t(`stats.${key}`)}</dt>
-              <dd className="text-lg font-semibold tabular-nums">{value}</dd>
+            <div key={key} className="flex flex-col gap-1 rounded-xl border border-border bg-card px-3 py-2.5 sm:px-4 sm:py-3.5">
+              <dt className="text-xs font-medium text-muted-foreground">{t(`stats.${key}`)}</dt>
+              <dd className="text-[17px] font-bold tracking-tight tabular-nums sm:text-[22px]">{value}</dd>
             </div>
           ))}
-          <div className="rounded-lg border border-border bg-card p-2">
-            <dt className="text-[11px] text-muted-foreground">{t('stats.noShowRate')}</dt>
-            <dd className="text-lg font-semibold tabular-nums">
+          <div className="flex flex-col gap-1 rounded-xl border border-border bg-card px-3 py-2.5 sm:px-4 sm:py-3.5">
+            <dt className="text-xs font-medium text-muted-foreground">{t('stats.noShowRate')}</dt>
+            <dd className="text-[17px] font-bold tracking-tight tabular-nums sm:text-[22px]">
               {totals.no_show_rate === null ? t('stats.notAvailable') : `${Math.round(totals.no_show_rate * 100)}%`}
             </dd>
           </div>
@@ -182,18 +185,18 @@ export function ScheduleView({
         </div>
       )}
       {rows && !failed && rows.length === 0 && (
-        <p className="rounded-lg border border-dashed border-border p-6 text-center text-sm text-muted-foreground">{t('schedule.empty')}</p>
+        <p className="rounded-xl border border-dashed border-border px-4 py-12 text-center text-sm text-muted-foreground">{t('schedule.empty')}</p>
       )}
       {groups.map(([day, items]) => (
         <section key={day} className="space-y-2">
-          <h3 className="text-sm font-semibold text-foreground">{formatDay(day, locale)}</h3>
-          <ul className="divide-y divide-border rounded-lg border border-border bg-card">
+          <h3 className="text-[13px] font-semibold text-muted-foreground">{formatDay(day, locale)}</h3>
+          <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-card">
             {items.map((a) => (
               <li key={a.id}>
-                <div className="flex flex-wrap items-center gap-3 p-3 text-sm">
-                  <button type="button" className="w-28 shrink-0 text-left font-medium tabular-nums hover:underline" onClick={() => onOpen(a.id)}>
+                <div className="flex flex-wrap items-center gap-x-3.5 gap-y-2 py-2.5 pl-3.5 pr-3 text-sm transition-colors duration-150 hover:bg-muted/60">
+                  <button type="button" className="w-[72px] shrink-0 text-left font-semibold tabular-nums" onClick={() => onOpen(a.id)}>
                     {formatTime(a.start_at, a.timezone, locale)}
-                    <span className="block text-[10px] font-normal text-muted-foreground">{zoneLabel(new Date(a.start_at), a.timezone, locale)}</span>
+                    <span className="block text-[11px] font-normal text-muted-foreground">{zoneLabel(new Date(a.start_at), a.timezone, locale)}</span>
                   </button>
                   <button type="button" className="min-w-0 flex-1 text-left" onClick={() => onOpen(a.id)}>
                     <span className="block truncate font-medium">{a.service_name}</span>

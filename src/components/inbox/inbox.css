@@ -1,62 +1,25 @@
-/* Inbox-only palette: the surrounding app keeps its cream/copper theme. */
+/*
+ * Inbox surfaces. Everything uses the app tokens (globals.css), so the inbox
+ * follows the chosen mode and accent like the rest of the app: neutral list and
+ * thread, incoming bubbles on --muted, outgoing bubbles on the accent, notes on
+ * a soft yellow, system lines as small grey pills.
+ */
 .studio-inbox {
-  --background: #efeae2;
-  --foreground: #17252b;
-  --card: #ffffff;
-  --card-foreground: #17252b;
-  --card-2: #f0f2f5;
-  --muted: #f0f2f5;
-  --muted-foreground: #596970;
-  --secondary: #e9edef;
-  --secondary-foreground: #17252b;
-  --accent: #e9edef;
-  --accent-foreground: #17252b;
-  --border: #dfe4e6;
-  --input: #d5dddf;
-  --primary: #087f68;
-  --primary-foreground: #ffffff;
-  --primary-hover: #066b58;
-  --primary-soft: #e0f4e9;
-  --primary-soft-2: #c9ecdc;
-  --ring: #087f68;
-  --inbox-header: #f0f2f5;
-  --inbox-selected: #e4eeea;
-  --inbox-outgoing: #d9fdd3;
-  --inbox-icon: #dce8e3;
-  background: var(--background);
+  /* Resolved here so bubbles can recolour --primary for their contents and still paint with the accent. */
+  --inbox-accent: var(--primary);
+  --inbox-accent-fg: var(--primary-foreground);
+  --inbox-fg: var(--foreground);
+  --inbox-muted-fg: var(--muted-foreground);
+  --inbox-muted: var(--muted);
+  --inbox-note: #fff6d6;
+  --inbox-note-fg: #5c4a00;
+  background: var(--card);
   color: var(--foreground);
 }
 
 html[data-mode='dark'] .studio-inbox {
-  --background: #0b141a;
-  --foreground: #e9edef;
-  --card: #111b21;
-  --card-foreground: #e9edef;
-  --card-2: #202c33;
-  --muted: #202c33;
-  --muted-foreground: #a6b5bc;
-  --secondary: #2a3942;
-  --secondary-foreground: #e9edef;
-  --accent: #2a3942;
-  --accent-foreground: #e9edef;
-  --border: #2a3942;
-  --input: #3b4b54;
-  --primary: #53d3b3;
-  --primary-foreground: #0b2921;
-  --primary-hover: #72dfc3;
-  --primary-soft: #163d35;
-  --primary-soft-2: #205345;
-  --ring: #53d3b3;
-  --inbox-header: #202c33;
-  --inbox-selected: #2a3942;
-  --inbox-outgoing: #005c4b;
-  --inbox-icon: #1d3438;
-}
-
-.studio-inbox .studio-chats-header,
-.studio-inbox .studio-thread-header,
-.studio-inbox .studio-composer {
-  background: var(--inbox-header);
+  --inbox-note: #3a3210;
+  --inbox-note-fg: #f3dc8a;
 }
 
 .studio-inbox .studio-conversation-list {
@@ -67,25 +30,26 @@ html[data-mode='dark'] .studio-inbox {
 .studio-inbox .studio-chat-filters input {
   height: 36px;
   border-color: transparent;
-  border-radius: 8px;
+  border-radius: 12px;
+  background: var(--muted);
   box-shadow: none;
 }
 
 .studio-inbox .studio-chat-filters input:focus-visible {
-  border-color: var(--primary);
+  border-color: transparent;
+  box-shadow: 0 0 0 2px var(--ring);
 }
 
 .studio-inbox .studio-conversation {
-  min-height: 78px;
+  transition: background-color 150ms var(--studio-ease, ease);
 }
 
 .studio-inbox .studio-conversation[aria-current='true'] {
-  background: var(--inbox-selected);
-  box-shadow: inset 3px 0 var(--primary);
+  background: var(--primary-soft);
 }
 
 .studio-inbox .studio-conversation[data-unread='true'] .text-foreground {
-  font-weight: 650;
+  font-weight: 600;
 }
 
 .studio-inbox .studio-conversation:focus-visible {
@@ -95,7 +59,7 @@ html[data-mode='dark'] .studio-inbox {
 
 .studio-inbox .studio-thread,
 .studio-inbox .studio-messages {
-  background: var(--background);
+  background: var(--card);
 }
 
 .studio-inbox .studio-thread {
@@ -107,116 +71,64 @@ html[data-mode='dark'] .studio-inbox {
   overflow-wrap: anywhere;
 }
 
-.studio-inbox .studio-thread-empty {
-  border-bottom: 5px solid var(--primary);
+/* Outgoing bubbles sit on the accent; their contents read in the accent's foreground. */
+.studio-inbox .studio-message-outgoing,
+.studio-inbox .ig-message-outgoing {
+  --foreground: var(--inbox-accent-fg);
+  --muted-foreground: color-mix(in srgb, var(--inbox-accent-fg) 78%, transparent);
+  --primary: var(--inbox-accent-fg);
+  --muted: color-mix(in srgb, var(--inbox-accent-fg) 16%, transparent);
+  --border: color-mix(in srgb, var(--inbox-accent-fg) 28%, transparent);
+  background: var(--inbox-accent);
+  color: var(--inbox-accent-fg);
 }
 
-.studio-inbox .studio-empty-icon {
-  background: var(--inbox-icon);
-  color: var(--primary);
+.studio-inbox .studio-message-outgoing a,
+.studio-inbox .ig-message-outgoing a {
+  color: inherit;
 }
 
-.studio-inbox .studio-message {
-  border: 0;
-  background: var(--card);
-  color: var(--foreground);
-  box-shadow: 0 1px 1px #0b141a1a;
-}
-
-.studio-inbox .studio-message-outgoing {
-  background: var(--inbox-outgoing);
+/* Sent buttons, lists and carts render as phone cards: keep those bubbles neutral so the cards stay legible. */
+.studio-inbox .studio-message-outgoing:has(.bg-card) {
+  --foreground: var(--inbox-fg);
+  --muted-foreground: var(--inbox-muted-fg);
+  --primary: var(--inbox-accent);
+  --muted: var(--inbox-muted);
+  --border: inherit;
+  background: var(--inbox-muted);
+  color: var(--inbox-fg);
 }
 
 .studio-inbox .studio-message-badge {
   color: var(--primary);
-  background: color-mix(in srgb, var(--primary) 12%, transparent);
+  background: color-mix(in srgb, var(--primary) 14%, transparent);
 }
 
-.studio-inbox .studio-composer textarea {
-  border-radius: 8px;
-  background: var(--card);
-}
-
-/*
- * Instagram's own look, for the Instagram inbox and for an Instagram chat
- * opened anywhere (the All view marks the thread). Instagram's stock DM
- * palette: plain white or black, grey received bubbles, the purple-to-blue
- * gradient on sent bubbles, Instagram blue for actions. WhatsApp keeps the
- * palette above.
- */
-.studio-inbox[data-inbox-scope='instagram'],
-.studio-inbox [data-thread-channel='instagram'] {
-  --background: #ffffff;
-  --foreground: #000000;
-  --card: #ffffff;
-  --card-foreground: #000000;
-  --card-2: #fafafa;
-  --muted: #efefef;
-  --muted-foreground: #737373;
-  --secondary: #efefef;
-  --secondary-foreground: #000000;
-  --accent: #efefef;
-  --accent-foreground: #000000;
-  --border: #dbdbdb;
-  --input: #dbdbdb;
-  --primary: #0095f6;
-  --primary-foreground: #ffffff;
-  --primary-hover: #1877f2;
-  --primary-soft: #e0f1ff;
-  --primary-soft-2: #cce6ff;
-  --ring: #0095f6;
-  --inbox-header: #ffffff;
-  --inbox-selected: #efefef;
-  --inbox-icon: #efefef;
-  --ig-incoming: #efefef;
-  --ig-outgoing: linear-gradient(180deg, #a033ff 0%, #6f42f5 50%, #3797f0 100%);
-}
-
-html[data-mode='dark'] .studio-inbox[data-inbox-scope='instagram'],
-html[data-mode='dark'] .studio-inbox [data-thread-channel='instagram'] {
-  --background: #000000;
-  --foreground: #f5f5f5;
-  --card: #000000;
-  --card-foreground: #f5f5f5;
-  --card-2: #121212;
-  --muted: #262626;
-  --muted-foreground: #a8a8a8;
-  --secondary: #262626;
-  --secondary-foreground: #f5f5f5;
-  --accent: #262626;
-  --accent-foreground: #f5f5f5;
-  --border: #262626;
-  --input: #363636;
-  --primary-soft: #0b2a44;
-  --primary-soft-2: #0f3a5e;
-  --inbox-header: #000000;
-  --inbox-selected: #262626;
-  --inbox-icon: #262626;
-  --ig-incoming: #262626;
-}
-
-/* Instagram marks the open chat by its background alone, without a side bar. */
-.studio-inbox[data-inbox-scope='instagram'] .studio-conversation[aria-current='true'] {
-  box-shadow: none;
-}
-
+/* Instagram chats keep Instagram's round bubbles, on the app's own colours. */
 .studio-inbox .ig-message {
+  max-width: 100%;
+  min-width: 0;
   border-radius: 22px;
-  background: var(--ig-incoming);
+  background: var(--muted);
   color: var(--foreground);
   overflow-wrap: anywhere;
 }
 
-/* Fixed to the window, so the gradient moves from purple at the top to blue at the bottom, as in Instagram. */
-.studio-inbox .ig-message-outgoing {
-  --muted-foreground: rgb(255 255 255 / 0.8);
-  background: var(--ig-outgoing);
-  background-attachment: fixed;
-  color: #ffffff;
+.studio-inbox .ig-message.ig-message-outgoing {
+  background: var(--inbox-accent);
+  color: var(--inbox-accent-fg);
 }
 
-.studio-inbox .ig-message-outgoing a {
-  color: inherit;
+/* Sent cards and button templates: Instagram shows them without a bubble, so the cards stay legible. */
+.studio-inbox .ig-message.ig-message-outgoing:has(.bg-card) {
+  --foreground: var(--inbox-fg);
+  --muted-foreground: var(--inbox-muted-fg);
+  --primary: var(--inbox-accent);
+  --muted: var(--inbox-muted);
+  --border: inherit;
+  background: transparent;
+  color: var(--inbox-fg);
+  padding: 0;
 }
 
 .studio-inbox .ig-message-badge {
@@ -224,14 +136,80 @@ html[data-mode='dark'] .studio-inbox [data-thread-channel='instagram'] {
   background: color-mix(in srgb, var(--primary) 12%, transparent);
 }
 
-/* Day stamps are plain grey text in Instagram, not chips. */
-.studio-inbox [data-thread-channel='instagram'] .studio-date {
-  background: transparent;
-  font-size: 11px;
+/* Internal notes and the 24-hour window reminder share the note yellow. */
+.studio-inbox .studio-note {
+  background: var(--inbox-note);
+  color: var(--inbox-note-fg);
 }
 
-.studio-inbox [data-thread-channel='instagram'] .studio-composer textarea {
-  border-radius: 22px;
-  border-color: var(--border);
-  background: var(--card);
+.studio-inbox .studio-composer-box {
+  transition: border-color 150ms var(--studio-ease, ease), box-shadow 150ms var(--studio-ease, ease);
+}
+
+.studio-inbox .studio-composer-box:focus-within {
+  border-color: var(--ring);
+  box-shadow: 0 0 0 3px var(--primary-soft);
+}
+
+/* Contact panel sections fold open and closed with a quiet chevron. */
+.studio-inbox .studio-sec-summary::-webkit-details-marker {
+  display: none;
+}
+
+.studio-inbox .studio-sec-summary::after {
+  content: '';
+  margin-left: auto;
+  width: 7px;
+  height: 7px;
+  border-right: 1.7px solid var(--muted-foreground);
+  border-bottom: 1.7px solid var(--muted-foreground);
+  transform: rotate(-45deg);
+  transition: transform 150ms var(--studio-ease, ease);
+}
+
+.studio-inbox details[open] > .studio-sec-summary::after {
+  transform: rotate(45deg);
+}
+
+/* Contact panel: every block is one quiet section with a hairline above and a 14px heading,
+   whichever component draws it (labels, AI summary, history, Instagram facts). */
+.studio-inbox .studio-panel-body > section,
+.studio-inbox .studio-panel-body > details {
+  border-top: 1px solid var(--border);
+  margin: 0;
+  padding: 14px 16px;
+}
+
+.studio-inbox .studio-panel-body > section > h3,
+.studio-inbox .studio-panel-body > section > div:first-child > h3,
+.studio-inbox .studio-panel-body .studio-sec-summary {
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.studio-inbox .studio-panel-body .studio-sec-summary {
+  height: 28px;
+}
+
+/* The open-windows rail scrolls sideways without a visible bar; new chats roll in. */
+.studio-inbox .studio-rail {
+  scrollbar-width: none;
+}
+.studio-inbox .studio-rail::-webkit-scrollbar {
+  display: none;
+}
+.studio-inbox .studio-rail-item {
+  animation: studio-rail-in 220ms var(--studio-ease, ease) both;
+}
+@keyframes studio-rail-in {
+  from {
+    opacity: 0;
+    transform: translateX(8px) scale(0.92);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .studio-inbox .studio-rail-item {
+    animation: none;
+  }
 }

@@ -3,6 +3,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { useFormatter, useTranslations } from 'next-intl';
+import { AlertTriangle, ChevronRight, Clock, Inbox, Timer, UserX } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { useWorkspaceChannels } from '@/hooks/use-workspace-channels';
 import { authFetch } from '@/lib/auth/client';
@@ -10,6 +11,8 @@ import type { DashboardOperations } from '@/lib/dashboard/operations-types';
 import type { PhoneHealth } from '@/lib/whatsapp/phone-health';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { cn } from '@/lib/utils';
+import { segmentedItem, segmentedTrack } from './segmented';
 
 export function OperationsPanel({
   onReplyTarget,
@@ -74,35 +77,34 @@ export function OperationsPanel({
   }, [accountId, days, retry, onReplyTarget]);
 
   return (
-    <section className="space-y-4" aria-label={t('title')}>
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 className="text-lg font-semibold">{t('title')}</h2>
-          <p className="text-muted-foreground text-sm">{t('description')}</p>
+    <section className="space-y-3.5" aria-label={t('title')}>
+      <div className="flex flex-wrap items-end justify-between gap-3 pt-2">
+        <div className="min-w-0">
+          <h2 className="text-foreground text-[17px] font-semibold tracking-tight">{t('title')}</h2>
+          <p className="text-muted-foreground mt-0.5 text-[13px]">{t('description')}</p>
         </div>
-        <label className="flex items-center gap-2 text-sm">
-          {t('range')}
-          <select
-            className="border-border bg-card rounded-lg border px-3 py-2"
-            value={days}
-            onChange={(event) => {
-              setError(false);
-              setDays(Number(event.target.value) as 7 | 30 | 90);
-            }}
-          >
-            {[7, 30, 90].map((value) => (
-              <option key={value} value={value}>
-                {t('days', { count: value })}
-              </option>
-            ))}
-          </select>
-        </label>
+        <div role="group" aria-label={t('range')} className={segmentedTrack}>
+          {([7, 30, 90] as const).map((value) => (
+            <button
+              key={value}
+              type="button"
+              aria-pressed={days === value}
+              className={segmentedItem(days === value)}
+              onClick={() => {
+                setError(false);
+                setDays(value);
+              }}
+            >
+              {t('days', { count: value })}
+            </button>
+          ))}
+        </div>
       </div>
       {whatsapp && <WhatsAppHealth key={accountId} />}
       {error && (
         <div
           role="alert"
-          className="border-destructive/30 flex items-center gap-3 rounded-xl border p-4 text-sm"
+          className="border-destructive/30 bg-destructive/5 flex flex-wrap items-center gap-3 rounded-xl border p-4 text-sm"
         >
           <span>{t('error')}</span>
           <Button
@@ -117,7 +119,7 @@ export function OperationsPanel({
       {!data && !error && (
         <p
           role="status"
-          className="border-border bg-card text-muted-foreground rounded-xl border p-6 text-sm"
+          className="border-border bg-card text-muted-foreground animate-pulse rounded-xl border p-6 text-center text-sm"
         >
           {t('loading')}
         </p>
@@ -170,8 +172,17 @@ function WhatsAppHealth() {
     };
   }, [accountId, retry]);
   return (
-    <div className="border-border bg-card text-muted-foreground flex flex-wrap items-center gap-3 rounded-xl border px-4 py-3 text-xs">
-      <span className="text-foreground font-medium">WhatsApp</span>
+    <div className="border-border bg-card text-muted-foreground flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-xl border px-4 py-2.5 text-xs">
+      <span className="text-foreground inline-flex items-center gap-2 font-semibold">
+        <span
+          aria-hidden
+          className={cn(
+            'size-2 rounded-full',
+            health?.state === 'connected' ? 'bg-emerald-500' : health?.state === 'disconnected' || failed ? 'bg-red-500' : 'bg-muted-foreground/50',
+          )}
+        />
+        WhatsApp
+      </span>
       <span>{t(health?.state ?? (failed ? 'unavailable' : 'loading'))}</span>
       {health?.displayPhoneNumber && <span>{health.displayPhoneNumber}</span>}
       <span>
@@ -187,13 +198,13 @@ function WhatsAppHealth() {
                 ),
         })}
       </span>
-      <Link href="/settings?tab=whatsapp" className="text-primary underline">
+      <Link href="/settings?tab=whatsapp" className="text-primary ml-auto font-medium hover:underline">
         {t('settings')}
       </Link>
       {(failed || health?.state === 'unavailable') && (
         <button
           type="button"
-          className="text-primary underline"
+          className="text-primary font-medium hover:underline"
           onClick={() => setRetry((value) => value + 1)}
         >
           {t('retry')}
@@ -205,9 +216,9 @@ function WhatsAppHealth() {
 
 function Panel({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <Card>
+    <Card className="h-full">
       <CardContent className="space-y-3">
-        <h3 className="font-semibold">{title}</h3>
+        <h3 className="text-foreground text-[15px] font-semibold tracking-tight">{title}</h3>
         {children}
       </CardContent>
     </Card>
@@ -241,21 +252,29 @@ export function OperationsContent({ data, whatsapp = true }: {
       key: 'waiting',
       value: data.attention.waiting,
       href: '/inbox?filter=waiting',
+      icon: Inbox,
+      tone: 'accent',
     },
     {
       key: 'overTarget',
       value: data.attention.overTarget,
       href: '/inbox?filter=waiting',
+      icon: Clock,
+      tone: 'warn',
     },
     {
       key: 'unassigned',
       value: data.attention.unassigned,
       href: '/inbox?filter=unassigned',
+      icon: UserX,
+      tone: 'warn',
     },
     {
       key: 'expiring',
       value: data.attention.expiring,
       href: '/inbox?filter=expiring-soon',
+      icon: Timer,
+      tone: 'warn',
     },
   ] as const;
   const setupLinks = {
@@ -267,45 +286,46 @@ export function OperationsContent({ data, whatsapp = true }: {
   };
   return (
     <>
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+      <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 xl:grid-cols-5">
         {cards.map((card) => (
-          <Link
-            key={card.key}
-            href={card.href}
-            className="border-border bg-card hover:bg-muted rounded-xl border p-4 transition-colors"
-          >
-            <p className="text-muted-foreground text-sm">{t(card.key)}</p>
-            <p className="mt-2 text-2xl font-semibold tabular-nums">
-              {card.value}
-            </p>
+          <Link key={card.key} href={card.href} className={ATTENTION_ROW}>
+            <AttentionIcon icon={card.icon} tone={card.value > 0 ? card.tone : 'none'} />
+            <span className="min-w-0 flex-1">
+              <span className="text-foreground block text-xl leading-tight font-bold tabular-nums">
+                {card.value}
+              </span>
+              <span className="text-muted-foreground block truncate text-xs">{t(card.key)}</span>
+            </span>
+            <ChevronRight aria-hidden className={ATTENTION_CHEVRON} />
           </Link>
         ))}
-        <a
-          href="#operations-failures"
-          className="border-border bg-card hover:bg-muted rounded-xl border p-4"
-        >
-          <p className="text-muted-foreground text-sm">{t('failed')}</p>
-          <p className="mt-2 text-2xl font-semibold tabular-nums">
-            {data.attention.failed}
-          </p>
+        <a href="#operations-failures" className={ATTENTION_ROW}>
+          <AttentionIcon icon={AlertTriangle} tone={data.attention.failed > 0 ? 'bad' : 'none'} />
+          <span className="min-w-0 flex-1">
+            <span className="text-foreground block text-xl leading-tight font-bold tabular-nums">
+              {data.attention.failed}
+            </span>
+            <span className="text-muted-foreground block truncate text-xs">{t('failed')}</span>
+          </span>
+          <ChevronRight aria-hidden className={ATTENTION_CHEVRON} />
         </a>
       </div>
       <p className="text-muted-foreground text-xs">
         {t('target', { count: data.replyTargetMinutes })}{' '}
-        <Link href="/settings?tab=inbox" className="text-primary underline">
+        <Link href="/settings?tab=inbox" className="text-primary font-medium hover:underline">
           {t('editTarget')}
         </Link>
       </p>
-      <div className="grid items-start gap-4 lg:grid-cols-2">
+      <div className="grid items-stretch gap-3.5 lg:grid-cols-2">
         <Panel title={t('queue')}>
           {!data.queue.length ? (
             <p className="text-muted-foreground text-sm">{t('queueEmpty')}</p>
           ) : (
             <ul className="divide-border divide-y">
               {data.queue.map((item) => (
-                <li key={item.id} className="py-3">
+                <li key={item.id} className="py-2.5">
                   <Link
-                    className="text-primary font-medium hover:underline"
+                    className="text-foreground hover:text-primary font-medium transition-colors duration-150"
                     href={`/inbox?c=${encodeURIComponent(item.id)}`}
                   >
                     {item.name}
@@ -317,10 +337,9 @@ export function OperationsContent({ data, whatsapp = true }: {
                     {t('closesAt', { time: timestamp(item.closesAt) })}
                   </p>
                   {(!item.assigned || item.handedOff) && (
-                    <p className="text-primary mt-1 text-xs">
-                      {!item.assigned && t('unassigned')}
-                      {!item.assigned && item.handedOff ? ' · ' : ''}
-                      {item.handedOff && t('handedOff')}
+                    <p className="mt-1.5 flex flex-wrap gap-1 text-xs">
+                      {!item.assigned && <span className={SOFT_PILL}>{t('unassigned')}</span>}
+                      {item.handedOff && <span className={SOFT_PILL}>{t('handedOff')}</span>}
                     </p>
                   )}
                 </li>
@@ -338,10 +357,10 @@ export function OperationsContent({ data, whatsapp = true }: {
             ) : (
               <ul className="divide-border divide-y">
                 {data.failedMessages.map((item) => (
-                  <li key={item.id} className="py-3">
+                  <li key={item.id} className="py-2.5">
                     <Link
                       href={`/inbox?c=${encodeURIComponent(item.conversationId)}`}
-                      className="text-primary font-medium hover:underline"
+                      className="text-foreground hover:text-primary font-medium transition-colors duration-150"
                     >
                       {item.name}
                     </Link>
@@ -359,29 +378,29 @@ export function OperationsContent({ data, whatsapp = true }: {
         </div>
         <Panel title={t('team')}>
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="text-muted-foreground text-xs">
+            <table className="border-border w-full overflow-hidden rounded-lg border text-left text-sm [border-collapse:separate] [border-spacing:0]">
+              <thead className="bg-muted text-muted-foreground text-xs">
                 <tr>
-                  <th className="pb-2">{t('member')}</th>
-                  <th>{t('open')}</th>
-                  <th>{t('replies')}</th>
-                  <th>{t('median')}</th>
+                  <th className="px-3 py-2 font-semibold">{t('member')}</th>
+                  <th className="px-3 py-2 text-right font-semibold">{t('open')}</th>
+                  <th className="px-3 py-2 text-right font-semibold">{t('replies')}</th>
+                  <th className="px-3 py-2 text-right font-semibold">{t('median')}</th>
                 </tr>
               </thead>
               <tbody>
                 {data.team.map((member) => (
-                  <tr key={member.id} className="border-border border-t">
-                    <th className="py-3 font-medium">{member.name}</th>
-                    <td>{member.open}</td>
-                    <td>{member.replies}</td>
-                    <td>{minutes(member.medianMinutes)}</td>
+                  <tr key={member.id} className="hover:bg-muted/50 transition-colors duration-150">
+                    <th className="border-border border-t px-3 py-2.5 font-medium">{member.name}</th>
+                    <td className="border-border border-t px-3 py-2.5 text-right tabular-nums">{member.open}</td>
+                    <td className="border-border border-t px-3 py-2.5 text-right tabular-nums">{member.replies}</td>
+                    <td className="border-border border-t px-3 py-2.5 text-right tabular-nums">{minutes(member.medianMinutes)}</td>
                   </tr>
                 ))}
-                <tr className="border-border border-t">
-                  <th className="py-3 font-medium">{t('automated')}</th>
-                  <td>—</td>
-                  <td>{data.automated.replies}</td>
-                  <td>{minutes(data.automated.medianMinutes)}</td>
+                <tr className="hover:bg-muted/50 transition-colors duration-150">
+                  <th className="border-border border-t px-3 py-2.5 font-medium">{t('automated')}</th>
+                  <td className="border-border border-t px-3 py-2.5 text-right tabular-nums">—</td>
+                  <td className="border-border border-t px-3 py-2.5 text-right tabular-nums">{data.automated.replies}</td>
+                  <td className="border-border border-t px-3 py-2.5 text-right tabular-nums">{minutes(data.automated.medianMinutes)}</td>
                 </tr>
               </tbody>
             </table>
@@ -396,7 +415,7 @@ export function OperationsContent({ data, whatsapp = true }: {
               <label className="block text-sm">
                 {t('pipeline')}
                 <select
-                  className="border-border bg-card mt-1 w-full rounded-lg border p-2"
+                  className="border-border bg-card mt-1 h-9 w-full rounded-lg border px-2.5 text-[13px]"
                   value={selected.id}
                   onChange={(event) => setPipelineId(event.target.value)}
                 >
@@ -411,7 +430,7 @@ export function OperationsContent({ data, whatsapp = true }: {
                 {(['open', 'won', 'lost', 'idle'] as const).map((key) => (
                   <div key={key}>
                     <dt className="text-muted-foreground">{t(key)}</dt>
-                    <dd className="text-xl font-semibold">{selected[key]}</dd>
+                    <dd className="text-xl font-bold tabular-nums">{selected[key]}</dd>
                   </div>
                 ))}
               </dl>
@@ -425,7 +444,7 @@ export function OperationsContent({ data, whatsapp = true }: {
               </p>
               <Link
                 href="/pipelines"
-                className="text-primary text-sm underline"
+                className="text-primary text-sm font-medium hover:underline"
               >
                 {t('openPipelines')}
               </Link>
@@ -449,7 +468,7 @@ export function OperationsContent({ data, whatsapp = true }: {
             ).map((key) => (
               <div key={key} className="flex justify-between gap-3">
                 <dt className="text-muted-foreground">{t(key)}</dt>
-                <dd className="font-medium">{data.campaigns[key]}</dd>
+                <dd className="font-semibold tabular-nums">{data.campaigns[key]}</dd>
               </div>
             ))}
           </dl>
@@ -458,11 +477,11 @@ export function OperationsContent({ data, whatsapp = true }: {
               {t('topFailingFlow', { name: data.campaigns.topFailingFlow })}
             </p>
           )}
-          <div className="text-primary flex gap-4 text-sm">
-            <Link href="/automations" className="underline">
+          <div className="text-primary flex gap-4 text-sm font-medium">
+            <Link href="/automations" className="hover:underline">
               {t('automations')}
             </Link>
-            <Link href="/flows" className="underline">
+            <Link href="/flows" className="hover:underline">
               {t('flows')}
             </Link>
           </div>
@@ -471,7 +490,7 @@ export function OperationsContent({ data, whatsapp = true }: {
           </h4>
           {data.latestBroadcast ? (
             <>
-              <Link href="/broadcasts" className="text-primary underline">
+              <Link href="/broadcasts" className="text-primary font-medium hover:underline">
                 {data.latestBroadcast.name}
               </Link>
               <dl className="grid grid-cols-2 gap-2 text-sm">
@@ -479,7 +498,7 @@ export function OperationsContent({ data, whatsapp = true }: {
                   (key) => (
                     <div key={key}>
                       <dt className="text-muted-foreground">{t(key)}</dt>
-                      <dd>{data.latestBroadcast![key]}</dd>
+                      <dd className="font-semibold tabular-nums">{data.latestBroadcast![key]}</dd>
                     </div>
                   )
                 )}
@@ -499,14 +518,15 @@ export function OperationsContent({ data, whatsapp = true }: {
                 <li key={key} className="flex justify-between gap-3">
                   <Link
                     href={setupLinks[key]}
-                    className="text-primary hover:underline"
+                    className="text-foreground hover:text-primary transition-colors duration-150"
                   >
                     {t(`setupItems.${key}`)}
                   </Link>
                   <span
-                    className={
-                      data.setup[key] ? 'text-primary' : 'text-muted-foreground'
-                    }
+                    className={cn(
+                      SOFT_PILL,
+                      data.setup[key] && 'bg-emerald-500/12 text-emerald-700 dark:text-emerald-400',
+                    )}
                   >
                     {t(data.setup[key] ? 'done' : 'pending')}
                   </span>
@@ -517,5 +537,35 @@ export function OperationsContent({ data, whatsapp = true }: {
         </Panel>
       </div>
     </>
+  );
+}
+
+const ATTENTION_ROW =
+  'group border-border bg-card hover:bg-muted/60 flex items-center gap-3 rounded-xl border p-3 transition-colors duration-150';
+const ATTENTION_CHEVRON =
+  'text-muted-foreground size-4 shrink-0 transition-transform duration-150 group-hover:translate-x-0.5';
+const SOFT_PILL = 'bg-muted text-muted-foreground inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium';
+
+const ATTENTION_TONE = {
+  accent: 'bg-primary/10 text-primary',
+  warn: 'bg-amber-500/12 text-amber-700 dark:text-amber-400',
+  bad: 'bg-red-500/12 text-red-600 dark:text-red-400',
+  none: 'bg-muted text-muted-foreground',
+} as const;
+
+function AttentionIcon({
+  icon: Icon,
+  tone,
+}: {
+  icon: typeof Inbox;
+  tone: keyof typeof ATTENTION_TONE;
+}) {
+  return (
+    <span
+      aria-hidden
+      className={cn('flex size-9 shrink-0 items-center justify-center rounded-[10px]', ATTENTION_TONE[tone])}
+    >
+      <Icon className="size-4" />
+    </span>
   );
 }

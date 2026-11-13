@@ -26,7 +26,10 @@ import { PresenceDot } from '@/components/presence/presence-dot';
 import { presenceLabel } from '@/lib/presence';
 import { cn } from '@/lib/utils';
 import { ConversationNumberBadge } from '@/components/settings/numbers/conversation-number';
-import { ChannelBadge, conversationChannel } from '@/components/inbox/channel-badge';
+import { conversationChannel } from '@/components/inbox/channel-badge';
+import { ReminderDialog } from './follow-up-bar';
+import { ConsentChip, OptedOutBanner } from './consent';
+import { avatarTone, initials } from '@/lib/ui/avatar-tone';
 import { useWhatsAppNumbers } from '@/components/settings/numbers/use-whatsapp-numbers';
 import type {
   Conversation,
@@ -46,10 +49,9 @@ import {
   Clock,
   ArrowLeft,
   RefreshCw,
-  PanelRightOpen,
-  PanelRightClose,
+  PanelRight,
+  Bell,
   StickyNote,
-  CheckCircle2,
   RotateCcw,
   MoreHorizontal,
 } from 'lucide-react';
@@ -85,6 +87,7 @@ import {
 } from './message-composer';
 import { deleteAccountMedia } from '@/lib/storage/upload-media';
 import { TemplatePicker, type TemplateSendValues } from './template-picker';
+import { InstagramTemplatePicker, type InstagramTemplate } from './instagram-template-picker';
 import { AiThreadBanner } from './ai-thread-banner';
 import { AiSummaryPanel } from './ai-assist/ai-summary-panel';
 import { useAssistAvailability } from './ai-assist/use-ai-assist';
@@ -195,7 +198,7 @@ const STATUS_OPTIONS: {
 ];
 
 // The empty and selected thread share the same quiet workspace surface.
-const THREAD_BG_CLASSES = 'studio-thread bg-background';
+const THREAD_BG_CLASSES = 'studio-thread bg-card';
 
 export function MessageThread({
   conversation,
@@ -217,6 +220,10 @@ export function MessageThread({
   const t = useTranslations('Inbox.messageThread');
   const tList = useTranslations('Inbox.conversationList');
   const tLifecycle = useTranslations('InboxLifecycle');
+  const tChannel = useTranslations('Inbox.channel');
+  const tReminders = useTranslations('Inbox.reminders');
+  const tSidebar = useTranslations('Inbox.sidebar');
+  const [reminderOpen, setReminderOpen] = useState(false);
   const tSearch = useTranslations('InboxSearch');
   const [notesOpen, setNotesOpen] = useState(false);
   const [resolving, setResolving] = useState(false);
@@ -911,9 +918,58 @@ export function MessageThread({
     }
   }, [conversation, resolving, onStatusChange, t]);
 
+  // WhatsApp opens Meta-approved templates; Instagram (which has none) opens the
+  // workspace's saved card and button messages.
+  const [igTemplatesOpen, setIgTemplatesOpen] = useState(false);
   const handleOpenTemplates = useCallback(() => {
-    setTemplateModalOpen(true);
-  }, []);
+    if (isInstagram) setIgTemplatesOpen(true);
+    else setTemplateModalOpen(true);
+  }, [isInstagram]);
+
+  const handleSendIgTemplate = useCallback(
+    async (template: InstagramTemplate) => {
+      if (!conversation) return;
+      const tempId = newTempMessageId();
+      const cards = 'cards' in template.payload ? template.payload.cards : null;
+      const optimistic: Message = {
+        id: tempId,
+        conversation_id: conversation.id,
+        sender_type: 'agent',
+        content_type: 'interactive',
+        content_text: cards ? cards[0]?.title : ('text' in template.payload ? template.payload.text : undefined),
+        interactive_payload: (cards
+          ? { kind: 'cards', cards, ig: { generic_template: true } }
+          : { kind: 'buttons', body: (template.payload as { text: string }).text,
+              buttons: (template.payload as { buttons: { type: string; title: string; url?: string }[] }).buttons.map((b) =>
+                b.type === 'web_url' ? { url: b.url, title: b.title } : { id: b.title, title: b.title }),
+              ig: { button_template: true } }) as unknown as Message['interactive_payload'],
+        status: 'sending',
+        created_at: new Date().toISOString(),
+      };
+      onNewMessage(optimistic);
+      try {
+        const res = await authFetch('/api/whatsapp/send', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ conversation_id: conversation.id, message_type: 'ig_template', template_id: template.id }),
+        });
+        const payload = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          const reason = payload?.message || payload?.error || `HTTP ${res.status}`;
+          toast.error(t('sendFailed', { reason }));
+          // An outcome Meta left unclear is never shown as failed: check Instagram before resending.
+          onUpdateMessage(tempId, uncertainSendUpdate(payload) ?? { status: 'failed' });
+          return;
+        }
+        onUpdateMessage(tempId, confirmedSendUpdate(payload));
+      } catch (err) {
+        const reason = err instanceof Error ? err.message : t('networkError');
+        toast.error(t('sendFailed', { reason }));
+        onUpdateMessage(tempId, { status: 'failed' });
+      }
+    },
+    [conversation, onNewMessage, onUpdateMessage, t]
+  );
 
   const handleSendTemplate = useCallback(
     async (
@@ -1120,17 +1176,17 @@ export function MessageThread({
           THREAD_BG_CLASSES
         )}
       >
-        <div className="studio-empty-icon flex h-28 w-28 items-center justify-center rounded-full">
+        <div className="studio-empty-icon bg-muted text-muted-foreground flex size-14 items-center justify-center rounded-2xl">
           <MessageSquare
-            className="h-14 w-14"
+            className="size-6"
             strokeWidth={1.25}
             aria-hidden="true"
           />
         </div>
-        <h3 className="text-foreground mt-6 text-xl font-medium">
+        <h3 className="text-foreground mt-4 text-[15px] font-semibold">
           {t('selectConversation')}
         </h3>
-        <p className="text-muted-foreground mt-2 max-w-72 text-sm leading-relaxed">
+        <p className="text-muted-foreground mt-1 max-w-72 text-[13px] leading-relaxed">
           {t('selectConversationHint')}
         </p>
       </div>
@@ -1182,7 +1238,7 @@ export function MessageThread({
           the room the thread actually has (the list and contact panel take their
           share), not on the window: the name and Resolve / assignee / ⋯ always fit;
           the handle row's extras appear as space allows. */}
-      <div className="studio-thread-header border-border bg-card flex items-center gap-2 border-b px-2 py-2 @md:px-4">
+      <div className="studio-thread-header border-border bg-card flex min-h-16 items-center gap-2 border-b px-2 py-2 @md:gap-3 @md:px-4">
         <div className="flex min-w-0 flex-1 items-center gap-2 @md:gap-3">
           {/* Back to the list — below lg, where the list and thread take turns. */}
           {onBack && (
@@ -1190,28 +1246,59 @@ export function MessageThread({
               type="button"
               onClick={onBack}
               aria-label={t('backToConversations')}
-              className="text-muted-foreground hover:bg-muted hover:text-foreground flex h-9 w-9 shrink-0 items-center justify-center rounded-md lg:hidden"
+              className="text-muted-foreground hover:bg-muted hover:text-foreground flex size-9 shrink-0 items-center justify-center rounded-lg transition-colors duration-150 lg:hidden"
             >
               <ArrowLeft className="h-5 w-5" />
             </button>
           )}
-          <div className="bg-muted text-foreground flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-medium">
-            {displayName.charAt(0).toUpperCase()}
-          </div>
-          <div className="min-w-0 flex-1">
-            <div className="flex min-w-0 items-center gap-1.5">
-              <h2 className="text-foreground truncate text-sm font-semibold">{displayName}</h2>
-              <span className="shrink-0">
-                <ChannelBadge channel={threadChannel} />
+          {/* The contact: tapping it opens their details, like the panel button on the right.
+              The heading stays outside the button so screen readers can still jump to it. */}
+          <h2 className="sr-only">{displayName}</h2>
+          <button
+            type="button"
+            data-thread-who
+            aria-label={`${displayName}: ${contactPanelOpen ? t('hideContact') : t('showContact')}`}
+            onClick={onToggleContactPanel}
+            disabled={!onToggleContactPanel}
+            aria-expanded={onToggleContactPanel ? contactPanelOpen : undefined}
+            title={contactPanelOpen ? t('hideContact') : t('showContact')}
+            className="hover:bg-muted/60 -my-1 flex min-w-0 shrink items-center gap-2.5 rounded-xl py-1 pr-2 pl-1 text-left transition-colors duration-150 disabled:pointer-events-none @md:gap-3"
+          >
+            <span
+              aria-hidden
+              className={cn(
+                'relative flex size-10 shrink-0 items-center justify-center rounded-full text-sm font-semibold',
+                avatarTone(displayName)
+              )}
+            >
+              {initials(contact.name || displayName)}
+            </span>
+            <span className="min-w-0">
+              <span className="text-foreground block truncate text-[15px] leading-5 font-semibold">
+                {displayName}
               </span>
+              <span className="text-muted-foreground flex min-w-0 items-center gap-1.5 text-xs leading-4">
+                <span
+                  aria-hidden
+                  className={cn(
+                    'size-2 shrink-0 rounded-full',
+                    isInstagram ? 'bg-gradient-to-tr from-amber-400 via-pink-500 to-violet-600' : 'bg-emerald-500'
+                  )}
+                />
+                <span className="truncate">
+                  {[tChannel(threadChannel), isInstagram ? null : contactHandle(contact), currentStatus ? t(`status${currentStatus.label}`) : null]
+                    .filter(Boolean)
+                    .join(' · ')}
+                </span>
+              </span>
+            </span>
+          </button>
+          <div className="flex min-w-0 flex-1 items-center gap-1.5 self-end pb-0.5 text-xs">
               {!isInstagram && (
                 <span className="hidden shrink-0 @2xl:inline-flex">
                   <ConversationNumberBadge conversation={conversation} numbers={whatsappNumbers} />
                 </span>
               )}
-            </div>
-            <div className="text-muted-foreground flex min-w-0 items-center gap-1.5 text-xs">
-              <span className="truncate">{contactHandle(contact)}</span>
               {!isInstagram && (
                 <Badge
                   variant="outline"
@@ -1224,6 +1311,8 @@ export function MessageThread({
                   {sessionInfo.remaining}
                 </Badge>
               )}
+              {/* WhatsApp consent: may templates and broadcasts reach this customer? */}
+              {!isInstagram && <ConsentChip contact={contact} className="hidden @xl:inline-flex" />}
               <span className="hidden shrink-0 items-center gap-1.5 @3xl:flex">
                 <LifecycleChip state={lifecycle} label={tLifecycle(lifecycle)} />
                 {sla && <SlaBadge sla={sla} t={tList} tl={tLifecycle} />}
@@ -1233,46 +1322,28 @@ export function MessageThread({
                   <AdReferralBadge conversationId={conversation.id} />
                 </span>
               )}
-            </div>
           </div>
         </div>
 
-        <div className="flex shrink-0 items-center gap-1">
-          {canSendMessages && (
-            <button
-              type="button"
-              onClick={() => void handleResolveToggle()}
-              disabled={resolving}
-              aria-label={isResolved ? t('reopen') : t('resolve')}
-              title={isResolved ? t('reopen') : t('resolve')}
-              className={cn(
-                'hover:bg-muted inline-flex h-8 items-center justify-center gap-1 rounded-md px-2 text-xs font-medium whitespace-nowrap transition-colors disabled:opacity-60',
-                isResolved ? 'text-muted-foreground' : 'text-primary'
-              )}
-            >
-              {isResolved ? <RotateCcw className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4" />}
-              <span className="hidden @xl:inline">{isResolved ? t('reopen') : t('resolve')}</span>
-            </button>
-          )}
-
-          {/* Assignee: their initial, and their name once there is room; it never wraps. */}
+        <div className="flex shrink-0 items-center gap-1 @md:gap-1.5">
+          {/* Assignee: their initials, and their name once there is room; it never wraps. */}
           <DropdownMenu>
             <DropdownMenuTrigger
               aria-label={assignLabel}
               title={assignLabel}
               data-assignee
               className={cn(
-                'hover:bg-muted inline-flex h-8 max-w-[11rem] items-center gap-1.5 rounded-md px-1.5 text-xs whitespace-nowrap',
+                'border-border hover:bg-muted data-popup-open:bg-muted inline-flex h-9 max-w-[11rem] items-center gap-1.5 rounded-full border pr-2.5 pl-1.5 text-[13px] font-semibold whitespace-nowrap transition-colors duration-150',
                 assignedAgentId ? 'text-foreground' : 'text-muted-foreground'
               )}
             >
               <span
                 className={cn(
-                  'flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold',
-                  assignedAgentId ? 'bg-primary/15 text-primary' : 'bg-muted'
+                  'flex size-6 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold',
+                  assignedAgentId ? avatarTone(assignLabel) : 'bg-muted'
                 )}
               >
-                {assignedAgentId ? assignLabel.charAt(0).toUpperCase() : <UserPlus className="h-3.5 w-3.5" />}
+                {assignedAgentId ? initials(assignLabel) : <UserPlus className="h-3.5 w-3.5" />}
               </span>
               <span className="hidden min-w-0 truncate @2xl:inline">{assignLabel}</span>
               <ChevronDown className="h-3 w-3 shrink-0" />
@@ -1320,14 +1391,64 @@ export function MessageThread({
             </DropdownMenuContent>
           </DropdownMenu>
 
-          {/* Everything else: status, internal notes, the contact panel, refresh. */}
+          {canSendMessages && (
+            <button
+              type="button"
+              onClick={() => void handleResolveToggle()}
+              disabled={resolving}
+              aria-label={isResolved ? t('reopen') : t('resolve')}
+              title={isResolved ? t('reopen') : t('resolve')}
+              className={cn(
+                'inline-flex h-9 items-center justify-center gap-1.5 rounded-full px-2.5 text-[13px] font-semibold whitespace-nowrap transition-colors duration-150 disabled:opacity-60 @xl:px-3.5',
+                isResolved
+                  ? 'border-border text-muted-foreground hover:bg-muted border'
+                  : 'bg-muted text-foreground hover:bg-muted/70'
+              )}
+            >
+              {isResolved ? <RotateCcw className="h-4 w-4" /> : <Check className="h-4 w-4" strokeWidth={2.5} />}
+              <span className="hidden @xl:inline">{isResolved ? t('reopen') : t('resolve')}</span>
+            </button>
+          )}
+
+          {/* Remind me: a reminder or snooze for this chat. */}
+          <button
+            type="button"
+            onClick={() => setReminderOpen(true)}
+            disabled={!canSendMessages}
+            aria-label={tReminders('add')}
+            title={tReminders('add')}
+            data-thread-remind
+            className="text-muted-foreground hover:bg-muted hover:text-foreground inline-flex size-9 items-center justify-center rounded-lg transition-colors duration-150 disabled:opacity-40"
+          >
+            <Bell className="h-[18px] w-[18px]" />
+          </button>
+
+          {/* Contact details panel (on small screens tap the contact's name instead). */}
+          {onToggleContactPanel && (
+            <button
+              type="button"
+              onClick={onToggleContactPanel}
+              aria-pressed={contactPanelOpen}
+              aria-label={tSidebar('contactDetails')}
+              title={contactPanelOpen ? t('hideContact') : t('showContact')}
+              data-thread-panel
+              className={cn(
+                'hover:bg-muted hover:text-foreground hidden size-9 items-center justify-center rounded-lg transition-colors duration-150 @md:inline-flex',
+                contactPanelOpen ? 'bg-muted text-foreground' : 'text-muted-foreground'
+              )}
+            >
+              <PanelRight className="h-[18px] w-[18px]" />
+            </button>
+          )}
+
+          {/* Everything else: status, internal notes, refresh. */}
           <DropdownMenu>
             <DropdownMenuTrigger
               aria-label={t('moreActions')}
               title={t('moreActions')}
               data-thread-more
               className={cn(
-                'hover:bg-muted hover:text-foreground inline-flex h-8 w-8 items-center justify-center rounded-md',
+                'hover:bg-muted hover:text-foreground inline-flex size-9 items-center justify-center rounded-lg transition-colors duration-150',
                 notesOpen ? 'text-primary' : 'text-muted-foreground'
               )}
             >
@@ -1352,16 +1473,6 @@ export function MessageThread({
                 <StickyNote className="mr-2 h-4 w-4" />
                 {notesOpen ? t('hideNotes') : t('showNotes')}
               </DropdownMenuItem>
-              {onToggleContactPanel && (
-                <DropdownMenuItem onClick={onToggleContactPanel} className="text-sm">
-                  {contactPanelOpen ? (
-                    <PanelRightClose className="mr-2 h-4 w-4" />
-                  ) : (
-                    <PanelRightOpen className="mr-2 h-4 w-4" />
-                  )}
-                  {contactPanelOpen ? t('hideContact') : t('showContact')}
-                </DropdownMenuItem>
-              )}
               {onRefresh && (
                 <DropdownMenuItem onClick={handleRefreshClick} disabled={isRefreshing} className="text-sm">
                   <RefreshCw className={cn('mr-2 h-4 w-4', isRefreshing && 'animate-spin')} />
@@ -1386,7 +1497,7 @@ export function MessageThread({
         onScroll={(e) => {
           followBottomRef.current = isNearBottom(e.currentTarget);
         }}
-        className="studio-messages flex-1 overflow-y-auto px-3 py-4 @2xl:px-6"
+        className="studio-messages flex-1 overflow-y-auto px-3 py-5 @2xl:px-6"
       >
         {loading ? (
           <div className="flex items-center justify-center py-12">
@@ -1409,7 +1520,7 @@ export function MessageThread({
                   type="button"
                   onClick={() => void loadOlder()}
                   disabled={loadingOlder}
-                  className="text-primary hover:bg-muted mx-auto block rounded-md px-3 py-2 text-xs disabled:opacity-50"
+                  className="text-primary hover:bg-muted mx-auto block rounded-full px-3 py-1.5 text-xs font-medium transition-colors duration-150 disabled:opacity-50"
                 >
                   {t(loadingOlder ? 'loadingOlder' : 'loadOlder')}
                 </button>
@@ -1417,8 +1528,8 @@ export function MessageThread({
             {messageGroups.map((group) => (
               <div key={group.date}>
                 {/* Date separator */}
-                <div className="mb-4 flex items-center justify-center">
-                  <span className="studio-date bg-muted text-muted-foreground rounded-full px-3 py-1 text-[10px] font-medium">
+                <div className="mt-2 mb-3 flex items-center justify-center">
+                  <span className="studio-date text-muted-foreground text-xs font-medium">
                     {formatDateSeparator(group.date, t)}
                   </span>
                 </div>
@@ -1520,6 +1631,9 @@ export function MessageThread({
       {/* AI summary for staff (only when the workspace turned it on). */}
       {canSendMessages && assist?.summary.ok && <AiSummaryPanel key={conversation.id} conversationId={conversation.id} />}
 
+      {/* An opted-out customer: say what is still allowed before anyone types. */}
+      {!isInstagram && <OptedOutBanner contact={contact} />}
+
       {/* Composer */}
       <MessageComposer
         conversationId={conversation.id}
@@ -1547,7 +1661,7 @@ export function MessageThread({
       {notesOpen && (
         <aside
           aria-label={t('notes')}
-          className="border-border bg-card w-full min-w-0 overflow-y-auto border-l p-4 sm:w-80 sm:shrink-0"
+          className="border-border bg-card w-full min-w-0 overflow-y-auto border-l p-4 sm:w-[300px] sm:shrink-0"
         >
           <NotesPanel
             key={conversation.id}
@@ -1565,6 +1679,14 @@ export function MessageThread({
         onOpenChange={setTemplateModalOpen}
         onSelect={handleSendTemplate}
       />
+      {isInstagram && (
+        <InstagramTemplatePicker
+          open={igTemplatesOpen}
+          onOpenChange={setIgTemplatesOpen}
+          onSend={(template) => void handleSendIgTemplate(template)}
+          canEdit={canSendMessages}
+        />
+      )}
 
       {/* Full-size viewer for the thread's images/videos. Renders nothing
           until a bubble opens it. */}
@@ -1574,6 +1696,7 @@ export function MessageThread({
         onActiveIdChange={handleMediaChange}
         contactLabel={contactDisplayName}
       />
+      <ReminderDialog conversationId={conversation.id} open={reminderOpen} onOpenChange={setReminderOpen} />
     </div>
   );
 }

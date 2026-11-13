@@ -61,7 +61,7 @@ export function InventoryPanel({ canManage }: { canManage: boolean }) {
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative min-w-[12rem] flex-1">
           <Search className="pointer-events-none absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder={t("search")} aria-label={t("search")} className="bg-muted pl-8" />
+          <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder={t("search")} aria-label={t("search")} className="pl-8" />
         </div>
         <select aria-label={t("filterLabel")} className={selectClass} value={filter} onChange={(e) => setFilter(e.target.value as InventoryFilter | "")}>
           <option value="">{t("filter.all")}</option>
@@ -72,11 +72,11 @@ export function InventoryPanel({ canManage }: { canManage: boolean }) {
       {data === null ? (
         <div className="flex justify-center p-6"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
       ) : data.items.length === 0 ? (
-        <p className="rounded-lg border border-dashed border-border p-6 text-center text-sm text-muted-foreground">{t("empty")}</p>
+        <p className="rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">{t("empty")}</p>
       ) : (
-        <div className="overflow-x-auto rounded-lg border border-border bg-card">
-          <Table>
-            <TableHeader>
+        <div className="overflow-x-auto rounded-xl border border-border bg-card">
+          <Table className="[&_td]:px-3.5 [&_td]:py-2.5">
+            <TableHeader className="bg-muted [&_th]:h-9 [&_th]:px-3.5 [&_th]:text-xs [&_th]:font-semibold [&_th]:text-muted-foreground">
               <TableRow>
                 <TableHead>{t("colProduct")}</TableHead>
                 <TableHead>{t("colSku")}</TableHead>
@@ -141,7 +141,7 @@ export function MovementsList({ variantId, label, reload = 0, onClear }: { varia
   return (
     <div className="space-y-2">
       <div className="flex items-center gap-2">
-        <h2 className="text-base font-medium text-foreground">{label ? t("titleFor", { label }) : t("title")}</h2>
+        <h2 className="text-base font-semibold tracking-tight text-foreground">{label ? t("titleFor", { label }) : t("title")}</h2>
         {label && onClear && <Button size="sm" variant="ghost" onClick={onClear}>{t("showAll")}</Button>}
       </div>
       {rows === null ? (
@@ -149,9 +149,9 @@ export function MovementsList({ variantId, label, reload = 0, onClear }: { varia
       ) : rows.length === 0 ? (
         <p className="text-sm text-muted-foreground">{t("empty")}</p>
       ) : (
-        <div className="overflow-x-auto rounded-lg border border-border bg-card">
-          <Table>
-            <TableHeader>
+        <div className="overflow-x-auto rounded-xl border border-border bg-card">
+          <Table className="[&_td]:px-3.5 [&_td]:py-2.5">
+            <TableHeader className="bg-muted [&_th]:h-9 [&_th]:px-3.5 [&_th]:text-xs [&_th]:font-semibold [&_th]:text-muted-foreground">
               <TableRow>
                 <TableHead>{t("colWhen")}</TableHead>
                 <TableHead>{t("colItem")}</TableHead>
@@ -236,12 +236,12 @@ export function AdjustStockDialog({ target, onClose, onDone }: { target: AdjustT
           </div>
           <div className="space-y-1">
             <Label htmlFor="adjust-qty">{t("quantity")}</Label>
-            <Input id="adjust-qty" inputMode="numeric" value={amount} onChange={(e) => setAmount(e.target.value)} className="bg-muted" />
+            <Input id="adjust-qty" inputMode="numeric" value={amount} onChange={(e) => setAmount(e.target.value)} />
             <p className="text-xs text-muted-foreground">{t(`hints.${kind}`)}</p>
           </div>
           <div className="space-y-1">
             <Label htmlFor="adjust-reason">{kind === "write_off" ? t("reasonRequired") : t("reason")}</Label>
-            <Input id="adjust-reason" maxLength={200} value={reason} onChange={(e) => setReason(e.target.value)} className="bg-muted" />
+            <Input id="adjust-reason" maxLength={200} value={reason} onChange={(e) => setReason(e.target.value)} />
           </div>
           <DialogFooter>
             <Button type="button" variant="ghost" onClick={onClose}>{t("cancel")}</Button>

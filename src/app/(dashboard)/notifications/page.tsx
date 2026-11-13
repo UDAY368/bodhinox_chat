@@ -207,10 +207,10 @@ export default function NotificationsPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">{t("title")}</h1>
+    <div className="mx-auto w-full max-w-3xl space-y-6">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="text-[22px] font-bold tracking-tight text-foreground">{t("title")}</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             {t("descriptionAll")}
           </p>
@@ -231,19 +231,19 @@ export default function NotificationsPage() {
       </div>
 
       {notifications.length === 0 ? (
-        <div className="flex h-48 flex-col items-center justify-center rounded-xl border border-dashed border-border bg-muted/40">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
-            <Bell className="h-6 w-6 text-primary" />
+        <div className="flex flex-col items-center justify-center gap-2 rounded-xl border border-border bg-card px-4 py-12 text-center">
+          <div className="flex size-11 items-center justify-center rounded-xl bg-muted">
+            <Bell className="size-5 text-muted-foreground" />
           </div>
-          <p className="mt-3 text-sm font-medium text-foreground">
+          <p className="mt-1 text-sm font-semibold text-foreground">
             {t("emptyTitle")}
           </p>
-          <p className="mt-1 text-xs text-muted-foreground">
+          <p className="text-sm text-muted-foreground">
             {t("emptyDescAll")}
           </p>
         </div>
       ) : (
-        <ul className="space-y-2">
+        <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-card">
           {notifications.map((n) => {
             const Icon = TYPE_ICON[n.type] ?? Bell;
             const typeLabel = n.type in TYPE_ICON ? t(`types.${n.type}`) : null;
@@ -254,59 +254,57 @@ export default function NotificationsPage() {
                   type="button"
                   onClick={() => handleClick(n)}
                   className={cn(
-                    "flex w-full items-start gap-3 rounded-xl border p-4 text-left transition-colors",
-                    isUnread
-                      ? "border-primary/30 bg-primary/5 hover:border-primary/50"
-                      : "border-border bg-card hover:border-border/70",
+                    "flex min-h-14 w-full items-center gap-3 px-4 py-3 text-left transition-colors duration-150 hover:bg-muted/60",
+                    isUnread && "bg-primary/[0.04]",
                   )}
                 >
                   <div
                     className={cn(
-                      "flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg",
-                      isUnread ? "bg-primary/15" : "bg-muted",
+                      "flex size-9 flex-shrink-0 items-center justify-center rounded-[10px]",
+                      isUnread ? "bg-primary/10" : "bg-muted",
                     )}
                     aria-hidden
                   >
                     <Icon
                       className={cn(
-                        "h-5 w-5",
+                        "size-[18px]",
                         isUnread ? "text-primary" : "text-muted-foreground",
                       )}
                     />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <span
-                        className={cn(
-                          "truncate text-sm font-semibold",
-                          isUnread ? "text-foreground" : "text-muted-foreground",
-                        )}
-                      >
-                        {n.title}
-                      </span>
-                      {isUnread && (
-                        <span
-                          aria-label={t("unread")}
-                          className="h-2 w-2 flex-shrink-0 rounded-full bg-primary"
-                        />
+                    <span
+                      className={cn(
+                        "block truncate text-sm",
+                        isUnread ? "font-semibold text-foreground" : "font-medium text-foreground/80",
                       )}
-                    </div>
+                    >
+                      {n.title}
+                    </span>
                     {n.body && (
-                      <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                      <p className="mt-0.5 truncate text-[13px] text-muted-foreground">
                         {n.body}
                       </p>
                     )}
-                    <p className="mt-1 text-[11px] text-muted-foreground/70">
+                    <p className="mt-0.5 text-xs text-muted-foreground">
                       {typeLabel && (
-                        <span className="font-medium" data-notification-type={n.type}>
+                        <span data-notification-type={n.type}>
                           {typeLabel} ·{" "}
                         </span>
                       )}
-                      {formatDistanceToNow(new Date(n.created_at), {
-                        addSuffix: true,
-                      })}
+                      <span className="tabular-nums">
+                        {formatDistanceToNow(new Date(n.created_at), {
+                          addSuffix: true,
+                        })}
+                      </span>
                     </p>
                   </div>
+                  {isUnread && (
+                    <span
+                      aria-label={t("unread")}
+                      className="size-2 flex-shrink-0 rounded-full bg-primary"
+                    />
+                  )}
                 </button>
               </li>
             );

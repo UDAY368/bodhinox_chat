@@ -581,7 +581,9 @@ export function validateWrite(
     // (20261119000000, conversation_resolved_by); the trigger also ignores direct writes.
     if (browser && name === 'conversations' && field === 'resolved_by')
       throw new ContractError(`Field ${field} is server-managed`);
-    if (browser && name === 'contacts' && ['instagram_opted_out_at', 'instagram_opted_in_at'].includes(field))
+    // WhatsApp consent is changed only by STOP/START and the audited consent route
+    // (/api/contacts/[id]/consent), so a browser cannot forge an opt-in or its source.
+    if (browser && name === 'contacts' && ['instagram_opted_out_at', 'instagram_opted_in_at', 'opted_out_at', 'opt_out_source', 'opted_in_at', 'opt_in_source'].includes(field))
       throw new ContractError(`Field ${field} is server-managed`);
     // An automation's channel is chosen once by the automation routes (its section)
     // and never changes; the engine matches it against the conversation's channel.
