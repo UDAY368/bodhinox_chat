@@ -5,14 +5,19 @@
 // is fixed once it exists (the custom_fields_type_fixed trigger enforces it
 // too). Deleting a field removes its values and its conditions from saved
 // segments; a segment left with no condition would match everyone, so that
-// delete is refused until the segment is edited. Runs in the caller's tenant
-// transaction on the app role (RLS: custom_fields written by admins).
+// delete is refused until the segment is edited. Changing a choice field's
+// choices is refused (choice_in_segment, with the segment names) while a saved
+// segment filters on a removed choice, until the admin confirms; the confirmed
+// save removes those conditions (the same rule as a delete). Creating and
+// renaming are serialized per workspace with an advisory lock, and names are
+// compared case-insensitively. Runs in the caller's tenant transaction on the
+// app role (RLS: custom_fields written by admins).
 // ============================================================
 
 import { Prisma } from '@prisma/client';
 import { NextResponse } from 'next/server';
 import { toErrorResponse } from '@/lib/auth/account';
-import { withTenant, type TenantContext } from '@/lib/db/tenant';
+import { withTenant, type TenantContext, type TenantTransaction } from '@/lib/db/tenant';
 import {
   CUSTOM_FIELD_TYPES,
   MAX_FIELD_NAME,
@@ -38,14 +43,15 @@ export interface CustomFieldSummary {
 }
 
 export type CustomFieldErrorCode = 'invalid' | 'name_required' | 'name_too_long' | 'name_taken' | 'name_reserved' | 'invalid_type'
-  | ChoicesProblem | 'not_found' | 'segment_needs_field';
+  | ChoicesProblem | 'not_found' | 'segment_needs_field' | 'choice_in_segment';
 
 export class CustomFieldError extends Error {
   constructor(readonly code: CustomFieldErrorCode, readonly segments: string[] = []) {
     super(code);
   }
   get status(): number {
-    return this.code === 'not_found' ? 404 : this.code === 'name_taken' || this.code === 'segment_needs_field' ? 409 : 400;
+    return this.code === 'not_found' ? 404
+      : this.code === 'name_taken' || this.code === 'segment_needs_field' || this.code === 'choice_in_segment' ? 409 : 400;
   }
 }
 
@@ -102,6 +108,23 @@ function parseChoiceList(input: unknown): string[] {
   return choices;
 }
 
+/** One writer of field names per workspace at a time, so two creates or renames cannot both pass the name check. */
+async function lockFieldNames(tx: TenantTransaction, accountId: string): Promise<void> {
+  await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${'custom_field_names:' + accountId}))`;
+}
+
+type SegmentCondition = { field?: string; fieldId?: string; op?: string; value?: unknown };
+type SegmentRow = { id: string; name: string; filter: { conditions?: SegmentCondition[] } };
+
+/**
+ * A saved segment's conditions on this field that test for a value no longer among its choices
+ * ("is" / "is not" a removed choice). Pure; unit-tested.
+ */
+export function staleChoiceConditions(filter: SegmentRow['filter'] | null | undefined, fieldId: string, choices: readonly string[]): SegmentCondition[] {
+  return (filter?.conditions ?? []).filter((c) => c.field === 'custom_field' && c.fieldId === fieldId
+    && (c.op === 'is' || c.op === 'is_not') && typeof c.value === 'string' && !choices.includes(c.value));
+}
+
 function body(input: unknown): Record<string, unknown> {
   if (!input || typeof input !== 'object' || Array.isArray(input)) throw new CustomFieldError('invalid');
   return input as Record<string, unknown>;
@@ -114,6 +137,7 @@ export async function createCustomField(ctx: TenantContext, input: unknown): Pro
   const type = data.type as CustomFieldType;
   const choices = type === 'choice' ? parseChoiceList(data.choices) : null;
   return withTenant(ctx, async (tx) => {
+    await lockFieldNames(tx, ctx.accountId);
     const taken = await tx.$queryRaw<{ ok: number }[]>`
       SELECT 1 AS ok FROM custom_fields WHERE account_id=${ctx.accountId}::uuid AND lower(field_name)=lower(${name}) LIMIT 1`;
     if (taken.length) throw new CustomFieldError('name_taken');
@@ -129,6 +153,10 @@ export async function createCustomField(ctx: TenantContext, input: unknown): Pro
 /**
  * Renames a field and, for a choice field, replaces its choices. Values that
  * are no longer a choice are cleared (the contacts keep every other value).
+ * Saved segments that filter on a removed choice block the change
+ * (choice_in_segment, with their names) unless `confirm: true` is sent; then
+ * those conditions are removed, and a segment that would be left with none
+ * is refused (segment_needs_field) as a delete is.
  */
 export async function updateCustomField(ctx: TenantContext, id: string, input: unknown): Promise<CustomFieldSummary> {
   if (!UUID.test(id)) throw new CustomFieldError('not_found');
@@ -136,6 +164,7 @@ export async function updateCustomField(ctx: TenantContext, id: string, input: u
   if ('type' in data) throw new CustomFieldError('invalid_type');
   const name = 'name' in data ? parseName(data.name) : null;
   return withTenant(ctx, async (tx) => {
+    if (name) await lockFieldNames(tx, ctx.accountId);
     const found = await tx.$queryRaw<{ field_type: string }[]>`
       SELECT field_type FROM custom_fields WHERE account_id=${ctx.accountId}::uuid AND id=${id}::uuid FOR UPDATE`;
     if (!found[0]) throw new CustomFieldError('not_found');
@@ -147,6 +176,21 @@ export async function updateCustomField(ctx: TenantContext, id: string, input: u
       await tx.$executeRaw`UPDATE custom_fields SET field_name=${name} WHERE account_id=${ctx.accountId}::uuid AND id=${id}::uuid`;
     }
     if (choices) {
+      const segments = await tx.$queryRaw<SegmentRow[]>`
+        SELECT id::text, name, filter FROM segments WHERE account_id=${ctx.accountId}::uuid
+          AND EXISTS (SELECT 1 FROM jsonb_array_elements(COALESCE(filter->'conditions','[]'::jsonb)) c
+            WHERE c->>'field'='custom_field' AND c->>'fieldId'=${id})
+        FOR UPDATE`;
+      const affected = segments
+        .map((s) => ({ segment: s, stale: staleChoiceConditions(s.filter, id, choices) }))
+        .filter((a) => a.stale.length > 0);
+      if (affected.length && data.confirm !== true) throw new CustomFieldError('choice_in_segment', affected.map((a) => a.segment.name));
+      const emptied = affected.filter((a) => a.stale.length === (a.segment.filter.conditions ?? []).length);
+      if (emptied.length) throw new CustomFieldError('segment_needs_field', emptied.map((a) => a.segment.name));
+      for (const { segment, stale } of affected) {
+        const filter = { ...segment.filter, conditions: (segment.filter.conditions ?? []).filter((c) => !stale.includes(c)) };
+        await tx.$executeRaw`UPDATE segments SET filter=${JSON.stringify(filter)}::jsonb WHERE account_id=${ctx.accountId}::uuid AND id=${segment.id}::uuid`;
+      }
       await tx.$executeRaw`UPDATE custom_fields SET field_options=${JSON.stringify(choices)}::jsonb WHERE account_id=${ctx.accountId}::uuid AND id=${id}::uuid`;
       await tx.$executeRaw`DELETE FROM contact_custom_values WHERE account_id=${ctx.accountId}::uuid AND custom_field_id=${id}::uuid
         AND NOT (value = ANY(${choices}::text[]))`;

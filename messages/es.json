@@ -1888,7 +1888,10 @@
           "too_few": "Agrega al menos dos opciones.",
           "too_many": "Un campo tiene como máximo 50 opciones.",
           "too_long": "Cada opción tiene como máximo 100 caracteres."
-        }
+        },
+        "choiceInSegment": "Estos segmentos guardados filtran por una opción que eliminaste: {names}. Al guardar se quitarán esas condiciones.",
+        "choiceSegmentNeedsField": "Estos segmentos solo filtran por opciones eliminadas: {names}. Edítalos primero.",
+        "saveAndUpdateSegments": "Guardar y actualizar segmentos"
       },
       "importMap": {
         "desc": "Elige un archivo CSV y relaciona sus columnas con los campos del contacto. Se necesita una columna de teléfono.",

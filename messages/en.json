@@ -1888,7 +1888,10 @@
           "too_few": "Add at least two choices.",
           "too_many": "A field has at most 50 choices.",
           "too_long": "Each choice is at most 100 characters."
-        }
+        },
+        "choiceInSegment": "These saved segments filter on a choice you removed: {names}. Saving removes those conditions from them.",
+        "choiceSegmentNeedsField": "These segments only filter on removed choices: {names}. Edit them first.",
+        "saveAndUpdateSegments": "Save and update segments"
       },
       "importMap": {
         "desc": "Choose a CSV file, then match its columns to contact fields. A phone column is required.",
