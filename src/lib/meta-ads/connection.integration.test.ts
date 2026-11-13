@@ -7,7 +7,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 // that sees the same ad account and Page, so two workspaces can race for it.
 vi.mock('./graph', async (original) => ({
   ...(await original<typeof import('./graph')>()),
-  exchangeLoginCode: vi.fn(async (_c: unknown, code: string) => ({ accessToken: `user-token-${code}` })),
+  exchangeLoginToken: vi.fn(async (_c: unknown, code: string) => ({ accessToken: `user-token-${code}` })),
   getGrantedScopes: vi.fn(async () => ['ads_read']),
   listAdAccounts: vi.fn(async () => [{ id: process.env.IT_AD_ACCOUNT, name: 'Acct', currency: 'INR', businessId: null }]),
   listPages: vi.fn(async () => [{ id: process.env.IT_PAGE, name: 'Page', accessToken: 'page-token' }]),

@@ -1,7 +1,8 @@
 // Meta ad account + Page connection (part a).
 //
-// Flow: startConnection exchanges the Login for Business code and stores the
-// encrypted user token on the workspace's pending row; listChoices offers the
+// Flow: startConnection checks the Login for Business popup's user token belongs
+// to this app, makes it long-lived and stores it encrypted on the workspace's
+// pending row; listChoices offers the
 // ad accounts and Pages that token can see; finishConnection activates the
 // chosen pair (after the cross-workspace Page check) and subscribes the Page to
 // leadgen; disconnect unsubscribes the Page and clears both tokens. Every write
@@ -20,7 +21,7 @@ import { hasMinRole, type AccountRole } from '@/lib/auth/roles';
 import { decrypt, encrypt } from '@/lib/whatsapp/encryption';
 import { metaAdsConfig, missingScopes, type MetaAdsConfig } from './config';
 import {
-  exchangeLoginCode, getGrantedScopes, getOrCreateDataset, isMetaThrottle, isMetaTokenInvalid, listAdAccounts, listPages,
+  exchangeLoginToken, getGrantedScopes, getOrCreateDataset, isMetaThrottle, isMetaTokenInvalid, listAdAccounts, listPages,
   metaErrorCode, subscribePageLeadgen, unsubscribePage,
 } from './graph';
 
@@ -256,13 +257,13 @@ async function pendingTx(tx: TenantTransaction, accountId: string): Promise<{ id
 }
 
 /** Exchanges a Login for Business code and stores (or refreshes) the workspace's pending connection. */
-export async function startConnection(actor: MetaAdsActor, code: string): Promise<MetaAdConnectionDto> {
+export async function startConnection(actor: MetaAdsActor, loginToken: string): Promise<MetaAdConnectionDto> {
   const config = requireConfig();
   requireAdmin(actor);
-  if (typeof code !== 'string' || !code.trim() || code.length > 1024) throw new MetaAdsError('invalid_request');
+  if (typeof loginToken !== 'string' || !loginToken.trim() || loginToken.length > 4096) throw new MetaAdsError('invalid_request');
   const existing = await asWorker(actor, (tx) => liveRowTx(tx, actor.accountId));
   if (existing && existing.status !== 'pending') throw new MetaAdsError('already_connected');
-  const { accessToken } = await meta(() => exchangeLoginCode(config, code.trim()));
+  const { accessToken } = await meta(() => exchangeLoginToken(config, loginToken.trim()));
   const scopes = (await meta(() => getGrantedScopes(accessToken))).slice(0, 100);
   const tokenEnc = encrypt(accessToken);
   // The one-live index includes 'pending': an existing pending row is refreshed,
