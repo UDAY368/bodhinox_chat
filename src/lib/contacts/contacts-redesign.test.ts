@@ -129,7 +129,7 @@ describe('contacts table owner and consent filters, and sorting', () => {
     expect(sortFromQuery(new URLSearchParams('sort=name'))).toEqual({ sort: 'name', dir: 'asc' });
     expect(sortFromQuery(new URLSearchParams('sort=seen&dir=asc'))).toEqual({ sort: 'seen', dir: 'asc' });
     expect(sortFromQuery(new URLSearchParams('sort=password_hash;drop'))).toEqual({ sort: 'created', dir: 'desc' });
-    expect(sortSql('owner', 'desc').sql).toContain('lower(owner_name) DESC NULLS LAST');
+    expect(sortSql('owner', 'desc').sql).toMatch(/^lower\(\(SELECT p\.full_name FROM profiles p .*\)\) DESC NULLS LAST/);
     expect(sortSql('created', 'asc').values).toEqual([]);
   });
 

@@ -51,13 +51,13 @@ model contacts {
   /// Stage 5 (20261118000400): Instagram-only subscription; opted_out_at stays the contact-wide WhatsApp STOP.
   instagram_opted_out_at DateTime? @db.Timestamptz(6)
   instagram_opted_in_at DateTime? @db.Timestamptz(6)
-  /// 20261114002000: the member responsible for the contact (written by /api/contacts/[id] and bulk assign only).
+  /// 20261121000200: the member responsible for the contact (written by /api/contacts/[id] and bulk assign only).
   owner_id String? @db.Uuid
   city String?
   @@unique([account_id, id])
 }
 
-/// 20261114002000: append-only contact timeline written by member actions; detail holds ids and field names only.
+/// 20261121000200: append-only contact timeline written by member actions; detail holds ids and field names only.
 model contact_activity {
   id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))

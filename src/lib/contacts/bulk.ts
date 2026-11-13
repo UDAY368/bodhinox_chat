@@ -124,7 +124,13 @@ export function sortFromQuery(query: URLSearchParams): { sort: ContactSort; dir:
   return { sort, dir };
 }
 
-/** The ORDER BY of a sort (fixed SQL; empty values last either way, id as the tiebreak). */
+/** The owner's name of contacts row `c`. */
+const OWNER_NAME = Prisma.sql`(SELECT p.full_name FROM profiles p WHERE p.account_id=c.account_id AND p.user_id=c.owner_id LIMIT 1)`;
+/** The last message time of contacts row `c` over the conversations the member may see. */
+const LAST_SEEN = Prisma.sql`(SELECT max(v.last_message_at) FROM conversations v WHERE v.account_id=c.account_id AND v.contact_id=c.id
+  AND ${Prisma.raw(conversationVisibleSql('v'))})`;
+
+/** The ORDER BY of a sort over contacts row `c` (fixed SQL; empty values last either way, id as the tiebreak). */
 export function sortSql(sort: ContactSort, dir: 'asc' | 'desc'): Prisma.Sql {
   const d = Prisma.raw(dir === 'asc' ? 'ASC' : 'DESC');
   switch (sort) {
@@ -133,9 +139,9 @@ export function sortSql(sort: ContactSort, dir: 'asc' | 'desc'): Prisma.Sql {
     case 'city':
       return Prisma.sql`lower(NULLIF(c.city,'')) ${d} NULLS LAST, lower(c.name), c.id`;
     case 'owner':
-      return Prisma.sql`lower(owner_name) ${d} NULLS LAST, lower(c.name), c.id`;
+      return Prisma.sql`lower(${OWNER_NAME}) ${d} NULLS LAST, lower(c.name), c.id`;
     case 'seen':
-      return Prisma.sql`last_seen_at ${d} NULLS LAST, c.created_at DESC, c.id`;
+      return Prisma.sql`${LAST_SEEN} ${d} NULLS LAST, c.created_at DESC, c.id`;
     default:
       return Prisma.sql`c.created_at ${d}, c.id`;
   }
@@ -208,17 +214,20 @@ export async function scopeContacts(ctx: TenantContext, rawScope: unknown,
   return withTenant(ctx, async (tx) => {
     const maskPhones = await loadPhoneMask(tx, ctx);
     const where = await scopeWhere(tx, ctx, parsed.data, maskPhones);
+    // Pick the page first; the owner, last-seen and Instagram lookups then run for its rows
+    // only (the owner and last-seen sorts compute theirs over every match, as they must).
+    const order = sortSql(sort, dir);
     const rows = await tx.$queryRaw<(Record<string, unknown> & { total_count: number })[]>(Prisma.sql`
-      SELECT * FROM (
-        SELECT ${CONTACT_COLUMNS}, count(*) OVER()::int AS total_count,
-          (SELECT p.full_name FROM profiles p WHERE p.account_id=c.account_id AND p.user_id=c.owner_id LIMIT 1) AS owner_name,
-          (SELECT max(v.last_message_at) FROM conversations v WHERE v.account_id=c.account_id AND v.contact_id=c.id
-            AND ${Prisma.raw(conversationVisibleSql('v'))}) AS last_seen_at,
-          (SELECT i.username FROM contact_channel_identities i WHERE i.account_id=c.account_id AND i.contact_id=c.id
-            AND i.channel='instagram' ORDER BY i.created_at LIMIT 1) AS instagram_username
+      WITH page AS (
+        SELECT c.id, count(*) OVER()::int AS total_count
         FROM contacts c WHERE ${where}
-      ) c
-      ORDER BY ${sortSql(sort, dir)} LIMIT ${page.limit} OFFSET ${page.offset}`);
+        ORDER BY ${order} LIMIT ${page.limit} OFFSET ${page.offset}
+      )
+      SELECT ${CONTACT_COLUMNS}, page.total_count, ${OWNER_NAME} AS owner_name, ${LAST_SEEN} AS last_seen_at,
+        (SELECT i.username FROM contact_channel_identities i WHERE i.account_id=c.account_id AND i.contact_id=c.id
+          AND i.channel='instagram' ORDER BY i.created_at LIMIT 1) AS instagram_username
+      FROM page JOIN contacts c ON c.id = page.id AND c.account_id = ${ctx.accountId}::uuid
+      ORDER BY ${order}`);
     const total = rows[0]?.total_count ?? 0;
     return {
       contacts: rows.map((row) => {

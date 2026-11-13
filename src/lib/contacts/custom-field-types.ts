@@ -1,4 +1,4 @@
-// Typed custom fields (20261114002000). A field is text, number, date or
+// Typed custom fields (20261121000200). A field is text, number, date or
 // choice; its values stay text in contact_custom_values: a number as a plain
 // decimal string, a date as YYYY-MM-DD, a choice as one of the field's choices.
 // Every write path that knows the field (profile, bulk set, import) checks the

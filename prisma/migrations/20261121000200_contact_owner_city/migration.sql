@@ -13,7 +13,7 @@
 --                       a field's type never changes once it exists. Values stay
 --                       text in contact_custom_values (number as a decimal
 --                       string, date as YYYY-MM-DD), so every stored value stays
---                       valid. The checks are NOT VALID; 20261114002200
+--                       valid. The checks are NOT VALID; 20261121000400
 --                       validates the field_type, owner and city ones. The
 --                       choice-options check stays NOT VALID (it only concerns
 --                       the new choice fields).

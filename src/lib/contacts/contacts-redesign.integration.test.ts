@@ -1,4 +1,4 @@
-// Contacts redesign on PostgreSQL (migrations 20261114002000-2200):
+// Contacts redesign on PostgreSQL (migrations 20261121000200-0400):
 // - Profile saves change one field, record a timeline row with the field name
 //   only, refuse a duplicate number and an owner from another workspace, and
 //   never touch another workspace's contact.

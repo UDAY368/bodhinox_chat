@@ -1,5 +1,5 @@
 -- Contacts redesign: validate the checks and the owner foreign key added NOT
--- VALID in 20261114002000. Every existing contact has owner_id and city NULL,
+-- VALID in 20261121000200. Every existing contact has owner_id and city NULL,
 -- and every existing custom field is 'text' (the only type the app wrote), so
 -- all pass. VALIDATE CONSTRAINT holds SHARE UPDATE EXCLUSIVE: reads and writes
 -- continue during each scan. The choice-options check stays NOT VALID: it only

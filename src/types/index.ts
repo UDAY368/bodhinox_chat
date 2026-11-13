@@ -128,7 +128,7 @@ export interface Contact {
   name?: string;
   email?: string;
   company?: string;
-  /** Contacts redesign (20261114002000). */
+  /** Contacts redesign (20261121000200). */
   city?: string | null;
   /** The member responsible for the contact; set through PATCH /api/contacts/[id] only. */
   owner_id?: string | null;
