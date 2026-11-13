@@ -13901,6 +13901,7 @@
         "product": "상품",
         "qty": "수량",
         "removeItem": "상품 빼기",
+        "productSearch": "이름 또는 SKU로 제품 검색",
         "madeToOrder": "주문 제작",
         "stock": "재고 {count}개",
         "addItem": "상품 추가",

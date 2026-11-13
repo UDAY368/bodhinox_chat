@@ -116,11 +116,14 @@ export async function createManualOrder(ctx: StaffContext, input: ManualOrderInp
     if (!priced.ok) throw new ManualOrderError(priced.code, 409, priced.variantId);
     const quote = priced.quote;
 
-    await tx.$executeRaw`INSERT INTO orders(id,account_id,source,contact_id,conversation_id,whatsapp_config_id,currency,subtotal_minor,
+    // ON CONFLICT: a double click racing this one waits for it, then finds the order already made.
+    const inserted = await tx.$executeRaw`INSERT INTO orders(id,account_id,source,contact_id,conversation_id,whatsapp_config_id,currency,subtotal_minor,
         discount_minor,shipping_minor,tax_minor,tax_inclusive,total_minor,status,priced_at,payment_method,cod_fee_minor,note)
       VALUES(${orderId}::uuid,${ctx.accountId}::uuid,'manual',${input.contactId}::uuid,${conversation?.id ?? null}::uuid,
         ${conversation?.whatsapp_config_id ?? null}::uuid,${quote.currency},${quote.subtotalMinor},${quote.discountMinor},
-        ${quote.shippingMinor},${quote.taxMinor},${quote.taxInclusive},${quote.totalMinor},'confirmed',${now},'online',0,${input.note})`;
+        ${quote.shippingMinor},${quote.taxMinor},${quote.taxInclusive},${quote.totalMinor},'confirmed',${now},'online',0,${input.note})
+      ON CONFLICT (id) DO NOTHING`;
+    if (inserted === 0) return { orderId, created: false };
     for (const line of quote.lines) {
       const options = Object.values(line.optionValues).filter(Boolean).join(' / ');
       const name = (options ? `${line.productName} (${options})` : line.productName).slice(0, 500);

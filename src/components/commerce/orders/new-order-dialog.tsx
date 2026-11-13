@@ -9,7 +9,7 @@
  * payment links API (its durable send path and the 24-hour window rule).
  */
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { Loader2, Plus, Trash2 } from "lucide-react";
@@ -50,6 +50,9 @@ export function NewOrderDialog({ open, onOpenChange, onCreated }: {
   const [requestId, setRequestId] = useState("");
   const [busy, setBusy] = useState(false);
   const [errors, setErrors] = useState<{ contact?: string; lines?: string }>({});
+  const [productSearch, setProductSearch] = useState("");
+  /** Every variant seen in this dialog (the picker lists at most 100 per search), so a chosen line keeps its price. */
+  const [known, setKnown] = useState<Map<string, SellableVariant>>(new Map());
 
   useEffect(() => {
     if (!open) return;
@@ -61,16 +64,38 @@ export function NewOrderDialog({ open, onOpenChange, onCreated }: {
     setSendLink(true);
     setErrors({});
     setCatalogue(null);
+    setProductSearch("");
+    setKnown(new Map());
      
     let live = true;
     void listSellableVariants().then((r) => {
       if (!live) return;
       const value = r ?? { variants: [], currency: null };
       setCatalogue(value);
+      setKnown(new Map(value.variants.map((v) => [v.id, v])));
       setLines(value.variants[0] ? [{ key: 1, variantId: value.variants[0].id, qty: "1" }] : []);
     });
     return () => { live = false; };
   }, [open]);
+
+  // Product search: narrows the picker on the server (name or SKU); lines already chosen keep their product.
+  useEffect(() => {
+    if (!open || catalogue === null) return;
+    let live = true;
+    const timer = setTimeout(() => {
+      void listSellableVariants(productSearch).then((r) => {
+        if (!live || !r) return;
+        setKnown((prev) => {
+          const next = new Map(prev);
+          for (const v of r.variants) next.set(v.id, v);
+          return next;
+        });
+        setCatalogue((prev) => (prev ? { variants: r.variants, currency: r.currency ?? prev.currency } : prev));
+      });
+    }, 250);
+    return () => { live = false; clearTimeout(timer); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- refetch on the search text only
+  }, [open, productSearch]);
 
   useEffect(() => {
     if (!open) return;
@@ -84,7 +109,7 @@ export function NewOrderDialog({ open, onOpenChange, onCreated }: {
     return () => { live = false; clearTimeout(timer); };
   }, [open, search]);
 
-  const byId = useMemo(() => new Map((catalogue?.variants ?? []).map((v) => [v.id, v])), [catalogue]);
+  const byId = known;
   const currency = catalogue?.currency ?? null;
   const qtyOf = (l: Line) => Math.min(Math.max(Math.floor(Number(l.qty) || 0), 0), MAX_QTY);
   const total = lines.reduce((sum, l) => sum + (byId.get(l.variantId)?.price_minor ?? 0) * qtyOf(l), 0);
@@ -144,7 +169,7 @@ export function NewOrderDialog({ open, onOpenChange, onCreated }: {
     }
   }
 
-  const noProducts = catalogue !== null && catalogue.variants.length === 0;
+  const noProducts = catalogue !== null && known.size === 0;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -166,6 +191,10 @@ export function NewOrderDialog({ open, onOpenChange, onCreated }: {
 
           <fieldset className="space-y-2">
             <legend className="mb-1.5 text-sm font-medium">{t("items")}</legend>
+            {catalogue !== null && (
+              <Input aria-label={t("productSearch")} placeholder={t("productSearch")} value={productSearch} maxLength={100}
+                onChange={(e) => setProductSearch(e.target.value)} />
+            )}
             {catalogue === null && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
             {noProducts && <p className="text-xs text-muted-foreground">{t("noProducts")}</p>}
             {lines.map((l) => {
@@ -174,6 +203,9 @@ export function NewOrderDialog({ open, onOpenChange, onCreated }: {
                 <div key={l.key} className="flex flex-wrap items-center gap-2">
                   <select aria-label={t("product")} className={`${selectClass} flex-1 basis-48`} value={l.variantId}
                     onChange={(e) => update(l.key, { variantId: e.target.value })}>
+                    {v && !catalogue?.variants.some((opt) => opt.id === v.id) && (
+                      <option value={v.id}>{v.name} · {money(v.price_minor)}</option>
+                    )}
                     {catalogue?.variants.map((opt) => (
                       <option key={opt.id} value={opt.id}>{opt.name} · {money(opt.price_minor)}</option>
                     ))}

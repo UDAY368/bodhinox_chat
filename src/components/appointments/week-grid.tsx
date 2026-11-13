@@ -15,6 +15,10 @@ import type { ScheduleItem } from './schedule-view';
 export interface HoursRow { staff_id: string | null; location_id: string; hours: Record<string, Array<{ start: string; end: string }>> | null }
 
 const HOUR_PX = 56;
+/** The shortest a booking block is drawn (px), so a 15-minute booking stays readable. */
+const MIN_BLOCK_PX = 26;
+/** Minutes a block of MIN_BLOCK_PX covers: lanes use the drawn size so short bookings never overlap the next one. */
+const MIN_BLOCK_MINUTES = Math.ceil(((MIN_BLOCK_PX + 2) / HOUR_PX) * 60);
 const WEEKDAY_KEYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as const;
 const pad = (n: number) => String(n).padStart(2, '0');
 const toMinutes = (hhmm: string) => {
@@ -96,7 +100,10 @@ export function WeekGrid({
     const span = Math.max(15, Math.round((new Date(r.end_at).getTime() - new Date(r.start_at).getTime()) / 60_000));
     return { ...r, day: String(r.local_date).slice(0, 10), start, end: Math.min(24 * 60, start + span) };
   }), [rows]);
-  const frame = useMemo(() => gridFrame(hours, locationId, items), [hours, locationId, items]);
+  const frame = useMemo(
+    () => gridFrame(hours, locationId, items.map((i) => ({ start: i.start, end: Math.min(24 * 60, Math.max(i.end, i.start + MIN_BLOCK_MINUTES)) }))),
+    [hours, locationId, items],
+  );
   const hourList = Array.from({ length: frame.endHour - frame.startHour }, (_, i) => frame.startHour + i);
   const timeLabel = (minutes: number) => new Intl.DateTimeFormat(locale, { hour: 'numeric', minute: minutes % 60 ? '2-digit' : undefined, timeZone: 'UTC' })
     .format(new Date(Date.UTC(2020, 0, 1, Math.floor(minutes / 60), minutes % 60)));
@@ -134,7 +141,7 @@ export function WeekGrid({
             </div>
             {days.map((day) => {
               const dayItems = items.filter((i) => i.day === day);
-              const { lane, lanes } = layoutLanes(dayItems);
+              const { lane, lanes } = layoutLanes(dayItems.map((i) => ({ id: i.id, start: i.start, end: Math.max(i.end, i.start + MIN_BLOCK_MINUTES) })));
               const closed = frame.closed.has(weekdayOf(day));
               return (
                 <div
@@ -152,7 +159,7 @@ export function WeekGrid({
                 >
                   {dayItems.map((a) => {
                     const top = ((a.start - frame.startHour * 60) / 60) * HOUR_PX;
-                    const height = Math.max(26, ((a.end - a.start) / 60) * HOUR_PX - 2);
+                    const height = Math.max(MIN_BLOCK_PX, ((a.end - a.start) / 60) * HOUR_PX - 2);
                     const index = lane.get(a.id) ?? 0;
                     const short = height < 40;
                     const tone = a.status === 'completed' ? 'border-emerald-500 bg-emerald-500/14'

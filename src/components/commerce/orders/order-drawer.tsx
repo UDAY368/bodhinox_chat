@@ -187,7 +187,11 @@ export function OrderDrawer({ orderId, intent, onClose, onChanged }: {
     if (intent === "step") startStep(order);
     else if (intent === "update") openUpdate(order);
     else if (intent === "link") void sendLink(order);
-    else if (intent === "pay") setPaying(true);
+    else if (intent === "pay") {
+      // The list row cannot see whether the order is priced; only open the dialog when the payment can be recorded.
+      if (canAdmin && order.priced_at && canRecordPayment(order)) setPaying(true);
+      else toast.error(tLife("notAllowed"));
+    }
     else if (intent === "cancel") setDialog("cancel");
     else if (intent === "refund") setTimeout(() => document.getElementById("order-drawer-fulfilment")?.scrollIntoView({ block: "start" }), 50);
     // eslint-disable-next-line react-hooks/exhaustive-deps

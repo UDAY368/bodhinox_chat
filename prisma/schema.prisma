@@ -3326,7 +3326,7 @@ model sequence_message_sends {
   @@index([account_id, sequence_id, sequence_message_id], map: "sequence_message_sends_stats_idx")
 }
 
-/// Sales (20261114005000): author-stamped team notes on a deal (FORCE RLS; author or admin deletes).
+/// Sales (20261122000000): author-stamped team notes on a deal (FORCE RLS; author or admin deletes).
 model deal_notes {
   id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))

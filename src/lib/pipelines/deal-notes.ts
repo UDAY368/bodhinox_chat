@@ -56,7 +56,7 @@ export async function listDealNotes(ctx: TenantContext, dealId: string): Promise
     const rows = await tx.$queryRaw<Row[]>`
       SELECT n.id::text AS id, n.deal_id::text AS deal_id, n.body, n.created_by::text AS created_by,
         p.full_name AS author_name, n.created_at
-      FROM deal_notes n LEFT JOIN profiles p ON p.id=n.created_by
+      FROM deal_notes n LEFT JOIN profiles p ON p.user_id=n.created_by
       WHERE n.account_id=${ctx.accountId}::uuid AND n.deal_id=${dealId}::uuid
       ORDER BY n.created_at DESC, n.id DESC LIMIT 200`;
     return rows.map(toNote);
@@ -77,7 +77,7 @@ export async function addDealNote(ctx: Member, dealId: string, rawBody: unknown)
       RETURNING id::text AS id, deal_id::text AS deal_id, body, created_by::text AS created_by, NULL::text AS author_name, created_at`;
     await tx.$executeRaw`INSERT INTO audit_logs(account_id, user_id, action, resource_id, metadata)
       VALUES(${ctx.accountId}::uuid, ${ctx.userId}::uuid, 'deal.note_added', ${row.id}, ${JSON.stringify({ deal_id: dealId })}::jsonb)`;
-    const [author] = await tx.$queryRaw<{ full_name: string | null }[]>`SELECT full_name FROM profiles WHERE id=${ctx.userId}::uuid`;
+    const [author] = await tx.$queryRaw<{ full_name: string | null }[]>`SELECT full_name FROM profiles WHERE user_id=${ctx.userId}::uuid`;
     return toNote({ ...row, author_name: author?.full_name ?? null });
   });
 }
@@ -87,7 +87,7 @@ export async function deleteDealNote(ctx: Member, dealId: string, noteId: string
   if (!isDealId(dealId) || !isDealId(noteId)) throw new DealNoteError('not_found', 404);
   await withTenant(ctx, async (tx) => {
     const [note] = await tx.$queryRaw<{ created_by: string | null }[]>`SELECT created_by::text AS created_by FROM deal_notes
-      WHERE account_id=${ctx.accountId}::uuid AND deal_id=${dealId}::uuid AND id=${noteId}::uuid FOR UPDATE`;
+      WHERE account_id=${ctx.accountId}::uuid AND deal_id=${dealId}::uuid AND id=${noteId}::uuid`;
     if (!note) throw new DealNoteError('not_found', 404);
     const admin = ctx.role === 'owner' || ctx.role === 'admin';
     if (note.created_by !== ctx.userId && !admin) throw new DealNoteError('forbidden', 403);

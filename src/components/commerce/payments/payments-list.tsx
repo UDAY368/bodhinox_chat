@@ -194,6 +194,9 @@ export function PaymentLinksList() {
       const send = await sendPaymentLink(link.id, crypto.randomUUID(), t("actionFailed"));
       if (send.status === "sent") toast.success(ts("reminderSent"));
       else toast.error(ts("reminderFailed", { reason: "error" in send ? send.error : "" }));
+    } catch {
+      // The request itself failed (network): the outcome is unknown, so nothing is retried here.
+      toast.error(t("actionFailed"));
     } finally {
       setWorking(null);
     }
@@ -225,7 +228,8 @@ export function PaymentLinksList() {
 
   const recordPayment = async (link: PaymentLinkItem) => {
     if (!link.order_id) return;
-    const r = await getOrder(link.order_id);
+    const r = await getOrder(link.order_id).catch(() => null);
+    if (!r) { toast.error(t("actionFailed")); return; }
     if (!r.ok) { toast.error(t("actionFailed")); return; }
     const o = r.value;
     setPaying({ orderId: o.id, currency: o.currency, due: (o.total_minor ?? o.subtotal_minor) - o.amount_paid_minor });

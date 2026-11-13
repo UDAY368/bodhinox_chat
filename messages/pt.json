@@ -13901,6 +13901,7 @@
         "product": "Produto",
         "qty": "Quantidade",
         "removeItem": "Remover item",
+        "productSearch": "Pesquisar produtos por nome ou SKU",
         "madeToOrder": "Sob encomenda",
         "stock": "{count} em estoque",
         "addItem": "Adicionar item",
