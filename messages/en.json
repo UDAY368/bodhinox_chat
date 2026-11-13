@@ -14708,7 +14708,8 @@
         "not_scheduled": "This campaign is no longer scheduled, so it cannot be started now.",
         "already_starting": "This campaign is already starting.",
         "workspace_held": "Campaigns are on hold while this workspace is suspended. It sends once the workspace is active again.",
-        "job_missing": "This campaign can no longer be started from its schedule. Duplicate it to send it now."
+        "job_missing": "This campaign can no longer be started from its schedule. Duplicate it to send it now.",
+        "resume_paused_first": "Resume this paused campaign first, then retry its failed recipients."
       }
     },
     "recipients": {

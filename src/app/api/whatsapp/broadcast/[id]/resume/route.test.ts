@@ -195,6 +195,19 @@ describe('POST /api/whatsapp/broadcast/[id]/resume for paused and Instagram camp
     expect(h.steps).toEqual(['unpause', 'enqueue']);
   });
 
+  it('refuses a failed or all retry on a paused campaign without unpausing or queueing anything', async () => {
+    h.broadcast = { id: 'b-1', status: 'paused', scheduled_at: null, whatsapp_config_id: A };
+    for (const scope of ['failed', 'all']) {
+      const res = await POST(new Request('http://localhost/api/whatsapp/broadcast/b-1/resume', {
+        method: 'POST', body: JSON.stringify({ scope }),
+      }), { params: Promise.resolve({ id: 'b-1' }) });
+      expect(res.status).toBe(409);
+      expect(await res.json()).toMatchObject({ code: 'resume_paused_first' });
+    }
+    expect(h.unpaused).toEqual([]);
+    expect(h.enqueued).toEqual([]);
+  });
+
   it('never unpauses when campaigns.send is turned off', async () => {
     h.broadcast = { id: 'b-1', status: 'paused', scheduled_at: null, whatsapp_config_id: A };
     h.permissionDenied = true;

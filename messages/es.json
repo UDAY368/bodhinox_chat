@@ -14708,7 +14708,8 @@
         "not_scheduled": "Esta campaña ya no está programada, así que no se puede iniciar ahora.",
         "already_starting": "Esta campaña ya se está iniciando.",
         "workspace_held": "Las campañas están en espera mientras este espacio de trabajo esté suspendido. Se enviará cuando vuelva a estar activo.",
-        "job_missing": "Esta campaña ya no se puede iniciar desde su programación. Duplícala para enviarla ahora."
+        "job_missing": "Esta campaña ya no se puede iniciar desde su programación. Duplícala para enviarla ahora.",
+        "resume_paused_first": "Primero reanuda esta campaña en pausa y luego reintenta sus destinatarios fallidos."
       }
     },
     "recipients": {
