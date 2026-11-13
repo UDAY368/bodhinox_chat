@@ -1,21 +1,23 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
-import { Loader2, Upload, Trash2, Mail, CircleAlert } from 'lucide-react';
+import { Upload, Trash2, Mail, CircleAlert } from 'lucide-react';
 
 import { createClient } from '@/lib/data/client';
 import { useAuth } from '@/hooks/use-auth';
-import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { PasswordInput } from '@/components/ui/password-input';
 import { Label } from '@/components/ui/label';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card, CardContent } from '@/components/ui/card';
-import { useTranslations } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 import { SettingsPanelHead } from './settings-panel-head';
-import { BrowserNotificationsCard } from './browser-notifications-card';
+import { useSettingsDraft } from './settings-draft';
+import { saveLocale, syncLocale } from '@/lib/i18n/locale-client';
+import { APP_LOCALES, type AppLocale } from '@/lib/i18n/locales';
 
 const MAX_AVATAR_BYTES = 2 * 1024 * 1024;
 const ALLOWED_MIME = new Set([
@@ -44,6 +46,24 @@ export function ProfileForm() {
   const [pendingEmail, setPendingEmail] = useState('');
   const [currentPassword, setCurrentPassword] = useState('');
   const [mfaCode, setMfaCode] = useState('');
+  // The member's own interface language (null follows the workspace default).
+  const tLang = useTranslations('SettingsRedesign.languages');
+  const tProfile = useTranslations('SettingsRedesign.profile');
+  const router = useRouter();
+  const shownLocale = useLocale();
+  const [language, setLanguage] = useState<AppLocale | null>(null);
+  const [savedLanguage, setSavedLanguage] = useState<AppLocale | null>(null);
+  const [workspaceLanguage, setWorkspaceLanguage] = useState<AppLocale | null>(null);
+  useEffect(() => {
+    let live = true;
+    void syncLocale().then((state) => {
+      if (!live || !state) return;
+      setLanguage(state.language);
+      setSavedLanguage(state.language);
+      setWorkspaceLanguage(state.workspace_language);
+    });
+    return () => { live = false; };
+  }, []);
   const emailChanged =
     !!profile && email.trim().toLowerCase() !== profile.email.toLowerCase();
 
@@ -60,6 +80,14 @@ export function ProfileForm() {
       if (previewUrl) URL.revokeObjectURL(previewUrl);
     };
   }, [previewUrl]);
+
+  const profileDirty =
+    !!profile &&
+    (fullName.trim() !== (profile.full_name ?? '') ||
+      email.trim().toLowerCase() !== (profile.email ?? '').toLowerCase() ||
+      pendingAvatar !== null ||
+      removeAvatar);
+  const dirty = profileDirty || language !== savedLanguage;
 
   const currentAvatar =
     previewUrl ?? (!removeAvatar ? (profile?.avatar_url ?? null) : null);
@@ -99,23 +127,35 @@ export function ProfileForm() {
     setRemoveAvatar(true);
   };
 
-  const onSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!user || !profile) return;
+  const onSubmit = async (e?: React.FormEvent): Promise<boolean> => {
+    e?.preventDefault();
+    if (!user || !profile) return false;
+    if (language !== savedLanguage) {
+      try {
+        const state = await saveLocale(language);
+        setSavedLanguage(state.language);
+        if (!profileDirty) toast.success(t('profileSaved'));
+        if (state.effective !== shownLocale) router.refresh();
+      } catch {
+        toast.error(tProfile('languageFailed'));
+        return false;
+      }
+    }
+    if (!profileDirty) return true;
 
     const trimmedName = fullName.trim();
     if (!trimmedName) {
       toast.error(t('nameRequired'));
-      return;
+      return false;
     }
     const trimmedEmail = email.trim();
     if (!EMAIL_RE.test(trimmedEmail)) {
       toast.error(t('invalidEmail'));
-      return;
+      return false;
     }
     if (emailChanged && !currentPassword) {
       toast.error('Enter your current password to change your email');
-      return;
+      return false;
     }
 
     setSaving(true);
@@ -176,7 +216,7 @@ export function ProfileForm() {
           toast.error(t('emailChangeFailed', { message: emailError.message }));
           setSaving(false);
           await refreshProfile();
-          return;
+          return false;
         }
         emailSent = true;
         setPendingEmail(trimmedEmail);
@@ -193,20 +233,30 @@ export function ProfileForm() {
       toast.success(
         emailSent ? t('profileSavedEmailCheck') : t('profileSaved')
       );
+      return true;
     } catch (err) {
       const msg = err instanceof Error ? err.message : t('unknownError');
       toast.error(msg);
+      return false;
     } finally {
       setSaving(false);
     }
   };
 
-  const dirty =
-    !!profile &&
-    (fullName.trim() !== (profile.full_name ?? '') ||
-      email.trim().toLowerCase() !== (profile.email ?? '').toLowerCase() ||
-      pendingAvatar !== null ||
-      removeAvatar);
+  const discard = useCallback(() => {
+    setFullName(profile?.full_name ?? '');
+    setEmail(profile?.email ?? '');
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    setPendingAvatar(null);
+    setPreviewUrl(null);
+    setRemoveAvatar(false);
+    setCurrentPassword('');
+    setMfaCode('');
+    setLanguage(savedLanguage);
+  }, [profile, previewUrl, savedLanguage]);
+
+  // The page's Unsaved changes bar saves and discards this form.
+  useSettingsDraft('profile', { dirty, saving, save: () => onSubmit(), discard });
 
   const joined = user?.created_at
     ? new Date(user.created_at).toLocaleDateString(undefined, {
@@ -343,6 +393,26 @@ export function ProfileForm() {
               </div>
             )}
 
+            {/* Interface language: the member's own, else the workspace default. */}
+            <div className="space-y-2">
+              <Label htmlFor="profile-language" className="text-foreground">
+                {tProfile('language')}
+              </Label>
+              <select
+                id="profile-language"
+                value={language ?? ''}
+                disabled={saving}
+                onChange={(e) => setLanguage((e.target.value || null) as AppLocale | null)}
+                className="border-input bg-transparent text-foreground h-9 w-full rounded-md border px-2 text-sm sm:max-w-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <option value="">
+                  {workspaceLanguage ? tProfile('languageWorkspace', { language: tLang(workspaceLanguage) }) : tProfile('languageDefault')}
+                </option>
+                {APP_LOCALES.map((code) => <option key={code} value={code}>{tLang(code)}</option>)}
+              </select>
+              <p className="text-muted-foreground text-xs">{tProfile('languageHint')}</p>
+            </div>
+
             {/* Read-only block */}
             <div className="border-border bg-muted rounded-lg border p-4">
               <p className="text-muted-foreground mb-3 text-xs font-semibold">
@@ -377,27 +447,12 @@ export function ProfileForm() {
           </CardContent>
         </Card>
 
-        {/* Save stays in reach while the form scrolls; it lifts onto a floating pill once something changed. */}
-        <div className="sticky bottom-4 z-10 flex justify-end">
-          <div className={cn('rounded-full transition-[box-shadow,background-color,padding] duration-150',
-            dirty && 'border-border bg-card border p-1.5 shadow-lg')}>
-          <Button type="submit" disabled={saving || !dirty || !profile}>
-            {saving ? (
-              <>
-                <Loader2 className="size-4 animate-spin" />
-                {t('saving')}
-              </>
-            ) : (
-              t('saveChanges')
-            )}
-          </Button>
-          </div>
-        </div>
+        {/* Saving and discarding happen from the page's Unsaved changes bar;
+            this hidden button keeps Enter-to-save inside the form. */}
+        <button type="submit" className="sr-only" tabIndex={-1} aria-hidden disabled={saving || !dirty || !profile}>
+          {t('saveChanges')}
+        </button>
       </form>
-
-      {/* Device-scoped, so it lives outside the profile form and its
-          Save button — flipping the switch applies immediately. */}
-      <BrowserNotificationsCard className="mt-6" />
     </section>
   );
 }

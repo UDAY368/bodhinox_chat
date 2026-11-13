@@ -67,13 +67,14 @@ describe('notifyAssignedMessage', () => {
     expect(payload).not.toHaveProperty('body');
   });
 
-  it('debounces: an alert in the last few minutes (in-app or email) suppresses another', async () => {
+  it('debounces: an alert in the last few minutes (in-app, email or push) suppresses another', async () => {
     h.answers = [[{ assignee: AGENT }], [{ recent: true }]];
     await notifyAssignedMessage(tx as never, input);
     expect(h.create).not.toHaveBeenCalled();
     const check = h.queries[1];
     expect(check.sql).toContain('FROM notifications');
     expect(check.sql).toContain('FROM notification_email_queue');
+    expect(check.sql).toContain('FROM notification_push_queue');
     expect(check.values).toContain(ASSIGNED_MESSAGE_DEBOUNCE_MINUTES);
     expect(check.values).toContain(`assigned-message:${CONV}:`);
   });

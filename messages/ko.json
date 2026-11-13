@@ -4885,7 +4885,10 @@
       "connections": "회의 및 배송",
       "instagram": "Instagram",
       "privacy": "개인정보 및 접근",
-      "conversion-events": "전환 이벤트"
+      "conversion-events": "전환 이벤트",
+      "workspace": "워크스페이스",
+      "integrations": "연동",
+      "audit-log": "감사 로그"
     },
     "groups": {
       "account": "계정",
@@ -6226,7 +6229,8 @@
       "cancel": "취소",
       "recent": "최근 30일",
       "loadFailed": "전환 이벤트를 불러오지 못했어요."
-    }
+    },
+    "unsavedChanges": "저장하지 않은 변경 사항"
   },
   "SignupPage": {
     "passwordsMismatch": "비밀번호가 일치하지 않습니다",
@@ -15582,6 +15586,178 @@
       "needText": "먼저 답장을 입력하세요.",
       "replaced": "답장을 번역했습니다. 확인한 뒤 보내세요.",
       "failed": "번역하지 못했습니다. 다시 시도하세요."
+    }
+  },
+  "SettingsRedesign": {
+    "saveBar": {
+      "label": "저장하지 않은 변경 사항",
+      "unsaved": "저장하지 않은 변경 사항",
+      "discard": "취소",
+      "save": "변경 사항 저장",
+      "leaveConfirm": "저장하지 않은 변경 사항이 있습니다. 이 섹션을 떠나고 변경 사항을 버릴까요?"
+    },
+    "profile": {
+      "language": "언어",
+      "languageHint": "Bodhinox가 나에게 표시되는 언어입니다.",
+      "languageWorkspace": "워크스페이스 기본값 ({language})",
+      "languageDefault": "워크스페이스 기본값",
+      "languageFailed": "언어를 저장하지 못했습니다."
+    },
+    "workspace": {
+      "title": "워크스페이스",
+      "description": "팀 전체에 적용되는 정보입니다.",
+      "loadFailed": "워크스페이스 설정을 불러오지 못했습니다.",
+      "loading": "불러오는 중",
+      "adminsOnly": "관리자와 소유자만 이 설정을 변경할 수 있습니다.",
+      "name": "워크스페이스 이름",
+      "nameHint": "팀원에게 표시되는 이름",
+      "timezoneHint": "근무 시간과 보고서에 사용됩니다",
+      "language": "기본 언어",
+      "languageHint": "직접 언어를 고르지 않은 멤버에게 적용",
+      "languageUnset": "설정 안 함 (앱 기본값)",
+      "copyMonday": "월요일을 평일에 복사",
+      "copied": "월요일 시간을 화요일부터 금요일까지 복사했습니다",
+      "hoursHint": "이 시간 외에는 고객에게 근무 외 시간 자동 답장이 전송됩니다.",
+      "checkFields": "표시된 항목을 확인하세요",
+      "saveFailed": "워크스페이스 설정을 저장하지 못했습니다.",
+      "saved": "변경 사항을 저장했습니다",
+      "errors": {
+        "nameRequired": "워크스페이스 이름을 입력하세요",
+        "closeAfterOpen": "종료 시간은 시작 시간보다 늦어야 합니다"
+      }
+    },
+    "notifications": {
+      "checkFields": "표시된 항목을 확인하세요",
+      "saved": "변경 사항을 저장했습니다",
+      "push": "푸시",
+      "pushFor": "{event} 푸시",
+      "pushUnavailable": "이 서버에는 아직 푸시 알림이 설정되지 않았습니다.",
+      "pushTitle": "Bodhinox",
+      "pushBody": "새 알림이 있습니다",
+      "pushOn": "이 브라우저에서 푸시가 켜졌습니다",
+      "pushOff": "이 브라우저에서 푸시가 꺼졌습니다",
+      "pushDenied": "브라우저가 알림을 차단했습니다. 사이트 설정에서 허용한 뒤 다시 시도하세요.",
+      "pushUnsupported": "이 브라우저는 푸시 알림을 받을 수 없습니다.",
+      "pushFailed": "이 브라우저에서 푸시를 켜지 못했습니다.",
+      "quietTitle": "방해 금지 시간",
+      "quietPause": "이메일과 푸시 일시 중지",
+      "quietPauseHint": "앱 내 알림은 조용히 계속 쌓입니다.",
+      "quietBetween": "방해 금지 시간대",
+      "quietZone": "{zone} 기준 시간",
+      "quietStart": "방해 금지 시작",
+      "quietEnd": "방해 금지 종료",
+      "and": "~",
+      "sameTimes": "서로 다른 두 시간을 선택하세요",
+      "quietMentions": "멘션은 허용",
+      "quietMentionsHint": "팀원이 나를 멘션하면 그래도 알림을 받습니다.",
+      "deviceTitle": "이 브라우저",
+      "thisBrowser": "이 브라우저의 푸시",
+      "thisBrowserOn": "{count, plural, other {켜짐. #대의 기기에서 푸시 알림을 받습니다.}}",
+      "thisBrowserOff": "Bodhinox가 닫혀 있어도 여기에서 푸시 알림을 받으려면 켜세요.",
+      "turnOn": "켜기",
+      "turnOff": "끄기",
+      "tryIt": "테스트하기",
+      "tryItHint": "이 브라우저로 샘플 알림을 보냅니다.",
+      "sendTest": "테스트 보내기",
+      "testSent": "테스트를 보냈습니다. 곧 표시됩니다.",
+      "testBody": "테스트 알림입니다.",
+      "testShown": "테스트 알림을 표시했습니다",
+      "testNeedsPermission": "먼저 푸시 또는 브라우저 알림을 켜세요.",
+      "testFailed": "테스트 알림을 보내지 못했습니다."
+    },
+    "audit": {
+      "description": "누가 언제 무엇을 바꿨는지 보여 줍니다. 항목에는 식별자와 숫자만 표시되며 메시지 내용은 표시되지 않습니다.",
+      "export": "내보내기",
+      "nothingToExport": "내보낼 항목이 없습니다",
+      "exported": "{count, plural, other {이벤트 #개를 내보냈습니다}}",
+      "exportedTruncated": "처음 {count}개 이벤트를 내보냈습니다. 나머지를 내보내려면 필터를 좁히세요.",
+      "exportFailed": "감사 로그를 내보내지 못했습니다.",
+      "search": "이벤트 검색",
+      "person": "사람별 필터",
+      "everyone": "모든 사람",
+      "categories": "카테고리",
+      "moreFilters": "추가 필터",
+      "noMatch": "일치하는 이벤트가 없습니다",
+      "noMatchHint": "다른 단어를 입력하거나 필터를 지우세요.",
+      "clear": "필터 지우기",
+      "loading": "불러오는 중",
+      "shown": "{count, plural, other {이벤트 #개 표시}}",
+      "chips": {
+        "all": "전체",
+        "team": "팀",
+        "channels": "채널",
+        "billing": "결제",
+        "security": "보안",
+        "integrations": "연동",
+        "settings": "설정",
+        "other": "기타"
+      }
+    },
+    "team": {
+      "tabs": "팀 섹션",
+      "members": "멤버",
+      "groups": "그룹",
+      "permissions": "권한",
+      "seats": "{total}석 중 {used}석 사용 중",
+      "seatsOnPlan": "{plan} 요금제 {total}석 중 {used}석 사용 중"
+    },
+    "channels": {
+      "tabs": "채널",
+      "overview": "개요",
+      "whatsapp": "WhatsApp",
+      "instagram": "Instagram"
+    },
+    "integrations": {
+      "title": "연동",
+      "description": "이미 사용하는 도구를 연결하세요.",
+      "connected": "연결됨",
+      "attention": "확인 필요",
+      "disconnected": "연결 끊김",
+      "notConnected": "연결 안 됨",
+      "manage": "관리",
+      "setUp": "설정",
+      "apps": {
+        "shopify": {
+          "name": "Shopify",
+          "text": "스토어, 주문, 장바구니 이탈을 동기화합니다."
+        },
+        "woocommerce": {
+          "name": "WooCommerce",
+          "text": "WordPress 쇼핑몰의 주문을 가져옵니다."
+        },
+        "razorpay": {
+          "name": "Razorpay",
+          "text": "결제 링크를 보내고 결제를 추적합니다."
+        },
+        "zoom": {
+          "name": "Zoom",
+          "text": "예약된 약속에 회의 링크를 추가합니다."
+        },
+        "shiprocket": {
+          "name": "Shiprocket",
+          "text": "배송을 만들고 배송 추적 업데이트를 보냅니다."
+        },
+        "sheets": {
+          "name": "Google Sheets",
+          "text": "플로우에서 시트에 행을 추가합니다."
+        },
+        "webhooks": {
+          "name": "웹훅",
+          "text": "이벤트가 생길 때마다 내 시스템으로 보냅니다."
+        }
+      }
+    },
+    "quickReplies": {
+      "search": "빠른 답장 검색",
+      "noMatch": "일치하는 항목이 없습니다",
+      "noMatchHint": "다른 단어로 검색해 보세요.",
+      "clear": "검색 지우기"
+    },
+    "languages": {
+      "en": "영어 (English)",
+      "es": "스페인어 (Español)",
+      "ko": "한국어",
+      "pt": "포르투갈어 (Português)"
     }
   }
 }

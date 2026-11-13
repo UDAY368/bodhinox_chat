@@ -17,6 +17,7 @@ import {
   viewedConversationFromLocation,
   type NotificationLabels,
 } from "@/lib/notifications/browser-notify";
+import { isQuietNow } from "@/lib/notifications/quiet-hours-store";
 
 const serverSnapshot = () => false;
 
@@ -128,6 +129,8 @@ export function useBrowserNotifications(): void {
           // Re-check every time: the user can revoke permission in the
           // browser without the preference flipping.
           if (getNotificationPermission() !== "granted") return;
+          // The member's quiet hours (Settings › Notifications) hold desktop alerts back too.
+          if (isQuietNow()) return;
           const msg = payload.new as unknown as Message;
           const shouldNotify = shouldNotifyForMessage(msg, {
             documentVisible: document.visibilityState === "visible",

@@ -7,7 +7,7 @@ import { NextIntlClientProvider } from 'next-intl';
 import { describe, expect, it } from 'vitest';
 
 import { SettingsRail } from './settings-rail';
-import { CHANNEL_SECTIONS, hiddenSections, resolveSection, SETTINGS_SECTIONS, visibleSection } from './settings-sections';
+import { CHANNEL_SECTIONS, hiddenSections, railSection, resolveSection, SETTINGS_SECTIONS, visibleSection } from './settings-sections';
 import { CHANNELS_SETTINGS_PATH, channelSettingsPath } from '@/lib/channels/routes';
 
 const render = (hidden?: ReadonlySet<(typeof SETTINGS_SECTIONS)[number]>) =>
@@ -45,22 +45,48 @@ describe('settings sections per channel', () => {
 });
 
 describe('SettingsRail', () => {
-  it('shows every tab, including Channels, when nothing is hidden', () => {
+  it('shows one Channels entry (WhatsApp and Instagram are its tabs), and the redesign sections', () => {
     const html = render();
-    expect(html).toContain('Settings.sections.whatsapp');
-    expect(html).toContain('Settings.sections.instagram');
-    expect(html).toContain('Settings.sections.templates');
     expect(html).toContain('Channels.settings.title');
+    expect(html).toContain('Settings.sections.templates');
+    expect(html).not.toContain('Settings.sections.whatsapp');
+    expect(html).not.toContain('Settings.sections.instagram');
+    for (const section of ['workspace', 'integrations', 'audit-log']) expect(html).toContain(`Settings.sections.${section}`);
+    // Payments and Meetings & shipping are cards in Integrations now.
+    expect(html).not.toContain('Settings.sections.payments');
+    expect(html).not.toContain('Settings.sections.connections');
   });
 
-  it('drops the tabs of a disabled channel', () => {
+  it('drops the templates tab of a disabled WhatsApp channel', () => {
     const instagramOnly = render(hiddenSections(['instagram']));
-    expect(instagramOnly).not.toContain('Settings.sections.whatsapp');
     expect(instagramOnly).not.toContain('Settings.sections.templates');
-    expect(instagramOnly).toContain('Settings.sections.instagram');
-    const whatsappOnly = render(hiddenSections(['whatsapp']));
-    expect(whatsappOnly).not.toContain('Settings.sections.instagram');
-    expect(whatsappOnly).toContain('Settings.sections.whatsapp');
-    expect(whatsappOnly).toContain('Channels.settings.title');
+    expect(instagramOnly).toContain('Channels.settings.title');
+  });
+
+  it('marks the parent entry active for a child section, and sections with unsaved changes', () => {
+    const html = renderToStaticMarkup(
+      <NextIntlClientProvider locale="en" messages={{}} onError={() => {}} getMessageFallback={({ namespace, key }) => `${namespace}.${key}`}>
+        <SettingsRail active={railSection('whatsapp')} onSelect={() => {}} unsaved={new Set(['workspace'])} />
+      </NextIntlClientProvider>,
+    );
+    const current = html.split('<button').find((button) => button.includes('aria-current="page"')) ?? '';
+    expect(current).toContain('Channels.settings.title');
+    expect(html).toContain('Settings.unsavedChanges');
+  });
+});
+
+describe('redesign sections', () => {
+  it('opens old links inside their new home and keeps every old tab value valid', () => {
+    expect(railSection('whatsapp')).toBe('channels');
+    expect(railSection('instagram')).toBe('channels');
+    expect(railSection('payments')).toBe('integrations');
+    expect(railSection('connections')).toBe('integrations');
+    expect(railSection('api')).toBe('api');
+    for (const tab of ['payments', 'connections', 'api', 'members', 'workspace', 'integrations', 'audit-log'])
+      expect(resolveSection(tab)).toBe(tab);
+  });
+
+  it('sends a hidden audit log link to the Overview, not to Channels', () => {
+    expect(visibleSection('audit-log', new Set(['audit-log']))).toBe('overview');
   });
 });

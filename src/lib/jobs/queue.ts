@@ -5,7 +5,7 @@ import { assertLiveEffects } from '@/lib/runtime/dry-run-guard';
 
 export interface Job { id: string; type: string; tenant_id: string | null; payload: Record<string, unknown>; attempts: number; max_attempts: number; lease_token: string }
 export interface JobOptions { tenantId?: string; runAt?: Date; dedupeKey?: string; maxAttempts?: number; requeueCompleted?: boolean }
-const types = new Set(['whatsapp.webhook', 'inbound.actions', 'automation.trigger', 'broadcast.dispatch', 'webhook.delivery', 'automation.resume', 'automation.schedule', 'flow.sweep', 'flow.timer', 'whatsapp.health_sync', 'inbox.notification_digest', 'whatsapp.status_retry',
+const types = new Set(['whatsapp.webhook', 'inbound.actions', 'automation.trigger', 'broadcast.dispatch', 'webhook.delivery', 'automation.resume', 'automation.schedule', 'flow.sweep', 'flow.timer', 'whatsapp.health_sync', 'inbox.notification_digest', 'inbox.notification_push', 'whatsapp.status_retry',
   'instagram.token_sweep', 'instagram.profile_fetch', 'instagram.private_reply', 'instagram.resubscribe',
   // Phase 12: replay of a failed flow run, and due scheduled reports per workspace.
   'flow.replay', 'analytics.report_schedules',

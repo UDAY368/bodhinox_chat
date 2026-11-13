@@ -22,6 +22,9 @@ import {
   LockKeyhole,
   Layers,
   Target,
+  Building2,
+  Plug,
+  ScrollText,
 } from 'lucide-react';
 import type { Channel } from '@/types';
 
@@ -37,12 +40,15 @@ export const SETTINGS_SECTIONS = [
   'overview',
   'profile',
   'security',
-  'appearance',
   'notifications',
+  'appearance',
   'privacy',
+  // Settings redesign: name, time zone, default language and working hours.
+  'workspace',
   'channels',
   'whatsapp',
   'instagram',
+  'members',
   'inbox',
   'media',
   'templates',
@@ -51,12 +57,14 @@ export const SETTINGS_SECTIONS = [
   // Stage 5: named conversion events for flows (5F builds the panel).
   'conversion-events',
   'deals',
-  'members',
   'plan',
+  // Settings redesign: one card grid for the connected tools.
+  'integrations',
   'payments',
   'connections',
   'ads',
   'api',
+  'audit-log',
 ] as const;
 
 export type SettingsSection = (typeof SETTINGS_SECTIONS)[number];
@@ -73,6 +81,12 @@ export interface SectionMeta {
   label: string;
   icon: LucideIcon;
   group: 'top' | 'account' | 'workspace' | 'billing';
+  /**
+   * Shown inside another section rather than as its own rail entry (the
+   * redesign's one Channels and one Integrations section). Its `?tab=` still
+   * works and opens the parent with this part selected.
+   */
+  parent?: SettingsSection;
 }
 
 export const SECTION_META: Record<SettingsSection, SectionMeta> = {
@@ -107,14 +121,16 @@ export const SECTION_META: Record<SettingsSection, SectionMeta> = {
     group: 'account',
   },
   privacy: { id: 'privacy', label: 'Privacy & access', icon: LockKeyhole, group: 'account' },
+  workspace: { id: 'workspace', label: 'Workspace', icon: Building2, group: 'workspace' },
   channels: { id: 'channels', label: 'Channels', icon: Layers, group: 'workspace' },
   whatsapp: {
     id: 'whatsapp',
     label: 'WhatsApp',
     icon: PlugZap,
     group: 'workspace',
+    parent: 'channels',
   },
-  instagram: { id: 'instagram', label: 'Instagram', icon: AtSign, group: 'workspace' },
+  instagram: { id: 'instagram', label: 'Instagram', icon: AtSign, group: 'workspace', parent: 'channels' },
   inbox: { id: 'inbox', label: 'Inbox', icon: Inbox, group: 'workspace' },
   media: { id: 'media', label: 'Media library', icon: Images, group: 'workspace' },
   templates: {
@@ -148,11 +164,13 @@ export const SECTION_META: Record<SettingsSection, SectionMeta> = {
     icon: UsersRound,
     group: 'workspace',
   },
-  payments: { id: 'payments', label: 'Payments', icon: CreditCard, group: 'billing' },
-  connections: { id: 'connections', label: 'Meetings & shipping', icon: Truck, group: 'billing' },
+  integrations: { id: 'integrations', label: 'Integrations', icon: Plug, group: 'billing' },
+  payments: { id: 'payments', label: 'Payments', icon: CreditCard, group: 'billing', parent: 'integrations' },
+  connections: { id: 'connections', label: 'Meetings & shipping', icon: Truck, group: 'billing', parent: 'integrations' },
   ads: { id: 'ads', label: 'Ads', icon: Megaphone, group: 'billing' },
   api: { id: 'api', label: 'API & webhooks', icon: KeyRound, group: 'billing' },
   plan: { id: 'plan', label: 'Plan & usage', icon: Gauge, group: 'billing' },
+  'audit-log': { id: 'audit-log', label: 'Audit log', icon: ScrollText, group: 'billing' },
 };
 
 export const RAIL_GROUPS: {
@@ -164,6 +182,16 @@ export const RAIL_GROUPS: {
   { label: 'Workspace', group: 'workspace' },
   { label: 'Account', group: 'billing' },
 ];
+
+/** The rail entry that shows a section: its parent, or itself. */
+export function railSection(section: SettingsSection): SettingsSection {
+  return SECTION_META[section].parent ?? section;
+}
+
+/** Sections the rail lists (no parented ones). */
+export function isRailSection(section: SettingsSection): boolean {
+  return !SECTION_META[section].parent;
+}
 
 function isSection(value: string | null): value is SettingsSection {
   return !!value && (SETTINGS_SECTIONS as readonly string[]).includes(value);
@@ -213,5 +241,7 @@ export function hiddenSections(enabled: readonly Channel[] | null): ReadonlySet<
  * does not use.
  */
 export function visibleSection(section: SettingsSection, hidden: ReadonlySet<SettingsSection>): SettingsSection {
-  return hidden.has(section) ? 'channels' : section;
+  if (!hidden.has(section)) return section;
+  // The audit log is hidden from members who may not read it; they land on the Overview.
+  return section === 'audit-log' ? DEFAULT_SECTION : 'channels';
 }

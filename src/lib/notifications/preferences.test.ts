@@ -6,8 +6,14 @@ describe('mergePreferences', () => {
   it('lists every event, stored values over in-app-only defaults', () => {
     const merged = mergePreferences([{ event: 'mention', in_app: false, email: true }, { event: 'retired_event', in_app: true, email: true }]);
     expect(merged.map((p) => p.event)).toEqual([...NOTIFICATION_EVENTS]);
-    expect(merged.find((p) => p.event === 'mention')).toEqual({ event: 'mention', in_app: false, email: true });
-    expect(merged.find((p) => p.event === 'sla_breach')).toEqual({ event: 'sla_breach', in_app: true, email: false });
+    expect(merged.find((p) => p.event === 'mention')).toEqual({ event: 'mention', in_app: false, email: true, push: false });
+    expect(merged.find((p) => p.event === 'sla_breach')).toEqual({ event: 'sla_breach', in_app: true, email: false, push: false });
+  });
+
+  it('keeps a stored push switch and defaults push to off', () => {
+    const merged = mergePreferences([{ event: 'mention', in_app: true, email: false, push: true }]);
+    expect(merged.find((p) => p.event === 'mention')?.push).toBe(true);
+    expect(merged.filter((p) => p.event !== 'mention').every((p) => p.push === false)).toBe(true);
   });
 });
 
@@ -17,7 +23,14 @@ describe('parsePreferenceUpdate', () => {
       .toEqual([{ event: 'campaign_finished', in_app: true, email: true }]);
   });
 
+  it('accepts an optional push switch and leaves it out when not sent', () => {
+    expect(parsePreferenceUpdate({ preferences: [{ event: 'mention', in_app: true, email: false, push: true }] }))
+      .toEqual([{ event: 'mention', in_app: true, email: false, push: true }]);
+    expect(parsePreferenceUpdate({ preferences: [{ event: 'mention', in_app: true, email: false }] })[0]).not.toHaveProperty('push');
+  });
+
   it.each([
+    { preferences: [{ event: 'mention', in_app: true, email: true, push: 'yes' }] },
     null,
     {},
     { preferences: [] },

@@ -29,7 +29,7 @@ export const assignedMessageKeyPrefix = (conversationId: string) => `assigned-me
  * inserted the inbound message, after the conversation row is locked, so
  * concurrent messages for one conversation are serialised and a rollback
  * drops the alert with the message. The debounce looks at both the in-app row
- * and the email entry, so it also holds for a member with in-app turned off.
+ * and the email and push entries, so it also holds for a member with in-app turned off.
  */
 export async function notifyAssignedMessage(
   tx: TenantTransaction,
@@ -48,6 +48,10 @@ export async function notifyAssignedMessage(
           AND conversation_id=${input.conversationId}::uuid
           AND created_at > now() - make_interval(mins => ${ASSIGNED_MESSAGE_DEBOUNCE_MINUTES}))
       OR EXISTS (SELECT 1 FROM notification_email_queue
+        WHERE account_id=${input.accountId}::uuid AND user_id=${assignee}::uuid AND event='assigned_message'
+          AND starts_with(dedupe_key, ${prefix})
+          AND created_at > now() - make_interval(mins => ${ASSIGNED_MESSAGE_DEBOUNCE_MINUTES}))
+      OR EXISTS (SELECT 1 FROM notification_push_queue
         WHERE account_id=${input.accountId}::uuid AND user_id=${assignee}::uuid AND event='assigned_message'
           AND starts_with(dedupe_key, ${prefix})
           AND created_at > now() - make_interval(mins => ${ASSIGNED_MESSAGE_DEBOUNCE_MINUTES}))

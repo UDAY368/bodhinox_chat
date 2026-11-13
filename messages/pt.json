@@ -4885,7 +4885,10 @@
       "connections": "Reuniões e envios",
       "instagram": "Instagram",
       "privacy": "Privacidade e acesso",
-      "conversion-events": "Eventos de conversão"
+      "conversion-events": "Eventos de conversão",
+      "workspace": "Espaço de trabalho",
+      "integrations": "Integrações",
+      "audit-log": "Registro de auditoria"
     },
     "groups": {
       "account": "Conta",
@@ -6226,7 +6229,8 @@
       "cancel": "Cancelar",
       "recent": "Últimos 30 dias",
       "loadFailed": "Não foi possível carregar os eventos de conversão."
-    }
+    },
+    "unsavedChanges": "Alterações não salvas"
   },
   "SignupPage": {
     "passwordsMismatch": "As senhas não coincidem",
@@ -15582,6 +15586,178 @@
       "needText": "Escreva uma resposta primeiro.",
       "replaced": "Resposta traduzida. Revise e depois envie.",
       "failed": "A tradução não deu certo. Tente novamente."
+    }
+  },
+  "SettingsRedesign": {
+    "saveBar": {
+      "label": "Alterações não salvas",
+      "unsaved": "Alterações não salvas",
+      "discard": "Descartar",
+      "save": "Salvar alterações",
+      "leaveConfirm": "Você tem alterações não salvas. Sair desta seção e descartá-las?"
+    },
+    "profile": {
+      "language": "Idioma",
+      "languageHint": "O idioma em que o Bodhinox aparece para você.",
+      "languageWorkspace": "Padrão do espaço ({language})",
+      "languageDefault": "Padrão do espaço",
+      "languageFailed": "Não foi possível salvar seu idioma."
+    },
+    "workspace": {
+      "title": "Espaço de trabalho",
+      "description": "Dados que valem para toda a equipe.",
+      "loadFailed": "Não foi possível carregar as configurações do espaço de trabalho.",
+      "loading": "Carregando",
+      "adminsOnly": "Somente administradores e proprietários podem alterar estas configurações.",
+      "name": "Nome do espaço",
+      "nameHint": "Sua equipe vê este nome",
+      "timezoneHint": "Usado no horário de atendimento e nos relatórios",
+      "language": "Idioma padrão",
+      "languageHint": "Para membros que não escolheram o próprio",
+      "languageUnset": "Não definido (padrão do app)",
+      "copyMonday": "Copiar segunda para os dias úteis",
+      "copied": "Segunda copiada de terça a sexta",
+      "hoursHint": "Fora deste horário, os clientes recebem sua resposta de fora do expediente.",
+      "checkFields": "Confira os campos marcados",
+      "saveFailed": "Não foi possível salvar as configurações do espaço de trabalho.",
+      "saved": "Alterações salvas",
+      "errors": {
+        "nameRequired": "Informe um nome para o espaço",
+        "closeAfterOpen": "O horário de fechamento deve ser depois do de abertura"
+      }
+    },
+    "notifications": {
+      "checkFields": "Confira os campos marcados",
+      "saved": "Alterações salvas",
+      "push": "Push",
+      "pushFor": "Push para {event}",
+      "pushUnavailable": "As notificações push ainda não estão configuradas neste servidor.",
+      "pushTitle": "Bodhinox",
+      "pushBody": "Você tem uma nova notificação",
+      "pushOn": "Push ativado neste navegador",
+      "pushOff": "Push desativado neste navegador",
+      "pushDenied": "O navegador bloqueou as notificações. Permita nas configurações do site e tente de novo.",
+      "pushUnsupported": "Este navegador não recebe notificações push.",
+      "pushFailed": "Não foi possível ativar o push neste navegador.",
+      "quietTitle": "Horário de silêncio",
+      "quietPause": "Pausar e-mail e push",
+      "quietPauseHint": "As notificações no app continuam chegando em silêncio.",
+      "quietBetween": "Silêncio entre",
+      "quietZone": "Horários em {zone}",
+      "quietStart": "Início do horário de silêncio",
+      "quietEnd": "Fim do horário de silêncio",
+      "and": "e",
+      "sameTimes": "Escolha dois horários diferentes",
+      "quietMentions": "Deixar menções passarem",
+      "quietMentionsHint": "Um colega que mencionar você ainda consegue avisá-lo.",
+      "deviceTitle": "Este navegador",
+      "thisBrowser": "Push neste navegador",
+      "thisBrowserOn": "{count, plural, one {Ativado. Este é seu único dispositivo.} other {Ativado. # dispositivos recebem suas notificações push.}}",
+      "thisBrowserOff": "Ative para receber notificações push aqui, mesmo com o Bodhinox fechado.",
+      "turnOn": "Ativar",
+      "turnOff": "Desativar",
+      "tryIt": "Experimente",
+      "tryItHint": "Envia uma notificação de exemplo para este navegador.",
+      "sendTest": "Enviar um teste",
+      "testSent": "Teste enviado. Ele aparece em instantes.",
+      "testBody": "Esta é uma notificação de teste.",
+      "testShown": "Notificação de teste exibida",
+      "testNeedsPermission": "Ative o push ou as notificações do navegador primeiro.",
+      "testFailed": "Não foi possível enviar a notificação de teste."
+    },
+    "audit": {
+      "description": "Quem mudou o quê, e quando. As entradas mostram identificadores e contagens, nunca o conteúdo das mensagens.",
+      "export": "Exportar",
+      "nothingToExport": "Não há nada para exportar",
+      "exported": "{count, plural, one {# evento exportado} other {# eventos exportados}}",
+      "exportedTruncated": "Os primeiros {count} eventos foram exportados. Refine os filtros para exportar o restante.",
+      "exportFailed": "Não foi possível exportar o registro de auditoria.",
+      "search": "Buscar eventos",
+      "person": "Filtrar por pessoa",
+      "everyone": "Todos",
+      "categories": "Categorias",
+      "moreFilters": "Mais filtros",
+      "noMatch": "Nenhum evento encontrado",
+      "noMatchHint": "Tente outra palavra ou limpe os filtros.",
+      "clear": "Limpar filtros",
+      "loading": "Carregando",
+      "shown": "{count, plural, one {# evento exibido} other {# eventos exibidos}}",
+      "chips": {
+        "all": "Todos",
+        "team": "Equipe",
+        "channels": "Canais",
+        "billing": "Cobrança",
+        "security": "Segurança",
+        "integrations": "Integrações",
+        "settings": "Configurações",
+        "other": "Outros"
+      }
+    },
+    "team": {
+      "tabs": "Seções da equipe",
+      "members": "Membros",
+      "groups": "Grupos",
+      "permissions": "Permissões",
+      "seats": "{used} de {total} assentos em uso",
+      "seatsOnPlan": "{used} de {total} assentos em uso no plano {plan}"
+    },
+    "channels": {
+      "tabs": "Canais",
+      "overview": "Visão geral",
+      "whatsapp": "WhatsApp",
+      "instagram": "Instagram"
+    },
+    "integrations": {
+      "title": "Integrações",
+      "description": "Conecte as ferramentas que você já usa.",
+      "connected": "Conectado",
+      "attention": "Precisa de atenção",
+      "disconnected": "Desconectado",
+      "notConnected": "Não conectado",
+      "manage": "Gerenciar",
+      "setUp": "Configurar",
+      "apps": {
+        "shopify": {
+          "name": "Shopify",
+          "text": "Sincronize sua loja, pedidos e carrinhos abandonados."
+        },
+        "woocommerce": {
+          "name": "WooCommerce",
+          "text": "Traga os pedidos da sua loja WordPress."
+        },
+        "razorpay": {
+          "name": "Razorpay",
+          "text": "Envie links de pagamento e acompanhe os pagamentos."
+        },
+        "zoom": {
+          "name": "Zoom",
+          "text": "Adicione links de reunião aos agendamentos."
+        },
+        "shiprocket": {
+          "name": "Shiprocket",
+          "text": "Crie envios e mande atualizações de rastreio."
+        },
+        "sheets": {
+          "name": "Google Sheets",
+          "text": "Adicione linhas a uma planilha a partir dos fluxos."
+        },
+        "webhooks": {
+          "name": "Webhooks",
+          "text": "Envie eventos para seus sistemas assim que acontecem."
+        }
+      }
+    },
+    "quickReplies": {
+      "search": "Buscar respostas rápidas",
+      "noMatch": "Nada encontrado",
+      "noMatchHint": "Tente outra palavra.",
+      "clear": "Limpar busca"
+    },
+    "languages": {
+      "en": "Inglês (English)",
+      "es": "Espanhol (Español)",
+      "ko": "Coreano (한국어)",
+      "pt": "Português"
     }
   }
 }

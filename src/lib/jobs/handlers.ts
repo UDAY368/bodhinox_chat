@@ -100,6 +100,9 @@ export async function scheduleWork() {
     .catch(() => console.error('[worker] inbox follow-up scheduling failed'));
   // Notification email digests every 30 minutes per workspace; nothing while SMTP is not configured.
   await scheduleNotificationDigests().catch(() => console.error('[worker] notification digest scheduling failed'));
+  // Browser push wake-ups every 30 seconds per workspace; nothing while VAPID keys are not configured.
+  await import('@/lib/notifications/push-delivery').then((m) => m.scheduleNotificationPushes())
+    .catch(() => console.error('[worker] notification push scheduling failed'));
   // Billing grace expiry, trial ends, scheduled changes and unconfirmed provider calls; nothing while billing is off.
   await import('@/lib/billing/subscriptions').then((m) => m.scheduleBillingSweeps())
     .catch(() => console.error('[worker] billing sweep scheduling failed'));
@@ -429,6 +432,9 @@ export async function handleJob(job: Job, assertLease: () => void = () => {}) {
     else if (job.type === NOTIFICATION_DIGEST_JOB)
       // Entries are claimed before sending; only a provably undelivered email is retried.
       await sendNotificationDigest(accountId);
+    else if (job.type === 'inbox.notification_push')
+      // Entries are claimed before sending, so a retried job never wakes a device twice for one entry.
+      await (await import('@/lib/notifications/push-delivery')).sendNotificationPushes(accountId);
     else if (job.type === 'payments.razorpay_event')
       // One verified Razorpay delivery: link status; a paid link is settled only after an authoritative fetch.
       await (await import('@/lib/payments/links')).handlePaymentEventJob(accountId, job.payload);

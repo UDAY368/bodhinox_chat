@@ -577,6 +577,7 @@ model accounts {
   created_at DateTime @db.Timestamptz(6) @default(now())
   updated_at DateTime @db.Timestamptz(6) @default(now())
   default_currency String  @default("USD")
+  default_language String?
 }
 
 model account_invitations {
@@ -1374,6 +1375,7 @@ model notification_preferences {
   event String
   in_app Boolean  @default(true)
   email Boolean  @default(false)
+  push Boolean  @default(false)
   @@id([account_id, user_id, event])
 }
 
@@ -1389,6 +1391,44 @@ model notification_email_queue {
   dedupe_key String?
   created_at DateTime @db.Timestamptz(6) @default(now())
   sent_at DateTime? @db.Timestamptz(6)
+  @@unique([account_id, id])
+}
+
+model member_preferences {
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  user_id String @db.Uuid
+  language String?
+  quiet_enabled Boolean @default(false)
+  quiet_start Int @db.SmallInt @default(1320)
+  quiet_end Int @db.SmallInt @default(420)
+  quiet_time_zone String @default("UTC")
+  quiet_allow_mentions Boolean @default(true)
+  updated_at DateTime @db.Timestamptz(6) @default(now())
+  @@id([account_id, user_id])
+}
+
+model push_subscriptions {
+  id String @db.Uuid @id @default(dbgenerated("gen_random_uuid()"))
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  user_id String @db.Uuid
+  endpoint String
+  p256dh String
+  auth String
+  created_at DateTime @db.Timestamptz(6) @default(now())
+  last_sent_at DateTime? @db.Timestamptz(6)
+  @@unique([account_id, user_id, endpoint])
+}
+
+model notification_push_queue {
+  id String @db.Uuid @id @default(dbgenerated("gen_random_uuid()"))
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  user_id String @db.Uuid
+  event String
+  notification_id String? @db.Uuid
+  dedupe_key String?
+  created_at DateTime @db.Timestamptz(6) @default(now())
+  sent_at DateTime? @db.Timestamptz(6)
+  outcome String?
   @@unique([account_id, id])
 }
 
