@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { fixtures, login } from './fixtures';
+import { fixtures, login, settled } from './fixtures';
 
 // The app frame is exactly one screen tall and its content area scrolls inside
 // it. Nothing on a page may make the browser window itself scroll: that pushes
@@ -26,7 +26,7 @@ test('no app page scrolls the browser window', async ({ page }) => {
   for (const path of PAGES) {
     await test.step(path, async () => {
       await page.goto(path);
-      await page.waitForLoadState('networkidle');
+      await settled(page);
       // Scroll the content area to its end, as a reader would.
       await page.evaluate(() => {
         const main = document.querySelector('main');

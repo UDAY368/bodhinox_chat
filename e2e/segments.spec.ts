@@ -39,7 +39,8 @@ test.describe('segments and export', () => {
     await page.goto('/contacts');
     await expect(page.getByLabel('Segment', { exact: true })).toBeVisible();
     await page.goto('/contacts/segments');
-    await expect(page.getByRole('heading', { name: 'Contacts' })).toBeVisible();
+    // The app header repeats the page title; the Contacts tabs carry their own h1.
+    await expect(page.getByRole('main').getByRole('heading', { name: 'Contacts', level: 1 })).toBeVisible();
     await expect(page.getByRole('button', { name: 'New segment' })).toHaveCount(0);
   });
 

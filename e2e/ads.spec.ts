@@ -61,8 +61,9 @@ test.describe('ads with META_ADS_ENABLED unset', () => {
 
   test('an agent saves a segment of contacts who clicked an ad and broadcasts to it', async ({ page }) => {
     await login(page, fixtures().users.agent);
-    await page.goto('/contacts');
-    await page.getByRole('button', { name: 'New segment' }).click();
+    // Segments live on their own tab (Contacts > Segments) as cards.
+    await page.goto('/contacts/segments');
+    await page.getByRole('button', { name: 'New segment' }).first().click();
     const dialog = page.getByRole('dialog');
     await dialog.getByLabel('Name', { exact: true }).fill(`Ad clickers ${fixtures().runId}`);
     const row = dialog.getByTestId('segment-condition');
@@ -70,18 +71,27 @@ test.describe('ads with META_ADS_ENABLED unset', () => {
     await expect(dialog.getByTestId('segment-count')).toBeVisible();
     await dialog.getByRole('button', { name: 'Save segment' }).click();
     await expect(dialog).toBeHidden();
+    // View people opens the People tab filtered by the new segment.
+    const card = page.locator('article').filter({ hasText: `Ad clickers ${fixtures().runId}` });
+    await card.getByRole('button', { name: 'View people' }).click();
+    await expect(page).toHaveURL(/\/contacts\?segment=/);
     await expect(page.getByLabel('Segment', { exact: true })).toHaveValue(/.+/);
     const segmentId = await page.getByLabel('Segment', { exact: true }).inputValue();
 
     // "Broadcast to these leads" opens /broadcasts/new?segmentId=...; the
     // audience step must start on that segment, not on all contacts.
+    // Details come first (name and channel), then the template, then the audience.
     await page.goto(`/broadcasts/new?segmentId=${encodeURIComponent(segmentId)}`);
+    await page.getByLabel('Name', { exact: true }).fill(`Ad clickers ${fixtures().runId}`);
+    await page.getByRole('button', { name: 'Next', exact: true }).click();
     await page.getByRole('button', { name: /e2e_template/ }).click();
     await page.getByRole('button', { name: 'Next', exact: true }).click();
     await expect(page.getByLabel('Choose a segment')).toHaveValue(segmentId);
 
     // An id that is not one of this workspace's segments is ignored.
     await page.goto('/broadcasts/new?segmentId=00000000-0000-0000-0000-000000000000');
+    await page.getByLabel('Name', { exact: true }).fill(`Ad clickers ${fixtures().runId}`);
+    await page.getByRole('button', { name: 'Next', exact: true }).click();
     await page.getByRole('button', { name: /e2e_template/ }).click();
     await page.getByRole('button', { name: 'Next', exact: true }).click();
     await expect(page.getByLabel('Choose a segment')).toHaveCount(0);

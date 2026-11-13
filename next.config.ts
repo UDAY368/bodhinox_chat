@@ -89,6 +89,11 @@ const nextConfig: NextConfig = {
   // That log write is seen by the watcher, which rebuilds, reloads the
   // page and logs again - an endless compile loop on Windows.
   logging: { browserToTerminal: false },
+  // Dev-only as well: Next 16 still appends every browser console line to
+  // .next/dev/logs/next-development.log while its dev MCP server is on (the
+  // default), whatever browserToTerminal says. On Windows that write triggers
+  // the same rebuild-and-reload loop (seen as e2e logins stuck on /login).
+  experimental: { mcpServer: false },
 
   /**
    * Cross-origin dev access (Next.js 16).

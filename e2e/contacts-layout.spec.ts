@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { fixtures, login } from './fixtures';
+import { fixtures, login, settled } from './fixtures';
 
 // The Contacts pages (People, Segments, Custom fields and the full-page
 // profile) at desktop, small laptop, tablet and phone widths: nothing scrolls
@@ -54,8 +54,9 @@ test('the Contacts pages fit every width without overlapping controls', async ({
     for (const path of paths) {
       await test.step(`${path} at ${width}px`, async () => {
         await page.goto(path);
-        await page.waitForLoadState('networkidle');
-        await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+        await settled(page);
+        // The app header repeats the page title as an h1; check the page's own.
+        await expect(page.getByRole('main').getByRole('heading', { level: 1 }).first()).toBeVisible();
         expect(await sidewaysOverflow(page), `${path} scrolls sideways at ${width}px`).toBeLessThanOrEqual(0);
         expect(await overlappingControls(page), `${path} at ${width}px`).toEqual([]);
       });

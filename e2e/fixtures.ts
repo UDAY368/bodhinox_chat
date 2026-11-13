@@ -71,6 +71,24 @@ export function fixtures(): Fixtures {
   return JSON.parse(fs.readFileSync(FIXTURES_FILE, 'utf8')) as Fixtures;
 }
 
+/**
+ * Wait until the page has loaded and stopped fetching: no loading spinner in
+ * <main> and no new resource for 750 ms. Used instead of 'networkidle', which
+ * never resolves under `next dev`: a rebuild right after a page connects drops
+ * that page's first requests unanswered, so the browser never reports them done.
+ */
+export async function settled(page: Page) {
+  await page.waitForLoadState('load');
+  await expect(page.locator('main .animate-spin')).toHaveCount(0);
+  let last = -1;
+  await expect.poll(async () => {
+    const count = await page.evaluate(() => performance.getEntriesByType('resource').length);
+    const stable = count === last;
+    last = count;
+    return stable;
+  }, { intervals: [750], timeout: 30_000 }).toBe(true);
+}
+
 /** Sign in through the real login form and wait to leave /login. */
 export async function login(page: Page, user: SeededUser) {
   // The suite signs the same seeded users in more often than the real 10-per-15-minutes
