@@ -1,5 +1,4 @@
 'use client';
-import { BotPauseControl } from './bot-pause-control';
 import {
   historyAfterNewestPage,
   isNearBottom,
@@ -27,7 +26,22 @@ import { presenceLabel } from '@/lib/presence';
 import { cn } from '@/lib/utils';
 import { ConversationNumberBadge } from '@/components/settings/numbers/conversation-number';
 import { conversationChannel } from '@/components/inbox/channel-badge';
-import { ReminderDialog } from './follow-up-bar';
+import { ReminderBanner, ReminderDialog } from './follow-up-bar';
+import { InlineNote, useThreadNotes } from './notes/inline-notes';
+import type { ConversationNoteView } from './notes/notes-panel';
+import type { SendLocationPayload } from './location-dialog';
+import { INSTAGRAM_REACTION } from '@/lib/instagram/reaction-emoji';
+import { pauseActive } from '@/lib/inbox/pause-state';
+import { useRouter } from 'next/navigation';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
 import { ConsentChip, OptedOutBanner } from './consent';
 import { avatarTone, initials } from '@/lib/ui/avatar-tone';
 import { useWhatsAppNumbers } from '@/components/settings/numbers/use-whatsapp-numbers';
@@ -54,6 +68,13 @@ import {
   StickyNote,
   RotateCcw,
   MoreHorizontal,
+  Mail,
+  Download,
+  UserRound,
+  Ban,
+  PauseCircle,
+  PlayCircle,
+  SquarePen,
 } from 'lucide-react';
 import { NotesPanel } from './notes/notes-panel';
 import {
@@ -89,7 +110,6 @@ import { deleteAccountMedia } from '@/lib/storage/upload-media';
 import { TemplatePicker, type TemplateSendValues } from './template-picker';
 import { InstagramTemplatePicker, type InstagramTemplate } from './instagram-template-picker';
 import { AiThreadBanner } from './ai-thread-banner';
-import { AiSummaryPanel } from './ai-assist/ai-summary-panel';
 import { useAssistAvailability } from './ai-assist/use-ai-assist';
 import { AdReferralBadge } from './ad-referral-badge';
 import { buildReplyPreview } from './reply-quote';
@@ -158,6 +178,14 @@ interface MessageThreadProps {
   jumpRequest?: { messageId: string; nonce: number } | null;
   /** Meta approved the Instagram Human Agent feature (from /api/instagram/status); banner only, the server re-checks. */
   instagramHumanAgent?: boolean;
+  /** Marked unread from the More menu: the page updates its list and closes the chat (an open chat reads itself). */
+  onMarkedUnread?: (conversationId: string) => void;
+  /** The contact changed here (blocked or unblocked). */
+  onContactUpdated?: (contact: Contact) => void;
+  /** Fields of the conversation changed here (automation paused or resumed). */
+  onConversationPatch?: (conversationId: string, patch: Partial<Conversation>) => void;
+  /** Opens the New message dialog from the empty thread. */
+  onStartNew?: () => void;
 }
 
 function formatDateSeparator(
@@ -170,17 +198,46 @@ function formatDateSeparator(
   return format(date, 'MMMM d, yyyy');
 }
 
-function groupMessagesByDate(messages: Message[]) {
-  const groups: { date: string; messages: Message[] }[] = [];
+/** A message, or an internal note shown among the messages. */
+export type TimelineItem =
+  | { kind: 'message'; at: string; message: Message }
+  | { kind: 'note'; at: string; note: ConversationNoteView };
+
+/**
+ * Messages in their order with the notes merged in by time. While older
+ * history is not loaded, notes from before the oldest loaded message wait
+ * with it (they would otherwise all pile up at the top).
+ */
+export function buildTimeline(messages: Message[], notes: ConversationNoteView[], hasOlder: boolean): TimelineItem[] {
+  const firstAt = hasOlder && messages[0] ? Date.parse(messages[0].created_at) : Number.NEGATIVE_INFINITY;
+  const pending = notes
+    .filter((n) => Date.parse(n.created_at) >= firstAt)
+    .sort((a, b) => Date.parse(a.created_at) - Date.parse(b.created_at));
+  const items: TimelineItem[] = [];
+  let next = 0;
+  for (const message of messages) {
+    const at = Date.parse(message.created_at);
+    while (next < pending.length && Date.parse(pending[next].created_at) < at) {
+      items.push({ kind: 'note', at: pending[next].created_at, note: pending[next] });
+      next += 1;
+    }
+    items.push({ kind: 'message', at: message.created_at, message });
+  }
+  for (; next < pending.length; next += 1) items.push({ kind: 'note', at: pending[next].created_at, note: pending[next] });
+  return items;
+}
+
+function groupTimelineByDate(items: TimelineItem[]) {
+  const groups: { date: string; items: TimelineItem[] }[] = [];
   let currentDate = '';
 
-  for (const msg of messages) {
-    const day = format(new Date(msg.created_at), 'yyyy-MM-dd');
+  for (const item of items) {
+    const day = format(new Date(item.at), 'yyyy-MM-dd');
     if (day !== currentDate) {
       currentDate = day;
-      groups.push({ date: msg.created_at, messages: [msg] });
+      groups.push({ date: item.at, items: [item] });
     } else {
-      groups[groups.length - 1].messages.push(msg);
+      groups[groups.length - 1].items.push(item);
     }
   }
 
@@ -216,7 +273,13 @@ export function MessageThread({
   onToggleContactPanel,
   jumpRequest = null,
   instagramHumanAgent = false,
+  onMarkedUnread,
+  onContactUpdated,
+  onConversationPatch,
+  onStartNew,
 }: MessageThreadProps) {
+  const router = useRouter();
+  const tPause = useTranslations('Inbox.pause');
   const t = useTranslations('Inbox.messageThread');
   const tList = useTranslations('Inbox.conversationList');
   const tLifecycle = useTranslations('InboxLifecycle');
@@ -233,9 +296,11 @@ export function MessageThread({
   const sessionNow = useSessionClock();
   const tQuote = useTranslations('Inbox.replyQuote');
 
-  const { user, canSendMessages } = useAuth();
-  // AI assistant features this member can use (summaries, suggested replies).
+  const { user, canSendMessages, accountRole } = useAuth();
+  // AI assistant features this member can use (suggested replies; summaries live in the contact panel).
   const assist = useAssistAvailability(canSendMessages);
+  const [blockOpen, setBlockOpen] = useState(false);
+  const [busyAction, setBusyAction] = useState(false);
   const { getPresence, getRow, now } = usePresence();
   const [loading, setLoading] = useState(false);
   const [history, setHistory] = useState<ThreadHistory | null>(null);
@@ -260,6 +325,8 @@ export function MessageThread({
   const [reactions, setReactions] = useState<MessageReaction[]>([]);
   // Bumped by conversation_notes events (ids only); the notes panel re-reads on change.
   const [notesRevision, setNotesRevision] = useState(0);
+  // Internal notes shown in the thread (the composer's Note tab adds them).
+  const threadNotes = useThreadNotes(conversation?.id, notesRevision);
   // Purely visual spin state for the manual-refresh button. The actual
   // refetch is fire-and-forget through `onRefresh` (which bumps the
   // parent's resyncToken); the 700ms spin is just feedback so the click
@@ -1167,6 +1234,135 @@ export function MessageThread({
     [conversation, onAssignChange, t]
   );
 
+  // Share a place (WhatsApp location message), optimistic like a text.
+  const handleSendLocation = useCallback(
+    async (location: SendLocationPayload, replyToId?: string) => {
+      if (!conversation) return;
+      const tempId = newTempMessageId();
+      onNewMessage({
+        id: tempId,
+        conversation_id: conversation.id,
+        sender_type: 'agent',
+        content_type: 'location',
+        content_text: [location.name, location.address].filter(Boolean).join(' · ') || undefined,
+        interactive_payload: { location } as unknown as Message['interactive_payload'],
+        status: 'sending',
+        created_at: new Date().toISOString(),
+        reply_to_message_id: replyToId,
+      });
+      setReplyTo(null);
+      try {
+        const res = await authFetch('/api/whatsapp/send', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ conversation_id: conversation.id, message_type: 'location', location, reply_to_message_id: replyToId }),
+        });
+        const payload = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          toast.error(t('sendFailed', { reason: payload?.error || `HTTP ${res.status}` }));
+          onUpdateMessage(tempId, { status: 'failed' });
+          return;
+        }
+        onUpdateMessage(tempId, confirmedSendUpdate(payload));
+      } catch (err) {
+        toast.error(t('sendFailed', { reason: err instanceof Error ? err.message : t('networkError') }));
+        onUpdateMessage(tempId, { status: 'failed' });
+      }
+    },
+    [conversation, onNewMessage, onUpdateMessage, t]
+  );
+
+  // More menu: mark unread. An open chat reads itself, so the page closes it too.
+  const handleMarkUnread = useCallback(async () => {
+    if (!conversation || busyAction) return;
+    setBusyAction(true);
+    try {
+      const res = await authFetch(`/api/conversations/${encodeURIComponent(conversation.id)}/unread`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ unread: true }),
+      });
+      if (!res.ok) throw new Error('unread');
+      toast.success(t('markedUnread'));
+      onMarkedUnread?.(conversation.id);
+    } catch {
+      toast.error(t('actionFailed'));
+    } finally {
+      setBusyAction(false);
+    }
+  }, [conversation, busyAction, onMarkedUnread, t]);
+
+  // More menu: the chat as a CSV file.
+  const handleExport = useCallback(async () => {
+    if (!conversation || busyAction) return;
+    setBusyAction(true);
+    try {
+      const res = await authFetch(`/api/conversations/${encodeURIComponent(conversation.id)}/export`, { cache: 'no-store' });
+      if (!res.ok) throw new Error('export');
+      const blob = await res.blob();
+      const name = /filename="([^"]+)"/.exec(res.headers.get('Content-Disposition') ?? '')?.[1] ?? 'chat.csv';
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = name;
+      document.body.append(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1_000);
+      toast.success(t('exported', { name }));
+    } catch {
+      toast.error(t('exportFailed'));
+    } finally {
+      setBusyAction(false);
+    }
+  }, [conversation, busyAction, t]);
+
+  // More menu and banner: pause automated replies until resumed, or resume them.
+  const automationPaused = pauseActive(conversation as (Conversation & { bot_paused_until?: string | null }) | null);
+  const setAutomation = useCallback(async (pause: boolean) => {
+    if (!conversation || busyAction) return;
+    setBusyAction(true);
+    try {
+      const res = await authFetch('/api/inbox/pause', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ conversation_id: conversation.id, action: pause ? 'pause' : 'resume', scope: 'conversation', ...(pause ? { minutes: null } : {}) }),
+      });
+      if (!res.ok) throw new Error('pause');
+      const json = (await res.json()) as { paused: boolean; until: string | null };
+      onConversationPatch?.(conversation.id, { bot_paused: json.paused, bot_paused_until: json.until } as Partial<Conversation>);
+      toast.success(json.paused ? t('automationPausedToast') : t('automationResumedToast'));
+    } catch {
+      toast.error(tPause('failed'));
+    } finally {
+      setBusyAction(false);
+    }
+  }, [conversation, busyAction, onConversationPatch, t, tPause]);
+
+  // Block (no automated messages, flows or AI replies; the chat closes) or unblock.
+  const setBlocked = useCallback(async (block: boolean) => {
+    if (!conversation || !contact || busyAction) return;
+    setBusyAction(true);
+    try {
+      const now = new Date().toISOString();
+      const db = createClient();
+      const { error } = await db.from('contacts').update({ blocked_at: block ? now : null, updated_at: now }).eq('id', contact.id);
+      if (error) throw new Error('block');
+      onContactUpdated?.({ ...contact, blocked_at: block ? now : null });
+      if (block && conversation.status !== 'closed') {
+        const closed = await db.from('conversations').update({ status: 'closed' }).eq('id', conversation.id);
+        if (!closed.error) onStatusChange(conversation.id, 'closed');
+      }
+      const name = contact.name || contactHandle(contact);
+      toast.success(block ? t('blockedToast', { name }) : t('unblockedToast', { name }));
+    } catch {
+      toast.error(t('actionFailed'));
+    } finally {
+      setBusyAction(false);
+      setBlockOpen(false);
+    }
+  }, [conversation, contact, busyAction, onContactUpdated, onStatusChange, t]);
+
   // Keep the empty and selected thread surfaces consistent.
   if (!conversation || !contact) {
     return (
@@ -1189,12 +1385,26 @@ export function MessageThread({
         <p className="text-muted-foreground mt-1 max-w-72 text-[13px] leading-relaxed">
           {t('selectConversationHint')}
         </p>
+        {onStartNew && (
+          <button
+            type="button"
+            onClick={onStartNew}
+            className="border-border hover:bg-muted mt-4 inline-flex h-8 items-center gap-1.5 rounded-full border px-3.5 text-[13px] font-semibold transition-colors duration-150"
+          >
+            <SquarePen className="size-3.5" aria-hidden />
+            {t('newMessage')}
+          </button>
+        )}
       </div>
     );
   }
 
   const displayName = contact.name || contactHandle(contact);
-  const messageGroups = groupMessagesByDate(messages);
+  const contactBlocked = !!contact.blocked_at;
+  const messageGroups = groupTimelineByDate(
+    buildTimeline(messages, threadNotes.notes, history?.conversationId === conversationId && !!history?.hasOlder)
+  );
+  const isAdmin = accountRole === 'owner' || accountRole === 'admin';
   const memberNames = new Map(profiles.map((p) => [p.user_id, p.full_name?.trim() || '']));
   // Who sent an outgoing message: the member (by sender_id), automation, or the team when
   // the send predates sender attribution. Null for the customer's own messages.
@@ -1469,9 +1679,37 @@ export function MessageThread({
                 ))}
               </DropdownMenuGroup>
               <DropdownMenuSeparator className="bg-border" />
+              {canSendMessages && (
+                <DropdownMenuItem onClick={() => void handleMarkUnread()} disabled={busyAction} className="text-sm">
+                  <Mail className="mr-2 h-4 w-4" />
+                  {t('markUnread')}
+                </DropdownMenuItem>
+              )}
+              {canSendMessages && (
+                <DropdownMenuItem onClick={() => setReminderOpen(true)} className="text-sm">
+                  <Bell className="mr-2 h-4 w-4" />
+                  {tReminders('add')}
+                </DropdownMenuItem>
+              )}
+              {canSendMessages && (
+                <DropdownMenuItem onClick={() => void setAutomation(!automationPaused)} disabled={busyAction} className="text-sm">
+                  {automationPaused ? <PlayCircle className="mr-2 h-4 w-4" /> : <PauseCircle className="mr-2 h-4 w-4" />}
+                  {automationPaused ? t('resumeAutomation') : t('pauseAutomation')}
+                </DropdownMenuItem>
+              )}
               <DropdownMenuItem onClick={() => setNotesOpen((open) => !open)} className="text-sm">
                 <StickyNote className="mr-2 h-4 w-4" />
                 {notesOpen ? t('hideNotes') : t('showNotes')}
+              </DropdownMenuItem>
+              {canSendMessages && (
+                <DropdownMenuItem onClick={() => void handleExport()} disabled={busyAction} className="text-sm">
+                  <Download className="mr-2 h-4 w-4" />
+                  {t('exportChat')}
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuItem onClick={() => router.push(`/contacts?contact=${encodeURIComponent(contact.id)}`)} className="text-sm">
+                <UserRound className="mr-2 h-4 w-4" />
+                {tSidebar('viewContact')}
               </DropdownMenuItem>
               {onRefresh && (
                 <DropdownMenuItem onClick={handleRefreshClick} disabled={isRefreshing} className="text-sm">
@@ -1479,9 +1717,58 @@ export function MessageThread({
                   {t('refresh')}
                 </DropdownMenuItem>
               )}
+              {canSendMessages && (
+                <>
+                  <DropdownMenuSeparator className="bg-border" />
+                  {contactBlocked ? (
+                    <DropdownMenuItem onClick={() => void setBlocked(false)} disabled={busyAction} className="text-sm">
+                      <Ban className="mr-2 h-4 w-4" />
+                      {t('unblockContact')}
+                    </DropdownMenuItem>
+                  ) : (
+                    <DropdownMenuItem onClick={() => setBlockOpen(true)} className="text-destructive text-sm">
+                      <Ban className="mr-2 h-4 w-4" />
+                      {t('blockContact')}
+                    </DropdownMenuItem>
+                  )}
+                </>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
+      </div>
+
+      {/* Banners at the top of the chat: blocked, the follow-up reminder, automation paused. */}
+      <div className="flex shrink-0 flex-col" data-thread-banners>
+        {contactBlocked && (
+          <div role="status" data-blocked-banner className="border-border flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1.5 border-b bg-red-500/5 px-3 py-2 text-[13px] @md:px-4">
+            <Ban className="h-4 w-4 shrink-0 text-red-600 dark:text-red-400" aria-hidden />
+            <span className="min-w-0 flex-1 basis-40">
+              <strong className="text-foreground font-semibold">{t('blockedBanner')}</strong>{' '}
+              <span className="text-muted-foreground">{t('blockedBannerHint')}</span>
+            </span>
+            {canSendMessages && (
+              <Button type="button" variant="outline" size="sm" className="h-7 shrink-0 px-2.5 text-xs" disabled={busyAction} onClick={() => void setBlocked(false)}>
+                {t('unblock')}
+              </Button>
+            )}
+          </div>
+        )}
+        <ReminderBanner conversationId={conversation.id} readOnly={!canSendMessages} />
+        {automationPaused && (
+          <div role="status" data-automation-banner className="border-border bg-muted/50 flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1.5 border-b px-3 py-2 text-[13px] @md:px-4">
+            <PauseCircle className="text-primary h-4 w-4 shrink-0" aria-hidden />
+            <span className="min-w-0 flex-1 basis-40">
+              <strong className="text-foreground font-semibold">{t('automationPausedBanner')}</strong>{' '}
+              <span className="text-muted-foreground">{t('automationPausedHint')}</span>
+            </span>
+            {canSendMessages && (
+              <Button type="button" variant="outline" size="sm" className="h-7 shrink-0 px-2.5 text-xs" disabled={busyAction} onClick={() => void setAutomation(false)}>
+                {tPause('resume')}
+              </Button>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="flex min-h-0 flex-1">
@@ -1535,10 +1822,25 @@ export function MessageThread({
                 </div>
                 {/* Messages */}
                 <div className="space-y-2">
-                  {group.messages.map((msg, index) => {
+                  {group.items.map((item, index) => {
+                    if (item.kind === 'note') {
+                      const note = item.note;
+                      return (
+                        <InlineNote
+                          key={`note-${note.id}`}
+                          note={note}
+                          authorName={note.author_id === user?.id ? t('you') : memberNames.get(note.author_id) || t('senderFormerMember')}
+                          memberNames={noteMembers.map((m) => m.name).filter(Boolean)}
+                          canDelete={canSendMessages && (note.author_id === user?.id || isAdmin)}
+                          onDelete={() => void threadNotes.remove(note.id)}
+                        />
+                      );
+                    }
+                    const msg = item.message;
                     // Named once per run of messages from the same sender.
                     const label = senderLabel(msg);
-                    const previous = index > 0 ? group.messages[index - 1] : null;
+                    const before = index > 0 ? group.items[index - 1] : null;
+                    const previous = before?.kind === 'message' ? before.message : null;
                     const showSender = label !== null && (!previous || senderLabel(previous) !== label);
                     const parent = msg.reply_to_message_id
                       ? messagesById.get(msg.reply_to_message_id)
@@ -1561,7 +1863,10 @@ export function MessageThread({
                         (r) =>
                           r.actor_type === 'agent' && r.actor_id === user?.id
                       );
-                      const next = own?.emoji === emoji ? '' : emoji;
+                      // Instagram takes only the heart: a pill tap toggles our heart.
+                      const next = isInstagram
+                        ? (own ? '' : INSTAGRAM_REACTION)
+                        : own?.emoji === emoji ? '' : emoji;
                       void postReaction(msg.id, next);
                     };
                     return (
@@ -1574,33 +1879,39 @@ export function MessageThread({
                           {label}
                         </p>
                       )}
-                      {isInstagram ? (
-                        <MessageBubble
-                          message={msg}
-                          reply={reply}
-                          onOpenMedia={handleMediaChange}
-                          channel={threadChannel}
-                          receipt={msg.id === lastOutgoingId}
-                        />
-                      ) : (
+                      {/* React (Instagram: the heart only), reply and copy on both channels. */}
                       <MessageActions
                         message={msg}
-                        onReply={() => handleStartReply(msg)}
+                        onReply={contactBlocked ? undefined : () => handleStartReply(msg)}
                         onReact={(emoji) => {
                           if (emoji) void postReaction(msg.id, emoji);
                         }}
+                        emojis={isInstagram ? INSTAGRAM_EMOJIS : undefined}
                       >
-                        <MessageBubble
-                          message={msg}
-                          template={matchMessageTemplate(msg, templates)}
-                          reply={reply}
-                          reactions={msgReactions}
-                          currentUserId={user?.id}
-                          onToggleReaction={handlePillToggle}
-                          onOpenMedia={handleMediaChange}
-                        />
+                        {isInstagram ? (
+                          <MessageBubble
+                            message={msg}
+                            reply={reply}
+                            reactions={msgReactions}
+                            currentUserId={user?.id}
+                            onToggleReaction={handlePillToggle}
+                            onOpenMedia={handleMediaChange}
+                            channel={threadChannel}
+                            receipt={msg.id === lastOutgoingId}
+                            wrapped
+                          />
+                        ) : (
+                          <MessageBubble
+                            message={msg}
+                            template={matchMessageTemplate(msg, templates)}
+                            reply={reply}
+                            reactions={msgReactions}
+                            currentUserId={user?.id}
+                            onToggleReaction={handlePillToggle}
+                            onOpenMedia={handleMediaChange}
+                          />
+                        )}
                       </MessageActions>
-                      )}
                       </div>
                     );
                   })}
@@ -1628,35 +1939,28 @@ export function MessageThread({
         }}
       />
 
-      {/* AI summary for staff (only when the workspace turned it on). */}
-      {canSendMessages && assist?.summary.ok && <AiSummaryPanel key={conversation.id} conversationId={conversation.id} />}
-
       {/* An opted-out customer: say what is still allowed before anyone types. */}
       {!isInstagram && <OptedOutBanner contact={contact} />}
 
-      {/* Composer */}
-      <MessageComposer
+      {/* Composer (a blocked contact gets none: the banner above offers Unblock). */}
+      {!contactBlocked && <MessageComposer
         conversationId={conversation.id}
         sessionExpired={sessionInfo.expired}
         onSend={handleSend}
         onSendMedia={handleSendMedia}
         onSendInteractive={handleSendInteractive}
         onOpenTemplates={handleOpenTemplates}
-        replyTo={isInstagram ? null : replyTo}
+        replyTo={replyTo}
         onClearReply={() => setReplyTo(null)}
         channel={threadChannel}
         lastCustomerAt={lastCustomerAt}
         now={sessionNow}
         humanAgentEnabled={instagramHumanAgent}
         assistSuggest={canSendMessages && (assist?.suggest.ok ?? false)}
-        toolbarExtra={
-          <BotPauseControl
-            key={`${conversation.id}:${conversation.updated_at}:${conversation.bot_paused}`}
-            conversationId={conversation.id}
-            paused={conversation.bot_paused ?? false}
-          />
-        }
-      />
+        onAddNote={threadNotes.add}
+        onSendLocation={isInstagram ? undefined : (location, replyToId) => void handleSendLocation(location, replyToId)}
+        remindersInBanner
+      />}
       </div>
       {notesOpen && (
         <aside
@@ -1697,9 +2001,26 @@ export function MessageThread({
         contactLabel={contactDisplayName}
       />
       <ReminderDialog conversationId={conversation.id} open={reminderOpen} onOpenChange={setReminderOpen} />
+      <Dialog open={blockOpen} onOpenChange={setBlockOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{t('blockTitle', { name: displayName })}</DialogTitle>
+            <DialogDescription>{t('blockBody')}</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setBlockOpen(false)}>{t('cancel')}</Button>
+            <Button type="button" variant="destructive" disabled={busyAction} onClick={() => void setBlocked(true)}>
+              <Ban className="h-4 w-4" aria-hidden />
+              {t('blockConfirm')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
+
+const INSTAGRAM_EMOJIS = [INSTAGRAM_REACTION] as const;
 
 /**
  * An Instagram send whose provider outcome is uncertain (409

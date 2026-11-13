@@ -414,7 +414,13 @@
       "filterMyTeam": "내 팀",
       "addFilter": "필터",
       "filterSearch": "필터 검색",
-      "noFilterMatches": "일치하는 필터가 없습니다"
+      "noFilterMatches": "일치하는 필터가 없습니다",
+      "title": "받은편지함",
+      "newMessage": "새 메시지",
+      "moreViews": "보기 더보기",
+      "views": "보기",
+      "clearFilters": "필터 지우기",
+      "reminderTag": "{when}에 후속 조치"
     },
     "messageThread": {
       "backToConversations": "대화 목록으로 돌아가기",
@@ -462,7 +468,31 @@
       "senderAutomation": "자동화",
       "senderTeam": "우리 팀",
       "senderFormerMember": "이전 멤버",
-      "moreActions": "더 보기"
+      "moreActions": "더 보기",
+      "newMessage": "새 메시지",
+      "markedUnread": "읽지 않음으로 표시했습니다",
+      "actionFailed": "처리하지 못했습니다. 다시 시도하세요.",
+      "exported": "{name}(으)로 채팅을 내보냈습니다",
+      "exportFailed": "이 채팅을 내보내지 못했습니다.",
+      "automationPausedToast": "이 채팅의 자동화를 일시 중지했습니다",
+      "automationResumedToast": "자동화를 다시 시작했습니다",
+      "blockedToast": "{name}님을 차단했습니다",
+      "unblockedToast": "{name}님의 차단을 해제했습니다",
+      "markUnread": "읽지 않음으로 표시",
+      "resumeAutomation": "자동화 다시 시작",
+      "pauseAutomation": "자동화 일시 중지",
+      "exportChat": "채팅 내보내기",
+      "unblockContact": "연락처 차단 해제",
+      "blockContact": "연락처 차단",
+      "blockedBanner": "차단된 연락처입니다.",
+      "blockedBannerHint": "자동 메시지, 플로우, AI 답장이 전송되지 않으며 답장도 꺼져 있습니다.",
+      "unblock": "차단 해제",
+      "automationPausedBanner": "이 채팅의 자동화가 일시 중지되었습니다.",
+      "automationPausedHint": "플로우와 AI 답장이 실행되지 않습니다.",
+      "blockTitle": "{name}님을 차단할까요?",
+      "blockBody": "자동 메시지, 플로우, AI 답장이 더 이상 전송되지 않고 이 대화는 종료됩니다. 언제든지 차단을 해제할 수 있습니다.",
+      "cancel": "취소",
+      "blockConfirm": "차단"
     },
     "sessionTimer": {
       "expired": "만료됨",
@@ -476,7 +506,7 @@
       "templates": "템플릿",
       "readOnlyPlaceholder": "읽기 전용 — 뷰어는 열람만 가능하고 답장할 수 없습니다",
       "sessionExpiredPlaceholder": "세션 만료 - 템플릿을 사용하세요",
-      "typeMessagePlaceholder": "메시지를 입력하세요",
+      "typeMessagePlaceholder": "메시지를 입력하거나 /로 빠른 답장을 찾으세요",
       "readOnlyTitle": "읽기 전용 — 현재 역할로는 메시지를 보낼 수 없습니다",
       "recording": "녹음 중… {current} / {max}",
       "cancel": "취소",
@@ -519,7 +549,18 @@
       "sendPaymentLink": "결제 링크 보내기",
       "mediaLibrary": "미디어 라이브러리",
       "sendStorefrontLink": "스토어 링크 보내기",
-      "newLineHint": "줄바꿈은 Shift+Enter"
+      "newLineHint": "줄바꿈은 Shift+Enter",
+      "emoji": "이모지",
+      "quickRepliesLoading": "빠른 답장을 불러오는 중…",
+      "slashNoMatch": "“{query}”와 일치하는 빠른 답장이 없습니다.",
+      "composeMode": "답장 또는 내부 메모",
+      "tabReply": "답장",
+      "tabNote": "메모",
+      "noteLabel": "내부 메모",
+      "messageLabel": "메시지",
+      "notePlaceholder": "팀을 위한 메모를 작성하세요 (고객에게는 보이지 않습니다)",
+      "location": "위치",
+      "addNote": "메모 추가"
     },
     "bubble": {
       "photo": "사진",
@@ -722,7 +763,10 @@
       "tooLong": "메모는 최대 {max}자까지 입력할 수 있습니다.",
       "hint": "Ctrl+Enter로 저장",
       "cancel": "취소",
-      "add": "메모 추가"
+      "add": "메모 추가",
+      "added": "메모를 추가했습니다",
+      "deleted": "메모를 삭제했습니다",
+      "internalNote": "내부 메모"
     },
     "savedFilters": {
       "views": "보기",
@@ -738,7 +782,11 @@
       "saveFailed": "보기를 저장하지 못했습니다",
       "delete": "{name} 보기 삭제",
       "deleteFailed": "보기를 삭제하지 못했습니다",
-      "close": "닫기"
+      "close": "닫기",
+      "apply": "“{name}” 보기",
+      "deleteTitle": "저장된 보기를 삭제할까요?",
+      "deleteBody": "“{name}” 보기가 저장된 보기에서 삭제됩니다.",
+      "deleteConfirm": "삭제"
     },
     "quickReplyFavourites": {
       "add": "{title}을(를) 즐겨찾기에 추가",
@@ -815,7 +863,13 @@
         "notFound": "이 리마인더는 더 이상 존재하지 않습니다.",
         "failed": "리마인더를 저장하지 못했습니다. 다시 시도하세요.",
         "forbidden": "현재 역할로는 리마인더를 설정할 수 없습니다."
-      }
+      },
+      "changeTitle": "알림 변경",
+      "followUp": "{when}에 후속 조치",
+      "done": "완료",
+      "change": "변경",
+      "woken": "대화를 다시 깨웠습니다",
+      "cleared": "알림을 지웠습니다"
     },
     "scheduled": {
       "title": "예약 답장",
@@ -1056,6 +1110,65 @@
         "tooLarge": "너무 커서 저장할 수 없습니다. 링크를 줄이거나 카드 수를 줄이세요.",
         "more": "(외 {count}개)"
       }
+    },
+    "rowMenu": {
+      "label": "대화 작업",
+      "markRead": "읽음으로 표시",
+      "markUnread": "읽지 않음으로 표시",
+      "assignToMe": "나에게 배정",
+      "close": "종료",
+      "reopen": "다시 열기",
+      "markedUnread": "읽지 않음으로 표시했습니다",
+      "markedRead": "읽음으로 표시했습니다",
+      "assignedToYou": "나에게 배정했습니다",
+      "closed": "대화를 종료했습니다",
+      "reopened": "대화를 다시 열었습니다",
+      "failed": "처리하지 못했습니다. 다시 시도하세요."
+    },
+    "location": {
+      "title": "위치 보내기",
+      "description": "고객은 WhatsApp에서 열 수 있는 지도 핀을 받습니다.",
+      "name": "장소 이름 (선택)",
+      "namePlaceholder": "예: 강남역 매장",
+      "address": "주소 (선택)",
+      "addressPlaceholder": "도로명, 지역, 도시",
+      "latitude": "위도",
+      "longitude": "경도",
+      "latitudeError": "-90에서 90 사이의 위도를 입력하세요.",
+      "longitudeError": "-180에서 180 사이의 경도를 입력하세요.",
+      "useCurrent": "현재 위치 사용",
+      "locateUnsupported": "이 브라우저는 위치를 공유할 수 없습니다.",
+      "locateFailed": "위치를 읽지 못했습니다. 위치 접근을 허용하거나 좌표를 입력하세요.",
+      "cancel": "취소",
+      "send": "위치 보내기"
+    },
+    "contactPanel": {
+      "aiSummary": "AI 요약",
+      "automation": "자동화",
+      "automationHint": "이 채팅의 플로우와 AI 답장을 일시 중지합니다. 선택한 시간까지 또는 다시 시작할 때까지 꺼져 있습니다."
+    },
+    "newMessage": {
+      "title": "새 메시지",
+      "description": "메시지를 보낼 사람과 채널을 선택하세요.",
+      "contact": "연락처",
+      "searchPlaceholder": "이름으로 연락처 검색",
+      "searching": "검색 중…",
+      "noContacts": "일치하는 연락처가 없습니다.",
+      "unnamed": "이름 없는 연락처",
+      "channel": "채널",
+      "hintPick": "메시지를 보낼 사람을 선택하세요.",
+      "hintWhatsapp": "{to}(으)로 보냅니다. 새 WhatsApp 채팅은 승인된 템플릿으로 시작합니다.",
+      "hintInstagram": "해당 고객과의 Instagram 채팅을 엽니다. Instagram 채팅은 고객이 먼저 메시지를 보내야 시작됩니다.",
+      "chooseContact": "연락처를 선택하세요",
+      "noNumber": "{name}님은 WhatsApp 번호가 없습니다.",
+      "thisContact": "이 연락처",
+      "openedExisting": "기존 대화를 열었습니다",
+      "instagramStartsWithCustomer": "이 연락처와의 Instagram 채팅이 아직 없습니다. Instagram에서는 고객만 채팅을 시작할 수 있습니다.",
+      "failed": "대화를 시작하지 못했습니다. 다시 시도하세요.",
+      "sendFailed": "템플릿을 보내지 못했습니다: {reason}",
+      "started": "{name}님과의 대화를 시작했습니다",
+      "cancel": "취소",
+      "start": "대화 시작"
     }
   },
   "Contacts": {
@@ -7967,7 +8080,8 @@
       "unknownMetaError": "알 수 없는 Meta API 오류",
       "metaError": "Meta API 오류: {message}",
       "dbDeleteFailed": "반응은 Meta로 전송되었지만 DB에서 삭제하지 못했습니다",
-      "dbUpsertFailed": "반응은 Meta로 전송되었지만 DB에 저장하지 못했습니다"
+      "dbUpsertFailed": "반응은 Meta로 전송되었지만 DB에 저장하지 못했습니다",
+      "instagramHeartOnly": "Instagram에서는 하트 반응만 보낼 수 있습니다."
     },
     "send": {
       "idsRequired": "conversation_id 또는 contact_id와 message_type이 필요합니다",

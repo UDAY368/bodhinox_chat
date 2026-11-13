@@ -6,6 +6,7 @@ import {
   useRef,
   useCallback,
   useEffect,
+  useMemo,
   KeyboardEvent,
 } from "react";
 import {
@@ -29,6 +30,7 @@ import {
   Store,
   Images,
   Clock,
+  MapPin,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { GatedButton } from "@/components/ui/gated-button";
@@ -74,6 +76,8 @@ import { INSTAGRAM_LIMITS, utf8Bytes } from "@/lib/instagram/graph-limits";
 import { instagramWindowBanner } from "@/lib/instagram/window";
 import { AiReplySuggestions, type ReplyOptionView } from "./ai-assist/ai-reply-suggestions";
 import { FollowUpBar } from "./follow-up-bar";
+import { EmojiPicker, SlashQuickReplies, matchQuickReplies, slashQuery, useQuickReplyList } from "./composer-extras";
+import { LocationDialog, type SendLocationPayload } from "./location-dialog";
 
 /** Media content types an agent can send from the composer. */
 export type ComposerMediaKind = "image" | "video" | "document" | "audio";
@@ -195,6 +199,15 @@ interface MessageComposerProps {
   assistSuggest?: boolean;
   /** Extra tools for the toolbar row beside Remind / Schedule (pause automations). */
   toolbarExtra?: React.ReactNode;
+  /**
+   * Reply / Note tabs: with it, a Note tab posts an internal note into the
+   * thread (never sent to the customer). Resolves false when it was refused.
+   */
+  onAddNote?: (body: string) => Promise<boolean>;
+  /** WhatsApp: share a place (Attach > Location). */
+  onSendLocation?: (location: SendLocationPayload, replyToId?: string) => void;
+  /** The thread shows reminders in its own banner; the follow-up bar keeps scheduled replies. */
+  remindersInBanner?: boolean;
 }
 
 /** Time left in an Instagram reply window: "3d", "5h", "12m". */
@@ -231,6 +244,9 @@ export function MessageComposer({
   humanAgentEnabled = false,
   assistSuggest = false,
   toolbarExtra,
+  onAddNote,
+  onSendLocation,
+  remindersInBanner = false,
 }: MessageComposerProps) {
   const t = useTranslations("Inbox.composer");
   const tAssist = useTranslations("AiAssist");
@@ -245,6 +261,19 @@ export function MessageComposer({
   const windowClosed = igBanner ? igBanner.kind === "closed" : sessionExpired;
 
   const [text, setText] = useState("");
+  // Reply goes to the customer; Note posts an internal note into the thread.
+  const [mode, setMode] = useState<"reply" | "note">("reply");
+  const noteMode = mode === "note" && !!onAddNote;
+  const [locationOpen, setLocationOpen] = useState(false);
+  // "/" quick replies: open while the draft is a slash command, until Escape.
+  const [slashIndex, setSlashIndex] = useState(0);
+  const [slashDismissed, setSlashDismissed] = useState<string | null>(null);
+  const slash = !noteMode && slashDismissed !== text ? slashQuery(text) : null;
+  const quickReplyList = useQuickReplyList(slash !== null);
+  const slashMatches = useMemo(
+    () => (slash !== null && quickReplyList ? matchQuickReplies(quickReplyList, slash) : []),
+    [slash, quickReplyList],
+  );
   // Instagram caps a message at 1000 UTF-8 bytes (checked again on the server).
   const textBytes = isInstagram ? utf8Bytes(text.trim()) : 0;
   const overInstagramLimit = isInstagram && textBytes > INSTAGRAM_LIMITS.textBytes;
@@ -267,6 +296,7 @@ export function MessageComposer({
     setSuggestionsOpen(reset.suggestionsOpen);
     setAiSuggestionId(reset.aiSuggestionId);
     setText(reset.text);
+    setMode("reply");
   }
 
   // Interactive-message builder dialog + quick-reply picker.
@@ -349,6 +379,19 @@ export function MessageComposer({
 
   const handleSend = useCallback(async () => {
     const trimmed = text.trim();
+    if (noteMode) {
+      if (!trimmed || sending || readOnly || !onAddNote) return;
+      setSending(true);
+      try {
+        if (await onAddNote(trimmed)) {
+          setText("");
+          if (textareaRef.current) textareaRef.current.style.height = "auto";
+        }
+      } finally {
+        setSending(false);
+      }
+      return;
+    }
     if (!trimmed || sending || windowClosed) return;
     if (isInstagram && utf8Bytes(trimmed) > INSTAGRAM_LIMITS.textBytes) return;
 
@@ -363,21 +406,40 @@ export function MessageComposer({
     } finally {
       setSending(false);
     }
-  }, [text, sending, windowClosed, isInstagram, onSend, replyTo?.id, aiSuggestionId]);
+  }, [text, sending, windowClosed, isInstagram, onSend, replyTo?.id, aiSuggestionId, noteMode, readOnly, onAddNote]);
 
+  const pickSlashRef = useRef<(qr: QuickReply) => void>(() => {});
   const handleKeyDown = useCallback(
     (e: KeyboardEvent<HTMLTextAreaElement>) => {
+      if (slash !== null) {
+        if (e.key === "Escape") {
+          e.preventDefault();
+          setSlashDismissed(text);
+          return;
+        }
+        if (slashMatches.length > 0 && (e.key === "ArrowDown" || e.key === "ArrowUp")) {
+          e.preventDefault();
+          setSlashIndex((i) => (i + (e.key === "ArrowDown" ? 1 : slashMatches.length - 1)) % slashMatches.length);
+          return;
+        }
+        if (slashMatches.length > 0 && (e.key === "Enter" || e.key === "Tab") && !e.shiftKey && !e.nativeEvent.isComposing) {
+          e.preventDefault();
+          pickSlashRef.current(slashMatches[Math.min(slashIndex, slashMatches.length - 1)]);
+          return;
+        }
+      }
       if (shouldSendOnEnter(e.nativeEvent, window.matchMedia('(pointer: coarse)').matches)) {
         e.preventDefault();
         handleSend();
       }
     },
-    [handleSend]
+    [handleSend, slash, slashMatches, slashIndex, text]
   );
 
   const handleChange = useCallback(
     (e: React.ChangeEvent<HTMLTextAreaElement>) => {
       setText(e.target.value);
+      setSlashIndex(0);
       // Clearing the box drops the link to an AI suggestion.
       if (!e.target.value.trim()) setAiSuggestionId(null);
       adjustHeight();
@@ -461,6 +523,21 @@ export function MessageComposer({
       }
     });
   }, [adjustHeight]);
+
+  const insertAtCaret = useCallback((insert: string) => {
+    const el = textareaRef.current;
+    const start = el?.selectionStart ?? text.length;
+    const end = el?.selectionEnd ?? start;
+    setText((prev) => prev.slice(0, start) + insert + prev.slice(end));
+    requestAnimationFrame(() => {
+      adjustHeight();
+      const node = textareaRef.current;
+      if (node) {
+        node.focus();
+        node.setSelectionRange(start + insert.length, start + insert.length);
+      }
+    });
+  }, [text.length, adjustHeight]);
 
   // ---- Interactive message + quick replies --------------------------
 
@@ -549,6 +626,15 @@ export function MessageComposer({
     },
     [openInteractiveBuilder, adjustHeight, isInstagram, tc],
   );
+
+  // A "/" pick replaces the slash command with the saved reply.
+  useEffect(() => {
+    pickSlashRef.current = (qr: QuickReply) => {
+      setText("");
+      setSlashIndex(0);
+      handlePickQuickReply(qr);
+    };
+  });
 
   // Upload a captured file to chat-media and stage it as a draft.
   const stageUpload = useCallback(
@@ -730,7 +816,7 @@ export function MessageComposer({
 
   return (
     <div className="studio-composer group/composer bg-card px-2 pt-1 pb-3 @md:px-4">
-      {replyTo && (
+      {replyTo && !noteMode && (
         <div className="mb-2">
           <ReplyQuote
             authorLabel={replyTo.authorLabel}
@@ -739,7 +825,7 @@ export function MessageComposer({
           />
         </div>
       )}
-      {igBanner && (
+      {igBanner && !noteMode && (
         <div
           data-instagram-window={igBanner.kind}
           className={cn(
@@ -756,8 +842,9 @@ export function MessageComposer({
               })}
         </div>
       )}
-      {!draft && !recording && (
+      {!draft && !recording && !noteMode && (
         <FollowUpBar
+          hideReminders={remindersInBanner}
           conversationId={conversationId}
           channel={isInstagram ? "instagram" : "whatsapp"}
           draftText={text}
@@ -771,10 +858,12 @@ export function MessageComposer({
           trailing={
             <>
               {toolbarExtra}
-              {/* Shown only while the agent is typing, so the toolbar stays one quiet row. */}
-              <span className="ml-auto hidden shrink-0 text-[10px] text-muted-foreground @xl:group-focus-within/composer:inline">
-                {t("newLineHint")}
-              </span>
+              {/* Shown only while the agent is typing (the Reply / Note row carries it when there are tabs). */}
+              {!onAddNote && (
+                <span className="ml-auto hidden shrink-0 text-[10px] text-muted-foreground @xl:group-focus-within/composer:inline">
+                  {t("newLineHint")}
+                </span>
+              )}
               {isInstagram && text && (
                 <span
                   data-instagram-bytes
@@ -787,7 +876,7 @@ export function MessageComposer({
           }
         />
       )}
-      {!isInstagram && sessionExpired && (
+      {!isInstagram && sessionExpired && !noteMode && (
         <div className="studio-note mb-2 flex items-center justify-between gap-3 rounded-xl px-3.5 py-2.5">
           <p className="flex min-w-0 items-center gap-2 text-[13px]">
             <Clock className="size-4 shrink-0" aria-hidden />
@@ -882,8 +971,51 @@ export function MessageComposer({
         </div>
       ) : (
         // One rounded box: the text on top, one row of tools and the round send button below.
-        <div className="studio-composer-box flex flex-col rounded-[18px] border border-border bg-card px-3 pt-2 pb-2">
+        <div
+          data-composer-mode={noteMode ? "note" : "reply"}
+          className={cn(
+            "studio-composer-box relative flex flex-col rounded-[18px] border border-border px-3 pt-2 pb-2",
+            noteMode ? "studio-note" : "bg-card",
+          )}
+        >
+          {onAddNote && (
+            <div className="mb-1 flex min-w-0 items-center gap-1" role="tablist" aria-label={t("composeMode")}>
+              {(["reply", "note"] as const).map((value) => (
+                <button
+                  key={value}
+                  type="button"
+                  role="tab"
+                  aria-selected={mode === value}
+                  onClick={() => {
+                    setMode(value);
+                    requestAnimationFrame(() => textareaRef.current?.focus());
+                  }}
+                  className={cn(
+                    "h-7 rounded-full px-3 text-xs font-semibold transition-colors duration-150 focus-visible:outline-2",
+                    mode === value ? "bg-foreground/10 text-foreground" : "text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  {value === "reply" ? t("tabReply") : t("tabNote")}
+                </button>
+              ))}
+              <span className="text-muted-foreground ml-auto hidden truncate text-[10px] @xl:inline">{t("newLineHint")}</span>
+            </div>
+          )}
+          {slash !== null && (
+            <SlashQuickReplies
+              id={`slash-${conversationId}`}
+              items={quickReplyList}
+              query={slash}
+              activeIndex={Math.min(slashIndex, Math.max(0, slashMatches.length - 1))}
+              onPick={(qr) => pickSlashRef.current(qr)}
+              onHover={setSlashIndex}
+            />
+          )}
           <textarea
+            aria-label={noteMode ? t("noteLabel") : t("messageLabel")}
+            aria-autocomplete={noteMode ? undefined : "list"}
+            aria-controls={slash !== null ? `slash-${conversationId}` : undefined}
+            aria-activedescendant={slash !== null && slashMatches.length > 0 ? `slash-${conversationId}-${Math.min(slashIndex, slashMatches.length - 1)}` : undefined}
             ref={textareaRef}
             value={text}
             onChange={handleChange}
@@ -891,13 +1023,15 @@ export function MessageComposer({
             placeholder={
               readOnly
                 ? t("readOnlyPlaceholder")
-                : windowClosed
+                : noteMode
+                  ? t("notePlaceholder")
+                  : windowClosed
                   ? isInstagram
                     ? tc("windowClosed")
                     : t("sessionExpiredPlaceholder")
                   : t("typeMessagePlaceholder")
             }
-            disabled={windowClosed || readOnly}
+            disabled={(windowClosed && !noteMode) || readOnly}
             rows={1}
             // Textarea keeps its own inline title — the GatedButton
             // wrapping pattern doesn't apply to non-button inputs.
@@ -905,10 +1039,13 @@ export function MessageComposer({
             title={readOnly ? t("readOnlyTitle") : undefined}
             className={cn(
               "block max-h-[136px] min-h-9 w-full min-w-0 resize-none overflow-y-auto border-0 bg-transparent px-0.5 py-1.5 text-sm leading-5 text-foreground placeholder-muted-foreground outline-none placeholder:truncate",
-              (windowClosed || readOnly) && "cursor-not-allowed opacity-50"
+              ((windowClosed && !noteMode) || readOnly) && "cursor-not-allowed opacity-50"
             )}
           />
           <div className="mt-1 flex items-center gap-0.5">
+          <EmojiPicker onPick={insertAtCaret} disabled={readOnly || (windowClosed && !noteMode)} />
+          {!noteMode && (
+          <>
           {/* Attach menu — photo / video / document / voice. */}
           <DropdownMenu>
             <DropdownMenuTrigger
@@ -951,6 +1088,13 @@ export function MessageComposer({
                 <DropdownMenuItem onClick={() => setMediaLibraryOpen(true)}>
                   <Images className="mr-2 h-4 w-4" />
                   {t("mediaLibrary")}
+                </DropdownMenuItem>
+              )}
+              {/* Location: WhatsApp only (Instagram's Send API has no location message). */}
+              {!isInstagram && onSendLocation && (
+                <DropdownMenuItem onClick={() => setLocationOpen(true)}>
+                  <MapPin className="mr-2 h-4 w-4" />
+                  {t("location")}
                 </DropdownMenuItem>
               )}
             </DropdownMenuContent>
@@ -1061,13 +1205,17 @@ export function MessageComposer({
               )}
             </GatedButton>
           </div>
+          </>
+          )}
           <span className="flex-1" />
           <GatedButton
             size="sm"
             canAct={!readOnly}
             gateReason={tGate("reasons.sendMessages")}
-            disabled={!text.trim() || windowClosed || sending || overInstagramLimit}
+            disabled={!text.trim() || sending || (noteMode ? false : windowClosed || overInstagramLimit)}
             onClick={handleSend}
+            aria-label={noteMode ? t("addNote") : t("send")}
+            title={noteMode ? t("addNote") : t("send")}
             className="size-8 shrink-0 rounded-full bg-primary p-0 hover:bg-primary/90 disabled:opacity-30"
           >
             <Send className="h-4 w-4" />
@@ -1110,6 +1258,16 @@ export function MessageComposer({
         </DialogContent>
       </Dialog>
 
+      {onSendLocation && !isInstagram && (
+        <LocationDialog
+          open={locationOpen}
+          onOpenChange={setLocationOpen}
+          onSend={(location) => {
+            onSendLocation(location, replyTo?.id);
+            onClearReply?.();
+          }}
+        />
+      )}
       <SendFormDialog open={sendFormOpen} onOpenChange={setSendFormOpen} conversationId={conversationId} />
       <SendPaymentLinkDialog open={paymentLinkOpen} onOpenChange={setPaymentLinkOpen} conversationId={conversationId} />
       <SendStorefrontLinkDialog open={storefrontLinkOpen} onOpenChange={setStorefrontLinkOpen} conversationId={conversationId} />

@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState, type ReactNode } from 'react';
-import { Check, Plus, Search } from 'lucide-react';
+import { Check, ListFilter, Plus, Search } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
@@ -35,7 +35,12 @@ export interface FilterCategory {
  * right) with one search box across every option. Each option calls its own
  * handler, so the picker holds no filter state of its own.
  */
-export function InboxFilterPicker({ categories, activeCount }: { categories: FilterCategory[]; activeCount: number }) {
+export function InboxFilterPicker({ categories, activeCount, iconOnly = false }: {
+  categories: FilterCategory[];
+  activeCount: number;
+  /** A square icon button (the list header); the label stays its accessible name. */
+  iconOnly?: boolean;
+}) {
   const t = useTranslations('Inbox.conversationList');
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
@@ -70,16 +75,27 @@ export function InboxFilterPicker({ categories, activeCount }: { categories: Fil
     >
       <PopoverTrigger
         data-filter-picker
+        aria-label={iconOnly ? t('addFilter') : undefined}
+        title={iconOnly ? t('addFilter') : undefined}
         className={cn(
-          'inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-[13px] font-medium whitespace-nowrap transition-colors duration-150',
-          activeCount > 0
-            ? 'bg-primary/10 text-primary border-transparent'
-            : 'border-border text-foreground hover:bg-muted'
+          iconOnly
+            ? 'relative inline-flex size-8 items-center justify-center rounded-lg transition-colors duration-150'
+            : 'inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-[13px] font-medium whitespace-nowrap transition-colors duration-150',
+          iconOnly
+            ? activeCount > 0 ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+            : activeCount > 0
+              ? 'bg-primary/10 text-primary border-transparent'
+              : 'border-border text-foreground hover:bg-muted'
         )}
       >
-        <Plus className="size-3.5" aria-hidden />
-        {t('addFilter')}
-        {activeCount > 0 && (
+        {iconOnly ? <ListFilter className="size-4" aria-hidden /> : <Plus className="size-3.5" aria-hidden />}
+        {!iconOnly && t('addFilter')}
+        {activeCount > 0 && iconOnly && (
+          <span className="bg-primary text-primary-foreground absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-bold tabular-nums">
+            {activeCount}
+          </span>
+        )}
+        {activeCount > 0 && !iconOnly && (
           <span className="bg-primary text-primary-foreground flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-bold tabular-nums">
             {activeCount}
           </span>

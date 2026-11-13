@@ -414,7 +414,13 @@
       "filterMyTeam": "My team",
       "addFilter": "Filter",
       "filterSearch": "Search filters",
-      "noFilterMatches": "No matching filters"
+      "noFilterMatches": "No matching filters",
+      "title": "Inbox",
+      "newMessage": "New message",
+      "moreViews": "More views",
+      "views": "Views",
+      "clearFilters": "Clear filters",
+      "reminderTag": "Follow up {when}"
     },
     "messageThread": {
       "backToConversations": "Back to conversations",
@@ -462,7 +468,31 @@
       "senderAutomation": "Automation",
       "senderTeam": "Your team",
       "senderFormerMember": "Former member",
-      "moreActions": "More actions"
+      "moreActions": "More actions",
+      "newMessage": "New message",
+      "markedUnread": "Marked as unread",
+      "actionFailed": "That did not work. Try again.",
+      "exported": "Chat exported as {name}",
+      "exportFailed": "Could not export this chat.",
+      "automationPausedToast": "Automation paused for this chat",
+      "automationResumedToast": "Automation resumed",
+      "blockedToast": "{name} blocked",
+      "unblockedToast": "{name} unblocked",
+      "markUnread": "Mark as unread",
+      "resumeAutomation": "Resume automation",
+      "pauseAutomation": "Pause automation",
+      "exportChat": "Export chat",
+      "unblockContact": "Unblock contact",
+      "blockContact": "Block contact",
+      "blockedBanner": "Contact blocked.",
+      "blockedBannerHint": "No automated messages, flows or AI replies reach them, and replies are off.",
+      "unblock": "Unblock",
+      "automationPausedBanner": "Automation paused for this chat.",
+      "automationPausedHint": "Flows and AI replies will not run.",
+      "blockTitle": "Block {name}?",
+      "blockBody": "No automated messages, flows or AI replies will reach them and this conversation will close. You can unblock them at any time.",
+      "cancel": "Cancel",
+      "blockConfirm": "Block"
     },
     "sessionTimer": {
       "expired": "Expired",
@@ -476,7 +506,7 @@
       "templates": "Templates",
       "readOnlyPlaceholder": "Read-only — viewers can browse but not reply",
       "sessionExpiredPlaceholder": "Session expired - use a template",
-      "typeMessagePlaceholder": "Type a message",
+      "typeMessagePlaceholder": "Type a message, or / for quick replies",
       "readOnlyTitle": "Read-only — your role can't send messages",
       "recording": "Recording… {current} / {max}",
       "cancel": "Cancel",
@@ -519,7 +549,18 @@
       "sendPaymentLink": "Send payment link",
       "mediaLibrary": "Media library",
       "sendStorefrontLink": "Send storefront link",
-      "newLineHint": "Shift+Enter for a new line"
+      "newLineHint": "Shift+Enter for a new line",
+      "emoji": "Emoji",
+      "quickRepliesLoading": "Loading quick replies…",
+      "slashNoMatch": "No quick reply matches “{query}”.",
+      "composeMode": "Reply or internal note",
+      "tabReply": "Reply",
+      "tabNote": "Note",
+      "noteLabel": "Internal note",
+      "messageLabel": "Message",
+      "notePlaceholder": "Write a note for your team (the customer never sees it)",
+      "location": "Location",
+      "addNote": "Add note"
     },
     "bubble": {
       "photo": "Photo",
@@ -722,7 +763,10 @@
       "tooLong": "Notes can be up to {max} characters.",
       "hint": "Ctrl+Enter to save",
       "cancel": "Cancel",
-      "add": "Add note"
+      "add": "Add note",
+      "added": "Note added",
+      "deleted": "Note deleted",
+      "internalNote": "Internal note"
     },
     "savedFilters": {
       "views": "Views",
@@ -738,7 +782,11 @@
       "saveFailed": "Could not save the view",
       "delete": "Delete view {name}",
       "deleteFailed": "Could not delete the view",
-      "close": "Close"
+      "close": "Close",
+      "apply": "Show “{name}”",
+      "deleteTitle": "Delete saved view?",
+      "deleteBody": "“{name}” will be removed from your saved views.",
+      "deleteConfirm": "Delete"
     },
     "quickReplyFavourites": {
       "add": "Add {title} to favourites",
@@ -815,7 +863,13 @@
         "notFound": "This reminder no longer exists.",
         "failed": "Could not save the reminder. Try again.",
         "forbidden": "Your role cannot set reminders."
-      }
+      },
+      "changeTitle": "Change reminder",
+      "followUp": "Follow up {when}",
+      "done": "Done",
+      "change": "Change",
+      "woken": "Conversation woken",
+      "cleared": "Reminder cleared"
     },
     "scheduled": {
       "title": "Scheduled replies",
@@ -1056,6 +1110,65 @@
         "tooLarge": "Too large to save: use shorter links or fewer cards.",
         "more": "(+{count} more)"
       }
+    },
+    "rowMenu": {
+      "label": "Conversation actions",
+      "markRead": "Mark as read",
+      "markUnread": "Mark as unread",
+      "assignToMe": "Assign to me",
+      "close": "Close",
+      "reopen": "Reopen",
+      "markedUnread": "Marked as unread",
+      "markedRead": "Marked as read",
+      "assignedToYou": "Assigned to you",
+      "closed": "Conversation closed",
+      "reopened": "Conversation reopened",
+      "failed": "That did not work. Try again."
+    },
+    "location": {
+      "title": "Send a location",
+      "description": "The customer gets a map pin they can open in WhatsApp.",
+      "name": "Place name (optional)",
+      "namePlaceholder": "For example, our store in Banjara Hills",
+      "address": "Address (optional)",
+      "addressPlaceholder": "Street, area, city",
+      "latitude": "Latitude",
+      "longitude": "Longitude",
+      "latitudeError": "Enter a latitude between -90 and 90.",
+      "longitudeError": "Enter a longitude between -180 and 180.",
+      "useCurrent": "Use my current location",
+      "locateUnsupported": "This browser cannot share your location.",
+      "locateFailed": "Could not read your location. Allow location access or type the point.",
+      "cancel": "Cancel",
+      "send": "Send location"
+    },
+    "contactPanel": {
+      "aiSummary": "AI summary",
+      "automation": "Automation",
+      "automationHint": "Pause flows and AI replies for this chat; they stay off until the time you pick, or until you resume."
+    },
+    "newMessage": {
+      "title": "New message",
+      "description": "Pick who to message and on which channel.",
+      "contact": "Contact",
+      "searchPlaceholder": "Search contacts by name",
+      "searching": "Searching…",
+      "noContacts": "No contacts match.",
+      "unnamed": "Unnamed contact",
+      "channel": "Channel",
+      "hintPick": "Pick who you want to message.",
+      "hintWhatsapp": "Sends to {to}. A new WhatsApp chat starts with an approved template.",
+      "hintInstagram": "Opens your Instagram chat with them. Instagram chats start when the customer messages you.",
+      "chooseContact": "Choose a contact",
+      "noNumber": "{name} has no WhatsApp number.",
+      "thisContact": "This contact",
+      "openedExisting": "Opened the existing conversation",
+      "instagramStartsWithCustomer": "There is no Instagram chat with this contact yet. Instagram only lets the customer start one.",
+      "failed": "Could not start the conversation. Try again.",
+      "sendFailed": "The template was not sent: {reason}",
+      "started": "Conversation with {name} started",
+      "cancel": "Cancel",
+      "start": "Start conversation"
     }
   },
   "Contacts": {
@@ -7967,7 +8080,8 @@
       "unknownMetaError": "Unknown Meta API error",
       "metaError": "Meta API error: {message}",
       "dbDeleteFailed": "Reaction sent to Meta but DB delete failed",
-      "dbUpsertFailed": "Reaction sent to Meta but DB upsert failed"
+      "dbUpsertFailed": "Reaction sent to Meta but DB upsert failed",
+      "instagramHeartOnly": "Instagram only allows a heart reaction."
     },
     "send": {
       "idsRequired": "Either conversation_id or contact_id, plus message_type, are required",
