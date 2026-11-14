@@ -38,7 +38,7 @@ export type MetaAdConnectionStatus = 'pending' | 'active' | 'token_invalid' | 'd
 export const CONNECTION_PUBLIC_COLUMNS = [
   'id', 'status', 'business_id', 'ad_account_id', 'ad_account_name', 'ad_account_currency', 'page_id', 'page_name',
   'token_expires_at', 'scopes', 'page_subscribed_at', 'capi_enabled', 'capi_dataset_id', 'capi_whatsapp_config_id',
-  'capi_waba_id', 'capi_auto_purchase', 'capi_auto_lead', 'insights_synced_at', 'leads_synced_at', 'last_error_code',
+  'capi_waba_id', 'capi_auto_purchase', 'capi_auto_lead', 'capi_deal_events', 'insights_synced_at', 'leads_synced_at', 'last_error_code',
   'connected_at', 'disconnected_at',
 ] as const;
 
@@ -60,6 +60,7 @@ export interface MetaAdConnectionRow {
   capi_waba_id: string | null;
   capi_auto_purchase: boolean;
   capi_auto_lead: boolean;
+  capi_deal_events: boolean;
   insights_synced_at: Date | null;
   leads_synced_at: Date | null;
   last_error_code: string | null;
@@ -84,6 +85,8 @@ export interface MetaAdConnectionDto {
   capiWhatsappConfigId: string | null;
   capiAutoPurchase: boolean;
   capiAutoLead: boolean;
+  /** Deals opened (Lead) and won (Purchase) are sent to Meta. */
+  capiDealEvents: boolean;
   insightsSyncedAt: string | null;
   leadsSyncedAt: string | null;
   lastErrorCode: string | null;
@@ -111,6 +114,7 @@ export function toDto(row: MetaAdConnectionRow): MetaAdConnectionDto {
     capiWhatsappConfigId: row.capi_whatsapp_config_id,
     capiAutoPurchase: row.capi_auto_purchase,
     capiAutoLead: row.capi_auto_lead,
+    capiDealEvents: row.capi_deal_events,
     insightsSyncedAt: iso(row.insights_synced_at),
     leadsSyncedAt: iso(row.leads_synced_at),
     lastErrorCode: row.last_error_code,
@@ -417,6 +421,7 @@ export interface CapiSettingsInput {
   capiEnabled?: boolean;
   capiAutoPurchase?: boolean;
   capiAutoLead?: boolean;
+  capiDealEvents?: boolean;
   capiWhatsappConfigId?: string | null;
 }
 
@@ -471,13 +476,14 @@ export async function updateCapiSettings(actor: MetaAdsActor, input: CapiSetting
     const rows = await tx.$queryRaw<MetaAdConnectionRow[]>`UPDATE meta_ad_connections SET
         capi_enabled=${enabled}, capi_auto_purchase=COALESCE(${input.capiAutoPurchase ?? null}::boolean, capi_auto_purchase),
         capi_auto_lead=COALESCE(${input.capiAutoLead ?? null}::boolean, capi_auto_lead),
+        capi_deal_events=COALESCE(${input.capiDealEvents ?? null}::boolean, capi_deal_events),
         capi_whatsapp_config_id=${numberId ?? null}::uuid, capi_dataset_id=${datasetId}, capi_waba_id=${wabaId}, updated_at=now()
       WHERE account_id=${actor.accountId}::uuid AND id=${row.id}::uuid AND status='active'
       RETURNING ${PUBLIC_SELECT}`;
     if (rows[0]) {
       await audit(tx, actor, 'meta_ads.capi_update', rows[0].id, {
         capiEnabled: rows[0].capi_enabled, capiAutoPurchase: rows[0].capi_auto_purchase, capiAutoLead: rows[0].capi_auto_lead,
-        numberChanged: (numberId ?? null) !== row.capi_whatsapp_config_id,
+        capiDealEvents: rows[0].capi_deal_events, numberChanged: (numberId ?? null) !== row.capi_whatsapp_config_id,
       });
     }
     return rows[0] ?? null;

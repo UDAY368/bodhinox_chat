@@ -4,7 +4,7 @@
 /** Kinds a member can request or schedule by name (each has a fixed layout). */
 export const REPORT_KINDS = [
   'campaign_daily', 'campaign_summary', 'member_campaigns', 'agent_performance',
-  'product_summary', 'service_summary', 'commerce_daily',
+  'product_summary', 'service_summary', 'commerce_daily', 'ads_summary',
 ] as const;
 export type ReportKind = (typeof REPORT_KINDS)[number];
 
@@ -39,6 +39,8 @@ export const KIND_MIN_ROLE: Record<RunKind, ShareRole> = {
   service_summary: 'viewer',
   product_summary: 'agent',
   commerce_daily: 'agent',
+  // Attributed revenue comes from orders and payment links (agent+).
+  ads_summary: 'agent',
   saved_report: 'viewer',
 };
 

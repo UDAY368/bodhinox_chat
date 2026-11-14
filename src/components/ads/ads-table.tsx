@@ -302,7 +302,7 @@ export function AdsTable({ canManage, canSegment, range, adAccountId }: AdsTable
         </div>
       )}
 
-      <AdDetailDrawer row={opened} level={level} adAccountId={opened?.adAccountId ?? adAccountId} onClose={() => setOpened(null)} />
+      <AdDetailDrawer row={opened} level={level} adAccountId={opened?.adAccountId ?? adAccountId} range={range} onClose={() => setOpened(null)} />
 
       <SegmentBuilderDialog
         open={retarget !== null}

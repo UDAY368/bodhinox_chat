@@ -26,15 +26,17 @@ import { metaAdsConfig, metaAdsManageEnabled, missingScopes } from './config';
 import { loadActiveConnectionTx, MetaAdsError, type MetaAdsActor } from './connection';
 import {
   AD_FORMATS, createAd, createAdSet, createCampaign, createCreative, findCreatedByName, getPageInstagramAccount, getVideoStatus,
-  isMetaThrottle, isMetaTokenInvalid, metaErrorCode, PLACEMENTS, uploadAdImage, uploadAdVideo, type AdFormat, type AdKind,
+  createLeadForm, isMetaThrottle, isMetaTokenInvalid, LEAD_QUESTION_TYPES, listLeadForms, listPages, metaErrorCode, PLACEMENTS, uploadAdImage, uploadAdVideo, type AdFormat, type AdKind,
   searchTargeting, type CarouselCard, type Placement, type TargetInterest, type TargetingOption, type TargetingSearchType,
-  type TargetPlace,
+  type TargetPlace, type LeadFormInput, type LeadQuestionType,
 } from './graph';
 
 export const AD_CREATE_JOB = 'meta.ad_create';
 /** Sends, then reads only: a throttle or a crash is retried, a step is never made twice. */
 export const AD_CREATE_MAX_ATTEMPTS = 5;
-export const AD_KINDS: readonly AdKind[] = ['whatsapp', 'instagram_direct', 'lead_form', 'website'];
+export const AD_KINDS: readonly AdKind[] = ['whatsapp', 'instagram_direct', 'lead_form', 'website', 'messenger'];
+/** Kinds that must run from the connected Page (its Instagram account, or its lead forms). */
+const CONNECTED_PAGE_KINDS: readonly AdKind[] = ['instagram_direct', 'lead_form'];
 export type DraftStatus = 'queued' | 'created' | 'failed' | 'unknown' | 'discarded';
 export type DraftStep = 'campaign' | 'adset' | 'creative' | 'ad' | 'done';
 const STEPS: Exclude<DraftStep, 'done'>[] = ['campaign', 'adset', 'creative', 'ad'];
@@ -43,6 +45,7 @@ const STEPS: Exclude<DraftStep, 'done'>[] = ['campaign', 'adset', 'creative', 'a
 export const CTA_TYPES: Record<AdKind, readonly string[]> = {
   whatsapp: ['WHATSAPP_MESSAGE'],
   instagram_direct: ['INSTAGRAM_MESSAGE'],
+  messenger: ['MESSAGE_PAGE'],
   lead_form: ['SIGN_UP', 'LEARN_MORE', 'APPLY_NOW', 'GET_QUOTE', 'SUBSCRIBE', 'DOWNLOAD'],
   website: ['LEARN_MORE', 'SHOP_NOW', 'SIGN_UP', 'BOOK_TRAVEL', 'CONTACT_US', 'ORDER_NOW', 'GET_OFFER', 'APPLY_NOW', 'SUBSCRIBE', 'DOWNLOAD'],
 };
@@ -91,6 +94,10 @@ export interface AdCreateInput {
   interests: TargetInterest[];
   places: TargetPlace[];
   locales: number[];
+  /** A cost cap per result in minor units; null = Meta's lowest cost. */
+  bidCapMinor: number | null;
+  /** Another of the admin's Facebook Pages to run the ad from; null = the connected Page. */
+  pageId: string | null;
 }
 
 /** Video files accepted for upload (one request to Meta; the proxy body limit in next.config.ts is 32 MB). */
@@ -231,6 +238,16 @@ export function parseAdCreateInput(body: unknown, now: number = Date.now()): AdC
       cards.push({ imageHash: r.imageHash, headline: cardHeadline, description: cardDescription, link: cardLink });
     }
   }
+  let bidCapMinor: number | null = null;
+  if (b.bidCapMinor !== undefined && b.bidCapMinor !== null) {
+    if (typeof b.bidCapMinor !== 'number' || !Number.isSafeInteger(b.bidCapMinor) || b.bidCapMinor <= 0 || b.bidCapMinor > budget) return null;
+    bidCapMinor = b.bidCapMinor;
+  }
+  let pageId: string | null = null;
+  if (b.pageId !== undefined && b.pageId !== null && b.pageId !== '') {
+    if (typeof b.pageId !== 'string' || !META_ID.test(b.pageId)) return null;
+    pageId = b.pageId;
+  }
   const audienceIds = uuidList(b.audienceIds);
   const excludedAudienceIds = uuidList(b.excludedAudienceIds);
   if (!audienceIds || !excludedAudienceIds || audienceIds.some((a) => excludedAudienceIds.includes(a))) return null;
@@ -240,7 +257,7 @@ export function parseAdCreateInput(body: unknown, now: number = Date.now()): AdC
     startTime: new Date(start).toISOString(), endTime: end === null ? null : new Date(end).toISOString(),
     countries, ageMin, ageMax, genders: genders as number[], primaryText, headline, description, linkUrl, leadFormId,
     ctaType: cta, imageHash: b.imageHash, imageUrl, whatsappNumber, welcomeMessage: welcome, publish: b.publish === true,
-    audienceIds, excludedAudienceIds, format, videoId, cards, ...targeting,
+    audienceIds, excludedAudienceIds, format, videoId, cards, ...targeting, bidCapMinor, pageId,
   };
 }
 
@@ -263,6 +280,9 @@ export interface AdDraftDto {
   completedAt: string | null;
   /** The draft this one is an A/B variant of. */
   variantOf: string | null;
+  /** The Meta ad this one replaces (paused once this one exists). */
+  replacesAdId: string | null;
+  pageId: string;
 }
 
 interface DraftRow {
@@ -274,7 +294,7 @@ interface DraftRow {
   creative_id: string | null; ad_id: string | null; last_error_code: string | null; created_at: Date; completed_at: Date | null;
   audience_ids: string[]; excluded_audience_ids: string[];
   format: AdFormat; video_id: string | null; cards: CarouselCard[] | null; placements: Placement[]; interests: TargetInterest[];
-  places: TargetPlace[]; locales: number[]; variant_of: string | null;
+  places: TargetPlace[]; locales: number[]; variant_of: string | null; bid_cap_minor: bigint | null; replaces_ad_id: string | null;
 }
 
 const draftDto = (r: DraftRow): AdDraftDto => ({
@@ -282,13 +302,14 @@ const draftDto = (r: DraftRow): AdDraftDto => ({
   publish: r.publish, status: r.status, step: r.step, campaignId: r.campaign_id, adsetId: r.adset_id, adId: r.ad_id,
   lastErrorCode: r.last_error_code, imageUrl: r.image_url, createdAt: r.created_at.toISOString(),
   completedAt: r.completed_at?.toISOString() ?? null, variantOf: r.variant_of,
+  replacesAdId: r.replaces_ad_id, pageId: r.page_id,
 });
 
 const DRAFT_COLUMNS = `id::text AS id, ad_account_id, page_id, kind, name, daily_budget_minor, currency, start_time, end_time,
   countries, age_min, age_max, genders, primary_text, headline, description, link_url, lead_form_id, cta_type, image_hash,
   image_url, whatsapp_number, welcome_message, publish, status, step, campaign_id, adset_id, creative_id, ad_id,
   last_error_code, created_at, completed_at, audience_ids, excluded_audience_ids, format, video_id, cards, placements, interests,
-  places, locales, variant_of::text AS variant_of`;
+  places, locales, variant_of::text AS variant_of, bid_cap_minor, replaces_ad_id`;
 
 const raw = (sql: string) => Prisma.raw(sql);
 
@@ -328,6 +349,7 @@ async function resolveAudiencesTx(tx: TenantTransaction, accountId: string, adAc
 /** Records the draft and queues its creation (admin). */
 export async function requestAdCreate(actor: MetaAdsActor, input: AdCreateInput): Promise<AdDraftDto> {
   requireCreator(actor);
+  const pageId = input.pageId ? await checkedPage(actor, input.pageId, input.kind) : null;
   return worker(actor.accountId, async (tx) => {
     const [conn] = await tx.$queryRaw<{ id: string; status: string; page_id: string | null; scopes: string[]; max_daily_budget_minor: bigint | null }[]>`
       SELECT id::text AS id, status, page_id, scopes, max_daily_budget_minor FROM meta_ad_connections
@@ -346,21 +368,22 @@ export async function requestAdCreate(actor: MetaAdsActor, input: AdCreateInput)
       INSERT INTO meta_ad_drafts(account_id, connection_id, ad_account_id, page_id, kind, name, daily_budget_minor, currency,
         start_time, end_time, countries, age_min, age_max, genders, primary_text, headline, description, link_url, lead_form_id,
         cta_type, image_hash, image_url, whatsapp_number, welcome_message, publish, requested_by, audience_ids, excluded_audience_ids,
-        format, video_id, cards, placements, interests, places, locales)
-      VALUES(${actor.accountId}::uuid, ${conn.id}::uuid, ${input.adAccountId}, ${conn.page_id}, ${input.kind}, ${input.name},
+        format, video_id, cards, placements, interests, places, locales, bid_cap_minor)
+      VALUES(${actor.accountId}::uuid, ${conn.id}::uuid, ${input.adAccountId}, ${pageId ?? conn.page_id}, ${input.kind}, ${input.name},
         ${input.dailyBudgetMinor}, ${account.currency}, ${input.startTime}::timestamptz, ${input.endTime}::timestamptz,
         ${input.countries}::text[], ${input.ageMin}, ${input.ageMax}, ${input.genders}::int[], ${input.primaryText},
         ${input.headline}, ${input.description}, ${input.linkUrl}, ${input.leadFormId}, ${input.ctaType}, ${input.imageHash},
         ${input.imageUrl}, ${input.whatsappNumber}, ${input.welcomeMessage}, ${input.publish}, ${actor.userId}::uuid,
         ${audiences.include}::text[], ${audiences.exclude}::text[], ${input.format}, ${input.videoId},
         ${input.cards ? JSON.stringify(input.cards) : null}::jsonb, ${input.placements}::text[], ${JSON.stringify(input.interests)}::jsonb,
-        ${JSON.stringify(input.places)}::jsonb, ${input.locales}::int[])
+        ${JSON.stringify(input.places)}::jsonb, ${input.locales}::int[], ${input.bidCapMinor}::bigint)
       RETURNING ${raw(DRAFT_COLUMNS)}`;
     await tx.$executeRaw`INSERT INTO jobs(type,tenant_id,payload,dedupe_key,max_attempts)
       VALUES(${AD_CREATE_JOB},${actor.accountId}::uuid,${JSON.stringify({ draftId: row.id })}::jsonb,${`adcreate:${row.id}`},
         ${AD_CREATE_MAX_ATTEMPTS})`;
     await audit(tx, actor, 'meta_ads.ad_create_request', row.id, {
       adAccountId: input.adAccountId, kind: input.kind, dailyBudgetMinor: input.dailyBudgetMinor, publish: input.publish,
+      ...(pageId ? { pageId } : {}), ...(input.bidCapMinor ? { bidCapMinor: input.bidCapMinor } : {}),
     });
     return draftDto(row);
   }, actor.userId);
@@ -403,10 +426,34 @@ async function saveStep(accountId: string, draftId: string, step: Exclude<DraftS
       last_error_code=NULL, updated_at=now()
     WHERE account_id=${accountId}::uuid AND id=${draftId}::uuid AND step=${step}`);
   if (following === 'done') {
+    await pauseReplaced(accountId, draftId);
     // Show the new ad in Bodhinox right away.
     await worker(accountId, (tx) => tx.$executeRaw`INSERT INTO jobs(type,tenant_id,payload,dedupe_key,max_attempts) VALUES
         ('meta.ad_objects_sync',${accountId}::uuid,'{}'::jsonb,${`meta-ad-objects-created:${draftId}`},3)
       ON CONFLICT(dedupe_key) DO NOTHING`);
+  }
+}
+
+/**
+ * A finished replacement pauses the ad it replaces, through the change
+ * pipeline (one intent, read-back), as the admin who asked while they are
+ * still an admin. Never throws: the new ad is made either way, and a pause that
+ * cannot be queued (already paused, a change open, not synced yet) is left to
+ * the admin.
+ */
+async function pauseReplaced(accountId: string, draftId: string): Promise<void> {
+  try {
+    const [row] = await worker(accountId, (tx) => tx.$queryRaw<{ replaces_ad_id: string | null; requested_by: string; admin: boolean }[]>`
+      SELECT d.replaces_ad_id, d.requested_by::text AS requested_by,
+        EXISTS (SELECT 1 FROM account_memberships m WHERE m.account_id=d.account_id AND m.user_id=d.requested_by
+          AND m.role IN ('owner','admin')) AS admin
+      FROM meta_ad_drafts d WHERE d.account_id=${accountId}::uuid AND d.id=${draftId}::uuid`);
+    if (!row?.replaces_ad_id || !row.admin) return;
+    // Imported here: manage.ts reaches the job schedule, which must not load this module first.
+    const { requestAdChange } = await import('./manage');
+    await requestAdChange({ accountId, userId: row.requested_by, role: 'admin' }, { objectId: row.replaces_ad_id, field: 'status', value: 'PAUSED' });
+  } catch (error) {
+    console.error('[meta-ads] replaced ad not paused', error instanceof MetaAdsError ? error.code : error instanceof Error ? error.name : 'unknown');
   }
 }
 
@@ -444,6 +491,7 @@ async function send(draft: DraftRow, step: Exclude<DraftStep, 'done'>, token: st
         genders: draft.genders, whatsappNumber: draft.whatsapp_number, status,
         audienceIds: draft.audience_ids, excludedAudienceIds: draft.excluded_audience_ids,
         placements: draft.placements, places: draft.places, interests: draft.interests, locales: draft.locales,
+        bidCapMinor: draft.bid_cap_minor === null ? null : Number(draft.bid_cap_minor),
       });
     case 'creative':
       return createCreative(draft.ad_account_id, token, {
@@ -762,6 +810,8 @@ export interface AdVariantInput {
   description: string | null;
   imageHash: string;
   imageUrl: string | null;
+  /** Pause the source ad once this one exists (an edit of a running ad). */
+  replace: boolean;
 }
 
 export function parseAdVariantInput(body: unknown): AdVariantInput | null {
@@ -776,7 +826,7 @@ export function parseAdVariantInput(body: unknown): AdVariantInput | null {
   if (typeof b.imageHash !== 'string' || !HASH.test(b.imageHash)) return null;
   const imageUrl = b.imageUrl === undefined || b.imageUrl === null || b.imageUrl === '' ? null : httpsLink(b.imageUrl);
   if (b.imageUrl && !imageUrl) return null;
-  return { sourceId: b.sourceId, name, primaryText, headline, description, imageHash: b.imageHash, imageUrl };
+  return { sourceId: b.sourceId, name, primaryText, headline, description, imageHash: b.imageHash, imageUrl, replace: b.replace === true };
 }
 
 /**
@@ -792,6 +842,7 @@ export async function requestAdVariant(actor: MetaAdsActor, input: AdVariantInpu
       WHERE account_id=${actor.accountId}::uuid AND id=${input.sourceId}::uuid`;
     if (!source) throw new MetaAdsError('not_found');
     if (source.status !== 'created' || !source.campaign_id || !source.adset_id) throw new MetaAdsError('invalid_choice');
+    if (input.replace && !source.ad_id) throw new MetaAdsError('invalid_choice');
     // An unclear create is looked up by name inside the ad set, so a variant never shares the source's name.
     let name = (input.name ?? `${source.name} · B`).slice(0, 200);
     if (name === source.name) name = `${source.name.slice(0, 196)} · B`;
@@ -799,16 +850,103 @@ export async function requestAdVariant(actor: MetaAdsActor, input: AdVariantInpu
       INSERT INTO meta_ad_drafts(account_id, connection_id, ad_account_id, page_id, kind, name, daily_budget_minor, currency,
         start_time, end_time, countries, age_min, age_max, genders, primary_text, headline, description, link_url, lead_form_id,
         cta_type, image_hash, image_url, whatsapp_number, welcome_message, publish, requested_by, audience_ids, excluded_audience_ids,
-        format, video_id, cards, placements, interests, places, locales, variant_of, campaign_id, adset_id, step)
+        format, video_id, cards, placements, interests, places, locales, variant_of, campaign_id, adset_id, step, bid_cap_minor, replaces_ad_id)
       SELECT account_id, ${conn.id}::uuid, ad_account_id, page_id, kind, ${name}, daily_budget_minor, currency,
         start_time, end_time, countries, age_min, age_max, genders, ${input.primaryText}, ${input.headline}, ${input.description},
         link_url, lead_form_id, cta_type, ${input.imageHash}, ${input.imageUrl}, whatsapp_number, welcome_message, publish,
         ${actor.userId}::uuid, audience_ids, excluded_audience_ids, 'image', NULL, NULL, placements, interests, places, locales,
-        id, campaign_id, adset_id, 'creative'
+        id, campaign_id, adset_id, 'creative', bid_cap_minor, ${input.replace ? source.ad_id : null}
       FROM meta_ad_drafts WHERE account_id=${actor.accountId}::uuid AND id=${input.sourceId}::uuid
       RETURNING ${raw(DRAFT_COLUMNS)}`;
     await queueCreateTx(tx, actor.accountId, row.id);
-    await audit(tx, actor, 'meta_ads.ad_variant', row.id, { sourceId: input.sourceId });
+    await audit(tx, actor, input.replace ? 'meta_ads.ad_replace' : 'meta_ads.ad_variant', row.id, { sourceId: input.sourceId });
     return draftDto(row);
   }, actor.userId);
+}
+
+// ---------------------------------------------------------------------------
+// Facebook Pages (admin)
+
+/** The Facebook Pages the connected login manages (ids and names only, never Page tokens). */
+export async function listAdPages(actor: MetaAdsActor): Promise<{ id: string; name: string | null; connected: boolean }[]> {
+  requireCreator(actor);
+  const conn = await worker(actor.accountId, (tx) => loadActiveConnectionTx(tx, actor.accountId), actor.userId);
+  if (!conn?.userToken) throw new MetaAdsError('not_connected');
+  try {
+    const pages = await listPages(conn.userToken);
+    return pages.map((p) => ({ id: p.id, name: p.name, connected: p.id === conn.pageId }));
+  } catch (error) {
+    console.error('[meta-ads] page list failed', metaErrorCode(error) ?? (error instanceof Error ? error.name : 'unknown'));
+    if (isMetaTokenInvalid(error)) throw new MetaAdsError('token_invalid');
+    if (isMetaThrottle(error)) throw new MetaAdsError('rate_limited');
+    throw new MetaAdsError('meta_error');
+  }
+}
+
+/** A Page other than the connected one: one the login manages, and only for kinds that do not need the connected Page. */
+async function checkedPage(actor: MetaAdsActor, pageId: string, kind: AdKind): Promise<string | null> {
+  const pages = await listAdPages(actor);
+  const page = pages.find((p) => p.id === pageId);
+  if (!page) throw new MetaAdsError('invalid_choice');
+  if (page.connected) return null;
+  if (CONNECTED_PAGE_KINDS.includes(kind)) throw new MetaAdsError('invalid_choice');
+  return page.id;
+}
+
+// ---------------------------------------------------------------------------
+// Lead form builder (admin)
+
+export function parseLeadFormInput(body: unknown): LeadFormInput | null {
+  if (!body || typeof body !== 'object') return null;
+  const b = body as Record<string, unknown>;
+  const name = text(b.name, 100, 1);
+  const questions = Array.isArray(b.questions) ? [...new Set(b.questions)] : [];
+  if (!questions.length || !questions.every((q) => (LEAD_QUESTION_TYPES as readonly unknown[]).includes(q))) return null;
+  // A lead needs a way back: a phone number or an email.
+  if (!questions.includes('PHONE') && !questions.includes('EMAIL')) return null;
+  const custom = Array.isArray(b.customQuestions) ? b.customQuestions : [];
+  if (custom.length > 5) return null;
+  const customQuestions: string[] = [];
+  for (const q of custom) {
+    const label = text(q, 200, 1);
+    if (!label) return null;
+    customQuestions.push(label);
+  }
+  const privacyUrl = httpsLink(b.privacyUrl);
+  const privacyText = text(b.privacyText ?? 'Privacy policy', 70, 1);
+  const thankYouTitle = text(b.thankYouTitle ?? 'Thanks, we will be in touch', 60, 1);
+  const thankYouBody = text(b.thankYouBody ?? 'We will contact you soon.', 160, 1);
+  const websiteUrl = b.websiteUrl === undefined || b.websiteUrl === null || b.websiteUrl === '' ? null : httpsLink(b.websiteUrl);
+  if (!name || !privacyUrl || !privacyText || !thankYouTitle || !thankYouBody || (b.websiteUrl && !websiteUrl)) return null;
+  return { name, questions: questions as LeadQuestionType[], customQuestions, privacyUrl, privacyText, thankYouTitle, thankYouBody, websiteUrl };
+}
+
+/**
+ * Makes a Meta instant form on the connected Page. Names are unique per Page
+ * here: an existing form with the name is refused, and after an unclear
+ * outcome the form is looked up by name instead of being made twice.
+ */
+export async function createPageLeadForm(actor: MetaAdsActor, input: LeadFormInput): Promise<{ id: string; name: string }> {
+  requireCreator(actor);
+  const conn = await worker(actor.accountId, (tx) => loadActiveConnectionTx(tx, actor.accountId), actor.userId);
+  if (!conn?.pageToken || !conn.pageId) throw new MetaAdsError('not_connected');
+  if (missingCreateScopes(conn.scopes).length) throw new MetaAdsError('missing_scope');
+  const byName = async () => (await listLeadForms(conn.pageId!, conn.pageToken!)).filter((form) => form.name === input.name);
+  try {
+    if ((await byName()).length) throw new MetaAdsError('name_taken');
+    const made = await createLeadForm(conn.pageId, conn.pageToken, input);
+    await worker(actor.accountId, (tx) => audit(tx, actor, 'meta_ads.lead_form_create', made.id, { questions: input.questions.length + input.customQuestions.length }), actor.userId);
+    return { id: made.id, name: input.name };
+  } catch (error) {
+    if (error instanceof MetaAdsError) throw error;
+    console.error('[meta-ads] lead form create failed', metaErrorCode(error) ?? (error instanceof Error ? error.name : 'unknown'));
+    if (isMetaTokenInvalid(error)) throw new MetaAdsError('token_invalid');
+    if (isMetaThrottle(error)) throw new MetaAdsError('rate_limited');
+    if (!(error instanceof MetaApiError && error.httpStatus >= 400 && error.httpStatus < 500)) {
+      // Unclear: Meta may have made it.
+      const found = await byName().catch(() => []);
+      if (found.length === 1) return { id: found[0].id, name: input.name };
+    }
+    throw new MetaAdsError('meta_error');
+  }
 }

@@ -661,7 +661,7 @@ export async function postCapiEvents(datasetId: string, token: string, events: C
 
 // ---------------------------------------------------------------- ad creation
 
-export type AdKind = 'whatsapp' | 'instagram_direct' | 'lead_form' | 'website';
+export type AdKind = 'whatsapp' | 'instagram_direct' | 'lead_form' | 'website' | 'messenger';
 
 /** The campaign objective each kind runs under (Meta's outcome-based objectives, v27). */
 export const KIND_OBJECTIVE: Record<AdKind, string> = {
@@ -669,6 +669,7 @@ export const KIND_OBJECTIVE: Record<AdKind, string> = {
   instagram_direct: 'OUTCOME_ENGAGEMENT',
   lead_form: 'OUTCOME_LEADS',
   website: 'OUTCOME_TRAFFIC',
+  messenger: 'OUTCOME_ENGAGEMENT',
 };
 
 const created = (row: { id?: unknown }): { id: string } => {
@@ -722,6 +723,8 @@ export interface AdSetInput {
   places?: readonly TargetPlace[];
   interests?: readonly TargetInterest[];
   locales?: readonly number[];
+  /** A cost cap per result (minor units); none = Meta's lowest cost. */
+  bidCapMinor?: number | null;
 }
 
 export const PLACEMENTS = ['facebook', 'instagram', 'messenger', 'audience_network', 'whatsapp_status'] as const;
@@ -754,6 +757,7 @@ const ADSET_DELIVERY: Record<AdKind, { destination_type: string; optimization_go
   instagram_direct: { destination_type: 'INSTAGRAM_DIRECT', optimization_goal: 'CONVERSATIONS' },
   lead_form: { destination_type: 'ON_AD', optimization_goal: 'LEAD_GENERATION' },
   website: { destination_type: 'WEBSITE', optimization_goal: 'LINK_CLICKS' },
+  messenger: { destination_type: 'MESSENGER', optimization_goal: 'CONVERSATIONS' },
 };
 
 /** The ad set's form fields (exported for tests). */
@@ -788,7 +792,7 @@ export function adSetForm(input: AdSetInput): Record<string, string> {
     campaign_id: assertId(input.campaignId),
     ...ADSET_DELIVERY[input.kind],
     billing_event: 'IMPRESSIONS',
-    bid_strategy: 'LOWEST_COST_WITHOUT_CAP',
+    ...(input.bidCapMinor ? { bid_strategy: 'COST_CAP', bid_amount: String(input.bidCapMinor) } : { bid_strategy: 'LOWEST_COST_WITHOUT_CAP' }),
     daily_budget: String(input.dailyBudgetMinor),
     targeting: JSON.stringify(targeting),
     ...(promoted ? { promoted_object: JSON.stringify(promoted) } : {}),
@@ -832,6 +836,8 @@ function destination(input: CreativeInput, link: string | null): { link?: string
       return { link: 'https://api.whatsapp.com/send', call_to_action: { type: 'WHATSAPP_MESSAGE', value: { app_destination: 'WHATSAPP' } } };
     case 'instagram_direct':
       return { call_to_action: { type: 'INSTAGRAM_MESSAGE', value: { app_destination: 'INSTAGRAM_DIRECT' } } };
+    case 'messenger':
+      return { call_to_action: { type: 'MESSAGE_PAGE', value: { app_destination: 'MESSENGER' } } };
     case 'lead_form':
       return { link: 'http://fb.me/', call_to_action: { type: input.ctaType, value: { lead_gen_form_id: input.leadFormId } } };
     case 'website':
@@ -1066,4 +1072,145 @@ export async function searchTargeting(type: TargetingSearchType, query: string, 
     const name = str(row.name);
     return key && name ? [{ type: 'locale', id: key, name, detail: null, countryCode: null, size: null }] : [];
   });
+}
+
+// ---------------------------------------------------------------- report breakdowns and previews
+
+export const INSIGHT_BREAKDOWNS = ['age_gender', 'region', 'device', 'placement'] as const;
+export type InsightBreakdown = (typeof INSIGHT_BREAKDOWNS)[number];
+const BREAKDOWN_FIELDS: Record<InsightBreakdown, string[]> = {
+  age_gender: ['age', 'gender'],
+  region: ['region'],
+  device: ['impression_device'],
+  placement: ['publisher_platform', 'platform_position'],
+};
+
+export interface MetaBreakdownRow {
+  /** Meta's values for the breakdown's fields, in order (e.g. ['25-34', 'female']). */
+  dims: string[];
+  spend: number;
+  impressions: number;
+  clicks: number;
+  linkClicks: number;
+  conversationsStarted: number;
+  leads: number;
+  purchases: number;
+}
+
+/**
+ * One range's insights split by age and gender, region, device or placement,
+ * for an ad account (act_<id>) or one of its campaigns, ad sets or ads. Read
+ * live (Meta keeps these splits; they are not stored here).
+ */
+export async function getBreakdownInsights(target: { adAccountId: string } | { objectId: string }, userToken: string,
+  options: { since: string; until: string; breakdown: InsightBreakdown }): Promise<MetaBreakdownRow[]> {
+  const fields = BREAKDOWN_FIELDS[options.breakdown];
+  const path = 'adAccountId' in target ? `act_${assertId(target.adAccountId)}/insights` : `${assertId(target.objectId)}/insights`;
+  const rows = await getAll<Record<string, unknown>>(path, userToken, {
+    breakdowns: fields.join(','),
+    time_range: JSON.stringify({ since: options.since, until: options.until }),
+    fields: 'spend,impressions,clicks,inline_link_clicks,actions',
+    limit: 500,
+  });
+  return rows.map((row) => {
+    const actions = actionsOf(row);
+    return {
+      dims: fields.map((f) => str(row[f], 100) ?? 'unknown'),
+      spend: money(row.spend),
+      impressions: count(row.impressions),
+      clicks: count(row.clicks),
+      linkClicks: count(row.inline_link_clicks),
+      conversationsStarted: actionCount(actions, [CONVERSATION_STARTED_ACTION]),
+      leads: actionCount(actions, LEAD_ACTIONS),
+      purchases: actionCount(actions, PURCHASE_ACTIONS),
+    };
+  });
+}
+
+export const PREVIEW_FORMATS = ['MOBILE_FEED_STANDARD', 'INSTAGRAM_STANDARD', 'INSTAGRAM_STORY', 'FACEBOOK_STORY_MOBILE'] as const;
+export type PreviewFormat = (typeof PREVIEW_FORMATS)[number];
+
+/** Meta's preview iframe address from a previews body, only when it is Meta's own preview page. */
+export function previewSrcOf(body: unknown): string | null {
+  if (typeof body !== 'string') return null;
+  const match = /\bsrc="([^"]+)"/.exec(body);
+  if (!match) return null;
+  const src = match[1].replace(/&amp;/g, '&');
+  try {
+    const parsed = new URL(src);
+    if (parsed.protocol !== 'https:' || parsed.hostname !== 'www.facebook.com' || !parsed.pathname.startsWith('/ads/api/preview_iframe.php')) return null;
+    return parsed.toString();
+  } catch {
+    return null;
+  }
+}
+
+/** Meta's rendering of an existing ad in one format: the preview iframe's address (short-lived). */
+export async function getAdPreview(adId: string, token: string, format: PreviewFormat): Promise<string | null> {
+  const result = await request<{ data?: { body?: unknown }[] }>('GET', `${assertId(adId)}/previews`, token, { params: { ad_format: format } });
+  return previewSrcOf(result.data?.[0]?.body);
+}
+
+// ---------------------------------------------------------------- lead form builder
+
+export const LEAD_QUESTION_TYPES = ['FULL_NAME', 'EMAIL', 'PHONE', 'CITY', 'COMPANY_NAME', 'JOB_TITLE'] as const;
+export type LeadQuestionType = (typeof LEAD_QUESTION_TYPES)[number];
+export interface LeadFormInput {
+  name: string;
+  questions: LeadQuestionType[];
+  /** Short-answer questions of the business's own, in order. */
+  customQuestions: string[];
+  privacyUrl: string;
+  privacyText: string;
+  thankYouTitle: string;
+  thankYouBody: string;
+  /** Where the thank-you button goes (optional). */
+  websiteUrl: string | null;
+}
+
+/** Meta's leadgen_forms body for an instant form (questions, privacy policy, thank-you screen). */
+export function leadFormBody(input: LeadFormInput): Record<string, string> {
+  const questions = [
+    ...input.questions.map((type) => ({ type })),
+    ...input.customQuestions.map((label, i) => ({ type: 'CUSTOM', key: `question_${i + 1}`, label })),
+  ];
+  return {
+    name: input.name,
+    questions: JSON.stringify(questions),
+    privacy_policy: JSON.stringify({ url: input.privacyUrl, link_text: input.privacyText }),
+    thank_you_page: JSON.stringify({
+      title: input.thankYouTitle, body: input.thankYouBody,
+      ...(input.websiteUrl ? { button_type: 'VIEW_WEBSITE', button_text: 'Visit website', website_url: input.websiteUrl } : { button_type: 'NONE' }),
+    }),
+    locale: 'en_US',
+    block_display_for_non_targeted_viewer: 'false',
+  };
+}
+
+export async function createLeadForm(pageId: string, pageToken: string, input: LeadFormInput): Promise<{ id: string }> {
+  return created(await request('POST', `${assertId(pageId)}/leadgen_forms`, pageToken, { form: leadFormBody(input) }));
+}
+
+// ---------------------------------------------------------------- engagement and website audiences
+
+export type RuleAudienceSource = { type: 'page' | 'instagram' | 'pixel'; id: string };
+
+/** The rule of an engagement (Page, Instagram account) or website-visitor (pixel) audience. */
+export function ruleAudienceRule(source: RuleAudienceSource, retentionDays: number): Record<string, unknown> {
+  const retention = Math.round(retentionDays) * 86_400;
+  const eventSource = { id: assertId(source.id), type: source.type === 'instagram' ? 'ig_business' : source.type };
+  const filter = source.type === 'pixel'
+    ? { operator: 'and', filters: [{ field: 'url', operator: 'i_contains', value: '' }] }
+    : { operator: 'and', filters: [{ field: 'event', operator: 'eq', value: source.type === 'page' ? 'page_engaged' : 'ig_business_profile_all' }] };
+  return { inclusions: { operator: 'or', rules: [{ event_sources: [eventSource], retention_seconds: retention, filter }] } };
+}
+
+export async function createRuleAudience(adAccountId: string, token: string,
+  input: { name: string; source: RuleAudienceSource; retentionDays: number }): Promise<{ id: string }> {
+  return created(await request('POST', `act_${assertId(adAccountId)}/customaudiences`, token, { form: {
+    name: input.name,
+    rule: JSON.stringify(ruleAudienceRule(input.source, input.retentionDays)),
+    prefill: 'true',
+    description: 'Made in Bodhinox',
+  } }));
 }

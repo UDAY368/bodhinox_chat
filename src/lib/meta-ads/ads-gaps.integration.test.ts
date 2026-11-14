@@ -144,7 +144,7 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('Ads gaps on PostgreSQL', { 
     expect((await draftRow(copy.id)).status).toBe('created');
 
     const source = await draftRow(created);
-    const variant = await requestAdVariant(asA, { sourceId: created, name: null, primaryText: 'Variant text', headline: null, description: null, imageHash: HASH, imageUrl: null });
+    const variant = await requestAdVariant(asA, { sourceId: created, name: null, primaryText: 'Variant text', headline: null, description: null, imageHash: HASH, imageUrl: null, replace: false });
     expect(variant.variantOf).toBe(created);
     expect(await draftRow(variant.id)).toMatchObject({ step: 'creative', campaign_id: source.campaign_id, adset_id: source.adset_id });
     vi.clearAllMocks();
@@ -156,7 +156,7 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('Ads gaps on PostgreSQL', { 
     expect(graph.createAd.mock.calls[0][2]).toMatchObject({ adsetId: source.adset_id });
     // Only a made ad can get a variant.
     const queued = await requestAdCreate(asA, input());
-    expect(await failure(requestAdVariant(asA, { sourceId: queued.id, name: null, primaryText: 'x', headline: null, description: null, imageHash: HASH, imageUrl: null })))
+    expect(await failure(requestAdVariant(asA, { sourceId: queued.id, name: null, primaryText: 'x', headline: null, description: null, imageHash: HASH, imageUrl: null, replace: false })))
       .toBe('invalid_choice');
   });
 

@@ -8,7 +8,8 @@
 //   { action: 'discard', id } — gives up on a failed or unknown draft; 200 { draft }.
 //   { action: 'duplicate', id } — a paused copy as a new campaign; 202 { draft }.
 //   { action: 'variant', sourceId, primaryText, headline?, description?, imageHash, imageUrl?, name? } —
-//     an A/B variant: a second ad in the source ad's ad set; 202 { draft }.
+//     an A/B variant: a second ad in the source ad's ad set; 202 { draft }. With replace: true
+//     it is an edit of a running ad: the source ad is paused once the new one exists.
 // 503 meta_ads_not_enabled / manage_not_enabled, 400 invalid_request /
 // invalid_choice, 403, 404, 409 missing_scope / token_invalid, 422
 // over_budget_cap, 429, 502 meta_error.

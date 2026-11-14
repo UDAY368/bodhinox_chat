@@ -386,6 +386,11 @@ function CapiSettings({
           onCheckedChange={(v: boolean) => void onSave({ capiAutoLead: v })} />
         <span className="text-foreground">{t('autoLead')}</span>
       </label>
+      <label className="flex items-start gap-3 text-sm">
+        <Switch checked={connection.capiDealEvents} disabled={disabled}
+          onCheckedChange={(v: boolean) => void onSave({ capiDealEvents: v })} />
+        <span className="text-foreground">{t('dealEvents')}</span>
+      </label>
     </div>
   );
 }

@@ -5803,7 +5803,8 @@
         "autoLead": "Enviar envíos de formularios de WhatsApp como clientes potenciales",
         "dataset": "Conjunto de datos {id}",
         "saved": "Configuración de la API de conversiones guardada",
-        "saveNumber": "Guardar número"
+        "saveNumber": "Guardar número",
+        "dealEvents": "Enviar etapas de negocios: un negocio abierto cuenta como Lead y uno ganado como Compra (su valor), para contactos que llegaron de un anuncio."
       },
       "disconnect": "Desconectar",
       "disconnectConfirm": "¿Desconectar los anuncios de Meta? Dejarán de llegar clientes potenciales y no se enviarán más conversiones. Se conservan los resultados y clientes potenciales guardados.",
@@ -11628,6 +11629,7 @@
         "product_summary": "Ventas por producto",
         "service_summary": "Citas por servicio",
         "commerce_daily": "Cobros por día",
+        "ads_summary": "Resumen de anuncios de Meta",
         "saved_report": "Informe guardado"
       },
       "range": "Rango de fechas",
@@ -12551,7 +12553,9 @@
       "sales": "{count, plural, one {# venta} other {# ventas}} en Bodhinox",
       "roas": "Retorno de la inversión publicitaria",
       "roasValue": "{value}×",
-      "roasHint": "Ingresos ÷ importe gastado"
+      "roasHint": "Ingresos ÷ importe gastado",
+      "changeUp": "▲ {value}% vs. periodo anterior",
+      "changeDown": "▼ {value}% vs. periodo anterior"
     },
     "platforms": {
       "facebook": "Facebook",
@@ -13012,6 +13016,51 @@
       "issues": "Requiere atención",
       "ended": "Finalizado",
       "billing": "Falta facturación"
+    },
+    "breakdowns": {
+      "title": "Quién vio tus anuncios",
+      "blurb": "Por edad y sexo, región, dispositivo o ubicación. Se lee de Meta al abrirlo.",
+      "split": "Dividir por",
+      "splits": {
+        "age_gender": "Edad y sexo",
+        "region": "Región",
+        "device": "Dispositivo",
+        "placement": "Ubicación"
+      },
+      "genders": {
+        "male": "hombres",
+        "female": "mujeres",
+        "unknown": "desconocido"
+      },
+      "spend": "Gasto",
+      "impressions": "Impresiones",
+      "results": "Resultados",
+      "costPerResult": "Costo por resultado",
+      "empty": "Sin resultados en estas fechas.",
+      "note": "Los resultados suman chats, leads y compras. Meta oculta los grupos muy pequeños.",
+      "errors": {
+        "token_invalid": "El inicio de sesión de Meta caducó. Vuelve a conectar en Configuración > Anuncios.",
+        "rate_limited": "Meta está ocupado. Inténtalo en un minuto.",
+        "not_connected": "Primero conecta Meta en Configuración > Anuncios."
+      }
+    },
+    "quality": {
+      "title": "Del anuncio al cliente",
+      "blurb": "Qué pasó después de cada clic, según tus chats y negocios en Bodhinox.",
+      "ad": "Anuncio",
+      "spend": "Gasto",
+      "chats": "Chats",
+      "replied": "Respondidos",
+      "deals": "Negocios",
+      "won": "Ganados",
+      "costPerChat": "Costo por chat",
+      "costPerWon": "Costo por negocio ganado",
+      "empty": "Aún no hay chats de anuncios en estas fechas.",
+      "help": {
+        "chats": "Chats que empezaron desde este anuncio en Bodhinox.",
+        "replied": "Chats que tu equipo o un bot respondió.",
+        "deals": "Negocios abiertos para estos contactos después del clic."
+      }
     }
   },
   "Appointments": {
@@ -15389,7 +15438,16 @@
       "costPerResult": "Coste por resultado",
       "ctr": "CTR",
       "leads": "Clientes potenciales",
-      "creativeAlt": "La imagen del anuncio"
+      "creativeAlt": "La imagen del anuncio",
+      "previewTitle": "Vista previa en Meta",
+      "previewFormats": {
+        "MOBILE_FEED_STANDARD": "Feed de Facebook",
+        "INSTAGRAM_STANDARD": "Feed de Instagram",
+        "INSTAGRAM_STORY": "Historia de Instagram",
+        "FACEBOOK_STORY_MOBILE": "Historia de Facebook"
+      },
+      "previewFailed": "No se pudo cargar la vista previa de Meta.",
+      "previewNone": "Meta no tiene vista previa de este anuncio en ese lugar."
     }
   },
   "Sales": {

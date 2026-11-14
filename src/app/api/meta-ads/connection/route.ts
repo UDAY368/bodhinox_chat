@@ -2,7 +2,7 @@
 //   PATCH { adAccountId, pageId }  finish connecting: the ids must be among the
 //         choices of the pending connection (re-checked against Meta), and the
 //         Page must not be held by another workspace (409 page_in_use).
-//   PATCH { capiEnabled?, capiAutoPurchase?, capiAutoLead?, capiWhatsappConfigId? }
+//   PATCH { capiEnabled?, capiAutoPurchase?, capiAutoLead?, capiDealEvents?, capiWhatsappConfigId? }
 //         Conversions API settings; enabling looks up or creates the dataset of
 //         the chosen number's WABA. Audit meta_ads.capi_update.
 //   DELETE  unsubscribe the Page and disconnect (502 revoke_failed keeps the
@@ -29,6 +29,7 @@ const Capi = z.object({
   capiEnabled: z.boolean().optional(),
   capiAutoPurchase: z.boolean().optional(),
   capiAutoLead: z.boolean().optional(),
+  capiDealEvents: z.boolean().optional(),
   capiWhatsappConfigId: z.string().uuid().nullable().optional(),
 }).strict().refine((v) => Object.keys(v).length > 0);
 

@@ -5803,7 +5803,8 @@
         "autoLead": "Enviar envios de formulários do WhatsApp como leads",
         "dataset": "Conjunto de dados {id}",
         "saved": "Configurações da API de Conversões salvas",
-        "saveNumber": "Salvar número"
+        "saveNumber": "Salvar número",
+        "dealEvents": "Enviar etapas de negócios: um negócio aberto conta como Lead e um ganho como Compra (seu valor), para contatos vindos de um anúncio."
       },
       "disconnect": "Desconectar",
       "disconnectConfirm": "Desconectar os anúncios da Meta? Os leads deixam de chegar e nenhuma conversão será enviada. Os resultados e leads salvos são mantidos.",
@@ -11628,6 +11629,7 @@
         "product_summary": "Vendas por produto",
         "service_summary": "Agendamentos por serviço",
         "commerce_daily": "Recebimentos por dia",
+        "ads_summary": "Resumo de anúncios da Meta",
         "saved_report": "Relatório salvo"
       },
       "range": "Período",
@@ -12551,7 +12553,9 @@
       "sales": "{count, plural, one {# venda} other {# vendas}} no Bodhinox",
       "roas": "Retorno sobre o investimento em anúncios",
       "roasValue": "{value}×",
-      "roasHint": "Receita ÷ valor gasto"
+      "roasHint": "Receita ÷ valor gasto",
+      "changeUp": "▲ {value}% vs. período anterior",
+      "changeDown": "▼ {value}% vs. período anterior"
     },
     "platforms": {
       "facebook": "Facebook",
@@ -13012,6 +13016,51 @@
       "issues": "Requer atenção",
       "ended": "Encerrado",
       "billing": "Falta pagamento"
+    },
+    "breakdowns": {
+      "title": "Quem viu seus anúncios",
+      "blurb": "Por idade e gênero, região, dispositivo ou posicionamento. Lido da Meta ao abrir.",
+      "split": "Dividir por",
+      "splits": {
+        "age_gender": "Idade e gênero",
+        "region": "Região",
+        "device": "Dispositivo",
+        "placement": "Posicionamento"
+      },
+      "genders": {
+        "male": "homens",
+        "female": "mulheres",
+        "unknown": "desconhecido"
+      },
+      "spend": "Gasto",
+      "impressions": "Impressões",
+      "results": "Resultados",
+      "costPerResult": "Custo por resultado",
+      "empty": "Sem resultados neste período.",
+      "note": "Resultados somam conversas, leads e compras. A Meta oculta grupos muito pequenos.",
+      "errors": {
+        "token_invalid": "O login da Meta expirou. Reconecte em Configurações > Anúncios.",
+        "rate_limited": "A Meta está ocupada. Tente em um minuto.",
+        "not_connected": "Conecte a Meta em Configurações > Anúncios primeiro."
+      }
+    },
+    "quality": {
+      "title": "Do anúncio ao cliente",
+      "blurb": "O que aconteceu após cada clique, pelas suas conversas e negócios no Bodhinox.",
+      "ad": "Anúncio",
+      "spend": "Gasto",
+      "chats": "Conversas",
+      "replied": "Respondidas",
+      "deals": "Negócios",
+      "won": "Ganhos",
+      "costPerChat": "Custo por conversa",
+      "costPerWon": "Custo por negócio ganho",
+      "empty": "Ainda não há conversas de anúncios neste período.",
+      "help": {
+        "chats": "Conversas iniciadas por este anúncio no Bodhinox.",
+        "replied": "Conversas que sua equipe ou um bot respondeu.",
+        "deals": "Negócios abertos para esses contatos depois do clique."
+      }
     }
   },
   "Appointments": {
@@ -15389,7 +15438,16 @@
       "costPerResult": "Custo por resultado",
       "ctr": "CTR",
       "leads": "Leads",
-      "creativeAlt": "A imagem do anúncio"
+      "creativeAlt": "A imagem do anúncio",
+      "previewTitle": "Prévia na Meta",
+      "previewFormats": {
+        "MOBILE_FEED_STANDARD": "Feed do Facebook",
+        "INSTAGRAM_STANDARD": "Feed do Instagram",
+        "INSTAGRAM_STORY": "Story do Instagram",
+        "FACEBOOK_STORY_MOBILE": "Story do Facebook"
+      },
+      "previewFailed": "Não foi possível carregar a prévia da Meta.",
+      "previewNone": "A Meta não tem prévia deste anúncio nesse lugar."
     }
   },
   "Sales": {

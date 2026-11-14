@@ -3,7 +3,7 @@
 //   POST  { kind, format?, preset?, from?, to?, email? } requests one; the row
 //         and its worker job commit before the 202 { report }. kind is one of
 //         campaign_daily, campaign_summary, member_campaigns, agent_performance,
-//         product_summary, service_summary, commerce_daily; format is csv
+//         product_summary, service_summary, commerce_daily, ads_summary; format is csv
 //         (default) or pdf; the range follows the analytics presets (today,
 //         7d, 30d, 90d, this/last week or month, or custom from/to local days,
 //         at most 366 days). email asks for a

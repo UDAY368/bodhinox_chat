@@ -37,6 +37,8 @@ export interface AdsOverview {
   platforms: ({ platform: AdPlatform } & Omit<MetricTotals, 'metaPurchases'>)[];
   topCampaigns: { id: string; name: string | null; objective: string | null; currency: string | null; spend: number; conversationsStarted: number; leads: number; linkClicks: number }[];
   insightsSyncedAt: string | null;
+  /** The same number of days just before the range, for the change shown on each tile. */
+  previous: { from: string; to: string; totals: MetricTotals; conversationsInBodhinox: number };
 }
 
 const DAY_MS = 86_400_000;
@@ -65,7 +67,12 @@ export async function getAdsOverview(actor: MetaAdsActor, query: Omit<AdsQuery, 
     const tz = await workspaceTimezone(tx, accountId);
     const start = Prisma.sql`(${query.from}::date::timestamp AT TIME ZONE ${tz})`;
     const end = Prisma.sql`((${query.to}::date + 1)::timestamp AT TIME ZONE ${tz})`;
-    const [byCurrency, [totals], daily, platforms, top, [reach], [chats], [synced], revenue] = await Promise.all([
+    const days0 = Math.round((Date.parse(`${query.to}T00:00:00Z`) - Date.parse(`${query.from}T00:00:00Z`)) / DAY_MS) + 1;
+    const prevTo = isoDay(Date.parse(`${query.from}T00:00:00Z`) - DAY_MS);
+    const prevFrom = isoDay(Date.parse(`${query.from}T00:00:00Z`) - days0 * DAY_MS);
+    const prevScope = Prisma.sql`i.account_id=${accountId}::uuid AND i.day BETWEEN ${prevFrom}::date AND ${prevTo}::date
+      ${adAccountId ? Prisma.sql`AND i.ad_account_id = ${adAccountId}` : Prisma.empty}`;
+    const [byCurrency, [totals], daily, platforms, top, [reach], [chats], [synced], revenue, [prevTotals], [prevChats]] = await Promise.all([
       tx.$queryRaw<{ currency: string | null; spend: unknown }[]>`SELECT i.currency, sum(i.spend) AS spend FROM meta_ad_insights i
         WHERE i.level='campaign' AND ${scope('i')} GROUP BY i.currency ORDER BY sum(i.spend) DESC`,
       tx.$queryRaw<Sums[]>`SELECT sum(i.spend) AS spend, sum(i.impressions) AS impressions, sum(i.clicks) AS clicks,
@@ -107,6 +114,16 @@ export async function getAdsOverview(actor: MetaAdsActor, query: Omit<AdsQuery, 
         ${adAccountId ? Prisma.sql`WHERE a.source_id IN (SELECT object_id FROM meta_ad_objects WHERE account_id=${accountId}::uuid
           AND level='ad' AND ad_account_id=${adAccountId})` : Prisma.empty}
         GROUP BY a.currency ORDER BY sum(a.minor) DESC`,
+      tx.$queryRaw<Sums[]>`SELECT sum(i.spend) AS spend, sum(i.impressions) AS impressions, sum(i.clicks) AS clicks,
+          sum(i.link_clicks) AS link_clicks, sum(i.conversations_started) AS conversations_started, sum(i.leads) AS leads,
+          sum(i.purchases) AS purchases
+        FROM meta_ad_insights i WHERE i.level='campaign' AND ${prevScope}`,
+      tx.$queryRaw<{ n: unknown }[]>`SELECT count(DISTINCT coalesce(r.conversation_id::text, r.id::text)) AS n FROM ad_referrals r
+        WHERE r.account_id=${accountId}::uuid AND r.source_type='ad'
+          AND r.created_at >= (${prevFrom}::date::timestamp AT TIME ZONE ${tz})
+          AND r.created_at < ((${prevTo}::date + 1)::timestamp AT TIME ZONE ${tz})
+          ${adAccountId ? Prisma.sql`AND r.source_id IN (SELECT object_id FROM meta_ad_objects WHERE account_id=${accountId}::uuid
+            AND level='ad' AND ad_account_id=${adAccountId})` : Prisma.empty}`,
     ]);
     // Every day of the range, zeros where nothing was stored, so the chart's axis is even.
     const byDay = new Map(daily.map((d) => [isoDay(new Date(d.day).getTime()), d]));
@@ -133,6 +150,7 @@ export async function getAdsOverview(actor: MetaAdsActor, query: Omit<AdsQuery, 
         conversationsStarted: n(c.conversations_started), leads: n(c.leads), linkClicks: n(c.link_clicks),
       })),
       insightsSyncedAt: synced?.at?.toISOString() ?? null,
+      previous: { from: prevFrom, to: prevTo, totals: totalsOf(prevTotals), conversationsInBodhinox: n(prevChats?.n) },
     };
   });
 }

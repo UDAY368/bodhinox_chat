@@ -5803,7 +5803,8 @@
         "autoLead": "WhatsApp 양식 제출을 잠재 고객으로 보고",
         "dataset": "데이터 세트 {id}",
         "saved": "전환 API 설정이 저장되었습니다",
-        "saveNumber": "번호 저장"
+        "saveNumber": "번호 저장",
+        "dealEvents": "거래 단계 보내기: 광고에서 온 연락처의 거래가 열리면 리드로, 성사되면 구매(거래 금액)로 보냅니다."
       },
       "disconnect": "연결 해제",
       "disconnectConfirm": "Meta 광고 연결을 해제할까요? 잠재 고객 광고 수신과 전환 전송이 중단됩니다. 저장된 결과와 잠재 고객은 유지됩니다.",
@@ -11628,6 +11629,7 @@
         "product_summary": "상품별 판매",
         "service_summary": "서비스별 예약",
         "commerce_daily": "일별 수금",
+        "ads_summary": "Meta 광고 요약",
         "saved_report": "저장된 보고서"
       },
       "range": "기간",
@@ -12551,7 +12553,9 @@
       "sales": "Bodhinox 판매 {count}건",
       "roas": "광고 투자 수익률",
       "roasValue": "{value}배",
-      "roasHint": "매출 ÷ 지출 금액"
+      "roasHint": "매출 ÷ 지출 금액",
+      "changeUp": "이전 기간 대비 ▲ {value}%",
+      "changeDown": "이전 기간 대비 ▼ {value}%"
     },
     "platforms": {
       "facebook": "Facebook",
@@ -13012,6 +13016,51 @@
       "issues": "확인 필요",
       "ended": "종료",
       "billing": "결제 정보 필요"
+    },
+    "breakdowns": {
+      "title": "광고를 본 사람",
+      "blurb": "연령과 성별, 지역, 기기, 노출 위치별로 나눠 봅니다. 열 때 Meta에서 읽어 옵니다.",
+      "split": "나누기 기준",
+      "splits": {
+        "age_gender": "연령과 성별",
+        "region": "지역",
+        "device": "기기",
+        "placement": "노출 위치"
+      },
+      "genders": {
+        "male": "남성",
+        "female": "여성",
+        "unknown": "알 수 없음"
+      },
+      "spend": "지출",
+      "impressions": "노출",
+      "results": "결과",
+      "costPerResult": "결과당 비용",
+      "empty": "이 기간에는 결과가 없습니다.",
+      "note": "결과는 채팅, 리드, 구매를 합친 값입니다. Meta는 아주 작은 그룹을 숨깁니다.",
+      "errors": {
+        "token_invalid": "Meta 로그인이 만료되었습니다. 설정 > 광고에서 다시 연결하세요.",
+        "rate_limited": "Meta가 바쁩니다. 잠시 후 다시 시도하세요.",
+        "not_connected": "먼저 설정 > 광고에서 Meta를 연결하세요."
+      }
+    },
+    "quality": {
+      "title": "광고에서 고객까지",
+      "blurb": "Bodhinox의 채팅과 거래로 본 광고 클릭 이후의 결과입니다.",
+      "ad": "광고",
+      "spend": "지출",
+      "chats": "채팅",
+      "replied": "응답함",
+      "deals": "거래",
+      "won": "성사",
+      "costPerChat": "채팅당 비용",
+      "costPerWon": "성사 거래당 비용",
+      "empty": "이 기간에는 아직 광고에서 온 채팅이 없습니다.",
+      "help": {
+        "chats": "이 광고에서 Bodhinox로 시작된 채팅입니다.",
+        "replied": "팀이나 봇이 답한 채팅입니다.",
+        "deals": "광고 클릭 후 이 연락처들에 열린 거래입니다."
+      }
     }
   },
   "Appointments": {
@@ -15389,7 +15438,16 @@
       "costPerResult": "결과당 비용",
       "ctr": "CTR",
       "leads": "리드",
-      "creativeAlt": "광고 이미지"
+      "creativeAlt": "광고 이미지",
+      "previewTitle": "Meta 미리보기",
+      "previewFormats": {
+        "MOBILE_FEED_STANDARD": "Facebook 피드",
+        "INSTAGRAM_STANDARD": "Instagram 피드",
+        "INSTAGRAM_STORY": "Instagram 스토리",
+        "FACEBOOK_STORY_MOBILE": "Facebook 스토리"
+      },
+      "previewFailed": "Meta에서 미리보기를 불러오지 못했습니다.",
+      "previewNone": "이 위치에는 이 광고의 Meta 미리보기가 없습니다."
     }
   },
   "Sales": {

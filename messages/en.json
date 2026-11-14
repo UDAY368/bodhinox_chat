@@ -5803,7 +5803,8 @@
         "autoLead": "Report WhatsApp form submissions as leads",
         "dataset": "Dataset {id}",
         "saved": "Conversions API settings saved",
-        "saveNumber": "Save number"
+        "saveNumber": "Save number",
+        "dealEvents": "Send deal stages: a deal opened counts as a qualified lead and a deal won as a Purchase (its value), for contacts who came from an ad."
       },
       "disconnect": "Disconnect",
       "disconnectConfirm": "Disconnect Meta ads? Lead ads stop arriving and no more conversions are sent. Stored results and leads are kept.",
@@ -11628,6 +11629,7 @@
         "product_summary": "Product sales",
         "service_summary": "Appointments by service",
         "commerce_daily": "Collections by day",
+        "ads_summary": "Meta ads summary",
         "saved_report": "Saved report"
       },
       "range": "Date range",
@@ -12551,7 +12553,9 @@
       "sales": "{count, plural, one {# sale} other {# sales}} in Bodhinox",
       "roas": "Return on ad spend",
       "roasValue": "{value}×",
-      "roasHint": "Revenue ÷ amount spent"
+      "roasHint": "Revenue ÷ amount spent",
+      "changeUp": "▲ {value}% vs previous period",
+      "changeDown": "▼ {value}% vs previous period"
     },
     "platforms": {
       "facebook": "Facebook",
@@ -13012,6 +13016,51 @@
       "issues": "Needs attention",
       "ended": "Ended",
       "billing": "Billing needed"
+    },
+    "breakdowns": {
+      "title": "Who saw your ads",
+      "blurb": "Split by age and gender, region, device or placement. Read from Meta when you open it.",
+      "split": "Split by",
+      "splits": {
+        "age_gender": "Age and gender",
+        "region": "Region",
+        "device": "Device",
+        "placement": "Placement"
+      },
+      "genders": {
+        "male": "men",
+        "female": "women",
+        "unknown": "unknown"
+      },
+      "spend": "Spend",
+      "impressions": "Impressions",
+      "results": "Results",
+      "costPerResult": "Cost per result",
+      "empty": "No results in this range.",
+      "note": "Results count chats, leads and purchases together. Meta hides very small groups.",
+      "errors": {
+        "token_invalid": "The Meta login has expired. Reconnect in Settings > Ads.",
+        "rate_limited": "Meta is busy. Try again in a minute.",
+        "not_connected": "Connect Meta in Settings > Ads first."
+      }
+    },
+    "quality": {
+      "title": "From ad to customer",
+      "blurb": "What happened after each ad click, from your own chats and deals in Bodhinox.",
+      "ad": "Ad",
+      "spend": "Spend",
+      "chats": "Chats",
+      "replied": "Answered",
+      "deals": "Deals",
+      "won": "Won",
+      "costPerChat": "Cost per chat",
+      "costPerWon": "Cost per won deal",
+      "empty": "No chats from ads in this range yet.",
+      "help": {
+        "chats": "Chats that started from this ad in Bodhinox.",
+        "replied": "Chats your team or a bot answered.",
+        "deals": "Deals opened for these contacts after they clicked the ad."
+      }
     }
   },
   "Appointments": {
@@ -15389,7 +15438,16 @@
       "costPerResult": "Cost per result",
       "ctr": "CTR",
       "leads": "Leads",
-      "creativeAlt": "The ad’s image"
+      "creativeAlt": "The ad’s image",
+      "previewTitle": "Preview on Meta",
+      "previewFormats": {
+        "MOBILE_FEED_STANDARD": "Facebook feed",
+        "INSTAGRAM_STANDARD": "Instagram feed",
+        "INSTAGRAM_STORY": "Instagram story",
+        "FACEBOOK_STORY_MOBILE": "Facebook story"
+      },
+      "previewFailed": "Could not load the preview from Meta.",
+      "previewNone": "Meta has no preview of this ad in that place."
     }
   },
   "Sales": {
