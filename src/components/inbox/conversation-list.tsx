@@ -2,7 +2,7 @@
 
 import './inbox.css';
 import { avatarTone, initials } from '@/lib/ui/avatar-tone';
-import { SessionRail } from './session-rail';
+import { WindowRing, WindowStrip, WINDOW_TEXT, rowWindow } from './session-rail';
 import { matchesConsentFilter, type ConsentFilter } from '@/lib/contacts/consent-view';
 import { contactHandle } from '@/lib/whatsapp/wa-identity';
 
@@ -31,6 +31,7 @@ import {
   useRef,
   type ReactNode,
 } from 'react';
+import { createPortal } from 'react-dom';
 import { createClient } from '@/lib/data/client';
 import {
   INBOX_FULL_RELOAD_MS,
@@ -39,8 +40,9 @@ import {
   nextSyncCursor,
   normalizeConversations,
 } from '@/lib/inbox/conversations';
-import { matchesSessionFilter, type SessionFilter } from '@/lib/inbox/session';
+import { getSessionWindow, matchesSessionFilter, type SessionFilter } from '@/lib/inbox/session';
 import { useSessionClock } from '@/hooks/use-session-clock';
+import { useMatchMedia } from '@/hooks/use-match-media';
 import { cn } from '@/lib/utils';
 import type { Conversation, Tag } from '@/types';
 import { authFetch } from '@/lib/auth/client';
@@ -64,7 +66,6 @@ import {
   UserRound,
   Tag as TagIcon,
   Building2,
-  Timer,
   Phone,
   ShieldCheck,
   BellOff,
@@ -79,8 +80,6 @@ import {
   DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
@@ -152,8 +151,8 @@ interface ConversationListProps {
 /** What a row's context menu can do. */
 export type RowAction = 'read' | 'unread' | 'assign-me' | 'close' | 'reopen';
 
-/** The views offered as chips under the search, everyday first; the rest live in the More views menu. */
-const VIEW_CHIPS = ['all', 'open', 'mine', 'unassigned', 'closed'] as const;
+/** Views shown as status tabs instead of in the views menu. */
+const TAB_VIEWS: readonly string[] = ['lifecycle-requesting', 'lifecycle-assigned'];
 
 export function ConversationList({
   activeConversationId,
@@ -293,14 +292,6 @@ export function ConversationList({
   };
   const [sessionFilter, setSessionFilter] = useState<SessionFilter>('all');
   const now = useSessionClock();
-  const sessionOptions: { value: SessionFilter; label: string }[] = [
-    { value: 'all', label: t('allSessions') },
-    { value: 'active', label: t('sessionActive') },
-    { value: 'expired', label: t('sessionExpired') },
-  ];
-  const sessionLabel = sessionOptions.find(
-    (option) => option.value === sessionFilter
-  )!.label;
   const [loading, setLoading] = useState(true);
   // Contact-based filters (issue #272). Tags use OR logic (a conversation
   // matches if its contact carries any selected tag), consistent with
@@ -482,13 +473,21 @@ export function ConversationList({
   // Quick views above the list, each with how many of this inbox's chats it holds.
   const quickViews = useMemo(() => {
     const inThisInbox = allChannels ? conversations : conversations.filter((c) => inScope(scope, c));
-    const values: InboxFilter[] = ['all', 'open', 'unread', 'unassigned', ...(folders ? (['mine'] as const) : []), 'closed'];
+    const values: InboxFilter[] = ['all', 'open', 'unread', 'unassigned', ...(folders ? (['mine'] as const) : []), 'closed', 'lifecycle-requesting', 'lifecycle-assigned'];
     return values.map((value) => ({
       value,
       label: (FILTER_OPTIONS.find((o) => o.value === value) ?? FOLDER_OPTIONS.find((o) => o.value === value))?.label ?? value,
       count: inThisInbox.filter((c) => matchesInboxFilter(c, value, now, myTeam ?? undefined, folderContext)).length,
     }));
   }, [allChannels, conversations, scope, folders, FILTER_OPTIONS, FOLDER_OPTIONS, now, myTeam, folderContext]);
+
+  const activeWindowCount = useMemo(
+    () =>
+      (allChannels ? conversations : conversations.filter((c) => inScope(scope, c))).filter((c) =>
+        matchesSessionFilter(c.last_customer_message_at, 'active', now)
+      ).length,
+    [allChannels, conversations, scope, now]
+  );
 
   const sessionCounts = useMemo(() => {
     const active = baseFiltered.filter((c) =>
@@ -506,6 +505,11 @@ export function ConversationList({
     );
     // Stable sort on the last message time; chats with no message go last when newest first.
     const at = (c: Conversation) => (c.last_message_at ? Date.parse(c.last_message_at) : 0);
+    if (sessionFilter === 'active') {
+      // Answer-first queue: the window closing soonest leads.
+      const closes = (c: Conversation) => getSessionWindow(c.last_customer_message_at, now).remainingMs;
+      return sessionMatched.sort((a, b) => closes(a) - closes(b));
+    }
     return sessionMatched.sort((a, b) => at(b) - at(a));
   }, [baseFiltered, sessionFilter, now]);
 
@@ -524,13 +528,6 @@ export function ConversationList({
     setAgentFilter(null);
     setConsentFilter('any');
   }, [setAgentFilter]);
-
-  const hasContactFilters =
-    selectedTagIds.length > 0 ||
-    selectedCompany !== null ||
-    sessionFilter !== 'all' ||
-    activeNumberFilter !== null ||
-    activeChannelFilter !== null;
 
   const handleSearchChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -580,7 +577,6 @@ export function ConversationList({
     'bg-muted text-foreground hover:bg-muted/70 inline-flex h-7 shrink-0 items-center gap-1 rounded-full px-2.5 text-xs transition-colors duration-150';
 
   const viewCount = (value: InboxFilter) => quickViews.find((v) => v.value === value)?.count;
-  const unreadCount = viewCount('unread') ?? 0;
 
   // Everything that narrows the list besides the view, channel and sort: the "+ Filter" picker.
   const consentLabel = (value: ConsentFilter) =>
@@ -735,6 +731,21 @@ export function ConversationList({
     return map;
   }, [folders?.reminders]);
 
+  // Like AiSensy, the open-window strip lives in the page's top bar (the header's center slot).
+  // isWide reads false on the server and during hydration, so document is only touched in the browser.
+  const isWide = useMatchMedia('(min-width: 768px)');
+  const headerSlot = isWide ? document.getElementById('studio-header-center') : null;
+  // The header can mount after this list; look again next frame until its slot exists.
+  const [, lookAgain] = useState(0);
+  useEffect(() => {
+    if (!isWide || headerSlot) return;
+    const id = requestAnimationFrame(() => lookAgain((n) => n + 1));
+    return () => cancelAnimationFrame(id);
+  }, [isWide, headerSlot]);
+  const windowStrip = (
+    <WindowStrip conversations={baseFiltered} now={now} activeConversationId={activeConversationId} onSelect={handleSelect} />
+  );
+
   const searchBox = (
     <div className="relative min-w-0">
       <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" aria-hidden />
@@ -754,32 +765,42 @@ export function ConversationList({
       'inline-flex h-7 shrink-0 items-center gap-1 rounded-full px-2.5 text-xs font-medium whitespace-nowrap transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-offset-1',
       on ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-muted hover:text-foreground'
     );
-  const viewChips = VIEW_CHIPS.filter((value) => value !== 'mine' || folders);
-  const chipLabel = (value: InboxFilter) =>
-    (FILTER_OPTIONS.find((o) => o.value === value) ?? FOLDER_OPTIONS.find((o) => o.value === value))?.label ?? value;
-  const inMoreMenu = !(viewChips as readonly string[]).includes(filter) && filter !== 'unread';
+  const inMoreMenu = (filter !== 'all' && !TAB_VIEWS.includes(filter)) || sessionFilter === 'expired';
 
   // Every view that is not a chip: waiting, my team, expiring soon, pending, folders, labels, lifecycle.
   const moreViews = (
     <DropdownMenu>
       <DropdownMenuTrigger data-view-menu className={cn(chipClass(inMoreMenu), 'gap-1')}>
-        <span className="max-w-32 truncate">{inMoreMenu ? (activeFilter?.label ?? t('moreViews')) : t('moreViews')}</span>
+        <span className="max-w-32 truncate">
+          {sessionFilter === 'expired' && filter === 'all' ? t('sessionExpired') : inMoreMenu ? (activeFilter?.label ?? t('moreViews')) : t('moreViews')}
+        </span>
         <ChevronDown className="size-3.5 opacity-60" aria-hidden />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="border-border bg-popover max-h-[70vh] w-60 overflow-y-auto">
-        {FILTER_OPTIONS.filter((opt) => !(viewChips as readonly string[]).includes(opt.value) && opt.value !== 'unread').map((opt) => (
+        {FILTER_OPTIONS.map((opt) => (
           <DropdownMenuItem
             key={opt.value}
-            onClick={() => selectFilter(opt.value)}
+            onClick={() => {
+              if (opt.value === 'all') setSessionFilter('all');
+              selectFilter(opt.value);
+            }}
             className={cn('gap-3 text-sm', filter === opt.value ? 'text-primary' : 'text-popover-foreground')}
           >
             <span className="flex-1">{opt.label}</span>
           </DropdownMenuItem>
         ))}
-        {FOLDER_OPTIONS.filter((opt) => opt.value !== 'mine').length > 0 && (
+        <DropdownMenuSeparator className="bg-border" />
+        <DropdownMenuItem
+          onClick={() => setSessionFilter(sessionFilter === 'expired' ? 'all' : 'expired')}
+          className={cn('gap-3 text-sm', sessionFilter === 'expired' ? 'text-primary' : 'text-popover-foreground')}
+        >
+          <span className="flex-1">{t('sessionExpired')}</span>
+          <span className="text-muted-foreground text-xs tabular-nums">{sessionCounts.expired}</span>
+        </DropdownMenuItem>
+        {FOLDER_OPTIONS.length > 0 && (
           <>
             <DropdownMenuSeparator className="bg-border" />
-            {FOLDER_OPTIONS.filter((opt) => opt.value !== 'mine').map((opt) => (
+            {FOLDER_OPTIONS.map((opt) => (
               <DropdownMenuItem
                 key={opt.value}
                 onClick={() => selectFilter(opt.value)}
@@ -864,111 +885,143 @@ export function ConversationList({
           <X className="h-3 w-3" aria-hidden />
         </button>
       )}
-      {(pickedCount > 0 || hasContactFilters) && (
-        <button type="button" onClick={clearContactFilters} className="text-muted-foreground hover:text-foreground shrink-0 px-1 text-xs">
-          {t('clearAll')}
+    </>
+  );
+  // Only real chips, each with its own ×. The channel toggle and status tabs already show their own state.
+  const hasPickedChips = pickedCount > 0;
+
+  const tools = (
+    <>
+      <InboxFilterPicker categories={filterCategories} activeCount={pickedCount} iconOnly />
+      <SavedFiltersMenu current={currentFilters} onApply={applySavedFilters} scope={scope} store={savedStore} iconOnly />
+      {headerAction}
+      {onNewMessage && (
+        <button
+          type="button"
+          onClick={onNewMessage}
+          aria-label={t('newMessage')}
+          title={t('newMessage')}
+          data-new-message
+          className="text-muted-foreground hover:bg-muted hover:text-foreground inline-flex size-8 shrink-0 items-center justify-center rounded-lg transition-colors duration-150"
+        >
+          <SquarePen className="h-4 w-4" aria-hidden />
         </button>
       )}
     </>
   );
-  const hasPickedChips = pickedCount > 0 || hasContactFilters;
 
-  // The list's own head, as in the design: title and tools, search, channel tabs, views, saved views.
+  const channelTabs =
+  allChannels && (
+      <div role="tablist" aria-label={tc('filterLabel')} className="bg-muted grid grid-cols-3 gap-0.5 rounded-lg p-0.5" data-channel-tabs>
+        {([null, 'whatsapp', 'instagram'] as const).map((value) => {
+          const on = activeChannelFilter === value;
+          return (
+            <button
+              key={value ?? 'all'}
+              type="button"
+              role="tab"
+              aria-selected={on}
+              onClick={() => setChannelFilter(value)}
+              className={cn(
+                'flex h-7 min-w-0 items-center justify-center gap-1 rounded-md px-1.5 text-xs font-medium transition-colors duration-150 focus-visible:outline-2',
+                on ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+              )}
+            >
+              {value && <ChannelDot channel={value} />}
+              <span className="truncate">{value ? tc(value) : t('filterAll')}</span>
+              <span className="text-muted-foreground shrink-0 tabular-nums">{channelCounts[value ?? 'all']}</span>
+            </button>
+          );
+        })}
+      </div>
+  );
+
+  // AiSensy-style status tabs. Clicking the selected tab again goes back to every chat.
+  const statusTabs = [
+    {
+      key: 'active',
+      label: t('tabActive'),
+      count: activeWindowCount,
+      on: sessionFilter === 'active',
+      pick: () => {
+        setSessionFilter(sessionFilter === 'active' ? 'all' : 'active');
+        selectFilter('all');
+      },
+    },
+    ...(['lifecycle-requesting', 'lifecycle-assigned'] as const).map((value) => ({
+      key: value,
+      label: t(value === 'lifecycle-requesting' ? 'tabRequesting' : 'tabIntervened'),
+      count: viewCount(value),
+      on: filter === value && sessionFilter !== 'active',
+      pick: () => {
+        setSessionFilter('all');
+        selectFilter(filter === value ? 'all' : value);
+      },
+    })),
+  ];
+  const statusTabBar = (
+    <div role="group" aria-label={t('views')} data-status-tabs className="border-border flex border-b">
+      {statusTabs.map((tab) => (
+        <button
+          key={tab.key}
+          type="button"
+          aria-pressed={tab.on}
+          onClick={tab.pick}
+          className={cn(
+            'relative flex h-10 min-w-0 flex-1 items-center justify-center px-1 text-[11px] font-semibold tracking-[0.04em] whitespace-nowrap uppercase transition-colors duration-150',
+            tab.on
+              ? 'text-primary after:bg-primary after:absolute after:inset-x-2 after:bottom-0 after:h-[3px] after:rounded-t-full'
+              : 'text-muted-foreground hover:text-foreground'
+          )}
+        >
+          <span className="truncate">{tab.label}</span>&nbsp;<span className="tabular-nums">({tab.count ?? 0})</span>
+        </button>
+      ))}
+    </div>
+  );
+
+  // Tablets and up, like AiSensy: search, filter and the open-window avatars share the page's top bar;
+  // the list starts with the channel toggle and the status tabs. Phones keep everything in the list.
+  const inTopBar = isWide && headerSlot !== null;
+  const topBar = (
+    <div data-inbox-toolbar className="studio-inbox-topbar flex min-w-0 flex-1 items-center gap-2 px-3">
+      {/* Compact until used, then it widens so the avatars keep the room the rest of the time. */}
+      <div className={cn('w-44 shrink-0 transition-[width] duration-200 focus-within:w-80 motion-reduce:transition-none', search && 'w-80')}>{searchBox}</div>
+      <div className="flex shrink-0 items-center gap-0.5">
+        {tools}
+        {moreViews}
+      </div>
+      <div className="flex min-w-0 flex-1 items-center pl-2">{windowStrip}</div>
+    </div>
+  );
+
   const listHead = (
-    <div data-inbox-toolbar className="studio-chat-filters border-border bg-card flex flex-col gap-2 border-b px-3 pt-3 pb-2">
-      <div className="flex min-w-0 items-center gap-0.5">
-        <h2 className="text-foreground min-w-0 flex-1 truncate text-base font-semibold">
-          {scope === 'all' ? t('title') : tc(scope)}
-        </h2>
-        <InboxFilterPicker categories={filterCategories} activeCount={pickedCount} iconOnly />
-        <SavedFiltersMenu current={currentFilters} onApply={applySavedFilters} scope={scope} store={savedStore} iconOnly />
-        {headerAction}
-        {onNewMessage && (
-          <button
-            type="button"
-            onClick={onNewMessage}
-            aria-label={t('newMessage')}
-            title={t('newMessage')}
-            data-new-message
-            className="text-muted-foreground hover:bg-muted hover:text-foreground inline-flex size-8 shrink-0 items-center justify-center rounded-lg transition-colors duration-150"
-          >
-            <SquarePen className="h-4 w-4" aria-hidden />
-          </button>
+    <div data-inbox-list-head className="studio-chat-filters bg-card flex flex-col">
+      <div className="flex flex-col gap-2 px-3 pt-3 pb-2">
+        {!inTopBar && (
+          <>
+            <div className="flex min-w-0 items-center justify-end gap-0.5">
+              {moreViews}
+              {tools}
+            </div>
+            {windowStrip}
+            {searchBox}
+          </>
+        )}
+        {channelTabs}
+        <SavedFilterChips store={savedStore} current={currentFilters} onApply={applySavedFilters} scope={scope} />
+        {hasPickedChips && (
+          <div className="-mx-1 flex min-w-0 items-center gap-1.5 overflow-x-auto px-1 [scrollbar-width:none]">{pickedChips}</div>
         )}
       </div>
-      {searchBox}
-      {allChannels && (
-        <div role="tablist" aria-label={tc('filterLabel')} className="bg-muted grid grid-cols-3 gap-0.5 rounded-lg p-0.5" data-channel-tabs>
-          {([null, 'whatsapp', 'instagram'] as const).map((value) => {
-            const on = activeChannelFilter === value;
-            return (
-              <button
-                key={value ?? 'all'}
-                type="button"
-                role="tab"
-                aria-selected={on}
-                onClick={() => setChannelFilter(value)}
-                className={cn(
-                  'flex h-7 min-w-0 items-center justify-center gap-1 rounded-md px-1.5 text-xs font-medium transition-colors duration-150 focus-visible:outline-2',
-                  on ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
-                )}
-              >
-                {value && <ChannelDot channel={value} />}
-                <span className="truncate">{value ? tc(value) : t('filterAll')}</span>
-                <span className="text-muted-foreground shrink-0 tabular-nums">{channelCounts[value ?? 'all']}</span>
-              </button>
-            );
-          })}
-        </div>
-      )}
-      <div className="flex min-w-0 flex-wrap items-center gap-1 py-0.5" data-filter-row aria-label={t('views')} role="group">
-        {viewChips.map((value) => (
-          <button key={value} type="button" aria-pressed={filter === value} onClick={() => selectFilter(value)} className={chipClass(filter === value)}>
-            {chipLabel(value)}
-            <span className="tabular-nums opacity-70">{viewCount(value)}</span>
-          </button>
-        ))}
-        <button
-          type="button"
-          aria-pressed={filter === 'unread'}
-          onClick={() => selectFilter(filter === 'unread' ? 'all' : 'unread')}
-          className={chipClass(filter === 'unread')}
-        >
-          {t('filterUnread')}
-          {unreadCount > 0 && <span className="tabular-nums opacity-70">{unreadCount}</span>}
-        </button>
-        {moreViews}
-        <DropdownMenu>
-          <DropdownMenuTrigger aria-label={`${t('session')}: ${sessionLabel}`} title={`${t('session')}: ${sessionLabel}`} className={chipClass(sessionFilter !== 'all')}>
-            <Timer className="size-3.5" aria-hidden />
-            {sessionFilter !== 'all' && <span>{sessionLabel}</span>}
-            <ChevronDown className="size-3.5 opacity-60" aria-hidden />
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="border-border bg-popover w-52">
-            <DropdownMenuRadioGroup value={sessionFilter} onValueChange={(value) => setSessionFilter(value as SessionFilter)}>
-              {sessionOptions.map((option) => (
-                <DropdownMenuRadioItem key={option.value} value={option.value} className="gap-4 text-sm">
-                  {option.label}
-                  <span className="text-muted-foreground ml-auto text-xs tabular-nums">{sessionCounts[option.value]}</span>
-                </DropdownMenuRadioItem>
-              ))}
-            </DropdownMenuRadioGroup>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
-      <SavedFilterChips store={savedStore} current={currentFilters} onApply={applySavedFilters} scope={scope} />
-      {hasPickedChips && (
-        <div className="-mx-1 flex min-w-0 items-center gap-1.5 overflow-x-auto px-1 [scrollbar-width:none]">{pickedChips}</div>
-      )}
+      {statusTabBar}
     </div>
   );
 
   return (
     <div className="studio-conversation-list border-border bg-card flex h-full w-full min-w-0 flex-col border-r lg:w-72 xl:w-80 2xl:w-[340px]">
       {listHead}
-
-      {/* Open 24-hour windows, closing first; a chat rolls out when its window ends. */}
-      <SessionRail conversations={baseFiltered} now={now} activeConversationId={activeConversationId} onSelect={handleSelect} />
+      {inTopBar && createPortal(topBar, headerSlot)}
 
       {/* Conversation Items.
           `min-h-0` is load-bearing: a flex child defaults to
@@ -993,7 +1046,7 @@ export function ConversationList({
                 : t('noConversations')}
             </p>
             <div className="mt-3 flex flex-wrap justify-center gap-2">
-              {(filter !== 'all' || search || hasPickedChips || activeChannelFilter) && (
+              {(filter !== 'all' || search || hasPickedChips || activeChannelFilter || sessionFilter !== 'all') && (
                 <button
                   type="button"
                   onClick={() => {
@@ -1228,6 +1281,7 @@ function ConversationItem({
   // Same seed as the thread header and contact panel, so a person keeps one colour.
   const avatarSeed = contact?.name || (contact ? contactHandle(contact) : '') || displayName;
   const avatarText = initials(avatarSeed);
+  const window24 = rowWindow(conversation.last_customer_message_at, now);
 
   const handleClick = useCallback(() => {
     onSelect(conversation);
@@ -1254,6 +1308,7 @@ function ConversationItem({
     >
       {/* Avatar */}
       <div className={cn('relative flex size-10 shrink-0 items-center justify-center rounded-full text-[13px] font-semibold', avatarTone(avatarSeed))}>
+        {window24 && <WindowRing share={window24.share} urgency={window24.urgency} />}
         {contact?.avatar_url ? (
           <img
             src={contact.avatar_url}
@@ -1285,7 +1340,16 @@ function ConversationItem({
               <BellOff className="h-3 w-3 shrink-0 text-red-500" aria-label={optedOutLabel} data-row-opted-out />
             )}
           </span>
-          <span className="text-muted-foreground shrink-0 text-xs tabular-nums">
+          <span className="text-muted-foreground flex shrink-0 items-center gap-1.5 text-xs tabular-nums">
+            {window24 && (
+              <span
+                data-window-left
+                title={t('windowLeft', { time: window24.left })}
+                className={cn('font-semibold', WINDOW_TEXT[window24.urgency])}
+              >
+                {window24.left}
+              </span>
+            )}
             {timeAgo}
           </span>
         </div>

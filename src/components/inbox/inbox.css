@@ -27,7 +27,8 @@ html[data-mode='dark'] .studio-inbox {
   background: var(--card);
 }
 
-.studio-inbox .studio-chat-filters input {
+.studio-inbox .studio-chat-filters input,
+.studio-inbox-topbar input {
   height: 36px;
   border-color: transparent;
   border-radius: 12px;
@@ -35,7 +36,8 @@ html[data-mode='dark'] .studio-inbox {
   box-shadow: none;
 }
 
-.studio-inbox .studio-chat-filters input:focus-visible {
+.studio-inbox .studio-chat-filters input:focus-visible,
+.studio-inbox-topbar input:focus-visible {
   border-color: transparent;
   box-shadow: 0 0 0 2px var(--ring);
 }
@@ -192,24 +194,3 @@ html[data-mode='dark'] .studio-inbox {
   height: 28px;
 }
 
-/* The open-windows rail scrolls sideways without a visible bar; new chats roll in. */
-.studio-inbox .studio-rail {
-  scrollbar-width: none;
-}
-.studio-inbox .studio-rail::-webkit-scrollbar {
-  display: none;
-}
-.studio-inbox .studio-rail-item {
-  animation: studio-rail-in 220ms var(--studio-ease, ease) both;
-}
-@keyframes studio-rail-in {
-  from {
-    opacity: 0;
-    transform: translateX(8px) scale(0.92);
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .studio-inbox .studio-rail-item {
-    animation: none;
-  }
-}

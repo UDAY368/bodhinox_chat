@@ -101,6 +101,20 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const CHIP =
   'h-8 max-w-56 shrink-0 cursor-pointer truncate rounded-full border border-border bg-card px-3 text-[13px] text-muted-foreground transition-colors duration-150 hover:bg-muted focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50';
 const CHIP_ON = 'border-transparent bg-primary/10 font-semibold text-primary hover:bg-primary/15';
+const MENU_SELECT =
+  'h-9 w-full cursor-pointer rounded-lg border border-border bg-card px-2.5 text-sm text-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50';
+
+/** One filter in use, shown under the bar with a way to remove it. */
+function FilterChip({ label, onRemove, removeLabel }: { label: string; onRemove: () => void; removeLabel: string }) {
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary">
+      {label}
+      <button type="button" onClick={onRemove} aria-label={`${removeLabel}: ${label}`} className="hover:opacity-70">
+        <X className="size-3" />
+      </button>
+    </span>
+  );
+}
 const TH = 'h-11 text-xs font-medium text-muted-foreground';
 
 /** A row of the table: the contact, its tags and the columns the list endpoint adds. */
@@ -691,8 +705,18 @@ function ContactsPeople() {
     setPage(0);
   }
 
-  function clearTagFilters() {
+  /** Filters in the Filters menu (segment and list sit on the bar itself). */
+  const moreFilters =
+    selectedTagIds.length + (ownerFilter ? 1 : 0) + (consentFilter ? 1 : 0) + (channelView ? 1 : 0) + (subscribedOnly ? 1 : 0);
+  // A segment or list already decides who is shown, so tags apply only to everyone.
+  const tagsLocked = segmentId !== '' || listId !== '';
+
+  function clearMoreFilters() {
     setSelectedTagIds([]);
+    setChannelView('');
+    setSubscribedOnly(false);
+    setOwnerFilter('');
+    setConsentFilter('');
     setPage(0);
   }
 
@@ -778,10 +802,11 @@ function ContactsPeople() {
         }
       />
 
-      {/* Search + filter chips + sort */}
+      {/* One line: search, the two saved views (segment and list), one Filters menu and sort.
+          The filters in use show underneath as chips, each removable on its own. */}
       <div className="space-y-2">
         <div className="flex flex-wrap items-center gap-2">
-          <div className="relative w-full sm:w-72">
+          <div className="relative w-full min-w-0 sm:w-auto sm:max-w-sm sm:flex-1">
             <Search className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               type="search"
@@ -794,11 +819,10 @@ function ContactsPeople() {
                 setPage(0);
               }}
               placeholder={t('searchPlaceholder')}
-              className="h-10 rounded-xl border-transparent bg-muted pl-10 text-foreground placeholder:text-muted-foreground focus-visible:bg-card"
+              className="h-9 rounded-xl border-transparent bg-muted pl-10 text-foreground placeholder:text-muted-foreground focus-visible:bg-card"
             />
           </div>
 
-          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
           <select
             aria-label={t('segments.selectLabel')}
             value={segmentId}
@@ -858,143 +882,132 @@ function ContactsPeople() {
 
           <Popover>
             <PopoverTrigger
-              disabled={segmentId !== '' || listId !== ''}
-              render={
-                <button
-                  type="button"
-                  className={cn(CHIP, 'inline-flex items-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-50', selectedTagIds.length > 0 && CHIP_ON)}
-                />
-              }
+              data-contact-filters
+              render={<button type="button" className={cn(CHIP, 'inline-flex items-center gap-1.5', moreFilters > 0 && CHIP_ON)} />}
             >
               <Filter className="size-3.5" />
-              {t('filterByTags')}
-              {selectedTagIds.length > 0 && (
+              {tr('filters.title')}
+              {moreFilters > 0 && (
                 <span className="inline-flex min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold tabular-nums text-primary-foreground">
-                  {selectedTagIds.length}
+                  {moreFilters}
                 </span>
               )}
             </PopoverTrigger>
-            <PopoverContent align="start" className="w-64 p-0">
-              <div className="flex items-center justify-between px-3 py-2 border-b border-border">
-                <span className="text-sm font-medium text-popover-foreground">
-                  {t('filterByTags')}
-                </span>
-                {selectedTagIds.length > 0 && (
-                  <button
-                    onClick={clearTagFilters}
-                    className="text-xs text-muted-foreground hover:text-foreground"
-                  >
+            <PopoverContent align="start" className="w-72 p-0">
+              <div className="flex items-center justify-between border-b border-border px-3 py-2">
+                <span className="text-sm font-semibold text-popover-foreground">{tr('filters.title')}</span>
+                {moreFilters > 0 && (
+                  <button type="button" onClick={clearMoreFilters} className="text-xs text-muted-foreground hover:text-foreground">
                     {t('clearAll')}
                   </button>
                 )}
               </div>
-              {allTags.length === 0 ? (
-                <p className="px-3 py-4 text-sm text-muted-foreground text-center">
-                  {t('noTagsYet')}
-                </p>
-              ) : (
-                <div className="max-h-64 overflow-y-auto py-1">
-                  {tagGroups.map((group) => (
-                    <div key={group.category ?? ''}>
-                      {/* Headings only once categories are in use. */}
-                      {tagGroups.length > 1 && (
-                        <p className="px-3 pt-2 pb-1 text-xs font-medium text-muted-foreground">
-                          {group.category ?? t('otherTags')}
-                        </p>
-                      )}
-                      {group.tags.map((tag) => (
-                        <label
-                          key={tag.id}
-                          className="flex items-center gap-2.5 px-3 py-1.5 cursor-pointer hover:bg-muted/50"
-                        >
-                          <Checkbox
-                            checked={selectedTagIds.includes(tag.id)}
-                            onCheckedChange={() => toggleTagFilter(tag.id)}
-                            aria-label={t('filterByTag', { name: tag.name })}
-                          />
-                          <span
-                            className="size-2.5 shrink-0 rounded-full"
-                            style={{ backgroundColor: tag.color }}
-                          />
-                          <span className="text-sm text-popover-foreground truncate">
-                            {tag.name}
-                          </span>
-                        </label>
+              <div className="max-h-[70vh] space-y-3 overflow-y-auto p-3">
+                <label className="block space-y-1">
+                  <span className="text-xs font-medium text-muted-foreground">{tr('filters.owner')}</span>
+                  <select
+                    aria-label={tr('filters.owner')}
+                    value={ownerFilter}
+                    onChange={(e) => {
+                      setOwnerFilter(e.target.value);
+                      setPage(0);
+                    }}
+                    className={MENU_SELECT}
+                  >
+                    <option value="">{tr('filters.anyOwner')}</option>
+                    {members.map((m) => (
+                      <option key={m.user_id} value={m.user_id}>{m.full_name || tr('owner.unnamedMember')}</option>
+                    ))}
+                    <option value="none">{tr('owner.noOne')}</option>
+                  </select>
+                </label>
+
+                <label className="block space-y-1">
+                  <span className="text-xs font-medium text-muted-foreground">{tr('filters.consent')}</span>
+                  <select
+                    aria-label={tr('filters.consent')}
+                    value={consentFilter}
+                    onChange={(e) => {
+                      setConsentFilter(e.target.value as ConsentFilter);
+                      setPage(0);
+                    }}
+                    className={MENU_SELECT}
+                  >
+                    <option value="">{tr('filters.anyConsent')}</option>
+                    <option value="opted_in">{tr('filters.optedIn')}</option>
+                    <option value="opted_out">{tr('filters.optedOut')}</option>
+                  </select>
+                </label>
+
+                {showChannelFilters && (
+                  <>
+                    <label className="block space-y-1">
+                      <span className="text-xs font-medium text-muted-foreground">{tc('channel')}</span>
+                      <select
+                        aria-label={tc('channel')}
+                        value={channelView}
+                        onChange={(e) => {
+                          setChannelView(e.target.value as ChannelView);
+                          setPage(0);
+                        }}
+                        className={MENU_SELECT}
+                      >
+                        <option value="">{tc('allChannels')}</option>
+                        <option value="whatsapp">{tc('hasWhatsApp')}</option>
+                        <option value="instagram">{tc('hasInstagram')}</option>
+                      </select>
+                    </label>
+                    <div className="flex items-center justify-between gap-2">
+                      <Label htmlFor="contacts-subscribed-only" className="text-sm font-normal text-popover-foreground">
+                        {tc('subscribedOnly')}
+                      </Label>
+                      <Switch
+                        id="contacts-subscribed-only"
+                        checked={subscribedOnly}
+                        onCheckedChange={(checked) => {
+                          setSubscribedOnly(checked === true);
+                          setPage(0);
+                        }}
+                      />
+                    </div>
+                  </>
+                )}
+
+                <div className="space-y-1 border-t border-border pt-3">
+                  <span className="text-xs font-medium text-muted-foreground">{t('filterByTags')}</span>
+                  {/* A segment or list already decides who is shown, so tags apply only to everyone. */}
+                  {allTags.length === 0 ? (
+                    <p className="py-2 text-sm text-muted-foreground">{t('noTagsYet')}</p>
+                  ) : (
+                    <div className={cn('-mx-1 max-h-48 overflow-y-auto', tagsLocked && 'opacity-50')}>
+                      {tagGroups.map((group) => (
+                        <div key={group.category ?? ''}>
+                          {/* Headings only once categories are in use. */}
+                          {tagGroups.length > 1 && (
+                            <p className="px-1 pt-2 pb-1 text-xs font-medium text-muted-foreground">
+                              {group.category ?? t('otherTags')}
+                            </p>
+                          )}
+                          {group.tags.map((tag) => (
+                            <label key={tag.id} className="flex cursor-pointer items-center gap-2.5 rounded-md px-1 py-1.5 hover:bg-muted/50">
+                              <Checkbox
+                                checked={selectedTagIds.includes(tag.id)}
+                                onCheckedChange={() => toggleTagFilter(tag.id)}
+                                disabled={tagsLocked}
+                                aria-label={t('filterByTag', { name: tag.name })}
+                              />
+                              <span className="size-2.5 shrink-0 rounded-full" style={{ backgroundColor: tag.color }} />
+                              <span className="truncate text-sm text-popover-foreground">{tag.name}</span>
+                            </label>
+                          ))}
+                        </div>
                       ))}
                     </div>
-                  ))}
+                  )}
                 </div>
-              )}
+              </div>
             </PopoverContent>
           </Popover>
-
-          <select
-            aria-label={tr('filters.owner')}
-            value={ownerFilter}
-            onChange={(e) => {
-              setOwnerFilter(e.target.value);
-              setPage(0);
-            }}
-            className={cn(CHIP, ownerFilter && CHIP_ON)}
-          >
-            <option value="">{tr('filters.anyOwner')}</option>
-            {members.map((m) => (
-              <option key={m.user_id} value={m.user_id}>{m.full_name || tr('owner.unnamedMember')}</option>
-            ))}
-            <option value="none">{tr('owner.noOne')}</option>
-          </select>
-
-          {showChannelFilters && (
-            <select
-              aria-label={tc('channel')}
-              value={channelView}
-              onChange={(e) => {
-                setChannelView(e.target.value as ChannelView);
-                setPage(0);
-              }}
-              className={cn(CHIP, channelView && CHIP_ON)}
-            >
-              <option value="">{tc('allChannels')}</option>
-              <option value="whatsapp">{tc('hasWhatsApp')}</option>
-              <option value="instagram">{tc('hasInstagram')}</option>
-            </select>
-          )}
-
-          <select
-            aria-label={tr('filters.consent')}
-            value={consentFilter}
-            onChange={(e) => {
-              setConsentFilter(e.target.value as ConsentFilter);
-              setPage(0);
-            }}
-            className={cn(CHIP, consentFilter && CHIP_ON)}
-          >
-            <option value="">{tr('filters.anyConsent')}</option>
-            <option value="opted_in">{tr('filters.optedIn')}</option>
-            <option value="opted_out">{tr('filters.optedOut')}</option>
-          </select>
-
-          {showChannelFilters && (
-            <div className="flex h-8 shrink-0 items-center gap-2 rounded-full border border-border bg-card pl-1.5 pr-3">
-              <Switch
-                id="contacts-subscribed-only"
-                checked={subscribedOnly}
-                onCheckedChange={(checked) => {
-                  setSubscribedOnly(checked === true);
-                  setPage(0);
-                }}
-              />
-              <Label htmlFor="contacts-subscribed-only" className="text-[13px] font-normal text-muted-foreground">
-                {tc('subscribedOnly')}
-              </Label>
-            </div>
-          )}
-
-          {filtersOn && (
-            <button type="button" onClick={clearFilters} className="rounded-md px-1.5 text-[13px] text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50">
-              {tr('filters.clear')}
-            </button>
-          )}
 
           <DropdownMenu>
             <DropdownMenuTrigger
@@ -1016,12 +1029,35 @@ function ContactsPeople() {
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-          </div>
         </div>
 
-        {/* Active tag-filter chips */}
-        {selectedTagIds.length > 0 && (
-          <div className="flex flex-wrap items-center gap-1.5">
+        {/* The filters from the Filters menu that are in use, each removable on its own. */}
+        {moreFilters > 0 && (
+          <div className="flex flex-wrap items-center gap-1.5" data-active-filters>
+            {ownerFilter && (
+              <FilterChip
+                label={`${tr('filters.owner')}: ${ownerFilter === 'none' ? tr('owner.noOne') : members.find((m) => m.user_id === ownerFilter)?.full_name || tr('owner.unnamedMember')}`}
+                onRemove={() => { setOwnerFilter(''); setPage(0); }}
+                removeLabel={tr('filters.clear')}
+              />
+            )}
+            {consentFilter && (
+              <FilterChip
+                label={consentFilter === 'opted_in' ? tr('filters.optedIn') : tr('filters.optedOut')}
+                onRemove={() => { setConsentFilter(''); setPage(0); }}
+                removeLabel={tr('filters.clear')}
+              />
+            )}
+            {channelView && (
+              <FilterChip
+                label={channelView === 'whatsapp' ? tc('hasWhatsApp') : tc('hasInstagram')}
+                onRemove={() => { setChannelView(''); setPage(0); }}
+                removeLabel={tr('filters.clear')}
+              />
+            )}
+            {subscribedOnly && (
+              <FilterChip label={tc('subscribedOnly')} onRemove={() => { setSubscribedOnly(false); setPage(0); }} removeLabel={tr('filters.clear')} />
+            )}
             {selectedTagIds.map((id) => {
               const tag = tagsMap[id];
               if (!tag) return null;
@@ -1029,28 +1065,15 @@ function ContactsPeople() {
                 <span
                   key={id}
                   className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium"
-                  style={{
-                    backgroundColor: tag.color + '20',
-                    color: tag.color,
-                  }}
+                  style={{ backgroundColor: tag.color + '20', color: tag.color }}
                 >
                   {tag.name}
-                  <button
-                    onClick={() => toggleTagFilter(id)}
-                    aria-label={t('removeTagFilter', { name: tag.name })}
-                    className="hover:opacity-70"
-                  >
+                  <button type="button" onClick={() => toggleTagFilter(id)} aria-label={t('removeTagFilter', { name: tag.name })} className="hover:opacity-70">
                     <X className="size-3" />
                   </button>
                 </span>
               );
             })}
-            <button
-              onClick={clearTagFilters}
-              className="text-xs text-muted-foreground hover:text-foreground px-1"
-            >
-              {t('clearAll')}
-            </button>
           </div>
         )}
       </div>
