@@ -12,7 +12,7 @@
 // progress shows in "Ads created in Bodhinox".
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { AtSign, Film, Globe, ImagePlus, Images, Loader2, MessageCircle, Plus, Sparkles, Trash2, UserPlus } from 'lucide-react';
+import { AtSign, Bookmark, Film, Globe, ImagePlus, Images, Loader2, MessageCircle, MessagesSquare, Plus, Sparkles, Trash2, UserPlus } from 'lucide-react';
 import { toast } from 'sonner';
 import { useTranslations } from 'next-intl';
 
@@ -25,15 +25,26 @@ import { authFetch } from '@/lib/auth/client';
 import { isCurrencyCode, parseMoney } from '@/lib/commerce/money';
 import { cn } from '@/lib/utils';
 import type { LinkedAdAccount } from '@/lib/meta-ads/accounts';
+import { AdPreview } from './ad-preview';
+import { LeadFormDialog } from './lead-form-dialog';
 import { TargetingPicker, type TargetingChoice } from './targeting-picker';
 
-type Kind = 'whatsapp' | 'instagram_direct' | 'lead_form' | 'website';
+type Kind = 'whatsapp' | 'instagram_direct' | 'lead_form' | 'website' | 'messenger';
 const KINDS: { kind: Kind; icon: typeof Globe }[] = [
   { kind: 'whatsapp', icon: MessageCircle },
   { kind: 'instagram_direct', icon: AtSign },
   { kind: 'lead_form', icon: UserPlus },
   { kind: 'website', icon: Globe },
+  { kind: 'messenger', icon: MessagesSquare },
 ];
+/** Kinds that run from the connected Page only (its Instagram account, its lead forms). */
+const CONNECTED_PAGE_KINDS: Kind[] = ['instagram_direct', 'lead_form'];
+/** Form fields a saved setup keeps (never media, lead forms or audiences, which belong to one account). */
+interface SavedSetup {
+  kind?: Kind; budget?: string; bidCap?: string; countries?: string[]; ageMin?: number; ageMax?: number; gender?: 'all' | '1' | '2';
+  primaryText?: string; headline?: string; description?: string; linkUrl?: string; cta?: string; welcome?: string;
+  placements?: PlacementOption[]; interests?: TargetingChoice[]; places?: TargetingChoice[]; languages?: TargetingChoice[];
+}
 /** Mirrors CTA_TYPES in src/lib/meta-ads/create.ts (not imported: that module is server-only). */
 const CTAS: Record<'lead_form' | 'website', string[]> = {
   lead_form: ['SIGN_UP', 'LEARN_MORE', 'APPLY_NOW', 'GET_QUOTE', 'SUBSCRIBE', 'DOWNLOAD'],
@@ -72,6 +83,8 @@ export interface CreateAdDialogProps {
 export function CreateAdDialog({ open, onOpenChange, accounts, adAccountId, pageName, onCreated }: CreateAdDialogProps) {
   const t = useTranslations('Ads.create');
   const [step, setStep] = useState(0);
+  const [moreOpen, setMoreOpen] = useState(false);
+  const tp = useTranslations('Ads.preview');
   const [busy, setBusy] = useState(false);
   const [kind, setKind] = useState<Kind>('whatsapp');
   const [account, setAccount] = useState<string>('');
@@ -117,11 +130,80 @@ export function CreateAdDialog({ open, onOpenChange, accounts, adAccountId, page
   const [audiences, setAudiences] = useState<{ id: string; name: string; adAccountId: string; kind: string }[] | null>(null);
   const [include, setInclude] = useState<string[]>([]);
   const [exclude, setExclude] = useState<string[]>([]);
+  const [bidCap, setBidCap] = useState('');
+  const [pages, setPages] = useState<{ id: string; name: string | null; connected: boolean }[]>([]);
+  const [pageId, setPageId] = useState('');
+  const [templates, setTemplates] = useState<{ id: string; name: string; settings: SavedSetup }[]>([]);
+  const [templateName, setTemplateName] = useState('');
+  const [savingTemplate, setSavingTemplate] = useState(false);
+  const [leadFormOpen, setLeadFormOpen] = useState(false);
+  const ts = useTranslations('Ads.setups');
+
+  // The Pages this login manages and the saved setups, once per opening.
+  useEffect(() => {
+    if (!open) return;
+    let live = true;
+    authFetch('/api/meta-ads/pages', { cache: 'no-store' })
+      .then(async (res) => (res.ok ? ((await res.json()) as { pages: { id: string; name: string | null; connected: boolean }[] }).pages : []))
+      .then((list) => { if (live) { setPages(list); setPageId(list.find((p) => p.connected)?.id ?? ''); } })
+      .catch(() => {});
+    authFetch('/api/meta-ads/templates', { cache: 'no-store' })
+      .then(async (res) => (res.ok ? ((await res.json()) as { templates: { id: string; name: string; settings: SavedSetup }[] }).templates : []))
+      .then((list) => { if (live) setTemplates(list); })
+      .catch(() => {});
+    return () => { live = false; };
+  }, [open]);
+
+  const applySetup = (setup: SavedSetup) => {
+    const str = (v: unknown) => (typeof v === 'string' ? v : undefined);
+    if (setup.kind && KINDS.some((k) => k.kind === setup.kind)) setKind(setup.kind);
+    if (str(setup.budget) !== undefined) setBudget(setup.budget!);
+    if (str(setup.bidCap) !== undefined) setBidCap(setup.bidCap!);
+    if (Array.isArray(setup.countries)) setCountries(setup.countries.filter((c) => typeof c === 'string' && /^[A-Z]{2}$/.test(c)));
+    if (typeof setup.ageMin === 'number') setAgeMin(Math.min(65, Math.max(18, setup.ageMin)));
+    if (typeof setup.ageMax === 'number') setAgeMax(Math.min(65, Math.max(18, setup.ageMax)));
+    if (setup.gender === 'all' || setup.gender === '1' || setup.gender === '2') setGender(setup.gender);
+    if (str(setup.primaryText) !== undefined) setPrimaryText(setup.primaryText!);
+    if (str(setup.headline) !== undefined) setHeadline(setup.headline!);
+    if (str(setup.description) !== undefined) setDescription(setup.description!);
+    if (str(setup.linkUrl) !== undefined) setLinkUrl(setup.linkUrl!);
+    if (str(setup.cta) !== undefined) setCta(setup.cta!);
+    if (str(setup.welcome) !== undefined) setWelcome(setup.welcome!);
+    if (Array.isArray(setup.placements)) setPlacements(setup.placements.filter((p) => (PLACEMENT_OPTIONS as readonly string[]).includes(p)));
+    if (Array.isArray(setup.interests)) setInterests(setup.interests);
+    if (Array.isArray(setup.places)) setPlaces(setup.places);
+    if (Array.isArray(setup.languages)) setLanguages(setup.languages);
+    toast.success(ts('applied'));
+  };
+
+  const saveSetup = async () => {
+    const settings: SavedSetup = {
+      kind, budget, bidCap, countries, ageMin, ageMax, gender, primaryText, headline, description, linkUrl, cta, welcome,
+      placements, interests, places, languages,
+    };
+    setSavingTemplate(true);
+    try {
+      const res = await authFetch('/api/meta-ads/templates', {
+        method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name: templateName.trim(), settings }),
+      });
+      const body = (await res.json().catch(() => ({}))) as { template?: { id: string; name: string; settings: SavedSetup }; error?: string };
+      if (!res.ok || !body.template) throw new Error(body.error ?? 'generic');
+      setTemplates([...templates, body.template]);
+      setTemplateName('');
+      toast.success(ts('saved'));
+    } catch (error) {
+      const code = error instanceof Error ? error.message : 'generic';
+      toast.error(ts.has(`errors.${code}`) ? ts(`errors.${code}`) : ts('errors.generic'));
+    } finally {
+      setSavingTemplate(false);
+    }
+  };
 
   // A fresh dialog each time it opens.
   useEffect(() => {
     if (!open) return;
     setStep(0);
+    setMoreOpen(false);
     setAccount(adAccountId ?? accounts.find((a) => a.isPrimary)?.adAccountId ?? accounts[0]?.adAccountId ?? '');
   }, [open, adAccountId, accounts]);
 
@@ -149,6 +231,15 @@ export function CreateAdDialog({ open, onOpenChange, accounts, adAccountId, page
   };
 
   const currency = accounts.find((a) => a.adAccountId === account)?.currency ?? null;
+  const bidCapMinor = useMemo(() => {
+    if (!bidCap.trim() || !currency || !isCurrencyCode(currency)) return null;
+    try {
+      const minor = parseMoney(bidCap, currency);
+      return minor > 0 ? minor : null;
+    } catch {
+      return null;
+    }
+  }, [bidCap, currency]);
   const budgetMinor = useMemo(() => {
     if (!budget.trim() || !currency || !isCurrencyCode(currency)) return null;
     try {
@@ -270,7 +361,8 @@ export function CreateAdDialog({ open, onOpenChange, accounts, adAccountId, page
 
   const stepValid = [
     !!account,
-    !!name.trim() && budgetMinor !== null && countries.length > 0 && ageMin <= ageMax && (!end || Date.parse(end) > Date.parse(start) + 86_400_000),
+    !!name.trim() && budgetMinor !== null && countries.length > 0 && ageMin <= ageMax && (!end || Date.parse(end) > Date.parse(start) + 86_400_000)
+      && (!bidCap.trim() || (bidCapMinor !== null && bidCapMinor <= budgetMinor)),
     !!primaryText.trim() && (kind !== 'website' || /^https:\/\/\S+$/.test(linkUrl.trim())) && (kind !== 'lead_form' || !!leadFormId)
       && (format === 'image' ? !!image : format === 'video' ? !!video && !!image
         : cards.length >= 2 && cards.every((c) => !!c.image && (!c.link.trim() || /^https:\/\/\S+$/.test(c.link.trim())))),
@@ -294,6 +386,8 @@ export function CreateAdDialog({ open, onOpenChange, accounts, adAccountId, page
           ctaType: kind === 'lead_form' || kind === 'website' ? (cta || CTAS[kind][0]) : undefined,
           imageHash: cover.hash, imageUrl: cover.url, whatsappNumber: kind === 'whatsapp' && whatsappNumber.trim() ? whatsappNumber.trim() : null,
           welcomeMessage: kind === 'whatsapp' && welcome.trim() ? welcome.trim() : null, publish,
+          bidCapMinor: bidCap.trim() ? bidCapMinor : null,
+          pageId: pageId && !CONNECTED_PAGE_KINDS.includes(kind) && !pages.find((p) => p.id === pageId)?.connected ? pageId : null,
           audienceIds: include, excludedAudienceIds: exclude,
           format, videoId: format === 'video' ? video?.id : undefined,
           cards: format === 'carousel' ? cards.map((c) => ({
@@ -318,11 +412,19 @@ export function CreateAdDialog({ open, onOpenChange, accounts, adAccountId, page
     }
   };
 
+  const advancedCount = include.length + exclude.length + places.length + interests.length + languages.length + placements.length;
+  const previewCta = kind === 'whatsapp' ? tp('ctaWhatsapp') : kind === 'instagram_direct' || kind === 'messenger' ? tp('ctaMessage') : t(`ctas.${cta || CTAS[kind][0]}`);
+  const preview = (
+    <AdPreview pageName={(pageId && pages.find((p) => p.id === pageId)?.name) || pageName} primaryText={primaryText} headline={format === 'carousel' ? (cards[0]?.headline ?? '') : headline}
+      description={kind === 'instagram_direct' ? '' : description} ctaLabel={previewCta} allowStatus={STATUS_KINDS.includes(kind)}
+      imageUrl={(format === 'carousel' ? cards[0]?.image?.preview : image?.preview) ?? null} />
+  );
+
   const steps = [t('steps.goal'), t('steps.audience'), t('steps.ad'), t('steps.review')];
 
   return (
     <Dialog open={open} onOpenChange={(next) => { if (!busy) onOpenChange(next); }}>
-      <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-2xl" data-testid="create-ad-dialog">
+      <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-3xl max-sm:h-dvh max-sm:max-h-dvh max-sm:max-w-none max-sm:rounded-none" data-testid="create-ad-dialog">
         <DialogHeader>
           <DialogTitle>{t('title')}</DialogTitle>
           <DialogDescription>{pageName ? t('descriptionPage', { page: pageName }) : t('description')}</DialogDescription>
@@ -339,6 +441,20 @@ export function CreateAdDialog({ open, onOpenChange, accounts, adAccountId, page
 
         {step === 0 && (
           <div className="space-y-4">
+            {templates.length > 0 && (
+              <div className="flex flex-wrap items-center gap-2 rounded-xl border border-dashed border-border p-3" data-testid="create-ad-setups">
+                <Bookmark className="size-4 text-primary" aria-hidden />
+                <span className="text-sm text-foreground">{ts('startFrom')}</span>
+                <select aria-label={ts('startFrom')} defaultValue="" onChange={(e) => {
+                  const chosen = templates.find((x) => x.id === e.target.value);
+                  if (chosen) applySetup(chosen.settings);
+                  e.target.value = '';
+                }} className="h-8 min-w-0 flex-1 rounded-lg border border-border bg-card px-2 text-sm">
+                  <option value="">{ts('choose')}</option>
+                  {templates.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}
+                </select>
+              </div>
+            )}
             <div role="radiogroup" aria-label={t('goal')} className="grid gap-3 sm:grid-cols-2">
               {KINDS.map(({ kind: k, icon: Icon }) => (
                 <button key={k} type="button" role="radio" aria-checked={kind === k} onClick={() => setKind(k)}
@@ -361,7 +477,19 @@ export function CreateAdDialog({ open, onOpenChange, accounts, adAccountId, page
                 </select>
               </div>
             )}
+            {pages.length > 1 && (
+              <div className="space-y-1">
+                <Label htmlFor="create-ad-page">{t('page')}</Label>
+                <select id="create-ad-page" value={CONNECTED_PAGE_KINDS.includes(kind) ? (pages.find((p) => p.connected)?.id ?? '') : pageId}
+                  disabled={CONNECTED_PAGE_KINDS.includes(kind)} onChange={(e) => setPageId(e.target.value)}
+                  className="h-9 w-full rounded-lg border border-border bg-card px-2.5 text-sm disabled:opacity-60">
+                  {pages.map((p) => <option key={p.id} value={p.id}>{p.name ?? p.id}{p.connected ? ` · ${t('connectedPage')}` : ''}</option>)}
+                </select>
+                {CONNECTED_PAGE_KINDS.includes(kind) && <p className="text-xs text-muted-foreground">{t('pageLocked')}</p>}
+              </div>
+            )}
             {kind === 'instagram_direct' && <p className="rounded-lg bg-muted px-3 py-2 text-xs text-muted-foreground">{t('instagramNote')}</p>}
+            {kind === 'messenger' && <p className="rounded-lg bg-muted px-3 py-2 text-xs text-muted-foreground">{t('messengerNote')}</p>}
             {kind === 'whatsapp' && <p className="rounded-lg bg-muted px-3 py-2 text-xs text-muted-foreground">{t('whatsappNote')}</p>}
           </div>
         )}
@@ -376,6 +504,13 @@ export function CreateAdDialog({ open, onOpenChange, accounts, adAccountId, page
               <Label htmlFor="create-ad-budget">{t('dailyBudget', { currency: currency ?? '' })}</Label>
               <Input id="create-ad-budget" inputMode="decimal" value={budget} onChange={(e) => setBudget(e.target.value)} placeholder="500" />
               {budget && budgetMinor === null && <p className="text-xs text-destructive">{t('budgetInvalid')}</p>}
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="create-ad-bid-cap">{t('bidCap', { currency: currency ?? '' })}</Label>
+              <Input id="create-ad-bid-cap" inputMode="decimal" value={bidCap} onChange={(e) => setBidCap(e.target.value)} placeholder={t('bidCapPlaceholder')} />
+              <p className={cn('text-xs', bidCap.trim() && (bidCapMinor === null || (budgetMinor !== null && bidCapMinor > budgetMinor)) ? 'text-destructive' : 'text-muted-foreground')}>
+                {bidCap.trim() && (bidCapMinor === null || (budgetMinor !== null && bidCapMinor > budgetMinor)) ? t('bidCapInvalid') : t('bidCapHelp')}
+              </p>
             </div>
             <div className="space-y-1">
               <Label htmlFor="create-ad-gender">{t('gender')}</Label>
@@ -421,6 +556,13 @@ export function CreateAdDialog({ open, onOpenChange, accounts, adAccountId, page
                 </div>
               </div>
             </div>
+            <details className="rounded-xl border border-border sm:col-span-2" open={moreOpen}
+              onToggle={(e) => setMoreOpen(e.currentTarget.open)} data-testid="create-ad-more">
+              <summary className="flex cursor-pointer items-center justify-between gap-2 rounded-xl px-4 py-3 text-sm font-medium text-foreground outline-none hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring">
+                <span>{t('moreTargeting')}</span>
+                <span className="text-xs font-normal text-muted-foreground">{advancedCount ? t('moreTargetingCount', { count: advancedCount }) : t('moreTargetingHint')}</span>
+              </summary>
+              <div className="grid gap-4 border-t border-border p-4">
             {accountAudiences.length > 0 && (
               <div className="space-y-3 sm:col-span-2" data-testid="create-ad-audiences">
                 {([['include', include, setInclude, exclude, setExclude], ['exclude', exclude, setExclude, include, setInclude]] as const).map(([which, list, set, other, setOther]) => (
@@ -473,6 +615,8 @@ export function CreateAdDialog({ open, onOpenChange, accounts, adAccountId, page
                 {placements.length === 0 ? t('placements.automaticHelp') : placements.includes('whatsapp_status') ? t('placements.statusHelp') : t('placements.manualHelp')}
               </p>
             </fieldset>
+              </div>
+            </details>
           </div>
         )}
 
@@ -547,6 +691,9 @@ export function CreateAdDialog({ open, onOpenChange, accounts, adAccountId, page
                     {(forms ?? []).map((f) => <option key={f.id} value={f.id}>{f.name ?? f.id}</option>)}
                   </select>
                   {forms !== null && forms.length === 0 && <p className="text-xs text-muted-foreground">{t('noForms')}</p>}
+                  <Button type="button" variant="outline" size="sm" onClick={() => setLeadFormOpen(true)} data-testid="create-ad-new-form">
+                    <Plus className="size-3.5" /> {t('newForm')}
+                  </Button>
                 </div>
               )}
               {(kind === 'lead_form' || kind === 'website') && (
@@ -663,16 +810,20 @@ export function CreateAdDialog({ open, onOpenChange, accounts, adAccountId, page
                 <p className="text-xs text-muted-foreground">{t('cards.help')}</p>
               </div>
             )}
+            <div className="border-t border-border pt-4 sm:col-span-2">{preview}</div>
           </div>
         )}
 
         {step === 3 && (
-          <dl className="grid gap-x-6 gap-y-2 rounded-xl border border-border bg-card p-4 text-sm sm:grid-cols-2">
+          <div className="grid gap-4 sm:grid-cols-[1fr_17rem]">
+          <dl className="grid content-start gap-x-6 gap-y-2 rounded-xl border border-border bg-card p-4 text-sm sm:grid-cols-2">
             {[
               [t('goal'), t(`kinds.${kind}.title`)],
               [t('adAccount'), accounts.find((a) => a.adAccountId === account)?.name ?? account],
               [t('name'), name],
               [t('dailyBudgetPlain'), `${budget} ${currency ?? ''}`],
+              ...(bidCap.trim() ? [[t('bidCapPlain'), `${bidCap} ${currency ?? ''}`]] : []),
+              ...(pages.length > 1 ? [[t('page'), (CONNECTED_PAGE_KINDS.includes(kind) ? pages.find((p) => p.connected) : pages.find((p) => p.id === pageId))?.name ?? pageName ?? '-']] : []),
               [t('schedule'), `${new Date(start).toLocaleString()}${end ? ` – ${new Date(end).toLocaleString()}` : ` · ${t('noEnd')}`}`],
               [t('audience'), `${countries.join(', ')} · ${ageMin}–${ageMax}${gender === 'all' ? '' : ` · ${t(gender === '1' ? 'genders.men' : 'genders.women')}`}`],
               [t('format.title'), format === 'video' && video ? `${t('format.video')} · ${video.name}` : format === 'carousel' ? t('cards.title', { count: cards.length }) : t('format.image')],
@@ -691,7 +842,16 @@ export function CreateAdDialog({ open, onOpenChange, accounts, adAccountId, page
               </div>
             ))}
             <p className="text-xs text-muted-foreground sm:col-span-2">{t('reviewNote')}</p>
+            <div className="flex flex-wrap items-center gap-2 border-t border-border pt-3 sm:col-span-2" data-testid="create-ad-save-setup">
+              <Input aria-label={ts('name')} value={templateName} maxLength={100} onChange={(e) => setTemplateName(e.target.value)}
+                placeholder={ts('namePlaceholder')} className="h-8 min-w-0 flex-1 basis-40" />
+              <Button type="button" size="sm" variant="outline" disabled={!templateName.trim() || savingTemplate} onClick={() => void saveSetup()}>
+                {savingTemplate ? <Loader2 className="size-3.5 animate-spin" /> : <Bookmark className="size-3.5" />} {ts('save')}
+              </Button>
+            </div>
           </dl>
+          {preview}
+          </div>
         )}
 
         <DialogFooter className="gap-2">
@@ -709,6 +869,10 @@ export function CreateAdDialog({ open, onOpenChange, accounts, adAccountId, page
           )}
         </DialogFooter>
       </DialogContent>
+      <LeadFormDialog open={leadFormOpen} onOpenChange={setLeadFormOpen} onCreated={(form) => {
+        setForms([...(forms ?? []), { id: form.id, name: form.name }]);
+        setLeadFormId(form.id);
+      }} />
     </Dialog>
   );
 }

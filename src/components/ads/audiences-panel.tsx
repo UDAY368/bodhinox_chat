@@ -8,6 +8,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { ExternalLink, Loader2, Plus, RefreshCw, Trash2, Users } from 'lucide-react';
+import { LoadingRows } from '@/components/ads/ads-ui';
 import { toast } from 'sonner';
 import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
@@ -98,7 +99,7 @@ export function AudiencesPanel({ canManage, accounts, refreshKey = 0 }: {
       </div>
 
       {audiences === null ? (
-        <div className="flex justify-center py-10"><Loader2 className="size-5 animate-spin text-muted-foreground" /></div>
+        <LoadingRows rows={3} />
       ) : audiences.length === 0 ? (
         <div className="rounded-xl border border-dashed border-border px-4 py-10 text-center">
           <Users className="mx-auto size-6 text-muted-foreground" aria-hidden />
@@ -114,7 +115,8 @@ export function AudiencesPanel({ canManage, accounts, refreshKey = 0 }: {
                 <p className="text-xs text-muted-foreground">
                   {a.kind === 'customer_list'
                     ? t('fromSegment', { segment: a.segmentName ?? t('segmentDeleted') })
-                    : t('lookalikeOf', { percent: a.lookalikePercent ?? 1, country: a.lookalikeCountry ?? '' })}
+                    : a.kind === 'lookalike' ? t('lookalikeOf', { percent: a.lookalikePercent ?? 1, country: a.lookalikeCountry ?? '' })
+                    : t(`ruleOf.${a.ruleSource ?? 'page'}`, { days: a.retentionDays ?? 30 })}
                   {accounts.length > 1 && ` · ${accountName(a.adAccountId)}`}
                 </p>
               </div>
@@ -211,6 +213,10 @@ function NewAudienceDialog({ creating, accounts, onClose, onCreated }: {
   const [country, setCountry] = useState(lookalike?.lookalikeCountry ?? 'IN');
   const [percent, setPercent] = useState(1);
   const [autoSync, setAutoSync] = useState(true);
+  // Where a new (non-lookalike) audience comes from: your contacts, or a rule Meta keeps up to date.
+  const [source, setSource] = useState<'contacts' | 'page' | 'instagram' | 'pixel'>('contacts');
+  const [retention, setRetention] = useState(90);
+  const [pixelId, setPixelId] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -219,7 +225,8 @@ function NewAudienceDialog({ creating, accounts, onClose, onCreated }: {
     fetchSegments().then(setSegments).catch(() => setSegments([]));
   }, [lookalike]);
 
-  const valid = name.trim().length > 0 && !!adAccountId && (lookalike ? true : !!segmentId);
+  const valid = name.trim().length > 0 && !!adAccountId
+    && (lookalike ? true : source === 'contacts' ? !!segmentId : source === 'pixel' ? /^\d{1,32}$/.test(pixelId.trim()) : true);
   const submit = async () => {
     if (!valid) return;
     setBusy(true);
@@ -227,7 +234,9 @@ function NewAudienceDialog({ creating, accounts, onClose, onCreated }: {
     try {
       const body = lookalike
         ? { action: 'create', kind: 'lookalike', adAccountId, name: name.trim(), originId: lookalike.id, country, percent }
-        : { action: 'create', kind: 'customer_list', adAccountId, name: name.trim(), segmentId, autoSync };
+        : source === 'contacts' ? { action: 'create', kind: 'customer_list', adAccountId, name: name.trim(), segmentId, autoSync }
+        : source === 'pixel' ? { action: 'create', kind: 'website', adAccountId, name: name.trim(), pixelId: pixelId.trim(), retentionDays: retention }
+        : { action: 'create', kind: 'engagement', adAccountId, name: name.trim(), source, retentionDays: retention };
       const result = await post(body);
       toast.success(t('created'));
       onCreated(result.audience!);
@@ -244,11 +253,40 @@ function NewAudienceDialog({ creating, accounts, onClose, onCreated }: {
     <Dialog open onOpenChange={(next) => { if (!next && !busy) onClose(); }}>
       <DialogContent className="sm:max-w-lg" data-testid="new-audience-dialog">
         <DialogHeader>
-          <DialogTitle>{lookalike ? t('newLookalikeTitle') : t('newTitle')}</DialogTitle>
-          <DialogDescription>{lookalike ? t('newLookalikeDescription', { name: lookalike.name }) : t('newDescription')}</DialogDescription>
+          <DialogTitle>{lookalike ? t('newLookalikeTitle') : source === 'contacts' ? t('newTitle') : t('newRuleTitle')}</DialogTitle>
+          <DialogDescription>{lookalike ? t('newLookalikeDescription', { name: lookalike.name }) : source === 'contacts' ? t('newDescription') : t('newRuleDescription')}</DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
           {!lookalike && (
+            <div role="radiogroup" aria-label={t('source')} className="grid gap-2 sm:grid-cols-2" data-testid="audience-source">
+              {(['contacts', 'page', 'instagram', 'pixel'] as const).map((k) => (
+                <button key={k} type="button" role="radio" aria-checked={source === k} onClick={() => setSource(k)}
+                  className={cn('rounded-xl border p-3 text-left text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                    source === k ? 'border-primary bg-primary/5' : 'border-border hover:bg-muted/60')}>
+                  <span className="block font-medium text-foreground">{t(`sources.${k}.title`)}</span>
+                  <span className="mt-0.5 block text-xs text-muted-foreground">{t(`sources.${k}.body`)}</span>
+                </button>
+              ))}
+            </div>
+          )}
+          {!lookalike && source !== 'contacts' && (
+            <div className="grid gap-4 sm:grid-cols-2">
+              {source === 'pixel' && (
+                <div className="space-y-1">
+                  <Label htmlFor="audience-pixel">{t('pixel')}</Label>
+                  <Input id="audience-pixel" inputMode="numeric" value={pixelId} onChange={(e) => setPixelId(e.target.value)} placeholder="1234567890" />
+                  <p className="text-xs text-muted-foreground">{t('pixelHelp')}</p>
+                </div>
+              )}
+              <div className="space-y-1">
+                <Label htmlFor="audience-retention">{t('retention')}</Label>
+                <select id="audience-retention" value={retention} onChange={(e) => setRetention(Number(e.target.value))} className={SELECT}>
+                  {[30, 60, 90, 180, 365].map((d) => <option key={d} value={d}>{t('days', { days: d })}</option>)}
+                </select>
+              </div>
+            </div>
+          )}
+          {!lookalike && source === 'contacts' && (
             <div className="space-y-1">
               <Label htmlFor="audience-segment">{t('segment')}</Label>
               {segments === null ? <Loader2 className="size-4 animate-spin text-muted-foreground" />
@@ -292,7 +330,7 @@ function NewAudienceDialog({ creating, accounts, onClose, onCreated }: {
                 <p className="text-xs text-muted-foreground">{t('sizeHelp')}</p>
               </div>
             </div>
-          ) : (
+          ) : source === 'contacts' && (
             <label className="flex items-center gap-2 text-sm text-foreground">
               <Switch checked={autoSync} onCheckedChange={setAutoSync} aria-label={t('autoSync')} />
               {t('autoSyncHelp')}

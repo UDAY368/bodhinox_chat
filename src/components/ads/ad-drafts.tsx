@@ -8,7 +8,7 @@
 // second ad in its ad set).
 
 import { useCallback, useEffect, useState } from 'react';
-import { Copy, ExternalLink, FlaskConical, Loader2 } from 'lucide-react';
+import { Copy, ExternalLink, FlaskConical, Loader2, Pencil } from 'lucide-react';
 import { toast } from 'sonner';
 import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
@@ -26,7 +26,7 @@ export function AdDrafts({ canManage, refreshKey }: { canManage: boolean; refres
   const t = useTranslations('Ads.drafts');
   const [drafts, setDrafts] = useState<AdDraftDto[] | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
-  const [variantOf, setVariantOf] = useState<AdDraftDto | null>(null);
+  const [variantOf, setVariantOf] = useState<{ draft: AdDraftDto; replace: boolean } | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -119,8 +119,13 @@ export function AdDrafts({ canManage, refreshKey }: { canManage: boolean; refres
                   <Copy className="size-3.5" /> {t('duplicate')}
                 </Button>
                 {d.adsetId && (
-                  <Button type="button" size="sm" variant="outline" onClick={() => setVariantOf(d)}>
+                  <Button type="button" size="sm" variant="outline" onClick={() => setVariantOf({ draft: d, replace: false })}>
                     <FlaskConical className="size-3.5" /> {t('variant')}
+                  </Button>
+                )}
+                {d.adsetId && d.adId && (
+                  <Button type="button" size="sm" variant="outline" onClick={() => setVariantOf({ draft: d, replace: true })} data-testid="edit-ad">
+                    <Pencil className="size-3.5" /> {t('edit')}
                   </Button>
                 )}
               </>
@@ -136,7 +141,7 @@ export function AdDrafts({ canManage, refreshKey }: { canManage: boolean; refres
       </ul>
       {drafts.some((d) => d.status === 'unknown') && <p className="mt-2 text-xs text-muted-foreground">{t('unknownHelp')}</p>}
       {variantOf && (
-        <AdVariantDialog source={variantOf} onClose={() => setVariantOf(null)}
+        <AdVariantDialog source={variantOf.draft} replace={variantOf.replace} onClose={() => setVariantOf(null)}
           onCreated={(draft) => { setDrafts((list) => [draft, ...(list ?? [])]); setVariantOf(null); }} />
       )}
     </section>

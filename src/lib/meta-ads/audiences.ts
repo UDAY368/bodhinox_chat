@@ -17,6 +17,11 @@
 // uploaded people, so a repeated sync is harmless and needs no intent. Raw
 // phone numbers and emails never leave Bodhinox; nothing about a contact is
 // logged.
+//
+// Engagement audiences (people who engaged with the connected Facebook Page or
+// its Instagram account) and website-visitor audiences (a Meta pixel) are
+// rules Meta keeps up to date itself: they are created once the same way and
+// never uploaded to.
 import { createHash, randomInt } from 'node:crypto';
 import { Prisma } from '@prisma/client';
 import { getWorkerPrisma } from '@/lib/db/prisma';
@@ -29,7 +34,7 @@ import { loadSegmentFilter } from '@/lib/audience/segments';
 import { metaAdsConfig, metaAdsManageEnabled, missingScopes } from './config';
 import { loadActiveConnectionTx, MetaAdsError, type MetaAdsActor } from './connection';
 import {
-  createCustomerListAudience, createLookalikeAudience, findAudiencesByName, getAudienceSize, hasCustomAudienceTerms,
+  createCustomerListAudience, createLookalikeAudience, createRuleAudience, findAudiencesByName, getAudienceSize, getPageInstagramAccount, hasCustomAudienceTerms,
   isMetaThrottle, isMetaTokenInvalid, metaErrorCode, replaceAudienceUsers,
 } from './graph';
 
@@ -40,7 +45,7 @@ export const UPLOAD_BATCH = 10_000;
 // shortcut: one sync uploads at most 200,000 contacts (20 batches inside one job lease); larger lists need a resumable upload.
 export const MAX_UPLOAD = 200_000;
 export const AUTO_SYNC_MS = 6 * 3_600_000;
-export const AUDIENCE_KINDS = ['customer_list', 'lookalike'] as const;
+export const AUDIENCE_KINDS = ['customer_list', 'lookalike', 'engagement', 'website'] as const;
 export type AudienceKind = (typeof AUDIENCE_KINDS)[number];
 export type AudienceStatus = 'queued' | 'ready' | 'failed' | 'unknown';
 
@@ -80,6 +85,8 @@ interface AudienceRow {
   origin_meta_id: string | null;
   lookalike_country: string | null;
   lookalike_percent: number | null;
+  rule_source: string | null;
+  retention_days: number | null;
   meta_audience_id: string | null;
   status: AudienceStatus;
   auto_sync: boolean;
@@ -93,7 +100,7 @@ interface AudienceRow {
 
 const COLUMNS = Prisma.sql`a.id::text AS id, a.connection_id::text AS connection_id, a.ad_account_id, a.kind, a.name,
   a.segment_id::text AS segment_id, s.name AS segment_name, a.origin_id::text AS origin_id, o.meta_audience_id AS origin_meta_id,
-  a.lookalike_country, a.lookalike_percent, a.meta_audience_id, a.status, a.auto_sync, a.uploaded_count, a.matched_lower,
+  a.lookalike_country, a.lookalike_percent, a.rule_source, a.retention_days, a.meta_audience_id, a.status, a.auto_sync, a.uploaded_count, a.matched_lower,
   a.matched_upper, a.last_synced_at, a.last_error_code, a.created_at`;
 const FROM = Prisma.sql`meta_audiences a
   LEFT JOIN segments s ON s.account_id = a.account_id AND s.id = a.segment_id
@@ -109,6 +116,9 @@ export interface AudienceDto {
   originId: string | null;
   lookalikeCountry: string | null;
   lookalikePercent: number | null;
+  /** Engagement and website audiences: 'page', 'instagram' or 'pixel', and the days people stay in. */
+  ruleSource: 'page' | 'instagram' | 'pixel' | null;
+  retentionDays: number | null;
   metaAudienceId: string | null;
   status: AudienceStatus;
   autoSync: boolean;
@@ -123,6 +133,7 @@ export interface AudienceDto {
 const dto = (r: AudienceRow): AudienceDto => ({
   id: r.id, adAccountId: r.ad_account_id, kind: r.kind, name: r.name, segmentId: r.segment_id, segmentName: r.segment_name,
   originId: r.origin_id, lookalikeCountry: r.lookalike_country, lookalikePercent: r.lookalike_percent,
+  ruleSource: (r.rule_source?.split(':')[0] as AudienceDto['ruleSource']) ?? null, retentionDays: r.retention_days,
   metaAudienceId: r.meta_audience_id, status: r.status, autoSync: r.auto_sync, uploadedCount: r.uploaded_count,
   matchedLower: r.matched_lower === null ? null : Number(r.matched_lower),
   matchedUpper: r.matched_upper === null ? null : Number(r.matched_upper),
@@ -156,7 +167,9 @@ function requireAdmin(actor: MetaAdsActor): void {
 
 export type AudienceCreateInput =
   | { kind: 'customer_list'; adAccountId: string; name: string; segmentId: string; autoSync: boolean }
-  | { kind: 'lookalike'; adAccountId: string; name: string; originId: string; country: string; percent: number };
+  | { kind: 'lookalike'; adAccountId: string; name: string; originId: string; country: string; percent: number }
+  | { kind: 'engagement'; adAccountId: string; name: string; source: 'page' | 'instagram'; retentionDays: number }
+  | { kind: 'website'; adAccountId: string; name: string; pixelId: string; retentionDays: number };
 
 const cleanName = (value: unknown): string | null => {
   if (typeof value !== 'string') return null;
@@ -181,6 +194,12 @@ export function parseAudienceCreateInput(body: unknown): AudienceCreateInput | n
     if (typeof percent !== 'number' || !Number.isInteger(percent) || percent < 1 || percent > 10) return null;
     return { kind: 'lookalike', adAccountId, name, originId: b.originId, country, percent };
   }
+  const retentionDays = b.retentionDays;
+  if (typeof retentionDays !== 'number' || !Number.isInteger(retentionDays) || retentionDays < 1 || retentionDays > 365) return null;
+  if (b.kind === 'engagement' && (b.source === 'page' || b.source === 'instagram'))
+    return { kind: 'engagement', adAccountId, name, source: b.source, retentionDays };
+  if (b.kind === 'website' && typeof b.pixelId === 'string' && META_ID.test(b.pixelId))
+    return { kind: 'website', adAccountId, name, pixelId: b.pixelId, retentionDays };
   return null;
 }
 
@@ -199,6 +218,7 @@ export async function listAudiences(actor: MetaAdsActor): Promise<AudienceDto[]>
 /** Records the audience and queues its creation (admin). */
 export async function requestAudienceCreate(actor: MetaAdsActor, input: AudienceCreateInput): Promise<AudienceDto> {
   requireAdmin(actor);
+  const ruleSource = input.kind === 'engagement' || input.kind === 'website' ? await resolveRuleSource(actor, input) : null;
   return worker(actor.accountId, async (tx) => {
     const [conn] = await tx.$queryRaw<{ id: string; status: string; scopes: string[] }[]>`
       SELECT id::text AS id, status, scopes FROM meta_ad_connections
@@ -226,6 +246,12 @@ export async function requestAudienceCreate(actor: MetaAdsActor, input: Audience
         VALUES(${actor.accountId}::uuid, ${conn.id}::uuid, ${input.adAccountId}, 'customer_list', ${input.name},
           ${input.segmentId}::uuid, ${input.autoSync}, ${actor.userId}::uuid)
         RETURNING id::text AS id`;
+    } else if (input.kind === 'engagement' || input.kind === 'website') {
+      inserted = await tx.$queryRaw<{ id: string }[]>`INSERT INTO meta_audiences(account_id, connection_id, ad_account_id, kind,
+          name, rule_source, retention_days, auto_sync, created_by)
+        VALUES(${actor.accountId}::uuid, ${conn.id}::uuid, ${input.adAccountId}, ${input.kind}, ${input.name},
+          ${ruleSource}, ${input.retentionDays}, false, ${actor.userId}::uuid)
+        RETURNING id::text AS id`;
     } else {
       const [origin] = await tx.$queryRaw<{ kind: string; ad_account_id: string; meta_audience_id: string | null }[]>`
         SELECT kind, ad_account_id, meta_audience_id FROM meta_audiences
@@ -246,6 +272,24 @@ export async function requestAudienceCreate(actor: MetaAdsActor, input: Audience
       WHERE a.account_id=${actor.accountId}::uuid AND a.id=${audienceId}::uuid`;
     return dto(row);
   }, actor.userId);
+}
+
+/** 'page:<id>' (the connected Page), 'instagram:<id>' (its Instagram account) or 'pixel:<id>'. */
+async function resolveRuleSource(actor: MetaAdsActor,
+  input: Extract<AudienceCreateInput, { kind: 'engagement' | 'website' }>): Promise<string> {
+  if (input.kind === 'website') return `pixel:${input.pixelId}`;
+  const conn = await worker(actor.accountId, (tx) => loadActiveConnectionTx(tx, actor.accountId), actor.userId);
+  if (!conn?.pageId || !conn.userToken) throw new MetaAdsError('not_connected');
+  if (input.source === 'page') return `page:${conn.pageId}`;
+  let igId: string | null;
+  try {
+    igId = await getPageInstagramAccount(conn.pageId, conn.pageToken ?? conn.userToken);
+  } catch (error) {
+    console.error('[meta-ads] instagram account lookup failed', metaErrorCode(error) ?? (error instanceof Error ? error.name : 'unknown'));
+    throw new MetaAdsError(isMetaTokenInvalid(error) ? 'token_invalid' : isMetaThrottle(error) ? 'rate_limited' : 'meta_error');
+  }
+  if (!igId) throw new MetaAdsError('invalid_choice');
+  return `instagram:${igId}`;
 }
 
 async function adminAudience(tx: TenantTransaction, actor: MetaAdsActor, audienceId: string): Promise<AudienceRow> {
@@ -379,6 +423,17 @@ async function uploadSegment(accountId: string, row: AudienceRow, token: string)
   return sent;
 }
 
+function createOne(row: AudienceRow, token: string): Promise<{ id: string }> {
+  if (row.kind === 'customer_list') return createCustomerListAudience(row.ad_account_id, token, row.name);
+  if (row.kind === 'lookalike') {
+    return createLookalikeAudience(row.ad_account_id, token, {
+      name: row.name, originAudienceId: row.origin_meta_id!, country: row.lookalike_country!, percent: row.lookalike_percent!,
+    });
+  }
+  const [type, id] = (row.rule_source ?? '').split(':') as ['page' | 'instagram' | 'pixel', string];
+  return createRuleAudience(row.ad_account_id, token, { name: row.name, source: { type, id }, retentionDays: row.retention_days ?? 30 });
+}
+
 async function syncOne(accountId: string, audienceId: string, lastAttempt: boolean): Promise<void> {
   const state = await worker(accountId, async (tx) => {
     const [row] = await tx.$queryRaw<AudienceRow[]>`SELECT ${COLUMNS} FROM ${FROM}
@@ -409,11 +464,7 @@ async function syncOne(accountId: string, audienceId: string, lastAttempt: boole
           return settle(accountId, audienceId, 'failed', 'terms_not_accepted');
         if (row.kind === 'lookalike' && !row.origin_meta_id) return settle(accountId, audienceId, 'failed', 'origin_missing');
         try {
-          const result = await dispatchOnce(accountId, `audience:${audienceId}:create`, () => row.kind === 'customer_list'
-            ? createCustomerListAudience(row.ad_account_id, token, row.name)
-            : createLookalikeAudience(row.ad_account_id, token, {
-              name: row.name, originAudienceId: row.origin_meta_id!, country: row.lookalike_country!, percent: row.lookalike_percent!,
-            }), { retryRejected: true });
+          const result = await dispatchOnce(accountId, `audience:${audienceId}:create`, () => createOne(row, token), { retryRejected: true });
           await adopt(accountId, audienceId, result.id);
           row.meta_audience_id = result.id;
         } catch (error) {

@@ -10,7 +10,8 @@
 // budget cap stops anyone from setting (or resuming at) a higher budget.
 
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronDown, ChevronRight, Loader2, MoreHorizontal, Pause, Play, RefreshCw, ShieldAlert } from 'lucide-react';
+import { ChevronDown, ChevronRight, FolderKanban, Loader2, MoreHorizontal, Pause, Play, RefreshCw, ShieldAlert } from 'lucide-react';
+import { EmptyState, LoadingRows, StatusChip } from '@/components/ads/ads-ui';
 import { toast } from 'sonner';
 import { useTranslations } from 'next-intl';
 
@@ -270,12 +271,7 @@ export function CampaignsPanel({ canManage, adAccountId = null }: { canManage: b
           </div>
         </td>
         <td className="px-3.5 py-3">
-          <span className={cn('rounded-full px-2 py-0.5 text-xs font-medium',
-            o.effectiveStatus === 'ACTIVE' ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
-              : o.effectiveStatus === 'DISAPPROVED' || o.effectiveStatus === 'WITH_ISSUES' ? 'bg-destructive/10 text-destructive'
-              : 'bg-muted text-muted-foreground')}>
-            {o.effectiveStatus ?? o.status ?? '-'}
-          </span>
+          <StatusChip status={o.effectiveStatus ?? o.status} reason={o.reviewFeedback} />
           {o.reviewFeedback && (
             <p className="mt-1 max-w-64 text-xs text-destructive" data-testid="ad-review-feedback">{t('reviewReason', { reason: o.reviewFeedback })}</p>
           )}
@@ -327,7 +323,7 @@ export function CampaignsPanel({ canManage, adAccountId = null }: { canManage: b
       </div>
     );
   }
-  if (!view) return <Loader2 className="size-4 animate-spin text-primary" />;
+  if (!view) return <LoadingRows />;
 
   const unknown = view.changes.filter((c) => c.status === 'unknown');
   const recent = view.changes.filter((c) => c.status !== 'unknown').slice(0, 8);
@@ -382,7 +378,7 @@ export function CampaignsPanel({ canManage, adAccountId = null }: { canManage: b
       )}
 
       {tree.length === 0 ? (
-        <p className="rounded-xl border border-border bg-card px-4 py-12 text-center text-sm text-muted-foreground">{t('empty')}</p>
+        <EmptyState icon={FolderKanban} title={t('empty')} body={t('emptyBody')} />
       ) : (
         <div className="overflow-x-auto rounded-xl border border-border bg-card">
           <table className="w-full min-w-[820px] text-sm">

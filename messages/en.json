@@ -5808,7 +5808,8 @@
         "autoLead": "Report WhatsApp form submissions as leads",
         "dataset": "Dataset {id}",
         "saved": "Conversions API settings saved",
-        "saveNumber": "Save number"
+        "saveNumber": "Save number",
+        "dealEvents": "Send deal stages: a deal opened counts as a qualified lead and a deal won as a Purchase (its value), for contacts who came from an ad."
       },
       "disconnect": "Disconnect",
       "disconnectConfirm": "Disconnect Meta ads? Lead ads stop arriving and no more conversions are sent. Stored results and leads are kept.",
@@ -11633,6 +11634,7 @@
         "product_summary": "Product sales",
         "service_summary": "Appointments by service",
         "commerce_daily": "Collections by day",
+        "ads_summary": "Meta ads summary",
         "saved_report": "Saved report"
       },
       "range": "Date range",
@@ -12266,7 +12268,8 @@
       "campaigns": "Campaigns",
       "overview": "Overview",
       "audiences": "Audiences",
-      "rules": "Rules"
+      "rules": "Rules",
+      "automation": "Automation"
     },
     "table": {
       "level": "Show",
@@ -12309,7 +12312,16 @@
       "sales": "{count, plural, one {# sale} other {# sales}}",
       "columns": "Columns",
       "export": "Export CSV",
-      "currency": "Currency"
+      "currency": "Currency",
+      "emptyBody": "Numbers appear here after the hourly sync, once your ads have run in this date range.",
+      "help": {
+        "ctr": "Click-through rate: the share of people who saw the ad and clicked it.",
+        "reach": "How many different people saw the ad at least once.",
+        "impressions": "How many times the ad was shown, counting repeats.",
+        "results": "What the ad was bought for: chats, leads, link clicks or purchases.",
+        "costPerResult": "Spend divided by results. Lower is better.",
+        "roas": "Return on ad spend: revenue from ad clicks divided by spend. 2.0x means 2 earned for every 1 spent."
+      }
     },
     "leads": {
       "empty": "No leads yet.",
@@ -12389,7 +12401,8 @@
         "ViewContent": "Viewed content",
         "OrderCreated": "Order created"
       },
-      "loadMore": "Load more"
+      "loadMore": "Load more",
+      "emptyBody": "When a chat from an ad becomes a lead or a purchase, it is sent to Meta and listed here."
     },
     "notConnected": "No Meta ad account is connected yet. An administrator connects one in Settings > Ads.",
     "tokenInvalid": "Meta access expired, so results are no longer updated. An administrator must reconnect in Settings > Ads.",
@@ -12485,7 +12498,8 @@
         "WEBSITE": "Website",
         "MESSAGING_INSTAGRAM_DIRECT_MESSENGER_WHATSAPP": "Messaging apps"
       },
-      "reviewReason": "Meta: {reason}"
+      "reviewReason": "Meta: {reason}",
+      "emptyBody": "Campaigns made here or in Ads Manager show up after the next sync."
     },
     "openAdsManager": "Open Ads Manager",
     "createAd": "Create ad",
@@ -12544,7 +12558,9 @@
       "sales": "{count, plural, one {# sale} other {# sales}} in Bodhinox",
       "roas": "Return on ad spend",
       "roasValue": "{value}×",
-      "roasHint": "Revenue ÷ amount spent"
+      "roasHint": "Revenue ÷ amount spent",
+      "changeUp": "▲ {value}% vs previous period",
+      "changeDown": "▼ {value}% vs previous period"
     },
     "platforms": {
       "facebook": "Facebook",
@@ -12583,6 +12599,10 @@
         "website": {
           "title": "Website visits",
           "body": "People tap the ad and go to your website."
+        },
+        "messenger": {
+          "title": "Messenger chats",
+          "body": "People tap the ad to message your Facebook Page on Messenger."
         }
       },
       "adAccount": "Ad account",
@@ -12743,7 +12763,20 @@
           "manage_not_enabled": "Ad management is not turned on.",
           "generic": "That did not work. Try again."
         }
-      }
+      },
+      "moreTargeting": "More targeting",
+      "moreTargetingHint": "Audiences, places, interests, languages, placements",
+      "moreTargetingCount": "{count, plural, one {# choice} other {# choices}}",
+      "messengerNote": "Messenger chats arrive in your Facebook Page inbox. Bodhinox does not show Messenger conversations yet.",
+      "page": "Facebook Page",
+      "connectedPage": "connected",
+      "pageLocked": "Instagram Direct and lead form ads run from the connected Page.",
+      "bidCap": "Cost cap per result ({currency}), optional",
+      "bidCapPlaceholder": "No cap",
+      "bidCapPlain": "Cost cap per result",
+      "bidCapHelp": "Meta tries to keep the average cost per result at or under this. Leave empty for the lowest cost.",
+      "bidCapInvalid": "Enter an amount above zero and no higher than the daily budget.",
+      "newForm": "New form"
     },
     "drafts": {
       "title": "Ads created in Bodhinox",
@@ -12782,7 +12815,8 @@
       "duplicate": "Duplicate",
       "duplicated": "Copy queued (paused).",
       "variant": "A/B variant",
-      "variantBadge": "Variant"
+      "variantBadge": "Variant",
+      "edit": "Edit"
     },
     "accounts": {
       "title": "Ad accounts",
@@ -12861,7 +12895,37 @@
       "lookalikeName": "{name} · lookalike {percent}%",
       "autoSyncHelp": "Keep it in sync every 6 hours",
       "cancel": "Cancel",
-      "create": "Create audience"
+      "create": "Create audience",
+      "source": "Who to reach",
+      "sources": {
+        "contacts": {
+          "title": "Your contacts",
+          "body": "A contact segment, uploaded hashed and kept in sync."
+        },
+        "page": {
+          "title": "Facebook Page engagers",
+          "body": "People who engaged with your connected Page."
+        },
+        "instagram": {
+          "title": "Instagram engagers",
+          "body": "People who engaged with the Page's Instagram account."
+        },
+        "pixel": {
+          "title": "Website visitors",
+          "body": "People your Meta pixel saw on your website."
+        }
+      },
+      "pixel": "Meta pixel ID",
+      "pixelHelp": "In Events Manager, under Data sources.",
+      "retention": "Include people from the last",
+      "days": "{days} days",
+      "ruleOf": {
+        "page": "Facebook Page engagers · {days} days",
+        "instagram": "Instagram engagers · {days} days",
+        "pixel": "Website visitors · {days} days"
+      },
+      "newRuleTitle": "New audience",
+      "newRuleDescription": "Meta keeps this audience up to date itself. Nothing is uploaded from Bodhinox."
     },
     "variant": {
       "title": "New A/B variant",
@@ -12877,7 +12941,10 @@
       "created": "Variant queued.",
       "failed": "That did not work. Try again.",
       "cancel": "Cancel",
-      "create": "Create variant"
+      "create": "Create variant",
+      "editTitle": "Edit ad",
+      "editDescription": "A new version of “{name}” with new text or image. The current ad is paused once the new one is live (Meta does not change a running ad in place).",
+      "editCreate": "Make new version"
     },
     "rules": {
       "title": "Automated rules",
@@ -12938,6 +13005,163 @@
       "currencyHelp": "Amounts are in each ad account’s own currency.",
       "cancel": "Cancel",
       "create": "Create rule"
+    },
+    "preview": {
+      "title": "Preview",
+      "shape": "Preview shape",
+      "shapes": {
+        "feed": "Feed",
+        "story": "Story",
+        "status": "Status"
+      },
+      "yourPage": "Your Page",
+      "sponsored": "Sponsored",
+      "textPlaceholder": "Your ad text shows here.",
+      "headlinePlaceholder": "Headline",
+      "ctaWhatsapp": "Send WhatsApp message",
+      "ctaMessage": "Send message",
+      "note": "A guide to how the text and image fit. Meta may show it slightly differently."
+    },
+    "campaignView": {
+      "label": "Campaigns view",
+      "performance": "Performance",
+      "manage": "Manage"
+    },
+    "moreActions": "More actions",
+    "conversionsTitle": "Conversions sent to Meta",
+    "conversionsBlurb": "Leads and purchases from your chats, reported back to Meta so it finds people like your customers.",
+    "setup": {
+      "title": "Finish setting up ads",
+      "progress": "{done} of {total} done",
+      "hide": "Hide setup",
+      "done": "Done",
+      "todo": "To do",
+      "fix": "Fix this",
+      "steps": {
+        "connect": {
+          "title": "Connect Meta",
+          "body": "Sign in with Facebook so Bodhinox can read your ads."
+        },
+        "adAccount": {
+          "title": "Link an ad account",
+          "body": "Choose the ad accounts to report on."
+        },
+        "page": {
+          "title": "Choose a Facebook Page",
+          "body": "New ads run from this Page."
+        },
+        "manage": {
+          "title": "Ad creation on",
+          "body": "Creating and pausing ads here is not switched on for Bodhinox yet."
+        },
+        "permissions": {
+          "title": "Allow ad creation",
+          "body": "Reconnect Meta and allow managing ads and the Page's ads."
+        }
+      }
+    },
+    "loading": "Loading",
+    "statusChip": {
+      "active": "Active",
+      "paused": "Paused",
+      "review": "In review",
+      "rejected": "Rejected",
+      "issues": "Needs attention",
+      "ended": "Ended",
+      "billing": "Billing needed"
+    },
+    "breakdowns": {
+      "title": "Who saw your ads",
+      "blurb": "Split by age and gender, region, device or placement. Read from Meta when you open it.",
+      "split": "Split by",
+      "splits": {
+        "age_gender": "Age and gender",
+        "region": "Region",
+        "device": "Device",
+        "placement": "Placement"
+      },
+      "genders": {
+        "male": "men",
+        "female": "women",
+        "unknown": "unknown"
+      },
+      "spend": "Spend",
+      "impressions": "Impressions",
+      "results": "Results",
+      "costPerResult": "Cost per result",
+      "empty": "No results in this range.",
+      "note": "Results count chats, leads and purchases together. Meta hides very small groups.",
+      "errors": {
+        "token_invalid": "The Meta login has expired. Reconnect in Settings > Ads.",
+        "rate_limited": "Meta is busy. Try again in a minute.",
+        "not_connected": "Connect Meta in Settings > Ads first."
+      }
+    },
+    "quality": {
+      "title": "From ad to customer",
+      "blurb": "What happened after each ad click, from your own chats and deals in Bodhinox.",
+      "ad": "Ad",
+      "spend": "Spend",
+      "chats": "Chats",
+      "replied": "Answered",
+      "deals": "Deals",
+      "won": "Won",
+      "costPerChat": "Cost per chat",
+      "costPerWon": "Cost per won deal",
+      "empty": "No chats from ads in this range yet.",
+      "help": {
+        "chats": "Chats that started from this ad in Bodhinox.",
+        "replied": "Chats your team or a bot answered.",
+        "deals": "Deals opened for these contacts after they clicked the ad."
+      }
+    },
+    "setups": {
+      "startFrom": "Start from a saved setup",
+      "choose": "Choose…",
+      "applied": "Setup filled in. Add the image and check the rest.",
+      "name": "Setup name",
+      "namePlaceholder": "Save this setup as…",
+      "save": "Save setup",
+      "saved": "Setup saved.",
+      "errors": {
+        "name_taken": "A setup with that name already exists.",
+        "limit_reached": "You have 50 saved setups. Delete one first.",
+        "generic": "Could not save the setup."
+      }
+    },
+    "leadForm": {
+      "title": "New lead form",
+      "description": "An instant form on your Facebook Page. People fill it in without leaving Facebook or Instagram.",
+      "name": "Form name",
+      "namePlaceholder": "Diwali offer form",
+      "questions": "Questions",
+      "needContact": "Ask for a phone number or an email.",
+      "types": {
+        "FULL_NAME": "Full name",
+        "PHONE": "Phone",
+        "EMAIL": "Email",
+        "CITY": "City",
+        "COMPANY_NAME": "Company",
+        "JOB_TITLE": "Job title"
+      },
+      "custom": "Your own questions",
+      "customLabel": "Question {n}",
+      "customPlaceholder": "Which product are you interested in?",
+      "removeQuestion": "Remove question",
+      "addQuestion": "Add a question",
+      "privacyUrl": "Privacy policy link",
+      "privacyHelp": "Meta requires a link to your privacy policy.",
+      "thankYou": "Thank-you message",
+      "thankYouPlaceholder": "We will contact you soon.",
+      "cancel": "Cancel",
+      "create": "Create form",
+      "created": "Form created.",
+      "errors": {
+        "name_taken": "Your Page already has a form with that name.",
+        "missing_scope": "Reconnect Meta and allow managing the Page's ads.",
+        "token_invalid": "The Meta login has expired. Reconnect in Settings > Ads.",
+        "generic": "Meta did not create the form. Try again."
+      }
     }
   },
   "Appointments": {
@@ -15315,7 +15539,16 @@
       "costPerResult": "Cost per result",
       "ctr": "CTR",
       "leads": "Leads",
-      "creativeAlt": "The ad’s image"
+      "creativeAlt": "The ad’s image",
+      "previewTitle": "Preview on Meta",
+      "previewFormats": {
+        "MOBILE_FEED_STANDARD": "Facebook feed",
+        "INSTAGRAM_STANDARD": "Instagram feed",
+        "INSTAGRAM_STORY": "Instagram story",
+        "FACEBOOK_STORY_MOBILE": "Facebook story"
+      },
+      "previewFailed": "Could not load the preview from Meta.",
+      "previewNone": "Meta has no preview of this ad in that place."
     }
   },
   "Sales": {

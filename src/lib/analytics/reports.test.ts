@@ -90,7 +90,7 @@ describe('CSV', () => {
   });
 });
 
-const BOUNDED_KINDS = ['product_summary', 'service_summary', 'commerce_daily'];
+const BOUNDED_KINDS = ['product_summary', 'service_summary', 'commerce_daily', 'ads_summary'];
 
 describe('report queries', () => {
   it.each(REPORT_KINDS.filter((k) => !BOUNDED_KINDS.includes(k)))('%s is scoped to the workspace and range, capped, and reads no message content', async (kind) => {

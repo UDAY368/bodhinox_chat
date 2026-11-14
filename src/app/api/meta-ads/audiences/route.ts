@@ -3,6 +3,8 @@
 // POST (admin, CSRF):
 //   { action: 'create', kind: 'customer_list', adAccountId, name, segmentId, autoSync? }
 //   { action: 'create', kind: 'lookalike', adAccountId, name, originId, country, percent (1-10) }
+//   { action: 'create', kind: 'engagement', adAccountId, name, source: 'page' | 'instagram', retentionDays (1-365) }
+//   { action: 'create', kind: 'website', adAccountId, name, pixelId, retentionDays (1-365) }
 //     — records the audience and queues its creation; 202 { audience }.
 //   { action: 'sync', id } — uploads a customer list's segment again; 202 { audience }.
 //   { action: 'auto_sync', id, autoSync } — 6-hourly upload on or off; 200 { audience }.

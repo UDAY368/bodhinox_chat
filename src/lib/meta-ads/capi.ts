@@ -37,7 +37,7 @@ export function instagramCapiEnabled(env: NodeJS.ProcessEnv = process.env): bool
   return env.INSTAGRAM_CAPI_ENABLED?.trim() === 'true' && instagramConfig(env) !== null && metaAdsConfig(env) !== null;
 }
 
-export type ConversionSource = 'payment_link' | 'order' | 'form' | 'flow';
+export type ConversionSource = 'payment_link' | 'order' | 'form' | 'flow' | 'deal';
 
 export interface ConversionEventInput {
   accountId: string;
@@ -74,7 +74,7 @@ export const CAPI_THROTTLE_DELAYS_MS: readonly number[] = [5, 15, 60, 60].map((m
 const MAX_VALUE = 999_999_999_999.99;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const EVENT_NAMES: readonly CapiEventName[] = ['Purchase', 'LeadSubmitted', 'QualifiedLead', 'InitiateCheckout', 'AddToCart', 'ViewContent', 'OrderCreated'];
-const SOURCES: readonly ConversionSource[] = ['payment_link', 'order', 'form', 'flow'];
+const SOURCES: readonly ConversionSource[] = ['payment_link', 'order', 'form', 'flow', 'deal'];
 
 /**
  * The deterministic event id (dedupe key for capi_events, the job and Meta):
@@ -112,6 +112,7 @@ interface CapiSettingsRow {
   capi_whatsapp_config_id: string | null;
   capi_auto_purchase: boolean;
   capi_auto_lead: boolean;
+  capi_deal_events?: boolean;
 }
 
 /**
@@ -155,12 +156,13 @@ async function enqueue(tx: TenantTransaction, input: ConversionEventInput & { co
   const { accountId } = input;
   const [conn] = await tx.$queryRaw<CapiSettingsRow[]>`
     SELECT id::text AS id, capi_enabled, capi_dataset_id, capi_waba_id, capi_whatsapp_config_id::text AS capi_whatsapp_config_id,
-      capi_auto_purchase, capi_auto_lead
+      capi_auto_purchase, capi_auto_lead, capi_deal_events
     FROM meta_ad_connections WHERE account_id=${accountId}::uuid AND status='active' LIMIT 1`;
   if (input.channel === 'instagram') return enqueueInstagram(tx, input, conn, eventId, value, currency, eventTime);
   if (!conn?.capi_enabled || !conn.capi_dataset_id || !conn.capi_waba_id) return false;
   if ((input.source === 'payment_link' || input.source === 'order') && !conn.capi_auto_purchase) return false;
   if (input.source === 'form' && !conn.capi_auto_lead) return false;
+  if (input.source === 'deal' && !conn.capi_deal_events) return false;
 
   // A dataset belongs to one WABA: only a click that arrived on one of its numbers is attributable.
   const numbers = await tx.$queryRaw<{ id: string }[]>`

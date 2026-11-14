@@ -1822,6 +1822,7 @@ model meta_ad_connections {
   capi_waba_id String?
   capi_auto_purchase Boolean @default(true)
   capi_auto_lead Boolean @default(false)
+  capi_deal_events Boolean @default(false)
   insights_synced_at DateTime? @db.Timestamptz(6)
   leads_synced_at DateTime? @db.Timestamptz(6)
   last_error_code String?
@@ -3603,6 +3604,10 @@ model meta_ad_drafts {
   locales Int[] @default([])
   /// The draft this one is an A/B variant of (20261125002000).
   variant_of String? @db.Uuid
+  /// Cost cap per result, minor units (20261126001000)
+  bid_cap_minor BigInt?
+  /// The Meta ad this draft replaces (paused once this one exists)
+  replaces_ad_id String?
   @@unique([account_id, id])
   @@index([account_id, created_at(sort: Desc)], map: "meta_ad_drafts_recent")
 }
@@ -3613,13 +3618,16 @@ model meta_audiences {
   account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
   connection_id String @db.Uuid
   ad_account_id String
-  /// 'customer_list' | 'lookalike'
+  /// 'customer_list' | 'lookalike' | 'engagement' | 'website'
   kind String
   name String
   segment_id String? @db.Uuid
   origin_id String? @db.Uuid
   lookalike_country String?
   lookalike_percent Int?
+  /// 'page:<id>' | 'instagram:<id>' | 'pixel:<id>' (engagement and website audiences)
+  rule_source String?
+  retention_days Int?
   meta_audience_id String?
   /// 'queued' | 'ready' | 'failed' | 'unknown'
   status String @default("queued")
@@ -3632,6 +3640,17 @@ model meta_audiences {
   created_by String @db.Uuid
   created_at DateTime @db.Timestamptz(6) @default(now())
   updated_at DateTime @db.Timestamptz(6) @default(now())
+  @@unique([account_id, id])
+}
+
+/// Saved Create ad setups (20261126001000): the form's values, filled back into Create ad.
+model meta_ad_templates {
+  id String @db.Uuid @id @default(dbgenerated("gen_random_uuid()"))
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  name String
+  settings Json @db.JsonB
+  created_by String? @db.Uuid
+  created_at DateTime @db.Timestamptz(6) @default(now())
   @@unique([account_id, id])
 }
 

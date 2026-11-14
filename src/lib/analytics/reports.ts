@@ -42,6 +42,7 @@ import { appointmentStats } from '@/lib/appointments/stats';
 import { minorToDecimalString } from '@/lib/commerce/money';
 import { dispatchOnce, UncertainDispatchError } from '@/lib/jobs/dispatch';
 import { commerceStats, type CommerceDay } from './commerce';
+import { adsReportRows, type AdsReportRow } from '@/lib/meta-ads/reports';
 import { productStats, type ProductStatsRow } from './products';
 import { AGENT_ATTRIBUTION_CUTOFF, humanFirstSql } from './queries';
 import { parseRange, workspaceTimezone, type AnalyticsRange, type RangeInput } from './range';
@@ -409,6 +410,23 @@ export async function reportTable(tx: TenantTransaction, accountId: string, kind
       { header: 'no_show', value: (r) => r.noShow },
       { header: 'no_show_rate_pct', value: (r) => rate(r.noShow, r.completed + r.noShow) },
     ], await serviceSummaryRows(tx, accountId, range));
+  if (kind === 'ads_summary')
+    return finish<AdsReportRow>([
+      { header: 'ad_account_id', value: (r) => r.adAccountId },
+      { header: 'campaign_id', value: (r) => r.campaignId },
+      { header: 'campaign', value: (r) => r.campaign },
+      { header: 'currency', value: (r) => r.currency },
+      { header: 'spend', value: (r) => r.spend.toFixed(2) },
+      { header: 'impressions', value: (r) => r.impressions },
+      { header: 'clicks', value: (r) => r.clicks },
+      { header: 'ctr_pct', value: (r) => rate(r.clicks, r.impressions) },
+      { header: 'link_clicks', value: (r) => r.linkClicks },
+      { header: 'chats_started_meta', value: (r) => r.chatsStarted },
+      { header: 'leads', value: (r) => r.leads },
+      { header: 'chats_in_bodhinox', value: (r) => r.chatsInBodhinox },
+      { header: 'sales', value: (r) => r.sales },
+      { header: 'revenue', value: (r) => r.revenue },
+    ], await adsReportRows(tx, accountId, range));
   if (kind === 'commerce_daily')
     return finish<CommerceDay>([
       { header: `day (${tz})`, value: (r) => r.day },

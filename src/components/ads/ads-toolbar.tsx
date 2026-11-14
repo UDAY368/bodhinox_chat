@@ -39,7 +39,7 @@ export function AdsToolbar({ accounts, adAccountId, onAccount, range, onRange }:
           </select>
         </label>
       )}
-      <div role="radiogroup" aria-label={t('range')} className="flex gap-0.5 rounded-xl bg-muted p-[3px]">
+      <div role="radiogroup" aria-label={t('range')} className="flex max-w-full gap-0.5 overflow-x-auto rounded-xl bg-muted p-[3px]">
         {[...PRESETS, 'custom' as const].map((preset) => (
           <button
             key={preset}
@@ -48,7 +48,7 @@ export function AdsToolbar({ accounts, adAccountId, onAccount, range, onRange }:
             aria-checked={range.preset === preset}
             onClick={() => onRange(preset === 'custom' ? customRange(range.from, range.to) : presetRange(preset))}
             className={cn(
-              'h-8 rounded-[9px] px-3 text-xs font-medium outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-ring',
+              'h-8 shrink-0 whitespace-nowrap rounded-[9px] px-3 text-xs font-medium outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-ring',
               range.preset === preset ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',
             )}
           >

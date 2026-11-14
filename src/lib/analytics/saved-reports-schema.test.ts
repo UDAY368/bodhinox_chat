@@ -41,7 +41,8 @@ describe('saved report migrations', () => {
     expect(quoted(line('channel')).filter((v) => v !== 'all').concat('all').sort()).toEqual([...SAVED_CHANNELS].sort());
     expect(quoted(line('range_preset'))).toEqual([...SAVED_RANGES]);
     expect(quoted(line('format')).filter((v, i, a) => a.indexOf(v) === i).sort()).toEqual([...SAVED_FORMATS].sort());
-    for (const check of create.match(/CHECK \(kind IN \([^)]*\)\)/g) ?? []) expect(quoted(check)).toEqual([...RUN_KINDS]);
+    // 20261126000000_ads_report_kind widens these again for 'ads_summary'.
+    for (const check of create.match(/CHECK \(kind IN \([^)]*\)\)/g) ?? []) expect(quoted(check)).toEqual(RUN_KINDS.filter((k) => k !== 'ads_summary'));
     expect(create.match(/CHECK \(kind IN/g)).toHaveLength(2);
   });
 

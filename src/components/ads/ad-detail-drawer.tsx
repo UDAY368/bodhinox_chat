@@ -2,7 +2,8 @@
 
 // The detail drawer of one campaign or ad on the Ads tab (Campaigns redesign):
 // KPI tiles for the selected range and a 14-day chart that switches between
-// spend, clicks and conversations started. Read-only: it shows stored
+// spend, clicks and conversations started, Meta's own preview of an ad (on
+// request) and the split by age, region, device and placement. Read-only: it shows stored
 // insights; pausing, budgets and edits stay in the Campaigns tab (behind its
 // confirmation) and in Meta Ads Manager.
 
@@ -14,16 +15,63 @@ import { authFetch } from '@/lib/auth/client';
 import type { AdDailySeries } from '@/lib/meta-ads/daily';
 import { cn } from '@/lib/utils';
 import { formatCount, formatSpend, resultOf, type AdRow, type AdsLevel } from './ads-table';
-import { ctr, formatMoneyValue, formatPercent, ratio } from './ads-shared';
+import { ctr, formatMoneyValue, formatPercent, ratio, type AdsRange } from './ads-shared';
+import { AdsBreakdowns } from './ads-breakdowns';
+
+/** Meta's preview formats (the same list the preview route accepts). */
+const PREVIEW_FORMATS = ['MOBILE_FEED_STANDARD', 'INSTAGRAM_STANDARD', 'INSTAGRAM_STORY', 'FACEBOOK_STORY_MOBILE'] as const;
 
 type Metric = 'spend' | 'clicks' | 'conversations' | 'leads';
 const METRICS: Metric[] = ['conversations', 'leads', 'clicks', 'spend'];
 
-export function AdDetailDrawer({ row, level, adAccountId, onClose }: {
+/** Meta's own rendering of the ad, loaded when asked for (a live read). */
+function MetaPreview({ adId }: { adId: string }) {
+  const t = useTranslations('Campaigns.adDrawer');
+  const [format, setFormat] = useState<(typeof PREVIEW_FORMATS)[number] | null>(null);
+  const [state, setState] = useState<{ key: string; src: string | null; failed: boolean } | null>(null);
+  useEffect(() => {
+    if (!format) return;
+    let cancelled = false;
+    const key = `${adId}:${format}`;
+    authFetch(`/api/meta-ads/preview?${new URLSearchParams({ adId, format }).toString()}`, { cache: 'no-store' })
+      .then(async (res) => {
+        if (!res.ok) throw new Error();
+        const body = (await res.json()) as { src: string | null };
+        if (!cancelled) setState({ key, src: body.src, failed: false });
+      })
+      .catch(() => { if (!cancelled) setState({ key, src: null, failed: true }); });
+    return () => { cancelled = true; };
+  }, [adId, format]);
+  const current = format && state?.key === `${adId}:${format}` ? state : null;
+  return (
+    <section aria-labelledby="ad-preview-title" className="space-y-2" data-testid="ad-meta-preview">
+      <h3 id="ad-preview-title" className="text-sm font-semibold text-foreground">{t('previewTitle')}</h3>
+      <div className="flex flex-wrap gap-1.5">
+        {PREVIEW_FORMATS.map((f) => (
+          <button key={f} type="button" aria-pressed={format === f} onClick={() => setFormat(f)}
+            className={cn('rounded-full border px-2.5 py-1 text-xs', format === f ? 'border-primary bg-primary/10 text-primary' : 'border-border text-muted-foreground hover:bg-muted')}>
+            {t(`previewFormats.${f}`)}
+          </button>
+        ))}
+      </div>
+      {format && !current && <p className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="size-4 animate-spin" />{t('loading')}</p>}
+      {current?.failed && <p className="text-sm text-destructive">{t('previewFailed')}</p>}
+      {current && !current.failed && !current.src && <p className="text-sm text-muted-foreground">{t('previewNone')}</p>}
+      {current?.src && (
+        <iframe src={current.src} title={t('previewTitle')} className="h-[34rem] w-full rounded-xl border border-border bg-white"
+          sandbox="allow-scripts allow-same-origin allow-popups" referrerPolicy="no-referrer" loading="lazy" />
+      )}
+    </section>
+  );
+}
+
+export function AdDetailDrawer({ row, level, adAccountId, range, onClose }: {
   row: AdRow | null;
   level: AdsLevel;
   /** For the "Open in Ads Manager" link. */
   adAccountId?: string | null;
+  /** The table's range, for the split by age, region, device and placement. */
+  range?: AdsRange;
   onClose: () => void;
 }) {
   const t = useTranslations('Campaigns.adDrawer');
@@ -132,6 +180,9 @@ export function AdDetailDrawer({ row, level, adAccountId, onClose }: {
                   </figure>
                 )}
               </section>
+
+              {level === 'ad' && <MetaPreview adId={row.id} />}
+              {range && <AdsBreakdowns range={range} adAccountId={adAccountId ?? null} objectId={row.id} compact />}
 
               {adAccountId && (
                 <a

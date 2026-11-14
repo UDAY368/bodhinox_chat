@@ -54,7 +54,7 @@ const agent: MetaAdsActor = { ...admin, role: 'agent' };
 const row = (over: Partial<MetaAdConnectionRow> = {}): MetaAdConnectionRow => ({
   id: 'c1', status: 'active', business_id: null, ad_account_id: '111', ad_account_name: 'Acct', ad_account_currency: 'INR',
   page_id: '222', page_name: 'Page', token_expires_at: null, scopes: [], page_subscribed_at: null, capi_enabled: false,
-  capi_dataset_id: null, capi_whatsapp_config_id: null, capi_waba_id: null, capi_auto_purchase: true, capi_auto_lead: false,
+  capi_dataset_id: null, capi_whatsapp_config_id: null, capi_waba_id: null, capi_auto_purchase: true, capi_auto_lead: false, capi_deal_events: false,
   insights_synced_at: null, leads_synced_at: null, last_error_code: null, connected_at: null, disconnected_at: null, ...over,
 });
 const code = async (promise: Promise<unknown>) => {

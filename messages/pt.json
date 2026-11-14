@@ -5808,7 +5808,8 @@
         "autoLead": "Enviar envios de formulários do WhatsApp como leads",
         "dataset": "Conjunto de dados {id}",
         "saved": "Configurações da API de Conversões salvas",
-        "saveNumber": "Salvar número"
+        "saveNumber": "Salvar número",
+        "dealEvents": "Enviar etapas de negócios: um negócio aberto conta como Lead e um ganho como Compra (seu valor), para contatos vindos de um anúncio."
       },
       "disconnect": "Desconectar",
       "disconnectConfirm": "Desconectar os anúncios da Meta? Os leads deixam de chegar e nenhuma conversão será enviada. Os resultados e leads salvos são mantidos.",
@@ -11633,6 +11634,7 @@
         "product_summary": "Vendas por produto",
         "service_summary": "Agendamentos por serviço",
         "commerce_daily": "Recebimentos por dia",
+        "ads_summary": "Resumo de anúncios da Meta",
         "saved_report": "Relatório salvo"
       },
       "range": "Período",
@@ -12266,7 +12268,8 @@
       "campaigns": "Campanhas",
       "overview": "Visão geral",
       "audiences": "Públicos",
-      "rules": "Regras"
+      "rules": "Regras",
+      "automation": "Automação"
     },
     "table": {
       "level": "Mostrar",
@@ -12309,7 +12312,16 @@
       "sales": "{count, plural, one {# venda} other {# vendas}}",
       "columns": "Colunas",
       "export": "Exportar CSV",
-      "currency": "Moeda"
+      "currency": "Moeda",
+      "emptyBody": "Os números aparecem após a sincronização de hora em hora, quando seus anúncios tiverem rodado neste período.",
+      "help": {
+        "ctr": "Taxa de cliques: parte de quem viu o anúncio e clicou.",
+        "reach": "Quantas pessoas diferentes viram o anúncio pelo menos uma vez.",
+        "impressions": "Quantas vezes o anúncio foi exibido, contando repetições.",
+        "results": "Para que o anúncio foi comprado: conversas, leads, cliques ou compras.",
+        "costPerResult": "Gasto dividido pelos resultados. Menor é melhor.",
+        "roas": "Retorno sobre o investimento em anúncios: receita de cliques dividida pelo gasto. 2.0x significa 2 ganhos para cada 1 gasto."
+      }
     },
     "leads": {
       "empty": "Ainda não há leads.",
@@ -12389,7 +12401,8 @@
         "ViewContent": "Conteúdo visualizado",
         "OrderCreated": "Pedido criado"
       },
-      "loadMore": "Carregar mais"
+      "loadMore": "Carregar mais",
+      "emptyBody": "Quando uma conversa de um anúncio vira lead ou compra, ela é enviada à Meta e listada aqui."
     },
     "notConnected": "Nenhuma conta de anúncios da Meta está conectada ainda. Um administrador a conecta em Configurações > Anúncios.",
     "tokenInvalid": "O acesso à Meta expirou, então os resultados não são mais atualizados. Um administrador precisa reconectar em Configurações > Anúncios.",
@@ -12485,7 +12498,8 @@
         "WEBSITE": "Site",
         "MESSAGING_INSTAGRAM_DIRECT_MESSENGER_WHATSAPP": "Apps de mensagens"
       },
-      "reviewReason": "Meta: {reason}"
+      "reviewReason": "Meta: {reason}",
+      "emptyBody": "Campanhas criadas aqui ou no Gerenciador de Anúncios aparecem após a próxima sincronização."
     },
     "openAdsManager": "Abrir o Gerenciador de Anúncios",
     "createAd": "Criar anúncio",
@@ -12544,7 +12558,9 @@
       "sales": "{count, plural, one {# venda} other {# vendas}} no Bodhinox",
       "roas": "Retorno sobre o investimento em anúncios",
       "roasValue": "{value}×",
-      "roasHint": "Receita ÷ valor gasto"
+      "roasHint": "Receita ÷ valor gasto",
+      "changeUp": "▲ {value}% vs. período anterior",
+      "changeDown": "▼ {value}% vs. período anterior"
     },
     "platforms": {
       "facebook": "Facebook",
@@ -12583,6 +12599,10 @@
         "website": {
           "title": "Visitas ao site",
           "body": "As pessoas tocam no anúncio e vão para o seu site."
+        },
+        "messenger": {
+          "title": "Conversas no Messenger",
+          "body": "As pessoas tocam no anúncio para falar com sua Página no Messenger."
         }
       },
       "adAccount": "Conta de anúncios",
@@ -12743,7 +12763,20 @@
           "manage_not_enabled": "O gerenciamento de anúncios não está ativado.",
           "generic": "Não deu certo. Tente de novo."
         }
-      }
+      },
+      "moreTargeting": "Mais segmentação",
+      "moreTargetingHint": "Públicos, locais, interesses, idiomas, posicionamentos",
+      "moreTargetingCount": "{count, plural, one {# escolha} other {# escolhas}}",
+      "messengerNote": "As conversas do Messenger chegam à caixa de entrada da sua Página do Facebook. O Bodhinox ainda não mostra conversas do Messenger.",
+      "page": "Página do Facebook",
+      "connectedPage": "conectada",
+      "pageLocked": "Anúncios de Instagram Direct e de formulário rodam a partir da Página conectada.",
+      "bidCap": "Limite de custo por resultado ({currency}), opcional",
+      "bidCapPlaceholder": "Sem limite",
+      "bidCapPlain": "Limite de custo por resultado",
+      "bidCapHelp": "A Meta tenta manter o custo médio por resultado igual ou abaixo disso. Deixe vazio para o menor custo.",
+      "bidCapInvalid": "Informe um valor acima de zero e não maior que o orçamento diário.",
+      "newForm": "Novo formulário"
     },
     "drafts": {
       "title": "Anúncios criados no Bodhinox",
@@ -12782,7 +12815,8 @@
       "duplicate": "Duplicar",
       "duplicated": "Cópia na fila (pausada).",
       "variant": "Variante A/B",
-      "variantBadge": "Variante"
+      "variantBadge": "Variante",
+      "edit": "Editar"
     },
     "accounts": {
       "title": "Contas de anúncios",
@@ -12861,7 +12895,37 @@
       "lookalikeName": "{name} · semelhante {percent}%",
       "autoSyncHelp": "Manter sincronizado a cada 6 horas",
       "cancel": "Cancelar",
-      "create": "Criar público"
+      "create": "Criar público",
+      "source": "Quem alcançar",
+      "sources": {
+        "contacts": {
+          "title": "Seus contatos",
+          "body": "Um segmento de contatos, enviado com hash e sincronizado."
+        },
+        "page": {
+          "title": "Engajamento com a Página",
+          "body": "Pessoas que interagiram com sua Página conectada."
+        },
+        "instagram": {
+          "title": "Engajamento no Instagram",
+          "body": "Pessoas que interagiram com a conta do Instagram da Página."
+        },
+        "pixel": {
+          "title": "Visitantes do site",
+          "body": "Pessoas que seu pixel da Meta viu no seu site."
+        }
+      },
+      "pixel": "ID do pixel da Meta",
+      "pixelHelp": "No Gerenciador de Eventos, em Fontes de dados.",
+      "retention": "Incluir pessoas dos últimos",
+      "days": "{days} dias",
+      "ruleOf": {
+        "page": "Engajamento com a Página · {days} dias",
+        "instagram": "Engajamento no Instagram · {days} dias",
+        "pixel": "Visitantes do site · {days} dias"
+      },
+      "newRuleTitle": "Novo público",
+      "newRuleDescription": "A Meta mantém este público atualizado. Nada é enviado do Bodhinox."
     },
     "variant": {
       "title": "Nova variante A/B",
@@ -12877,7 +12941,10 @@
       "created": "Variante na fila.",
       "failed": "Não deu certo. Tente de novo.",
       "cancel": "Cancelar",
-      "create": "Criar variante"
+      "create": "Criar variante",
+      "editTitle": "Editar anúncio",
+      "editDescription": "Uma nova versão de “{name}” com novo texto ou imagem. O anúncio atual é pausado quando o novo estiver no ar (a Meta não altera um anúncio ativo no lugar).",
+      "editCreate": "Criar nova versão"
     },
     "rules": {
       "title": "Regras automáticas",
@@ -12938,6 +13005,163 @@
       "currencyHelp": "Os valores estão na moeda de cada conta de anúncios.",
       "cancel": "Cancelar",
       "create": "Criar regra"
+    },
+    "preview": {
+      "title": "Prévia",
+      "shape": "Formato da prévia",
+      "shapes": {
+        "feed": "Feed",
+        "story": "Story",
+        "status": "Status"
+      },
+      "yourPage": "Sua página",
+      "sponsored": "Patrocinado",
+      "textPlaceholder": "O texto do anúncio aparece aqui.",
+      "headlinePlaceholder": "Título",
+      "ctaWhatsapp": "Enviar mensagem no WhatsApp",
+      "ctaMessage": "Enviar mensagem",
+      "note": "Um guia de como texto e imagem se encaixam. A Meta pode exibir um pouco diferente."
+    },
+    "campaignView": {
+      "label": "Visão de campanhas",
+      "performance": "Desempenho",
+      "manage": "Gerenciar"
+    },
+    "moreActions": "Mais ações",
+    "conversionsTitle": "Conversões enviadas à Meta",
+    "conversionsBlurb": "Leads e compras das suas conversas, informados à Meta para encontrar pessoas parecidas com seus clientes.",
+    "setup": {
+      "title": "Conclua a configuração de anúncios",
+      "progress": "{done} de {total} concluídos",
+      "hide": "Ocultar configuração",
+      "done": "Concluído",
+      "todo": "Pendente",
+      "fix": "Resolver",
+      "steps": {
+        "connect": {
+          "title": "Conectar a Meta",
+          "body": "Entre com o Facebook para o Bodhinox ler seus anúncios."
+        },
+        "adAccount": {
+          "title": "Vincular uma conta de anúncios",
+          "body": "Escolha as contas de anúncios a acompanhar."
+        },
+        "page": {
+          "title": "Escolher uma Página do Facebook",
+          "body": "Os novos anúncios rodam a partir desta Página."
+        },
+        "manage": {
+          "title": "Criação de anúncios ativada",
+          "body": "Criar e pausar anúncios aqui ainda não está ativado no Bodhinox."
+        },
+        "permissions": {
+          "title": "Permitir criar anúncios",
+          "body": "Reconecte a Meta e permita gerenciar anúncios e os anúncios da Página."
+        }
+      }
+    },
+    "loading": "Carregando",
+    "statusChip": {
+      "active": "Ativo",
+      "paused": "Pausado",
+      "review": "Em análise",
+      "rejected": "Reprovado",
+      "issues": "Requer atenção",
+      "ended": "Encerrado",
+      "billing": "Falta pagamento"
+    },
+    "breakdowns": {
+      "title": "Quem viu seus anúncios",
+      "blurb": "Por idade e gênero, região, dispositivo ou posicionamento. Lido da Meta ao abrir.",
+      "split": "Dividir por",
+      "splits": {
+        "age_gender": "Idade e gênero",
+        "region": "Região",
+        "device": "Dispositivo",
+        "placement": "Posicionamento"
+      },
+      "genders": {
+        "male": "homens",
+        "female": "mulheres",
+        "unknown": "desconhecido"
+      },
+      "spend": "Gasto",
+      "impressions": "Impressões",
+      "results": "Resultados",
+      "costPerResult": "Custo por resultado",
+      "empty": "Sem resultados neste período.",
+      "note": "Resultados somam conversas, leads e compras. A Meta oculta grupos muito pequenos.",
+      "errors": {
+        "token_invalid": "O login da Meta expirou. Reconecte em Configurações > Anúncios.",
+        "rate_limited": "A Meta está ocupada. Tente em um minuto.",
+        "not_connected": "Conecte a Meta em Configurações > Anúncios primeiro."
+      }
+    },
+    "quality": {
+      "title": "Do anúncio ao cliente",
+      "blurb": "O que aconteceu após cada clique, pelas suas conversas e negócios no Bodhinox.",
+      "ad": "Anúncio",
+      "spend": "Gasto",
+      "chats": "Conversas",
+      "replied": "Respondidas",
+      "deals": "Negócios",
+      "won": "Ganhos",
+      "costPerChat": "Custo por conversa",
+      "costPerWon": "Custo por negócio ganho",
+      "empty": "Ainda não há conversas de anúncios neste período.",
+      "help": {
+        "chats": "Conversas iniciadas por este anúncio no Bodhinox.",
+        "replied": "Conversas que sua equipe ou um bot respondeu.",
+        "deals": "Negócios abertos para esses contatos depois do clique."
+      }
+    },
+    "setups": {
+      "startFrom": "Começar de uma configuração salva",
+      "choose": "Escolher…",
+      "applied": "Configuração aplicada. Adicione a imagem e confira o resto.",
+      "name": "Nome da configuração",
+      "namePlaceholder": "Salvar esta configuração como…",
+      "save": "Salvar configuração",
+      "saved": "Configuração salva.",
+      "errors": {
+        "name_taken": "Já existe uma configuração com esse nome.",
+        "limit_reached": "Você tem 50 configurações. Exclua uma primeiro.",
+        "generic": "Não foi possível salvar a configuração."
+      }
+    },
+    "leadForm": {
+      "title": "Novo formulário de leads",
+      "description": "Um formulário instantâneo na sua Página. As pessoas preenchem sem sair do Facebook ou Instagram.",
+      "name": "Nome do formulário",
+      "namePlaceholder": "Formulário da oferta",
+      "questions": "Perguntas",
+      "needContact": "Peça um telefone ou e-mail.",
+      "types": {
+        "FULL_NAME": "Nome completo",
+        "PHONE": "Telefone",
+        "EMAIL": "E-mail",
+        "CITY": "Cidade",
+        "COMPANY_NAME": "Empresa",
+        "JOB_TITLE": "Cargo"
+      },
+      "custom": "Suas próprias perguntas",
+      "customLabel": "Pergunta {n}",
+      "customPlaceholder": "Qual produto interessa a você?",
+      "removeQuestion": "Remover pergunta",
+      "addQuestion": "Adicionar pergunta",
+      "privacyUrl": "Link da política de privacidade",
+      "privacyHelp": "A Meta exige um link para sua política de privacidade.",
+      "thankYou": "Mensagem de agradecimento",
+      "thankYouPlaceholder": "Entraremos em contato em breve.",
+      "cancel": "Cancelar",
+      "create": "Criar formulário",
+      "created": "Formulário criado.",
+      "errors": {
+        "name_taken": "Sua Página já tem um formulário com esse nome.",
+        "missing_scope": "Reconecte a Meta e permita gerenciar os anúncios da Página.",
+        "token_invalid": "O login da Meta expirou. Reconecte em Configurações > Anúncios.",
+        "generic": "A Meta não criou o formulário. Tente de novo."
+      }
     }
   },
   "Appointments": {
@@ -15315,7 +15539,16 @@
       "costPerResult": "Custo por resultado",
       "ctr": "CTR",
       "leads": "Leads",
-      "creativeAlt": "A imagem do anúncio"
+      "creativeAlt": "A imagem do anúncio",
+      "previewTitle": "Prévia na Meta",
+      "previewFormats": {
+        "MOBILE_FEED_STANDARD": "Feed do Facebook",
+        "INSTAGRAM_STANDARD": "Feed do Instagram",
+        "INSTAGRAM_STORY": "Story do Instagram",
+        "FACEBOOK_STORY_MOBILE": "Story do Facebook"
+      },
+      "previewFailed": "Não foi possível carregar a prévia da Meta.",
+      "previewNone": "A Meta não tem prévia deste anúncio nesse lugar."
     }
   },
   "Sales": {

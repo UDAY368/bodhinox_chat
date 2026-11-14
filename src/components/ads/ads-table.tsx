@@ -9,13 +9,14 @@
 // prefilled with "clicked this ad".
 
 import { useCallback, useEffect, useState } from 'react';
-import { Columns3, Download, ImageOff, Loader2, RefreshCw, Target } from 'lucide-react';
+import { BarChart3, Columns3, Download, ImageOff, Loader2, RefreshCw, Target } from 'lucide-react';
 import { toast } from 'sonner';
 import { useTranslations } from 'next-intl';
 
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { downloadCsv } from '@/components/analytics/insights/csv';
+import { EmptyState, LoadingRows, MetricHeader, StatusChip } from '@/components/ads/ads-ui';
 import { SegmentBuilderDialog } from '@/components/contacts/segment-builder-dialog';
 import { authFetch } from '@/lib/auth/client';
 import type { AudienceCondition } from '@/lib/audience/filter';
@@ -177,31 +178,62 @@ export function AdsTable({ canManage, canSegment, range, adAccountId }: AdsTable
         </div>
       </div>
 
-      {!rows && !failed && <Loader2 className="size-4 animate-spin text-primary" />}
+      {!rows && !failed && <LoadingRows />}
       {failed && (
         <div className="flex items-center gap-2 text-sm text-destructive">
           {tAds('loadFailed')}
           <Button type="button" variant="outline" size="sm" onClick={() => void load()}>{tAds('retry')}</Button>
         </div>
       )}
-      {rows && rows.length === 0 && <p className="rounded-xl border border-border bg-card px-4 py-12 text-center text-sm text-muted-foreground">{t('empty')}</p>}
+      {rows && rows.length === 0 && <EmptyState icon={BarChart3} title={t('empty')} body={t('emptyBody')} />}
       {rows && rows.length > 0 && (
-        <div className="overflow-x-auto rounded-xl border border-border bg-card">
+        <ul className="space-y-2 md:hidden" data-testid="ads-cards">
+          {rows.map((row) => {
+            const result = resultOf(row);
+            return (
+              <li key={row.id} className="rounded-xl border border-border bg-card p-3">
+                <div className="flex items-start justify-between gap-2">
+                  <button type="button" onClick={() => setOpened(row)} aria-label={t('openDetails', { name: row.name ?? row.id })}
+                    className="min-w-0 text-left text-sm font-semibold text-foreground outline-none hover:text-primary focus-visible:ring-2 focus-visible:ring-ring">
+                    <span className="line-clamp-2">{row.name ?? row.id}</span>
+                  </button>
+                  <StatusChip status={row.status} />
+                </div>
+                <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
+                  {([
+                    [t('spend'), row.spend == null ? formatCount(null) : formatSpend(row.spend, row.currency)],
+                    [`${t('results')} · ${t(`resultKinds.${result.kind}`)}`, formatCount(result.value)],
+                    [t('costPerResult'), formatMoneyValue(ratio(row.spend, result.value), row.currency)],
+                    [t('roas'), row.revenue !== null && row.spend ? t('roasValue', { value: (row.revenue / row.spend).toFixed(2) }) : '-'],
+                  ] as const).map(([label, value]) => (
+                    <div key={label} className="min-w-0">
+                      <dt className="truncate text-muted-foreground">{label}</dt>
+                      <dd className="font-semibold tabular-nums text-foreground">{value}</dd>
+                    </div>
+                  ))}
+                </dl>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+      {rows && rows.length > 0 && (
+        <div className="hidden overflow-x-auto rounded-xl border border-border bg-card md:block">
           <table className="w-full min-w-[980px] text-sm">
             <thead className="bg-muted text-left text-xs text-muted-foreground">
               <tr>
                 <th className={th}>{nameHeader}</th>
                 <th className={th}>{t('status')}</th>
                 {show('spend') && <th className={`${th} text-right`}>{t('spend')}</th>}
-                {showReach && show('reach') && <th className={`${th} text-right`}>{t('reach')}</th>}
-                {show('impressions') && <th className={`${th} text-right`}>{t('impressions')}</th>}
-                {show('ctr') && <th className={`${th} text-right`}>{t('ctr')}</th>}
-                {show('results') && <th className={`${th} text-right`}>{t('results')}</th>}
-                {show('costPerResult') && <th className={`${th} text-right`}>{t('costPerResult')}</th>}
+                {showReach && show('reach') && <th className={`${th} text-right`}><MetricHeader label={t('reach')} help={t('help.reach')} /></th>}
+                {show('impressions') && <th className={`${th} text-right`}><MetricHeader label={t('impressions')} help={t('help.impressions')} /></th>}
+                {show('ctr') && <th className={`${th} text-right`}><MetricHeader label={t('ctr')} help={t('help.ctr')} /></th>}
+                {show('results') && <th className={`${th} text-right`}><MetricHeader label={t('results')} help={t('help.results')} /></th>}
+                {show('costPerResult') && <th className={`${th} text-right`}><MetricHeader label={t('costPerResult')} help={t('help.costPerResult')} /></th>}
                 {show('conversationsInBodhinox') && <th className={`${th} text-right`}>{t('conversationsInBodhinox')}</th>}
                 {show('purchases') && <th className={`${th} text-right`}>{t('purchases')}</th>}
                 {show('revenue') && <th className={`${th} text-right`}>{t('revenue')}</th>}
-                {show('roas') && <th className={`${th} text-right`}>{t('roas')}</th>}
+                {show('roas') && <th className={`${th} text-right`}><MetricHeader label={t('roas')} help={t('help.roas')} /></th>}
                 {level === 'ad' && canSegment && <th className="px-3 py-2"><span className="sr-only">{tAds('retarget')}</span></th>}
               </tr>
             </thead>
@@ -233,7 +265,7 @@ export function AdsTable({ canManage, canSegment, range, adAccountId }: AdsTable
                         </div>
                       </div>
                     </td>
-                    <td className="px-3.5 py-3 text-muted-foreground">{row.status ?? '-'}</td>
+                    <td className="px-3.5 py-3"><StatusChip status={row.status} /></td>
                     {show('spend') && <td className={num}>{row.spend == null ? formatCount(null) : formatSpend(row.spend, row.currency)}</td>}
                     {showReach && show('reach') && <td className={num}>{formatCount(row.reach)}</td>}
                     {show('impressions') && <td className={num}>{formatCount(row.impressions)}</td>}
@@ -270,7 +302,7 @@ export function AdsTable({ canManage, canSegment, range, adAccountId }: AdsTable
         </div>
       )}
 
-      <AdDetailDrawer row={opened} level={level} adAccountId={opened?.adAccountId ?? adAccountId} onClose={() => setOpened(null)} />
+      <AdDetailDrawer row={opened} level={level} adAccountId={opened?.adAccountId ?? adAccountId} range={range} onClose={() => setOpened(null)} />
 
       <SegmentBuilderDialog
         open={retarget !== null}

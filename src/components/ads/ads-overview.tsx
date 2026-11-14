@@ -5,7 +5,9 @@
 // campaigns. Reads GET /api/meta-ads/overview (stored rows only).
 
 import { useCallback, useEffect, useState } from 'react';
-import { Loader2 } from 'lucide-react';
+import { LoadingRows } from '@/components/ads/ads-ui';
+import { AdsBreakdowns } from '@/components/ads/ads-breakdowns';
+import { AdsQuality } from '@/components/ads/ads-quality';
 import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
 import { authFetch } from '@/lib/auth/client';
@@ -17,6 +19,17 @@ import {
 
 type TrendMetric = 'spend' | 'conversationsStarted' | 'leads' | 'linkClicks' | 'impressions';
 const TREND: TrendMetric[] = ['spend', 'conversationsStarted', 'leads', 'linkClicks', 'impressions'];
+
+/** The change against the previous period, or null when there is nothing to compare with. */
+export function changeOf(current: number | null, previous: number | null, higherIsBetter = true): { pct: number; good: boolean } | null {
+  if (current === null || previous === null || previous === 0) return null;
+  const pct = ((current - previous) / previous) * 100;
+  if (!Number.isFinite(pct) || Math.abs(pct) < 0.5) return null;
+  return { pct, good: higherIsBetter ? pct > 0 : pct < 0 };
+}
+
+/** Spend rising or falling is neither good nor bad on its own. */
+const neutral = (change: { pct: number } | null) => (change ? { pct: change.pct, good: null } : null);
 
 export function AdsOverview({ range, adAccountId }: { range: AdsRange; adAccountId: string | null }) {
   const t = useTranslations('Ads.overview');
@@ -49,7 +62,7 @@ export function AdsOverview({ range, adAccountId }: { range: AdsRange; adAccount
       </div>
     );
   }
-  if (!data) return <Loader2 className="size-5 animate-spin text-primary" aria-label={t('loading')} />;
+  if (!data) return <LoadingRows rows={4} label={t('loading')} />;
 
   const { totals } = data;
   // One currency: show it; several (accounts billing differently): the spend tile lists each.
@@ -61,15 +74,18 @@ export function AdsOverview({ range, adAccountId }: { range: AdsRange; adAccount
   const roas = sameCurrency && totals.spend > 0 ? sameCurrency.revenue / totals.spend : null;
   const empty = totals.impressions === 0 && totals.spend === 0 && data.conversationsInBodhinox === 0;
 
-  const tiles: { key: string; label: string; value: string; hint?: string }[] = [
-    { key: 'spend', label: t('spend'), value: mixed ? data.spendByCurrency.map((c) => formatMoneyValue(c.spend, c.currency)).join(' · ') : money(totals.spend) },
+  const prev = data.previous?.totals ?? null;
+  const tiles: { key: string; label: string; value: string; hint?: string; change?: { pct: number; good: boolean | null } | null }[] = [
+    { key: 'spend', label: t('spend'), value: mixed ? data.spendByCurrency.map((c) => formatMoneyValue(c.spend, c.currency)).join(' · ') : money(totals.spend),
+      change: mixed || !prev ? null : neutral(changeOf(totals.spend, prev.spend)) },
     { key: 'reach', label: t('reach'), value: formatNumber(data.reach), hint: data.reach === null ? t('reachHint') : data.frequency !== null ? t('frequency', { value: data.frequency.toFixed(2) }) : undefined },
-    { key: 'impressions', label: t('impressions'), value: formatNumber(totals.impressions) },
-    { key: 'ctr', label: t('ctr'), value: formatPercent(ctr(totals.clicks, totals.impressions)), hint: t('clicks', { count: totals.clicks }) },
-    { key: 'conversations', label: t('conversations'), value: formatNumber(totals.conversationsStarted), hint: t('inBodhinox', { count: data.conversationsInBodhinox }) },
-    { key: 'costPerConversation', label: t('costPerConversation'), value: money(ratio(totals.spend, totals.conversationsStarted)) },
-    { key: 'leads', label: t('leads'), value: formatNumber(totals.leads), hint: totals.leads ? t('costPer', { value: money(ratio(totals.spend, totals.leads)) }) : undefined },
-    { key: 'linkClicks', label: t('linkClicks'), value: formatNumber(totals.linkClicks), hint: t('cpm', { value: money(cpm(totals.spend, totals.impressions)) }) },
+    { key: 'impressions', label: t('impressions'), value: formatNumber(totals.impressions), change: prev && changeOf(totals.impressions, prev.impressions) },
+    { key: 'ctr', label: t('ctr'), value: formatPercent(ctr(totals.clicks, totals.impressions)), hint: t('clicks', { count: totals.clicks }), change: prev && changeOf(ctr(totals.clicks, totals.impressions), ctr(prev.clicks, prev.impressions)) },
+    { key: 'conversations', label: t('conversations'), value: formatNumber(totals.conversationsStarted), hint: t('inBodhinox', { count: data.conversationsInBodhinox }), change: prev && changeOf(totals.conversationsStarted, prev.conversationsStarted) },
+    { key: 'costPerConversation', label: t('costPerConversation'), value: money(ratio(totals.spend, totals.conversationsStarted)),
+      change: mixed || !prev ? null : changeOf(ratio(totals.spend, totals.conversationsStarted), ratio(prev.spend, prev.conversationsStarted), false) },
+    { key: 'leads', label: t('leads'), value: formatNumber(totals.leads), hint: totals.leads ? t('costPer', { value: money(ratio(totals.spend, totals.leads)) }) : undefined, change: prev && changeOf(totals.leads, prev.leads) },
+    { key: 'linkClicks', label: t('linkClicks'), value: formatNumber(totals.linkClicks), hint: t('cpm', { value: money(cpm(totals.spend, totals.impressions)) }), change: prev && changeOf(totals.linkClicks, prev.linkClicks) },
     {
       key: 'revenue', label: t('revenue'),
       value: data.revenueByCurrency.length ? data.revenueByCurrency.map((r) => formatMoneyValue(r.revenue, r.currency)).join(' · ') : '-',
@@ -94,6 +110,11 @@ export function AdsOverview({ range, adAccountId }: { range: AdsRange; adAccount
             <dt className="text-xs font-medium text-muted-foreground">{tile.label}</dt>
             <dd className="mt-1 break-words text-xl font-bold tabular-nums text-foreground">{tile.value}</dd>
             {tile.hint && <dd className="mt-0.5 text-xs text-muted-foreground">{tile.hint}</dd>}
+            {tile.change && (
+              <dd className={cn('mt-1 text-[11px] font-medium', tile.change.good === null ? 'text-muted-foreground' : tile.change.good ? 'text-emerald-700 dark:text-emerald-300' : 'text-destructive')} data-testid="ads-tile-change">
+                {t(tile.change.pct > 0 ? 'changeUp' : 'changeDown', { value: Math.abs(tile.change.pct).toFixed(0) })}
+              </dd>
+            )}
           </div>
         ))}
       </dl>
@@ -193,6 +214,9 @@ export function AdsOverview({ range, adAccountId }: { range: AdsRange; adAccount
           )}
         </section>
       </div>
+
+      <AdsQuality range={range} adAccountId={adAccountId} />
+      <AdsBreakdowns range={range} adAccountId={adAccountId} />
 
       <p className="text-xs text-muted-foreground">
         {data.insightsSyncedAt ? t('syncedAt', { time: new Date(data.insightsSyncedAt).toLocaleString() }) : t('neverSynced')}
