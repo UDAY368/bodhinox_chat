@@ -156,13 +156,14 @@ export function ContactSidebar({
   return (
     <aside
       aria-label={t('contactDetails')}
-      className="studio-contact-panel border-border bg-card flex h-full w-[300px] flex-col border-l"
+      className="studio-contact-panel border-border bg-card flex h-full w-[280px] flex-col border-l"
     >
       <ScrollArea className="min-h-0 flex-1">
         <div className="studio-panel-body pb-5">
           {/* Who this is: avatar with its channel, name, handle and a way to the full contact. */}
-          <div className="relative px-4 pt-4 pb-4 text-center">
-            <div className="absolute inset-x-2 top-2 flex items-center justify-between">
+          {/* Compact, like AiSensy's chat profile: tools on one line, then the avatar beside name and number. */}
+          <div className="border-border border-b px-3 pt-2 pb-3">
+            <div className="flex items-center justify-between">
               {onCollapse ? (
                 <Button
                   type="button"
@@ -191,30 +192,32 @@ export function ContactSidebar({
                 <RefreshCw className={cn('size-4', loading && 'animate-spin')} />
               </Button>
             </div>
+            <div className="mt-1 flex min-w-0 items-center gap-3">
             <div
               className={cn(
-                'relative mx-auto mt-2 flex size-16 items-center justify-center rounded-full text-[20px] font-semibold',
+                'relative flex size-11 shrink-0 items-center justify-center rounded-full text-[15px] font-semibold',
                 avatarTone(current.name || handle)
               )}
             >
               {current.avatar_url ? (
                 // Existing contact avatars may come from connected WhatsApp accounts.
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={current.avatar_url} alt="" className="size-16 rounded-full object-cover" />
+                <img src={current.avatar_url} alt="" className="size-11 rounded-full object-cover" />
               ) : (
                 initials(current.name || handle)
               )}
               <span
                 aria-hidden
                 className={cn(
-                  'ring-card absolute right-0 bottom-0 size-4 rounded-full ring-[2.5px]',
+                  'ring-card absolute right-0 bottom-0 size-3 rounded-full ring-2',
                   channel === 'instagram'
                     ? 'bg-gradient-to-tr from-amber-400 via-pink-500 to-violet-600'
                     : 'bg-emerald-500'
                 )}
               />
             </div>
-            <h3 className="mt-3 text-[17px] leading-6 font-semibold tracking-[-0.01em] break-words">
+            <div className="flex min-w-0 flex-col items-start">
+            <h3 className="max-w-full truncate text-[15px] leading-5 font-semibold tracking-[-0.01em]">
               {current.name || handle}
             </h3>
             {/* An Instagram-only contact has no phone or WhatsApp handle. */}
@@ -238,14 +241,14 @@ export function ContactSidebar({
                 {copied ? <Check className="size-3 shrink-0" /> : <Copy className="size-3 shrink-0 opacity-60" />}
               </button>
             )}
-            <div className="mt-3 flex justify-center">
               <Link
                 href={`/contacts/${encodeURIComponent(contact.id)}`}
-                className="border-border hover:bg-muted inline-flex h-8 items-center gap-1.5 rounded-full border px-3.5 text-[13px] font-semibold transition-colors duration-150"
+                className="text-primary mt-0.5 inline-flex items-center gap-1 text-[12px] font-semibold hover:underline"
               >
-                <UserRound className="size-3.5" aria-hidden />
+                <UserRound className="size-3" aria-hidden />
                 {t('viewContact')}
               </Link>
+            </div>
             </div>
           </div>
           {error && (

@@ -141,13 +141,13 @@ function InboxViewInner({ scope }: { scope: InboxScope }) {
   }, []);
 
   /**
-   * Below 1440px the three columns do not fit (the thread was crushed to a
+   * Below 1366px the three columns do not fit (the thread was crushed to a
    * few words per line), so the contact panel becomes a slide-over over the
    * thread: closed until asked for, tied to the conversation it was opened
-   * for (switching chats closes it), and never saved. Wide screens keep the
-   * saved side-panel preference above.
+   * for (switching chats closes it), and never saved. From 1366px the 280px
+   * panel sits beside the chat, keeping the saved side-panel preference above.
    */
-  const widePanel = useMatchMedia('(min-width: 1440px)');
+  const widePanel = useMatchMedia('(min-width: 1366px)');
   const [overlayFor, setOverlayFor] = useState<string | null>(null);
   const activeConversationId = activeConversation?.id ?? null;
   const panelShown = widePanel ? contactPanelOpen : overlayFor !== null && overlayFor === activeConversationId;
@@ -1035,7 +1035,7 @@ function InboxViewInner({ scope }: { scope: InboxScope }) {
           />
         </div>
 
-        {/* Right panel: Contact sidebar. A side column from 1440px (the agent can
+        {/* Right panel: Contact sidebar. A side column from 1366px (the agent can
             hide it, #258); below that a slide-over above the thread, closed by its
             own collapse button, a click outside or Escape. */}
         {panelShown && !widePanel && (
@@ -1057,7 +1057,7 @@ function InboxViewInner({ scope }: { scope: InboxScope }) {
               !widePanel && 'outline-none',
               widePanel
                 ? 'shrink-0'
-                : 'absolute inset-y-0 right-0 z-30 flex w-full max-w-sm shadow-2xl [&>aside]:w-full'
+                : 'absolute inset-y-0 right-0 z-30 flex w-full max-w-[300px] shadow-2xl [&>aside]:w-full'
             )}
           >
             <ContactSidebar

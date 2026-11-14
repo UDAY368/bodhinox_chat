@@ -1513,7 +1513,8 @@ export function MessageThread({
                 <Badge
                   variant="outline"
                   className={cn(
-                    'border-border hidden h-4 shrink-0 gap-1 px-1.5 text-[10px] @md:inline-flex',
+                    // Only from a wide header: narrower, the badge was cut in half beside the assignee.
+                    'border-border hidden h-4 shrink-0 gap-1 px-1.5 text-[10px] @2xl:inline-flex',
                     sessionInfo.expired ? 'text-red-400' : 'text-primary'
                   )}
                 >
@@ -1522,7 +1523,7 @@ export function MessageThread({
                 </Badge>
               )}
               {/* WhatsApp consent: may templates and broadcasts reach this customer? */}
-              {!isInstagram && <ConsentChip contact={contact} className="hidden @xl:inline-flex" />}
+              {!isInstagram && <ConsentChip contact={contact} className="hidden @3xl:inline-flex" />}
               <span className="hidden shrink-0 items-center gap-1.5 @3xl:flex">
                 <LifecycleChip state={lifecycle} label={tLifecycle(lifecycle)} />
                 {sla && <SlaBadge sla={sla} t={tList} tl={tLifecycle} />}

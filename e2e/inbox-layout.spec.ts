@@ -104,9 +104,9 @@ test('the inbox fits every common screen size', async ({ page }) => {
       const box = (await page.getByPlaceholder('Type a message').boundingBox())!;
       expect(box.width).toBeGreaterThanOrEqual(Math.min(240, size.width - 160));
 
-      // The contact panel never squeezes the chat: from 1440px it is a side column
+      // The contact panel never squeezes the chat: from 1366px it is a side column
       // (open by default, already measured above), below that it slides over the chat.
-      if (size.width >= 1440) {
+      if (size.width >= 1366) {
         await expect(page.locator('[data-contact-panel="column"]')).toBeVisible();
       } else {
         await expect(page.locator('[data-contact-panel]')).toHaveCount(0);

@@ -423,7 +423,16 @@
       "moreViews": "보기 더보기",
       "views": "보기",
       "clearFilters": "필터 지우기",
-      "reminderTag": "{when}에 후속 조치"
+      "reminderTag": "{when}에 후속 조치",
+      "activeChip": "활성",
+      "windowLeft": "24시간 창 {time} 남음",
+      "windowStrip": "열린 창",
+      "windowStripItem": "{name}, {time} 남음",
+      "windowStripPrev": "이전",
+      "windowStripNext": "더 보기",
+      "tabActive": "활성",
+      "tabRequesting": "요청 중",
+      "tabIntervened": "개입됨"
     },
     "messageThread": {
       "backToConversations": "대화 목록으로 돌아가기",
@@ -1007,11 +1016,6 @@
       "handledHelp": "한 번이라도 배정되었거나 직접 메시지를 보낸 채팅",
       "sectionAssigned": "현재 배정된 상담원",
       "sectionHandled": "처리한 적 있는 상담원"
-    },
-    "sessionRail": {
-      "title": "열린 대화 창",
-      "closingSoon": "{count}개 곧 종료",
-      "item": "{name}, {time} 후 창 종료"
     },
     "consent": {
       "title": "수신 동의",
@@ -1679,7 +1683,8 @@
         "optedIn": "수신 동의",
         "optedOut": "수신 거부",
         "clear": "지우기",
-        "clearAll": "검색어와 필터 지우기"
+        "clearAll": "검색어와 필터 지우기",
+        "title": "필터"
       },
       "sort": {
         "label": "정렬: {order}",

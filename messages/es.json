@@ -423,7 +423,16 @@
       "moreViews": "Más vistas",
       "views": "Vistas",
       "clearFilters": "Quitar filtros",
-      "reminderTag": "Seguimiento: {when}"
+      "reminderTag": "Seguimiento: {when}",
+      "activeChip": "Activos",
+      "windowLeft": "Quedan {time} en la ventana de 24 horas",
+      "windowStrip": "Ventanas abiertas",
+      "windowStripItem": "{name}, quedan {time}",
+      "windowStripPrev": "Anteriores",
+      "windowStripNext": "Más",
+      "tabActive": "Activos",
+      "tabRequesting": "Solicitando",
+      "tabIntervened": "Intervenidos"
     },
     "messageThread": {
       "backToConversations": "Volver a las conversaciones",
@@ -1007,11 +1016,6 @@
       "handledHelp": "Asignados a esa persona en algún momento, o con un mensaje suyo",
       "sectionAssigned": "Asignados ahora a",
       "sectionHandled": "Atendidos alguna vez por"
-    },
-    "sessionRail": {
-      "title": "Ventanas abiertas",
-      "closingSoon": "{count} por cerrar",
-      "item": "{name}, la ventana cierra en {time}"
     },
     "consent": {
       "title": "Consentimiento",
@@ -1679,7 +1683,8 @@
         "optedIn": "Acepta mensajes",
         "optedOut": "Dado de baja",
         "clear": "Borrar",
-        "clearAll": "Borrar búsqueda y filtros"
+        "clearAll": "Borrar búsqueda y filtros",
+        "title": "Filtros"
       },
       "sort": {
         "label": "Ordenar: {order}",
