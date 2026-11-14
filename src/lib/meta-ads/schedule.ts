@@ -11,6 +11,7 @@ import { AUDIENCE_SYNC_JOB, AUDIENCE_SYNC_MAX_ATTEMPTS, audienceAutoSyncDedupeKe
 export const INSIGHTS_SYNC_JOB = 'meta.insights_sync';
 export const LEADS_SYNC_JOB = 'meta.leads_sync';
 export const AD_OBJECTS_SYNC_JOB = 'meta.ad_objects_sync';
+export const AD_RULES_JOB = 'meta.ad_rules';
 const HOUR_MS = 3_600_000;
 const LEADS_BUCKET_MS = 15 * 60_000;
 /** scheduleWork runs often; the connection list is read at most once a minute per process. */
@@ -28,6 +29,10 @@ export function fullInsightsSyncDedupeKey(accountId: string, now: number): strin
 
 export function adObjectsSyncDedupeKey(accountId: string, now: number): string {
   return `meta-ad-objects:${accountId}:${Math.floor(now / HOUR_MS)}`;
+}
+
+export function adRulesDedupeKey(accountId: string, now: number): string {
+  return `meta-ad-rules:${accountId}:${Math.floor(now / HOUR_MS)}`;
 }
 
 export function leadsSyncDedupeKey(accountId: string, now: number): string {
@@ -61,6 +66,10 @@ export async function scheduleMetaAds(now: number = Date.now(), force = false): 
         VALUES(${AUDIENCE_SYNC_JOB},${account_id}::uuid,'{}'::jsonb,${audienceAutoSyncDedupeKey(account_id, now)},${AUDIENCE_SYNC_MAX_ATTEMPTS})
         ON CONFLICT(dedupe_key) DO NOTHING`;
     }
+    // Ad rules are checked hourly against the stored insights (a rule that pauses also needs ad management).
+    await prisma.$executeRaw`INSERT INTO jobs(type,tenant_id,payload,dedupe_key,max_attempts)
+      VALUES(${AD_RULES_JOB},${account_id}::uuid,'{}'::jsonb,${adRulesDedupeKey(account_id, now)},3)
+      ON CONFLICT(dedupe_key) DO NOTHING`;
   }
   return connections.length;
 }

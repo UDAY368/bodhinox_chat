@@ -16,6 +16,7 @@ describe('parseAdCreateInput', () => {
       countries: ['IN', 'AE'], ageMin: 18, ageMax: 65, genders: [], primaryText: 'Chat with us', headline: null, description: null,
       linkUrl: null, leadFormId: null, ctaType: 'WHATSAPP_MESSAGE', imageHash: base.imageHash, imageUrl: null, whatsappNumber: null,
       welcomeMessage: null, publish: true, audienceIds: [], excludedAudienceIds: [],
+      format: 'image', videoId: null, cards: null, placements: [], interests: [], places: [], locales: [],
     });
   });
 

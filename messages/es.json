@@ -12260,7 +12260,8 @@
       "conversions": "Conversiones",
       "campaigns": "Campañas",
       "overview": "Resumen",
-      "audiences": "Audiencias"
+      "audiences": "Audiencias",
+      "rules": "Reglas"
     },
     "table": {
       "level": "Mostrar",
@@ -12471,7 +12472,8 @@
         "ON_AD": "Formulario instantáneo",
         "WEBSITE": "Sitio web",
         "MESSAGING_INSTAGRAM_DIRECT_MESSENGER_WHATSAPP": "Apps de mensajes"
-      }
+      },
+      "reviewReason": "Meta: {reason}"
     },
     "openAdsManager": "Abrir el Administrador de anuncios",
     "createAd": "Crear anuncio",
@@ -12645,7 +12647,62 @@
       "audiencesInclude": "Llegar a personas de",
       "audiencesExclude": "Excluir a personas de",
       "audiencesHelp": "Las audiencias vienen de Anuncios → Audiencias. Excluir a los clientes actuales evita pagar por volver a alcanzarlos.",
-      "audiencesReview": "Audiencias"
+      "audiencesReview": "Audiencias",
+      "video": "Video",
+      "uploadVideo": "Subir video",
+      "videoUploading": "Subiendo…",
+      "videoRules": "MP4 o MOV, hasta 30 MB. Meta lo procesa antes de crear el anuncio.",
+      "thumbnail": "Miniatura",
+      "format": {
+        "title": "Formato",
+        "image": "Imagen única",
+        "video": "Video",
+        "carousel": "Carrusel"
+      },
+      "cards": {
+        "title": "Carrusel · {count} tarjetas",
+        "card": "Tarjeta {n}",
+        "remove": "Quitar tarjeta {n}",
+        "headline": "Título de la tarjeta {n}",
+        "description": "Descripción de la tarjeta {n}",
+        "link": "Enlace de la tarjeta {n}",
+        "linkPlaceholder": "https:// (opcional; si no, el enlace del anuncio)",
+        "add": "Agregar tarjeta",
+        "help": "De dos a diez tarjetas. Las personas las deslizan; las imágenes cuadradas funcionan mejor."
+      },
+      "placements": {
+        "title": "Ubicaciones",
+        "automatic": "Automáticas",
+        "facebook": "Facebook",
+        "instagram": "Instagram",
+        "messenger": "Messenger",
+        "audience_network": "Audience Network",
+        "whatsapp_status": "Estados de WhatsApp",
+        "automaticHelp": "Meta muestra el anuncio donde mejor funciona (recomendado).",
+        "manualHelp": "El anuncio solo se muestra donde elegiste. Messenger y Audience Network también usan Facebook.",
+        "statusHelp": "Los Estados de WhatsApp también requieren las historias de Instagram, así que Bodhinox las agrega. No se muestran en la UE ni en el Reino Unido."
+      },
+      "targeting": {
+        "places": "Ciudades y regiones",
+        "placesHelp": "Opcional. Un país con alguna de sus ciudades o regiones elegidas se limita a esos lugares.",
+        "interests": "Intereses",
+        "interestsHelp": "Opcional. Personas interesadas en cualquiera de estos.",
+        "languages": "Idiomas",
+        "remove": "Quitar {name}",
+        "full": "Hasta {max}",
+        "failed": "La búsqueda no funcionó. Inténtalo de nuevo.",
+        "none": "No se encontró nada.",
+        "placeholder": {
+          "interest": "Busca intereses, p. ej. yoga",
+          "place": "Busca una ciudad o región",
+          "locale": "Busca un idioma"
+        },
+        "kinds": {
+          "region": "Región",
+          "city": "Ciudad"
+        },
+        "size": "{size} personas"
+      }
     },
     "drafts": {
       "title": "Anuncios creados en Bodhinox",
@@ -12680,7 +12737,11 @@
       "openInAdsManager": "Administrador de anuncios",
       "recheck": "Volver a comprobar",
       "discard": "Descartar",
-      "unknownHelp": "La respuesta de Meta no fue clara, así que Bodhinox no lo reintentó (podría duplicarse). Vuelve a comprobar, o míralo en el Administrador de anuncios y descártalo."
+      "unknownHelp": "La respuesta de Meta no fue clara, así que Bodhinox no lo reintentó (podría duplicarse). Vuelve a comprobar, o míralo en el Administrador de anuncios y descártalo.",
+      "duplicate": "Duplicar",
+      "duplicated": "Copia en cola (en pausa).",
+      "variant": "Variante A/B",
+      "variantBadge": "Variante"
     },
     "accounts": {
       "title": "Cuentas publicitarias",
@@ -12760,6 +12821,82 @@
       "autoSyncHelp": "Mantenerla sincronizada cada 6 horas",
       "cancel": "Cancelar",
       "create": "Crear audiencia"
+    },
+    "variant": {
+      "title": "Nueva variante A/B",
+      "description": "Un segundo anuncio con otra imagen y texto en el conjunto de anuncios de “{name}”. Meta reparte el presupuesto y favorece al mejor.",
+      "name": "Nombre",
+      "primaryText": "Texto principal",
+      "headline": "Título (opcional)",
+      "image": "Imagen",
+      "uploadImage": "Subir imagen",
+      "replaceImage": "Reemplazar imagen",
+      "imageRules": "JPG o PNG, hasta 8 MB.",
+      "help": "Cambia una sola cosa a la vez (la imagen o el texto) para saber qué funciona.",
+      "created": "Variante en cola.",
+      "failed": "No funcionó. Inténtalo de nuevo.",
+      "cancel": "Cancelar",
+      "create": "Crear variante"
+    },
+    "rules": {
+      "title": "Reglas automáticas",
+      "description": "Se revisan cada hora con los resultados de tus anuncios. Cada anuncio se ve afectado como máximo una vez al día por regla.",
+      "new": "Nueva regla",
+      "emptyTitle": "Aún no hay reglas",
+      "emptyBody": "Por ejemplo: pausar cualquier conjunto de anuncios cuyo costo por resultado supere 200 en los últimos 3 días.",
+      "sentence": "{action} cualquier {level} activo cuando {metric} esté {operator} {threshold} en {days, plural, one {el último día} other {los últimos # días}}.",
+      "minSpendSentence": "Solo después de gastar {amount}.",
+      "lastChecked": "Revisada {at}",
+      "enabled": "Activar o desactivar {name}",
+      "delete": "Eliminar {name}",
+      "on": "Activa",
+      "off": "Inactiva",
+      "recent": "Lo que hicieron las reglas recientemente",
+      "failed": "No funcionó. Inténtalo de nuevo.",
+      "created": "Regla creada.",
+      "limitReached": "Llegaste al límite de 20 reglas.",
+      "pauseNeedsManage": "Pausar requiere que la gestión de anuncios esté activada.",
+      "help": "Las reglas leen los resultados que Bodhinox ya guarda, así que nunca gastan dinero. Los avisos siguen tu ajuste de “Avisos de automatización”.",
+      "actions": {
+        "pause": "Pausar",
+        "notify": "Avisarme sobre"
+      },
+      "levels": {
+        "campaign": "campaña",
+        "adset": "conjunto de anuncios",
+        "ad": "anuncio"
+      },
+      "metrics": {
+        "cost_per_result": "el costo por resultado",
+        "spend": "el importe gastado",
+        "ctr": "el CTR",
+        "cpm": "el costo por 1.000 impresiones"
+      },
+      "operators": {
+        "gt": "por encima de",
+        "lt": "por debajo de"
+      },
+      "outcomes": {
+        "queued": "Pausando",
+        "notified": "Avisado",
+        "skipped": "No se pudo pausar"
+      },
+      "newTitle": "Nueva regla",
+      "newDescription": "Elige qué vigilar y qué hacer.",
+      "name": "Nombre",
+      "namePlaceholder": "Detener conjuntos caros",
+      "then": "Entonces",
+      "anyActive": "Cualquier activo",
+      "when": "Cuando",
+      "is": "Está",
+      "percent": "Porcentaje",
+      "amount": "Importe",
+      "over": "En",
+      "days": "{days, plural, one {el último día} other {los últimos # días}}",
+      "minSpend": "Después de gastar al menos",
+      "currencyHelp": "Los importes están en la moneda de cada cuenta publicitaria.",
+      "cancel": "Cancelar",
+      "create": "Crear regla"
     }
   },
   "Appointments": {

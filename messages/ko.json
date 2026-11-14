@@ -12260,7 +12260,8 @@
       "conversions": "전환",
       "campaigns": "캠페인",
       "overview": "개요",
-      "audiences": "타겟"
+      "audiences": "타겟",
+      "rules": "규칙"
     },
     "table": {
       "level": "표시",
@@ -12471,7 +12472,8 @@
         "ON_AD": "인스턴트 양식",
         "WEBSITE": "웹사이트",
         "MESSAGING_INSTAGRAM_DIRECT_MESSENGER_WHATSAPP": "메시지 앱"
-      }
+      },
+      "reviewReason": "Meta: {reason}"
     },
     "openAdsManager": "광고 관리자 열기",
     "createAd": "광고 만들기",
@@ -12645,7 +12647,62 @@
       "audiencesInclude": "도달할 타겟",
       "audiencesExclude": "제외할 타겟",
       "audiencesHelp": "타겟은 광고 → 타겟에서 만듭니다. 기존 고객을 제외하면 다시 도달하는 비용을 아낄 수 있습니다.",
-      "audiencesReview": "타겟"
+      "audiencesReview": "타겟",
+      "video": "동영상",
+      "uploadVideo": "동영상 업로드",
+      "videoUploading": "업로드 중…",
+      "videoRules": "MP4 또는 MOV, 최대 30MB. 광고를 만들기 전에 Meta가 처리합니다.",
+      "thumbnail": "썸네일",
+      "format": {
+        "title": "형식",
+        "image": "단일 이미지",
+        "video": "동영상",
+        "carousel": "슬라이드"
+      },
+      "cards": {
+        "title": "슬라이드 · 카드 {count}개",
+        "card": "카드 {n}",
+        "remove": "카드 {n} 삭제",
+        "headline": "카드 {n} 제목",
+        "description": "카드 {n} 설명",
+        "link": "카드 {n} 링크",
+        "linkPlaceholder": "https:// (선택, 없으면 광고 링크)",
+        "add": "카드 추가",
+        "help": "카드는 2~10개입니다. 사람들이 넘겨 보며, 정사각형 이미지가 가장 좋습니다."
+      },
+      "placements": {
+        "title": "노출 위치",
+        "automatic": "자동",
+        "facebook": "Facebook",
+        "instagram": "Instagram",
+        "messenger": "Messenger",
+        "audience_network": "Audience Network",
+        "whatsapp_status": "WhatsApp 상태",
+        "automaticHelp": "Meta가 성과가 가장 좋은 곳에 광고를 보여줍니다(권장).",
+        "manualHelp": "선택한 곳에만 광고가 노출됩니다. Messenger와 Audience Network는 Facebook에서도 노출됩니다.",
+        "statusHelp": "WhatsApp 상태에는 Instagram 스토리도 필요해 Bodhinox가 추가합니다. EU와 영국에서는 노출되지 않습니다."
+      },
+      "targeting": {
+        "places": "도시와 지역",
+        "placesHelp": "선택 사항. 도시나 지역을 고른 국가는 그 장소로 좁혀집니다.",
+        "interests": "관심사",
+        "interestsHelp": "선택 사항. 이 중 하나에 관심 있는 사람.",
+        "languages": "언어",
+        "remove": "{name} 삭제",
+        "full": "최대 {max}개",
+        "failed": "검색에 실패했습니다. 다시 시도하세요.",
+        "none": "결과가 없습니다.",
+        "placeholder": {
+          "interest": "관심사 검색(예: 요가)",
+          "place": "도시나 지역 검색",
+          "locale": "언어 검색"
+        },
+        "kinds": {
+          "region": "지역",
+          "city": "도시"
+        },
+        "size": "{size}명"
+      }
     },
     "drafts": {
       "title": "Bodhinox에서 만든 광고",
@@ -12680,7 +12737,11 @@
       "openInAdsManager": "광고 관리자",
       "recheck": "다시 확인",
       "discard": "버리기",
-      "unknownHelp": "Meta의 응답이 불분명해서 Bodhinox가 다시 시도하지 않았습니다(중복될 수 있음). 다시 확인하거나 광고 관리자에서 확인한 뒤 버리세요."
+      "unknownHelp": "Meta의 응답이 불분명해서 Bodhinox가 다시 시도하지 않았습니다(중복될 수 있음). 다시 확인하거나 광고 관리자에서 확인한 뒤 버리세요.",
+      "duplicate": "복제",
+      "duplicated": "복사본을 대기열에 넣었습니다(일시 중지).",
+      "variant": "A/B 변형",
+      "variantBadge": "변형"
     },
     "accounts": {
       "title": "광고 계정",
@@ -12760,6 +12821,82 @@
       "autoSyncHelp": "6시간마다 동기화 유지",
       "cancel": "취소",
       "create": "타겟 만들기"
+    },
+    "variant": {
+      "title": "새 A/B 변형",
+      "description": "“{name}” 광고 세트에 다른 이미지와 문구로 두 번째 광고를 만듭니다. Meta가 예산을 나누고 더 나은 광고를 우선합니다.",
+      "name": "이름",
+      "primaryText": "기본 문구",
+      "headline": "제목(선택)",
+      "image": "이미지",
+      "uploadImage": "이미지 업로드",
+      "replaceImage": "이미지 바꾸기",
+      "imageRules": "JPG 또는 PNG, 최대 8MB.",
+      "help": "무엇이 효과적인지 알려면 한 번에 하나(이미지 또는 문구)만 바꾸세요.",
+      "created": "변형을 대기열에 넣었습니다.",
+      "failed": "실패했습니다. 다시 시도하세요.",
+      "cancel": "취소",
+      "create": "변형 만들기"
+    },
+    "rules": {
+      "title": "자동 규칙",
+      "description": "매시간 광고 성과를 기준으로 확인합니다. 각 광고는 규칙마다 하루에 한 번까지만 처리됩니다.",
+      "new": "새 규칙",
+      "emptyTitle": "아직 규칙이 없습니다",
+      "emptyBody": "예: 최근 3일 동안 결과당 비용이 200을 넘는 광고 세트를 일시 중지합니다.",
+      "sentence": "{metric}이(가) {days, plural, other {최근 #일}} 동안 {threshold} {operator}이면 활성 {level}을(를) {action}.",
+      "minSpendSentence": "{amount} 이상 지출한 후에만.",
+      "lastChecked": "{at}에 확인",
+      "enabled": "{name} 켜기/끄기",
+      "delete": "{name} 삭제",
+      "on": "켜짐",
+      "off": "꺼짐",
+      "recent": "최근 규칙 실행 내역",
+      "failed": "실패했습니다. 다시 시도하세요.",
+      "created": "규칙을 만들었습니다.",
+      "limitReached": "규칙 한도(20개)에 도달했습니다.",
+      "pauseNeedsManage": "일시 중지하려면 광고 관리가 켜져 있어야 합니다.",
+      "help": "규칙은 Bodhinox에 저장된 성과만 읽으므로 직접 비용을 쓰지 않습니다. 알림은 “자동화 알림” 설정을 따릅니다.",
+      "actions": {
+        "pause": "일시 중지",
+        "notify": "알림"
+      },
+      "levels": {
+        "campaign": "캠페인",
+        "adset": "광고 세트",
+        "ad": "광고"
+      },
+      "metrics": {
+        "cost_per_result": "결과당 비용",
+        "spend": "지출 금액",
+        "ctr": "클릭률",
+        "cpm": "1,000회 노출당 비용"
+      },
+      "operators": {
+        "gt": "초과",
+        "lt": "미만"
+      },
+      "outcomes": {
+        "queued": "일시 중지 중",
+        "notified": "알림 보냄",
+        "skipped": "일시 중지 실패"
+      },
+      "newTitle": "새 규칙",
+      "newDescription": "무엇을 지켜보고 어떻게 할지 고르세요.",
+      "name": "이름",
+      "namePlaceholder": "비싼 광고 세트 중지",
+      "then": "그러면",
+      "anyActive": "활성 대상",
+      "when": "조건",
+      "is": "비교",
+      "percent": "퍼센트",
+      "amount": "금액",
+      "over": "기간",
+      "days": "{days, plural, other {최근 #일}}",
+      "minSpend": "최소 지출 후",
+      "currencyHelp": "금액은 각 광고 계정의 통화 기준입니다.",
+      "cancel": "취소",
+      "create": "규칙 만들기"
     }
   },
   "Appointments": {

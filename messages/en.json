@@ -12260,7 +12260,8 @@
       "conversions": "Conversions",
       "campaigns": "Campaigns",
       "overview": "Overview",
-      "audiences": "Audiences"
+      "audiences": "Audiences",
+      "rules": "Rules"
     },
     "table": {
       "level": "Show",
@@ -12471,7 +12472,8 @@
         "ON_AD": "Instant form",
         "WEBSITE": "Website",
         "MESSAGING_INSTAGRAM_DIRECT_MESSENGER_WHATSAPP": "Messaging apps"
-      }
+      },
+      "reviewReason": "Meta: {reason}"
     },
     "openAdsManager": "Open Ads Manager",
     "createAd": "Create ad",
@@ -12645,7 +12647,62 @@
       "audiencesInclude": "Reach people in",
       "audiencesExclude": "Leave out people in",
       "audiencesHelp": "Audiences come from Ads → Audiences. Leaving out existing customers stops paying to reach them again.",
-      "audiencesReview": "Audiences"
+      "audiencesReview": "Audiences",
+      "video": "Video",
+      "uploadVideo": "Upload video",
+      "videoUploading": "Uploading…",
+      "videoRules": "MP4 or MOV, up to 30 MB. Meta processes it before the ad is made.",
+      "thumbnail": "Thumbnail",
+      "format": {
+        "title": "Format",
+        "image": "Single image",
+        "video": "Video",
+        "carousel": "Carousel"
+      },
+      "cards": {
+        "title": "Carousel · {count} cards",
+        "card": "Card {n}",
+        "remove": "Remove card {n}",
+        "headline": "Card {n} headline",
+        "description": "Card {n} description",
+        "link": "Card {n} link",
+        "linkPlaceholder": "https:// (optional, else the ad link)",
+        "add": "Add card",
+        "help": "Two to ten cards. People swipe through them; square images work best."
+      },
+      "placements": {
+        "title": "Placements",
+        "automatic": "Automatic",
+        "facebook": "Facebook",
+        "instagram": "Instagram",
+        "messenger": "Messenger",
+        "audience_network": "Audience Network",
+        "whatsapp_status": "WhatsApp Status",
+        "automaticHelp": "Meta shows the ad wherever it performs best (recommended).",
+        "manualHelp": "The ad runs only where you chose. Messenger and Audience Network also run on Facebook.",
+        "statusHelp": "WhatsApp Status also needs Instagram Stories, so Bodhinox adds it. Status ads do not run in the EU or UK."
+      },
+      "targeting": {
+        "places": "Cities and regions",
+        "placesHelp": "Optional. A country that has one of its cities or regions chosen is narrowed to those places.",
+        "interests": "Interests",
+        "interestsHelp": "Optional. People interested in any of these.",
+        "languages": "Languages",
+        "remove": "Remove {name}",
+        "full": "Up to {max}",
+        "failed": "Search did not work. Try again.",
+        "none": "Nothing found.",
+        "placeholder": {
+          "interest": "Search interests, e.g. yoga",
+          "place": "Search a city or region",
+          "locale": "Search a language"
+        },
+        "kinds": {
+          "region": "Region",
+          "city": "City"
+        },
+        "size": "{size} people"
+      }
     },
     "drafts": {
       "title": "Ads created in Bodhinox",
@@ -12680,7 +12737,11 @@
       "openInAdsManager": "Ads Manager",
       "recheck": "Re-check",
       "discard": "Discard",
-      "unknownHelp": "Meta’s answer was unclear, so Bodhinox did not try again (that could make a duplicate). Re-check, or look in Ads Manager and discard it."
+      "unknownHelp": "Meta’s answer was unclear, so Bodhinox did not try again (that could make a duplicate). Re-check, or look in Ads Manager and discard it.",
+      "duplicate": "Duplicate",
+      "duplicated": "Copy queued (paused).",
+      "variant": "A/B variant",
+      "variantBadge": "Variant"
     },
     "accounts": {
       "title": "Ad accounts",
@@ -12760,6 +12821,82 @@
       "autoSyncHelp": "Keep it in sync every 6 hours",
       "cancel": "Cancel",
       "create": "Create audience"
+    },
+    "variant": {
+      "title": "New A/B variant",
+      "description": "A second ad with a different image and text in the ad set of “{name}”. Meta shares the budget and favours the better one.",
+      "name": "Name",
+      "primaryText": "Primary text",
+      "headline": "Headline (optional)",
+      "image": "Image",
+      "uploadImage": "Upload image",
+      "replaceImage": "Replace image",
+      "imageRules": "JPG or PNG, up to 8 MB.",
+      "help": "Change one thing at a time (the image or the text) to learn what works.",
+      "created": "Variant queued.",
+      "failed": "That did not work. Try again.",
+      "cancel": "Cancel",
+      "create": "Create variant"
+    },
+    "rules": {
+      "title": "Automated rules",
+      "description": "Checked every hour against your ad results. Each ad is acted on at most once a day per rule.",
+      "new": "New rule",
+      "emptyTitle": "No rules yet",
+      "emptyBody": "For example: pause any ad set whose cost per result is above 200 over the last 3 days.",
+      "sentence": "{action} any active {level} when {metric} is {operator} {threshold} over the last {days, plural, one {day} other {# days}}.",
+      "minSpendSentence": "Only after spending {amount}.",
+      "lastChecked": "Last checked {at}",
+      "enabled": "Turn {name} on or off",
+      "delete": "Delete {name}",
+      "on": "On",
+      "off": "Off",
+      "recent": "What rules did recently",
+      "failed": "That did not work. Try again.",
+      "created": "Rule created.",
+      "limitReached": "You have reached the limit of 20 rules.",
+      "pauseNeedsManage": "Pausing needs ad management to be turned on.",
+      "help": "Rules read the results Bodhinox already stores, so they never spend money themselves. Alerts follow your “Automation notices” setting.",
+      "actions": {
+        "pause": "Pause",
+        "notify": "Alert me about"
+      },
+      "levels": {
+        "campaign": "campaign",
+        "adset": "ad set",
+        "ad": "ad"
+      },
+      "metrics": {
+        "cost_per_result": "cost per result",
+        "spend": "amount spent",
+        "ctr": "click-through rate",
+        "cpm": "cost per 1,000 views"
+      },
+      "operators": {
+        "gt": "above",
+        "lt": "below"
+      },
+      "outcomes": {
+        "queued": "Pausing",
+        "notified": "Alerted",
+        "skipped": "Could not pause"
+      },
+      "newTitle": "New rule",
+      "newDescription": "Pick what to watch and what to do.",
+      "name": "Name",
+      "namePlaceholder": "Stop expensive ad sets",
+      "then": "Then",
+      "anyActive": "Any active",
+      "when": "When",
+      "is": "Is",
+      "percent": "Percent",
+      "amount": "Amount",
+      "over": "Over the last",
+      "days": "{days, plural, one {day} other {# days}}",
+      "minSpend": "After spending at least",
+      "currencyHelp": "Amounts are in each ad account’s own currency.",
+      "cancel": "Cancel",
+      "create": "Create rule"
     }
   },
   "Appointments": {

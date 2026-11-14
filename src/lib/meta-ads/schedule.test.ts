@@ -7,7 +7,7 @@ vi.mock('@/lib/db/prisma', () => ({
     $executeRaw: (strings: TemplateStringsArray, ...values: unknown[]) => db.executeRaw(strings.join('?'), values),
   }),
 }));
-import { adObjectsSyncDedupeKey, insightsSyncDedupeKey, fullInsightsSyncDedupeKey, leadsSyncDedupeKey, resetMetaAdsScheduleForTests, scheduleMetaAds } from './schedule';
+import { adObjectsSyncDedupeKey, adRulesDedupeKey, insightsSyncDedupeKey, fullInsightsSyncDedupeKey, leadsSyncDedupeKey, resetMetaAdsScheduleForTests, scheduleMetaAds } from './schedule';
 import { audienceAutoSyncDedupeKey } from './audiences';
 
 const ACCOUNT = '6f1c2d3e-0000-4000-8000-0000000000aa';
@@ -36,13 +36,15 @@ describe('scheduleMetaAds', () => {
     await expect(scheduleMetaAds(now)).resolves.toBe(1);
     expect(db.queryRaw.mock.calls[0][0]).toContain('crm_meta_ad_connections_due()');
     const inserts = db.executeRaw.mock.calls.map(([sql, values]) => ({ sql: sql as string, values: values as unknown[] }));
-    expect(inserts).toHaveLength(4);
+    expect(inserts).toHaveLength(5);
     for (const insert of inserts) expect(insert.sql).toContain('ON CONFLICT(dedupe_key) DO NOTHING');
     expect(inserts[0].values).toEqual(['meta.insights_sync', ACCOUNT, insightsSyncDedupeKey(ACCOUNT, now)]);
     expect(inserts[1].values).toEqual(['meta.insights_sync', ACCOUNT, fullInsightsSyncDedupeKey(ACCOUNT, now)]);
     expect(inserts[1].sql).toContain('{"full":true}');
     expect(inserts[2].values).toEqual(['meta.ad_objects_sync', ACCOUNT, adObjectsSyncDedupeKey(ACCOUNT, now)]);
     expect(inserts[3].values).toEqual(['meta.leads_sync', ACCOUNT, leadsSyncDedupeKey(ACCOUNT, now)]);
+    // Ad rules are checked hourly.
+    expect(inserts[4].values).toEqual(['meta.ad_rules', ACCOUNT, adRulesDedupeKey(ACCOUNT, now)]);
     // Within the minute nothing is read again.
     await expect(scheduleMetaAds(now + 30_000)).resolves.toBe(0);
     expect(db.queryRaw).toHaveBeenCalledTimes(1);
@@ -52,8 +54,8 @@ describe('scheduleMetaAds', () => {
     for (const [key, value] of Object.entries({ ...env, META_ADS_MANAGE_ENABLED: 'true' })) vi.stubEnv(key, value);
     const now = Date.parse('2026-11-03T10:20:00Z');
     await scheduleMetaAds(now, true);
-    const last = db.executeRaw.mock.calls.at(-1)!;
-    expect(db.executeRaw).toHaveBeenCalledTimes(5);
+    const last = db.executeRaw.mock.calls.at(-2)!;
+    expect(db.executeRaw).toHaveBeenCalledTimes(6);
     expect(last[1]).toEqual(['meta.audience_sync', ACCOUNT, audienceAutoSyncDedupeKey(ACCOUNT, now), 5]);
     expect(audienceAutoSyncDedupeKey(ACCOUNT, now)).toBe(audienceAutoSyncDedupeKey(ACCOUNT, Date.parse('2026-11-03T11:59:00Z')));
     expect(audienceAutoSyncDedupeKey(ACCOUNT, now)).not.toBe(audienceAutoSyncDedupeKey(ACCOUNT, Date.parse('2026-11-03T12:00:00Z')));

@@ -1862,6 +1862,8 @@ model meta_ad_objects {
   creative_body String?
   cta_type String?
   synced_at DateTime @db.Timestamptz(6) @default(now())
+  /// Why Meta rejected or limited an ad (20261125002000).
+  review_feedback String?
   @@id([account_id, object_id])
   @@index([account_id, level, campaign_id], map: "meta_ad_objects_tree")
 }
@@ -3591,6 +3593,16 @@ model meta_ad_drafts {
   /// Meta custom audience ids the ad reaches / leaves out (20261125000000).
   audience_ids String[] @default([])
   excluded_audience_ids String[] @default([])
+  /// Phase 2 (20261125001000): 'image' | 'video' | 'carousel', placements, targeting search choices.
+  format String @default("image")
+  video_id String?
+  cards Json?
+  placements String[] @default([])
+  interests Json @default("[]")
+  places Json @default("[]")
+  locales Int[] @default([])
+  /// The draft this one is an A/B variant of (20261125002000).
+  variant_of String? @db.Uuid
   @@unique([account_id, id])
   @@index([account_id, created_at(sort: Desc)], map: "meta_ad_drafts_recent")
 }
@@ -3621,4 +3633,46 @@ model meta_audiences {
   created_at DateTime @db.Timestamptz(6) @default(now())
   updated_at DateTime @db.Timestamptz(6) @default(now())
   @@unique([account_id, id])
+}
+
+/// Automated ad rules (20261125002000): checked hourly against stored insights; pause through meta_ad_changes, or alert.
+model meta_ad_rules {
+  id String @db.Uuid @id @default(dbgenerated("gen_random_uuid()"))
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  name String
+  /// 'campaign' | 'adset' | 'ad'
+  level String
+  /// 'cost_per_result' | 'spend' | 'ctr' | 'cpm'
+  metric String
+  /// 'gt' | 'lt'
+  operator String
+  threshold Decimal @db.Decimal(18, 4)
+  window_days Int
+  min_spend Decimal @db.Decimal(18, 4) @default(0)
+  /// 'pause' | 'notify'
+  action String
+  enabled Boolean @default(true)
+  last_run_at DateTime? @db.Timestamptz(6)
+  created_by String @db.Uuid
+  created_at DateTime @db.Timestamptz(6) @default(now())
+  updated_at DateTime @db.Timestamptz(6) @default(now())
+  @@unique([account_id, id])
+}
+
+/// What ad rules did (20261125002000): at most once per rule, object and day.
+model meta_ad_rule_actions {
+  id String @db.Uuid @id @default(dbgenerated("gen_random_uuid()"))
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  rule_id String @db.Uuid
+  object_id String
+  object_name String?
+  /// 'pause' | 'notify'
+  action String
+  /// 'queued' | 'notified' | 'skipped'
+  outcome String
+  value Decimal? @db.Decimal(18, 4)
+  day DateTime @db.Date
+  created_at DateTime @db.Timestamptz(6) @default(now())
+  @@unique([rule_id, object_id, day])
+  @@index([account_id, created_at(sort: Desc)], map: "meta_ad_rule_actions_recent")
 }

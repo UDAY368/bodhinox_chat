@@ -271,9 +271,14 @@ export function CampaignsPanel({ canManage, adAccountId = null }: { canManage: b
         </td>
         <td className="px-3.5 py-3">
           <span className={cn('rounded-full px-2 py-0.5 text-xs font-medium',
-            o.effectiveStatus === 'ACTIVE' ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300' : 'bg-muted text-muted-foreground')}>
+            o.effectiveStatus === 'ACTIVE' ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
+              : o.effectiveStatus === 'DISAPPROVED' || o.effectiveStatus === 'WITH_ISSUES' ? 'bg-destructive/10 text-destructive'
+              : 'bg-muted text-muted-foreground')}>
             {o.effectiveStatus ?? o.status ?? '-'}
           </span>
+          {o.reviewFeedback && (
+            <p className="mt-1 max-w-64 text-xs text-destructive" data-testid="ad-review-feedback">{t('reviewReason', { reason: o.reviewFeedback })}</p>
+          )}
         </td>
         <td className="px-3.5 py-3 tabular-nums">{budgetCell(o)}</td>
         <td className="px-3.5 py-3 text-muted-foreground">{o.endTime ? new Date(o.endTime).toLocaleDateString() : '-'}</td>

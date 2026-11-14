@@ -29,6 +29,7 @@ import {
 } from './graph';
 
 import { AD_OBJECTS_SYNC_JOB } from './schedule';
+import { notifyAdsAlert } from '@/lib/notifications/emit';
 export { AD_OBJECTS_SYNC_JOB };
 export const AD_CHANGE_JOB = 'meta.ad_change';
 /** One send attempt, then reads only: a throttle or a crash is retried, never re-sent after Meta may have applied it. */
@@ -99,16 +100,19 @@ export async function handleAdObjectsSyncJob(accountId: string): Promise<void> {
     const live = await tx.$queryRaw<{ id: string }[]>`SELECT id::text AS id FROM meta_ad_connections
       WHERE account_id=${accountId}::uuid AND id=${connection.id}::uuid AND status='active' FOR UPDATE`;
     if (!live[0]) return;
+    // Ads Meta rejected since the last sync are alerted once (after the upsert below).
+    const wasRejected = new Set((await tx.$queryRaw<{ object_id: string }[]>`SELECT object_id FROM meta_ad_objects
+      WHERE account_id=${accountId}::uuid AND level='ad' AND effective_status='DISAPPROVED'`).map((r) => r.object_id));
     for (const { adAccountId, objects } of fetched) {
       for (let i = 0; i < objects.length; i += CHUNK) {
         const part = objects.slice(i, i + CHUNK);
         await tx.$executeRaw`
           INSERT INTO meta_ad_objects(account_id, connection_id, ad_account_id, level, object_id, campaign_id, adset_id, name, status,
             effective_status, objective, daily_budget_minor, lifetime_budget_minor, start_time, end_time, destination_type,
-            optimization_goal, thumbnail_url, image_url, creative_title, creative_body, cta_type, synced_at)
+            optimization_goal, thumbnail_url, image_url, creative_title, creative_body, cta_type, review_feedback, synced_at)
           SELECT ${accountId}::uuid, ${connection.id}::uuid, ${adAccountId}, r.level, r.object_id, r.campaign_id, r.adset_id, r.name,
             r.status, r.effective_status, r.objective, r.daily, r.lifetime, r.start_time, r.end_time, r.destination_type,
-            r.optimization_goal, r.thumbnail_url, r.image_url, r.creative_title, r.creative_body, r.cta_type, now()
+            r.optimization_goal, r.thumbnail_url, r.image_url, r.creative_title, r.creative_body, r.cta_type, r.review_feedback, now()
           FROM unnest(${part.map((o) => o.level)}::text[], ${part.map((o) => o.id)}::text[],
             ${part.map((o) => o.campaignId)}::text[], ${part.map((o) => o.adsetId)}::text[], ${part.map((o) => o.name)}::text[],
             ${part.map((o) => o.status)}::text[], ${part.map((o) => o.effectiveStatus)}::text[], ${part.map((o) => o.objective)}::text[],
@@ -117,9 +121,10 @@ export async function handleAdObjectsSyncJob(accountId: string): Promise<void> {
             ${part.map((o) => o.startTime)}::timestamptz[], ${part.map((o) => o.endTime)}::timestamptz[],
             ${part.map((o) => o.destinationType ?? null)}::text[], ${part.map((o) => o.optimizationGoal ?? null)}::text[],
             ${part.map((o) => o.thumbnailUrl ?? null)}::text[], ${part.map((o) => o.imageUrl ?? null)}::text[],
-            ${part.map((o) => o.creativeTitle ?? null)}::text[], ${part.map((o) => o.creativeBody ?? null)}::text[], ${part.map((o) => o.ctaType ?? null)}::text[])
+            ${part.map((o) => o.creativeTitle ?? null)}::text[], ${part.map((o) => o.creativeBody ?? null)}::text[], ${part.map((o) => o.ctaType ?? null)}::text[],
+            ${part.map((o) => o.reviewFeedback ?? null)}::text[])
             AS r(level, object_id, campaign_id, adset_id, name, status, effective_status, objective, daily, lifetime, start_time, end_time,
-              destination_type, optimization_goal, thumbnail_url, image_url, creative_title, creative_body, cta_type)
+              destination_type, optimization_goal, thumbnail_url, image_url, creative_title, creative_body, cta_type, review_feedback)
           ON CONFLICT (account_id, object_id) DO UPDATE SET
             connection_id=EXCLUDED.connection_id, ad_account_id=EXCLUDED.ad_account_id, level=EXCLUDED.level,
             campaign_id=EXCLUDED.campaign_id, adset_id=EXCLUDED.adset_id, name=EXCLUDED.name, status=EXCLUDED.status,
@@ -127,7 +132,8 @@ export async function handleAdObjectsSyncJob(accountId: string): Promise<void> {
             daily_budget_minor=EXCLUDED.daily_budget_minor, lifetime_budget_minor=EXCLUDED.lifetime_budget_minor,
             start_time=EXCLUDED.start_time, end_time=EXCLUDED.end_time, destination_type=EXCLUDED.destination_type,
             optimization_goal=EXCLUDED.optimization_goal, thumbnail_url=EXCLUDED.thumbnail_url, image_url=EXCLUDED.image_url,
-            creative_title=EXCLUDED.creative_title, creative_body=EXCLUDED.creative_body, cta_type=EXCLUDED.cta_type, synced_at=now()`;
+            creative_title=EXCLUDED.creative_title, creative_body=EXCLUDED.creative_body, cta_type=EXCLUDED.cta_type,
+            review_feedback=EXCLUDED.review_feedback, synced_at=now()`;
       }
       // This ad account's objects Meta no longer returns (deleted there) go.
       await tx.$executeRaw`DELETE FROM meta_ad_objects WHERE account_id=${accountId}::uuid AND ad_account_id=${adAccountId}
@@ -136,6 +142,15 @@ export async function handleAdObjectsSyncJob(accountId: string): Promise<void> {
     // Rows of an earlier connection, or of an ad account no longer linked, go.
     await tx.$executeRaw`DELETE FROM meta_ad_objects WHERE account_id=${accountId}::uuid
       AND (connection_id <> ${connection.id}::uuid OR ad_account_id IS NULL OR NOT (ad_account_id = ANY(${adAccounts}::text[])))`;
+    const newlyRejected = fetched.flatMap((f) => f.objects)
+      .filter((o) => o.level === 'ad' && o.effectiveStatus === 'DISAPPROVED' && !wasRejected.has(o.id)).slice(0, MAX_REJECTION_ALERTS);
+    for (const ad of newlyRejected) {
+      await notifyAdsAlert(tx, accountId, {
+        title: `Meta rejected the ad "${(ad.name ?? ad.id).slice(0, 120)}"`,
+        body: ad.reviewFeedback ? `Meta's reason: ${ad.reviewFeedback}` : 'Open Ads → Campaigns to see why, then fix it in Ads Manager.',
+        dedupeKey: `ad-rejected:${ad.id}:${new Date().toISOString().slice(0, 10)}`,
+      });
+    }
     if (fetched.length) {
       await tx.$executeRaw`UPDATE meta_ad_connections SET objects_synced_at=now(), updated_at=now()
         WHERE account_id=${accountId}::uuid AND id=${connection.id}::uuid`;
@@ -145,6 +160,8 @@ export async function handleAdObjectsSyncJob(accountId: string): Promise<void> {
 }
 
 const SYNC_BUCKET_MS = 5 * 60_000;
+/** At most this many rejection alerts per sync (a bulk rejection is one look at Ads → Campaigns away). */
+const MAX_REJECTION_ALERTS = 10;
 
 async function queueSyncTx(tx: TenantTransaction, accountId: string, dedupeKey: string): Promise<void> {
   await tx.$executeRaw`INSERT INTO jobs(type,tenant_id,payload,dedupe_key,max_attempts)
@@ -195,6 +212,8 @@ export interface AdObjectDto {
   creativeTitle: string | null;
   creativeBody: string | null;
   ctaType: string | null;
+  /** Ads: why Meta rejected or limited it. */
+  reviewFeedback: string | null;
 }
 
 export interface AdChangeDto {
@@ -264,12 +283,12 @@ export async function getAdManageView(actor: MetaAdsActor, adAccountId: string |
       lifetime_budget_minor: bigint | null; start_time: Date | null; end_time: Date | null;
       spend: Prisma.Decimal | null; conversations: bigint | null; leads: bigint | null; ad_account_id: string | null;
       destination_type: string | null; optimization_goal: string | null; thumbnail_url: string | null; image_url: string | null;
-      creative_title: string | null; creative_body: string | null; cta_type: string | null;
+      creative_title: string | null; creative_body: string | null; cta_type: string | null; review_feedback: string | null;
     }[]>`
       SELECT o.level, o.object_id, o.campaign_id, o.adset_id, o.name, o.status, o.effective_status, o.objective,
         o.daily_budget_minor, o.lifetime_budget_minor, o.start_time, o.end_time, i.spend, i.conversations, i.leads,
         o.ad_account_id, o.destination_type, o.optimization_goal, o.thumbnail_url, o.image_url, o.creative_title,
-        o.creative_body, o.cta_type
+        o.creative_body, o.cta_type, o.review_feedback
       FROM meta_ad_objects o
       LEFT JOIN (
         SELECT level, object_id, sum(spend) AS spend, sum(conversations_started) AS conversations, sum(leads) AS leads
@@ -296,7 +315,7 @@ export async function getAdManageView(actor: MetaAdsActor, adAccountId: string |
         spend: num(o.spend), conversationsStarted: num(o.conversations), leads: num(o.leads), adAccountId: o.ad_account_id,
         destinationType: o.destination_type, optimizationGoal: o.optimization_goal,
         thumbnailUrl: o.image_url ?? o.thumbnail_url, creativeTitle: o.creative_title, creativeBody: o.creative_body,
-        ctaType: o.cta_type,
+        ctaType: o.cta_type, reviewFeedback: o.review_feedback,
       })),
       changes: changes.map(changeDto),
       currency: accountCurrency ?? connection?.ad_account_currency ?? null,

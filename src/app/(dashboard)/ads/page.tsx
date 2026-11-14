@@ -22,6 +22,7 @@ import { AdsTable } from '@/components/ads/ads-table';
 import { AdsToolbar } from '@/components/ads/ads-toolbar';
 import { AdDrafts } from '@/components/ads/ad-drafts';
 import { AudiencesPanel } from '@/components/ads/audiences-panel';
+import { RulesPanel } from '@/components/ads/rules-panel';
 import { CampaignsPanel } from '@/components/ads/campaigns-panel';
 import { CreateAdDialog } from '@/components/ads/create-ad-dialog';
 import { LeadsTable } from '@/components/ads/leads-table';
@@ -156,6 +157,7 @@ export default function AdsPage() {
               <TabsTrigger value="ads">{t('tabs.ads')}</TabsTrigger>
               <TabsTrigger value="campaigns">{t('tabs.campaigns')}</TabsTrigger>
               <TabsTrigger value="audiences">{t('tabs.audiences')}</TabsTrigger>
+              <TabsTrigger value="rules">{t('tabs.rules')}</TabsTrigger>
               <TabsTrigger value="leads">{t('tabs.leads')}</TabsTrigger>
               <TabsTrigger value="conversions">{t('tabs.conversions')}</TabsTrigger>
             </TabsList>
@@ -171,6 +173,9 @@ export default function AdsPage() {
             </TabsContent>
             <TabsContent value="audiences" className="pt-4">
               <AudiencesPanel canManage={isAdmin && active && !!create?.manageEnabled} accounts={accounts} />
+            </TabsContent>
+            <TabsContent value="rules" className="pt-4">
+              <RulesPanel canManage={isAdmin && active} canPause={!!create?.manageEnabled} />
             </TabsContent>
             <TabsContent value="leads" className="pt-4">
               <LeadsTable canManage={isAdmin} />

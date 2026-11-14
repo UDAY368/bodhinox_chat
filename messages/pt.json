@@ -12260,7 +12260,8 @@
       "conversions": "Conversões",
       "campaigns": "Campanhas",
       "overview": "Visão geral",
-      "audiences": "Públicos"
+      "audiences": "Públicos",
+      "rules": "Regras"
     },
     "table": {
       "level": "Mostrar",
@@ -12471,7 +12472,8 @@
         "ON_AD": "Formulário instantâneo",
         "WEBSITE": "Site",
         "MESSAGING_INSTAGRAM_DIRECT_MESSENGER_WHATSAPP": "Apps de mensagens"
-      }
+      },
+      "reviewReason": "Meta: {reason}"
     },
     "openAdsManager": "Abrir o Gerenciador de Anúncios",
     "createAd": "Criar anúncio",
@@ -12645,7 +12647,62 @@
       "audiencesInclude": "Alcançar pessoas em",
       "audiencesExclude": "Excluir pessoas em",
       "audiencesHelp": "Os públicos vêm de Anúncios → Públicos. Excluir clientes atuais evita pagar para alcançá-los de novo.",
-      "audiencesReview": "Públicos"
+      "audiencesReview": "Públicos",
+      "video": "Vídeo",
+      "uploadVideo": "Enviar vídeo",
+      "videoUploading": "Enviando…",
+      "videoRules": "MP4 ou MOV, até 30 MB. A Meta processa antes de criar o anúncio.",
+      "thumbnail": "Miniatura",
+      "format": {
+        "title": "Formato",
+        "image": "Imagem única",
+        "video": "Vídeo",
+        "carousel": "Carrossel"
+      },
+      "cards": {
+        "title": "Carrossel · {count} cartões",
+        "card": "Cartão {n}",
+        "remove": "Remover cartão {n}",
+        "headline": "Título do cartão {n}",
+        "description": "Descrição do cartão {n}",
+        "link": "Link do cartão {n}",
+        "linkPlaceholder": "https:// (opcional; senão, o link do anúncio)",
+        "add": "Adicionar cartão",
+        "help": "De dois a dez cartões. As pessoas deslizam entre eles; imagens quadradas funcionam melhor."
+      },
+      "placements": {
+        "title": "Posicionamentos",
+        "automatic": "Automáticos",
+        "facebook": "Facebook",
+        "instagram": "Instagram",
+        "messenger": "Messenger",
+        "audience_network": "Audience Network",
+        "whatsapp_status": "Status do WhatsApp",
+        "automaticHelp": "A Meta mostra o anúncio onde ele tem melhor desempenho (recomendado).",
+        "manualHelp": "O anúncio aparece só onde você escolheu. Messenger e Audience Network também usam o Facebook.",
+        "statusHelp": "O Status do WhatsApp também precisa dos Stories do Instagram, então o Bodhinox os adiciona. Não roda na UE nem no Reino Unido."
+      },
+      "targeting": {
+        "places": "Cidades e regiões",
+        "placesHelp": "Opcional. Um país com alguma de suas cidades ou regiões escolhidas fica limitado a esses lugares.",
+        "interests": "Interesses",
+        "interestsHelp": "Opcional. Pessoas interessadas em qualquer um destes.",
+        "languages": "Idiomas",
+        "remove": "Remover {name}",
+        "full": "Até {max}",
+        "failed": "A busca não funcionou. Tente de novo.",
+        "none": "Nada encontrado.",
+        "placeholder": {
+          "interest": "Busque interesses, ex.: ioga",
+          "place": "Busque uma cidade ou região",
+          "locale": "Busque um idioma"
+        },
+        "kinds": {
+          "region": "Região",
+          "city": "Cidade"
+        },
+        "size": "{size} pessoas"
+      }
     },
     "drafts": {
       "title": "Anúncios criados no Bodhinox",
@@ -12680,7 +12737,11 @@
       "openInAdsManager": "Gerenciador de Anúncios",
       "recheck": "Verificar de novo",
       "discard": "Descartar",
-      "unknownHelp": "A resposta da Meta não foi clara, então o Bodhinox não tentou de novo (isso poderia duplicar). Verifique de novo, ou confira no Gerenciador de Anúncios e descarte."
+      "unknownHelp": "A resposta da Meta não foi clara, então o Bodhinox não tentou de novo (isso poderia duplicar). Verifique de novo, ou confira no Gerenciador de Anúncios e descarte.",
+      "duplicate": "Duplicar",
+      "duplicated": "Cópia na fila (pausada).",
+      "variant": "Variante A/B",
+      "variantBadge": "Variante"
     },
     "accounts": {
       "title": "Contas de anúncios",
@@ -12760,6 +12821,82 @@
       "autoSyncHelp": "Manter sincronizado a cada 6 horas",
       "cancel": "Cancelar",
       "create": "Criar público"
+    },
+    "variant": {
+      "title": "Nova variante A/B",
+      "description": "Um segundo anúncio com outra imagem e texto no conjunto de anúncios de “{name}”. A Meta divide o orçamento e favorece o melhor.",
+      "name": "Nome",
+      "primaryText": "Texto principal",
+      "headline": "Título (opcional)",
+      "image": "Imagem",
+      "uploadImage": "Enviar imagem",
+      "replaceImage": "Trocar imagem",
+      "imageRules": "JPG ou PNG, até 8 MB.",
+      "help": "Mude uma coisa por vez (a imagem ou o texto) para saber o que funciona.",
+      "created": "Variante na fila.",
+      "failed": "Não deu certo. Tente de novo.",
+      "cancel": "Cancelar",
+      "create": "Criar variante"
+    },
+    "rules": {
+      "title": "Regras automáticas",
+      "description": "Verificadas a cada hora com os resultados dos seus anúncios. Cada anúncio é afetado no máximo uma vez por dia por regra.",
+      "new": "Nova regra",
+      "emptyTitle": "Ainda não há regras",
+      "emptyBody": "Por exemplo: pausar qualquer conjunto de anúncios cujo custo por resultado passe de 200 nos últimos 3 dias.",
+      "sentence": "{action} qualquer {level} ativo quando {metric} estiver {operator} {threshold} {days, plural, one {no último dia} other {nos últimos # dias}}.",
+      "minSpendSentence": "Só depois de gastar {amount}.",
+      "lastChecked": "Verificada {at}",
+      "enabled": "Ligar ou desligar {name}",
+      "delete": "Excluir {name}",
+      "on": "Ligada",
+      "off": "Desligada",
+      "recent": "O que as regras fizeram recentemente",
+      "failed": "Não deu certo. Tente de novo.",
+      "created": "Regra criada.",
+      "limitReached": "Você atingiu o limite de 20 regras.",
+      "pauseNeedsManage": "Pausar exige que o gerenciamento de anúncios esteja ativado.",
+      "help": "As regras leem os resultados que o Bodhinox já guarda, então nunca gastam dinheiro. Os alertas seguem sua configuração de “Avisos de automação”.",
+      "actions": {
+        "pause": "Pausar",
+        "notify": "Me avisar sobre"
+      },
+      "levels": {
+        "campaign": "campanha",
+        "adset": "conjunto de anúncios",
+        "ad": "anúncio"
+      },
+      "metrics": {
+        "cost_per_result": "o custo por resultado",
+        "spend": "o valor gasto",
+        "ctr": "a CTR",
+        "cpm": "o custo por 1.000 impressões"
+      },
+      "operators": {
+        "gt": "acima de",
+        "lt": "abaixo de"
+      },
+      "outcomes": {
+        "queued": "Pausando",
+        "notified": "Avisado",
+        "skipped": "Não foi possível pausar"
+      },
+      "newTitle": "Nova regra",
+      "newDescription": "Escolha o que observar e o que fazer.",
+      "name": "Nome",
+      "namePlaceholder": "Parar conjuntos caros",
+      "then": "Então",
+      "anyActive": "Qualquer ativo",
+      "when": "Quando",
+      "is": "Estiver",
+      "percent": "Percentual",
+      "amount": "Valor",
+      "over": "Em",
+      "days": "{days, plural, one {último dia} other {últimos # dias}}",
+      "minSpend": "Depois de gastar pelo menos",
+      "currencyHelp": "Os valores estão na moeda de cada conta de anúncios.",
+      "cancel": "Cancelar",
+      "create": "Criar regra"
     }
   },
   "Appointments": {

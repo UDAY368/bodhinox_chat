@@ -15,6 +15,7 @@ export const META_ADS_JOB_TYPES = [
   'meta.ad_change',
   'meta.ad_create',
   'meta.audience_sync',
+  'meta.ad_rules',
 ] as const;
 export type MetaAdsJobType = (typeof META_ADS_JOB_TYPES)[number];
 
@@ -61,6 +62,8 @@ export async function handleMetaAdsJob(accountId: string, type: string, payload:
       return (await import('./manage')).handleAdChangeJob(accountId, payload, attempt);
     case 'meta.ad_create':
       return (await import('./create')).handleAdCreateJob(accountId, payload, attempt);
+    case 'meta.ad_rules':
+      return (await import('./rules')).handleAdRulesJob(accountId);
     case 'meta.audience_sync':
       return (await import('./audiences')).handleAudienceSyncJob(accountId, payload, attempt);
     default:

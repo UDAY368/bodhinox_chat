@@ -18756,6 +18756,14 @@
         "default": null,
         "reference": null,
         "definition": "cta_type text CHECK (char_length(cta_type) <= 64)"
+      },
+      {
+        "name": "review_feedback",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "review_feedback text"
       }
     ],
     "meta_ad_changes": [
@@ -20280,6 +20288,74 @@
         "default": "'{}'",
         "reference": null,
         "definition": "excluded_audience_ids text[] NOT NULL DEFAULT '{}'"
+      },
+      {
+        "name": "format",
+        "type": "text",
+        "nullable": false,
+        "default": "'image'",
+        "reference": null,
+        "definition": "format text NOT NULL DEFAULT 'image'"
+      },
+      {
+        "name": "video_id",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "video_id text"
+      },
+      {
+        "name": "cards",
+        "type": "jsonb",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "cards jsonb"
+      },
+      {
+        "name": "placements",
+        "type": "text[]",
+        "nullable": false,
+        "default": "'{}'",
+        "reference": null,
+        "definition": "placements text[] NOT NULL DEFAULT '{}'"
+      },
+      {
+        "name": "interests",
+        "type": "jsonb",
+        "nullable": false,
+        "default": "'[]'",
+        "reference": null,
+        "definition": "interests jsonb NOT NULL DEFAULT '[]'"
+      },
+      {
+        "name": "places",
+        "type": "jsonb",
+        "nullable": false,
+        "default": "'[]'",
+        "reference": null,
+        "definition": "places jsonb NOT NULL DEFAULT '[]'"
+      },
+      {
+        "name": "locales",
+        "type": "int[]",
+        "nullable": false,
+        "default": "'{}'",
+        "reference": null,
+        "definition": "locales int[] NOT NULL DEFAULT '{}'"
+      },
+      {
+        "name": "variant_of",
+        "type": "uuid",
+        "nullable": true,
+        "default": null,
+        "reference": {
+          "table": "meta_ad_drafts",
+          "column": "id",
+          "onDelete": "SET NULL"
+        },
+        "definition": "variant_of uuid"
       }
     ],
     "meta_audiences": [
@@ -20462,6 +20538,222 @@
         "default": "now()",
         "reference": null,
         "definition": "updated_at timestamptz NOT NULL DEFAULT now()"
+      }
+    ],
+    "meta_ad_rules": [
+      {
+        "name": "id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "gen_random_uuid()",
+        "reference": null,
+        "definition": "id uuid PRIMARY KEY DEFAULT gen_random_uuid()"
+      },
+      {
+        "name": "account_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "NULLIF(current_setting('app.account_id', true),'')::uuid ",
+        "reference": {
+          "table": "accounts",
+          "column": "id",
+          "onDelete": "CASCADE"
+        },
+        "definition": "account_id uuid NOT NULL DEFAULT NULLIF(current_setting('app.account_id', true),'')::uuid"
+      },
+      {
+        "name": "name",
+        "type": "text",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "name text NOT NULL CHECK (char_length(name) BETWEEN 1 AND 120)"
+      },
+      {
+        "name": "level",
+        "type": "text",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "level text NOT NULL CHECK (level IN ('campaign','adset','ad'))"
+      },
+      {
+        "name": "metric",
+        "type": "text",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "metric text NOT NULL CHECK (metric IN ('cost_per_result','spend','ctr','cpm'))"
+      },
+      {
+        "name": "operator",
+        "type": "text",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "operator text NOT NULL CHECK (operator IN ('gt','lt'))"
+      },
+      {
+        "name": "threshold",
+        "type": "numeric(18,4)",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "threshold numeric(18,4) NOT NULL CHECK (threshold >= 0 AND threshold < 1000000000000)"
+      },
+      {
+        "name": "window_days",
+        "type": "int",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "window_days int NOT NULL CHECK (window_days IN (1,3,7))"
+      },
+      {
+        "name": "min_spend",
+        "type": "numeric(18,4)",
+        "nullable": false,
+        "default": "0",
+        "reference": null,
+        "definition": "min_spend numeric(18,4) NOT NULL DEFAULT 0 CHECK (min_spend >= 0 AND min_spend < 1000000000000)"
+      },
+      {
+        "name": "action",
+        "type": "text",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "action text NOT NULL CHECK (action IN ('pause','notify'))"
+      },
+      {
+        "name": "enabled",
+        "type": "boolean",
+        "nullable": false,
+        "default": "true",
+        "reference": null,
+        "definition": "enabled boolean NOT NULL DEFAULT true"
+      },
+      {
+        "name": "last_run_at",
+        "type": "timestamptz",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "last_run_at timestamptz"
+      },
+      {
+        "name": "created_by",
+        "type": "uuid",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "created_by uuid NOT NULL"
+      },
+      {
+        "name": "created_at",
+        "type": "timestamptz",
+        "nullable": false,
+        "default": "now()",
+        "reference": null,
+        "definition": "created_at timestamptz NOT NULL DEFAULT now()"
+      },
+      {
+        "name": "updated_at",
+        "type": "timestamptz",
+        "nullable": false,
+        "default": "now()",
+        "reference": null,
+        "definition": "updated_at timestamptz NOT NULL DEFAULT now()"
+      }
+    ],
+    "meta_ad_rule_actions": [
+      {
+        "name": "id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "gen_random_uuid()",
+        "reference": null,
+        "definition": "id uuid PRIMARY KEY DEFAULT gen_random_uuid()"
+      },
+      {
+        "name": "account_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "NULLIF(current_setting('app.account_id', true),'')::uuid ",
+        "reference": {
+          "table": "accounts",
+          "column": "id",
+          "onDelete": "CASCADE"
+        },
+        "definition": "account_id uuid NOT NULL DEFAULT NULLIF(current_setting('app.account_id', true),'')::uuid"
+      },
+      {
+        "name": "rule_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": null,
+        "reference": {
+          "table": "meta_ad_rules",
+          "column": "id",
+          "onDelete": "CASCADE"
+        },
+        "definition": "rule_id uuid NOT NULL"
+      },
+      {
+        "name": "object_id",
+        "type": "text",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "object_id text NOT NULL CHECK (object_id ~ '^\\d{1,32}$')"
+      },
+      {
+        "name": "object_name",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "object_name text CHECK (char_length(object_name) <= 400)"
+      },
+      {
+        "name": "action",
+        "type": "text",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "action text NOT NULL CHECK (action IN ('pause','notify'))"
+      },
+      {
+        "name": "outcome",
+        "type": "text",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "outcome text NOT NULL CHECK (outcome IN ('queued','notified','skipped'))"
+      },
+      {
+        "name": "value",
+        "type": "numeric(18,4)",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "value numeric(18,4)"
+      },
+      {
+        "name": "day",
+        "type": "date",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "day date NOT NULL"
+      },
+      {
+        "name": "created_at",
+        "type": "timestamptz",
+        "nullable": false,
+        "default": "now()",
+        "reference": null,
+        "definition": "created_at timestamptz NOT NULL DEFAULT now()"
       }
     ]
   }

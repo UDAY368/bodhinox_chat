@@ -4,9 +4,11 @@
 // with their progress (campaign -> ad set -> creative -> ad). It refreshes
 // while one is still being made. An 'unknown' one (Meta's answer was unclear)
 // can be re-checked (a read at Meta) or discarded; a failed one discarded.
+// A created one can be duplicated (a paused copy) or get an A/B variant (a
+// second ad in its ad set).
 
 import { useCallback, useEffect, useState } from 'react';
-import { ExternalLink, Loader2 } from 'lucide-react';
+import { Copy, ExternalLink, FlaskConical, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
@@ -14,6 +16,7 @@ import { authFetch } from '@/lib/auth/client';
 import { cn } from '@/lib/utils';
 import type { AdDraftDto } from '@/lib/meta-ads/create';
 import { formatMoneyValue } from './ads-shared';
+import { AdVariantDialog } from './ad-variant-dialog';
 import { isCurrencyCode, formatMoney } from '@/lib/commerce/money';
 
 const POLL_MS = 5_000;
@@ -23,6 +26,7 @@ export function AdDrafts({ canManage, refreshKey }: { canManage: boolean; refres
   const t = useTranslations('Ads.drafts');
   const [drafts, setDrafts] = useState<AdDraftDto[] | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  const [variantOf, setVariantOf] = useState<AdDraftDto | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -47,7 +51,7 @@ export function AdDrafts({ canManage, refreshKey }: { canManage: boolean; refres
     return () => clearInterval(timer);
   }, [running, load]);
 
-  const act = async (draft: AdDraftDto, action: 'recheck' | 'discard') => {
+  const act = async (draft: AdDraftDto, action: 'recheck' | 'discard' | 'duplicate') => {
     setBusy(draft.id);
     try {
       const res = await authFetch('/api/meta-ads/drafts', {
@@ -55,6 +59,11 @@ export function AdDrafts({ canManage, refreshKey }: { canManage: boolean; refres
       });
       if (!res.ok) throw new Error();
       const next = ((await res.json()) as { draft: AdDraftDto }).draft;
+      if (action === 'duplicate') {
+        setDrafts((list) => [next, ...(list ?? [])]);
+        toast.success(t('duplicated'));
+        return;
+      }
       setDrafts((list) => list?.map((d) => (d.id === next.id ? next : d)) ?? null);
       if (action === 'recheck') toast.message(next.status === 'unknown' ? t('stillUnknown') : t('found'));
     } catch {
@@ -79,7 +88,10 @@ export function AdDrafts({ canManage, refreshKey }: { canManage: boolean; refres
               ? <img src={d.imageUrl} alt="" className="size-10 shrink-0 rounded-md border border-border object-cover" referrerPolicy="no-referrer" />
               : <span className="size-10 shrink-0 rounded-md bg-muted" aria-hidden />}
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium text-foreground">{d.name}</p>
+              <p className="truncate text-sm font-medium text-foreground">
+                {d.name}
+                {d.variantOf && <span className="ml-1.5 rounded bg-violet-500/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-violet-700 dark:text-violet-300">{t('variantBadge')}</span>}
+              </p>
               <p className="text-xs text-muted-foreground">
                 {t(`kinds.${d.kind}`)} · {t('perDay', { amount: budget(d) })} · {new Date(d.createdAt).toLocaleString()}
               </p>
@@ -101,6 +113,18 @@ export function AdDrafts({ canManage, refreshKey }: { canManage: boolean; refres
                 {t('openInAdsManager')} <ExternalLink className="size-3" />
               </a>
             )}
+            {canManage && d.status === 'created' && (
+              <>
+                <Button type="button" size="sm" variant="outline" disabled={busy === d.id} onClick={() => void act(d, 'duplicate')}>
+                  <Copy className="size-3.5" /> {t('duplicate')}
+                </Button>
+                {d.adsetId && (
+                  <Button type="button" size="sm" variant="outline" onClick={() => setVariantOf(d)}>
+                    <FlaskConical className="size-3.5" /> {t('variant')}
+                  </Button>
+                )}
+              </>
+            )}
             {canManage && d.status === 'unknown' && (
               <Button type="button" size="sm" variant="outline" disabled={busy === d.id} onClick={() => void act(d, 'recheck')}>{t('recheck')}</Button>
             )}
@@ -111,6 +135,10 @@ export function AdDrafts({ canManage, refreshKey }: { canManage: boolean; refres
         ))}
       </ul>
       {drafts.some((d) => d.status === 'unknown') && <p className="mt-2 text-xs text-muted-foreground">{t('unknownHelp')}</p>}
+      {variantOf && (
+        <AdVariantDialog source={variantOf} onClose={() => setVariantOf(null)}
+          onCreated={(draft) => { setDrafts((list) => [draft, ...(list ?? [])]); setVariantOf(null); }} />
+      )}
     </section>
   );
 }

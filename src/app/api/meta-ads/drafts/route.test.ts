@@ -23,6 +23,8 @@ vi.mock('@/lib/meta-ads/create', async (original) => ({
     h.calls.push(['recheck', ...args]);
     throw new (await import('@/lib/meta-ads/connection')).MetaAdsError('not_found');
   },
+  duplicateAdDraft: async (...args: unknown[]) => { h.calls.push(['duplicate', args[1]]); return { id: 'd3' }; },
+  requestAdVariant: async (...args: unknown[]) => { h.calls.push(['variant', args[1]]); return { id: 'd4' }; },
   discardAdDraft: async (...args: unknown[]) => {
     h.calls.push(['discard', ...args]);
     return { id: args[1], status: 'discarded' };
@@ -78,4 +80,13 @@ it('routes re-check and discard by id; a malformed id never reaches the library'
   const res = await post({ action: 'discard', id: ID });
   expect(await res.json()).toEqual({ draft: { id: ID, status: 'discarded' } });
   expect(h.calls.map((c) => c[0])).toEqual(['recheck', 'discard']);
+});
+
+it('queues a duplicate or an A/B variant (202), validating the source first', async () => {
+  expect((await post({ action: 'duplicate', id: 'x' })).status).toBe(400);
+  expect((await post({ action: 'variant', sourceId: ID, primaryText: '', imageHash: 'abcdef0123456789abcdef0123456789' })).status).toBe(400);
+  expect((await post({ action: 'duplicate', id: ID })).status).toBe(202);
+  expect((await post({ action: 'variant', sourceId: ID, primaryText: 'B', imageHash: 'abcdef0123456789abcdef0123456789' })).status).toBe(202);
+  expect(h.calls.map((c) => c[0])).toEqual(['duplicate', 'variant']);
+  expect(h.calls[1][1]).toMatchObject({ sourceId: ID, primaryText: 'B', name: null });
 });
