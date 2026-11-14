@@ -38,7 +38,7 @@ it('reads one object of the caller workspace for any member', async () => {
 });
 
 it('rejects a bad level or a non-numeric id without reading', async () => {
-  expect((await get('?level=adset&id=1')).status).toBe(400);
+  expect((await get('?level=account&id=1')).status).toBe(400);
   expect((await get("?level=ad&id=1'or'1")).status).toBe(400);
   expect((await get('?level=campaign')).status).toBe(400);
   expect(h.calls).toEqual([]);

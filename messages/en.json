@@ -12256,7 +12256,8 @@
       "ads": "Ads",
       "leads": "Leads",
       "conversions": "Conversions",
-      "campaigns": "Campaigns"
+      "campaigns": "Campaigns",
+      "overview": "Overview"
     },
     "table": {
       "level": "Show",
@@ -12280,7 +12281,19 @@
       "to": "To",
       "syncFailed": "Could not queue a sync. Try again.",
       "retargetSaved": "Segment saved. Choose it as the audience of a broadcast.",
-      "openDetails": "Open details for {name}"
+      "openDetails": "Open details for {name}",
+      "adset": "Ad set",
+      "levelAdset": "Ad sets",
+      "reach": "Reach",
+      "ctr": "CTR",
+      "results": "Results",
+      "costPerResult": "Cost per result",
+      "resultKinds": {
+        "conversations": "conversations",
+        "leads": "leads",
+        "link_clicks": "link clicks",
+        "purchases": "purchases"
+      }
     },
     "leads": {
       "empty": "No leads yet.",
@@ -12447,7 +12460,237 @@
       "failed": "That did not work. Try again.",
       "invalidValue": "Enter a valid value.",
       "sent": "Sent to Meta.",
-      "capSaved": "Budget cap saved."
+      "capSaved": "Budget cap saved.",
+      "destinations": {
+        "WHATSAPP": "WhatsApp",
+        "INSTAGRAM_DIRECT": "Instagram Direct",
+        "MESSENGER": "Messenger",
+        "ON_AD": "Instant form",
+        "WEBSITE": "Website",
+        "MESSAGING_INSTAGRAM_DIRECT_MESSENGER_WHATSAPP": "Messaging apps"
+      }
+    },
+    "openAdsManager": "Open Ads Manager",
+    "createAd": "Create ad",
+    "createNeedsScopes": "To create ads from Bodhinox, reconnect in Settings > Ads and allow: {scopes}.",
+    "toolbar": {
+      "account": "Ad account",
+      "allAccounts": "All ad accounts",
+      "range": "Date range",
+      "presets": {
+        "last_7d": "Last 7 days",
+        "last_30d": "Last 30 days",
+        "last_90d": "Last 90 days",
+        "custom": "Custom"
+      },
+      "from": "From",
+      "to": "To"
+    },
+    "overview": {
+      "loading": "Loading the overview",
+      "spend": "Amount spent",
+      "reach": "Reach",
+      "reachHint": "Shown for the last 7, 30 or 90 days",
+      "frequency": "Frequency {value}",
+      "impressions": "Impressions",
+      "ctr": "Click-through rate",
+      "clicks": "{count, plural, =1 {# click} other {# clicks}}",
+      "conversations": "Conversations started",
+      "inBodhinox": "{count, plural, =1 {# chat seen in Bodhinox} other {# chats seen in Bodhinox}}",
+      "costPerConversation": "Cost per conversation",
+      "leads": "Leads",
+      "costPer": "{value} per lead",
+      "linkClicks": "Link clicks",
+      "cpm": "CPM {value}",
+      "empty": "No ad results yet for this range. Figures appear after the hourly sync once your ads have run.",
+      "trend": "Daily trend",
+      "metric": "Chart metric",
+      "metrics": {
+        "spend": "Spend",
+        "conversationsStarted": "Conversations",
+        "leads": "Leads",
+        "linkClicks": "Link clicks",
+        "impressions": "Impressions"
+      },
+      "trendLabel": "{metric} per day, {total} in total",
+      "platforms": "Where your ads ran",
+      "platformsHint": "Share of impressions by platform",
+      "noPlatforms": "No platform split yet.",
+      "platform": "Platform",
+      "results": "Results",
+      "topCampaigns": "Top campaigns by spend",
+      "noCampaigns": "No campaign spend in this range.",
+      "campaignResults": "{results, plural, =1 {# result} other {# results}} · {cost} each",
+      "syncedAt": "Updated {time}",
+      "neverSynced": "Not synced yet"
+    },
+    "platforms": {
+      "facebook": "Facebook",
+      "instagram": "Instagram",
+      "messenger": "Messenger",
+      "whatsapp": "WhatsApp",
+      "audience_network": "Audience Network",
+      "threads": "Threads",
+      "unknown": "Other"
+    },
+    "create": {
+      "title": "Create an ad",
+      "description": "Make a new ad on Meta from Bodhinox.",
+      "descriptionPage": "Make a new ad that runs from your Page {page}.",
+      "progress": "Steps",
+      "steps": {
+        "goal": "Goal",
+        "audience": "Audience & budget",
+        "ad": "Ad",
+        "review": "Review"
+      },
+      "goal": "Goal",
+      "kinds": {
+        "whatsapp": {
+          "title": "WhatsApp chats",
+          "body": "People tap the ad and start a WhatsApp chat with you."
+        },
+        "instagram_direct": {
+          "title": "Instagram messages",
+          "body": "People tap the ad and message you on Instagram Direct."
+        },
+        "lead_form": {
+          "title": "Leads",
+          "body": "People fill in an instant form without leaving Facebook or Instagram."
+        },
+        "website": {
+          "title": "Website visits",
+          "body": "People tap the ad and go to your website."
+        }
+      },
+      "adAccount": "Ad account",
+      "instagramNote": "Your Facebook Page needs an Instagram professional account linked to it.",
+      "whatsappNote": "Your Facebook Page needs your WhatsApp Business number linked to it (Page settings > Linked accounts).",
+      "name": "Name",
+      "namePlaceholder": "Diwali offer – WhatsApp",
+      "dailyBudget": "Daily budget ({currency})",
+      "budgetInvalid": "Enter an amount above 0.",
+      "gender": "Gender",
+      "genders": {
+        "all": "Everyone",
+        "men": "Men",
+        "women": "Women"
+      },
+      "start": "Starts",
+      "end": "Ends (optional)",
+      "endHint": "At least one day after the start. Leave empty to run until you pause it.",
+      "ageMin": "Minimum age",
+      "ageMax": "Maximum age",
+      "countries": "Countries",
+      "removeCountry": "Remove {country}",
+      "countryPlaceholder": "Code, e.g. IN",
+      "primaryText": "Primary text",
+      "primaryTextPlaceholder": "What should people know? Keep it short and clear.",
+      "headline": "Headline (optional)",
+      "descriptionField": "Description (optional)",
+      "linkUrl": "Website address",
+      "leadForm": "Instant form",
+      "loadingForms": "Loading forms…",
+      "chooseForm": "Choose a form",
+      "noForms": "No instant forms found. Create one on your Page in Meta first.",
+      "cta": "Button",
+      "whatsappNumber": "WhatsApp number (optional)",
+      "whatsappNumberHint": "With country code. Leave empty to use the number linked to your Page.",
+      "welcome": "Message people start with (optional)",
+      "welcomePlaceholder": "Hi! I would like to know more.",
+      "image": "Image",
+      "replaceImage": "Replace image",
+      "uploadImage": "Upload image",
+      "imageAlt": "The ad image",
+      "imageRules": "JPG or PNG, up to 8 MB. Square images work best.",
+      "dailyBudgetPlain": "Daily budget",
+      "schedule": "Schedule",
+      "noEnd": "no end date",
+      "audience": "Audience",
+      "reviewNote": "“Publish” sends the ad to Meta for review and it runs once approved, spending up to the daily budget. “Create paused” makes it without spending; turn it on later in Campaigns.",
+      "back": "Back",
+      "next": "Next",
+      "createPaused": "Create paused",
+      "publish": "Publish",
+      "publishedToast": "Your ad is being created and sent for review.",
+      "createdToast": "Your ad is being created (paused).",
+      "errors": {
+        "invalid_request": "Check the details and try again.",
+        "invalid_choice": "Choose a linked ad account.",
+        "missing_scope": "Reconnect in Settings > Ads to allow creating ads.",
+        "over_budget_cap": "The daily budget is above your workspace’s limit.",
+        "token_invalid": "The Facebook connection expired. Reconnect in Settings > Ads.",
+        "manage_not_enabled": "Creating ads is not turned on yet.",
+        "not_connected": "Connect Meta ads in Settings > Ads first.",
+        "rate_limited": "Too many tries. Wait a minute and try again.",
+        "meta_error": "Meta did not accept this. Try again in a moment.",
+        "generic": "Something went wrong. Try again."
+      },
+      "ctas": {
+        "SIGN_UP": "Sign up",
+        "LEARN_MORE": "Learn more",
+        "APPLY_NOW": "Apply now",
+        "GET_QUOTE": "Get quote",
+        "SUBSCRIBE": "Subscribe",
+        "DOWNLOAD": "Download",
+        "SHOP_NOW": "Shop now",
+        "BOOK_TRAVEL": "Book now",
+        "CONTACT_US": "Contact us",
+        "ORDER_NOW": "Order now",
+        "GET_OFFER": "Get offer"
+      }
+    },
+    "drafts": {
+      "title": "Ads created in Bodhinox",
+      "stillUnknown": "Still not found at Meta.",
+      "found": "Found it at Meta.",
+      "actionFailed": "That did not work. Try again.",
+      "kinds": {
+        "whatsapp": "WhatsApp chats",
+        "instagram_direct": "Instagram messages",
+        "lead_form": "Leads",
+        "website": "Website visits"
+      },
+      "perDay": "{amount} a day",
+      "making": "Creating: {step}",
+      "steps": {
+        "campaign": "campaign",
+        "adset": "ad set",
+        "creative": "creative",
+        "ad": "ad",
+        "done": "done"
+      },
+      "createdLive": "Created · in review",
+      "createdPaused": "Created · paused",
+      "failed": "Failed ({code})",
+      "status": {
+        "queued": "Queued",
+        "created": "Created",
+        "failed": "Failed",
+        "unknown": "Needs a check",
+        "discarded": "Discarded"
+      },
+      "openInAdsManager": "Ads Manager",
+      "recheck": "Re-check",
+      "discard": "Discard",
+      "unknownHelp": "Meta’s answer was unclear, so Bodhinox did not try again (that could make a duplicate). Re-check, or look in Ads Manager and discard it."
+    },
+    "accounts": {
+      "title": "Ad accounts",
+      "description": "Reports and the campaign list cover these ad accounts. The first one comes from connecting.",
+      "loadFailed": "Could not load your ad accounts.",
+      "added": "Ad account added. Its figures appear after the next sync.",
+      "removed": "Ad account removed.",
+      "changeFailed": "That did not work. Try again.",
+      "syncError": "last sync failed ({code})",
+      "synced": "synced {time}",
+      "primary": "Primary",
+      "remove": "Remove {name}",
+      "add": "Add an ad account",
+      "noneAvailable": "This Facebook login cannot see any other ad accounts.",
+      "choose": "Ad account to add",
+      "addThis": "Add",
+      "cancel": "Cancel"
     }
   },
   "Appointments": {
@@ -14819,7 +15062,13 @@
       "loading": "Loading daily figures…",
       "chartLabel": "{metric} per day for the last 14 days, {total} in total",
       "total": "Total {total}",
-      "openInAdsManager": "Open in Ads Manager"
+      "openInAdsManager": "Open in Ads Manager",
+      "adset": "Ad set",
+      "results": "Results",
+      "costPerResult": "Cost per result",
+      "ctr": "CTR",
+      "leads": "Leads",
+      "creativeAlt": "The ad’s image"
     }
   },
   "Sales": {

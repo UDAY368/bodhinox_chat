@@ -11,13 +11,19 @@
 // is a plain fetch elsewhere. Every id placed in a path is checked first.
 import { leaseFetch } from '@/lib/jobs/lease';
 import {
-  META_API_VERSION,
+
   MetaApiError,
   readMetaError,
 } from '@/lib/whatsapp/meta-api';
 import type { MetaAdsConfig } from './config';
 
-export const GRAPH_BASE = `https://graph.facebook.com/${META_API_VERSION}`;
+/**
+ * The Marketing API refuses retired versions (error 2635) instead of upgrading
+ * them, so ads calls pin a current version of their own (v27.0, Nov 2026; v25
+ * is the oldest still served). WhatsApp calls keep META_API_VERSION.
+ */
+export const META_ADS_API_VERSION = 'v27.0';
+export const GRAPH_BASE = `https://graph.facebook.com/${META_ADS_API_VERSION}`;
 const TIMEOUT_MS = 15_000;
 /** Upper bound on followed result pages per call, so a runaway cursor cannot loop. */
 const MAX_PAGES = 20;
@@ -302,11 +308,32 @@ export async function listCampaigns(adAccountId: string, userToken: string): Pro
 }
 
 export const CONVERSATION_STARTED_ACTION = 'onsite_conversion.messaging_conversation_started_7d';
+/**
+ * Action types that count as a lead or a purchase, most specific first. Meta
+ * reports overlapping types (lead_grouped includes lead), so the first present
+ * one is taken, never their sum.
+ */
+const LEAD_ACTIONS = ['onsite_conversion.lead_grouped', 'lead', 'offsite_conversion.fb_pixel_lead'];
+const PURCHASE_ACTIONS = ['omni_purchase', 'purchase', 'offsite_conversion.fb_pixel_purchase', 'onsite_conversion.purchase'];
+
+type Action = { action_type?: unknown; value?: unknown };
+const actionsOf = (row: Record<string, unknown>): Action[] => (Array.isArray(row.actions) ? (row.actions as Action[]) : []);
+const actionCount = (actions: Action[], types: readonly string[]): number => {
+  for (const type of types) {
+    const hit = actions.find((a) => a?.action_type === type);
+    if (hit) return count(hit.value);
+  }
+  return 0;
+};
+
+export type InsightLevel = 'campaign' | 'adset' | 'ad';
 
 export interface MetaInsightRow {
-  level: 'campaign' | 'ad';
+  level: InsightLevel;
   objectId: string;
   campaignId: string | null;
+  /** The ad set of an ad row (and the ad set itself on an ad set row). */
+  adsetId: string | null;
   name: string | null;
   objective: string | null;
   /** YYYY-MM-DD (the ad account's day). */
@@ -315,41 +342,126 @@ export interface MetaInsightRow {
   currency: string | null;
   impressions: number;
   clicks: number;
+  linkClicks: number;
   conversationsStarted: number;
+  leads: number;
+  purchases: number;
 }
 
-/** Daily insights (time_increment=1) for a date range, at campaign or ad level. */
+const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
+const dayOf = (value: unknown): string | null => (typeof value === 'string' && DAY_RE.test(value) ? value : null);
+
+/** Daily insights (time_increment=1) for a date range, at campaign, ad set or ad level. */
 export async function getInsights(adAccountId: string, userToken: string,
-  options: { level: 'campaign' | 'ad'; since: string; until: string }): Promise<MetaInsightRow[]> {
-  const day = /^\d{4}-\d{2}-\d{2}$/;
-  if (!day.test(options.since) || !day.test(options.until)) throw new MetaGraphInputError();
+  options: { level: InsightLevel; since: string; until: string }): Promise<MetaInsightRow[]> {
   const rows = await getAll<Record<string, unknown>>(`act_${assertId(adAccountId)}/insights`, userToken, {
     level: options.level,
-    time_increment: 1,
     time_range: JSON.stringify({ since: options.since, until: options.until }),
-    fields: 'campaign_id,campaign_name,ad_id,ad_name,objective,spend,account_currency,impressions,clicks,actions,date_start',
+    time_increment: 1,
+    fields: 'campaign_id,campaign_name,adset_id,adset_name,ad_id,ad_name,objective,spend,account_currency,impressions,clicks,inline_link_clicks,actions,date_start',
     limit: 500,
   });
   return rows.flatMap((row) => {
-    const objectId = id(options.level === 'ad' ? row.ad_id : row.campaign_id);
-    const date = typeof row.date_start === 'string' && day.test(row.date_start) ? row.date_start : null;
+    const objectId = id(options.level === 'ad' ? row.ad_id : options.level === 'adset' ? row.adset_id : row.campaign_id);
+    const date = dayOf(row.date_start);
     if (!objectId || !date) return [];
-    const actions = Array.isArray(row.actions) ? row.actions : [];
-    const started = actions.find((a: { action_type?: unknown }) => a?.action_type === CONVERSATION_STARTED_ACTION) as
-      { value?: unknown } | undefined;
+    const actions = actionsOf(row);
     return [{
       level: options.level,
       objectId,
       campaignId: id(row.campaign_id),
-      name: str(options.level === 'ad' ? row.ad_name : row.campaign_name, 500),
+      adsetId: options.level === 'campaign' ? null : id(row.adset_id),
+      name: str(options.level === 'ad' ? row.ad_name : options.level === 'adset' ? row.adset_name : row.campaign_name, 500),
       objective: str(row.objective, 64),
       day: date,
       spend: money(row.spend),
       currency: currency(row.account_currency),
       impressions: count(row.impressions),
       clicks: count(row.clicks),
-      conversationsStarted: count(started?.value),
+      linkClicks: count(row.inline_link_clicks),
+      conversationsStarted: actionCount(actions, [CONVERSATION_STARTED_ACTION]),
+      leads: actionCount(actions, LEAD_ACTIONS),
+      purchases: actionCount(actions, PURCHASE_ACTIONS),
     }];
+  });
+}
+
+export const AD_PLATFORMS = ['facebook', 'instagram', 'messenger', 'audience_network', 'whatsapp', 'threads', 'unknown'] as const;
+export type AdPlatform = (typeof AD_PLATFORMS)[number];
+const platformOf = (value: unknown): AdPlatform =>
+  typeof value === 'string' && (AD_PLATFORMS as readonly string[]).includes(value) ? (value as AdPlatform) : 'unknown';
+
+export interface MetaPlatformRow {
+  campaignId: string;
+  day: string;
+  platform: AdPlatform;
+  spend: number;
+  impressions: number;
+  clicks: number;
+  linkClicks: number;
+  conversationsStarted: number;
+  leads: number;
+}
+
+/** Daily campaign insights split by placement platform (Facebook, Instagram, Messenger, ...). */
+export async function getPlatformInsights(adAccountId: string, userToken: string,
+  options: { since: string; until: string }): Promise<MetaPlatformRow[]> {
+  const rows = await getAll<Record<string, unknown>>(`act_${assertId(adAccountId)}/insights`, userToken, {
+    level: 'campaign',
+    breakdowns: 'publisher_platform',
+    time_range: JSON.stringify({ since: options.since, until: options.until }),
+    time_increment: 1,
+    fields: 'campaign_id,spend,impressions,clicks,inline_link_clicks,actions,date_start',
+    limit: 500,
+  });
+  // Unknown platforms fold into one 'unknown' row per campaign and day.
+  const merged = new Map<string, MetaPlatformRow>();
+  for (const row of rows) {
+    const campaignId = id(row.campaign_id);
+    const date = dayOf(row.date_start);
+    if (!campaignId || !date) continue;
+    const platform = platformOf(row.publisher_platform);
+    const actions = actionsOf(row);
+    const key = `${campaignId}|${date}|${platform}`;
+    const prev = merged.get(key);
+    const next: MetaPlatformRow = {
+      campaignId, day: date, platform,
+      spend: money(row.spend) + (prev?.spend ?? 0),
+      impressions: count(row.impressions) + (prev?.impressions ?? 0),
+      clicks: count(row.clicks) + (prev?.clicks ?? 0),
+      linkClicks: count(row.inline_link_clicks) + (prev?.linkClicks ?? 0),
+      conversationsStarted: actionCount(actions, [CONVERSATION_STARTED_ACTION]) + (prev?.conversationsStarted ?? 0),
+      leads: actionCount(actions, LEAD_ACTIONS) + (prev?.leads ?? 0),
+    };
+    next.spend = Math.round(next.spend * 100) / 100;
+    merged.set(key, next);
+  }
+  return [...merged.values()];
+}
+
+export const REACH_PRESETS = ['last_7d', 'last_30d', 'last_90d'] as const;
+export type ReachPreset = (typeof REACH_PRESETS)[number];
+export type ReachLevel = 'account' | InsightLevel;
+
+export interface MetaReachRow { objectId: string; reach: number; frequency: number }
+
+/**
+ * Reach and frequency over one of Meta's fixed ranges. Reach counts unique
+ * people, so it cannot be added up from daily rows; it is read per range.
+ */
+export async function getReach(adAccountId: string, userToken: string, level: ReachLevel, preset: ReachPreset): Promise<MetaReachRow[]> {
+  const account = assertId(adAccountId);
+  const rows = await getAll<Record<string, unknown>>(`act_${account}/insights`, userToken, {
+    level: level === 'account' ? 'account' : level,
+    date_preset: preset,
+    fields: level === 'account' ? 'reach,frequency' : `${level === 'adset' ? 'adset_id' : level === 'ad' ? 'ad_id' : 'campaign_id'},reach,frequency`,
+    limit: 500,
+  });
+  return rows.flatMap((row) => {
+    const objectId = level === 'account' ? account : id(level === 'ad' ? row.ad_id : level === 'adset' ? row.adset_id : row.campaign_id);
+    if (!objectId) return [];
+    const frequency = typeof row.frequency === 'string' || typeof row.frequency === 'number' ? Number(row.frequency) : NaN;
+    return [{ objectId, reach: count(row.reach), frequency: Number.isFinite(frequency) && frequency >= 0 && frequency < 1e6 ? Math.round(frequency * 10_000) / 10_000 : 0 }];
   });
 }
 
@@ -373,6 +485,15 @@ export interface MetaAdObject {
   lifetimeBudgetMinor: number | null;
   startTime: string | null;
   endTime: string | null;
+  /** Ad sets: where the ad sends people (WHATSAPP, INSTAGRAM_DIRECT, MESSENGER, ON_AD, WEBSITE, ...). */
+  destinationType: string | null;
+  optimizationGoal: string | null;
+  /** Ads: the creative's preview (Meta's signed image URLs refresh with each sync). */
+  thumbnailUrl: string | null;
+  imageUrl: string | null;
+  creativeTitle: string | null;
+  creativeBody: string | null;
+  ctaType: string | null;
 }
 
 /** Meta's budget strings ("50000") -> integer minor units; "0" or absent means no budget of that kind. */
@@ -390,13 +511,18 @@ const time = (value: unknown): string | null => {
 
 const OBJECT_FIELDS: Record<AdObjectLevel, string> = {
   campaign: 'id,name,status,effective_status,objective,daily_budget,lifetime_budget,start_time,stop_time',
-  adset: 'id,name,campaign_id,status,effective_status,daily_budget,lifetime_budget,start_time,end_time',
-  ad: 'id,name,campaign_id,adset_id,status,effective_status',
+  adset: 'id,name,campaign_id,status,effective_status,daily_budget,lifetime_budget,start_time,end_time,destination_type,optimization_goal',
+  ad: 'id,name,campaign_id,adset_id,status,effective_status,creative{thumbnail_url,image_url,title,body,call_to_action_type}',
 };
+
+/** An https URL Meta returned, or null (never another scheme, never over the column limit). */
+const httpsUrl = (value: unknown): string | null =>
+  typeof value === 'string' && value.length <= 2048 && /^https:\/\/[^\s]+$/.test(value) ? value : null;
 
 function adObject(level: AdObjectLevel, row: Record<string, unknown>): MetaAdObject | null {
   const objectId = id(row.id);
   if (!objectId) return null;
+  const creative = row.creative && typeof row.creative === 'object' ? (row.creative as Record<string, unknown>) : null;
   return {
     level,
     id: objectId,
@@ -410,6 +536,13 @@ function adObject(level: AdObjectLevel, row: Record<string, unknown>): MetaAdObj
     lifetimeBudgetMinor: budget(row.lifetime_budget),
     startTime: time(row.start_time),
     endTime: time(level === 'campaign' ? row.stop_time : row.end_time),
+    destinationType: level === 'adset' ? str(row.destination_type, 64) : null,
+    optimizationGoal: level === 'adset' ? str(row.optimization_goal, 64) : null,
+    thumbnailUrl: level === 'ad' ? httpsUrl(creative?.thumbnail_url) : null,
+    imageUrl: level === 'ad' ? httpsUrl(creative?.image_url) : null,
+    creativeTitle: level === 'ad' ? str(creative?.title, 500) : null,
+    creativeBody: level === 'ad' ? str(creative?.body, 4000) : null,
+    ctaType: level === 'ad' ? str(creative?.call_to_action_type, 64) : null,
   };
 }
 
@@ -418,7 +551,9 @@ export async function listAdObjects(adAccountId: string, token: string): Promise
   const base = `act_${assertId(adAccountId)}`;
   const levels: [AdObjectLevel, string][] = [['campaign', 'campaigns'], ['adset', 'adsets'], ['ad', 'ads']];
   const lists = await Promise.all(levels.map(([level, edge]) =>
-    getAll<Record<string, unknown>>(`${base}/${edge}`, token, { fields: OBJECT_FIELDS[level], limit: 200 })
+    // Ads ask for 320px creative thumbnails (Meta's default is 64px).
+    getAll<Record<string, unknown>>(`${base}/${edge}`, token, { fields: OBJECT_FIELDS[level], limit: 200,
+      ...(level === 'ad' ? { thumbnail_width: 320, thumbnail_height: 320 } : {}) })
       .then((rows) => rows.flatMap((row) => adObject(level, row) ?? []))));
   return lists.flat();
 }
@@ -498,4 +633,195 @@ export async function postCapiEvents(datasetId: string, token: string, events: C
   if (events.length < 1 || events.length > 1000) throw new MetaGraphInputError();
   const result = await request<{ events_received?: unknown }>('POST', `${assertId(datasetId)}/events`, token, { json: { data: events } });
   return { eventsReceived: count(result.events_received) };
+}
+
+// ---------------------------------------------------------------- ad creation
+
+export type AdKind = 'whatsapp' | 'instagram_direct' | 'lead_form' | 'website';
+
+/** The campaign objective each kind runs under (Meta's outcome-based objectives, v27). */
+export const KIND_OBJECTIVE: Record<AdKind, string> = {
+  whatsapp: 'OUTCOME_ENGAGEMENT',
+  instagram_direct: 'OUTCOME_ENGAGEMENT',
+  lead_form: 'OUTCOME_LEADS',
+  website: 'OUTCOME_TRAFFIC',
+};
+
+const created = (row: { id?: unknown }): { id: string } => {
+  const objectId = id(row?.id);
+  if (!objectId) throw new Error('Meta did not return an id');
+  return { id: objectId };
+};
+
+/** Uploads an image (bytes) to the ad account's image library; Meta dedupes by content hash. */
+export async function uploadAdImage(adAccountId: string, token: string, bytesBase64: string, name: string): Promise<{ hash: string; url: string | null }> {
+  const result = await request<{ images?: Record<string, { hash?: unknown; url?: unknown }> }>(
+    'POST', `act_${assertId(adAccountId)}/adimages`, token, { form: { bytes: bytesBase64, name } });
+  const image = Object.values(result.images ?? {})[0];
+  const hash = typeof image?.hash === 'string' && /^[0-9a-f]{16,64}$/.test(image.hash) ? image.hash : null;
+  if (!hash) throw new Error('Meta did not return an image hash');
+  return { hash, url: httpsUrl(image?.url) };
+}
+
+export async function createCampaign(adAccountId: string, token: string,
+  input: { name: string; kind: AdKind; status: 'ACTIVE' | 'PAUSED' }): Promise<{ id: string }> {
+  return created(await request('POST', `act_${assertId(adAccountId)}/campaigns`, token, { form: {
+    name: input.name,
+    objective: KIND_OBJECTIVE[input.kind],
+    status: input.status,
+    buying_type: 'AUCTION',
+    special_ad_categories: '[]',
+    // Budget sits on the ad set (v24+ requires this to be explicit).
+    is_adset_budget_sharing_enabled: 'false',
+  } }));
+}
+
+export interface AdSetInput {
+  name: string;
+  campaignId: string;
+  kind: AdKind;
+  pageId: string;
+  dailyBudgetMinor: number;
+  startTime: string;
+  endTime: string | null;
+  countries: string[];
+  ageMin: number;
+  ageMax: number;
+  genders: number[];
+  whatsappNumber: string | null;
+  status: 'ACTIVE' | 'PAUSED';
+}
+
+const ADSET_DELIVERY: Record<AdKind, { destination_type: string; optimization_goal: string }> = {
+  whatsapp: { destination_type: 'WHATSAPP', optimization_goal: 'CONVERSATIONS' },
+  instagram_direct: { destination_type: 'INSTAGRAM_DIRECT', optimization_goal: 'CONVERSATIONS' },
+  lead_form: { destination_type: 'ON_AD', optimization_goal: 'LEAD_GENERATION' },
+  website: { destination_type: 'WEBSITE', optimization_goal: 'LINK_CLICKS' },
+};
+
+/** The ad set's form fields (exported for tests). */
+export function adSetForm(input: AdSetInput): Record<string, string> {
+  const targeting: Record<string, unknown> = {
+    geo_locations: { countries: input.countries },
+    age_min: input.ageMin,
+    age_max: input.ageMax,
+    // The audience is what the admin chose: Advantage+ audience expansion stays off.
+    targeting_automation: { advantage_audience: 0 },
+  };
+  if (input.genders.length === 1) targeting.genders = input.genders;
+  const promoted: Record<string, string> | null = input.kind === 'website' ? null
+    : { page_id: assertId(input.pageId), ...(input.kind === 'whatsapp' && input.whatsappNumber ? { whatsapp_phone_number: input.whatsappNumber } : {}) };
+  return {
+    name: input.name,
+    campaign_id: assertId(input.campaignId),
+    ...ADSET_DELIVERY[input.kind],
+    billing_event: 'IMPRESSIONS',
+    bid_strategy: 'LOWEST_COST_WITHOUT_CAP',
+    daily_budget: String(input.dailyBudgetMinor),
+    targeting: JSON.stringify(targeting),
+    ...(promoted ? { promoted_object: JSON.stringify(promoted) } : {}),
+    start_time: input.startTime,
+    ...(input.endTime ? { end_time: input.endTime } : {}),
+    status: input.status,
+  };
+}
+
+export async function createAdSet(adAccountId: string, token: string, input: AdSetInput): Promise<{ id: string }> {
+  return created(await request('POST', `act_${assertId(adAccountId)}/adsets`, token, { form: adSetForm(input) }));
+}
+
+export interface CreativeInput {
+  name: string;
+  kind: AdKind;
+  pageId: string;
+  instagramUserId: string | null;
+  primaryText: string;
+  headline: string | null;
+  description: string | null;
+  imageHash: string;
+  linkUrl: string | null;
+  leadFormId: string | null;
+  ctaType: string;
+  welcomeMessage: string | null;
+}
+
+/** The creative's object_story_spec for each kind (the shapes of Meta's v27 messaging, lead and traffic guides). */
+export function creativeSpec(input: CreativeInput): Record<string, unknown> {
+  const base: Record<string, unknown> = {
+    message: input.primaryText,
+    image_hash: input.imageHash,
+    ...(input.headline ? { name: input.headline } : {}),
+    ...(input.description ? { description: input.description } : {}),
+  };
+  let link: Record<string, unknown>;
+  switch (input.kind) {
+    case 'whatsapp':
+      link = {
+        ...base,
+        link: 'https://api.whatsapp.com/send',
+        call_to_action: { type: 'WHATSAPP_MESSAGE', value: { app_destination: 'WHATSAPP' } },
+        ...(input.welcomeMessage ? { page_welcome_message: {
+          type: 'VISUAL_EDITOR', version: 2, landing_screen_type: 'welcome_message', media_type: 'text',
+          text_format: { customer_action_type: 'autofill_message', message: { autofill_message: { content: input.welcomeMessage }, text: input.welcomeMessage } },
+        } } : {}),
+      };
+      break;
+    case 'instagram_direct':
+      link = { ...base, call_to_action: { type: 'INSTAGRAM_MESSAGE', value: { app_destination: 'INSTAGRAM_DIRECT' } } };
+      break;
+    case 'lead_form':
+      link = { ...base, link: 'http://fb.me/', call_to_action: { type: input.ctaType, value: { lead_gen_form_id: input.leadFormId } } };
+      break;
+    case 'website':
+      link = { ...base, link: input.linkUrl, call_to_action: { type: input.ctaType, value: { link: input.linkUrl } } };
+      break;
+  }
+  return {
+    page_id: assertId(input.pageId),
+    ...(input.kind === 'instagram_direct' && input.instagramUserId ? { instagram_user_id: assertId(input.instagramUserId) } : {}),
+    link_data: link,
+  };
+}
+
+export async function createCreative(adAccountId: string, token: string, input: CreativeInput): Promise<{ id: string }> {
+  return created(await request('POST', `act_${assertId(adAccountId)}/adcreatives`, token, { form: {
+    name: input.name,
+    object_story_spec: JSON.stringify(creativeSpec(input)),
+  } }));
+}
+
+export async function createAd(adAccountId: string, token: string,
+  input: { name: string; adsetId: string; creativeId: string; status: 'ACTIVE' | 'PAUSED' }): Promise<{ id: string }> {
+  return created(await request('POST', `act_${assertId(adAccountId)}/ads`, token, { form: {
+    name: input.name,
+    adset_id: assertId(input.adsetId),
+    creative: JSON.stringify({ creative_id: assertId(input.creativeId) }),
+    status: input.status,
+  } }));
+}
+
+/** The Instagram account linked to the Page (needed for click-to-Instagram-Direct ads), or null. */
+export async function getPageInstagramAccount(pageId: string, token: string): Promise<string | null> {
+  const row = await request<{ instagram_business_account?: { id?: unknown } }>('GET', assertId(pageId), token,
+    { params: { fields: 'instagram_business_account' } });
+  return id(row.instagram_business_account?.id);
+}
+
+/**
+ * After an unclear create: the objects under `edge` (act_<id>/campaigns,
+ * <campaign>/adsets, act_<id>/adcreatives, <adset>/ads) with exactly this
+ * name, created at or after `since` when Meta reports a creation time.
+ */
+export async function findCreatedByName(edge: 'campaigns' | 'adsets' | 'adcreatives' | 'ads', parentId: string, token: string,
+  name: string, since: Date): Promise<string[]> {
+  const parent = edge === 'campaigns' || edge === 'adcreatives' ? `act_${assertId(parentId)}` : assertId(parentId);
+  const rows = await getAll<{ id?: unknown; name?: unknown; created_time?: unknown }>(`${parent}/${edge}`, token,
+    { fields: edge === 'adcreatives' ? 'id,name' : 'id,name,created_time', limit: 200 });
+  const from = since.getTime() - 120_000;
+  return rows.flatMap((row) => {
+    const objectId = id(row.id);
+    if (!objectId || row.name !== name) return [];
+    const at = typeof row.created_time === 'string' ? Date.parse(row.created_time) : NaN;
+    return Number.isFinite(at) && at < from ? [] : [objectId];
+  });
 }

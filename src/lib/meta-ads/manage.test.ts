@@ -65,6 +65,8 @@ describe('showsValue and changeFields', () => {
   const object: MetaAdObject = {
     level: 'adset', id: '1', campaignId: '2', adsetId: '1', name: 'Set', status: 'PAUSED', effectiveStatus: 'PAUSED',
     objective: null, dailyBudgetMinor: 50000, lifetimeBudgetMinor: null, startTime: null, endTime: '2026-12-01T00:00:30.000Z',
+    destinationType: 'WHATSAPP', optimizationGoal: 'CONVERSATIONS', thumbnailUrl: null, imageUrl: null, creativeTitle: null,
+    creativeBody: null, ctaType: null,
   };
   it('reads each field back the way Meta stores it', () => {
     expect(showsValue(object, 'status', 'PAUSED')).toBe(true);
@@ -106,15 +108,19 @@ describe('ad management Graph calls', () => {
     fetchMock.mockImplementation(async (url: string) => {
       const path = new URL(url).pathname;
       if (path.endsWith('/campaigns')) return json({ data: [{ id: '10', name: 'Camp', status: 'ACTIVE', effective_status: 'ACTIVE', daily_budget: '50000', lifetime_budget: '0' }] });
-      if (path.endsWith('/adsets')) return json({ data: [{ id: '20', name: 'Set', campaign_id: '10', status: 'PAUSED', effective_status: 'CAMPAIGN_PAUSED', end_time: '2026-12-01T00:00:00+0530' }, { id: 'bad' }] });
-      return json({ data: [{ id: '30', name: 'Ad', campaign_id: '10', adset_id: '20', status: 'ACTIVE', effective_status: 'ADSET_PAUSED' }] });
+      if (path.endsWith('/adsets')) return json({ data: [{ id: '20', name: 'Set', campaign_id: '10', status: 'PAUSED', effective_status: 'CAMPAIGN_PAUSED', end_time: '2026-12-01T00:00:00+0530', destination_type: 'WHATSAPP', optimization_goal: 'CONVERSATIONS' }, { id: 'bad' }] });
+      return json({ data: [{ id: '30', name: 'Ad', campaign_id: '10', adset_id: '20', status: 'ACTIVE', effective_status: 'ADSET_PAUSED',
+        creative: { thumbnail_url: 'https://scontent.example.fbcdn.net/t.jpg', image_url: 'javascript:alert(1)', title: 'Hi', body: 'Chat with us', call_to_action_type: 'WHATSAPP_MESSAGE' } }] });
     });
     const objects = await listAdObjects('99', TOKEN);
     expect(objects).toEqual([
       expect.objectContaining({ level: 'campaign', id: '10', campaignId: '10', dailyBudgetMinor: 50000, lifetimeBudgetMinor: null }),
-      expect.objectContaining({ level: 'adset', id: '20', campaignId: '10', adsetId: '20', endTime: '2026-11-30T18:30:00.000Z' }),
-      expect.objectContaining({ level: 'ad', id: '30', adsetId: '20', effectiveStatus: 'ADSET_PAUSED' }),
+      expect.objectContaining({ level: 'adset', id: '20', campaignId: '10', adsetId: '20', endTime: '2026-11-30T18:30:00.000Z', destinationType: 'WHATSAPP', optimizationGoal: 'CONVERSATIONS' }),
+      // Only https creative URLs are kept; anything else is dropped.
+      expect.objectContaining({ level: 'ad', id: '30', adsetId: '20', effectiveStatus: 'ADSET_PAUSED', thumbnailUrl: 'https://scontent.example.fbcdn.net/t.jpg', imageUrl: null, creativeTitle: 'Hi', creativeBody: 'Chat with us', ctaType: 'WHATSAPP_MESSAGE' }),
     ]);
+    const adCall = (fetchMock.mock.calls as [string][]).map(([u]) => new URL(u)).find((u) => u.pathname.endsWith('/ads'))!;
+    expect(adCall.searchParams.get('thumbnail_width')).toBe('320');
     for (const [url, init] of fetchMock.mock.calls as [string, RequestInit][]) {
       expect(new URL(url).pathname).toMatch(/\/act_99\/(campaigns|adsets|ads)$/);
       expect(url).not.toContain(TOKEN);

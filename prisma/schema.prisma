@@ -1853,6 +1853,14 @@ model meta_ad_objects {
   lifetime_budget_minor BigInt?
   start_time DateTime? @db.Timestamptz(6)
   end_time DateTime? @db.Timestamptz(6)
+  ad_account_id String?
+  destination_type String?
+  optimization_goal String?
+  thumbnail_url String?
+  image_url String?
+  creative_title String?
+  creative_body String?
+  cta_type String?
   synced_at DateTime @db.Timestamptz(6) @default(now())
   @@id([account_id, object_id])
   @@index([account_id, level, campaign_id], map: "meta_ad_objects_tree")
@@ -1965,6 +1973,11 @@ model meta_ad_insights {
   impressions BigInt @default(0)
   clicks BigInt @default(0)
   conversations_started BigInt @default(0)
+  ad_account_id String?
+  adset_id String?
+  link_clicks BigInt @default(0)
+  leads BigInt @default(0)
+  purchases BigInt @default(0)
   synced_at DateTime @db.Timestamptz(6) @default(now())
   @@id([account_id, level, object_id, day])
   @@index([account_id, day], map: "meta_ad_insights_day")
@@ -3478,4 +3491,103 @@ model ai_reply_ratings {
   updated_at DateTime @default(now()) @db.Timestamptz(6)
   @@unique([account_id, id])
   @@index([account_id, created_at(sort: Desc)], map: "ai_reply_ratings_account_idx")
+}
+
+/// Ads reporting (20261124000000): the ad accounts a workspace reports on and manages; one is primary.
+model meta_ad_accounts {
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  connection_id String @db.Uuid
+  ad_account_id String
+  name String?
+  currency String?
+  business_id String?
+  is_primary Boolean @default(false)
+  added_by String? @db.Uuid
+  added_at DateTime @db.Timestamptz(6) @default(now())
+  insights_synced_at DateTime? @db.Timestamptz(6)
+  last_error_code String?
+  @@id([account_id, ad_account_id])
+}
+
+/// Ads reporting (20261124000000): daily campaign figures by placement platform.
+model meta_ad_insight_platforms {
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  connection_id String @db.Uuid
+  ad_account_id String
+  campaign_id String
+  day DateTime @db.Date
+  /// 'facebook' | 'instagram' | 'messenger' | 'audience_network' | 'whatsapp' | 'threads' | 'unknown'
+  platform String
+  spend Decimal @default(0) @db.Decimal(14, 2)
+  impressions BigInt @default(0)
+  clicks BigInt @default(0)
+  link_clicks BigInt @default(0)
+  conversations_started BigInt @default(0)
+  leads BigInt @default(0)
+  synced_at DateTime @db.Timestamptz(6) @default(now())
+  @@id([account_id, campaign_id, day, platform])
+  @@index([account_id, day], map: "meta_ad_insight_platforms_day")
+}
+
+/// Ads reporting (20261124000000): reach and frequency for fixed ranges (unique people cannot be summed by day).
+model meta_ad_reach {
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  connection_id String @db.Uuid
+  ad_account_id String
+  /// 'account' | 'campaign' | 'adset' | 'ad'
+  level String
+  object_id String
+  /// 'last_7d' | 'last_30d' | 'last_90d'
+  preset String
+  reach BigInt @default(0)
+  frequency Decimal @default(0) @db.Decimal(10, 4)
+  synced_at DateTime @db.Timestamptz(6) @default(now())
+  @@id([account_id, level, object_id, preset])
+}
+
+/// Ad creation (20261124001000): one row per ad an admin creates from Bodhinox; the worker makes each Meta object once.
+model meta_ad_drafts {
+  id String @db.Uuid @id @default(dbgenerated("gen_random_uuid()"))
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  connection_id String @db.Uuid
+  ad_account_id String
+  page_id String
+  /// 'whatsapp' | 'instagram_direct' | 'lead_form' | 'website'
+  kind String
+  name String
+  daily_budget_minor BigInt
+  currency String?
+  start_time DateTime @db.Timestamptz(6)
+  end_time DateTime? @db.Timestamptz(6)
+  countries String[]
+  age_min Int
+  age_max Int
+  genders Int[] @default([])
+  primary_text String
+  headline String?
+  description String?
+  link_url String?
+  lead_form_id String?
+  cta_type String
+  image_hash String
+  image_url String?
+  whatsapp_number String?
+  welcome_message String?
+  publish Boolean @default(false)
+  /// 'queued' | 'created' | 'failed' | 'unknown' | 'discarded'
+  status String @default("queued")
+  /// 'campaign' | 'adset' | 'creative' | 'ad' | 'done'
+  step String @default("campaign")
+  campaign_id String?
+  adset_id String?
+  creative_id String?
+  ad_id String?
+  last_error_code String?
+  requested_by String @db.Uuid
+  resolved_by String? @db.Uuid
+  created_at DateTime @db.Timestamptz(6) @default(now())
+  updated_at DateTime @db.Timestamptz(6) @default(now())
+  completed_at DateTime? @db.Timestamptz(6)
+  @@unique([account_id, id])
+  @@index([account_id, created_at(sort: Desc)], map: "meta_ad_drafts_recent")
 }

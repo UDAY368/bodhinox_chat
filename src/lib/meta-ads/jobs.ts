@@ -1,4 +1,4 @@
-// Job router for click-to-WhatsApp ads. Handlers are lazy-imported so the
+// Job router for Meta ads (reporting, leads, conversions, changes and ad creation). Handlers are lazy-imported so the
 // worker loads Meta ads code only for its own jobs. Every tenant job runs
 // inside withJobScope (src/lib/jobs/handlers.ts), so Graph calls go through
 // leaseFetch and must never run inside an open database transaction.
@@ -13,6 +13,7 @@ export const META_ADS_JOB_TYPES = [
   'meta.capi_event',
   'meta.ad_objects_sync',
   'meta.ad_change',
+  'meta.ad_create',
 ] as const;
 export type MetaAdsJobType = (typeof META_ADS_JOB_TYPES)[number];
 
@@ -57,6 +58,8 @@ export async function handleMetaAdsJob(accountId: string, type: string, payload:
       return (await import('./manage')).handleAdObjectsSyncJob(accountId);
     case 'meta.ad_change':
       return (await import('./manage')).handleAdChangeJob(accountId, payload, attempt);
+    case 'meta.ad_create':
+      return (await import('./create')).handleAdCreateJob(accountId, payload, attempt);
     default:
       // meta.page_webhook is routed before the tenant scope (handleMetaPageWebhookJob).
       throw new Error('Unsupported job type');

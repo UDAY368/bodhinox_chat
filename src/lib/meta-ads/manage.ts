@@ -1,4 +1,4 @@
-// Ad management, phase A: see the connected ad account's campaigns, ad sets
+// Ad management, phase A: see the linked ad accounts' campaigns, ad sets
 // and ads, pause / resume them, and change budgets, end dates and names.
 //
 // Sync (meta.ad_objects_sync, worker): caches every campaign, ad set and ad in
@@ -21,6 +21,8 @@ import { dispatchOnce, UncertainDispatchError } from '@/lib/jobs/dispatch';
 import { MetaApiError } from '@/lib/whatsapp/meta-api';
 import { metaAdsConfig, metaAdsManageEnabled, missingScopes } from './config';
 import { loadActiveConnectionTx, MetaAdsError, type MetaAdsActor } from './connection';
+import { syncedAdAccountsTx } from './accounts';
+import { missingCreateScopes } from './create';
 import {
   getAdObject, isMetaThrottle, isMetaTokenInvalid, listAdObjects, metaErrorCode, updateAdObject,
   type AdObjectLevel, type MetaAdObject,
@@ -62,25 +64,34 @@ function errorCodeOf(error: unknown): string | null {
 // ---------------------------------------------------------------------------
 // Sync
 
-/** meta.ad_objects_sync: replaces the cached campaigns, ad sets and ads with what Meta has now. */
+/**
+ * meta.ad_objects_sync: replaces the cached campaigns, ad sets and ads of every
+ * linked ad account with what Meta has now (with each ad's creative preview).
+ * An ad account that fails keeps its previous rows; the job then retries.
+ */
 export async function handleAdObjectsSyncJob(accountId: string): Promise<void> {
   if (!metaAdsConfig()) return;
   const connection = await worker(accountId, (tx) => loadActiveConnectionTx(tx, accountId));
-  if (!connection?.adAccountId || !connection.userToken || !canRead(connection.scopes)) return;
+  if (!connection?.userToken || !canRead(connection.scopes)) return;
+  const adAccounts = await worker(accountId, (tx) => syncedAdAccountsTx(tx, accountId, connection));
+  if (!adAccounts.length) return;
 
-  let objects: MetaAdObject[];
-  try {
-    objects = await listAdObjects(connection.adAccountId, connection.userToken);
-  } catch (error) {
-    const code = metaErrorCode(error);
-    console.error('[meta-ads] ad objects sync failed', code ?? (error instanceof Error ? error.name : 'unknown'));
-    if (isMetaTokenInvalid(error)) {
-      await worker(accountId, (tx) => tx.$executeRaw`UPDATE meta_ad_connections SET last_error_code=${code},
-          status='token_invalid', updated_at=now()
-        WHERE account_id=${accountId}::uuid AND id=${connection.id}::uuid AND status='active'`);
-      return;
+  const fetched: { adAccountId: string; objects: MetaAdObject[] }[] = [];
+  let failure: unknown = null;
+  for (const adAccountId of adAccounts) {
+    try {
+      fetched.push({ adAccountId, objects: await listAdObjects(adAccountId, connection.userToken) });
+    } catch (error) {
+      const code = metaErrorCode(error);
+      console.error('[meta-ads] ad objects sync failed', code ?? (error instanceof Error ? error.name : 'unknown'));
+      if (isMetaTokenInvalid(error)) {
+        await worker(accountId, (tx) => tx.$executeRaw`UPDATE meta_ad_connections SET last_error_code=${code},
+            status='token_invalid', updated_at=now()
+          WHERE account_id=${accountId}::uuid AND id=${connection.id}::uuid AND status='active'`);
+        return;
+      }
+      failure = failure ?? error;
     }
-    throw error;
   }
 
   await worker(accountId, async (tx) => {
@@ -88,32 +99,49 @@ export async function handleAdObjectsSyncJob(accountId: string): Promise<void> {
     const live = await tx.$queryRaw<{ id: string }[]>`SELECT id::text AS id FROM meta_ad_connections
       WHERE account_id=${accountId}::uuid AND id=${connection.id}::uuid AND status='active' FOR UPDATE`;
     if (!live[0]) return;
-    for (let i = 0; i < objects.length; i += CHUNK) {
-      const part = objects.slice(i, i + CHUNK);
-      await tx.$executeRaw`
-        INSERT INTO meta_ad_objects(account_id, connection_id, level, object_id, campaign_id, adset_id, name, status,
-          effective_status, objective, daily_budget_minor, lifetime_budget_minor, start_time, end_time, synced_at)
-        SELECT ${accountId}::uuid, ${connection.id}::uuid, r.level, r.object_id, r.campaign_id, r.adset_id, r.name, r.status,
-          r.effective_status, r.objective, r.daily, r.lifetime, r.start_time, r.end_time, now()
-        FROM unnest(${part.map((o) => o.level)}::text[], ${part.map((o) => o.id)}::text[],
-          ${part.map((o) => o.campaignId)}::text[], ${part.map((o) => o.adsetId)}::text[], ${part.map((o) => o.name)}::text[],
-          ${part.map((o) => o.status)}::text[], ${part.map((o) => o.effectiveStatus)}::text[], ${part.map((o) => o.objective)}::text[],
-          ${part.map((o) => (o.dailyBudgetMinor === null ? null : String(o.dailyBudgetMinor)))}::bigint[],
-          ${part.map((o) => (o.lifetimeBudgetMinor === null ? null : String(o.lifetimeBudgetMinor)))}::bigint[],
-          ${part.map((o) => o.startTime)}::timestamptz[], ${part.map((o) => o.endTime)}::timestamptz[])
-          AS r(level, object_id, campaign_id, adset_id, name, status, effective_status, objective, daily, lifetime, start_time, end_time)
-        ON CONFLICT (account_id, object_id) DO UPDATE SET
-          connection_id=EXCLUDED.connection_id, level=EXCLUDED.level, campaign_id=EXCLUDED.campaign_id, adset_id=EXCLUDED.adset_id,
-          name=EXCLUDED.name, status=EXCLUDED.status, effective_status=EXCLUDED.effective_status, objective=EXCLUDED.objective,
-          daily_budget_minor=EXCLUDED.daily_budget_minor, lifetime_budget_minor=EXCLUDED.lifetime_budget_minor,
-          start_time=EXCLUDED.start_time, end_time=EXCLUDED.end_time, synced_at=now()`;
+    for (const { adAccountId, objects } of fetched) {
+      for (let i = 0; i < objects.length; i += CHUNK) {
+        const part = objects.slice(i, i + CHUNK);
+        await tx.$executeRaw`
+          INSERT INTO meta_ad_objects(account_id, connection_id, ad_account_id, level, object_id, campaign_id, adset_id, name, status,
+            effective_status, objective, daily_budget_minor, lifetime_budget_minor, start_time, end_time, destination_type,
+            optimization_goal, thumbnail_url, image_url, creative_title, creative_body, cta_type, synced_at)
+          SELECT ${accountId}::uuid, ${connection.id}::uuid, ${adAccountId}, r.level, r.object_id, r.campaign_id, r.adset_id, r.name,
+            r.status, r.effective_status, r.objective, r.daily, r.lifetime, r.start_time, r.end_time, r.destination_type,
+            r.optimization_goal, r.thumbnail_url, r.image_url, r.creative_title, r.creative_body, r.cta_type, now()
+          FROM unnest(${part.map((o) => o.level)}::text[], ${part.map((o) => o.id)}::text[],
+            ${part.map((o) => o.campaignId)}::text[], ${part.map((o) => o.adsetId)}::text[], ${part.map((o) => o.name)}::text[],
+            ${part.map((o) => o.status)}::text[], ${part.map((o) => o.effectiveStatus)}::text[], ${part.map((o) => o.objective)}::text[],
+            ${part.map((o) => (o.dailyBudgetMinor === null ? null : String(o.dailyBudgetMinor)))}::bigint[],
+            ${part.map((o) => (o.lifetimeBudgetMinor === null ? null : String(o.lifetimeBudgetMinor)))}::bigint[],
+            ${part.map((o) => o.startTime)}::timestamptz[], ${part.map((o) => o.endTime)}::timestamptz[],
+            ${part.map((o) => o.destinationType ?? null)}::text[], ${part.map((o) => o.optimizationGoal ?? null)}::text[],
+            ${part.map((o) => o.thumbnailUrl ?? null)}::text[], ${part.map((o) => o.imageUrl ?? null)}::text[],
+            ${part.map((o) => o.creativeTitle ?? null)}::text[], ${part.map((o) => o.creativeBody ?? null)}::text[], ${part.map((o) => o.ctaType ?? null)}::text[])
+            AS r(level, object_id, campaign_id, adset_id, name, status, effective_status, objective, daily, lifetime, start_time, end_time,
+              destination_type, optimization_goal, thumbnail_url, image_url, creative_title, creative_body, cta_type)
+          ON CONFLICT (account_id, object_id) DO UPDATE SET
+            connection_id=EXCLUDED.connection_id, ad_account_id=EXCLUDED.ad_account_id, level=EXCLUDED.level,
+            campaign_id=EXCLUDED.campaign_id, adset_id=EXCLUDED.adset_id, name=EXCLUDED.name, status=EXCLUDED.status,
+            effective_status=EXCLUDED.effective_status, objective=EXCLUDED.objective,
+            daily_budget_minor=EXCLUDED.daily_budget_minor, lifetime_budget_minor=EXCLUDED.lifetime_budget_minor,
+            start_time=EXCLUDED.start_time, end_time=EXCLUDED.end_time, destination_type=EXCLUDED.destination_type,
+            optimization_goal=EXCLUDED.optimization_goal, thumbnail_url=EXCLUDED.thumbnail_url, image_url=EXCLUDED.image_url,
+            creative_title=EXCLUDED.creative_title, creative_body=EXCLUDED.creative_body, cta_type=EXCLUDED.cta_type, synced_at=now()`;
+      }
+      // This ad account's objects Meta no longer returns (deleted there) go.
+      await tx.$executeRaw`DELETE FROM meta_ad_objects WHERE account_id=${accountId}::uuid AND ad_account_id=${adAccountId}
+        AND NOT (object_id = ANY(${objects.map((o) => o.id)}::text[]))`;
     }
-    // Objects Meta no longer returns (deleted there) and rows of an earlier connection go.
+    // Rows of an earlier connection, or of an ad account no longer linked, go.
     await tx.$executeRaw`DELETE FROM meta_ad_objects WHERE account_id=${accountId}::uuid
-      AND (connection_id <> ${connection.id}::uuid OR NOT (object_id = ANY(${objects.map((o) => o.id)}::text[])))`;
-    await tx.$executeRaw`UPDATE meta_ad_connections SET objects_synced_at=now(), updated_at=now()
-      WHERE account_id=${accountId}::uuid AND id=${connection.id}::uuid`;
+      AND (connection_id <> ${connection.id}::uuid OR ad_account_id IS NULL OR NOT (ad_account_id = ANY(${adAccounts}::text[])))`;
+    if (fetched.length) {
+      await tx.$executeRaw`UPDATE meta_ad_connections SET objects_synced_at=now(), updated_at=now()
+        WHERE account_id=${accountId}::uuid AND id=${connection.id}::uuid`;
+    }
   });
+  if (failure) throw failure;
 }
 
 const SYNC_BUCKET_MS = 5 * 60_000;
@@ -154,9 +182,19 @@ export interface AdObjectDto {
   lifetimeBudget: number | null;
   startTime: string | null;
   endTime: string | null;
-  /** Last 30 days from the stored insights (campaigns and ads only); null when unknown. */
+  /** Last 30 days from the stored insights; null when unknown. */
   spend: number | null;
   conversationsStarted: number | null;
+  leads: number | null;
+  adAccountId: string | null;
+  /** Ad sets: WHATSAPP, INSTAGRAM_DIRECT, MESSENGER, ON_AD, WEBSITE, ... */
+  destinationType: string | null;
+  optimizationGoal: string | null;
+  /** Ads: the creative preview. */
+  thumbnailUrl: string | null;
+  creativeTitle: string | null;
+  creativeBody: string | null;
+  ctaType: string | null;
 }
 
 export interface AdChangeDto {
@@ -184,6 +222,10 @@ export interface AdManageView {
   manageEnabled: boolean;
   /** Permissions the grant lacks for changes. */
   missingScopes: string[];
+  /** Permissions the grant lacks to create ads (ads_management, pages_manage_ads). */
+  createMissingScopes: string[];
+  /** The connected Page new ads run from. */
+  pageName: string | null;
 }
 
 interface ChangeRow {
@@ -206,30 +248,40 @@ const iso = (value: Date | null) => value?.toISOString() ?? null;
 
 const MAX_OBJECTS = 3000;
 
-/** The cached tree, the open and recent changes, and the cap. App-role read; no Meta call. */
-export async function getAdManageView(actor: MetaAdsActor): Promise<AdManageView> {
+/** The cached tree (one ad account, or all), the open and recent changes, and the cap. App-role read; no Meta call. */
+export async function getAdManageView(actor: MetaAdsActor, adAccountId: string | null = null): Promise<AdManageView> {
   const { accountId } = actor;
+  const filter = adAccountId ? Prisma.sql`AND o.ad_account_id = ${adAccountId}` : Prisma.empty;
   return withTenant({ accountId, userId: actor.userId, role: actor.role }, async (tx) => {
     const [connection] = await tx.$queryRaw<{
       ad_account_currency: string | null; objects_synced_at: Date | null; max_daily_budget_minor: bigint | null; scopes: string[];
-    }[]>`SELECT ad_account_currency, objects_synced_at, max_daily_budget_minor, scopes FROM meta_ad_connections
+      page_name: string | null;
+    }[]>`SELECT ad_account_currency, objects_synced_at, max_daily_budget_minor, scopes, page_name FROM meta_ad_connections
       WHERE account_id=${accountId}::uuid AND status<>'disconnected' ORDER BY created_at DESC LIMIT 1`;
     const objects = await tx.$queryRaw<{
       level: AdObjectLevel; object_id: string; campaign_id: string | null; adset_id: string | null; name: string | null;
       status: string | null; effective_status: string | null; objective: string | null; daily_budget_minor: bigint | null;
       lifetime_budget_minor: bigint | null; start_time: Date | null; end_time: Date | null;
-      spend: Prisma.Decimal | null; conversations: bigint | null;
+      spend: Prisma.Decimal | null; conversations: bigint | null; leads: bigint | null; ad_account_id: string | null;
+      destination_type: string | null; optimization_goal: string | null; thumbnail_url: string | null; image_url: string | null;
+      creative_title: string | null; creative_body: string | null; cta_type: string | null;
     }[]>`
       SELECT o.level, o.object_id, o.campaign_id, o.adset_id, o.name, o.status, o.effective_status, o.objective,
-        o.daily_budget_minor, o.lifetime_budget_minor, o.start_time, o.end_time, i.spend, i.conversations
+        o.daily_budget_minor, o.lifetime_budget_minor, o.start_time, o.end_time, i.spend, i.conversations, i.leads,
+        o.ad_account_id, o.destination_type, o.optimization_goal, o.thumbnail_url, o.image_url, o.creative_title,
+        o.creative_body, o.cta_type
       FROM meta_ad_objects o
       LEFT JOIN (
-        SELECT level, object_id, sum(spend) AS spend, sum(conversations_started) AS conversations FROM meta_ad_insights
+        SELECT level, object_id, sum(spend) AS spend, sum(conversations_started) AS conversations, sum(leads) AS leads
+        FROM meta_ad_insights
         WHERE account_id=${accountId}::uuid AND day >= current_date - 29 GROUP BY level, object_id
       ) i ON i.object_id = o.object_id AND i.level = o.level
-      WHERE o.account_id=${accountId}::uuid
+      WHERE o.account_id=${accountId}::uuid ${filter}
       ORDER BY CASE o.level WHEN 'campaign' THEN 0 WHEN 'adset' THEN 1 ELSE 2 END, o.name NULLS LAST, o.object_id
       LIMIT ${MAX_OBJECTS}`;
+    // One ad account shown: its own currency (linked accounts may differ).
+    const accountCurrency = adAccountId ? (await tx.$queryRaw<{ currency: string | null }[]>`SELECT currency FROM meta_ad_accounts
+      WHERE account_id=${accountId}::uuid AND ad_account_id=${adAccountId}`)[0]?.currency ?? null : null;
     const changes = await tx.$queryRaw<ChangeRow[]>`
       (SELECT ${CHANGE_COLUMNS} FROM meta_ad_changes WHERE account_id=${accountId}::uuid AND status IN ('queued','unknown'))
       UNION ALL
@@ -241,14 +293,19 @@ export async function getAdManageView(actor: MetaAdsActor): Promise<AdManageView
         level: o.level, id: o.object_id, campaignId: o.campaign_id, adsetId: o.adset_id, name: o.name, status: o.status,
         effectiveStatus: o.effective_status, objective: o.objective, dailyBudget: num(o.daily_budget_minor),
         lifetimeBudget: num(o.lifetime_budget_minor), startTime: iso(o.start_time), endTime: iso(o.end_time),
-        spend: num(o.spend), conversationsStarted: num(o.conversations),
+        spend: num(o.spend), conversationsStarted: num(o.conversations), leads: num(o.leads), adAccountId: o.ad_account_id,
+        destinationType: o.destination_type, optimizationGoal: o.optimization_goal,
+        thumbnailUrl: o.image_url ?? o.thumbnail_url, creativeTitle: o.creative_title, creativeBody: o.creative_body,
+        ctaType: o.cta_type,
       })),
       changes: changes.map(changeDto),
-      currency: connection?.ad_account_currency ?? null,
+      currency: accountCurrency ?? connection?.ad_account_currency ?? null,
       syncedAt: iso(connection?.objects_synced_at ?? null),
       maxDailyBudget: num(connection?.max_daily_budget_minor ?? null),
       manageEnabled: metaAdsManageEnabled(),
       missingScopes: missingScopes(connection?.scopes ?? [], 'manage'),
+      createMissingScopes: missingCreateScopes(connection?.scopes ?? []),
+      pageName: connection?.page_name ?? null,
     };
   });
 }

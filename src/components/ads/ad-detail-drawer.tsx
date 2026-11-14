@@ -13,14 +13,15 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '
 import { authFetch } from '@/lib/auth/client';
 import type { AdDailySeries } from '@/lib/meta-ads/daily';
 import { cn } from '@/lib/utils';
-import { formatCount, formatSpend, type AdRow } from './ads-table';
+import { formatCount, formatSpend, resultOf, type AdRow, type AdsLevel } from './ads-table';
+import { ctr, formatMoneyValue, formatPercent, ratio } from './ads-shared';
 
-type Metric = 'spend' | 'clicks' | 'conversations';
-const METRICS: Metric[] = ['conversations', 'clicks', 'spend'];
+type Metric = 'spend' | 'clicks' | 'conversations' | 'leads';
+const METRICS: Metric[] = ['conversations', 'leads', 'clicks', 'spend'];
 
 export function AdDetailDrawer({ row, level, adAccountId, onClose }: {
   row: AdRow | null;
-  level: 'campaign' | 'ad';
+  level: AdsLevel;
   /** For the "Open in Ads Manager" link. */
   adAccountId?: string | null;
   onClose: () => void;
@@ -63,15 +64,22 @@ export function AdDetailDrawer({ row, level, adAccountId, onClose }: {
             <SheetHeader className="pr-12">
               <SheetTitle className="break-words text-lg font-semibold">{row.name ?? row.id}</SheetTitle>
               <SheetDescription className="text-xs text-muted-foreground">
-                {(level === 'ad' ? t('ad') : t('campaign'))} · {row.status ?? '-'} · {row.id}
+                {(level === 'ad' ? t('ad') : level === 'adset' ? t('adset') : t('campaign'))} · {row.status ?? '-'} · {row.id}
               </SheetDescription>
             </SheetHeader>
             <div className="space-y-5 px-4 pb-6">
+              {row.thumbnailUrl && (
+                // Meta's signed creative URL (refreshed by each sync).
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={row.thumbnailUrl} alt={t('creativeAlt')} className="max-h-64 w-full rounded-xl border border-border object-contain" referrerPolicy="no-referrer" />
+              )}
               <p className="text-xs text-muted-foreground">{t('rangeNote')}</p>
               <dl className="grid grid-cols-2 gap-2">
                 {[
                   [t('spend'), row.spend == null ? formatCount(null) : formatSpend(row.spend, row.currency)],
-                  [t('clicks'), formatCount(row.clicks)],
+                  [t('results'), formatCount(resultOf(row).value)],
+                  [t('costPerResult'), formatMoneyValue(ratio(row.spend, resultOf(row).value), row.currency)],
+                  [t('ctr'), formatPercent(ctr(row.clicks, row.impressions))],
                   [t('conversations'), formatCount(row.conversationsStarted)],
                   [t('purchases'), row.purchases.toLocaleString()],
                 ].map(([label, value]) => (
@@ -127,7 +135,7 @@ export function AdDetailDrawer({ row, level, adAccountId, onClose }: {
 
               {adAccountId && (
                 <a
-                  href={`https://adsmanager.facebook.com/adsmanager/manage/${level === 'ad' ? 'ads' : 'campaigns'}?act=${encodeURIComponent(adAccountId)}`}
+                  href={`https://adsmanager.facebook.com/adsmanager/manage/${level === 'ad' ? 'ads' : level === 'adset' ? 'adsets' : 'campaigns'}?act=${encodeURIComponent(adAccountId)}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex h-9 items-center gap-1.5 rounded-full border border-border px-4 text-sm font-medium text-foreground transition-colors duration-150 hover:bg-muted"

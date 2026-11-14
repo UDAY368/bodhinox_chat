@@ -14,10 +14,13 @@ vi.mock('./graph', async (original) => ({
   subscribePageLeadgen: vi.fn(async () => {}),
   unsubscribePage: vi.fn(async () => {}),
   listCampaigns: vi.fn(async () => [{ id: process.env.IT_CAMPAIGN, name: 'Camp', status: 'ACTIVE', objective: null }]),
-  getInsights: vi.fn(async (_a: string, _t: string, o: { level: 'campaign' | 'ad'; until: string }) => [{
+  getInsights: vi.fn(async (_a: string, _t: string, o: { level: 'campaign' | 'adset' | 'ad'; until: string }) => [{
     level: o.level, objectId: o.level === 'ad' ? process.env.IT_AD : process.env.IT_CAMPAIGN, campaignId: process.env.IT_CAMPAIGN,
     name: o.level, objective: null, day: o.until, spend: 12.5, currency: 'INR', impressions: 1000, clicks: 40, conversationsStarted: 3,
+    adsetId: null, linkClicks: 30, leads: 0, purchases: 0,
   }]),
+  getPlatformInsights: vi.fn(async () => []),
+  getReach: vi.fn(async () => []),
 }));
 
 import { disconnectDatabases, getPrisma, getWorkerPrisma } from '@/lib/db/prisma';

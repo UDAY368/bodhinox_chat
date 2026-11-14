@@ -26,10 +26,11 @@ import { useAuth } from '@/hooks/use-auth';
 import { authFetch } from '@/lib/auth/client';
 import type { MetaAdConnectionDto } from '@/lib/meta-ads/connection';
 import { NumberSelect } from './numbers/number-select';
+import { MetaAdAccounts } from './meta-ad-accounts';
 import { useWhatsAppNumbers } from './numbers/use-whatsapp-numbers';
 
 const SDK_SRC = 'https://connect.facebook.net/en_US/sdk.js';
-const GRAPH_VERSION = 'v21.0';
+const GRAPH_VERSION = 'v27.0';
 const FEATURES = ['insights', 'leads', 'capi'] as const;
 type Feature = (typeof FEATURES)[number];
 const ERRORS = new Set([
@@ -318,6 +319,8 @@ export function MetaAdsCard() {
             {connection.lastErrorCode && (
               <p className="text-xs text-muted-foreground">{t('lastError', { code: connection.lastErrorCode })}</p>
             )}
+
+            {(connection.status === 'active' || connection.status === 'token_invalid') && <MetaAdAccounts canEdit={canEdit && connection.status === 'active'} />}
 
             {connection.status === 'active' && (
               <CapiSettings key={connection.capiWhatsappConfigId ?? ''} connection={connection} canEdit={canEdit} busy={busy} numbers={numbers} onSave={saveCapi} />

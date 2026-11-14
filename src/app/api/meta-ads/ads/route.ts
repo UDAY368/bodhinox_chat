@@ -1,4 +1,4 @@
-// GET /api/meta-ads/ads?level=campaign|ad&from=YYYY-MM-DD&to=YYYY-MM-DD — any
+// GET /api/meta-ads/ads?level=campaign|adset|ad&adAccountId=<id|all>&from=YYYY-MM-DD&to=YYYY-MM-DD — any
 // member. Stored daily insights summed over the range (default: the last 30
 // days, at most 92), with conversations Bodhinox saw start from each ad and the
 // attributed Purchase events: { rows, insightsSyncedAt }. Reads stored data only.

@@ -32,11 +32,12 @@ it('answers 503 before reading anything while disabled', async () => {
 it('lets any member read stored rows for a valid range', async () => {
   const res = await get('?level=ad&from=2026-10-01&to=2026-10-31');
   expect(res.status).toBe(200);
-  expect(h.queries).toEqual([{ level: 'ad', from: '2026-10-01', to: '2026-10-31' }]);
+  expect(h.queries).toEqual([{ level: 'ad', from: '2026-10-01', to: '2026-10-31', adAccountId: null }]);
 });
 
 it('rejects an invalid range or level', async () => {
-  expect((await get('?level=adset')).status).toBe(400);
+  expect((await get('?level=account')).status).toBe(400);
+  expect((await get('?adAccountId=act_1')).status).toBe(400);
   expect((await get('?from=2026-10-31&to=2026-10-01')).status).toBe(400);
   expect(h.queries).toEqual([]);
 });
