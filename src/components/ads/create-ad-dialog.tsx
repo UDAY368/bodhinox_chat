@@ -477,7 +477,7 @@ export function CreateAdDialog({ open, onOpenChange, accounts, adAccountId, page
         )}
 
         {step === 2 && (
-          <div className="grid gap-4 sm:grid-cols-[1fr_14rem]">
+          <div className={cn('grid gap-4', format !== 'carousel' && 'sm:grid-cols-[1fr_14rem]')}>
             <div className="flex flex-wrap gap-1.5 sm:col-span-2" role="radiogroup" aria-label={t('format.title')} data-testid="create-ad-format">
               {([['image', ImagePlus], ['video', Film], ['carousel', Images]] as const)
                 .filter(([f]) => f !== 'carousel' || CAROUSEL_KINDS.includes(kind)).map(([f, Icon]) => (
