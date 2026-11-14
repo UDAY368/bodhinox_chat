@@ -56,6 +56,9 @@ const ROLE_CHIP: Record<AccountRole, { icon: typeof Crown; labelKey: string; cla
   viewer: { icon: User, labelKey: 'roleViewer', className: 'bg-muted text-muted-foreground' },
 };
 
+const brandSrcSet = (name: string) =>
+  `/brand/${name}@1x.webp 1x, /brand/${name}@2x.webp 2x, /brand/${name}@3x.webp 3x`;
+
 const SECTION_ICONS: Record<SectionId, typeof MessageSquare> = {
   inbox: MessageSquare,
   contacts: Users,
@@ -137,9 +140,15 @@ export function Sidebar({ open = false, onClose, compact = false, onToggleCompac
         aria-label={t('primaryNav')}
       >
         <div className="flex h-16 shrink-0 items-center justify-between gap-2 px-5">
-          <Link href={sections[0].href} aria-label={t('title')} className="flex items-center gap-2.5 rounded-lg focus-visible:outline-2 focus-visible:outline-primary">
-            <span aria-hidden className="bg-primary flex h-7 w-7 items-center justify-center rounded-[9px] shadow-[inset_0_0_0_6px_rgb(255_255_255/0.22)]" />
-            <span className="text-[15px] font-semibold tracking-[-0.02em]">{t('title')}</span>
+          {/* Full logo (dark text in light mode, light text in dark mode); the collapsed rail shows only the mark.
+              Exported at exactly 1x/2x/3x of the shown size with a high-quality filter: letting the browser
+              shrink a large image several times over (or re-encoding it) left the edges jagged. */}
+          {/* eslint-disable @next/next/no-img-element -- fixed-size lossless srcset, no optimizer needed */}
+          <Link href={sections[0].href} aria-label={t('title')} className="flex items-center rounded-lg focus-visible:outline-2 focus-visible:outline-primary">
+            <img src="/brand/bodhinox-connect-light@2x.webp" srcSet={brandSrcSet('bodhinox-connect-light')} alt="" width={139} height={44} data-brand-full className="h-11 w-auto dark:hidden" />
+            <img src="/brand/bodhinox-connect-dark@2x.webp" srcSet={brandSrcSet('bodhinox-connect-dark')} alt="" width={139} height={44} data-brand-full className="hidden h-11 w-auto dark:block" />
+            <img src="/brand/bodhinox-mark@2x.webp" srcSet={brandSrcSet('bodhinox-mark')} alt="" width={36} height={36} data-brand-mark className="hidden size-9" />
+          {/* eslint-enable @next/next/no-img-element */}
           </Link>
           <button
             type="button"

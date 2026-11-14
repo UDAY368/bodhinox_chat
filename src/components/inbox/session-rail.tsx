@@ -1,7 +1,7 @@
 'use client';
 
-import { useMemo, useState } from 'react';
-import { ChevronDown } from 'lucide-react';
+import { useMemo, useRef } from 'react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import type { Conversation } from '@/types';
 import { getSessionWindow } from '@/lib/inbox/session';
@@ -28,125 +28,135 @@ export function shortTimeLeft(remainingMs: number): string {
   return `${Math.max(1, Math.floor(remainingMs / 60_000))}m`;
 }
 
-/**
- * The chats whose 24-hour customer-service window is open at `now`, the one
- * closing first leading. A window that has closed simply drops out, so the rail
- * rolls itself as the clock moves.
- */
-export function openWindows(conversations: Conversation[], now: number) {
-  return conversations
-    .map((conversation) => ({ conversation, ...getSessionWindow(conversation.last_customer_message_at, now) }))
-    .filter((w) => w.active)
-    .sort((a, b) => a.remainingMs - b.remainingMs);
-}
-
 const RING = { ok: 'stroke-emerald-500', soon: 'stroke-amber-500', closing: 'stroke-red-500' } as const;
-const TEXT = {
-  ok: 'text-muted-foreground',
+export const WINDOW_TEXT = {
+  ok: 'text-emerald-600 dark:text-emerald-400',
   soon: 'text-amber-700 dark:text-amber-400',
   closing: 'text-red-600 dark:text-red-400',
 } as const;
 
-interface SessionRailProps {
+/** What a row needs of a chat's 24-hour window; null once it has closed. */
+export function rowWindow(lastCustomerMessageAt: string | null | undefined, now: number) {
+  const { active, remainingMs } = getSessionWindow(lastCustomerMessageAt, now);
+  if (!active) return null;
+  return { remainingMs, urgency: windowUrgency(remainingMs), left: shortTimeLeft(remainingMs), share: Math.min(1, remainingMs / DAY_MS) };
+}
+
+/**
+ * AiSensy-style strip: one bordered box of avatars for the chats whose window is
+ * open, closing soonest first, with ‹ › to page through. Hidden when none are open.
+ */
+export function WindowStrip({
+  conversations,
+  now,
+  activeConversationId,
+  onSelect,
+}: {
   conversations: Conversation[];
   now: number;
   activeConversationId: string | null;
   onSelect: (conversation: Conversation) => void;
-}
-
-/**
- * Open 24-hour windows as a row of avatars, each ringed by the time it has
- * left. Free-form replies are only allowed inside the window, so this is the
- * "answer these first" queue; when a window closes the chat rolls out.
- */
-export function SessionRail({ conversations, now, activeConversationId, onSelect }: SessionRailProps) {
-  const t = useTranslations('Inbox.sessionRail');
-  const [open, setOpen] = useState(true);
-  const windows = useMemo(() => openWindows(conversations, now), [conversations, now]);
-  if (windows.length === 0) return null;
-  const closingSoon = windows.filter((w) => w.remainingMs < 2 * HOUR_MS).length;
+}) {
+  const t = useTranslations('Inbox.conversationList');
+  const scroller = useRef<HTMLUListElement>(null);
+  const open = useMemo(
+    () =>
+      conversations
+        .map((conversation) => ({ conversation, w: rowWindow(conversation.last_customer_message_at, now) }))
+        .filter((x): x is { conversation: Conversation; w: NonNullable<ReturnType<typeof rowWindow>> } => x.w !== null)
+        .sort((a, b) => a.w.remainingMs - b.w.remainingMs),
+    [conversations, now]
+  );
+  if (open.length === 0) return null;
+  const page = (dir: 1 | -1) => scroller.current?.scrollBy({ left: dir * 180, behavior: 'smooth' });
+  const arrow =
+    'text-muted-foreground hover:bg-muted hover:text-foreground flex size-6 shrink-0 items-center justify-center rounded-full transition-colors duration-150';
 
   return (
-    <section data-session-rail aria-label={t('title')} className="border-border border-b px-3 pt-2 pb-2.5">
-      <button
-        type="button"
-        aria-expanded={open}
-        onClick={() => setOpen((v) => !v)}
-        className="text-foreground hover:bg-muted/60 -mx-1 flex w-[calc(100%+0.5rem)] items-center gap-2 rounded-lg px-1 py-1 text-left text-[12px] font-semibold transition-colors duration-150"
-      >
-        <span aria-hidden className="relative flex size-2">
-          <span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-500/60 motion-reduce:animate-none" />
-          <span className="relative inline-flex size-2 rounded-full bg-emerald-500" />
-        </span>
-        {t('title')}
-        <span className="bg-muted text-muted-foreground rounded-full px-1.5 text-[11px] tabular-nums">{windows.length}</span>
-        {closingSoon > 0 && (
-          <span className="rounded-full bg-amber-500/12 px-1.5 text-[11px] font-medium text-amber-700 dark:text-amber-400">
-            {t('closingSoon', { count: closingSoon })}
-          </span>
-        )}
-        <ChevronDown className={cn('text-muted-foreground ml-auto size-3.5 transition-transform duration-150', !open && '-rotate-90')} aria-hidden />
+    <div data-window-strip role="group" aria-label={t('windowStrip')} className="flex max-w-full min-w-0 items-center gap-0.5">
+      <button type="button" onClick={() => page(-1)} aria-label={t('windowStripPrev')} className={arrow}>
+        <ChevronLeft className="size-4" aria-hidden />
       </button>
-      {open && (
-        <ul className="studio-rail -mx-1 mt-1.5 flex gap-2 overflow-x-auto px-1 pb-0.5">
-          {windows.map(({ conversation, remainingMs }) => {
-            const contact = conversation.contact;
-            const name = contact?.name || (contact ? contactHandle(contact) : '') || '?';
-            const urgency = windowUrgency(remainingMs);
-            const left = shortTimeLeft(remainingMs);
-            const share = Math.min(1, remainingMs / DAY_MS);
-            const isActive = conversation.id === activeConversationId;
-            return (
-              <li key={conversation.id} className="studio-rail-item shrink-0">
-                <button
-                  type="button"
-                  onClick={() => onSelect(conversation)}
-                  aria-current={isActive ? 'true' : undefined}
-                  aria-label={t('item', { name, time: left })}
-                  title={t('item', { name, time: left })}
-                  className="group flex w-14 flex-col items-center gap-1 rounded-xl py-1 transition-colors duration-150 hover:bg-muted/60"
-                >
-                  <span className="relative flex size-11 items-center justify-center">
-                    <svg viewBox="0 0 44 44" className="absolute inset-0 -rotate-90" aria-hidden>
-                      <circle cx="22" cy="22" r="20" fill="none" strokeWidth="2.5" className="stroke-border" />
-                      <circle
-                        cx="22"
-                        cy="22"
-                        r="20"
-                        fill="none"
-                        strokeWidth="2.5"
-                        strokeLinecap="round"
-                        pathLength={100}
-                        strokeDasharray={`${Math.max(2, share * 100)} 100`}
-                        className={cn(RING[urgency], 'transition-[stroke-dasharray] duration-700')}
-                      />
-                    </svg>
-                    <span
-                      className={cn(
-                        'flex size-[34px] items-center justify-center rounded-full text-[11px] font-semibold',
-                        avatarTone(name),
-                        isActive && 'ring-primary ring-2 ring-offset-1 ring-offset-card'
-                      )}
-                    >
-                      {initials(name)}
-                    </span>
-                    <span
-                      aria-hidden
-                      className={cn(
-                        'ring-card absolute right-0.5 bottom-0.5 size-2.5 rounded-full ring-2',
-                        conversationChannel(conversation) === 'instagram'
-                          ? 'bg-[linear-gradient(45deg,#f9a03f,#d6338a_55%,#7b3fe4)]'
-                          : 'bg-emerald-500'
-                      )}
+      <ul ref={scroller} className="flex min-w-0 gap-1.5 overflow-x-auto [scrollbar-width:none]">
+        {open.map(({ conversation, w }) => {
+          const contact = conversation.contact;
+          const name = contact?.name || (contact ? contactHandle(contact) : '') || '?';
+          const label = t('windowStripItem', { name, time: w.left });
+          const isActive = conversation.id === activeConversationId;
+          return (
+            <li key={conversation.id} className="shrink-0">
+              <button
+                type="button"
+                onClick={() => onSelect(conversation)}
+                aria-current={isActive ? 'true' : undefined}
+                aria-label={label}
+                title={label}
+                className="flex w-14 flex-col items-center gap-0.5 rounded-lg py-0.5 hover:bg-muted/60"
+              >
+                <span className="relative flex size-10 items-center justify-center">
+                  <svg viewBox="0 0 44 44" className="absolute inset-0 -rotate-90" aria-hidden>
+                    <circle cx="22" cy="22" r="20" fill="none" strokeWidth="3" className="stroke-border" />
+                    <circle
+                      cx="22"
+                      cy="22"
+                      r="20"
+                      fill="none"
+                      strokeWidth="3"
+                      strokeLinecap="round"
+                      pathLength={100}
+                      strokeDasharray={`${Math.max(2, w.share * 100)} 100`}
+                      className={RING[w.urgency]}
                     />
+                  </svg>
+                  <span
+                    className={cn(
+                      'flex size-[32px] items-center justify-center rounded-full text-[11px] font-semibold',
+                      avatarTone(name),
+                      isActive && 'ring-primary ring-2 ring-offset-1 ring-offset-background'
+                    )}
+                  >
+                    {initials(name)}
                   </span>
-                  <span className={cn('text-[10px] leading-none font-semibold tabular-nums', TEXT[urgency])}>{left}</span>
-                </button>
-              </li>
-            );
-          })}
-        </ul>
-      )}
-    </section>
+                  <span
+                    aria-hidden
+                    className={cn(
+                      'ring-background absolute top-0 right-0 size-2.5 rounded-full ring-2',
+                      conversationChannel(conversation) === 'instagram' ? 'bg-[linear-gradient(45deg,#f9a03f,#d6338a_55%,#7b3fe4)]' : 'bg-emerald-500'
+                    )}
+                  />
+                  <span className={cn('bg-background absolute -bottom-1 rounded-full px-1 text-[9px] leading-[12px] font-semibold tabular-nums shadow-xs', WINDOW_TEXT[w.urgency])}>
+                    {w.left}
+                  </span>
+                </span>
+                <span className="text-foreground mt-0.5 w-full truncate text-center text-[11px] leading-none">{name.split(' ')[0]}</span>
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+      <button type="button" onClick={() => page(1)} aria-label={t('windowStripNext')} className={arrow}>
+        <ChevronRight className="size-4" aria-hidden />
+      </button>
+    </div>
+  );
+}
+
+/** A ring around an avatar that drains as the 24-hour window runs out. */
+export function WindowRing({ share, urgency }: { share: number; urgency: WindowUrgency }) {
+  return (
+    <svg viewBox="0 0 44 44" className="pointer-events-none absolute -inset-[3px] size-[46px] -rotate-90" aria-hidden data-window-ring>
+      <circle cx="22" cy="22" r="20.5" fill="none" strokeWidth="2" className="stroke-border" />
+      <circle
+        cx="22"
+        cy="22"
+        r="20.5"
+        fill="none"
+        strokeWidth="2"
+        strokeLinecap="round"
+        pathLength={100}
+        strokeDasharray={`${Math.max(2, share * 100)} 100`}
+        className={cn(RING[urgency], 'transition-[stroke-dasharray] duration-700')}
+      />
+    </svg>
   );
 }
