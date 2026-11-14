@@ -118,7 +118,8 @@
     "expandSidebar": "펼치기",
     "analyticsConversations": "대화",
     "analyticsTeam": "팀",
-    "analyticsCampaigns": "캠페인"
+    "analyticsCampaigns": "캠페인",
+    "onlineStore": "온라인 스토어"
   },
   "Header": {
     "notificationsUnread": "알림, 읽지 않음 {count}개",
@@ -10094,7 +10095,14 @@
         "amount_out_of_range": "금액이 너무 큽니다.",
         "too_many_open_orders": "이 고객은 이미 열린 주문이 최대입니다. 먼저 미결제 주문이 결제되거나 만료되어야 하며, 착불 주문은 발송되거나 취소되어야 합니다.",
         "cod_unavailable": "이 장바구니는 착불(현장 결제)을 사용할 수 없습니다.",
-        "online_unavailable": "지금은 온라인 결제를 사용할 수 없습니다. 착불을 선택하거나 나중에 다시 시도하세요."
+        "online_unavailable": "지금은 온라인 결제를 사용할 수 없습니다. 착불을 선택하거나 나중에 다시 시도하세요.",
+        "handle_taken": "이미 사용 중인 스토어 주소입니다. 다른 주소를 입력하세요.",
+        "invalid_handle": "스토어 주소는 소문자, 숫자, 하이픈(연속 불가)으로 3~40자여야 합니다.",
+        "otp_unavailable": "이 스토어에는 WhatsApp 인증 코드 주문이 설정되어 있지 않습니다.",
+        "otp_invalid": "코드가 올바르지 않습니다. 확인 후 다시 시도하세요.",
+        "otp_expired": "코드가 만료되었습니다. 새 코드를 요청하세요.",
+        "otp_locked": "잘못된 시도가 너무 많습니다. 새 코드를 요청하세요.",
+        "whatsapp_order_unavailable": "이 스토어에는 WhatsApp 주문이 설정되어 있지 않습니다."
       },
       "title": "스토어 설정",
       "subtitle": "온라인 스토어의 통화, 세금, 결제, 판매자 정보, 배송, 쿠폰입니다.",
@@ -10396,6 +10404,129 @@
         "not_connected": "Razorpay가 연결되어 있지 않음",
         "provider_auth": "Razorpay가 저장된 키를 거부함",
         "other": "Razorpay가 요청을 거부함"
+      }
+    },
+    "storeSite": {
+      "title": "온라인 스토어",
+      "subtitle": "누구나 열 수 있는 공개 스토어를 기본 템플릿으로 바로 만드세요.",
+      "loadError": "온라인 스토어 설정을 불러오지 못했습니다.",
+      "loading": "불러오는 중",
+      "saved": "온라인 스토어를 저장했습니다.",
+      "copied": "링크를 복사했습니다.",
+      "copyFailed": "복사하지 못했습니다. 링크를 선택해 복사하세요.",
+      "fromLibrary": "미디어 라이브러리의 이미지",
+      "pickImage": "미디어 라이브러리에서 선택",
+      "clear": "지우기",
+      "logo": "로고",
+      "banner": "배너 이미지",
+      "openShop": "스토어 열기",
+      "checklistTitle": "스토어 설정",
+      "checklistProgress": "{total}개 중 {done}개 완료",
+      "checklist": {
+        "settings": "스토어 설정 입력(통화와 세금)",
+        "product": "가격이 있는 첫 상품 게시",
+        "template": "템플릿을 고르고 저장",
+        "payments": "Razorpay 연결 또는 착불 켜기",
+        "shipping": "배송 요금 추가",
+        "checkout": "스토어 설정에서 결제 켜기",
+        "ordering": "구매자 주문 방식 선택(WhatsApp 코드 또는 채팅)",
+        "published": "스토어 게시"
+      },
+      "done": "완료",
+      "todo": "할 일",
+      "addressTitle": "스토어 주소",
+      "addressHint": "스토어는 이 웹 주소에 있습니다. 게시된 상품만 표시됩니다.",
+      "handle": "스토어 주소",
+      "handleHint": "소문자, 숫자, 하이픈으로 3~40자.",
+      "published": "게시됨: 누구나 스토어를 열 수 있습니다",
+      "hidden": "숨김: 이 설정은 나만 볼 수 있습니다",
+      "copyLink": "링크 복사",
+      "shareHint": "WhatsApp, Instagram 프로필, 브로드캐스트, 플로우에 링크를 공유하거나 QR 코드를 인쇄하세요.",
+      "downloadQr": "QR 코드 다운로드",
+      "templateTitle": "템플릿",
+      "templateHint": "기본 디자인을 고르세요. 템플릿을 바꿔도 상품과 설정은 그대로입니다.",
+      "brandTitle": "브랜드",
+      "brandHint": "템플릿 위에 로고, 색상, 글꼴, 문구를 적용합니다. 비워 두면 템플릿 기본값을 사용합니다.",
+      "colors": {
+        "primary": "메인 색상",
+        "accent": "강조 색상",
+        "background": "배경",
+        "surface": "카드 색상",
+        "text": "글자 색상"
+      },
+      "useTemplateColor": "템플릿 색상 사용",
+      "font": {
+        "heading": "제목 글꼴",
+        "body": "본문 글꼴"
+      },
+      "templateFont": "템플릿 글꼴({font})",
+      "fonts": {
+        "modern": "모던 산세리프",
+        "humanist": "친근한 산세리프",
+        "rounded": "라운드",
+        "classic": "클래식 세리프",
+        "elegant": "우아한 세리프",
+        "technical": "테크니컬"
+      },
+      "headline": "배너 제목",
+      "subheadline": "배너 문구",
+      "announcement": "공지 바",
+      "announcementPlaceholder": "₹999 이상 무료 배송",
+      "social": {
+        "instagram": "Instagram 링크",
+        "facebook": "Facebook 링크",
+        "youtube": "YouTube 링크"
+      },
+      "orderingTitle": "구매자 주문 방식",
+      "orderingHint": "구매자는 자유롭게 둘러봅니다. 주문하려면 WhatsApp 번호를 코드로 인증하거나 WhatsApp으로 장바구니를 보냅니다. 두 방법 모두 기존 결제 화면으로 이어집니다.",
+      "number": "WhatsApp 번호",
+      "noNumber": "번호 없음(주문 꺼짐)",
+      "disconnected": "연결 끊김",
+      "whatsappPhone": "구매자에게 보이는 번호",
+      "whatsappPhoneHint": "국가 번호를 포함한 숫자. 채팅 버튼과 WhatsApp으로 주문에 사용됩니다.",
+      "otpTemplate": "코드 템플릿",
+      "noOtp": "코드 없음(꺼짐)",
+      "otpHint": "이 번호의 승인된 인증 템플릿으로 코드를 보냅니다.",
+      "otpNoneHint": "템플릿에서 인증 템플릿을 만들고 승인되면 코드를 켤 수 있습니다.",
+      "save": "저장",
+      "imageOnly": "이미지를 선택하세요.",
+      "templates": {
+        "wellness": {
+          "name": "웰니스·아유르베다",
+          "description": "차분한 녹색과 금색, 클래식 세리프, 큼직한 카테고리 타일.",
+          "headline": "정성으로 만든 자연 케어",
+          "subheadline": "허브 제품, 오일, 블렌드를 집 앞까지 배송해 드립니다."
+        },
+        "fashion": {
+          "name": "패션",
+          "description": "흑백에 강렬한 빨강, 세로형 사진, 전체 너비 배너.",
+          "headline": "새 시즌, 새 스타일",
+          "subheadline": "당신을 위해 고른 신상품. 몇 번의 탭으로 주문하세요."
+        },
+        "beauty": {
+          "name": "뷰티",
+          "description": "부드러운 로즈 톤, 우아한 세리프, 둥근 카드.",
+          "headline": "매일 빛나는 피부",
+          "subheadline": "마음에 쏙 들 스킨케어와 메이크업, WhatsApp으로 간편 주문."
+        },
+        "food": {
+          "name": "푸드·베이커리",
+          "description": "따뜻한 오렌지, 친근한 둥근 글꼴, 큼직한 음식 사진.",
+          "headline": "매일 갓 구운 맛",
+          "subheadline": "바로 만든 케이크, 간식, 디저트. 지금 주문하세요."
+        },
+        "grocery": {
+          "name": "식료품",
+          "description": "싱그러운 녹색과 노랑, 깔끔한 산세리프, 한 줄에 상품 4개.",
+          "headline": "생활필수품 배송",
+          "subheadline": "신선한 식료품과 생필품을 합리적인 가격에."
+        },
+        "electronics": {
+          "name": "전자제품",
+          "description": "시원한 파랑과 청록, 테크니컬 글꼴, 컴팩트한 카드.",
+          "headline": "최신 기기",
+          "subheadline": "휴대폰, 액세서리 등을 빠르게 배송해 드립니다."
+        }
       }
     }
   },
@@ -16502,6 +16633,120 @@
       "es": "스페인어 (Español)",
       "ko": "한국어",
       "pt": "포르투갈어 (Português)"
+    }
+  },
+  "ShopPublic": {
+    "home": "홈",
+    "allProducts": "전체 상품",
+    "cart": "장바구니",
+    "footerNote": "온라인으로 주문하거나 WhatsApp으로 문의하세요.",
+    "chatOnWhatsApp": "WhatsApp으로 문의",
+    "shopNow": "쇼핑하기",
+    "categories": "카테고리",
+    "featured": "추천 상품",
+    "viewAll": "전체 보기",
+    "noProducts": "아직 상품이 없습니다. 곧 다시 방문해 주세요.",
+    "soldOut": "품절",
+    "from": "최저",
+    "nextPage": "다음 페이지",
+    "prevPage": "이전 페이지",
+    "pageOf": "{pages}페이지 중 {page}페이지",
+    "pagination": "페이지",
+    "imageN": "이미지 {n}",
+    "pickOptions": "위에서 옵션을 선택하세요.",
+    "inStock": "재고 있음",
+    "decrease": "줄이기",
+    "increase": "늘리기",
+    "addToCart": "장바구니에 담기",
+    "added": "장바구니에 담았습니다.",
+    "viewCart": "장바구니 보기",
+    "breadcrumb": "현재 위치",
+    "related": "함께 보면 좋은 상품",
+    "up": "뒤로",
+    "sortLabel": "정렬",
+    "sort": {
+      "featured": "추천순",
+      "price_asc": "낮은 가격순",
+      "price_desc": "높은 가격순",
+      "name": "이름순"
+    },
+    "minPrice": "최저 가격",
+    "maxPrice": "최고 가격",
+    "optionLabel": "옵션",
+    "anyOption": "전체",
+    "apply": "적용",
+    "resultCount": "{count, plural, other {상품 #개}}",
+    "noMatching": "이 필터에 맞는 상품이 없습니다.",
+    "loading": "불러오는 중…",
+    "cartEmpty": "장바구니가 비어 있습니다.",
+    "keepShopping": "계속 쇼핑하기",
+    "removedLines": "더 이상 판매하지 않는 상품이 있어 장바구니에서 뺐습니다.",
+    "onlyLeft": "{count, plural, other {#개 남음}}",
+    "remove": "삭제",
+    "subtotal": "소계",
+    "taxIncludedNote": "가격에 세금이 포함되어 있습니다. 배송비와 쿠폰은 결제 단계에서 적용됩니다.",
+    "taxExtraNote": "세금, 배송비, 쿠폰은 결제 단계에서 적용됩니다.",
+    "orderingClosed": "지금은 이 스토어에서 온라인 주문을 받지 않습니다. WhatsApp으로 문의해 주세요.",
+    "otpHeading": "WhatsApp 인증 코드로 결제하기",
+    "phoneLabel": "국가 번호를 포함한 WhatsApp 번호",
+    "sendCode": "WhatsApp으로 코드 받기",
+    "codeLabel": "WhatsApp으로 받은 6자리 코드를 입력하세요",
+    "verifyAndCheckout": "인증하고 결제하기",
+    "changeNumber": "다른 번호 사용",
+    "or": "또는",
+    "orderOnWhatsApp": "WhatsApp으로 주문",
+    "checkoutNote": "결제 단계에서 주소를 입력하고 배송비와 세금을 확인한 뒤, 온라인으로 결제하거나 스토어가 제공하면 착불을 선택할 수 있습니다.",
+    "errors": {
+      "invalid": "입력한 내용 중 올바르지 않은 항목이 있습니다. 확인해 주세요.",
+      "invalid_cart": "장바구니를 읽을 수 없습니다. 상품을 다시 담아 주세요.",
+      "variant_unavailable": "장바구니의 상품 중 판매가 종료된 상품이 있습니다. 페이지를 새로고침하세요.",
+      "otp_unavailable": "WhatsApp 인증 코드 주문을 사용할 수 없습니다. WhatsApp으로 주문을 이용해 보세요.",
+      "otp_invalid": "코드가 올바르지 않습니다. 확인 후 다시 시도하세요.",
+      "otp_expired": "코드가 만료되었습니다. 새 코드를 요청하세요.",
+      "otp_locked": "잘못된 시도가 너무 많습니다. 새 코드를 요청하세요.",
+      "too_many": "시도가 너무 많습니다. 몇 분 후 다시 시도하세요.",
+      "send_failed": "WhatsApp이 이 번호로 코드를 보내지 못했습니다. 번호를 확인하세요.",
+      "send_uncertain": "코드 발송 여부를 확인하지 못했습니다. 1분 안에 오지 않으면 다시 요청하세요.",
+      "checkout_disabled": "지금은 이 스토어에서 온라인 주문을 받지 않습니다.",
+      "store_not_configured": "지금은 이 스토어에서 온라인 주문을 받지 않습니다.",
+      "contact_blocked": "이 번호로는 이 스토어에서 주문할 수 없습니다.",
+      "whatsapp_order_unavailable": "WhatsApp 주문을 사용할 수 없습니다.",
+      "not_found": "이 스토어를 이용할 수 없습니다.",
+      "invalid_phone": "+와 국가 번호를 포함해 입력하세요. 예: +82 10 1234 5678",
+      "network": "연결되어 있지 않습니다. 다시 시도하세요.",
+      "generic": "문제가 발생했습니다. 다시 시도하세요."
+    },
+    "whatsapp": {
+      "intro": "안녕하세요 {shop}, 주문하고 싶어요:",
+      "more": "외 {count}개 상품",
+      "expired": "이 주문 코드는 만료되었습니다. 스토어에서 다시 주문해 주세요:",
+      "checkout": "주문해 주셔서 감사합니다! 여기에서 주소를 입력하고 결제하세요:"
+    },
+    "templates": {
+      "wellness": {
+        "headline": "정성으로 만든 자연 케어",
+        "subheadline": "허브 제품, 오일, 블렌드를 집 앞까지 배송해 드립니다."
+      },
+      "fashion": {
+        "headline": "새 시즌, 새 스타일",
+        "subheadline": "당신을 위해 고른 신상품. 몇 번의 탭으로 주문하세요."
+      },
+      "beauty": {
+        "headline": "매일 빛나는 피부",
+        "subheadline": "마음에 쏙 들 스킨케어와 메이크업, WhatsApp으로 간편 주문."
+      },
+      "food": {
+        "headline": "매일 갓 구운 맛",
+        "subheadline": "바로 만든 케이크, 간식, 디저트. 지금 주문하세요."
+      },
+      "grocery": {
+        "headline": "생활필수품 배송",
+        "subheadline": "신선한 식료품과 생필품을 합리적인 가격에."
+      },
+      "electronics": {
+        "headline": "최신 기기",
+        "subheadline": "휴대폰, 액세서리 등을 빠르게 배송해 드립니다."
+      }
     }
   }
 }
