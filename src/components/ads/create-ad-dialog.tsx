@@ -12,7 +12,7 @@
 // progress shows in "Ads created in Bodhinox".
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { AtSign, Film, Globe, ImagePlus, Images, Loader2, MessageCircle, Plus, Trash2, UserPlus } from 'lucide-react';
+import { AtSign, Film, Globe, ImagePlus, Images, Loader2, MessageCircle, Plus, Sparkles, Trash2, UserPlus } from 'lucide-react';
 import { toast } from 'sonner';
 import { useTranslations } from 'next-intl';
 
@@ -48,6 +48,7 @@ type Format = 'image' | 'video' | 'carousel';
 interface UploadedImage { hash: string; url: string | null; preview: string }
 interface Card { key: number; image: UploadedImage | null; headline: string; description: string; link: string }
 const MAX_VIDEO_BYTES = 30 * 1024 * 1024;
+const AI_ERRORS = new Set(['ai_not_configured', 'image_not_supported', 'image_refused', 'rate_limited', 'invalid_key', 'manage_not_enabled']);
 const COMMON_COUNTRIES = ['IN', 'US', 'GB', 'AE', 'SA', 'SG', 'AU', 'CA', 'DE', 'BR', 'ID', 'MX'];
 const ERRORS = new Set(['invalid_request', 'invalid_choice', 'missing_scope', 'over_budget_cap', 'token_invalid', 'manage_not_enabled',
   'not_connected', 'rate_limited', 'meta_error']);
@@ -104,6 +105,12 @@ export function CreateAdDialog({ open, onOpenChange, accounts, adAccountId, page
   const videoRef = useRef<HTMLInputElement>(null);
   const cardRef = useRef<HTMLInputElement>(null);
   const cardTarget = useRef<number | null>(null);
+  const [aiCopyOpen, setAiCopyOpen] = useState(false);
+  const [brief, setBrief] = useState('');
+  const [variants, setVariants] = useState<{ primaryText: string; headline: string; description: string | null }[] | null>(null);
+  const [aiBusy, setAiBusy] = useState<'copy' | 'image' | null>(null);
+  const [aiImageOpen, setAiImageOpen] = useState(false);
+  const [imagePrompt, setImagePrompt] = useState('');
   const [uploading, setUploading] = useState(false);
   const [forms, setForms] = useState<{ id: string; name: string | null }[] | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -206,6 +213,47 @@ export function CreateAdDialog({ open, onOpenChange, accounts, adAccountId, page
       setVideoUploading(false);
     }
   };
+  const aiError = (code: unknown) => t(`ai.errors.${typeof code === 'string' && AI_ERRORS.has(code) ? code : 'generic'}`);
+  const writeCopy = async () => {
+    if (!brief.trim()) return;
+    setAiBusy('copy');
+    try {
+      const res = await authFetch('/api/meta-ads/ai', {
+        method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action: 'copy', kind, brief: brief.trim() }),
+      });
+      const body = (await res.json().catch(() => ({}))) as { variants?: typeof variants; error?: string };
+      if (!res.ok || !body.variants) throw new Error(body.error ?? 'generic');
+      setVariants(body.variants);
+    } catch (error) {
+      toast.error(aiError(error instanceof Error ? error.message : null));
+    } finally {
+      setAiBusy(null);
+    }
+  };
+  const applyVariant = (v: { primaryText: string; headline: string; description: string | null }) => {
+    setPrimaryText(v.primaryText);
+    setHeadline(v.headline);
+    if (kind !== 'instagram_direct') setDescription(v.description ?? '');
+    setAiCopyOpen(false);
+  };
+  const makeImage = async () => {
+    if (!imagePrompt.trim() || !account) return;
+    setAiBusy('image');
+    try {
+      const res = await authFetch('/api/meta-ads/ai', {
+        method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action: 'image', adAccountId: account, prompt: imagePrompt.trim() }),
+      });
+      const body = (await res.json().catch(() => ({}))) as { hash?: string; url?: string | null; preview?: string; error?: string };
+      if (!res.ok || !body.hash || !body.preview) throw new Error(body.error ?? 'generic');
+      setImage({ hash: body.hash, url: body.url ?? null, preview: body.preview });
+      setAiImageOpen(false);
+    } catch (error) {
+      toast.error(aiError(error instanceof Error ? error.message : null));
+    } finally {
+      setAiBusy(null);
+    }
+  };
+
   // Choices that no longer fit the goal fall away.
   useEffect(() => {
     if (!STATUS_KINDS.includes(kind)) setPlacements((list) => list.filter((p) => p !== 'whatsapp_status'));
@@ -441,6 +489,36 @@ export function CreateAdDialog({ open, onOpenChange, accounts, adAccountId, page
               ))}
             </div>
             <div className="space-y-4">
+              <div className="rounded-xl border border-dashed border-primary/40 bg-primary/5 p-3" data-testid="create-ad-ai-copy">
+                {!aiCopyOpen ? (
+                  <button type="button" onClick={() => setAiCopyOpen(true)} className="inline-flex items-center gap-1.5 text-sm font-medium text-primary">
+                    <Sparkles className="size-4" /> {t('ai.writeCopy')}
+                  </button>
+                ) : (
+                  <div className="space-y-2">
+                    <Label htmlFor="create-ad-brief">{t('ai.brief')}</Label>
+                    <Textarea id="create-ad-brief" rows={2} maxLength={1000} value={brief} onChange={(e) => setBrief(e.target.value)} placeholder={t('ai.briefPlaceholder')} />
+                    <div className="flex flex-wrap gap-2">
+                      <Button type="button" size="sm" onClick={() => void writeCopy()} disabled={!brief.trim() || aiBusy !== null}>
+                        {aiBusy === 'copy' ? <Loader2 className="size-4 animate-spin" /> : <Sparkles className="size-4" />} {variants ? t('ai.again') : t('ai.generate')}
+                      </Button>
+                      <Button type="button" size="sm" variant="ghost" onClick={() => setAiCopyOpen(false)}>{t('ai.close')}</Button>
+                    </div>
+                    {variants && (
+                      <ul className="space-y-2">
+                        {variants.map((v, i) => (
+                          <li key={i} className="rounded-lg border border-border bg-card p-2.5 text-sm">
+                            <p className="font-medium text-foreground">{v.headline}</p>
+                            <p className="mt-0.5 whitespace-pre-line text-muted-foreground">{v.primaryText}</p>
+                            <Button type="button" size="sm" variant="outline" className="mt-2" onClick={() => applyVariant(v)}>{t('ai.use')}</Button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    <p className="text-xs text-muted-foreground">{t('ai.copyHelp')}</p>
+                  </div>
+                )}
+              </div>
               <div className="space-y-1">
                 <Label htmlFor="create-ad-text">{t('primaryText')}</Label>
                 <Textarea id="create-ad-text" value={primaryText} maxLength={2000} rows={4} onChange={(e) => setPrimaryText(e.target.value)} placeholder={t('primaryTextPlaceholder')} />
@@ -521,6 +599,24 @@ export function CreateAdDialog({ open, onOpenChange, accounts, adAccountId, page
               <input ref={fileRef} type="file" accept="image/jpeg,image/png" className="hidden"
                 onChange={(e) => { const f = e.target.files?.[0]; if (f) void upload(f); e.target.value = ''; }} />
               <p className="text-xs text-muted-foreground">{t('imageRules')}</p>
+              {format === 'image' && (
+                <div className="space-y-1.5" data-testid="create-ad-ai-image">
+                  {!aiImageOpen ? (
+                    <button type="button" onClick={() => setAiImageOpen(true)} className="inline-flex items-center gap-1 text-xs font-medium text-primary">
+                      <Sparkles className="size-3.5" /> {t('ai.makeImage')}
+                    </button>
+                  ) : (
+                    <>
+                      <Textarea aria-label={t('ai.imagePrompt')} rows={3} maxLength={1000} value={imagePrompt}
+                        onChange={(e) => setImagePrompt(e.target.value)} placeholder={t('ai.imagePromptPlaceholder')} />
+                      <Button type="button" size="sm" className="w-full" onClick={() => void makeImage()} disabled={!imagePrompt.trim() || aiBusy !== null}>
+                        {aiBusy === 'image' ? <Loader2 className="size-4 animate-spin" /> : <Sparkles className="size-4" />} {t('ai.generateImage')}
+                      </Button>
+                      <p className="text-xs text-muted-foreground">{t('ai.imageHelp')}</p>
+                    </>
+                  )}
+                </div>
+              )}
             </div>}
             {format === 'carousel' && (
               <div className="space-y-3 sm:col-span-2" data-testid="create-ad-cards">

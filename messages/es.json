@@ -12711,6 +12711,30 @@
           "city": "Ciudad"
         },
         "size": "{size} personas"
+      },
+      "ai": {
+        "writeCopy": "Escribir el anuncio con IA",
+        "brief": "¿Qué estás promocionando?",
+        "briefPlaceholder": "p. ej. Oferta de Diwali en lámparas de latón, 20 % hasta el domingo, envío gratis en Pune",
+        "generate": "Escribir 3 opciones",
+        "again": "Intentar de nuevo",
+        "close": "Cerrar",
+        "use": "Usar esta",
+        "copyHelp": "Las sugerencias de IA siguen las normas de Meta. Revisa los datos antes de publicar.",
+        "makeImage": "Crear una imagen con IA",
+        "imagePrompt": "Descripción de la imagen",
+        "imagePromptPlaceholder": "p. ej. Lámparas diya de latón en una mesa festiva con caléndulas",
+        "generateImage": "Generar imagen",
+        "imageHelp": "Cuadrada, sin texto en la imagen. Usa tu plan de IA.",
+        "errors": {
+          "ai_not_configured": "Configura primero un proveedor de IA en IA → Configuración.",
+          "image_not_supported": "Tu proveedor de IA no crea imágenes. Usa Gemini u OpenAI.",
+          "image_refused": "El proveedor de IA no quiso crear esta imagen. Descríbela de otra forma.",
+          "rate_limited": "La IA está ocupada. Inténtalo en un momento.",
+          "invalid_key": "El proveedor de IA rechazó la clave.",
+          "manage_not_enabled": "La gestión de anuncios no está activada.",
+          "generic": "No funcionó. Inténtalo de nuevo."
+        }
       }
     },
     "drafts": {

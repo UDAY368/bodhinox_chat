@@ -12711,6 +12711,30 @@
           "city": "도시"
         },
         "size": "{size}명"
+      },
+      "ai": {
+        "writeCopy": "AI로 광고 문구 쓰기",
+        "brief": "무엇을 홍보하나요?",
+        "briefPlaceholder": "예: 디왈리 황동 램프 세일, 일요일까지 20% 할인, 푸네 무료 배송",
+        "generate": "3가지 문구 쓰기",
+        "again": "다시 시도",
+        "close": "닫기",
+        "use": "이 문구 사용",
+        "copyHelp": "AI 제안은 Meta 광고 규정을 따릅니다. 게시 전에 내용을 확인하세요.",
+        "makeImage": "AI로 이미지 만들기",
+        "imagePrompt": "이미지 설명",
+        "imagePromptPlaceholder": "예: 금잔화로 장식한 축제 테이블 위의 황동 디야 램프",
+        "generateImage": "이미지 생성",
+        "imageHelp": "정사각형, 이미지 안에 글자 없음. AI 플랜을 사용합니다.",
+        "errors": {
+          "ai_not_configured": "먼저 AI → 설정에서 AI 제공자를 설정하세요.",
+          "image_not_supported": "사용 중인 AI 제공자는 이미지를 만들 수 없습니다. Gemini 또는 OpenAI를 사용하세요.",
+          "image_refused": "AI 제공자가 이 이미지를 만들지 않았습니다. 다르게 설명해 보세요.",
+          "rate_limited": "AI가 바쁩니다. 잠시 후 다시 시도하세요.",
+          "invalid_key": "AI 제공자가 키를 거부했습니다.",
+          "manage_not_enabled": "광고 관리가 켜져 있지 않습니다.",
+          "generic": "실패했습니다. 다시 시도하세요."
+        }
       }
     },
     "drafts": {

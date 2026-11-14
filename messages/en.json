@@ -12711,6 +12711,30 @@
           "city": "City"
         },
         "size": "{size} people"
+      },
+      "ai": {
+        "writeCopy": "Write the ad with AI",
+        "brief": "What are you promoting?",
+        "briefPlaceholder": "e.g. Diwali sale on brass lamps, 20% off until Sunday, free delivery in Pune",
+        "generate": "Write 3 options",
+        "again": "Try again",
+        "close": "Close",
+        "use": "Use this",
+        "copyHelp": "AI suggestions follow Meta ad rules. Check the facts before you publish.",
+        "makeImage": "Make an image with AI",
+        "imagePrompt": "Image description",
+        "imagePromptPlaceholder": "e.g. Brass diya lamps on a festive table with marigolds",
+        "generateImage": "Generate image",
+        "imageHelp": "Square, no text in the image. Uses your AI plan.",
+        "errors": {
+          "ai_not_configured": "Set up an AI provider in AI → Setup first.",
+          "image_not_supported": "Your AI provider cannot make images. Use Gemini or OpenAI.",
+          "image_refused": "The AI provider would not make this image. Describe it differently.",
+          "rate_limited": "The AI is busy. Try again in a moment.",
+          "invalid_key": "The AI provider key was refused.",
+          "manage_not_enabled": "Ad management is not turned on.",
+          "generic": "That did not work. Try again."
+        }
       }
     },
     "drafts": {
