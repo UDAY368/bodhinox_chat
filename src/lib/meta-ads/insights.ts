@@ -22,6 +22,7 @@ import {
   type InsightLevel, type MetaInsightRow, type MetaPlatformRow, type MetaReachRow, type ReachLevel, type ReachPreset,
 } from './graph';
 import { syncedAdAccountsTx } from './accounts';
+import { isCurrencyCode, minorToDecimalString } from '@/lib/commerce/money';
 
 export const INSIGHTS_WINDOW_DAYS = 30;
 /** The hourly sync refreshes the last week; the first sync of each day refreshes 90 days. */
@@ -241,6 +242,44 @@ export interface AdInsightSummary {
   purchases: number;
   /** Ads: the creative preview, from the last campaign sync. */
   thumbnailUrl: string | null;
+  /**
+   * Paid orders and payment links (net of refunds) from people whose latest ad
+   * click within 28 days before paying was this ad (or one of this campaign's or
+   * ad set's ads), in the ad account's currency (major units); null when none.
+   */
+  revenue: number | null;
+  /** How many payments make up the revenue. */
+  sales: number;
+}
+
+/** Last-touch attribution window for revenue: a payment counts for the latest ad clicked in the 28 days before it. */
+export const REVENUE_WINDOW_DAYS = 28;
+
+/**
+ * Paid orders (net of refunds) and paid payment links that are not part of an
+ * order (so nothing counts twice), each joined to the contact's latest ad click
+ * in the 28 days before the payment. Columns: source_id (the ad), currency,
+ * minor. Expects the caller's alias for the result to be joined on source_id.
+ */
+export function attributedPaymentsSql(accountId: string, start: Prisma.Sql, end: Prisma.Sql): Prisma.Sql {
+  return Prisma.sql`
+    SELECT r.source_id, pay.currency, pay.minor FROM (
+      SELECT o.contact_id, o.paid_at AS at, o.currency,
+        greatest(coalesce(o.amount_paid_minor, o.total_minor, 0) - coalesce(o.amount_refunded_minor, 0), 0) AS minor
+      FROM orders o
+      WHERE o.account_id=${accountId}::uuid AND o.paid_at >= ${start} AND o.paid_at < ${end} AND o.contact_id IS NOT NULL
+      UNION ALL
+      SELECT p.contact_id, p.paid_at, p.currency, p.amount_minor
+      FROM payment_links p
+      WHERE p.account_id=${accountId}::uuid AND p.status='paid' AND p.order_id IS NULL
+        AND p.paid_at >= ${start} AND p.paid_at < ${end} AND p.contact_id IS NOT NULL
+    ) pay
+    JOIN LATERAL (
+      SELECT x.source_id FROM ad_referrals x
+      WHERE x.account_id=${accountId}::uuid AND x.contact_id = pay.contact_id AND x.source_type='ad' AND x.source_id IS NOT NULL
+        AND x.created_at <= pay.at AND x.created_at > pay.at - make_interval(days => ${REVENUE_WINDOW_DAYS})
+      ORDER BY x.created_at DESC LIMIT 1
+    ) r ON true`;
 }
 
 export interface AdsWithInsights {
@@ -294,6 +333,8 @@ interface SummaryRow {
   conversations_started: bigint | number | null; leads: bigint | number | null; meta_purchases: bigint | number | null;
   reach: bigint | number | null; frequency: Prisma.Decimal | number | string | null;
   conversations_in_bodhinox: bigint | number; purchases: bigint | number; thumbnail_url: string | null;
+  revenue_minor: bigint | Prisma.Decimal | null;
+  sales: bigint;
 }
 
 const orNull = (value: Prisma.Decimal | bigint | number | string | null) => (value == null ? null : Number(value));
@@ -352,8 +393,13 @@ export async function listAdsWithInsights(actor: MetaAdsActor, query: AdsQuery, 
         WHERE e.account_id=${accountId}::uuid AND e.event_name='Purchase' AND e.status IN ('queued','sent','unknown')
           AND r.source_id IS NOT NULL AND e.event_time >= ${start} AND e.event_time < ${end} ${adOnly}
         GROUP BY 1
+      ), rev AS (
+        SELECT ${key} AS id, a.currency, sum(a.minor) AS minor, count(*) AS n
+        FROM (${attributedPaymentsSql(accountId, start, end)}) a JOIN LATERAL (SELECT a.source_id) r ON true ${adMap}
+        WHERE true ${adOnly}
+        GROUP BY 1, 2
       ), ids AS (
-        SELECT id FROM i UNION SELECT id FROM refs UNION SELECT id FROM buys
+        SELECT id FROM i UNION SELECT id FROM refs UNION SELECT id FROM buys UNION SELECT id FROM rev
       )
       SELECT ids.id, coalesce(i.ad_account_id, latest.ad_account_id) AS ad_account_id,
         coalesce(i.campaign_id, latest.campaign_id) AS campaign_id, coalesce(i.adset_id, latest.adset_id) AS adset_id,
@@ -361,7 +407,7 @@ export async function listAdsWithInsights(actor: MetaAdsActor, query: AdsQuery, 
         coalesce(i.objective, latest.objective) AS objective, coalesce(i.currency, latest.currency) AS currency,
         i.spend, i.impressions, i.clicks, i.link_clicks, i.conversations_started, i.leads, i.meta_purchases,
         rc.reach, rc.frequency, coalesce(refs.n, 0) AS conversations_in_bodhinox, coalesce(buys.n, 0) AS purchases,
-        coalesce(o.image_url, o.thumbnail_url) AS thumbnail_url
+        coalesce(o.image_url, o.thumbnail_url) AS thumbnail_url, money.minor AS revenue_minor, coalesce(money.n, 0) AS sales
       FROM ids LEFT JOIN i ON i.id = ids.id LEFT JOIN refs ON refs.id = ids.id LEFT JOIN buys ON buys.id = ids.id
       LEFT JOIN LATERAL (
         SELECT x.ad_account_id, x.campaign_id, x.adset_id, x.name, x.status, x.objective, x.currency FROM meta_ad_insights x
@@ -369,6 +415,8 @@ export async function listAdsWithInsights(actor: MetaAdsActor, query: AdsQuery, 
         ORDER BY x.day DESC LIMIT 1
       ) latest ON i.id IS NULL
       LEFT JOIN meta_ad_objects o ON o.account_id=${accountId}::uuid AND o.object_id = ids.id
+      -- shortcut: revenue in another currency than the ad account's is left out (no exchange rates).
+      LEFT JOIN rev money ON money.id = ids.id AND money.currency = coalesce(i.currency, latest.currency)
       LEFT JOIN meta_ad_reach rc ON rc.account_id=${accountId}::uuid AND rc.level=${query.level} AND rc.object_id = ids.id
         AND rc.preset=${reachPreset ?? 'last_7d'} AND ${reachPreset !== null}
       WHERE ids.id IS NOT NULL
@@ -399,6 +447,9 @@ export async function listAdsWithInsights(actor: MetaAdsActor, query: AdsQuery, 
         conversationsInBodhinox: Number(r.conversations_in_bodhinox),
         purchases: Number(r.purchases),
         thumbnailUrl: r.thumbnail_url,
+        revenue: r.revenue_minor === null || r.currency === null || !isCurrencyCode(r.currency) ? null
+          : Number(minorToDecimalString(BigInt(String(r.revenue_minor)), r.currency)),
+        sales: Number(r.sales),
       })),
       insightsSyncedAt: synced[0]?.insights_synced_at?.toISOString() ?? null,
       reachPreset,

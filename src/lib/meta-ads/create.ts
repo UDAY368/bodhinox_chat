@@ -25,8 +25,10 @@ import { MetaApiError } from '@/lib/whatsapp/meta-api';
 import { metaAdsConfig, metaAdsManageEnabled, missingScopes } from './config';
 import { loadActiveConnectionTx, MetaAdsError, type MetaAdsActor } from './connection';
 import {
-  createAd, createAdSet, createCampaign, createCreative, findCreatedByName, getPageInstagramAccount, isMetaThrottle,
-  isMetaTokenInvalid, metaErrorCode, uploadAdImage, type AdKind,
+  AD_FORMATS, createAd, createAdSet, createCampaign, createCreative, findCreatedByName, getPageInstagramAccount, getVideoStatus,
+  isMetaThrottle, isMetaTokenInvalid, metaErrorCode, PLACEMENTS, uploadAdImage, uploadAdVideo, type AdFormat, type AdKind,
+  searchTargeting, type CarouselCard, type Placement, type TargetInterest, type TargetingOption, type TargetingSearchType,
+  type TargetPlace,
 } from './graph';
 
 export const AD_CREATE_JOB = 'meta.ad_create';
@@ -78,6 +80,51 @@ export interface AdCreateInput {
   whatsappNumber: string | null;
   welcomeMessage: string | null;
   publish: boolean;
+  /** Bodhinox audience ids (meta_audiences) the ad reaches / leaves out; resolved to Meta ids on request. */
+  audienceIds: string[];
+  excludedAudienceIds: string[];
+  format: AdFormat;
+  videoId: string | null;
+  cards: CarouselCard[] | null;
+  /** Empty: Meta's automatic placements. */
+  placements: Placement[];
+  interests: TargetInterest[];
+  places: TargetPlace[];
+  locales: number[];
+}
+
+/** Video files accepted for upload (one request to Meta; the proxy body limit in next.config.ts is 32 MB). */
+export const MAX_VIDEO_BYTES = 30 * 1024 * 1024;
+/** WhatsApp Status runs click-to-WhatsApp and website ads only (Meta). */
+const STATUS_KINDS: readonly AdKind[] = ['whatsapp', 'website'];
+/** Carousels for the kinds whose card links Meta documents (Instagram Direct uses one image or a video). */
+const CAROUSEL_KINDS: readonly AdKind[] = ['whatsapp', 'lead_form', 'website'];
+
+const nameOf = (value: unknown): string | null => (typeof value === 'string' && value.trim() && value.trim().length <= 200 ? value.trim() : null);
+
+/** Interests, places and languages chosen from Meta's targeting search; null when malformed. */
+function targetingLists(b: Record<string, unknown>): Pick<AdCreateInput, 'interests' | 'places' | 'locales' | 'placements'> | null {
+  const list = (value: unknown, max: number) => (value === undefined || value === null ? [] : Array.isArray(value) && value.length <= max ? value : null);
+  const rawInterests = list(b.interests, 25), rawPlaces = list(b.places, 25), rawLocales = list(b.locales, 10), rawPlacements = list(b.placements, 5);
+  if (!rawInterests || !rawPlaces || !rawLocales || !rawPlacements) return null;
+  const interests: TargetInterest[] = [];
+  for (const i of rawInterests) {
+    const r = i as Record<string, unknown> | null;
+    const name = nameOf(r?.name);
+    if (!r || typeof r.id !== 'string' || !META_ID.test(r.id) || !name) return null;
+    if (!interests.some((x) => x.id === r.id)) interests.push({ id: r.id, name });
+  }
+  const places: TargetPlace[] = [];
+  for (const p of rawPlaces) {
+    const r = p as Record<string, unknown> | null;
+    const name = nameOf(r?.name);
+    const countryCode = r?.countryCode === null || r?.countryCode === undefined ? null : typeof r.countryCode === 'string' && COUNTRY.test(r.countryCode) ? r.countryCode : undefined;
+    if (!r || (r.type !== 'region' && r.type !== 'city') || typeof r.key !== 'string' || !META_ID.test(r.key) || !name || countryCode === undefined) return null;
+    if (!places.some((x) => x.type === r.type && x.key === r.key)) places.push({ type: r.type, key: r.key, name, countryCode });
+  }
+  if (!rawLocales.every((l) => typeof l === 'number' && Number.isInteger(l) && l > 0 && l < 100_000)) return null;
+  if (!rawPlacements.every((p) => typeof p === 'string' && (PLACEMENTS as readonly string[]).includes(p))) return null;
+  return { interests, places, locales: [...new Set(rawLocales as number[])], placements: [...new Set(rawPlacements as Placement[])] };
 }
 
 const text = (value: unknown, max: number, min = 0): string | null => {
@@ -101,13 +148,21 @@ const httpsLink = (value: unknown): string | null => {
   }
 };
 
+/** Up to 10 distinct audience ids; null when malformed. */
+const uuidList = (value: unknown): string[] | null => {
+  if (value === undefined || value === null) return [];
+  if (!Array.isArray(value) || value.length > 10 || !value.every((v) => typeof v === 'string' && UUID.test(v))) return null;
+  return [...new Set(value.map((v: string) => v.toLowerCase()))];
+};
+
 /** A validated create request, or null (400). Times are ISO strings; a start in the past starts now. */
 export function parseAdCreateInput(body: unknown, now: number = Date.now()): AdCreateInput | null {
   if (!body || typeof body !== 'object') return null;
-  const b = body as Record<string, unknown>;
+  let b = body as Record<string, unknown>;
   const kind = b.kind as AdKind;
   if (!AD_KINDS.includes(kind)) return null;
   if (typeof b.adAccountId !== 'string' || !META_ID.test(b.adAccountId)) return null;
+  const adAccountId = b.adAccountId;
   const name = text(b.name, 200, 1);
   const primaryText = text(b.primaryText, 2000, 1);
   const headline = optional(b.headline, 255);
@@ -137,6 +192,7 @@ export function parseAdCreateInput(body: unknown, now: number = Date.now()): AdC
 
   const cta = typeof b.ctaType === 'string' && b.ctaType ? b.ctaType : CTA_TYPES[kind][0];
   if (!CTA_TYPES[kind].includes(cta)) return null;
+  if (b.format === 'carousel' && Array.isArray(b.cards) && b.imageHash === undefined) b = { ...b, imageHash: (b.cards[0] as { imageHash?: unknown } | undefined)?.imageHash };
   if (typeof b.imageHash !== 'string' || !HASH.test(b.imageHash)) return null;
   const imageUrl = b.imageUrl === undefined || b.imageUrl === null || b.imageUrl === '' ? null : httpsLink(b.imageUrl);
   if (b.imageUrl && !imageUrl) return null;
@@ -153,12 +209,38 @@ export function parseAdCreateInput(body: unknown, now: number = Date.now()): AdC
   }
   const welcome = kind === 'whatsapp' ? optional(b.welcomeMessage, 300) : null;
   if (welcome === undefined) return null;
+  const targeting = targetingLists(b);
+  if (!targeting) return null;
+  if (targeting.placements.includes('whatsapp_status') && !STATUS_KINDS.includes(kind)) return null;
+  const format = (b.format === undefined ? 'image' : b.format) as AdFormat;
+  if (!AD_FORMATS.includes(format)) return null;
+  const videoId = format === 'video' && typeof b.videoId === 'string' && META_ID.test(b.videoId) ? b.videoId : null;
+  if (format === 'video' && !videoId) return null;
+  let cards: CarouselCard[] | null = null;
+  if (format === 'carousel') {
+    if (!CAROUSEL_KINDS.includes(kind) || !Array.isArray(b.cards) || b.cards.length < 2 || b.cards.length > 10) return null;
+    cards = [];
+    for (const c of b.cards) {
+      const r = c as Record<string, unknown> | null;
+      const cardHeadline = r ? optional(r.headline, 255) : undefined;
+      const cardDescription = r ? optional(r.description, 255) : undefined;
+      if (!r || typeof r.imageHash !== 'string' || !HASH.test(r.imageHash) || cardHeadline === undefined || cardDescription === undefined) return null;
+      // Website cards may each open their own page; other kinds share the ad's destination.
+      const cardLink = kind === 'website' && r.link ? httpsLink(r.link) : null;
+      if (kind === 'website' && r.link && !cardLink) return null;
+      cards.push({ imageHash: r.imageHash, headline: cardHeadline, description: cardDescription, link: cardLink });
+    }
+  }
+  const audienceIds = uuidList(b.audienceIds);
+  const excludedAudienceIds = uuidList(b.excludedAudienceIds);
+  if (!audienceIds || !excludedAudienceIds || audienceIds.some((a) => excludedAudienceIds.includes(a))) return null;
 
   return {
-    adAccountId: b.adAccountId, kind, name, dailyBudgetMinor: budget,
+    adAccountId, kind, name, dailyBudgetMinor: budget,
     startTime: new Date(start).toISOString(), endTime: end === null ? null : new Date(end).toISOString(),
     countries, ageMin, ageMax, genders: genders as number[], primaryText, headline, description, linkUrl, leadFormId,
     ctaType: cta, imageHash: b.imageHash, imageUrl, whatsappNumber, welcomeMessage: welcome, publish: b.publish === true,
+    audienceIds, excludedAudienceIds, format, videoId, cards, ...targeting,
   };
 }
 
@@ -179,6 +261,8 @@ export interface AdDraftDto {
   imageUrl: string | null;
   createdAt: string;
   completedAt: string | null;
+  /** The draft this one is an A/B variant of. */
+  variantOf: string | null;
 }
 
 interface DraftRow {
@@ -188,19 +272,23 @@ interface DraftRow {
   cta_type: string; image_hash: string; image_url: string | null; whatsapp_number: string | null; welcome_message: string | null;
   publish: boolean; status: DraftStatus; step: DraftStep; campaign_id: string | null; adset_id: string | null;
   creative_id: string | null; ad_id: string | null; last_error_code: string | null; created_at: Date; completed_at: Date | null;
+  audience_ids: string[]; excluded_audience_ids: string[];
+  format: AdFormat; video_id: string | null; cards: CarouselCard[] | null; placements: Placement[]; interests: TargetInterest[];
+  places: TargetPlace[]; locales: number[]; variant_of: string | null;
 }
 
 const draftDto = (r: DraftRow): AdDraftDto => ({
   id: r.id, adAccountId: r.ad_account_id, kind: r.kind, name: r.name, dailyBudget: Number(r.daily_budget_minor), currency: r.currency,
   publish: r.publish, status: r.status, step: r.step, campaignId: r.campaign_id, adsetId: r.adset_id, adId: r.ad_id,
   lastErrorCode: r.last_error_code, imageUrl: r.image_url, createdAt: r.created_at.toISOString(),
-  completedAt: r.completed_at?.toISOString() ?? null,
+  completedAt: r.completed_at?.toISOString() ?? null, variantOf: r.variant_of,
 });
 
 const DRAFT_COLUMNS = `id::text AS id, ad_account_id, page_id, kind, name, daily_budget_minor, currency, start_time, end_time,
   countries, age_min, age_max, genders, primary_text, headline, description, link_url, lead_form_id, cta_type, image_hash,
   image_url, whatsapp_number, welcome_message, publish, status, step, campaign_id, adset_id, creative_id, ad_id,
-  last_error_code, created_at, completed_at`;
+  last_error_code, created_at, completed_at, audience_ids, excluded_audience_ids, format, video_id, cards, placements, interests,
+  places, locales, variant_of::text AS variant_of`;
 
 const raw = (sql: string) => Prisma.raw(sql);
 
@@ -224,6 +312,19 @@ function requireCreator(actor: MetaAdsActor): void {
   if (!hasMinRole(actor.role, 'admin')) throw new MetaAdsError('forbidden');
 }
 
+/** Bodhinox audience ids to Meta ids: each must be ready in the same ad account, or the request is refused. */
+async function resolveAudiencesTx(tx: TenantTransaction, accountId: string, adAccountId: string, include: string[],
+  exclude: string[]): Promise<{ include: string[]; exclude: string[] }> {
+  const wanted = [...include, ...exclude];
+  if (!wanted.length) return { include: [], exclude: [] };
+  const rows = await tx.$queryRaw<{ id: string; meta_audience_id: string }[]>`SELECT id::text AS id, meta_audience_id FROM meta_audiences
+    WHERE account_id=${accountId}::uuid AND ad_account_id=${adAccountId} AND status='ready' AND meta_audience_id IS NOT NULL
+      AND id = ANY(${wanted}::uuid[])`;
+  const byId = new Map(rows.map((r) => [r.id, r.meta_audience_id]));
+  if (wanted.some((w) => !byId.has(w))) throw new MetaAdsError('invalid_choice');
+  return { include: include.map((i) => byId.get(i)!), exclude: exclude.map((i) => byId.get(i)!) };
+}
+
 /** Records the draft and queues its creation (admin). */
 export async function requestAdCreate(actor: MetaAdsActor, input: AdCreateInput): Promise<AdDraftDto> {
   requireCreator(actor);
@@ -240,15 +341,20 @@ export async function requestAdCreate(actor: MetaAdsActor, input: AdCreateInput)
     if (!account) throw new MetaAdsError('invalid_choice');
     const cap = conn.max_daily_budget_minor === null ? null : Number(conn.max_daily_budget_minor);
     if (cap !== null && input.dailyBudgetMinor > cap) throw new MetaAdsError('over_budget_cap');
+    const audiences = await resolveAudiencesTx(tx, actor.accountId, input.adAccountId, input.audienceIds, input.excludedAudienceIds);
     const [row] = await tx.$queryRaw<DraftRow[]>`
       INSERT INTO meta_ad_drafts(account_id, connection_id, ad_account_id, page_id, kind, name, daily_budget_minor, currency,
         start_time, end_time, countries, age_min, age_max, genders, primary_text, headline, description, link_url, lead_form_id,
-        cta_type, image_hash, image_url, whatsapp_number, welcome_message, publish, requested_by)
+        cta_type, image_hash, image_url, whatsapp_number, welcome_message, publish, requested_by, audience_ids, excluded_audience_ids,
+        format, video_id, cards, placements, interests, places, locales)
       VALUES(${actor.accountId}::uuid, ${conn.id}::uuid, ${input.adAccountId}, ${conn.page_id}, ${input.kind}, ${input.name},
         ${input.dailyBudgetMinor}, ${account.currency}, ${input.startTime}::timestamptz, ${input.endTime}::timestamptz,
         ${input.countries}::text[], ${input.ageMin}, ${input.ageMax}, ${input.genders}::int[], ${input.primaryText},
         ${input.headline}, ${input.description}, ${input.linkUrl}, ${input.leadFormId}, ${input.ctaType}, ${input.imageHash},
-        ${input.imageUrl}, ${input.whatsappNumber}, ${input.welcomeMessage}, ${input.publish}, ${actor.userId}::uuid)
+        ${input.imageUrl}, ${input.whatsappNumber}, ${input.welcomeMessage}, ${input.publish}, ${actor.userId}::uuid,
+        ${audiences.include}::text[], ${audiences.exclude}::text[], ${input.format}, ${input.videoId},
+        ${input.cards ? JSON.stringify(input.cards) : null}::jsonb, ${input.placements}::text[], ${JSON.stringify(input.interests)}::jsonb,
+        ${JSON.stringify(input.places)}::jsonb, ${input.locales}::int[])
       RETURNING ${raw(DRAFT_COLUMNS)}`;
     await tx.$executeRaw`INSERT INTO jobs(type,tenant_id,payload,dedupe_key,max_attempts)
       VALUES(${AD_CREATE_JOB},${actor.accountId}::uuid,${JSON.stringify({ draftId: row.id })}::jsonb,${`adcreate:${row.id}`},
@@ -336,12 +442,15 @@ async function send(draft: DraftRow, step: Exclude<DraftStep, 'done'>, token: st
         dailyBudgetMinor: Number(draft.daily_budget_minor), startTime: draft.start_time.toISOString(),
         endTime: draft.end_time?.toISOString() ?? null, countries: draft.countries, ageMin: draft.age_min, ageMax: draft.age_max,
         genders: draft.genders, whatsappNumber: draft.whatsapp_number, status,
+        audienceIds: draft.audience_ids, excludedAudienceIds: draft.excluded_audience_ids,
+        placements: draft.placements, places: draft.places, interests: draft.interests, locales: draft.locales,
       });
     case 'creative':
       return createCreative(draft.ad_account_id, token, {
         name: stepName(draft, step), kind: draft.kind, pageId: draft.page_id, instagramUserId, primaryText: draft.primary_text,
         headline: draft.headline, description: draft.description, imageHash: draft.image_hash, linkUrl: draft.link_url,
         leadFormId: draft.lead_form_id, ctaType: draft.cta_type, welcomeMessage: draft.welcome_message,
+        format: draft.format, videoId: draft.video_id, cards: draft.cards,
       });
     case 'ad':
       return createAd(draft.ad_account_id, token, { name: stepName(draft, step), adsetId: draft.adset_id!, creativeId: draft.creative_id!, status });
@@ -387,6 +496,21 @@ export async function handleAdCreateJob(accountId: string, payload: Record<strin
     if (lastAttempt && intent !== 'accepted') return settle(accountId, draftId, 'failed', 'attempts_exhausted');
     if (!metaAdsManageEnabled() || missingCreateScopes(conn.scopes).length) return settle(accountId, draftId, 'failed', 'missing_scope');
 
+    if (step === 'creative' && draft.format === 'video' && draft.video_id) {
+      let video: 'ready' | 'processing' | 'error';
+      try {
+        video = await getVideoStatus(draft.video_id, token);
+      } catch (error) {
+        if (isMetaTokenInvalid(error) || lastAttempt) return settle(accountId, draftId, 'failed', errorCode(error) ?? 'video_not_ready');
+        throw error;
+      }
+      if (video === 'error') return settle(accountId, draftId, 'failed', 'video_error');
+      // Still processing: nothing was sent; the job retries later.
+      if (video === 'processing') {
+        if (lastAttempt) return settle(accountId, draftId, 'failed', 'video_not_ready');
+        throw new Error('Meta is still processing the video');
+      }
+    }
     try {
       let instagramUserId: string | null = null;
       if (step === 'creative' && draft.kind === 'instagram_direct') {
@@ -492,6 +616,35 @@ export async function discardAdDraft(actor: MetaAdsActor, draftId: string): Prom
 // Images
 
 /** JPEG or PNG by their first bytes (the browser's declared type is not trusted). */
+/** MP4 / MOV (ISO base media: 'ftyp' at byte 4) by their first bytes only. */
+export function isAdVideo(bytes: Uint8Array): boolean {
+  return bytes.length > 12 && bytes[4] === 0x66 && bytes[5] === 0x74 && bytes[6] === 0x79 && bytes[7] === 0x70;
+}
+
+/** Uploads a video to a linked ad account's library (admin); the ad uses its id. */
+export async function uploadVideoForAd(actor: MetaAdsActor, adAccountId: string, bytes: Uint8Array, name: string): Promise<{ id: string }> {
+  requireCreator(actor);
+  if (!META_ID.test(adAccountId)) throw new MetaAdsError('invalid_choice');
+  const conn = await worker(actor.accountId, async (tx) => {
+    const c = await loadActiveConnectionTx(tx, actor.accountId);
+    if (!c) return null;
+    const [linked] = await tx.$queryRaw<{ n: number }[]>`SELECT count(*)::int AS n FROM meta_ad_accounts
+      WHERE account_id=${actor.accountId}::uuid AND connection_id=${c.id}::uuid AND ad_account_id=${adAccountId}`;
+    return linked?.n ? c : 'unlinked';
+  }, actor.userId);
+  if (conn === 'unlinked') throw new MetaAdsError('invalid_choice');
+  if (!conn?.userToken) throw new MetaAdsError('not_connected');
+  if (missingCreateScopes(conn.scopes).length) throw new MetaAdsError('missing_scope');
+  try {
+    return await uploadAdVideo(adAccountId, conn.userToken, bytes, name);
+  } catch (error) {
+    console.error('[meta-ads] video upload failed', metaErrorCode(error) ?? (error instanceof Error ? error.name : 'unknown'));
+    if (isMetaTokenInvalid(error)) throw new MetaAdsError('token_invalid');
+    if (isMetaThrottle(error)) throw new MetaAdsError('rate_limited');
+    throw new MetaAdsError('meta_error');
+  }
+}
+
 export function isAdImage(bytes: Uint8Array): boolean {
   const jpeg = bytes.length > 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff;
   const png = bytes.length > 8 && bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47;
@@ -525,4 +678,137 @@ export async function uploadImageForAd(actor: MetaAdsActor, adAccountId: string,
     if (isMetaThrottle(error)) throw new MetaAdsError('rate_limited');
     throw new MetaAdsError('meta_error');
   }
+}
+
+/**
+ * Meta's targeting search for the Create ad dialog (admin): interests,
+ * cities/regions or languages matching `query`. A read with the stored login;
+ * the token never reaches the browser.
+ */
+export async function searchAdTargeting(actor: MetaAdsActor, type: TargetingSearchType, query: string): Promise<TargetingOption[]> {
+  requireCreator(actor);
+  const q = query.trim().slice(0, 100);
+  if (q.length < 2) return [];
+  const conn = await worker(actor.accountId, (tx) => loadActiveConnectionTx(tx, actor.accountId), actor.userId);
+  if (!conn?.userToken) throw new MetaAdsError('not_connected');
+  try {
+    return await searchTargeting(type, q, conn.userToken);
+  } catch (error) {
+    console.error('[meta-ads] targeting search failed', metaErrorCode(error) ?? (error instanceof Error ? error.name : 'unknown'));
+    if (isMetaTokenInvalid(error)) throw new MetaAdsError('token_invalid');
+    if (isMetaThrottle(error)) throw new MetaAdsError('rate_limited');
+    throw new MetaAdsError('meta_error');
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Duplicate and A/B variant (admin)
+
+/** The connection checks every new ad needs, inside the caller's worker transaction. */
+async function lockCreatorConnectionTx(tx: TenantTransaction, accountId: string): Promise<{ id: string; max_daily_budget_minor: bigint | null }> {
+  const [conn] = await tx.$queryRaw<{ id: string; status: string; page_id: string | null; scopes: string[]; max_daily_budget_minor: bigint | null }[]>`
+    SELECT id::text AS id, status, page_id, scopes, max_daily_budget_minor FROM meta_ad_connections
+    WHERE account_id=${accountId}::uuid AND status<>'disconnected' LIMIT 1 FOR UPDATE`;
+  if (!conn) throw new MetaAdsError('not_connected');
+  if (conn.status === 'token_invalid') throw new MetaAdsError('token_invalid');
+  if (conn.status !== 'active' || !conn.page_id) throw new MetaAdsError('not_connected');
+  if (missingCreateScopes(conn.scopes).length) throw new MetaAdsError('missing_scope');
+  return conn;
+}
+
+const queueCreateTx = (tx: TenantTransaction, accountId: string, draftId: string) =>
+  tx.$executeRaw`INSERT INTO jobs(type,tenant_id,payload,dedupe_key,max_attempts)
+    VALUES(${AD_CREATE_JOB},${accountId}::uuid,${JSON.stringify({ draftId })}::jsonb,${`adcreate:${draftId}`},${AD_CREATE_MAX_ATTEMPTS})`;
+
+/**
+ * A paused copy of a draft as a new campaign, ad set and ad (same goal,
+ * audience, budget and creative). A start in the past starts now; an end less
+ * than a day away is dropped. The workspace budget cap still applies.
+ */
+export async function duplicateAdDraft(actor: MetaAdsActor, sourceId: string): Promise<AdDraftDto> {
+  requireCreator(actor);
+  if (!UUID.test(sourceId)) throw new MetaAdsError('not_found');
+  return worker(actor.accountId, async (tx) => {
+    const conn = await lockCreatorConnectionTx(tx, actor.accountId);
+    const [source] = await tx.$queryRaw<DraftRow[]>`SELECT ${raw(DRAFT_COLUMNS)} FROM meta_ad_drafts
+      WHERE account_id=${actor.accountId}::uuid AND id=${sourceId}::uuid`;
+    if (!source) throw new MetaAdsError('not_found');
+    const cap = conn.max_daily_budget_minor === null ? null : Number(conn.max_daily_budget_minor);
+    if (cap !== null && Number(source.daily_budget_minor) > cap) throw new MetaAdsError('over_budget_cap');
+    const name = `${source.name} (copy)`.slice(0, 200);
+    const [row] = await tx.$queryRaw<DraftRow[]>`
+      INSERT INTO meta_ad_drafts(account_id, connection_id, ad_account_id, page_id, kind, name, daily_budget_minor, currency,
+        start_time, end_time, countries, age_min, age_max, genders, primary_text, headline, description, link_url, lead_form_id,
+        cta_type, image_hash, image_url, whatsapp_number, welcome_message, publish, requested_by, audience_ids, excluded_audience_ids,
+        format, video_id, cards, placements, interests, places, locales)
+      SELECT account_id, ${conn.id}::uuid, ad_account_id, page_id, kind, ${name}, daily_budget_minor, currency,
+        greatest(start_time, now()), CASE WHEN end_time > greatest(start_time, now()) + interval '1 day' THEN end_time END,
+        countries, age_min, age_max, genders, primary_text, headline, description, link_url, lead_form_id, cta_type, image_hash,
+        image_url, whatsapp_number, welcome_message, false, ${actor.userId}::uuid, audience_ids, excluded_audience_ids, format,
+        video_id, cards, placements, interests, places, locales
+      FROM meta_ad_drafts WHERE account_id=${actor.accountId}::uuid AND id=${sourceId}::uuid
+      RETURNING ${raw(DRAFT_COLUMNS)}`;
+    await queueCreateTx(tx, actor.accountId, row.id);
+    await audit(tx, actor, 'meta_ads.ad_duplicate', row.id, { sourceId });
+    return draftDto(row);
+  }, actor.userId);
+}
+
+export interface AdVariantInput {
+  sourceId: string;
+  name: string | null;
+  primaryText: string;
+  headline: string | null;
+  description: string | null;
+  imageHash: string;
+  imageUrl: string | null;
+}
+
+export function parseAdVariantInput(body: unknown): AdVariantInput | null {
+  if (!body || typeof body !== 'object') return null;
+  const b = body as Record<string, unknown>;
+  if (typeof b.sourceId !== 'string' || !UUID.test(b.sourceId)) return null;
+  const name = optional(b.name, 200);
+  const primaryText = text(b.primaryText, 2000, 1);
+  const headline = optional(b.headline, 255);
+  const description = optional(b.description, 255);
+  if (name === undefined || !primaryText || headline === undefined || description === undefined) return null;
+  if (typeof b.imageHash !== 'string' || !HASH.test(b.imageHash)) return null;
+  const imageUrl = b.imageUrl === undefined || b.imageUrl === null || b.imageUrl === '' ? null : httpsLink(b.imageUrl);
+  if (b.imageUrl && !imageUrl) return null;
+  return { sourceId: b.sourceId, name, primaryText, headline, description, imageHash: b.imageHash, imageUrl };
+}
+
+/**
+ * An A/B variant: a second ad with its own image and text in the ad set of an
+ * ad already made from Bodhinox. Meta shares the ad set's budget between the
+ * ads and favours the better one. It starts at the creative step.
+ */
+export async function requestAdVariant(actor: MetaAdsActor, input: AdVariantInput): Promise<AdDraftDto> {
+  requireCreator(actor);
+  return worker(actor.accountId, async (tx) => {
+    const conn = await lockCreatorConnectionTx(tx, actor.accountId);
+    const [source] = await tx.$queryRaw<DraftRow[]>`SELECT ${raw(DRAFT_COLUMNS)} FROM meta_ad_drafts
+      WHERE account_id=${actor.accountId}::uuid AND id=${input.sourceId}::uuid`;
+    if (!source) throw new MetaAdsError('not_found');
+    if (source.status !== 'created' || !source.campaign_id || !source.adset_id) throw new MetaAdsError('invalid_choice');
+    // An unclear create is looked up by name inside the ad set, so a variant never shares the source's name.
+    let name = (input.name ?? `${source.name} · B`).slice(0, 200);
+    if (name === source.name) name = `${source.name.slice(0, 196)} · B`;
+    const [row] = await tx.$queryRaw<DraftRow[]>`
+      INSERT INTO meta_ad_drafts(account_id, connection_id, ad_account_id, page_id, kind, name, daily_budget_minor, currency,
+        start_time, end_time, countries, age_min, age_max, genders, primary_text, headline, description, link_url, lead_form_id,
+        cta_type, image_hash, image_url, whatsapp_number, welcome_message, publish, requested_by, audience_ids, excluded_audience_ids,
+        format, video_id, cards, placements, interests, places, locales, variant_of, campaign_id, adset_id, step)
+      SELECT account_id, ${conn.id}::uuid, ad_account_id, page_id, kind, ${name}, daily_budget_minor, currency,
+        start_time, end_time, countries, age_min, age_max, genders, ${input.primaryText}, ${input.headline}, ${input.description},
+        link_url, lead_form_id, cta_type, ${input.imageHash}, ${input.imageUrl}, whatsapp_number, welcome_message, publish,
+        ${actor.userId}::uuid, audience_ids, excluded_audience_ids, 'image', NULL, NULL, placements, interests, places, locales,
+        id, campaign_id, adset_id, 'creative'
+      FROM meta_ad_drafts WHERE account_id=${actor.accountId}::uuid AND id=${input.sourceId}::uuid
+      RETURNING ${raw(DRAFT_COLUMNS)}`;
+    await queueCreateTx(tx, actor.accountId, row.id);
+    await audit(tx, actor, 'meta_ads.ad_variant', row.id, { sourceId: input.sourceId });
+    return draftDto(row);
+  }, actor.userId);
 }

@@ -8650,7 +8650,9 @@
       "exportTooLarge": "Há leads demais para exportar de uma vez; restrinja o filtro",
       "manageNotEnabled": "Alterar anúncios pelo Bodhinox ainda não está ativado.",
       "changePending": "Já há uma alteração a caminho da Meta. Aguarde até terminar.",
-      "overBudgetCap": "Isso gastaria por dia mais do que o limite de orçamento diário do seu espaço de trabalho permite."
+      "overBudgetCap": "Isso gastaria por dia mais do que o limite de orçamento diário do seu espaço de trabalho permite.",
+      "nameTaken": "Já existe um público com esse nome nesta conta de anúncios.",
+      "limitReached": "Este espaço atingiu o limite de públicos. Remova um primeiro."
     },
     "instagram": {
       "instagram_not_enabled": "O Instagram não está ativado",
@@ -12257,7 +12259,9 @@
       "leads": "Leads",
       "conversions": "Conversões",
       "campaigns": "Campanhas",
-      "overview": "Visão geral"
+      "overview": "Visão geral",
+      "audiences": "Públicos",
+      "rules": "Regras"
     },
     "table": {
       "level": "Mostrar",
@@ -12293,7 +12297,14 @@
         "leads": "leads",
         "link_clicks": "cliques no link",
         "purchases": "compras"
-      }
+      },
+      "revenue": "Receita",
+      "roas": "ROAS",
+      "roasValue": "{value}×",
+      "sales": "{count, plural, one {# venda} other {# vendas}}",
+      "columns": "Colunas",
+      "export": "Exportar CSV",
+      "currency": "Moeda"
     },
     "leads": {
       "empty": "Ainda não há leads.",
@@ -12468,7 +12479,8 @@
         "ON_AD": "Formulário instantâneo",
         "WEBSITE": "Site",
         "MESSAGING_INSTAGRAM_DIRECT_MESSENGER_WHATSAPP": "Apps de mensagens"
-      }
+      },
+      "reviewReason": "Meta: {reason}"
     },
     "openAdsManager": "Abrir o Gerenciador de Anúncios",
     "createAd": "Criar anúncio",
@@ -12522,7 +12534,12 @@
       "noCampaigns": "Nenhum gasto de campanha neste período.",
       "campaignResults": "{results, plural, =1 {# resultado} other {# resultados}} · {cost} cada",
       "syncedAt": "Atualizado {time}",
-      "neverSynced": "Ainda não sincronizado"
+      "neverSynced": "Ainda não sincronizado",
+      "revenue": "Receita dos anúncios",
+      "sales": "{count, plural, one {# venda} other {# vendas}} no Bodhinox",
+      "roas": "Retorno sobre o investimento em anúncios",
+      "roasValue": "{value}×",
+      "roasHint": "Receita ÷ valor gasto"
     },
     "platforms": {
       "facebook": "Facebook",
@@ -12638,6 +12655,89 @@
         "CONTACT_US": "Fale conosco",
         "ORDER_NOW": "Peça agora",
         "GET_OFFER": "Ver oferta"
+      },
+      "audiencesInclude": "Alcançar pessoas em",
+      "audiencesExclude": "Excluir pessoas em",
+      "audiencesHelp": "Os públicos vêm de Anúncios → Públicos. Excluir clientes atuais evita pagar para alcançá-los de novo.",
+      "audiencesReview": "Públicos",
+      "video": "Vídeo",
+      "uploadVideo": "Enviar vídeo",
+      "videoUploading": "Enviando…",
+      "videoRules": "MP4 ou MOV, até 30 MB. A Meta processa antes de criar o anúncio.",
+      "thumbnail": "Miniatura",
+      "format": {
+        "title": "Formato",
+        "image": "Imagem única",
+        "video": "Vídeo",
+        "carousel": "Carrossel"
+      },
+      "cards": {
+        "title": "Carrossel · {count} cartões",
+        "card": "Cartão {n}",
+        "remove": "Remover cartão {n}",
+        "headline": "Título do cartão {n}",
+        "description": "Descrição do cartão {n}",
+        "link": "Link do cartão {n}",
+        "linkPlaceholder": "https:// (opcional; senão, o link do anúncio)",
+        "add": "Adicionar cartão",
+        "help": "De dois a dez cartões. As pessoas deslizam entre eles; imagens quadradas funcionam melhor."
+      },
+      "placements": {
+        "title": "Posicionamentos",
+        "automatic": "Automáticos",
+        "facebook": "Facebook",
+        "instagram": "Instagram",
+        "messenger": "Messenger",
+        "audience_network": "Audience Network",
+        "whatsapp_status": "Status do WhatsApp",
+        "automaticHelp": "A Meta mostra o anúncio onde ele tem melhor desempenho (recomendado).",
+        "manualHelp": "O anúncio aparece só onde você escolheu. Messenger e Audience Network também usam o Facebook.",
+        "statusHelp": "O Status do WhatsApp também precisa dos Stories do Instagram, então o Bodhinox os adiciona. Não roda na UE nem no Reino Unido."
+      },
+      "targeting": {
+        "places": "Cidades e regiões",
+        "placesHelp": "Opcional. Um país com alguma de suas cidades ou regiões escolhidas fica limitado a esses lugares.",
+        "interests": "Interesses",
+        "interestsHelp": "Opcional. Pessoas interessadas em qualquer um destes.",
+        "languages": "Idiomas",
+        "remove": "Remover {name}",
+        "full": "Até {max}",
+        "failed": "A busca não funcionou. Tente de novo.",
+        "none": "Nada encontrado.",
+        "placeholder": {
+          "interest": "Busque interesses, ex.: ioga",
+          "place": "Busque uma cidade ou região",
+          "locale": "Busque um idioma"
+        },
+        "kinds": {
+          "region": "Região",
+          "city": "Cidade"
+        },
+        "size": "{size} pessoas"
+      },
+      "ai": {
+        "writeCopy": "Escrever o anúncio com IA",
+        "brief": "O que você está promovendo?",
+        "briefPlaceholder": "ex.: Promoção de Diwali em lâmpadas de latão, 20% até domingo, entrega grátis em Pune",
+        "generate": "Escrever 3 opções",
+        "again": "Tentar de novo",
+        "close": "Fechar",
+        "use": "Usar esta",
+        "copyHelp": "As sugestões de IA seguem as regras da Meta. Confira os fatos antes de publicar.",
+        "makeImage": "Criar uma imagem com IA",
+        "imagePrompt": "Descrição da imagem",
+        "imagePromptPlaceholder": "ex.: Lâmpadas diya de latão em uma mesa festiva com cravos",
+        "generateImage": "Gerar imagem",
+        "imageHelp": "Quadrada, sem texto na imagem. Usa seu plano de IA.",
+        "errors": {
+          "ai_not_configured": "Configure primeiro um provedor de IA em IA → Configuração.",
+          "image_not_supported": "Seu provedor de IA não cria imagens. Use Gemini ou OpenAI.",
+          "image_refused": "O provedor de IA não quis criar esta imagem. Descreva de outro jeito.",
+          "rate_limited": "A IA está ocupada. Tente daqui a pouco.",
+          "invalid_key": "O provedor de IA recusou a chave.",
+          "manage_not_enabled": "O gerenciamento de anúncios não está ativado.",
+          "generic": "Não deu certo. Tente de novo."
+        }
       }
     },
     "drafts": {
@@ -12673,7 +12773,11 @@
       "openInAdsManager": "Gerenciador de Anúncios",
       "recheck": "Verificar de novo",
       "discard": "Descartar",
-      "unknownHelp": "A resposta da Meta não foi clara, então o Bodhinox não tentou de novo (isso poderia duplicar). Verifique de novo, ou confira no Gerenciador de Anúncios e descarte."
+      "unknownHelp": "A resposta da Meta não foi clara, então o Bodhinox não tentou de novo (isso poderia duplicar). Verifique de novo, ou confira no Gerenciador de Anúncios e descarte.",
+      "duplicate": "Duplicar",
+      "duplicated": "Cópia na fila (pausada).",
+      "variant": "Variante A/B",
+      "variantBadge": "Variante"
     },
     "accounts": {
       "title": "Contas de anúncios",
@@ -12691,6 +12795,144 @@
       "choose": "Conta a adicionar",
       "addThis": "Adicionar",
       "cancel": "Cancelar"
+    },
+    "audiences": {
+      "title": "Públicos",
+      "description": "Transforme um segmento de contatos em um público da Meta para reimpactar clientes ou encontrar pessoas parecidas.",
+      "new": "Novo público",
+      "emptyTitle": "Ainda não há públicos",
+      "emptyBody": "Crie um a partir de um segmento de contatos (por exemplo \"Clientes pagantes\"). O Bodhinox o mantém atualizado e você pode criar um semelhante a partir dele.",
+      "fromSegment": "Lista de clientes de “{segment}”",
+      "segmentDeleted": "um segmento excluído",
+      "lookalikeOf": "Semelhante {percent}% · {country}",
+      "matched": "correspondências na Meta",
+      "sizeRange": "{lower}–{upper}",
+      "uploaded": "{count} enviados",
+      "synced": "Sincronizado {at}",
+      "status": {
+        "queued": "Sincronizando",
+        "ready": "Pronto",
+        "failed": "Falhou",
+        "unknown": "Precisa de verificação"
+      },
+      "autoSync": "Sincronização automática",
+      "syncNow": "Sincronizar agora",
+      "makeLookalike": "Criar semelhante",
+      "recheck": "Verificar de novo",
+      "remove": "Remover {name}",
+      "stillUnknown": "Ainda não encontrado na Meta. Veja no Gerenciador de Anúncios e remova se não estiver lá.",
+      "found": "Encontrado na Meta. Enviando agora.",
+      "actionFailed": "Não deu certo. Tente de novo.",
+      "created": "Público criado. Enviando para a Meta…",
+      "acceptTerms": "Aceitar os termos",
+      "unknownHelp": "A resposta da Meta não foi clara, então o Bodhinox não tentou de novo (isso poderia criar uma duplicata). Verifique de novo ou veja no Gerenciador de Anúncios.",
+      "privacy": "Telefones e e-mails passam por hash (SHA-256) antes de sair do Bodhinox. Contatos bloqueados ou descadastrados nunca são enviados.",
+      "errors": {
+        "terms_not_accepted": "Esta conta de anúncios não aceitou os termos de públicos personalizados da Meta.",
+        "segment_missing": "O segmento foi excluído. Remova este público ou crie outro.",
+        "empty_segment": "O segmento não tem contatos com telefone ou e-mail agora, então a Meta manteve o último envio.",
+        "missing_scope": "Reconecte a Meta em Configurações → Anúncios para permitir o gerenciamento de anúncios.",
+        "not_connected": "A Meta não está conectada.",
+        "origin_missing": "O público de origem está faltando.",
+        "attempts_exhausted": "A Meta não respondeu após várias tentativas.",
+        "name_taken": "Já existe um público com esse nome.",
+        "limit_reached": "Você atingiu o limite de públicos (50).",
+        "generic": "A Meta recusou (código {code})."
+      },
+      "newTitle": "Novo público a partir de um segmento",
+      "newDescription": "Os contatos do segmento são enviados à Meta (com hash) e sincronizados a cada 6 horas.",
+      "newLookalikeTitle": "Novo público semelhante",
+      "newLookalikeDescription": "A Meta encontra pessoas parecidas com “{name}”.",
+      "segment": "Segmento",
+      "chooseSegment": "Escolha um segmento",
+      "noSegments": "Ainda não há segmentos. Crie um em Contatos → Segmentos.",
+      "segmentHelp": "A Meta precisa de cerca de 100 correspondências antes de um público poder ser usado.",
+      "name": "Nome",
+      "adAccount": "Conta de anúncios",
+      "country": "País",
+      "size": "Tamanho",
+      "percent": "{percent}% do país",
+      "sizeHelp": "1% é a correspondência mais próxima; maior alcança mais pessoas.",
+      "lookalikeName": "{name} · semelhante {percent}%",
+      "autoSyncHelp": "Manter sincronizado a cada 6 horas",
+      "cancel": "Cancelar",
+      "create": "Criar público"
+    },
+    "variant": {
+      "title": "Nova variante A/B",
+      "description": "Um segundo anúncio com outra imagem e texto no conjunto de anúncios de “{name}”. A Meta divide o orçamento e favorece o melhor.",
+      "name": "Nome",
+      "primaryText": "Texto principal",
+      "headline": "Título (opcional)",
+      "image": "Imagem",
+      "uploadImage": "Enviar imagem",
+      "replaceImage": "Trocar imagem",
+      "imageRules": "JPG ou PNG, até 8 MB.",
+      "help": "Mude uma coisa por vez (a imagem ou o texto) para saber o que funciona.",
+      "created": "Variante na fila.",
+      "failed": "Não deu certo. Tente de novo.",
+      "cancel": "Cancelar",
+      "create": "Criar variante"
+    },
+    "rules": {
+      "title": "Regras automáticas",
+      "description": "Verificadas a cada hora com os resultados dos seus anúncios. Cada anúncio é afetado no máximo uma vez por dia por regra.",
+      "new": "Nova regra",
+      "emptyTitle": "Ainda não há regras",
+      "emptyBody": "Por exemplo: pausar qualquer conjunto de anúncios cujo custo por resultado passe de 200 nos últimos 3 dias.",
+      "sentence": "{action} qualquer {level} ativo quando {metric} estiver {operator} {threshold} {days, plural, one {no último dia} other {nos últimos # dias}}.",
+      "minSpendSentence": "Só depois de gastar {amount}.",
+      "lastChecked": "Verificada {at}",
+      "enabled": "Ligar ou desligar {name}",
+      "delete": "Excluir {name}",
+      "on": "Ligada",
+      "off": "Desligada",
+      "recent": "O que as regras fizeram recentemente",
+      "failed": "Não deu certo. Tente de novo.",
+      "created": "Regra criada.",
+      "limitReached": "Você atingiu o limite de 20 regras.",
+      "pauseNeedsManage": "Pausar exige que o gerenciamento de anúncios esteja ativado.",
+      "help": "As regras leem os resultados que o Bodhinox já guarda, então nunca gastam dinheiro. Os alertas seguem sua configuração de “Avisos de automação”.",
+      "actions": {
+        "pause": "Pausar",
+        "notify": "Me avisar sobre"
+      },
+      "levels": {
+        "campaign": "campanha",
+        "adset": "conjunto de anúncios",
+        "ad": "anúncio"
+      },
+      "metrics": {
+        "cost_per_result": "o custo por resultado",
+        "spend": "o valor gasto",
+        "ctr": "a CTR",
+        "cpm": "o custo por 1.000 impressões"
+      },
+      "operators": {
+        "gt": "acima de",
+        "lt": "abaixo de"
+      },
+      "outcomes": {
+        "queued": "Pausando",
+        "notified": "Avisado",
+        "skipped": "Não foi possível pausar"
+      },
+      "newTitle": "Nova regra",
+      "newDescription": "Escolha o que observar e o que fazer.",
+      "name": "Nome",
+      "namePlaceholder": "Parar conjuntos caros",
+      "then": "Então",
+      "anyActive": "Qualquer ativo",
+      "when": "Quando",
+      "is": "Estiver",
+      "percent": "Percentual",
+      "amount": "Valor",
+      "over": "Em",
+      "days": "{days, plural, one {último dia} other {últimos # dias}}",
+      "minSpend": "Depois de gastar pelo menos",
+      "currencyHelp": "Os valores estão na moeda de cada conta de anúncios.",
+      "cancel": "Cancelar",
+      "create": "Criar regra"
     }
   },
   "Appointments": {

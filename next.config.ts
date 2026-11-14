@@ -93,7 +93,9 @@ const nextConfig: NextConfig = {
   // .next/dev/logs/next-development.log while its dev MCP server is on (the
   // default), whatever browserToTerminal says. On Windows that write triggers
   // the same rebuild-and-reload loop (seen as e2e logins stuck on /login).
-  experimental: { mcpServer: false },
+  // The proxy (src/proxy.ts) buffers request bodies up to this size before any route runs (Next default 10 MB).
+  // Ad videos need up to 30 MB; every route still enforces its own smaller limit with readBoundedBody.
+  experimental: { mcpServer: false, proxyClientMaxBodySize: '32mb' },
 
   /**
    * Cross-origin dev access (Next.js 16).

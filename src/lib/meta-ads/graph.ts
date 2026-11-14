@@ -494,6 +494,29 @@ export interface MetaAdObject {
   creativeTitle: string | null;
   creativeBody: string | null;
   ctaType: string | null;
+  /** Why Meta rejected or limited an ad (its review feedback and delivery issues), or null. */
+  reviewFeedback?: string | null;
+}
+
+/** Meta's review reasons (ad_review_feedback) and delivery issues (issues_info) as one short text. */
+export function reviewFeedbackOf(row: Record<string, unknown>): string | null {
+  const reasons: string[] = [];
+  const feedback = row.ad_review_feedback && typeof row.ad_review_feedback === 'object' ? (row.ad_review_feedback as Record<string, unknown>) : null;
+  for (const group of [feedback?.global, ...Object.values((feedback?.placement_specific as Record<string, unknown>) ?? {})]) {
+    if (group && typeof group === 'object') {
+      for (const value of Object.values(group as Record<string, unknown>)) if (typeof value === 'string' && value.trim()) reasons.push(value.trim());
+    }
+  }
+  if (Array.isArray(row.issues_info)) {
+    for (const issue of row.issues_info) {
+      const i = issue && typeof issue === 'object' ? (issue as Record<string, unknown>) : null;
+      const text = typeof i?.error_summary === 'string' && i.error_summary.trim() ? i.error_summary.trim()
+        : typeof i?.error_message === 'string' ? i.error_message.trim() : '';
+      if (text) reasons.push(text);
+    }
+  }
+  const unique = [...new Set(reasons)].join(' · ').replace(/[ -]/g, ' ');
+  return unique ? unique.slice(0, 1000) : null;
 }
 
 /** Meta's budget strings ("50000") -> integer minor units; "0" or absent means no budget of that kind. */
@@ -512,7 +535,7 @@ const time = (value: unknown): string | null => {
 const OBJECT_FIELDS: Record<AdObjectLevel, string> = {
   campaign: 'id,name,status,effective_status,objective,daily_budget,lifetime_budget,start_time,stop_time',
   adset: 'id,name,campaign_id,status,effective_status,daily_budget,lifetime_budget,start_time,end_time,destination_type,optimization_goal',
-  ad: 'id,name,campaign_id,adset_id,status,effective_status,creative{thumbnail_url,image_url,title,body,call_to_action_type}',
+  ad: 'id,name,campaign_id,adset_id,status,effective_status,creative{thumbnail_url,image_url,title,body,call_to_action_type},ad_review_feedback,issues_info',
 };
 
 /** An https URL Meta returned, or null (never another scheme, never over the column limit). */
@@ -543,6 +566,7 @@ function adObject(level: AdObjectLevel, row: Record<string, unknown>): MetaAdObj
     creativeTitle: level === 'ad' ? str(creative?.title, 500) : null,
     creativeBody: level === 'ad' ? str(creative?.body, 4000) : null,
     ctaType: level === 'ad' ? str(creative?.call_to_action_type, 64) : null,
+    reviewFeedback: level === 'ad' ? reviewFeedbackOf(row) : null,
   };
 }
 
@@ -690,6 +714,39 @@ export interface AdSetInput {
   genders: number[];
   whatsappNumber: string | null;
   status: 'ACTIVE' | 'PAUSED';
+  /** Meta custom audience ids the ad set reaches / leaves out. */
+  audienceIds?: string[];
+  excludedAudienceIds?: string[];
+  /** Empty: Meta's automatic placements. */
+  placements?: readonly Placement[];
+  places?: readonly TargetPlace[];
+  interests?: readonly TargetInterest[];
+  locales?: readonly number[];
+}
+
+export const PLACEMENTS = ['facebook', 'instagram', 'messenger', 'audience_network', 'whatsapp_status'] as const;
+export type Placement = (typeof PLACEMENTS)[number];
+export interface TargetPlace { type: 'region' | 'city'; key: string; name: string; countryCode: string | null }
+export interface TargetInterest { id: string; name: string }
+
+/** Manual placements as Meta's targeting fields; none = automatic (Advantage+) placements. */
+export function placementTargeting(placements: readonly Placement[]): Record<string, unknown> {
+  if (!placements.length) return {};
+  const platforms = new Set<string>(placements.filter((p) => p !== 'whatsapp_status'));
+  const out: Record<string, unknown> = {};
+  // Messenger and Audience Network only run alongside Facebook.
+  if (platforms.has('messenger') || platforms.has('audience_network')) platforms.add('facebook');
+  if (placements.includes('whatsapp_status')) {
+    platforms.add('whatsapp');
+    out.whatsapp_positions = ['status'];
+    // Meta: the WhatsApp Status placement needs Instagram Stories as well.
+    if (!platforms.has('instagram')) {
+      platforms.add('instagram');
+      out.instagram_positions = ['story'];
+    }
+  }
+  out.publisher_platforms = [...platforms];
+  return out;
 }
 
 const ADSET_DELIVERY: Record<AdKind, { destination_type: string; optimization_goal: string }> = {
@@ -701,14 +758,29 @@ const ADSET_DELIVERY: Record<AdKind, { destination_type: string; optimization_go
 
 /** The ad set's form fields (exported for tests). */
 export function adSetForm(input: AdSetInput): Record<string, string> {
+  const places = input.places ?? [];
+  // A country that also has one of its cities or regions chosen would overlap them (Meta refuses that).
+  const placeCountries = new Set(places.map((p) => p.countryCode).filter(Boolean));
+  const geo: Record<string, unknown> = {};
+  const countries = input.countries.filter((c) => !placeCountries.has(c));
+  if (countries.length) geo.countries = countries;
+  const regions = places.filter((p) => p.type === 'region').map((p) => ({ key: assertId(p.key) }));
+  const cities = places.filter((p) => p.type === 'city').map((p) => ({ key: assertId(p.key), radius: 25, distance_unit: 'kilometer' }));
+  if (regions.length) geo.regions = regions;
+  if (cities.length) geo.cities = cities;
   const targeting: Record<string, unknown> = {
-    geo_locations: { countries: input.countries },
+    geo_locations: geo,
     age_min: input.ageMin,
     age_max: input.ageMax,
     // The audience is what the admin chose: Advantage+ audience expansion stays off.
     targeting_automation: { advantage_audience: 0 },
   };
   if (input.genders.length === 1) targeting.genders = input.genders;
+  if (input.audienceIds?.length) targeting.custom_audiences = input.audienceIds.map((a) => ({ id: assertId(a) }));
+  if (input.excludedAudienceIds?.length) targeting.excluded_custom_audiences = input.excludedAudienceIds.map((a) => ({ id: assertId(a) }));
+  if (input.interests?.length) targeting.flexible_spec = [{ interests: input.interests.map((i) => ({ id: assertId(i.id), name: i.name })) }];
+  if (input.locales?.length) targeting.locales = input.locales.filter((l) => Number.isInteger(l) && l > 0);
+  Object.assign(targeting, placementTargeting(input.placements ?? []));
   const promoted: Record<string, string> | null = input.kind === 'website' ? null
     : { page_id: assertId(input.pageId), ...(input.kind === 'whatsapp' && input.whatsappNumber ? { whatsapp_phone_number: input.whatsappNumber } : {}) };
   return {
@@ -743,44 +815,91 @@ export interface CreativeInput {
   leadFormId: string | null;
   ctaType: string;
   welcomeMessage: string | null;
+  /** 'image' (default): imageHash is the image. 'video': imageHash is the thumbnail. 'carousel': cards (2-10). */
+  format?: AdFormat;
+  videoId?: string | null;
+  cards?: readonly CarouselCard[] | null;
 }
 
-/** The creative's object_story_spec for each kind (the shapes of Meta's v27 messaging, lead and traffic guides). */
+export const AD_FORMATS = ['image', 'video', 'carousel'] as const;
+export type AdFormat = (typeof AD_FORMATS)[number];
+export interface CarouselCard { imageHash: string; headline: string | null; description: string | null; link: string | null }
+
+/** Where the ad sends people and its button, per kind (the shapes of Meta's v27 messaging, lead and traffic guides). */
+function destination(input: CreativeInput, link: string | null): { link?: string; call_to_action: Record<string, unknown> } {
+  switch (input.kind) {
+    case 'whatsapp':
+      return { link: 'https://api.whatsapp.com/send', call_to_action: { type: 'WHATSAPP_MESSAGE', value: { app_destination: 'WHATSAPP' } } };
+    case 'instagram_direct':
+      return { call_to_action: { type: 'INSTAGRAM_MESSAGE', value: { app_destination: 'INSTAGRAM_DIRECT' } } };
+    case 'lead_form':
+      return { link: 'http://fb.me/', call_to_action: { type: input.ctaType, value: { lead_gen_form_id: input.leadFormId } } };
+    case 'website':
+      return { link: link ?? undefined, call_to_action: { type: input.ctaType, value: { link } } };
+  }
+}
+
+const welcomeMessage = (text: string) => ({
+  type: 'VISUAL_EDITOR', version: 2, landing_screen_type: 'welcome_message', media_type: 'text',
+  text_format: { customer_action_type: 'autofill_message', message: { autofill_message: { content: text }, text } },
+});
+
+/** The creative's object_story_spec: one image (link_data), one video (video_data) or a carousel (child_attachments). */
 export function creativeSpec(input: CreativeInput): Record<string, unknown> {
-  const base: Record<string, unknown> = {
+  const format = input.format ?? 'image';
+  const target = destination(input, input.linkUrl);
+  const welcome = input.kind === 'whatsapp' && input.welcomeMessage ? { page_welcome_message: welcomeMessage(input.welcomeMessage) } : {};
+  const story: Record<string, unknown> = {
+    page_id: assertId(input.pageId),
+    ...(input.kind === 'instagram_direct' && input.instagramUserId ? { instagram_user_id: assertId(input.instagramUserId) } : {}),
+  };
+  if (format === 'video') {
+    if (!input.videoId) throw new MetaGraphInputError();
+    story.video_data = {
+      video_id: assertId(input.videoId),
+      image_hash: input.imageHash,
+      message: input.primaryText,
+      ...(input.headline ? { title: input.headline } : {}),
+      ...(input.description ? { link_description: input.description } : {}),
+      call_to_action: input.kind === 'website' ? target.call_to_action
+        : { ...target.call_to_action, value: { ...(target.call_to_action.value as Record<string, unknown>), ...(target.link ? { link: target.link } : {}) } },
+      ...welcome,
+    };
+    return story;
+  }
+  if (format === 'carousel') {
+    const cards = input.cards ?? [];
+    if (cards.length < 2 || cards.length > 10) throw new MetaGraphInputError();
+    story.link_data = {
+      message: input.primaryText,
+      ...(target.link ? { link: target.link } : {}),
+      call_to_action: target.call_to_action,
+      child_attachments: cards.map((card) => {
+        const cardTarget = input.kind === 'website' ? destination(input, card.link ?? input.linkUrl) : target;
+        return {
+          image_hash: card.imageHash,
+          ...(card.headline ? { name: card.headline } : {}),
+          ...(card.description ? { description: card.description } : {}),
+          ...(cardTarget.link ? { link: cardTarget.link } : {}),
+          call_to_action: cardTarget.call_to_action,
+        };
+      }),
+      multi_share_optimized: true,
+      multi_share_end_card: false,
+      ...welcome,
+    };
+    return story;
+  }
+  story.link_data = {
     message: input.primaryText,
     image_hash: input.imageHash,
     ...(input.headline ? { name: input.headline } : {}),
     ...(input.description ? { description: input.description } : {}),
+    ...(target.link ? { link: target.link } : {}),
+    call_to_action: target.call_to_action,
+    ...welcome,
   };
-  let link: Record<string, unknown>;
-  switch (input.kind) {
-    case 'whatsapp':
-      link = {
-        ...base,
-        link: 'https://api.whatsapp.com/send',
-        call_to_action: { type: 'WHATSAPP_MESSAGE', value: { app_destination: 'WHATSAPP' } },
-        ...(input.welcomeMessage ? { page_welcome_message: {
-          type: 'VISUAL_EDITOR', version: 2, landing_screen_type: 'welcome_message', media_type: 'text',
-          text_format: { customer_action_type: 'autofill_message', message: { autofill_message: { content: input.welcomeMessage }, text: input.welcomeMessage } },
-        } } : {}),
-      };
-      break;
-    case 'instagram_direct':
-      link = { ...base, call_to_action: { type: 'INSTAGRAM_MESSAGE', value: { app_destination: 'INSTAGRAM_DIRECT' } } };
-      break;
-    case 'lead_form':
-      link = { ...base, link: 'http://fb.me/', call_to_action: { type: input.ctaType, value: { lead_gen_form_id: input.leadFormId } } };
-      break;
-    case 'website':
-      link = { ...base, link: input.linkUrl, call_to_action: { type: input.ctaType, value: { link: input.linkUrl } } };
-      break;
-  }
-  return {
-    page_id: assertId(input.pageId),
-    ...(input.kind === 'instagram_direct' && input.instagramUserId ? { instagram_user_id: assertId(input.instagramUserId) } : {}),
-    link_data: link,
-  };
+  return story;
 }
 
 export async function createCreative(adAccountId: string, token: string, input: CreativeInput): Promise<{ id: string }> {
@@ -823,5 +942,128 @@ export async function findCreatedByName(edge: 'campaigns' | 'adsets' | 'adcreati
     if (!objectId || row.name !== name) return [];
     const at = typeof row.created_time === 'string' ? Date.parse(row.created_time) : NaN;
     return Number.isFinite(at) && at < from ? [] : [objectId];
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Custom audiences (customer lists and lookalikes)
+
+/** Whether the ad account accepted Meta's Custom Audience terms (required before any customer-list upload). */
+export async function hasCustomAudienceTerms(adAccountId: string, token: string): Promise<boolean> {
+  const row = await request<{ tos_accepted?: Record<string, unknown> }>('GET', `act_${assertId(adAccountId)}`, token,
+    { params: { fields: 'tos_accepted' } });
+  return row.tos_accepted?.custom_audience_tos === 1;
+}
+
+export async function createCustomerListAudience(adAccountId: string, token: string, name: string): Promise<{ id: string }> {
+  return created(await request('POST', `act_${assertId(adAccountId)}/customaudiences`, token, { form: {
+    name,
+    subtype: 'CUSTOM',
+    customer_file_source: 'USER_PROVIDED_ONLY',
+    description: 'Synced from a Bodhinox segment',
+  } }));
+}
+
+export async function createLookalikeAudience(adAccountId: string, token: string,
+  input: { name: string; originAudienceId: string; country: string; percent: number }): Promise<{ id: string }> {
+  return created(await request('POST', `act_${assertId(adAccountId)}/customaudiences`, token, { form: {
+    name: input.name,
+    subtype: 'LOOKALIKE',
+    origin_audience_id: assertId(input.originAudienceId),
+    lookalike_spec: JSON.stringify({ country: input.country, ratio: input.percent / 100 }),
+  } }));
+}
+
+/** One batch of Meta's replace call: the audience ends up holding exactly the rows of the session. */
+export interface ReplaceSession { sessionId: number; batch: number; last: boolean; estimatedTotal: number }
+
+/** Uploads one batch of hashed [phone, email] rows (each a SHA-256 hex digest or ''). */
+export async function replaceAudienceUsers(audienceId: string, token: string, session: ReplaceSession,
+  rows: [string, string][]): Promise<{ received: number; invalid: number }> {
+  const result = await request<{ num_received?: unknown; num_invalid_entries?: unknown }>(
+    'POST', `${assertId(audienceId)}/usersreplace`, token, { form: {
+      payload: JSON.stringify({ schema: ['PHONE', 'EMAIL'], data: rows }),
+      session: JSON.stringify({
+        session_id: session.sessionId, batch_seq: session.batch, last_batch_flag: session.last,
+        estimated_num_total: session.estimatedTotal,
+      }),
+    } });
+  const n = (value: unknown) => (typeof value === 'number' && Number.isFinite(value) ? value : 0);
+  return { received: n(result.num_received), invalid: n(result.num_invalid_entries) };
+}
+
+/** Meta's estimate of matched people (a range; Meta does not give exact sizes). */
+export async function getAudienceSize(audienceId: string, token: string): Promise<{ lower: number | null; upper: number | null }> {
+  const row = await request<{ approximate_count_lower_bound?: unknown; approximate_count_upper_bound?: unknown }>(
+    'GET', assertId(audienceId), token, { params: { fields: 'approximate_count_lower_bound,approximate_count_upper_bound' } });
+  const n = (value: unknown) => (typeof value === 'number' && Number.isFinite(value) && value >= 0 ? Math.floor(value) : null);
+  return { lower: n(row.approximate_count_lower_bound), upper: n(row.approximate_count_upper_bound) };
+}
+
+/** After an unclear create: the ad account's audiences with exactly this name. */
+export async function findAudiencesByName(adAccountId: string, token: string, name: string): Promise<string[]> {
+  const rows = await getAll<{ id?: unknown; name?: unknown }>(`act_${assertId(adAccountId)}/customaudiences`, token,
+    { fields: 'id,name', limit: 200 });
+  return rows.flatMap((row) => {
+    const audienceId = id(row.id);
+    return audienceId && row.name === name ? [audienceId] : [];
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Video ads and targeting search
+
+const VIDEO_TIMEOUT_MS = 120_000;
+
+/** Uploads a video file to the ad account's library (one request; files are capped well below Meta's limit). */
+export async function uploadAdVideo(adAccountId: string, token: string, bytes: Uint8Array, fileName: string): Promise<{ id: string }> {
+  const form = new FormData();
+  form.set('name', fileName.slice(0, 100));
+  form.set('source', new Blob([bytes as BlobPart]), fileName.slice(0, 100) || 'video.mp4');
+  const response = await leaseFetch(url(`act_${assertId(adAccountId)}/advideos`), {
+    method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: form, signal: AbortSignal.timeout(VIDEO_TIMEOUT_MS),
+  });
+  if (!response.ok) await failure(response);
+  return created((await response.json()) as { id?: unknown });
+}
+
+/** Meta processes an uploaded video before an ad can use it. */
+export async function getVideoStatus(videoId: string, token: string): Promise<'ready' | 'processing' | 'error'> {
+  const row = await request<{ status?: { video_status?: unknown } }>('GET', assertId(videoId), token, { params: { fields: 'status' } });
+  const status = row.status?.video_status;
+  return status === 'ready' ? 'ready' : status === 'error' ? 'error' : 'processing';
+}
+
+export const TARGETING_SEARCH_TYPES = ['interest', 'place', 'locale'] as const;
+export type TargetingSearchType = (typeof TARGETING_SEARCH_TYPES)[number];
+export interface TargetingOption { type: 'interest' | 'region' | 'city' | 'locale'; id: string; name: string; detail: string | null; countryCode: string | null; size: number | null }
+
+/** Meta's targeting search (interests, cities and regions, languages). Results carry no personal data. */
+export async function searchTargeting(type: TargetingSearchType, query: string, token: string): Promise<TargetingOption[]> {
+  const params: Params = type === 'interest' ? { type: 'adinterest', q: query, limit: 15 }
+    : type === 'place' ? { type: 'adgeolocation', q: query, location_types: JSON.stringify(['region', 'city']), limit: 15 }
+    : { type: 'adlocale', q: query, limit: 15 };
+  const result = await request<{ data?: Record<string, unknown>[] }>('GET', 'search', token, { params });
+  const str = (v: unknown, max = 200) => (typeof v === 'string' && v.trim() ? v.trim().slice(0, max) : null);
+  const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) && v >= 0 ? Math.floor(v) : null);
+  return (result.data ?? []).flatMap((row): TargetingOption[] => {
+    if (type === 'interest') {
+      const optionId = id(row.id);
+      const name = str(row.name);
+      if (!optionId || !name) return [];
+      const path = Array.isArray(row.path) ? row.path.filter((p): p is string => typeof p === 'string').slice(0, -1).join(' › ') : null;
+      return [{ type: 'interest', id: optionId, name, detail: str(path) ?? str(row.topic), countryCode: null, size: num(row.audience_size_upper_bound) ?? num(row.audience_size) }];
+    }
+    if (type === 'place') {
+      const kind = row.type === 'city' ? 'city' : row.type === 'region' ? 'region' : null;
+      const key = typeof row.key === 'string' || typeof row.key === 'number' ? String(row.key) : null;
+      const name = str(row.name);
+      const country = typeof row.country_code === 'string' && /^[A-Z]{2}$/.test(row.country_code) ? row.country_code : null;
+      if (!kind || !key || !META_ID.test(key) || !name) return [];
+      return [{ type: kind, id: key, name, detail: [str(row.region), str(row.country_name)].filter(Boolean).join(', ') || null, countryCode: country, size: null }];
+    }
+    const key = typeof row.key === 'number' && Number.isInteger(row.key) && row.key > 0 ? String(row.key) : null;
+    const name = str(row.name);
+    return key && name ? [{ type: 'locale', id: key, name, detail: null, countryCode: null, size: null }] : [];
   });
 }

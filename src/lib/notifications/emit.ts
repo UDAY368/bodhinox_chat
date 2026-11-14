@@ -223,3 +223,21 @@ export async function notifyAutomationNotice(input: AutomationNoticeInput): Prom
     return [...new Set([...result.inApp, ...result.emailQueued])];
   }, getWorkerPrisma());
 }
+
+/**
+ * An Ads alert to the workspace's owners and admins (an ad rejected by Meta, or
+ * an ad rule acting). Ads alerts reuse the automation_notice preference, so
+ * members turn them off with automation notices. Runs inside the caller's
+ * worker transaction, so it commits with the change that caused it; the dedupe
+ * key makes a repeated run a no-op.
+ */
+export async function notifyAdsAlert(tx: TenantTransaction, accountId: string,
+  input: { title: string; body?: string | null; dedupeKey: string }): Promise<CreateNotificationResult> {
+  const title = input.title.trim().slice(0, 200);
+  if (!UUID.test(accountId) || !title || !input.dedupeKey || input.dedupeKey.length > 200) return EMPTY;
+  const userIds = await workspaceAdmins(tx, accountId);
+  if (!userIds.length) return EMPTY;
+  return createNotification(tx, {
+    accountId, userIds, event: 'automation_notice', title, body: input.body?.slice(0, 500) ?? null, link: '/ads', dedupeKey: input.dedupeKey,
+  });
+}

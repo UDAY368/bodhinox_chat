@@ -2,15 +2,17 @@
 
 // "Create ad" (admins, ad management on): a four-step dialog that makes a
 // click-to-WhatsApp, click-to-Instagram-Direct, instant-form lead or website
-// traffic ad on the connected Page. 1. Goal and ad account; 2. audience,
-// budget and schedule; 3. the ad (image, text, button); 4. review, then
+// traffic ad on the connected Page. 1. Goal and ad account; 2. audience
+// (places, interests, languages, saved audiences, placements incl. WhatsApp
+// Status), budget and schedule; 3. the ad (one image, a video, or a carousel;
+// text, button); 4. review, then
 // "Create paused" or "Publish" (Meta reviews a published ad before it runs).
 // The image uploads to the ad account first (POST /api/meta-ads/images); the
 // ad is then queued (POST /api/meta-ads/drafts) and made by the worker; its
 // progress shows in "Ads created in Bodhinox".
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { AtSign, Globe, ImagePlus, Loader2, MessageCircle, UserPlus } from 'lucide-react';
+import { AtSign, Film, Globe, ImagePlus, Images, Loader2, MessageCircle, Plus, Sparkles, Trash2, UserPlus } from 'lucide-react';
 import { toast } from 'sonner';
 import { useTranslations } from 'next-intl';
 
@@ -23,6 +25,7 @@ import { authFetch } from '@/lib/auth/client';
 import { isCurrencyCode, parseMoney } from '@/lib/commerce/money';
 import { cn } from '@/lib/utils';
 import type { LinkedAdAccount } from '@/lib/meta-ads/accounts';
+import { TargetingPicker, type TargetingChoice } from './targeting-picker';
 
 type Kind = 'whatsapp' | 'instagram_direct' | 'lead_form' | 'website';
 const KINDS: { kind: Kind; icon: typeof Globe }[] = [
@@ -36,6 +39,16 @@ const CTAS: Record<'lead_form' | 'website', string[]> = {
   lead_form: ['SIGN_UP', 'LEARN_MORE', 'APPLY_NOW', 'GET_QUOTE', 'SUBSCRIBE', 'DOWNLOAD'],
   website: ['LEARN_MORE', 'SHOP_NOW', 'SIGN_UP', 'BOOK_TRAVEL', 'CONTACT_US', 'ORDER_NOW', 'GET_OFFER', 'APPLY_NOW', 'SUBSCRIBE', 'DOWNLOAD'],
 };
+/** Mirrors PLACEMENTS in src/lib/meta-ads/graph.ts. WhatsApp Status runs click-to-WhatsApp and website ads only. */
+const PLACEMENT_OPTIONS = ['facebook', 'instagram', 'messenger', 'audience_network', 'whatsapp_status'] as const;
+type PlacementOption = (typeof PLACEMENT_OPTIONS)[number];
+const STATUS_KINDS: Kind[] = ['whatsapp', 'website'];
+const CAROUSEL_KINDS: Kind[] = ['whatsapp', 'lead_form', 'website'];
+type Format = 'image' | 'video' | 'carousel';
+interface UploadedImage { hash: string; url: string | null; preview: string }
+interface Card { key: number; image: UploadedImage | null; headline: string; description: string; link: string }
+const MAX_VIDEO_BYTES = 30 * 1024 * 1024;
+const AI_ERRORS = new Set(['ai_not_configured', 'image_not_supported', 'image_refused', 'rate_limited', 'invalid_key', 'manage_not_enabled']);
 const COMMON_COUNTRIES = ['IN', 'US', 'GB', 'AE', 'SA', 'SG', 'AU', 'CA', 'DE', 'BR', 'ID', 'MX'];
 const ERRORS = new Set(['invalid_request', 'invalid_choice', 'missing_scope', 'over_budget_cap', 'token_invalid', 'manage_not_enabled',
   'not_connected', 'rate_limited', 'meta_error']);
@@ -79,10 +92,31 @@ export function CreateAdDialog({ open, onOpenChange, accounts, adAccountId, page
   const [cta, setCta] = useState('');
   const [whatsappNumber, setWhatsappNumber] = useState('');
   const [welcome, setWelcome] = useState('');
-  const [image, setImage] = useState<{ hash: string; url: string | null; preview: string } | null>(null);
+  const [image, setImage] = useState<UploadedImage | null>(null);
+  const [format, setFormat] = useState<Format>('image');
+  const [video, setVideo] = useState<{ id: string; name: string } | null>(null);
+  const [videoUploading, setVideoUploading] = useState(false);
+  const [cards, setCards] = useState<Card[]>([{ key: 1, image: null, headline: '', description: '', link: '' }, { key: 2, image: null, headline: '', description: '', link: '' }]);
+  const [cardUploading, setCardUploading] = useState<number | null>(null);
+  const [placements, setPlacements] = useState<PlacementOption[]>([]);
+  const [interests, setInterests] = useState<TargetingChoice[]>([]);
+  const [places, setPlaces] = useState<TargetingChoice[]>([]);
+  const [languages, setLanguages] = useState<TargetingChoice[]>([]);
+  const videoRef = useRef<HTMLInputElement>(null);
+  const cardRef = useRef<HTMLInputElement>(null);
+  const cardTarget = useRef<number | null>(null);
+  const [aiCopyOpen, setAiCopyOpen] = useState(false);
+  const [brief, setBrief] = useState('');
+  const [variants, setVariants] = useState<{ primaryText: string; headline: string; description: string | null }[] | null>(null);
+  const [aiBusy, setAiBusy] = useState<'copy' | 'image' | null>(null);
+  const [aiImageOpen, setAiImageOpen] = useState(false);
+  const [imagePrompt, setImagePrompt] = useState('');
   const [uploading, setUploading] = useState(false);
   const [forms, setForms] = useState<{ id: string; name: string | null }[] | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const [audiences, setAudiences] = useState<{ id: string; name: string; adAccountId: string; kind: string }[] | null>(null);
+  const [include, setInclude] = useState<string[]>([]);
+  const [exclude, setExclude] = useState<string[]>([]);
 
   // A fresh dialog each time it opens.
   useEffect(() => {
@@ -99,6 +133,21 @@ export function CreateAdDialog({ open, onOpenChange, accounts, adAccountId, page
       .catch(() => setForms([]));
   }, [open, kind, forms]);
 
+  // Ready audiences (Ads → Audiences) the ad can include or leave out.
+  useEffect(() => {
+    if (!open) return;
+    authFetch('/api/meta-ads/audiences', { cache: 'no-store' })
+      .then(async (res) => (res.ok ? ((await res.json()) as { audiences: { id: string; name: string; adAccountId: string; kind: string; status: string }[] }).audiences : []))
+      .then((list) => setAudiences(list.filter((a) => a.status === 'ready')))
+      .catch(() => setAudiences([]));
+  }, [open]);
+  const accountAudiences = (audiences ?? []).filter((a) => a.adAccountId === account);
+  useEffect(() => { setInclude([]); setExclude([]); }, [account]);
+  const toggle = (list: string[], set: (next: string[]) => void, other: string[], setOther: (next: string[]) => void, id: string) => {
+    if (list.includes(id)) set(list.filter((x) => x !== id));
+    else if (list.length < 10) { set([...list, id]); setOther(other.filter((x) => x !== id)); }
+  };
+
   const currency = accounts.find((a) => a.adAccountId === account)?.currency ?? null;
   const budgetMinor = useMemo(() => {
     if (!budget.trim() || !currency || !isCurrencyCode(currency)) return null;
@@ -112,13 +161,12 @@ export function CreateAdDialog({ open, onOpenChange, accounts, adAccountId, page
 
   const errorText = (code: unknown) => t(`errors.${typeof code === 'string' && ERRORS.has(code) ? code : 'generic'}`);
 
-  const upload = async (file: File) => {
-    if (!account) return;
+  const uploadImage = async (file: File): Promise<UploadedImage | null> => {
+    if (!account) return null;
     if (!/^image\/(jpeg|png)$/.test(file.type) || file.size > 8 * 1024 * 1024) {
       toast.error(t('imageRules'));
-      return;
+      return null;
     }
-    setUploading(true);
     try {
       const form = new FormData();
       form.set('file', file);
@@ -126,13 +174,93 @@ export function CreateAdDialog({ open, onOpenChange, accounts, adAccountId, page
       const res = await authFetch('/api/meta-ads/images', { method: 'POST', body: form });
       const body = (await res.json().catch(() => ({}))) as { hash?: string; url?: string | null; error?: string };
       if (!res.ok || !body.hash) throw new Error(body.error ?? 'generic');
-      setImage({ hash: body.hash, url: body.url ?? null, preview: URL.createObjectURL(file) });
+      return { hash: body.hash, url: body.url ?? null, preview: URL.createObjectURL(file) };
+    } catch (error) {
+      toast.error(errorText(error instanceof Error ? error.message : null));
+      return null;
+    }
+  };
+  const upload = async (file: File) => {
+    setUploading(true);
+    const uploaded = await uploadImage(file);
+    if (uploaded) setImage(uploaded);
+    setUploading(false);
+  };
+  const uploadCard = async (key: number, file: File) => {
+    setCardUploading(key);
+    const uploaded = await uploadImage(file);
+    if (uploaded) setCards((list) => list.map((c) => (c.key === key ? { ...c, image: uploaded } : c)));
+    setCardUploading(null);
+  };
+  const uploadVideo = async (file: File) => {
+    if (!account) return;
+    if (!/^video\/(mp4|quicktime)$/.test(file.type) || file.size > MAX_VIDEO_BYTES) {
+      toast.error(t('videoRules'));
+      return;
+    }
+    setVideoUploading(true);
+    try {
+      const form = new FormData();
+      form.set('file', file);
+      form.set('adAccountId', account);
+      const res = await authFetch('/api/meta-ads/videos', { method: 'POST', body: form });
+      const body = (await res.json().catch(() => ({}))) as { id?: string; error?: string };
+      if (!res.ok || !body.id) throw new Error(body.error ?? 'generic');
+      setVideo({ id: body.id, name: file.name });
     } catch (error) {
       toast.error(errorText(error instanceof Error ? error.message : null));
     } finally {
-      setUploading(false);
+      setVideoUploading(false);
     }
   };
+  const aiError = (code: unknown) => t(`ai.errors.${typeof code === 'string' && AI_ERRORS.has(code) ? code : 'generic'}`);
+  const writeCopy = async () => {
+    if (!brief.trim()) return;
+    setAiBusy('copy');
+    try {
+      const res = await authFetch('/api/meta-ads/ai', {
+        method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action: 'copy', kind, brief: brief.trim() }),
+      });
+      const body = (await res.json().catch(() => ({}))) as { variants?: typeof variants; error?: string };
+      if (!res.ok || !body.variants) throw new Error(body.error ?? 'generic');
+      setVariants(body.variants);
+    } catch (error) {
+      toast.error(aiError(error instanceof Error ? error.message : null));
+    } finally {
+      setAiBusy(null);
+    }
+  };
+  const applyVariant = (v: { primaryText: string; headline: string; description: string | null }) => {
+    setPrimaryText(v.primaryText);
+    setHeadline(v.headline);
+    if (kind !== 'instagram_direct') setDescription(v.description ?? '');
+    setAiCopyOpen(false);
+  };
+  const makeImage = async () => {
+    if (!imagePrompt.trim() || !account) return;
+    setAiBusy('image');
+    try {
+      const res = await authFetch('/api/meta-ads/ai', {
+        method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action: 'image', adAccountId: account, prompt: imagePrompt.trim() }),
+      });
+      const body = (await res.json().catch(() => ({}))) as { hash?: string; url?: string | null; preview?: string; error?: string };
+      if (!res.ok || !body.hash || !body.preview) throw new Error(body.error ?? 'generic');
+      setImage({ hash: body.hash, url: body.url ?? null, preview: body.preview });
+      setAiImageOpen(false);
+    } catch (error) {
+      toast.error(aiError(error instanceof Error ? error.message : null));
+    } finally {
+      setAiBusy(null);
+    }
+  };
+
+  // Choices that no longer fit the goal fall away.
+  useEffect(() => {
+    if (!STATUS_KINDS.includes(kind)) setPlacements((list) => list.filter((p) => p !== 'whatsapp_status'));
+    if (!CAROUSEL_KINDS.includes(kind)) setFormat((current) => (current === 'carousel' ? 'image' : current));
+  }, [kind]);
+  // Uploads belong to one ad account's library.
+  useEffect(() => { setVideo(null); setCards((list) => list.map((c) => ({ ...c, image: null }))); }, [account]);
 
   const addCountry = (code: string) => {
     const c = code.trim().toUpperCase();
@@ -143,12 +271,15 @@ export function CreateAdDialog({ open, onOpenChange, accounts, adAccountId, page
   const stepValid = [
     !!account,
     !!name.trim() && budgetMinor !== null && countries.length > 0 && ageMin <= ageMax && (!end || Date.parse(end) > Date.parse(start) + 86_400_000),
-    !!primaryText.trim() && !!image && (kind !== 'website' || /^https:\/\/\S+$/.test(linkUrl.trim())) && (kind !== 'lead_form' || !!leadFormId),
+    !!primaryText.trim() && (kind !== 'website' || /^https:\/\/\S+$/.test(linkUrl.trim())) && (kind !== 'lead_form' || !!leadFormId)
+      && (format === 'image' ? !!image : format === 'video' ? !!video && !!image
+        : cards.length >= 2 && cards.every((c) => !!c.image && (!c.link.trim() || /^https:\/\/\S+$/.test(c.link.trim())))),
     true,
   ];
 
   const submit = async (publish: boolean) => {
-    if (budgetMinor === null || !image) return;
+    const cover = format === 'carousel' ? cards[0]?.image : image;
+    if (budgetMinor === null || !cover) return;
     setBusy(true);
     try {
       const res = await authFetch('/api/meta-ads/drafts', {
@@ -161,8 +292,18 @@ export function CreateAdDialog({ open, onOpenChange, accounts, adAccountId, page
           primaryText: primaryText.trim(), headline: headline.trim() || null, description: description.trim() || null,
           linkUrl: kind === 'website' ? linkUrl.trim() : null, leadFormId: kind === 'lead_form' ? leadFormId : null,
           ctaType: kind === 'lead_form' || kind === 'website' ? (cta || CTAS[kind][0]) : undefined,
-          imageHash: image.hash, imageUrl: image.url, whatsappNumber: kind === 'whatsapp' && whatsappNumber.trim() ? whatsappNumber.trim() : null,
+          imageHash: cover.hash, imageUrl: cover.url, whatsappNumber: kind === 'whatsapp' && whatsappNumber.trim() ? whatsappNumber.trim() : null,
           welcomeMessage: kind === 'whatsapp' && welcome.trim() ? welcome.trim() : null, publish,
+          audienceIds: include, excludedAudienceIds: exclude,
+          format, videoId: format === 'video' ? video?.id : undefined,
+          cards: format === 'carousel' ? cards.map((c) => ({
+            imageHash: c.image!.hash, headline: c.headline.trim() || null, description: c.description.trim() || null,
+            link: kind === 'website' && c.link.trim() ? c.link.trim() : null,
+          })) : undefined,
+          placements,
+          interests: interests.map((i) => ({ id: i.id, name: i.name })),
+          places: places.map((p) => ({ type: p.type, key: p.id, name: p.name, countryCode: p.countryCode })),
+          locales: languages.map((l) => Number(l.id)),
         }),
       });
       const body = (await res.json().catch(() => ({}))) as { error?: string };
@@ -280,12 +421,104 @@ export function CreateAdDialog({ open, onOpenChange, accounts, adAccountId, page
                 </div>
               </div>
             </div>
+            {accountAudiences.length > 0 && (
+              <div className="space-y-3 sm:col-span-2" data-testid="create-ad-audiences">
+                {([['include', include, setInclude, exclude, setExclude], ['exclude', exclude, setExclude, include, setInclude]] as const).map(([which, list, set, other, setOther]) => (
+                  <div key={which} className="space-y-1.5">
+                    <p className="text-sm font-medium text-foreground">{t(which === 'include' ? 'audiencesInclude' : 'audiencesExclude')}</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {accountAudiences.map((a) => (
+                        <button key={a.id} type="button" aria-pressed={list.includes(a.id)}
+                          onClick={() => toggle(list, set, other, setOther, a.id)}
+                          className={cn('rounded-full border px-2.5 py-1 text-xs', list.includes(a.id)
+                            ? (which === 'include' ? 'border-primary bg-primary/10 text-primary' : 'border-destructive/40 bg-destructive/10 text-destructive')
+                            : 'border-border text-muted-foreground hover:bg-muted')}>
+                          {a.name}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+                <p className="text-xs text-muted-foreground">{t('audiencesHelp')}</p>
+              </div>
+            )}
+            <div className="sm:col-span-2">
+              <TargetingPicker id="create-ad-places" type="place" label={t('targeting.places')} help={t('targeting.placesHelp')} max={25}
+                chosen={places} onAdd={(c) => setPlaces([...places, c])} onRemove={(c) => setPlaces(places.filter((x) => x !== c))} />
+            </div>
+            <div className="sm:col-span-2">
+              <TargetingPicker id="create-ad-interests" type="interest" label={t('targeting.interests')} help={t('targeting.interestsHelp')} max={25}
+                chosen={interests} onAdd={(c) => setInterests([...interests, c])} onRemove={(c) => setInterests(interests.filter((x) => x !== c))} />
+            </div>
+            <div className="sm:col-span-2">
+              <TargetingPicker id="create-ad-languages" type="locale" label={t('targeting.languages')} max={10}
+                chosen={languages} onAdd={(c) => setLanguages([...languages, c])} onRemove={(c) => setLanguages(languages.filter((x) => x !== c))} />
+            </div>
+            <fieldset className="space-y-1.5 sm:col-span-2" data-testid="create-ad-placements">
+              <legend className="text-sm font-medium text-foreground">{t('placements.title')}</legend>
+              <div className="flex flex-wrap gap-1.5">
+                <button type="button" aria-pressed={placements.length === 0} onClick={() => setPlacements([])}
+                  className={cn('rounded-full border px-2.5 py-1 text-xs', placements.length === 0 ? 'border-primary bg-primary/10 text-primary' : 'border-border text-muted-foreground hover:bg-muted')}>
+                  {t('placements.automatic')}
+                </button>
+                {PLACEMENT_OPTIONS.filter((p) => p !== 'whatsapp_status' || STATUS_KINDS.includes(kind)).map((p) => (
+                  <button key={p} type="button" aria-pressed={placements.includes(p)}
+                    onClick={() => setPlacements(placements.includes(p) ? placements.filter((x) => x !== p) : [...placements, p])}
+                    className={cn('rounded-full border px-2.5 py-1 text-xs', placements.includes(p) ? 'border-primary bg-primary/10 text-primary' : 'border-border text-muted-foreground hover:bg-muted')}>
+                    {t(`placements.${p}`)}
+                  </button>
+                ))}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {placements.length === 0 ? t('placements.automaticHelp') : placements.includes('whatsapp_status') ? t('placements.statusHelp') : t('placements.manualHelp')}
+              </p>
+            </fieldset>
           </div>
         )}
 
         {step === 2 && (
-          <div className="grid gap-4 sm:grid-cols-[1fr_14rem]">
+          <div className={cn('grid gap-4', format !== 'carousel' && 'sm:grid-cols-[1fr_14rem]')}>
+            <div className="flex flex-wrap gap-1.5 sm:col-span-2" role="radiogroup" aria-label={t('format.title')} data-testid="create-ad-format">
+              {([['image', ImagePlus], ['video', Film], ['carousel', Images]] as const)
+                .filter(([f]) => f !== 'carousel' || CAROUSEL_KINDS.includes(kind)).map(([f, Icon]) => (
+                <button key={f} type="button" role="radio" aria-checked={format === f} onClick={() => setFormat(f)}
+                  className={cn('inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium',
+                    format === f ? 'border-primary bg-primary/10 text-primary' : 'border-border text-muted-foreground hover:bg-muted')}>
+                  <Icon className="size-3.5" /> {t(`format.${f}`)}
+                </button>
+              ))}
+            </div>
             <div className="space-y-4">
+              <div className="rounded-xl border border-dashed border-primary/40 bg-primary/5 p-3" data-testid="create-ad-ai-copy">
+                {!aiCopyOpen ? (
+                  <button type="button" onClick={() => setAiCopyOpen(true)} className="inline-flex items-center gap-1.5 text-sm font-medium text-primary">
+                    <Sparkles className="size-4" /> {t('ai.writeCopy')}
+                  </button>
+                ) : (
+                  <div className="space-y-2">
+                    <Label htmlFor="create-ad-brief">{t('ai.brief')}</Label>
+                    <Textarea id="create-ad-brief" rows={2} maxLength={1000} value={brief} onChange={(e) => setBrief(e.target.value)} placeholder={t('ai.briefPlaceholder')} />
+                    <div className="flex flex-wrap gap-2">
+                      <Button type="button" size="sm" onClick={() => void writeCopy()} disabled={!brief.trim() || aiBusy !== null}>
+                        {aiBusy === 'copy' ? <Loader2 className="size-4 animate-spin" /> : <Sparkles className="size-4" />} {variants ? t('ai.again') : t('ai.generate')}
+                      </Button>
+                      <Button type="button" size="sm" variant="ghost" onClick={() => setAiCopyOpen(false)}>{t('ai.close')}</Button>
+                    </div>
+                    {variants && (
+                      <ul className="space-y-2">
+                        {variants.map((v, i) => (
+                          <li key={i} className="rounded-lg border border-border bg-card p-2.5 text-sm">
+                            <p className="font-medium text-foreground">{v.headline}</p>
+                            <p className="mt-0.5 whitespace-pre-line text-muted-foreground">{v.primaryText}</p>
+                            <Button type="button" size="sm" variant="outline" className="mt-2" onClick={() => applyVariant(v)}>{t('ai.use')}</Button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    <p className="text-xs text-muted-foreground">{t('ai.copyHelp')}</p>
+                  </div>
+                )}
+              </div>
               <div className="space-y-1">
                 <Label htmlFor="create-ad-text">{t('primaryText')}</Label>
                 <Textarea id="create-ad-text" value={primaryText} maxLength={2000} rows={4} onChange={(e) => setPrimaryText(e.target.value)} placeholder={t('primaryTextPlaceholder')} />
@@ -338,8 +571,22 @@ export function CreateAdDialog({ open, onOpenChange, accounts, adAccountId, page
                 </>
               )}
             </div>
-            <div className="space-y-2">
-              <Label>{t('image')}</Label>
+            {format !== 'carousel' && <div className="space-y-2">
+              {format === 'video' && (
+                <div className="space-y-1">
+                  <Label>{t('video')}</Label>
+                  <button type="button" onClick={() => videoRef.current?.click()} disabled={videoUploading || !account}
+                    className="flex h-20 w-full items-center justify-center gap-2 rounded-xl border border-dashed border-border bg-muted/40 px-2 text-xs text-muted-foreground hover:bg-muted">
+                    {videoUploading ? <><Loader2 className="size-4 animate-spin" /> {t('videoUploading')}</>
+                      : video ? <span className="truncate"><Film className="mr-1 inline size-4" />{video.name}</span>
+                      : <><Film className="size-4" /> {t('uploadVideo')}</>}
+                  </button>
+                  <input ref={videoRef} type="file" accept="video/mp4,video/quicktime" className="hidden"
+                    onChange={(e) => { const f = e.target.files?.[0]; if (f) void uploadVideo(f); e.target.value = ''; }} />
+                  <p className="text-xs text-muted-foreground">{t('videoRules')}</p>
+                </div>
+              )}
+              <Label>{format === 'video' ? t('thumbnail') : t('image')}</Label>
               <button type="button" onClick={() => fileRef.current?.click()} disabled={uploading || !account}
                 className="flex aspect-square w-full items-center justify-center overflow-hidden rounded-xl border border-dashed border-border bg-muted/40 text-muted-foreground hover:bg-muted"
                 aria-label={image ? t('replaceImage') : t('uploadImage')}>
@@ -352,7 +599,70 @@ export function CreateAdDialog({ open, onOpenChange, accounts, adAccountId, page
               <input ref={fileRef} type="file" accept="image/jpeg,image/png" className="hidden"
                 onChange={(e) => { const f = e.target.files?.[0]; if (f) void upload(f); e.target.value = ''; }} />
               <p className="text-xs text-muted-foreground">{t('imageRules')}</p>
-            </div>
+              {format === 'image' && (
+                <div className="space-y-1.5" data-testid="create-ad-ai-image">
+                  {!aiImageOpen ? (
+                    <button type="button" onClick={() => setAiImageOpen(true)} className="inline-flex items-center gap-1 text-xs font-medium text-primary">
+                      <Sparkles className="size-3.5" /> {t('ai.makeImage')}
+                    </button>
+                  ) : (
+                    <>
+                      <Textarea aria-label={t('ai.imagePrompt')} rows={3} maxLength={1000} value={imagePrompt}
+                        onChange={(e) => setImagePrompt(e.target.value)} placeholder={t('ai.imagePromptPlaceholder')} />
+                      <Button type="button" size="sm" className="w-full" onClick={() => void makeImage()} disabled={!imagePrompt.trim() || aiBusy !== null}>
+                        {aiBusy === 'image' ? <Loader2 className="size-4 animate-spin" /> : <Sparkles className="size-4" />} {t('ai.generateImage')}
+                      </Button>
+                      <p className="text-xs text-muted-foreground">{t('ai.imageHelp')}</p>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>}
+            {format === 'carousel' && (
+              <div className="space-y-3 sm:col-span-2" data-testid="create-ad-cards">
+                <p className="text-sm font-medium text-foreground">{t('cards.title', { count: cards.length })}</p>
+                <ol className="grid gap-3 sm:grid-cols-2">
+                  {cards.map((c, i) => (
+                    <li key={c.key} className="space-y-2 rounded-xl border border-border p-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-medium text-muted-foreground">{t('cards.card', { n: i + 1 })}</span>
+                        {cards.length > 2 && (
+                          <Button type="button" size="icon" variant="ghost" aria-label={t('cards.remove', { n: i + 1 })}
+                            onClick={() => setCards(cards.filter((x) => x.key !== c.key))}><Trash2 className="size-4" /></Button>
+                        )}
+                      </div>
+                      <button type="button" disabled={cardUploading !== null || !account}
+                        onClick={() => { cardTarget.current = c.key; cardRef.current?.click(); }}
+                        aria-label={c.image ? t('replaceImage') : t('uploadImage')}
+                        className="flex aspect-square w-full items-center justify-center overflow-hidden rounded-lg border border-dashed border-border bg-muted/40 text-muted-foreground hover:bg-muted">
+                        {cardUploading === c.key ? <Loader2 className="size-5 animate-spin" />
+                          // A local preview of the chosen file (blob: URL).
+                          // eslint-disable-next-line @next/next/no-img-element
+                          : c.image ? <img src={c.image.preview} alt={t('imageAlt')} className="size-full object-cover" />
+                          : <span className="flex flex-col items-center gap-1 text-xs"><ImagePlus className="size-5" />{t('uploadImage')}</span>}
+                      </button>
+                      <Input aria-label={t('cards.headline', { n: i + 1 })} placeholder={t('headline')} value={c.headline} maxLength={255}
+                        onChange={(e) => setCards(cards.map((x) => (x.key === c.key ? { ...x, headline: e.target.value } : x)))} />
+                      <Input aria-label={t('cards.description', { n: i + 1 })} placeholder={t('descriptionField')} value={c.description} maxLength={255}
+                        onChange={(e) => setCards(cards.map((x) => (x.key === c.key ? { ...x, description: e.target.value } : x)))} />
+                      {kind === 'website' && (
+                        <Input type="url" aria-label={t('cards.link', { n: i + 1 })} placeholder={t('cards.linkPlaceholder')} value={c.link}
+                          onChange={(e) => setCards(cards.map((x) => (x.key === c.key ? { ...x, link: e.target.value } : x)))} />
+                      )}
+                    </li>
+                  ))}
+                </ol>
+                <input ref={cardRef} type="file" accept="image/jpeg,image/png" className="hidden"
+                  onChange={(e) => { const f = e.target.files?.[0]; if (f && cardTarget.current !== null) void uploadCard(cardTarget.current, f); e.target.value = ''; }} />
+                {cards.length < 10 && (
+                  <Button type="button" size="sm" variant="outline"
+                    onClick={() => setCards([...cards, { key: Math.max(...cards.map((x) => x.key)) + 1, image: null, headline: '', description: '', link: '' }])}>
+                    <Plus className="size-4" /> {t('cards.add')}
+                  </Button>
+                )}
+                <p className="text-xs text-muted-foreground">{t('cards.help')}</p>
+              </div>
+            )}
           </div>
         )}
 
@@ -365,6 +675,15 @@ export function CreateAdDialog({ open, onOpenChange, accounts, adAccountId, page
               [t('dailyBudgetPlain'), `${budget} ${currency ?? ''}`],
               [t('schedule'), `${new Date(start).toLocaleString()}${end ? ` – ${new Date(end).toLocaleString()}` : ` · ${t('noEnd')}`}`],
               [t('audience'), `${countries.join(', ')} · ${ageMin}–${ageMax}${gender === 'all' ? '' : ` · ${t(gender === '1' ? 'genders.men' : 'genders.women')}`}`],
+              [t('format.title'), format === 'video' && video ? `${t('format.video')} · ${video.name}` : format === 'carousel' ? t('cards.title', { count: cards.length }) : t('format.image')],
+              [t('placements.title'), placements.length ? placements.map((p) => t(`placements.${p}`)).join(', ') : t('placements.automatic')],
+              ...(places.length ? [[t('targeting.places'), places.map((p) => p.name).join(', ')]] : []),
+              ...(interests.length ? [[t('targeting.interests'), interests.map((p) => p.name).join(', ')]] : []),
+              ...(languages.length ? [[t('targeting.languages'), languages.map((p) => p.name).join(', ')]] : []),
+              ...(include.length || exclude.length ? [[t('audiencesReview'), [
+                ...include.map((id) => accountAudiences.find((a) => a.id === id)?.name ?? id),
+                ...exclude.map((id) => `− ${accountAudiences.find((a) => a.id === id)?.name ?? id}`),
+              ].join(', ')]] : []),
             ].map(([label, value]) => (
               <div key={label}>
                 <dt className="text-xs text-muted-foreground">{label}</dt>
