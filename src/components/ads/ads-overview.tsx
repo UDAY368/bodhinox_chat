@@ -56,6 +56,9 @@ export function AdsOverview({ range, adAccountId }: { range: AdsRange; adAccount
   const currency = data.spendByCurrency.length === 1 ? data.spendByCurrency[0].currency : null;
   const mixed = data.spendByCurrency.length > 1;
   const money = (v: number | null) => (mixed ? '-' : formatMoneyValue(v, currency));
+  // Return on ad spend: revenue in the spend's own currency / spend (none across currencies).
+  const sameCurrency = !mixed && currency ? data.revenueByCurrency.find((r) => r.currency === currency) : undefined;
+  const roas = sameCurrency && totals.spend > 0 ? sameCurrency.revenue / totals.spend : null;
   const empty = totals.impressions === 0 && totals.spend === 0 && data.conversationsInBodhinox === 0;
 
   const tiles: { key: string; label: string; value: string; hint?: string }[] = [
@@ -67,6 +70,12 @@ export function AdsOverview({ range, adAccountId }: { range: AdsRange; adAccount
     { key: 'costPerConversation', label: t('costPerConversation'), value: money(ratio(totals.spend, totals.conversationsStarted)) },
     { key: 'leads', label: t('leads'), value: formatNumber(totals.leads), hint: totals.leads ? t('costPer', { value: money(ratio(totals.spend, totals.leads)) }) : undefined },
     { key: 'linkClicks', label: t('linkClicks'), value: formatNumber(totals.linkClicks), hint: t('cpm', { value: money(cpm(totals.spend, totals.impressions)) }) },
+    {
+      key: 'revenue', label: t('revenue'),
+      value: data.revenueByCurrency.length ? data.revenueByCurrency.map((r) => formatMoneyValue(r.revenue, r.currency)).join(' · ') : '-',
+      hint: t('sales', { count: data.revenueByCurrency.reduce((sum, r) => sum + r.sales, 0) }),
+    },
+    { key: 'roas', label: t('roas'), value: roas === null ? '-' : t('roasValue', { value: roas.toFixed(2) }), hint: t('roasHint') },
   ];
 
   const values = data.daily.map((d) => d[metric]);

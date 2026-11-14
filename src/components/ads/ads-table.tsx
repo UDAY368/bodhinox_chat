@@ -142,6 +142,8 @@ export function AdsTable({ canManage, canSegment, range, adAccountId }: AdsTable
                 <th className={`${th} text-right`}>{t('costPerResult')}</th>
                 <th className={`${th} text-right`}>{t('conversationsInBodhinox')}</th>
                 <th className={`${th} text-right`}>{t('purchases')}</th>
+                <th className={`${th} text-right`}>{t('revenue')}</th>
+                <th className={`${th} text-right`}>{t('roas')}</th>
                 {level === 'ad' && canSegment && <th className="px-3 py-2"><span className="sr-only">{tAds('retarget')}</span></th>}
               </tr>
             </thead>
@@ -185,6 +187,11 @@ export function AdsTable({ canManage, canSegment, range, adAccountId }: AdsTable
                     <td className={num}>{formatMoneyValue(ratio(row.spend, result.value), row.currency)}</td>
                     <td className={num}>{row.conversationsInBodhinox.toLocaleString()}</td>
                     <td className={num}>{row.purchases.toLocaleString()}</td>
+                    <td className={num}>
+                      {row.revenue === null ? '-' : formatMoneyValue(row.revenue, row.currency)}
+                      {row.sales > 0 && <div className="text-[11px] font-normal text-muted-foreground">{t('sales', { count: row.sales })}</div>}
+                    </td>
+                    <td className={num}>{row.revenue !== null && row.spend ? t('roasValue', { value: (row.revenue / row.spend).toFixed(2) }) : '-'}</td>
                     {level === 'ad' && canSegment && (
                       <td className="px-3.5 py-3 text-right">
                         <Button

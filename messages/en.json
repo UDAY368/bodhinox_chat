@@ -12297,7 +12297,11 @@
         "leads": "leads",
         "link_clicks": "link clicks",
         "purchases": "purchases"
-      }
+      },
+      "revenue": "Revenue",
+      "roas": "ROAS",
+      "roasValue": "{value}×",
+      "sales": "{count, plural, one {# sale} other {# sales}}"
     },
     "leads": {
       "empty": "No leads yet.",
@@ -12527,7 +12531,12 @@
       "noCampaigns": "No campaign spend in this range.",
       "campaignResults": "{results, plural, =1 {# result} other {# results}} · {cost} each",
       "syncedAt": "Updated {time}",
-      "neverSynced": "Not synced yet"
+      "neverSynced": "Not synced yet",
+      "revenue": "Revenue from ads",
+      "sales": "{count, plural, one {# sale} other {# sales}} in Bodhinox",
+      "roas": "Return on ad spend",
+      "roasValue": "{value}×",
+      "roasHint": "Revenue ÷ amount spent"
     },
     "platforms": {
       "facebook": "Facebook",

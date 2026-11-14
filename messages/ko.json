@@ -12297,7 +12297,11 @@
         "leads": "리드",
         "link_clicks": "링크 클릭",
         "purchases": "구매"
-      }
+      },
+      "revenue": "매출",
+      "roas": "ROAS",
+      "roasValue": "{value}배",
+      "sales": "판매 {count}건"
     },
     "leads": {
       "empty": "아직 잠재 고객이 없습니다.",
@@ -12527,7 +12531,12 @@
       "noCampaigns": "이 기간에 캠페인 지출이 없습니다.",
       "campaignResults": "결과 {results}건 · 건당 {cost}",
       "syncedAt": "{time}에 업데이트됨",
-      "neverSynced": "아직 동기화되지 않음"
+      "neverSynced": "아직 동기화되지 않음",
+      "revenue": "광고 매출",
+      "sales": "Bodhinox 판매 {count}건",
+      "roas": "광고 투자 수익률",
+      "roasValue": "{value}배",
+      "roasHint": "매출 ÷ 지출 금액"
     },
     "platforms": {
       "facebook": "Facebook",

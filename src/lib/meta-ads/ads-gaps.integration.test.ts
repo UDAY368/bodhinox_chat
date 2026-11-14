@@ -228,6 +228,39 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('Ads gaps on PostgreSQL', { 
     expect((await listAdRules(asB)).rules).toEqual([]);
   });
 
+  it("credits paid orders (net of refunds) and payment links to the contact's latest ad click within 28 days", async () => {
+    const day = (ago: number) => new Date(Date.now() - ago * 86_400_000).toISOString().slice(0, 10);
+    const contact = (await owner.query("INSERT INTO contacts(account_id,user_id,name,phone) VALUES($1,$2,'Buyer',$3) RETURNING id",
+      [accountA, adminA, `+9188${seed}`])).rows[0].id;
+    const late = (await owner.query("INSERT INTO contacts(account_id,user_id,name,phone) VALUES($1,$2,'Late buyer',$3) RETURNING id",
+      [accountA, adminA, `+9189${seed}`])).rows[0].id;
+    await owner.query(`INSERT INTO ad_referrals(account_id, contact_id, wa_message_id, source_type, source_id, created_at) VALUES
+      ($1,$2,$4,'ad',$6, now() - interval '3 days'), ($1,$3,$5,'ad',$6, now() - interval '40 days')`,
+    [accountA, contact, late, `wamid.a${seed}`, `wamid.b${seed}`, ID.ad]);
+    await owner.query(`INSERT INTO orders(account_id, source, currency, subtotal_minor, total_minor, contact_id, status, paid_at, amount_paid_minor, amount_refunded_minor)
+      VALUES ($1,'manual','INR',120000,120000,$2,'paid', now() - interval '1 day', 120000, 20000),
+             ($1,'manual','INR',99900,99900,$3,'paid', now() - interval '1 day', 99900, 0)`, [accountA, contact, late]);
+    await owner.query(`INSERT INTO payment_links(account_id, provider, reference_id, amount_minor, currency, contact_id, status, paid_at)
+      VALUES ($1,'razorpay',$3,5000,'INR',$2,'paid', now() - interval '1 day')`, [accountA, contact, `ref_gaps_${seed}_000`]);
+    await owner.query(`INSERT INTO meta_ad_insights(account_id, connection_id, ad_account_id, level, object_id, campaign_id, adset_id, name, day, spend, currency, impressions, clicks)
+      SELECT $1, c.id, $2, l.level, l.id, $3, $4, 'x', $6::date, 250, 'INR', 1000, 10 FROM meta_ad_connections c,
+        (VALUES ('ad', $5), ('campaign', $3)) AS l(level, id) WHERE c.account_id=$1 AND c.status='active'`,
+    [accountA, ID.adAccount, ID.camp, ID.set, ID.ad, day(1)]);
+    const range = { from: day(7), to: day(0) };
+    const { listAdsWithInsights } = await import('./insights');
+    const { getAdsOverview } = await import('./overview');
+    const ad = (await listAdsWithInsights(asA, { level: 'ad', ...range })).rows.find((r) => r.id === ID.ad)!;
+    // 1,200 paid - 200 refunded + 50 link = 1,050; the 40-day-old click earns nothing.
+    expect([ad.revenue, ad.sales, ad.spend]).toEqual([1050, 2, 250]);
+    const campaign = (await listAdsWithInsights(asA, { level: 'campaign', ...range })).rows.find((r) => r.id === ID.camp)!;
+    expect([campaign.revenue, campaign.sales]).toEqual([1050, 2]);
+    expect((await getAdsOverview(asA, range)).revenueByCurrency).toEqual([{ currency: 'INR', revenue: 1050, sales: 2 }]);
+    // Orders and payment links are agent+ data (row-level security): a viewer sees no revenue, not a leak of it.
+    expect((await listAdsWithInsights(viewer, { level: 'ad', ...range })).rows.find((r) => r.id === ID.ad)?.revenue).toBeNull();
+    expect((await getAdsOverview(viewer, range)).revenueByCurrency).toEqual([]);
+    expect((await getAdsOverview(asB, range)).revenueByCurrency).toEqual([]);
+  });
+
   it('the app role cannot write rules or their actions', async () => {
     const app = new pg.Client({ connectionString: appUrl });
     await app.connect();

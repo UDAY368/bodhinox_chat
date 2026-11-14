@@ -12297,7 +12297,11 @@
         "leads": "clientes potenciales",
         "link_clicks": "clics en el enlace",
         "purchases": "compras"
-      }
+      },
+      "revenue": "Ingresos",
+      "roas": "ROAS",
+      "roasValue": "{value}×",
+      "sales": "{count, plural, one {# venta} other {# ventas}}"
     },
     "leads": {
       "empty": "Aún no hay clientes potenciales.",
@@ -12527,7 +12531,12 @@
       "noCampaigns": "No hay gasto de campañas en este periodo.",
       "campaignResults": "{results, plural, =1 {# resultado} other {# resultados}} · {cost} cada uno",
       "syncedAt": "Actualizado {time}",
-      "neverSynced": "Aún sin sincronizar"
+      "neverSynced": "Aún sin sincronizar",
+      "revenue": "Ingresos de anuncios",
+      "sales": "{count, plural, one {# venta} other {# ventas}} en Bodhinox",
+      "roas": "Retorno de la inversión publicitaria",
+      "roasValue": "{value}×",
+      "roasHint": "Ingresos ÷ importe gastado"
     },
     "platforms": {
       "facebook": "Facebook",

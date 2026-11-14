@@ -9,7 +9,8 @@ import { withTenant } from '@/lib/db/tenant';
 import { workspaceTimezone } from '@/lib/analytics/range';
 import type { MetaAdsActor } from './connection';
 import { AD_PLATFORMS, type AdPlatform } from './graph';
-import { reachPresetFor, type AdsQuery } from './insights';
+import { attributedPaymentsSql, reachPresetFor, type AdsQuery } from './insights';
+import { isCurrencyCode, minorToDecimalString } from '@/lib/commerce/money';
 
 export interface MetricTotals {
   spend: number;
@@ -30,6 +31,8 @@ export interface AdsOverview {
   frequency: number | null;
   /** Chats Bodhinox saw start from ads in the range (no Meta figure involved). */
   conversationsInBodhinox: number;
+  /** Paid orders and payment links attributed to ads (last ad click within 28 days), per currency, major units. */
+  revenueByCurrency: { currency: string; revenue: number; sales: number }[];
   daily: ({ day: string } & MetricTotals)[];
   platforms: ({ platform: AdPlatform } & Omit<MetricTotals, 'metaPurchases'>)[];
   topCampaigns: { id: string; name: string | null; objective: string | null; currency: string | null; spend: number; conversationsStarted: number; leads: number; linkClicks: number }[];
@@ -60,7 +63,9 @@ export async function getAdsOverview(actor: MetaAdsActor, query: Omit<AdsQuery, 
     ${adAccountId ? Prisma.sql`AND ${Prisma.raw(alias)}.ad_account_id = ${adAccountId}` : Prisma.empty}`;
   return withTenant({ accountId, userId: actor.userId, role: actor.role }, async (tx) => {
     const tz = await workspaceTimezone(tx, accountId);
-    const [byCurrency, [totals], daily, platforms, top, [reach], [chats], [synced]] = await Promise.all([
+    const start = Prisma.sql`(${query.from}::date::timestamp AT TIME ZONE ${tz})`;
+    const end = Prisma.sql`((${query.to}::date + 1)::timestamp AT TIME ZONE ${tz})`;
+    const [byCurrency, [totals], daily, platforms, top, [reach], [chats], [synced], revenue] = await Promise.all([
       tx.$queryRaw<{ currency: string | null; spend: unknown }[]>`SELECT i.currency, sum(i.spend) AS spend FROM meta_ad_insights i
         WHERE i.level='campaign' AND ${scope('i')} GROUP BY i.currency ORDER BY sum(i.spend) DESC`,
       tx.$queryRaw<Sums[]>`SELECT sum(i.spend) AS spend, sum(i.impressions) AS impressions, sum(i.clicks) AS clicks,
@@ -97,6 +102,11 @@ export async function getAdsOverview(actor: MetaAdsActor, query: Omit<AdsQuery, 
             AND level='ad' AND ad_account_id=${adAccountId})` : Prisma.empty}`,
       tx.$queryRaw<{ at: Date | null }[]>`SELECT insights_synced_at AS at FROM meta_ad_connections
         WHERE account_id=${accountId}::uuid AND status<>'disconnected' LIMIT 1`,
+      tx.$queryRaw<{ currency: string; minor: unknown; sales: unknown }[]>`SELECT a.currency, sum(a.minor) AS minor, count(*) AS sales
+        FROM (${attributedPaymentsSql(accountId, start, end)}) a
+        ${adAccountId ? Prisma.sql`WHERE a.source_id IN (SELECT object_id FROM meta_ad_objects WHERE account_id=${accountId}::uuid
+          AND level='ad' AND ad_account_id=${adAccountId})` : Prisma.empty}
+        GROUP BY a.currency ORDER BY sum(a.minor) DESC`,
     ]);
     // Every day of the range, zeros where nothing was stored, so the chart's axis is even.
     const byDay = new Map(daily.map((d) => [isoDay(new Date(d.day).getTime()), d]));
@@ -109,6 +119,9 @@ export async function getAdsOverview(actor: MetaAdsActor, query: Omit<AdsQuery, 
       reach: reach?.reach == null ? null : n(reach.reach),
       frequency: reach?.frequency == null ? null : n(reach.frequency),
       conversationsInBodhinox: n(chats?.n),
+      revenueByCurrency: revenue.filter((r) => isCurrencyCode(r.currency)).map((r) => ({
+        currency: r.currency, revenue: Number(minorToDecimalString(BigInt(String(r.minor ?? 0)), r.currency)), sales: n(r.sales),
+      })),
       daily: days.map((day) => ({ day, ...totalsOf(byDay.get(day)) })),
       platforms: AD_PLATFORMS.filter((p) => platformRows.has(p)).map((platform) => {
         const { metaPurchases: _drop, ...rest } = totalsOf(platformRows.get(platform));
