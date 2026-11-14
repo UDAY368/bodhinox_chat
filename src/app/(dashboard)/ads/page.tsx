@@ -21,6 +21,7 @@ import { AdsOverview } from '@/components/ads/ads-overview';
 import { AdsTable } from '@/components/ads/ads-table';
 import { AdsToolbar } from '@/components/ads/ads-toolbar';
 import { AdDrafts } from '@/components/ads/ad-drafts';
+import { AudiencesPanel } from '@/components/ads/audiences-panel';
 import { CampaignsPanel } from '@/components/ads/campaigns-panel';
 import { CreateAdDialog } from '@/components/ads/create-ad-dialog';
 import { LeadsTable } from '@/components/ads/leads-table';
@@ -154,6 +155,7 @@ export default function AdsPage() {
               <TabsTrigger value="overview">{t('tabs.overview')}</TabsTrigger>
               <TabsTrigger value="ads">{t('tabs.ads')}</TabsTrigger>
               <TabsTrigger value="campaigns">{t('tabs.campaigns')}</TabsTrigger>
+              <TabsTrigger value="audiences">{t('tabs.audiences')}</TabsTrigger>
               <TabsTrigger value="leads">{t('tabs.leads')}</TabsTrigger>
               <TabsTrigger value="conversions">{t('tabs.conversions')}</TabsTrigger>
             </TabsList>
@@ -166,6 +168,9 @@ export default function AdsPage() {
             <TabsContent value="campaigns" className="space-y-4 pt-4">
               <AdDrafts canManage={isAdmin && active} refreshKey={draftsKey} />
               <CampaignsPanel canManage={isAdmin && active} adAccountId={adAccountId} />
+            </TabsContent>
+            <TabsContent value="audiences" className="pt-4">
+              <AudiencesPanel canManage={isAdmin && active && !!create?.manageEnabled} accounts={accounts} />
             </TabsContent>
             <TabsContent value="leads" className="pt-4">
               <LeadsTable canManage={isAdmin} />

@@ -3588,6 +3588,37 @@ model meta_ad_drafts {
   created_at DateTime @db.Timestamptz(6) @default(now())
   updated_at DateTime @db.Timestamptz(6) @default(now())
   completed_at DateTime? @db.Timestamptz(6)
+  /// Meta custom audience ids the ad reaches / leaves out (20261125000000).
+  audience_ids String[] @default([])
+  excluded_audience_ids String[] @default([])
   @@unique([account_id, id])
   @@index([account_id, created_at(sort: Desc)], map: "meta_ad_drafts_recent")
+}
+
+/// Custom audiences (20261125000000): customer lists synced from a segment, and lookalikes of them.
+model meta_audiences {
+  id String @db.Uuid @id @default(dbgenerated("gen_random_uuid()"))
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  connection_id String @db.Uuid
+  ad_account_id String
+  /// 'customer_list' | 'lookalike'
+  kind String
+  name String
+  segment_id String? @db.Uuid
+  origin_id String? @db.Uuid
+  lookalike_country String?
+  lookalike_percent Int?
+  meta_audience_id String?
+  /// 'queued' | 'ready' | 'failed' | 'unknown'
+  status String @default("queued")
+  auto_sync Boolean @default(true)
+  uploaded_count Int?
+  matched_lower BigInt?
+  matched_upper BigInt?
+  last_synced_at DateTime? @db.Timestamptz(6)
+  last_error_code String?
+  created_by String @db.Uuid
+  created_at DateTime @db.Timestamptz(6) @default(now())
+  updated_at DateTime @db.Timestamptz(6) @default(now())
+  @@unique([account_id, id])
 }

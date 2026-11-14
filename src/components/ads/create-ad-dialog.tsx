@@ -83,6 +83,9 @@ export function CreateAdDialog({ open, onOpenChange, accounts, adAccountId, page
   const [uploading, setUploading] = useState(false);
   const [forms, setForms] = useState<{ id: string; name: string | null }[] | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const [audiences, setAudiences] = useState<{ id: string; name: string; adAccountId: string; kind: string }[] | null>(null);
+  const [include, setInclude] = useState<string[]>([]);
+  const [exclude, setExclude] = useState<string[]>([]);
 
   // A fresh dialog each time it opens.
   useEffect(() => {
@@ -98,6 +101,21 @@ export function CreateAdDialog({ open, onOpenChange, accounts, adAccountId, page
       .then(setForms)
       .catch(() => setForms([]));
   }, [open, kind, forms]);
+
+  // Ready audiences (Ads → Audiences) the ad can include or leave out.
+  useEffect(() => {
+    if (!open) return;
+    authFetch('/api/meta-ads/audiences', { cache: 'no-store' })
+      .then(async (res) => (res.ok ? ((await res.json()) as { audiences: { id: string; name: string; adAccountId: string; kind: string; status: string }[] }).audiences : []))
+      .then((list) => setAudiences(list.filter((a) => a.status === 'ready')))
+      .catch(() => setAudiences([]));
+  }, [open]);
+  const accountAudiences = (audiences ?? []).filter((a) => a.adAccountId === account);
+  useEffect(() => { setInclude([]); setExclude([]); }, [account]);
+  const toggle = (list: string[], set: (next: string[]) => void, other: string[], setOther: (next: string[]) => void, id: string) => {
+    if (list.includes(id)) set(list.filter((x) => x !== id));
+    else if (list.length < 10) { set([...list, id]); setOther(other.filter((x) => x !== id)); }
+  };
 
   const currency = accounts.find((a) => a.adAccountId === account)?.currency ?? null;
   const budgetMinor = useMemo(() => {
@@ -163,6 +181,7 @@ export function CreateAdDialog({ open, onOpenChange, accounts, adAccountId, page
           ctaType: kind === 'lead_form' || kind === 'website' ? (cta || CTAS[kind][0]) : undefined,
           imageHash: image.hash, imageUrl: image.url, whatsappNumber: kind === 'whatsapp' && whatsappNumber.trim() ? whatsappNumber.trim() : null,
           welcomeMessage: kind === 'whatsapp' && welcome.trim() ? welcome.trim() : null, publish,
+          audienceIds: include, excludedAudienceIds: exclude,
         }),
       });
       const body = (await res.json().catch(() => ({}))) as { error?: string };
@@ -280,6 +299,27 @@ export function CreateAdDialog({ open, onOpenChange, accounts, adAccountId, page
                 </div>
               </div>
             </div>
+            {accountAudiences.length > 0 && (
+              <div className="space-y-3 sm:col-span-2" data-testid="create-ad-audiences">
+                {([['include', include, setInclude, exclude, setExclude], ['exclude', exclude, setExclude, include, setInclude]] as const).map(([which, list, set, other, setOther]) => (
+                  <div key={which} className="space-y-1.5">
+                    <p className="text-sm font-medium text-foreground">{t(which === 'include' ? 'audiencesInclude' : 'audiencesExclude')}</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {accountAudiences.map((a) => (
+                        <button key={a.id} type="button" aria-pressed={list.includes(a.id)}
+                          onClick={() => toggle(list, set, other, setOther, a.id)}
+                          className={cn('rounded-full border px-2.5 py-1 text-xs', list.includes(a.id)
+                            ? (which === 'include' ? 'border-primary bg-primary/10 text-primary' : 'border-destructive/40 bg-destructive/10 text-destructive')
+                            : 'border-border text-muted-foreground hover:bg-muted')}>
+                          {a.name}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+                <p className="text-xs text-muted-foreground">{t('audiencesHelp')}</p>
+              </div>
+            )}
           </div>
         )}
 
@@ -365,6 +405,10 @@ export function CreateAdDialog({ open, onOpenChange, accounts, adAccountId, page
               [t('dailyBudgetPlain'), `${budget} ${currency ?? ''}`],
               [t('schedule'), `${new Date(start).toLocaleString()}${end ? ` – ${new Date(end).toLocaleString()}` : ` · ${t('noEnd')}`}`],
               [t('audience'), `${countries.join(', ')} · ${ageMin}–${ageMax}${gender === 'all' ? '' : ` · ${t(gender === '1' ? 'genders.men' : 'genders.women')}`}`],
+              ...(include.length || exclude.length ? [[t('audiencesReview'), [
+                ...include.map((id) => accountAudiences.find((a) => a.id === id)?.name ?? id),
+                ...exclude.map((id) => `− ${accountAudiences.find((a) => a.id === id)?.name ?? id}`),
+              ].join(', ')]] : []),
             ].map(([label, value]) => (
               <div key={label}>
                 <dt className="text-xs text-muted-foreground">{label}</dt>

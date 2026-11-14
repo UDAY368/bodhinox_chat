@@ -20264,6 +20264,204 @@
         "default": null,
         "reference": null,
         "definition": "completed_at timestamptz"
+      },
+      {
+        "name": "audience_ids",
+        "type": "text[]",
+        "nullable": false,
+        "default": "'{}'",
+        "reference": null,
+        "definition": "audience_ids text[] NOT NULL DEFAULT '{}'"
+      },
+      {
+        "name": "excluded_audience_ids",
+        "type": "text[]",
+        "nullable": false,
+        "default": "'{}'",
+        "reference": null,
+        "definition": "excluded_audience_ids text[] NOT NULL DEFAULT '{}'"
+      }
+    ],
+    "meta_audiences": [
+      {
+        "name": "id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "gen_random_uuid()",
+        "reference": null,
+        "definition": "id uuid PRIMARY KEY DEFAULT gen_random_uuid()"
+      },
+      {
+        "name": "account_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "NULLIF(current_setting('app.account_id', true),'')::uuid ",
+        "reference": {
+          "table": "accounts",
+          "column": "id",
+          "onDelete": "CASCADE"
+        },
+        "definition": "account_id uuid NOT NULL DEFAULT NULLIF(current_setting('app.account_id', true),'')::uuid"
+      },
+      {
+        "name": "connection_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": null,
+        "reference": {
+          "table": "meta_ad_connections",
+          "column": "id",
+          "onDelete": "NO ACTION"
+        },
+        "definition": "connection_id uuid NOT NULL"
+      },
+      {
+        "name": "ad_account_id",
+        "type": "text",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "ad_account_id text NOT NULL CHECK (ad_account_id ~ '^\\d{1,32}$')"
+      },
+      {
+        "name": "kind",
+        "type": "text",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "kind text NOT NULL CHECK (kind IN ('customer_list','lookalike'))"
+      },
+      {
+        "name": "name",
+        "type": "text",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "name text NOT NULL CHECK (char_length(name) BETWEEN 1 AND 200)"
+      },
+      {
+        "name": "segment_id",
+        "type": "uuid",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "segment_id uuid"
+      },
+      {
+        "name": "origin_id",
+        "type": "uuid",
+        "nullable": true,
+        "default": null,
+        "reference": {
+          "table": "meta_audiences",
+          "column": "id",
+          "onDelete": "CASCADE"
+        },
+        "definition": "origin_id uuid"
+      },
+      {
+        "name": "lookalike_country",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "lookalike_country text CHECK (lookalike_country ~ '^[A-Z]{2}$')"
+      },
+      {
+        "name": "lookalike_percent",
+        "type": "int",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "lookalike_percent int CHECK (lookalike_percent BETWEEN 1 AND 10)"
+      },
+      {
+        "name": "meta_audience_id",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "meta_audience_id text CHECK (meta_audience_id ~ '^\\d{1,32}$')"
+      },
+      {
+        "name": "status",
+        "type": "text",
+        "nullable": false,
+        "default": "'queued'",
+        "reference": null,
+        "definition": "status text NOT NULL DEFAULT 'queued' CHECK (status IN ('queued','ready','failed','unknown'))"
+      },
+      {
+        "name": "auto_sync",
+        "type": "boolean",
+        "nullable": false,
+        "default": "true",
+        "reference": null,
+        "definition": "auto_sync boolean NOT NULL DEFAULT true"
+      },
+      {
+        "name": "uploaded_count",
+        "type": "int",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "uploaded_count int CHECK (uploaded_count >= 0)"
+      },
+      {
+        "name": "matched_lower",
+        "type": "bigint",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "matched_lower bigint CHECK (matched_lower >= 0)"
+      },
+      {
+        "name": "matched_upper",
+        "type": "bigint",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "matched_upper bigint CHECK (matched_upper >= 0)"
+      },
+      {
+        "name": "last_synced_at",
+        "type": "timestamptz",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "last_synced_at timestamptz"
+      },
+      {
+        "name": "last_error_code",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "last_error_code text CHECK (last_error_code ~ '^[0-9:a-z_]{0,40}$')"
+      },
+      {
+        "name": "created_by",
+        "type": "uuid",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "created_by uuid NOT NULL"
+      },
+      {
+        "name": "created_at",
+        "type": "timestamptz",
+        "nullable": false,
+        "default": "now()",
+        "reference": null,
+        "definition": "created_at timestamptz NOT NULL DEFAULT now()"
+      },
+      {
+        "name": "updated_at",
+        "type": "timestamptz",
+        "nullable": false,
+        "default": "now()",
+        "reference": null,
+        "definition": "updated_at timestamptz NOT NULL DEFAULT now()"
       }
     ]
   }

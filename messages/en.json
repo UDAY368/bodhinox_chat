@@ -8650,7 +8650,9 @@
       "exportTooLarge": "Too many leads to export at once; narrow the filter",
       "manageNotEnabled": "Changing ads from Bodhinox is not turned on yet.",
       "changePending": "A change to this is already on its way to Meta. Wait for it to finish.",
-      "overBudgetCap": "That would spend more per day than your workspace's daily budget cap allows."
+      "overBudgetCap": "That would spend more per day than your workspace's daily budget cap allows.",
+      "nameTaken": "An audience with this name already exists in this ad account.",
+      "limitReached": "This workspace has reached its audience limit. Remove one first."
     },
     "instagram": {
       "instagram_not_enabled": "Instagram is not enabled",
@@ -12257,7 +12259,8 @@
       "leads": "Leads",
       "conversions": "Conversions",
       "campaigns": "Campaigns",
-      "overview": "Overview"
+      "overview": "Overview",
+      "audiences": "Audiences"
     },
     "table": {
       "level": "Show",
@@ -12638,7 +12641,11 @@
         "CONTACT_US": "Contact us",
         "ORDER_NOW": "Order now",
         "GET_OFFER": "Get offer"
-      }
+      },
+      "audiencesInclude": "Reach people in",
+      "audiencesExclude": "Leave out people in",
+      "audiencesHelp": "Audiences come from Ads → Audiences. Leaving out existing customers stops paying to reach them again.",
+      "audiencesReview": "Audiences"
     },
     "drafts": {
       "title": "Ads created in Bodhinox",
@@ -12691,6 +12698,68 @@
       "choose": "Ad account to add",
       "addThis": "Add",
       "cancel": "Cancel"
+    },
+    "audiences": {
+      "title": "Audiences",
+      "description": "Turn a contact segment into a Meta audience to retarget customers or find people like them.",
+      "new": "New audience",
+      "emptyTitle": "No audiences yet",
+      "emptyBody": "Create one from a contact segment (for example \"Paid customers\"). Bodhinox keeps it up to date, and you can build a lookalike from it.",
+      "fromSegment": "Customer list from “{segment}”",
+      "segmentDeleted": "a deleted segment",
+      "lookalikeOf": "Lookalike {percent}% · {country}",
+      "matched": "matched on Meta",
+      "sizeRange": "{lower}–{upper}",
+      "uploaded": "{count} uploaded",
+      "synced": "Synced {at}",
+      "status": {
+        "queued": "Syncing",
+        "ready": "Ready",
+        "failed": "Failed",
+        "unknown": "Needs a check"
+      },
+      "autoSync": "Auto-sync",
+      "syncNow": "Sync now",
+      "makeLookalike": "Make lookalike",
+      "recheck": "Re-check",
+      "remove": "Remove {name}",
+      "stillUnknown": "Still not found at Meta. Look in Ads Manager, then remove it if it is not there.",
+      "found": "Found at Meta. Uploading now.",
+      "actionFailed": "That did not work. Try again.",
+      "created": "Audience created. Uploading to Meta…",
+      "acceptTerms": "Accept the terms",
+      "unknownHelp": "Meta’s answer was unclear, so Bodhinox did not try again (that could make a duplicate). Re-check, or look in Ads Manager.",
+      "privacy": "Phone numbers and emails are hashed (SHA-256) before they leave Bodhinox. Blocked and opted-out contacts are never uploaded.",
+      "errors": {
+        "terms_not_accepted": "This ad account has not accepted Meta’s Custom Audience terms.",
+        "segment_missing": "The segment was deleted. Remove this audience or make a new one.",
+        "empty_segment": "The segment has no contacts with a phone or email right now, so Meta kept the last upload.",
+        "missing_scope": "Reconnect Meta in Settings → Ads to allow ad management.",
+        "not_connected": "Meta is not connected.",
+        "origin_missing": "The source audience is missing.",
+        "attempts_exhausted": "Meta did not answer after several tries.",
+        "name_taken": "An audience with this name already exists.",
+        "limit_reached": "You have reached the audience limit (50).",
+        "generic": "Meta refused it (code {code})."
+      },
+      "newTitle": "New audience from a segment",
+      "newDescription": "Contacts in the segment are uploaded to Meta (hashed) and kept in sync every 6 hours.",
+      "newLookalikeTitle": "New lookalike audience",
+      "newLookalikeDescription": "Meta finds people similar to “{name}”.",
+      "segment": "Segment",
+      "chooseSegment": "Choose a segment",
+      "noSegments": "No segments yet. Make one in Contacts → Segments.",
+      "segmentHelp": "Meta needs about 100 matched people before an audience can be used.",
+      "name": "Name",
+      "adAccount": "Ad account",
+      "country": "Country",
+      "size": "Size",
+      "percent": "{percent}% of the country",
+      "sizeHelp": "1% is the closest match; bigger reaches more people.",
+      "lookalikeName": "{name} · lookalike {percent}%",
+      "autoSyncHelp": "Keep it in sync every 6 hours",
+      "cancel": "Cancel",
+      "create": "Create audience"
     }
   },
   "Appointments": {

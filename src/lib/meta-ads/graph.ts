@@ -690,6 +690,9 @@ export interface AdSetInput {
   genders: number[];
   whatsappNumber: string | null;
   status: 'ACTIVE' | 'PAUSED';
+  /** Meta custom audience ids the ad set reaches / leaves out. */
+  audienceIds?: string[];
+  excludedAudienceIds?: string[];
 }
 
 const ADSET_DELIVERY: Record<AdKind, { destination_type: string; optimization_goal: string }> = {
@@ -709,6 +712,8 @@ export function adSetForm(input: AdSetInput): Record<string, string> {
     targeting_automation: { advantage_audience: 0 },
   };
   if (input.genders.length === 1) targeting.genders = input.genders;
+  if (input.audienceIds?.length) targeting.custom_audiences = input.audienceIds.map((a) => ({ id: assertId(a) }));
+  if (input.excludedAudienceIds?.length) targeting.excluded_custom_audiences = input.excludedAudienceIds.map((a) => ({ id: assertId(a) }));
   const promoted: Record<string, string> | null = input.kind === 'website' ? null
     : { page_id: assertId(input.pageId), ...(input.kind === 'whatsapp' && input.whatsappNumber ? { whatsapp_phone_number: input.whatsappNumber } : {}) };
   return {
@@ -823,5 +828,70 @@ export async function findCreatedByName(edge: 'campaigns' | 'adsets' | 'adcreati
     if (!objectId || row.name !== name) return [];
     const at = typeof row.created_time === 'string' ? Date.parse(row.created_time) : NaN;
     return Number.isFinite(at) && at < from ? [] : [objectId];
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Custom audiences (customer lists and lookalikes)
+
+/** Whether the ad account accepted Meta's Custom Audience terms (required before any customer-list upload). */
+export async function hasCustomAudienceTerms(adAccountId: string, token: string): Promise<boolean> {
+  const row = await request<{ tos_accepted?: Record<string, unknown> }>('GET', `act_${assertId(adAccountId)}`, token,
+    { params: { fields: 'tos_accepted' } });
+  return row.tos_accepted?.custom_audience_tos === 1;
+}
+
+export async function createCustomerListAudience(adAccountId: string, token: string, name: string): Promise<{ id: string }> {
+  return created(await request('POST', `act_${assertId(adAccountId)}/customaudiences`, token, { form: {
+    name,
+    subtype: 'CUSTOM',
+    customer_file_source: 'USER_PROVIDED_ONLY',
+    description: 'Synced from a Bodhinox segment',
+  } }));
+}
+
+export async function createLookalikeAudience(adAccountId: string, token: string,
+  input: { name: string; originAudienceId: string; country: string; percent: number }): Promise<{ id: string }> {
+  return created(await request('POST', `act_${assertId(adAccountId)}/customaudiences`, token, { form: {
+    name: input.name,
+    subtype: 'LOOKALIKE',
+    origin_audience_id: assertId(input.originAudienceId),
+    lookalike_spec: JSON.stringify({ country: input.country, ratio: input.percent / 100 }),
+  } }));
+}
+
+/** One batch of Meta's replace call: the audience ends up holding exactly the rows of the session. */
+export interface ReplaceSession { sessionId: number; batch: number; last: boolean; estimatedTotal: number }
+
+/** Uploads one batch of hashed [phone, email] rows (each a SHA-256 hex digest or ''). */
+export async function replaceAudienceUsers(audienceId: string, token: string, session: ReplaceSession,
+  rows: [string, string][]): Promise<{ received: number; invalid: number }> {
+  const result = await request<{ num_received?: unknown; num_invalid_entries?: unknown }>(
+    'POST', `${assertId(audienceId)}/usersreplace`, token, { form: {
+      payload: JSON.stringify({ schema: ['PHONE', 'EMAIL'], data: rows }),
+      session: JSON.stringify({
+        session_id: session.sessionId, batch_seq: session.batch, last_batch_flag: session.last,
+        estimated_num_total: session.estimatedTotal,
+      }),
+    } });
+  const n = (value: unknown) => (typeof value === 'number' && Number.isFinite(value) ? value : 0);
+  return { received: n(result.num_received), invalid: n(result.num_invalid_entries) };
+}
+
+/** Meta's estimate of matched people (a range; Meta does not give exact sizes). */
+export async function getAudienceSize(audienceId: string, token: string): Promise<{ lower: number | null; upper: number | null }> {
+  const row = await request<{ approximate_count_lower_bound?: unknown; approximate_count_upper_bound?: unknown }>(
+    'GET', assertId(audienceId), token, { params: { fields: 'approximate_count_lower_bound,approximate_count_upper_bound' } });
+  const n = (value: unknown) => (typeof value === 'number' && Number.isFinite(value) && value >= 0 ? Math.floor(value) : null);
+  return { lower: n(row.approximate_count_lower_bound), upper: n(row.approximate_count_upper_bound) };
+}
+
+/** After an unclear create: the ad account's audiences with exactly this name. */
+export async function findAudiencesByName(adAccountId: string, token: string, name: string): Promise<string[]> {
+  const rows = await getAll<{ id?: unknown; name?: unknown }>(`act_${assertId(adAccountId)}/customaudiences`, token,
+    { fields: 'id,name', limit: 200 });
+  return rows.flatMap((row) => {
+    const audienceId = id(row.id);
+    return audienceId && row.name === name ? [audienceId] : [];
   });
 }

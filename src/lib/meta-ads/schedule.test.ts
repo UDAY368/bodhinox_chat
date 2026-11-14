@@ -8,6 +8,7 @@ vi.mock('@/lib/db/prisma', () => ({
   }),
 }));
 import { adObjectsSyncDedupeKey, insightsSyncDedupeKey, fullInsightsSyncDedupeKey, leadsSyncDedupeKey, resetMetaAdsScheduleForTests, scheduleMetaAds } from './schedule';
+import { audienceAutoSyncDedupeKey } from './audiences';
 
 const ACCOUNT = '6f1c2d3e-0000-4000-8000-0000000000aa';
 const env = { META_ADS_ENABLED: 'true', META_APP_ID: '1', META_APP_SECRET: 's', META_ADS_LOGIN_CONFIG_ID: '2' };
@@ -45,6 +46,17 @@ describe('scheduleMetaAds', () => {
     // Within the minute nothing is read again.
     await expect(scheduleMetaAds(now + 30_000)).resolves.toBe(0);
     expect(db.queryRaw).toHaveBeenCalledTimes(1);
+  });
+
+  it('with ad management on, also queues the 6-hourly audience upload', async () => {
+    for (const [key, value] of Object.entries({ ...env, META_ADS_MANAGE_ENABLED: 'true' })) vi.stubEnv(key, value);
+    const now = Date.parse('2026-11-03T10:20:00Z');
+    await scheduleMetaAds(now, true);
+    const last = db.executeRaw.mock.calls.at(-1)!;
+    expect(db.executeRaw).toHaveBeenCalledTimes(5);
+    expect(last[1]).toEqual(['meta.audience_sync', ACCOUNT, audienceAutoSyncDedupeKey(ACCOUNT, now), 5]);
+    expect(audienceAutoSyncDedupeKey(ACCOUNT, now)).toBe(audienceAutoSyncDedupeKey(ACCOUNT, Date.parse('2026-11-03T11:59:00Z')));
+    expect(audienceAutoSyncDedupeKey(ACCOUNT, now)).not.toBe(audienceAutoSyncDedupeKey(ACCOUNT, Date.parse('2026-11-03T12:00:00Z')));
   });
 
   it('keeps one full insights refresh per UTC day', () => {

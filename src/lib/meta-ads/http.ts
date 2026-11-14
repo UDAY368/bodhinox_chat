@@ -28,6 +28,8 @@ const MESSAGE: Record<MetaAdsErrorCode, string> = {
   change_pending: 'changePending',
   over_budget_cap: 'overBudgetCap',
   not_found: 'notFound',
+  name_taken: 'nameTaken',
+  limit_reached: 'limitReached',
 };
 
 export function metaAdsErrorResponse(code: MetaAdsErrorCode): NextResponse {

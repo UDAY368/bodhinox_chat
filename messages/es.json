@@ -8650,7 +8650,9 @@
       "exportTooLarge": "Hay demasiados leads para exportar de una vez; acota el filtro",
       "manageNotEnabled": "Cambiar anuncios desde Bodhinox aún no está activado.",
       "changePending": "Ya hay un cambio en camino a Meta. Espera a que termine.",
-      "overBudgetCap": "Eso gastaría por día más de lo que permite el tope de presupuesto diario de tu espacio de trabajo."
+      "overBudgetCap": "Eso gastaría por día más de lo que permite el tope de presupuesto diario de tu espacio de trabajo.",
+      "nameTaken": "Ya existe una audiencia con este nombre en esta cuenta publicitaria.",
+      "limitReached": "Este espacio llegó al límite de audiencias. Elimina una primero."
     },
     "instagram": {
       "instagram_not_enabled": "Instagram no está activado",
@@ -12257,7 +12259,8 @@
       "leads": "Clientes potenciales",
       "conversions": "Conversiones",
       "campaigns": "Campañas",
-      "overview": "Resumen"
+      "overview": "Resumen",
+      "audiences": "Audiencias"
     },
     "table": {
       "level": "Mostrar",
@@ -12638,7 +12641,11 @@
         "CONTACT_US": "Contactarnos",
         "ORDER_NOW": "Pedir ahora",
         "GET_OFFER": "Ver oferta"
-      }
+      },
+      "audiencesInclude": "Llegar a personas de",
+      "audiencesExclude": "Excluir a personas de",
+      "audiencesHelp": "Las audiencias vienen de Anuncios → Audiencias. Excluir a los clientes actuales evita pagar por volver a alcanzarlos.",
+      "audiencesReview": "Audiencias"
     },
     "drafts": {
       "title": "Anuncios creados en Bodhinox",
@@ -12691,6 +12698,68 @@
       "choose": "Cuenta que añadir",
       "addThis": "Añadir",
       "cancel": "Cancelar"
+    },
+    "audiences": {
+      "title": "Audiencias",
+      "description": "Convierte un segmento de contactos en una audiencia de Meta para volver a impactar a clientes o encontrar personas parecidas.",
+      "new": "Nueva audiencia",
+      "emptyTitle": "Aún no hay audiencias",
+      "emptyBody": "Crea una desde un segmento de contactos (por ejemplo \"Clientes que pagaron\"). Bodhinox la mantiene al día y puedes crear una similar a partir de ella.",
+      "fromSegment": "Lista de clientes de “{segment}”",
+      "segmentDeleted": "un segmento eliminado",
+      "lookalikeOf": "Similar {percent}% · {country}",
+      "matched": "coincidencias en Meta",
+      "sizeRange": "{lower}–{upper}",
+      "uploaded": "{count} subidos",
+      "synced": "Sincronizada {at}",
+      "status": {
+        "queued": "Sincronizando",
+        "ready": "Lista",
+        "failed": "Falló",
+        "unknown": "Requiere revisión"
+      },
+      "autoSync": "Sincronización automática",
+      "syncNow": "Sincronizar ahora",
+      "makeLookalike": "Crear similar",
+      "recheck": "Volver a comprobar",
+      "remove": "Quitar {name}",
+      "stillUnknown": "Aún no aparece en Meta. Revisa el Administrador de anuncios y quítala si no está.",
+      "found": "Encontrada en Meta. Subiendo ahora.",
+      "actionFailed": "No funcionó. Inténtalo de nuevo.",
+      "created": "Audiencia creada. Subiendo a Meta…",
+      "acceptTerms": "Aceptar los términos",
+      "unknownHelp": "La respuesta de Meta no fue clara, así que Bodhinox no lo intentó de nuevo (podría crear un duplicado). Vuelve a comprobar o revisa el Administrador de anuncios.",
+      "privacy": "Los teléfonos y correos se cifran con hash (SHA-256) antes de salir de Bodhinox. Nunca se suben contactos bloqueados ni dados de baja.",
+      "errors": {
+        "terms_not_accepted": "Esta cuenta publicitaria no aceptó los términos de audiencias personalizadas de Meta.",
+        "segment_missing": "El segmento se eliminó. Quita esta audiencia o crea otra.",
+        "empty_segment": "El segmento no tiene contactos con teléfono o correo ahora, así que Meta conservó la última subida.",
+        "missing_scope": "Vuelve a conectar Meta en Configuración → Anuncios para permitir la gestión de anuncios.",
+        "not_connected": "Meta no está conectado.",
+        "origin_missing": "Falta la audiencia de origen.",
+        "attempts_exhausted": "Meta no respondió tras varios intentos.",
+        "name_taken": "Ya existe una audiencia con este nombre.",
+        "limit_reached": "Llegaste al límite de audiencias (50).",
+        "generic": "Meta lo rechazó (código {code})."
+      },
+      "newTitle": "Nueva audiencia desde un segmento",
+      "newDescription": "Los contactos del segmento se suben a Meta (con hash) y se sincronizan cada 6 horas.",
+      "newLookalikeTitle": "Nueva audiencia similar",
+      "newLookalikeDescription": "Meta busca personas parecidas a “{name}”.",
+      "segment": "Segmento",
+      "chooseSegment": "Elige un segmento",
+      "noSegments": "Aún no hay segmentos. Crea uno en Contactos → Segmentos.",
+      "segmentHelp": "Meta necesita unas 100 coincidencias antes de poder usar una audiencia.",
+      "name": "Nombre",
+      "adAccount": "Cuenta publicitaria",
+      "country": "País",
+      "size": "Tamaño",
+      "percent": "{percent}% del país",
+      "sizeHelp": "1% es la coincidencia más cercana; más grande llega a más personas.",
+      "lookalikeName": "{name} · similar {percent}%",
+      "autoSyncHelp": "Mantenerla sincronizada cada 6 horas",
+      "cancel": "Cancelar",
+      "create": "Crear audiencia"
     }
   },
   "Appointments": {

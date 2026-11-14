@@ -1,11 +1,12 @@
 // Periodic Meta ads syncs. Nothing is queued while the feature is off or not
 // configured. For each active connection: insights (the last 7 days) and the
 // campaign / ad set / ad list (ad management) hourly, a full 90-day insights
-// refresh once a day, and a lead backfill
+// refresh once a day, customer-list audiences every 6 hours, and a lead backfill
 // (for missed Page webhooks) every 15 minutes. Jobs are raw transactional
 // INSERTs deduplicated per time bucket, so overlapping workers queue one each.
 import { getWorkerPrisma } from '@/lib/db/prisma';
-import { metaAdsConfig } from './config';
+import { metaAdsConfig, metaAdsManageEnabled } from './config';
+import { AUDIENCE_SYNC_JOB, AUDIENCE_SYNC_MAX_ATTEMPTS, audienceAutoSyncDedupeKey } from './audiences';
 
 export const INSIGHTS_SYNC_JOB = 'meta.insights_sync';
 export const LEADS_SYNC_JOB = 'meta.leads_sync';
@@ -54,6 +55,12 @@ export async function scheduleMetaAds(now: number = Date.now(), force = false): 
     await prisma.$executeRaw`INSERT INTO jobs(type,tenant_id,payload,dedupe_key,max_attempts)
       VALUES(${LEADS_SYNC_JOB},${account_id}::uuid,'{}'::jsonb,${leadsSyncDedupeKey(account_id, now)},3)
       ON CONFLICT(dedupe_key) DO NOTHING`;
+    // Customer-list audiences re-upload their segment every 6 hours (needs ad management).
+    if (metaAdsManageEnabled()) {
+      await prisma.$executeRaw`INSERT INTO jobs(type,tenant_id,payload,dedupe_key,max_attempts)
+        VALUES(${AUDIENCE_SYNC_JOB},${account_id}::uuid,'{}'::jsonb,${audienceAutoSyncDedupeKey(account_id, now)},${AUDIENCE_SYNC_MAX_ATTEMPTS})
+        ON CONFLICT(dedupe_key) DO NOTHING`;
+    }
   }
   return connections.length;
 }

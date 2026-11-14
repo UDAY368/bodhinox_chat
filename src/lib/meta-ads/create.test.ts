@@ -15,7 +15,7 @@ describe('parseAdCreateInput', () => {
       adAccountId: '555', kind: 'whatsapp', name: 'Diwali offer', dailyBudgetMinor: 50000, startTime: new Date(NOW).toISOString(), endTime: null,
       countries: ['IN', 'AE'], ageMin: 18, ageMax: 65, genders: [], primaryText: 'Chat with us', headline: null, description: null,
       linkUrl: null, leadFormId: null, ctaType: 'WHATSAPP_MESSAGE', imageHash: base.imageHash, imageUrl: null, whatsappNumber: null,
-      welcomeMessage: null, publish: true,
+      welcomeMessage: null, publish: true, audienceIds: [], excludedAudienceIds: [],
     });
   });
 
@@ -30,6 +30,8 @@ describe('parseAdCreateInput', () => {
       { dailyBudgetMinor: 0 }, { dailyBudgetMinor: 1.5 }, { dailyBudgetMinor: '500' }, { countries: [] }, { countries: ['IND'] },
       { ageMin: 17 }, { ageMax: 70 }, { ageMin: 40, ageMax: 30 }, { genders: [3] }, { adAccountId: 'act_555' }, { kind: 'messenger' },
       { name: '' }, { primaryText: 'x'.repeat(2001) }, { imageHash: 'not-a-hash' }, { imageUrl: 'http://insecure.example/a.jpg' },
+      { audienceIds: ['nope'] }, { audienceIds: Array.from({ length: 11 }, () => '33333333-3333-4333-8333-333333333333') },
+      { audienceIds: ['33333333-3333-4333-8333-333333333333'], excludedAudienceIds: ['33333333-3333-4333-8333-333333333333'] },
     ]) expect(parse(bad), JSON.stringify(bad)).toBeNull();
   });
 

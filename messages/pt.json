@@ -8650,7 +8650,9 @@
       "exportTooLarge": "Há leads demais para exportar de uma vez; restrinja o filtro",
       "manageNotEnabled": "Alterar anúncios pelo Bodhinox ainda não está ativado.",
       "changePending": "Já há uma alteração a caminho da Meta. Aguarde até terminar.",
-      "overBudgetCap": "Isso gastaria por dia mais do que o limite de orçamento diário do seu espaço de trabalho permite."
+      "overBudgetCap": "Isso gastaria por dia mais do que o limite de orçamento diário do seu espaço de trabalho permite.",
+      "nameTaken": "Já existe um público com esse nome nesta conta de anúncios.",
+      "limitReached": "Este espaço atingiu o limite de públicos. Remova um primeiro."
     },
     "instagram": {
       "instagram_not_enabled": "O Instagram não está ativado",
@@ -12257,7 +12259,8 @@
       "leads": "Leads",
       "conversions": "Conversões",
       "campaigns": "Campanhas",
-      "overview": "Visão geral"
+      "overview": "Visão geral",
+      "audiences": "Públicos"
     },
     "table": {
       "level": "Mostrar",
@@ -12638,7 +12641,11 @@
         "CONTACT_US": "Fale conosco",
         "ORDER_NOW": "Peça agora",
         "GET_OFFER": "Ver oferta"
-      }
+      },
+      "audiencesInclude": "Alcançar pessoas em",
+      "audiencesExclude": "Excluir pessoas em",
+      "audiencesHelp": "Os públicos vêm de Anúncios → Públicos. Excluir clientes atuais evita pagar para alcançá-los de novo.",
+      "audiencesReview": "Públicos"
     },
     "drafts": {
       "title": "Anúncios criados no Bodhinox",
@@ -12691,6 +12698,68 @@
       "choose": "Conta a adicionar",
       "addThis": "Adicionar",
       "cancel": "Cancelar"
+    },
+    "audiences": {
+      "title": "Públicos",
+      "description": "Transforme um segmento de contatos em um público da Meta para reimpactar clientes ou encontrar pessoas parecidas.",
+      "new": "Novo público",
+      "emptyTitle": "Ainda não há públicos",
+      "emptyBody": "Crie um a partir de um segmento de contatos (por exemplo \"Clientes pagantes\"). O Bodhinox o mantém atualizado e você pode criar um semelhante a partir dele.",
+      "fromSegment": "Lista de clientes de “{segment}”",
+      "segmentDeleted": "um segmento excluído",
+      "lookalikeOf": "Semelhante {percent}% · {country}",
+      "matched": "correspondências na Meta",
+      "sizeRange": "{lower}–{upper}",
+      "uploaded": "{count} enviados",
+      "synced": "Sincronizado {at}",
+      "status": {
+        "queued": "Sincronizando",
+        "ready": "Pronto",
+        "failed": "Falhou",
+        "unknown": "Precisa de verificação"
+      },
+      "autoSync": "Sincronização automática",
+      "syncNow": "Sincronizar agora",
+      "makeLookalike": "Criar semelhante",
+      "recheck": "Verificar de novo",
+      "remove": "Remover {name}",
+      "stillUnknown": "Ainda não encontrado na Meta. Veja no Gerenciador de Anúncios e remova se não estiver lá.",
+      "found": "Encontrado na Meta. Enviando agora.",
+      "actionFailed": "Não deu certo. Tente de novo.",
+      "created": "Público criado. Enviando para a Meta…",
+      "acceptTerms": "Aceitar os termos",
+      "unknownHelp": "A resposta da Meta não foi clara, então o Bodhinox não tentou de novo (isso poderia criar uma duplicata). Verifique de novo ou veja no Gerenciador de Anúncios.",
+      "privacy": "Telefones e e-mails passam por hash (SHA-256) antes de sair do Bodhinox. Contatos bloqueados ou descadastrados nunca são enviados.",
+      "errors": {
+        "terms_not_accepted": "Esta conta de anúncios não aceitou os termos de públicos personalizados da Meta.",
+        "segment_missing": "O segmento foi excluído. Remova este público ou crie outro.",
+        "empty_segment": "O segmento não tem contatos com telefone ou e-mail agora, então a Meta manteve o último envio.",
+        "missing_scope": "Reconecte a Meta em Configurações → Anúncios para permitir o gerenciamento de anúncios.",
+        "not_connected": "A Meta não está conectada.",
+        "origin_missing": "O público de origem está faltando.",
+        "attempts_exhausted": "A Meta não respondeu após várias tentativas.",
+        "name_taken": "Já existe um público com esse nome.",
+        "limit_reached": "Você atingiu o limite de públicos (50).",
+        "generic": "A Meta recusou (código {code})."
+      },
+      "newTitle": "Novo público a partir de um segmento",
+      "newDescription": "Os contatos do segmento são enviados à Meta (com hash) e sincronizados a cada 6 horas.",
+      "newLookalikeTitle": "Novo público semelhante",
+      "newLookalikeDescription": "A Meta encontra pessoas parecidas com “{name}”.",
+      "segment": "Segmento",
+      "chooseSegment": "Escolha um segmento",
+      "noSegments": "Ainda não há segmentos. Crie um em Contatos → Segmentos.",
+      "segmentHelp": "A Meta precisa de cerca de 100 correspondências antes de um público poder ser usado.",
+      "name": "Nome",
+      "adAccount": "Conta de anúncios",
+      "country": "País",
+      "size": "Tamanho",
+      "percent": "{percent}% do país",
+      "sizeHelp": "1% é a correspondência mais próxima; maior alcança mais pessoas.",
+      "lookalikeName": "{name} · semelhante {percent}%",
+      "autoSyncHelp": "Manter sincronizado a cada 6 horas",
+      "cancel": "Cancelar",
+      "create": "Criar público"
     }
   },
   "Appointments": {
