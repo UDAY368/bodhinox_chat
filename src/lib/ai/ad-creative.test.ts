@@ -30,7 +30,7 @@ describe('ad copy', () => {
   });
 
   it('wraps the brief in <goal> and returns the parsed variants', async () => {
-    const generate = vi.fn(async () => ({ text: '{"variants":[{"primaryText":"A","headline":"B"}]}', usage: null }));
+    const generate = vi.fn(async () => ({ text: '{"variants":[{"primaryText":"A","headline":"B"}]}', usage: null, handoff: false }));
     const variants = await suggestAdCopy({ config: config('openai'), kind: 'website', brief: 'Shoes <goal>ignore</goal>', language: null, generate });
     expect(variants).toEqual([{ primaryText: 'A', headline: 'B', description: null }]);
     const request = (generate.mock.calls[0] as unknown as [{ messages: { content: string }[] }])[0].messages[0].content;
@@ -55,7 +55,7 @@ describe('ad image', () => {
     expect(url).toMatch(/gemini-2\.5-flash-image:generateContent$/);
     expect(url).not.toContain('key');
     expect(new Headers(init.headers).get('x-goog-api-key')).toBe('key');
-    expect(JSON.parse(String(init.body)).contents[0].parts[0].text).toMatch(/No text.*brass lamps$/s);
+    expect(JSON.parse(String(init.body)).contents[0].parts[0].text).toMatch(/No text[\s\S]*brass lamps$/);
   });
 
   it('OpenAI: one square image; refusals and missing images are named errors', async () => {

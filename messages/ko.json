@@ -12301,7 +12301,10 @@
       "revenue": "매출",
       "roas": "ROAS",
       "roasValue": "{value}배",
-      "sales": "판매 {count}건"
+      "sales": "판매 {count}건",
+      "columns": "열",
+      "export": "CSV 내보내기",
+      "currency": "통화"
     },
     "leads": {
       "empty": "아직 잠재 고객이 없습니다.",

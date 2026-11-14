@@ -9,11 +9,13 @@
 // prefilled with "clicked this ad".
 
 import { useCallback, useEffect, useState } from 'react';
-import { ImageOff, Loader2, RefreshCw, Target } from 'lucide-react';
+import { Columns3, Download, ImageOff, Loader2, RefreshCw, Target } from 'lucide-react';
 import { toast } from 'sonner';
 import { useTranslations } from 'next-intl';
 
 import { Button } from '@/components/ui/button';
+import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { downloadCsv } from '@/components/analytics/insights/csv';
 import { SegmentBuilderDialog } from '@/components/contacts/segment-builder-dialog';
 import { authFetch } from '@/lib/auth/client';
 import type { AudienceCondition } from '@/lib/audience/filter';
@@ -49,6 +51,20 @@ export interface AdsTableProps {
   adAccountId: string | null;
 }
 
+/** Columns a member may hide (name and status always show). Kept per browser. */
+const OPTIONAL_COLUMNS = ['spend', 'reach', 'impressions', 'ctr', 'results', 'costPerResult', 'conversationsInBodhinox', 'purchases', 'revenue', 'roas'] as const;
+type OptionalColumn = (typeof OPTIONAL_COLUMNS)[number];
+const HIDDEN_KEY = 'bodhinox.ads.table.hidden';
+
+function readHidden(): OptionalColumn[] {
+  try {
+    const value = JSON.parse(window.localStorage.getItem(HIDDEN_KEY) ?? '[]');
+    return Array.isArray(value) ? value.filter((c): c is OptionalColumn => (OPTIONAL_COLUMNS as readonly string[]).includes(c)) : [];
+  } catch {
+    return [];
+  }
+}
+
 export function AdsTable({ canManage, canSegment, range, adAccountId }: AdsTableProps) {
   const t = useTranslations('Ads.table');
   const tAds = useTranslations('Ads');
@@ -60,6 +76,13 @@ export function AdsTable({ canManage, canSegment, range, adAccountId }: AdsTable
   const [syncing, setSyncing] = useState(false);
   const [retarget, setRetarget] = useState<AudienceCondition[] | null>(null);
   const [opened, setOpened] = useState<AdRow | null>(null);
+  const [hidden, setHidden] = useState<OptionalColumn[]>(() => (typeof window === 'undefined' ? [] : readHidden()));
+  const show = (column: OptionalColumn) => !hidden.includes(column);
+  const toggleColumn = (column: OptionalColumn) => {
+    const next = hidden.includes(column) ? hidden.filter((c) => c !== column) : [...hidden, column];
+    setHidden(next);
+    try { window.localStorage.setItem(HIDDEN_KEY, JSON.stringify(next)); } catch { /* storage blocked: this view only */ }
+  };
 
   const load = useCallback(async () => {
     setFailed(false);
@@ -94,6 +117,28 @@ export function AdsTable({ canManage, canSegment, range, adAccountId }: AdsTable
     }
   };
 
+  const exportCsv = () => {
+    if (!rows?.length) return;
+    const cols: { key: OptionalColumn | 'name' | 'id' | 'status' | 'currency'; label: string; value: (r: AdRow) => unknown }[] = [
+      { key: 'name', label: nameHeader, value: (r) => r.name ?? '' },
+      { key: 'id', label: 'ID', value: (r) => r.id },
+      { key: 'status', label: t('status'), value: (r) => r.status ?? '' },
+      { key: 'currency', label: t('currency'), value: (r) => r.currency ?? '' },
+      { key: 'spend', label: t('spend'), value: (r) => r.spend ?? '' },
+      { key: 'reach', label: t('reach'), value: (r) => r.reach ?? '' },
+      { key: 'impressions', label: t('impressions'), value: (r) => r.impressions ?? '' },
+      { key: 'ctr', label: t('ctr'), value: (r) => { const v = ctr(r.clicks, r.impressions); return v === null ? '' : v.toFixed(2); } },
+      { key: 'results', label: t('results'), value: (r) => resultOf(r).value ?? '' },
+      { key: 'costPerResult', label: t('costPerResult'), value: (r) => { const v = ratio(r.spend, resultOf(r).value); return v === null ? '' : v.toFixed(2); } },
+      { key: 'conversationsInBodhinox', label: t('conversationsInBodhinox'), value: (r) => r.conversationsInBodhinox },
+      { key: 'purchases', label: t('purchases'), value: (r) => r.purchases },
+      { key: 'revenue', label: t('revenue'), value: (r) => r.revenue ?? '' },
+      { key: 'roas', label: t('roas'), value: (r) => (r.revenue !== null && r.spend ? (r.revenue / r.spend).toFixed(2) : '') },
+    ];
+    const visible = cols.filter((c) => !(OPTIONAL_COLUMNS as readonly string[]).includes(c.key) || (show(c.key as OptionalColumn) && (c.key !== 'reach' || showReach)));
+    downloadCsv(`ads ${level} ${range.from} ${range.to}`, visible.map((c) => c.label), rows.map((r) => visible.map((c) => c.value(r))));
+  };
+
   const nameHeader = level === 'ad' ? t('ad') : level === 'adset' ? t('adset') : t('campaign');
   const th = 'px-3.5 py-2.5 font-semibold';
   const num = 'px-3.5 py-3 text-right tabular-nums';
@@ -109,7 +154,20 @@ export function AdsTable({ canManage, canSegment, range, adAccountId }: AdsTable
             </button>
           ))}
         </div>
-        <div className="ml-auto flex items-center gap-3 text-xs text-muted-foreground">
+        <div className="ml-auto flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+          <DropdownMenu>
+            <DropdownMenuTrigger render={<Button type="button" variant="outline" size="sm" data-testid="ads-columns" />}>
+              <Columns3 className="size-3.5" /> {t('columns')}
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              {OPTIONAL_COLUMNS.filter((c) => c !== 'reach' || showReach).map((c) => (
+                <DropdownMenuCheckboxItem key={c} checked={show(c)} onCheckedChange={() => toggleColumn(c)}>{t(c)}</DropdownMenuCheckboxItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <Button type="button" variant="outline" size="sm" disabled={!rows?.length} onClick={() => exportCsv()} data-testid="ads-export">
+            <Download className="size-3.5" /> {t('export')}
+          </Button>
           <span>{syncedAt ? t('syncedAt', { time: new Date(syncedAt).toLocaleString() }) : t('neverSynced')}</span>
           {canManage && (
             <Button type="button" variant="outline" size="sm" onClick={() => void sync()} disabled={syncing}>
@@ -134,16 +192,16 @@ export function AdsTable({ canManage, canSegment, range, adAccountId }: AdsTable
               <tr>
                 <th className={th}>{nameHeader}</th>
                 <th className={th}>{t('status')}</th>
-                <th className={`${th} text-right`}>{t('spend')}</th>
-                {showReach && <th className={`${th} text-right`}>{t('reach')}</th>}
-                <th className={`${th} text-right`}>{t('impressions')}</th>
-                <th className={`${th} text-right`}>{t('ctr')}</th>
-                <th className={`${th} text-right`}>{t('results')}</th>
-                <th className={`${th} text-right`}>{t('costPerResult')}</th>
-                <th className={`${th} text-right`}>{t('conversationsInBodhinox')}</th>
-                <th className={`${th} text-right`}>{t('purchases')}</th>
-                <th className={`${th} text-right`}>{t('revenue')}</th>
-                <th className={`${th} text-right`}>{t('roas')}</th>
+                {show('spend') && <th className={`${th} text-right`}>{t('spend')}</th>}
+                {showReach && show('reach') && <th className={`${th} text-right`}>{t('reach')}</th>}
+                {show('impressions') && <th className={`${th} text-right`}>{t('impressions')}</th>}
+                {show('ctr') && <th className={`${th} text-right`}>{t('ctr')}</th>}
+                {show('results') && <th className={`${th} text-right`}>{t('results')}</th>}
+                {show('costPerResult') && <th className={`${th} text-right`}>{t('costPerResult')}</th>}
+                {show('conversationsInBodhinox') && <th className={`${th} text-right`}>{t('conversationsInBodhinox')}</th>}
+                {show('purchases') && <th className={`${th} text-right`}>{t('purchases')}</th>}
+                {show('revenue') && <th className={`${th} text-right`}>{t('revenue')}</th>}
+                {show('roas') && <th className={`${th} text-right`}>{t('roas')}</th>}
                 {level === 'ad' && canSegment && <th className="px-3 py-2"><span className="sr-only">{tAds('retarget')}</span></th>}
               </tr>
             </thead>
@@ -176,22 +234,22 @@ export function AdsTable({ canManage, canSegment, range, adAccountId }: AdsTable
                       </div>
                     </td>
                     <td className="px-3.5 py-3 text-muted-foreground">{row.status ?? '-'}</td>
-                    <td className={num}>{row.spend == null ? formatCount(null) : formatSpend(row.spend, row.currency)}</td>
-                    {showReach && <td className={num}>{formatCount(row.reach)}</td>}
-                    <td className={num}>{formatCount(row.impressions)}</td>
-                    <td className={num}>{formatPercent(ctr(row.clicks, row.impressions))}</td>
-                    <td className={num}>
+                    {show('spend') && <td className={num}>{row.spend == null ? formatCount(null) : formatSpend(row.spend, row.currency)}</td>}
+                    {showReach && show('reach') && <td className={num}>{formatCount(row.reach)}</td>}
+                    {show('impressions') && <td className={num}>{formatCount(row.impressions)}</td>}
+                    {show('ctr') && <td className={num}>{formatPercent(ctr(row.clicks, row.impressions))}</td>}
+                    {show('results') && <td className={num}>
                       {formatCount(result.value)}
                       <div className="text-[11px] font-normal text-muted-foreground">{t(`resultKinds.${result.kind}`)}</div>
-                    </td>
-                    <td className={num}>{formatMoneyValue(ratio(row.spend, result.value), row.currency)}</td>
-                    <td className={num}>{row.conversationsInBodhinox.toLocaleString()}</td>
-                    <td className={num}>{row.purchases.toLocaleString()}</td>
-                    <td className={num}>
+                    </td>}
+                    {show('costPerResult') && <td className={num}>{formatMoneyValue(ratio(row.spend, result.value), row.currency)}</td>}
+                    {show('conversationsInBodhinox') && <td className={num}>{row.conversationsInBodhinox.toLocaleString()}</td>}
+                    {show('purchases') && <td className={num}>{row.purchases.toLocaleString()}</td>}
+                    {show('revenue') && <td className={num}>
                       {row.revenue === null ? '-' : formatMoneyValue(row.revenue, row.currency)}
                       {row.sales > 0 && <div className="text-[11px] font-normal text-muted-foreground">{t('sales', { count: row.sales })}</div>}
-                    </td>
-                    <td className={num}>{row.revenue !== null && row.spend ? t('roasValue', { value: (row.revenue / row.spend).toFixed(2) }) : '-'}</td>
+                    </td>}
+                    {show('roas') && <td className={num}>{row.revenue !== null && row.spend ? t('roasValue', { value: (row.revenue / row.spend).toFixed(2) }) : '-'}</td>}
                     {level === 'ad' && canSegment && (
                       <td className="px-3.5 py-3 text-right">
                         <Button

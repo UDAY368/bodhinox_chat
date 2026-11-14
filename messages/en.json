@@ -12301,7 +12301,10 @@
       "revenue": "Revenue",
       "roas": "ROAS",
       "roasValue": "{value}×",
-      "sales": "{count, plural, one {# sale} other {# sales}}"
+      "sales": "{count, plural, one {# sale} other {# sales}}",
+      "columns": "Columns",
+      "export": "Export CSV",
+      "currency": "Currency"
     },
     "leads": {
       "empty": "No leads yet.",

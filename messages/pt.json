@@ -12301,7 +12301,10 @@
       "revenue": "Receita",
       "roas": "ROAS",
       "roasValue": "{value}×",
-      "sales": "{count, plural, one {# venda} other {# vendas}}"
+      "sales": "{count, plural, one {# venda} other {# vendas}}",
+      "columns": "Colunas",
+      "export": "Exportar CSV",
+      "currency": "Moeda"
     },
     "leads": {
       "empty": "Ainda não há leads.",
