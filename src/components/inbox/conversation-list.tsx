@@ -921,7 +921,7 @@ export function ConversationList({
           })}
         </div>
       )}
-      <div className="-mx-1 flex min-w-0 items-center gap-1 overflow-x-auto px-1 py-0.5 [scrollbar-width:none]" data-filter-row aria-label={t('views')} role="group">
+      <div className="flex min-w-0 flex-wrap items-center gap-1 py-0.5" data-filter-row aria-label={t('views')} role="group">
         {viewChips.map((value) => (
           <button key={value} type="button" aria-pressed={filter === value} onClick={() => selectFilter(value)} className={chipClass(filter === value)}>
             {chipLabel(value)}
