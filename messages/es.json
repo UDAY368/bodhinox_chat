@@ -12256,7 +12256,8 @@
       "ads": "Anuncios",
       "leads": "Clientes potenciales",
       "conversions": "Conversiones",
-      "campaigns": "Campañas"
+      "campaigns": "Campañas",
+      "overview": "Resumen"
     },
     "table": {
       "level": "Mostrar",
@@ -12280,7 +12281,19 @@
       "to": "Hasta",
       "syncFailed": "No se pudo poner en cola la sincronización. Inténtalo de nuevo.",
       "retargetSaved": "Segmento guardado. Elígelo como audiencia de una difusión.",
-      "openDetails": "Abrir los detalles de {name}"
+      "openDetails": "Abrir los detalles de {name}",
+      "adset": "Conjunto de anuncios",
+      "levelAdset": "Conjuntos",
+      "reach": "Alcance",
+      "ctr": "CTR",
+      "results": "Resultados",
+      "costPerResult": "Coste por resultado",
+      "resultKinds": {
+        "conversations": "conversaciones",
+        "leads": "clientes potenciales",
+        "link_clicks": "clics en el enlace",
+        "purchases": "compras"
+      }
     },
     "leads": {
       "empty": "Aún no hay clientes potenciales.",
@@ -12447,7 +12460,237 @@
       "failed": "No funcionó. Inténtalo de nuevo.",
       "invalidValue": "Introduce un valor válido.",
       "sent": "Enviado a Meta.",
-      "capSaved": "Tope de presupuesto guardado."
+      "capSaved": "Tope de presupuesto guardado.",
+      "destinations": {
+        "WHATSAPP": "WhatsApp",
+        "INSTAGRAM_DIRECT": "Instagram Direct",
+        "MESSENGER": "Messenger",
+        "ON_AD": "Formulario instantáneo",
+        "WEBSITE": "Sitio web",
+        "MESSAGING_INSTAGRAM_DIRECT_MESSENGER_WHATSAPP": "Apps de mensajes"
+      }
+    },
+    "openAdsManager": "Abrir el Administrador de anuncios",
+    "createAd": "Crear anuncio",
+    "createNeedsScopes": "Para crear anuncios desde Bodhinox, vuelve a conectar en Ajustes > Anuncios y permite: {scopes}.",
+    "toolbar": {
+      "account": "Cuenta publicitaria",
+      "allAccounts": "Todas las cuentas",
+      "range": "Periodo",
+      "presets": {
+        "last_7d": "Últimos 7 días",
+        "last_30d": "Últimos 30 días",
+        "last_90d": "Últimos 90 días",
+        "custom": "Personalizado"
+      },
+      "from": "Desde",
+      "to": "Hasta"
+    },
+    "overview": {
+      "loading": "Cargando el resumen",
+      "spend": "Importe gastado",
+      "reach": "Alcance",
+      "reachHint": "Se muestra para los últimos 7, 30 o 90 días",
+      "frequency": "Frecuencia {value}",
+      "impressions": "Impresiones",
+      "ctr": "Porcentaje de clics",
+      "clicks": "{count, plural, =1 {# clic} other {# clics}}",
+      "conversations": "Conversaciones iniciadas",
+      "inBodhinox": "{count, plural, =1 {# chat visto en Bodhinox} other {# chats vistos en Bodhinox}}",
+      "costPerConversation": "Coste por conversación",
+      "leads": "Clientes potenciales",
+      "costPer": "{value} por cliente potencial",
+      "linkClicks": "Clics en el enlace",
+      "cpm": "CPM {value}",
+      "empty": "Aún no hay resultados en este periodo. Las cifras aparecen tras la sincronización horaria cuando tus anuncios se hayan mostrado.",
+      "trend": "Evolución diaria",
+      "metric": "Métrica del gráfico",
+      "metrics": {
+        "spend": "Gasto",
+        "conversationsStarted": "Conversaciones",
+        "leads": "Clientes potenciales",
+        "linkClicks": "Clics en el enlace",
+        "impressions": "Impresiones"
+      },
+      "trendLabel": "{metric} por día, {total} en total",
+      "platforms": "Dónde se mostraron tus anuncios",
+      "platformsHint": "Reparto de impresiones por plataforma",
+      "noPlatforms": "Aún no hay reparto por plataforma.",
+      "platform": "Plataforma",
+      "results": "Resultados",
+      "topCampaigns": "Campañas con más gasto",
+      "noCampaigns": "No hay gasto de campañas en este periodo.",
+      "campaignResults": "{results, plural, =1 {# resultado} other {# resultados}} · {cost} cada uno",
+      "syncedAt": "Actualizado {time}",
+      "neverSynced": "Aún sin sincronizar"
+    },
+    "platforms": {
+      "facebook": "Facebook",
+      "instagram": "Instagram",
+      "messenger": "Messenger",
+      "whatsapp": "WhatsApp",
+      "audience_network": "Audience Network",
+      "threads": "Threads",
+      "unknown": "Otras"
+    },
+    "create": {
+      "title": "Crear un anuncio",
+      "description": "Crea un anuncio nuevo en Meta desde Bodhinox.",
+      "descriptionPage": "Crea un anuncio nuevo que se publica desde tu página {page}.",
+      "progress": "Pasos",
+      "steps": {
+        "goal": "Objetivo",
+        "audience": "Público y presupuesto",
+        "ad": "Anuncio",
+        "review": "Revisión"
+      },
+      "goal": "Objetivo",
+      "kinds": {
+        "whatsapp": {
+          "title": "Chats de WhatsApp",
+          "body": "Las personas tocan el anuncio y empiezan un chat de WhatsApp contigo."
+        },
+        "instagram_direct": {
+          "title": "Mensajes de Instagram",
+          "body": "Las personas tocan el anuncio y te escriben por Instagram Direct."
+        },
+        "lead_form": {
+          "title": "Clientes potenciales",
+          "body": "Las personas rellenan un formulario instantáneo sin salir de Facebook o Instagram."
+        },
+        "website": {
+          "title": "Visitas al sitio web",
+          "body": "Las personas tocan el anuncio y van a tu sitio web."
+        }
+      },
+      "adAccount": "Cuenta publicitaria",
+      "instagramNote": "Tu página de Facebook necesita una cuenta profesional de Instagram vinculada.",
+      "whatsappNote": "Tu página de Facebook necesita tu número de WhatsApp Business vinculado (Configuración de la página > Cuentas vinculadas).",
+      "name": "Nombre",
+      "namePlaceholder": "Oferta de temporada – WhatsApp",
+      "dailyBudget": "Presupuesto diario ({currency})",
+      "budgetInvalid": "Introduce un importe mayor que 0.",
+      "gender": "Sexo",
+      "genders": {
+        "all": "Todos",
+        "men": "Hombres",
+        "women": "Mujeres"
+      },
+      "start": "Empieza",
+      "end": "Termina (opcional)",
+      "endHint": "Al menos un día después del inicio. Déjalo vacío para que siga hasta que lo pauses.",
+      "ageMin": "Edad mínima",
+      "ageMax": "Edad máxima",
+      "countries": "Países",
+      "removeCountry": "Quitar {country}",
+      "countryPlaceholder": "Código, p. ej. ES",
+      "primaryText": "Texto principal",
+      "primaryTextPlaceholder": "¿Qué debe saber la gente? Que sea breve y claro.",
+      "headline": "Título (opcional)",
+      "descriptionField": "Descripción (opcional)",
+      "linkUrl": "Dirección del sitio web",
+      "leadForm": "Formulario instantáneo",
+      "loadingForms": "Cargando formularios…",
+      "chooseForm": "Elige un formulario",
+      "noForms": "No hay formularios instantáneos. Crea uno en tu página en Meta primero.",
+      "cta": "Botón",
+      "whatsappNumber": "Número de WhatsApp (opcional)",
+      "whatsappNumberHint": "Con prefijo de país. Déjalo vacío para usar el número vinculado a tu página.",
+      "welcome": "Mensaje con el que empiezan (opcional)",
+      "welcomePlaceholder": "¡Hola! Me gustaría saber más.",
+      "image": "Imagen",
+      "replaceImage": "Cambiar imagen",
+      "uploadImage": "Subir imagen",
+      "imageAlt": "La imagen del anuncio",
+      "imageRules": "JPG o PNG, hasta 8 MB. Las imágenes cuadradas funcionan mejor.",
+      "dailyBudgetPlain": "Presupuesto diario",
+      "schedule": "Calendario",
+      "noEnd": "sin fecha de fin",
+      "audience": "Público",
+      "reviewNote": "«Publicar» envía el anuncio a Meta para su revisión y se muestra cuando se aprueba, gastando hasta el presupuesto diario. «Crear en pausa» lo crea sin gastar; actívalo luego en Campañas.",
+      "back": "Atrás",
+      "next": "Siguiente",
+      "createPaused": "Crear en pausa",
+      "publish": "Publicar",
+      "publishedToast": "Tu anuncio se está creando y enviando a revisión.",
+      "createdToast": "Tu anuncio se está creando (en pausa).",
+      "errors": {
+        "invalid_request": "Revisa los datos e inténtalo de nuevo.",
+        "invalid_choice": "Elige una cuenta publicitaria vinculada.",
+        "missing_scope": "Vuelve a conectar en Ajustes > Anuncios para permitir crear anuncios.",
+        "over_budget_cap": "El presupuesto diario supera el límite de tu espacio de trabajo.",
+        "token_invalid": "La conexión con Facebook caducó. Vuelve a conectar en Ajustes > Anuncios.",
+        "manage_not_enabled": "La creación de anuncios aún no está activada.",
+        "not_connected": "Primero conecta los anuncios de Meta en Ajustes > Anuncios.",
+        "rate_limited": "Demasiados intentos. Espera un minuto e inténtalo de nuevo.",
+        "meta_error": "Meta no lo aceptó. Inténtalo de nuevo en un momento.",
+        "generic": "Algo salió mal. Inténtalo de nuevo."
+      },
+      "ctas": {
+        "SIGN_UP": "Registrarte",
+        "LEARN_MORE": "Más información",
+        "APPLY_NOW": "Solicitar ahora",
+        "GET_QUOTE": "Pedir presupuesto",
+        "SUBSCRIBE": "Suscribirte",
+        "DOWNLOAD": "Descargar",
+        "SHOP_NOW": "Comprar",
+        "BOOK_TRAVEL": "Reservar",
+        "CONTACT_US": "Contactarnos",
+        "ORDER_NOW": "Pedir ahora",
+        "GET_OFFER": "Ver oferta"
+      }
+    },
+    "drafts": {
+      "title": "Anuncios creados en Bodhinox",
+      "stillUnknown": "Sigue sin aparecer en Meta.",
+      "found": "Encontrado en Meta.",
+      "actionFailed": "No funcionó. Inténtalo de nuevo.",
+      "kinds": {
+        "whatsapp": "Chats de WhatsApp",
+        "instagram_direct": "Mensajes de Instagram",
+        "lead_form": "Clientes potenciales",
+        "website": "Visitas al sitio web"
+      },
+      "perDay": "{amount} al día",
+      "making": "Creando: {step}",
+      "steps": {
+        "campaign": "campaña",
+        "adset": "conjunto de anuncios",
+        "creative": "contenido",
+        "ad": "anuncio",
+        "done": "listo"
+      },
+      "createdLive": "Creado · en revisión",
+      "createdPaused": "Creado · en pausa",
+      "failed": "Error ({code})",
+      "status": {
+        "queued": "En cola",
+        "created": "Creado",
+        "failed": "Error",
+        "unknown": "Revisar",
+        "discarded": "Descartado"
+      },
+      "openInAdsManager": "Administrador de anuncios",
+      "recheck": "Volver a comprobar",
+      "discard": "Descartar",
+      "unknownHelp": "La respuesta de Meta no fue clara, así que Bodhinox no lo reintentó (podría duplicarse). Vuelve a comprobar, o míralo en el Administrador de anuncios y descártalo."
+    },
+    "accounts": {
+      "title": "Cuentas publicitarias",
+      "description": "Los informes y la lista de campañas incluyen estas cuentas. La primera viene de la conexión.",
+      "loadFailed": "No se pudieron cargar tus cuentas publicitarias.",
+      "added": "Cuenta añadida. Sus cifras aparecen tras la próxima sincronización.",
+      "removed": "Cuenta quitada.",
+      "changeFailed": "No funcionó. Inténtalo de nuevo.",
+      "syncError": "falló la última sincronización ({code})",
+      "synced": "sincronizada {time}",
+      "primary": "Principal",
+      "remove": "Quitar {name}",
+      "add": "Añadir una cuenta publicitaria",
+      "noneAvailable": "Este inicio de sesión de Facebook no ve otras cuentas publicitarias.",
+      "choose": "Cuenta que añadir",
+      "addThis": "Añadir",
+      "cancel": "Cancelar"
     }
   },
   "Appointments": {
@@ -14819,7 +15062,13 @@
       "loading": "Cargando cifras diarias…",
       "chartLabel": "{metric} por día en los últimos 14 días, {total} en total",
       "total": "Total {total}",
-      "openInAdsManager": "Abrir en el Administrador de anuncios"
+      "openInAdsManager": "Abrir en el Administrador de anuncios",
+      "adset": "Conjunto de anuncios",
+      "results": "Resultados",
+      "costPerResult": "Coste por resultado",
+      "ctr": "CTR",
+      "leads": "Clientes potenciales",
+      "creativeAlt": "La imagen del anuncio"
     }
   },
   "Sales": {

@@ -80,11 +80,13 @@ describe('graph client requests', () => {
   it('maps daily insights and the conversations-started action', async () => {
     fetchMock.mockResolvedValueOnce(json({ data: [{
       campaign_id: '7', ad_id: '8', ad_name: 'Ad A', objective: 'OUTCOME_ENGAGEMENT', spend: '12.345', account_currency: 'INR',
-      impressions: '1000', clicks: '25', date_start: '2026-11-01',
-      actions: [{ action_type: 'link_click', value: '30' }, { action_type: 'onsite_conversion.messaging_conversation_started_7d', value: '6' }],
+      adset_id: '9', impressions: '1000', clicks: '25', inline_link_clicks: '20', date_start: '2026-11-01',
+      actions: [{ action_type: 'link_click', value: '30' }, { action_type: 'onsite_conversion.messaging_conversation_started_7d', value: '6' },
+        // Overlapping lead types: the grouped one is taken, never the sum.
+        { action_type: 'lead', value: '5' }, { action_type: 'onsite_conversion.lead_grouped', value: '4' }, { action_type: 'omni_purchase', value: '2' }],
     }] }));
     const rows = await getInsights('555', TOKEN, { level: 'ad', since: '2026-10-03', until: '2026-11-01' });
-    expect(rows).toEqual([{ level: 'ad', objectId: '8', campaignId: '7', name: 'Ad A', objective: 'OUTCOME_ENGAGEMENT', day: '2026-11-01', spend: 12.35, currency: 'INR', impressions: 1000, clicks: 25, conversationsStarted: 6 }]);
+    expect(rows).toEqual([{ level: 'ad', objectId: '8', campaignId: '7', adsetId: '9', name: 'Ad A', objective: 'OUTCOME_ENGAGEMENT', day: '2026-11-01', spend: 12.35, currency: 'INR', impressions: 1000, clicks: 25, linkClicks: 20, conversationsStarted: 6, leads: 4, purchases: 2 }]);
     const { url } = call();
     expect(url.pathname.endsWith('/act_555/insights')).toBe(true);
     expect(url.searchParams.get('time_increment')).toBe('1');

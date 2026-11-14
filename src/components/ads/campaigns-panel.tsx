@@ -46,7 +46,7 @@ const localInput = (iso: string | null) => {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 };
 
-export function CampaignsPanel({ canManage }: { canManage: boolean }) {
+export function CampaignsPanel({ canManage, adAccountId = null }: { canManage: boolean; adAccountId?: string | null }) {
   const t = useTranslations('Ads.manage');
   const tAds = useTranslations('Ads');
   const [view, setView] = useState<AdManageView | null>(null);
@@ -60,13 +60,13 @@ export function CampaignsPanel({ canManage }: { canManage: boolean }) {
   const load = useCallback(async () => {
     setFailed(false);
     try {
-      const res = await authFetch('/api/meta-ads/manage', { cache: 'no-store' });
+      const res = await authFetch(`/api/meta-ads/manage?adAccountId=${encodeURIComponent(adAccountId ?? 'all')}`, { cache: 'no-store' });
       if (!res.ok) throw new Error();
       setView((await res.json()) as AdManageView);
     } catch {
       setFailed(true);
     }
-  }, []);
+  }, [adAccountId]);
 
   useEffect(() => {
     void load();
@@ -255,9 +255,17 @@ export function CampaignsPanel({ canManage }: { canManage: boolean }) {
                 {open.has(o.id) ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}
               </button>
             ) : <span className="w-5" />}
+            {o.level === 'ad' && o.thumbnailUrl && (
+              // Meta's signed creative URL (refreshed by each sync).
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={o.thumbnailUrl} alt="" className="mr-1.5 size-9 shrink-0 rounded-md border border-border object-cover" loading="lazy" referrerPolicy="no-referrer" />
+            )}
             <div className="min-w-0">
               <div className="truncate font-semibold text-foreground">{o.name ?? o.id}</div>
-              <div className="text-xs text-muted-foreground">{t(`levels.${o.level}`)} · {o.id}</div>
+              <div className="text-xs text-muted-foreground">
+                {t(`levels.${o.level}`)} · {o.id}
+                {o.level === 'adset' && o.destinationType && <> · {t.has(`destinations.${o.destinationType}`) ? t(`destinations.${o.destinationType}`) : o.destinationType}</>}
+              </div>
             </div>
           </div>
         </td>

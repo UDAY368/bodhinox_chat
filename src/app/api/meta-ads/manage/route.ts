@@ -1,4 +1,4 @@
-// GET /api/meta-ads/manage — any member. The connected ad account's cached
+// GET /api/meta-ads/manage?adAccountId=<id|all> — any member. The linked ad accounts' (or one's) cached
 // campaigns, ad sets and ads (with 30-day spend and chats started), the open
 // and recent changes, the workspace's daily budget cap, whether changes can be
 // sent (META_ADS_MANAGE_ENABLED) and the permissions they still need.
@@ -9,6 +9,7 @@ import { requireSession } from '@/lib/auth/session';
 import { metaAdsConfig } from '@/lib/meta-ads/config';
 import { actorOf, metaAdsRouteError, notEnabledResponse, NO_STORE } from '@/lib/meta-ads/http';
 import { getAdManageView } from '@/lib/meta-ads/manage';
+import { parseAdAccountFilter } from '@/lib/meta-ads/accounts';
 
 export const runtime = 'nodejs';
 
@@ -16,7 +17,8 @@ export async function GET(request: Request) {
   try {
     if (!metaAdsConfig()) return notEnabledResponse();
     const session = await requireSession(request);
-    return NextResponse.json(await getAdManageView(actorOf(session)), { headers: NO_STORE });
+    const adAccountId = parseAdAccountFilter(new URL(request.url).searchParams.get('adAccountId'));
+    return NextResponse.json(await getAdManageView(actorOf(session), adAccountId), { headers: NO_STORE });
   } catch (error) {
     return metaAdsRouteError(error);
   }

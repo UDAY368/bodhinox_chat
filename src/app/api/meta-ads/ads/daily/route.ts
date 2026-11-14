@@ -1,4 +1,4 @@
-// GET /api/meta-ads/ads/daily?level=campaign|ad&id=<Meta object id> — any member.
+// GET /api/meta-ads/ads/daily?level=campaign|adset|ad&id=<Meta object id> — any member.
 // The last 14 days of one campaign's or ad's stored insights, for its detail
 // drawer: { currency, points: [{ day, spend, impressions, clicks, conversations }] }.
 // Reads stored rows of the caller's workspace only. 503 meta_ads_not_enabled, 400 invalid_request.

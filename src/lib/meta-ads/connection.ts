@@ -24,6 +24,7 @@ import {
   exchangeLoginToken, getGrantedScopes, getOrCreateDataset, isMetaThrottle, isMetaTokenInvalid, listAdAccounts, listPages,
   metaErrorCode, subscribePageLeadgen, unsubscribePage,
 } from './graph';
+import { setPrimaryAdAccountTx } from './accounts';
 
 export interface MetaAdsActor {
   accountId: string;
@@ -328,6 +329,11 @@ export async function finishConnection(actor: MetaAdsActor, input: { adAccountId
         WHERE account_id=${actor.accountId}::uuid AND id=${pending.id}::uuid AND status='pending'
         RETURNING ${PUBLIC_SELECT}`;
       if (!rows[0]) return null;
+      // The chosen ad account is the primary one; more can be added from Settings > Ads.
+      await setPrimaryAdAccountTx(tx, actor.accountId, {
+        connectionId: rows[0].id, adAccountId: account.id, name: account.name, currency: account.currency,
+        businessId: account.businessId, userId: actor.userId,
+      });
       await audit(tx, actor, 'meta_ads.connect', rows[0].id, { adAccountId: account.id, pageId: page.id });
       return rows[0];
     });

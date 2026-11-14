@@ -14,7 +14,9 @@ export interface AdDailyPoint {
   spend: number;
   impressions: number;
   clicks: number;
+  linkClicks: number;
   conversations: number;
+  leads: number;
 }
 
 export interface AdDailySeries {
@@ -31,20 +33,22 @@ export function dailyWindow(now: number = Date.now(), days = DAILY_DAYS): string
 }
 
 /** Null for a malformed query (400). */
-export function parseDailyQuery(params: URLSearchParams): { level: 'campaign' | 'ad'; id: string } | null {
+export type DailyLevel = 'campaign' | 'adset' | 'ad';
+
+export function parseDailyQuery(params: URLSearchParams): { level: DailyLevel; id: string } | null {
   const level = params.get('level');
   const id = params.get('id') ?? '';
-  if ((level !== 'campaign' && level !== 'ad') || !OBJECT_ID.test(id)) return null;
+  if ((level !== 'campaign' && level !== 'adset' && level !== 'ad') || !OBJECT_ID.test(id)) return null;
   return { level, id };
 }
 
 /** Every day of the window, with zeros where no row was stored. */
-export async function adDailySeries(actor: MetaAdsActor, level: 'campaign' | 'ad', objectId: string, now: number = Date.now()): Promise<AdDailySeries> {
+export async function adDailySeries(actor: MetaAdsActor, level: DailyLevel, objectId: string, now: number = Date.now()): Promise<AdDailySeries> {
   const days = dailyWindow(now);
   const rows = await withTenant({ accountId: actor.accountId, userId: actor.userId, role: actor.role }, (tx) => tx.$queryRaw<{
-    day: Date; spend: unknown; impressions: unknown; clicks: unknown; conversations: unknown; currency: string | null;
+    day: Date; spend: unknown; impressions: unknown; clicks: unknown; link_clicks: unknown; conversations: unknown; leads: unknown; currency: string | null;
   }[]>`
-    SELECT day, spend, impressions, clicks, conversations_started AS conversations, currency
+    SELECT day, spend, impressions, clicks, link_clicks, conversations_started AS conversations, leads, currency
     FROM meta_ad_insights
     WHERE account_id=${actor.accountId}::uuid AND level=${level} AND object_id=${objectId}
       AND day BETWEEN ${days[0]}::date AND ${days[days.length - 1]}::date
@@ -59,7 +63,9 @@ export async function adDailySeries(actor: MetaAdsActor, level: 'campaign' | 'ad
         spend: Number(r?.spend ?? 0),
         impressions: Number(r?.impressions ?? 0),
         clicks: Number(r?.clicks ?? 0),
+        linkClicks: Number(r?.link_clicks ?? 0),
         conversations: Number(r?.conversations ?? 0),
+        leads: Number(r?.leads ?? 0),
       };
     }),
   };
