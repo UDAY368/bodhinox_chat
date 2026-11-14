@@ -12261,7 +12261,8 @@
       "campaigns": "Campanhas",
       "overview": "Visão geral",
       "audiences": "Públicos",
-      "rules": "Regras"
+      "rules": "Regras",
+      "automation": "Automação"
     },
     "table": {
       "level": "Mostrar",
@@ -12304,7 +12305,16 @@
       "sales": "{count, plural, one {# venda} other {# vendas}}",
       "columns": "Colunas",
       "export": "Exportar CSV",
-      "currency": "Moeda"
+      "currency": "Moeda",
+      "emptyBody": "Os números aparecem após a sincronização de hora em hora, quando seus anúncios tiverem rodado neste período.",
+      "help": {
+        "ctr": "Taxa de cliques: parte de quem viu o anúncio e clicou.",
+        "reach": "Quantas pessoas diferentes viram o anúncio pelo menos uma vez.",
+        "impressions": "Quantas vezes o anúncio foi exibido, contando repetições.",
+        "results": "Para que o anúncio foi comprado: conversas, leads, cliques ou compras.",
+        "costPerResult": "Gasto dividido pelos resultados. Menor é melhor.",
+        "roas": "Retorno sobre o investimento em anúncios: receita de cliques dividida pelo gasto. 2.0x significa 2 ganhos para cada 1 gasto."
+      }
     },
     "leads": {
       "empty": "Ainda não há leads.",
@@ -12384,7 +12394,8 @@
         "ViewContent": "Conteúdo visualizado",
         "OrderCreated": "Pedido criado"
       },
-      "loadMore": "Carregar mais"
+      "loadMore": "Carregar mais",
+      "emptyBody": "Quando uma conversa de um anúncio vira lead ou compra, ela é enviada à Meta e listada aqui."
     },
     "notConnected": "Nenhuma conta de anúncios da Meta está conectada ainda. Um administrador a conecta em Configurações > Anúncios.",
     "tokenInvalid": "O acesso à Meta expirou, então os resultados não são mais atualizados. Um administrador precisa reconectar em Configurações > Anúncios.",
@@ -12480,7 +12491,8 @@
         "WEBSITE": "Site",
         "MESSAGING_INSTAGRAM_DIRECT_MESSENGER_WHATSAPP": "Apps de mensagens"
       },
-      "reviewReason": "Meta: {reason}"
+      "reviewReason": "Meta: {reason}",
+      "emptyBody": "Campanhas criadas aqui ou no Gerenciador de Anúncios aparecem após a próxima sincronização."
     },
     "openAdsManager": "Abrir o Gerenciador de Anúncios",
     "createAd": "Criar anúncio",
@@ -12738,7 +12750,10 @@
           "manage_not_enabled": "O gerenciamento de anúncios não está ativado.",
           "generic": "Não deu certo. Tente de novo."
         }
-      }
+      },
+      "moreTargeting": "Mais segmentação",
+      "moreTargetingHint": "Públicos, locais, interesses, idiomas, posicionamentos",
+      "moreTargetingCount": "{count, plural, one {# escolha} other {# escolhas}}"
     },
     "drafts": {
       "title": "Anúncios criados no Bodhinox",
@@ -12933,6 +12948,70 @@
       "currencyHelp": "Os valores estão na moeda de cada conta de anúncios.",
       "cancel": "Cancelar",
       "create": "Criar regra"
+    },
+    "preview": {
+      "title": "Prévia",
+      "shape": "Formato da prévia",
+      "shapes": {
+        "feed": "Feed",
+        "story": "Story",
+        "status": "Status"
+      },
+      "yourPage": "Sua página",
+      "sponsored": "Patrocinado",
+      "textPlaceholder": "O texto do anúncio aparece aqui.",
+      "headlinePlaceholder": "Título",
+      "ctaWhatsapp": "Enviar mensagem no WhatsApp",
+      "ctaMessage": "Enviar mensagem",
+      "note": "Um guia de como texto e imagem se encaixam. A Meta pode exibir um pouco diferente."
+    },
+    "campaignView": {
+      "label": "Visão de campanhas",
+      "performance": "Desempenho",
+      "manage": "Gerenciar"
+    },
+    "moreActions": "Mais ações",
+    "conversionsTitle": "Conversões enviadas à Meta",
+    "conversionsBlurb": "Leads e compras das suas conversas, informados à Meta para encontrar pessoas parecidas com seus clientes.",
+    "setup": {
+      "title": "Conclua a configuração de anúncios",
+      "progress": "{done} de {total} concluídos",
+      "hide": "Ocultar configuração",
+      "done": "Concluído",
+      "todo": "Pendente",
+      "fix": "Resolver",
+      "steps": {
+        "connect": {
+          "title": "Conectar a Meta",
+          "body": "Entre com o Facebook para o Bodhinox ler seus anúncios."
+        },
+        "adAccount": {
+          "title": "Vincular uma conta de anúncios",
+          "body": "Escolha as contas de anúncios a acompanhar."
+        },
+        "page": {
+          "title": "Escolher uma Página do Facebook",
+          "body": "Os novos anúncios rodam a partir desta Página."
+        },
+        "manage": {
+          "title": "Criação de anúncios ativada",
+          "body": "Criar e pausar anúncios aqui ainda não está ativado no Bodhinox."
+        },
+        "permissions": {
+          "title": "Permitir criar anúncios",
+          "body": "Reconecte a Meta e permita gerenciar anúncios e os anúncios da Página."
+        }
+      }
+    },
+    "loading": "Carregando",
+    "statusChip": {
+      "active": "Ativo",
+      "paused": "Pausado",
+      "review": "Em análise",
+      "rejected": "Reprovado",
+      "issues": "Requer atenção",
+      "ended": "Encerrado",
+      "billing": "Falta pagamento"
     }
   },
   "Appointments": {

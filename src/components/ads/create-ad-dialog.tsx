@@ -25,6 +25,7 @@ import { authFetch } from '@/lib/auth/client';
 import { isCurrencyCode, parseMoney } from '@/lib/commerce/money';
 import { cn } from '@/lib/utils';
 import type { LinkedAdAccount } from '@/lib/meta-ads/accounts';
+import { AdPreview } from './ad-preview';
 import { TargetingPicker, type TargetingChoice } from './targeting-picker';
 
 type Kind = 'whatsapp' | 'instagram_direct' | 'lead_form' | 'website';
@@ -72,6 +73,8 @@ export interface CreateAdDialogProps {
 export function CreateAdDialog({ open, onOpenChange, accounts, adAccountId, pageName, onCreated }: CreateAdDialogProps) {
   const t = useTranslations('Ads.create');
   const [step, setStep] = useState(0);
+  const [moreOpen, setMoreOpen] = useState(false);
+  const tp = useTranslations('Ads.preview');
   const [busy, setBusy] = useState(false);
   const [kind, setKind] = useState<Kind>('whatsapp');
   const [account, setAccount] = useState<string>('');
@@ -122,6 +125,7 @@ export function CreateAdDialog({ open, onOpenChange, accounts, adAccountId, page
   useEffect(() => {
     if (!open) return;
     setStep(0);
+    setMoreOpen(false);
     setAccount(adAccountId ?? accounts.find((a) => a.isPrimary)?.adAccountId ?? accounts[0]?.adAccountId ?? '');
   }, [open, adAccountId, accounts]);
 
@@ -318,11 +322,19 @@ export function CreateAdDialog({ open, onOpenChange, accounts, adAccountId, page
     }
   };
 
+  const advancedCount = include.length + exclude.length + places.length + interests.length + languages.length + placements.length;
+  const previewCta = kind === 'whatsapp' ? tp('ctaWhatsapp') : kind === 'instagram_direct' ? tp('ctaMessage') : t(`ctas.${cta || CTAS[kind][0]}`);
+  const preview = (
+    <AdPreview pageName={pageName} primaryText={primaryText} headline={format === 'carousel' ? (cards[0]?.headline ?? '') : headline}
+      description={kind === 'instagram_direct' ? '' : description} ctaLabel={previewCta} allowStatus={STATUS_KINDS.includes(kind)}
+      imageUrl={(format === 'carousel' ? cards[0]?.image?.preview : image?.preview) ?? null} />
+  );
+
   const steps = [t('steps.goal'), t('steps.audience'), t('steps.ad'), t('steps.review')];
 
   return (
     <Dialog open={open} onOpenChange={(next) => { if (!busy) onOpenChange(next); }}>
-      <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-2xl" data-testid="create-ad-dialog">
+      <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-3xl max-sm:h-dvh max-sm:max-h-dvh max-sm:max-w-none max-sm:rounded-none" data-testid="create-ad-dialog">
         <DialogHeader>
           <DialogTitle>{t('title')}</DialogTitle>
           <DialogDescription>{pageName ? t('descriptionPage', { page: pageName }) : t('description')}</DialogDescription>
@@ -421,6 +433,13 @@ export function CreateAdDialog({ open, onOpenChange, accounts, adAccountId, page
                 </div>
               </div>
             </div>
+            <details className="rounded-xl border border-border sm:col-span-2" open={moreOpen}
+              onToggle={(e) => setMoreOpen(e.currentTarget.open)} data-testid="create-ad-more">
+              <summary className="flex cursor-pointer items-center justify-between gap-2 rounded-xl px-4 py-3 text-sm font-medium text-foreground outline-none hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring">
+                <span>{t('moreTargeting')}</span>
+                <span className="text-xs font-normal text-muted-foreground">{advancedCount ? t('moreTargetingCount', { count: advancedCount }) : t('moreTargetingHint')}</span>
+              </summary>
+              <div className="grid gap-4 border-t border-border p-4">
             {accountAudiences.length > 0 && (
               <div className="space-y-3 sm:col-span-2" data-testid="create-ad-audiences">
                 {([['include', include, setInclude, exclude, setExclude], ['exclude', exclude, setExclude, include, setInclude]] as const).map(([which, list, set, other, setOther]) => (
@@ -473,6 +492,8 @@ export function CreateAdDialog({ open, onOpenChange, accounts, adAccountId, page
                 {placements.length === 0 ? t('placements.automaticHelp') : placements.includes('whatsapp_status') ? t('placements.statusHelp') : t('placements.manualHelp')}
               </p>
             </fieldset>
+              </div>
+            </details>
           </div>
         )}
 
@@ -663,11 +684,13 @@ export function CreateAdDialog({ open, onOpenChange, accounts, adAccountId, page
                 <p className="text-xs text-muted-foreground">{t('cards.help')}</p>
               </div>
             )}
+            <div className="border-t border-border pt-4 sm:col-span-2">{preview}</div>
           </div>
         )}
 
         {step === 3 && (
-          <dl className="grid gap-x-6 gap-y-2 rounded-xl border border-border bg-card p-4 text-sm sm:grid-cols-2">
+          <div className="grid gap-4 sm:grid-cols-[1fr_17rem]">
+          <dl className="grid content-start gap-x-6 gap-y-2 rounded-xl border border-border bg-card p-4 text-sm sm:grid-cols-2">
             {[
               [t('goal'), t(`kinds.${kind}.title`)],
               [t('adAccount'), accounts.find((a) => a.adAccountId === account)?.name ?? account],
@@ -692,6 +715,8 @@ export function CreateAdDialog({ open, onOpenChange, accounts, adAccountId, page
             ))}
             <p className="text-xs text-muted-foreground sm:col-span-2">{t('reviewNote')}</p>
           </dl>
+          {preview}
+          </div>
         )}
 
         <DialogFooter className="gap-2">

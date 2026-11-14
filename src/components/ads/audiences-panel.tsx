@@ -8,6 +8,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { ExternalLink, Loader2, Plus, RefreshCw, Trash2, Users } from 'lucide-react';
+import { LoadingRows } from '@/components/ads/ads-ui';
 import { toast } from 'sonner';
 import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
@@ -98,7 +99,7 @@ export function AudiencesPanel({ canManage, accounts, refreshKey = 0 }: {
       </div>
 
       {audiences === null ? (
-        <div className="flex justify-center py-10"><Loader2 className="size-5 animate-spin text-muted-foreground" /></div>
+        <LoadingRows rows={3} />
       ) : audiences.length === 0 ? (
         <div className="rounded-xl border border-dashed border-border px-4 py-10 text-center">
           <Users className="mx-auto size-6 text-muted-foreground" aria-hidden />

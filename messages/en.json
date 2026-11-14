@@ -12261,7 +12261,8 @@
       "campaigns": "Campaigns",
       "overview": "Overview",
       "audiences": "Audiences",
-      "rules": "Rules"
+      "rules": "Rules",
+      "automation": "Automation"
     },
     "table": {
       "level": "Show",
@@ -12304,7 +12305,16 @@
       "sales": "{count, plural, one {# sale} other {# sales}}",
       "columns": "Columns",
       "export": "Export CSV",
-      "currency": "Currency"
+      "currency": "Currency",
+      "emptyBody": "Numbers appear here after the hourly sync, once your ads have run in this date range.",
+      "help": {
+        "ctr": "Click-through rate: the share of people who saw the ad and clicked it.",
+        "reach": "How many different people saw the ad at least once.",
+        "impressions": "How many times the ad was shown, counting repeats.",
+        "results": "What the ad was bought for: chats, leads, link clicks or purchases.",
+        "costPerResult": "Spend divided by results. Lower is better.",
+        "roas": "Return on ad spend: revenue from ad clicks divided by spend. 2.0x means 2 earned for every 1 spent."
+      }
     },
     "leads": {
       "empty": "No leads yet.",
@@ -12384,7 +12394,8 @@
         "ViewContent": "Viewed content",
         "OrderCreated": "Order created"
       },
-      "loadMore": "Load more"
+      "loadMore": "Load more",
+      "emptyBody": "When a chat from an ad becomes a lead or a purchase, it is sent to Meta and listed here."
     },
     "notConnected": "No Meta ad account is connected yet. An administrator connects one in Settings > Ads.",
     "tokenInvalid": "Meta access expired, so results are no longer updated. An administrator must reconnect in Settings > Ads.",
@@ -12480,7 +12491,8 @@
         "WEBSITE": "Website",
         "MESSAGING_INSTAGRAM_DIRECT_MESSENGER_WHATSAPP": "Messaging apps"
       },
-      "reviewReason": "Meta: {reason}"
+      "reviewReason": "Meta: {reason}",
+      "emptyBody": "Campaigns made here or in Ads Manager show up after the next sync."
     },
     "openAdsManager": "Open Ads Manager",
     "createAd": "Create ad",
@@ -12738,7 +12750,10 @@
           "manage_not_enabled": "Ad management is not turned on.",
           "generic": "That did not work. Try again."
         }
-      }
+      },
+      "moreTargeting": "More targeting",
+      "moreTargetingHint": "Audiences, places, interests, languages, placements",
+      "moreTargetingCount": "{count, plural, one {# choice} other {# choices}}"
     },
     "drafts": {
       "title": "Ads created in Bodhinox",
@@ -12933,6 +12948,70 @@
       "currencyHelp": "Amounts are in each ad account’s own currency.",
       "cancel": "Cancel",
       "create": "Create rule"
+    },
+    "preview": {
+      "title": "Preview",
+      "shape": "Preview shape",
+      "shapes": {
+        "feed": "Feed",
+        "story": "Story",
+        "status": "Status"
+      },
+      "yourPage": "Your Page",
+      "sponsored": "Sponsored",
+      "textPlaceholder": "Your ad text shows here.",
+      "headlinePlaceholder": "Headline",
+      "ctaWhatsapp": "Send WhatsApp message",
+      "ctaMessage": "Send message",
+      "note": "A guide to how the text and image fit. Meta may show it slightly differently."
+    },
+    "campaignView": {
+      "label": "Campaigns view",
+      "performance": "Performance",
+      "manage": "Manage"
+    },
+    "moreActions": "More actions",
+    "conversionsTitle": "Conversions sent to Meta",
+    "conversionsBlurb": "Leads and purchases from your chats, reported back to Meta so it finds people like your customers.",
+    "setup": {
+      "title": "Finish setting up ads",
+      "progress": "{done} of {total} done",
+      "hide": "Hide setup",
+      "done": "Done",
+      "todo": "To do",
+      "fix": "Fix this",
+      "steps": {
+        "connect": {
+          "title": "Connect Meta",
+          "body": "Sign in with Facebook so Bodhinox can read your ads."
+        },
+        "adAccount": {
+          "title": "Link an ad account",
+          "body": "Choose the ad accounts to report on."
+        },
+        "page": {
+          "title": "Choose a Facebook Page",
+          "body": "New ads run from this Page."
+        },
+        "manage": {
+          "title": "Ad creation on",
+          "body": "Creating and pausing ads here is not switched on for Bodhinox yet."
+        },
+        "permissions": {
+          "title": "Allow ad creation",
+          "body": "Reconnect Meta and allow managing ads and the Page's ads."
+        }
+      }
+    },
+    "loading": "Loading",
+    "statusChip": {
+      "active": "Active",
+      "paused": "Paused",
+      "review": "In review",
+      "rejected": "Rejected",
+      "issues": "Needs attention",
+      "ended": "Ended",
+      "billing": "Billing needed"
     }
   },
   "Appointments": {

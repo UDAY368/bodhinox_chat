@@ -6,7 +6,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useFormatter, useTranslations } from 'next-intl';
 import { toast } from 'sonner';
-import { AlertTriangle } from 'lucide-react';
+import { AlertTriangle, Send } from 'lucide-react';
+import { EmptyState } from '@/components/ads/ads-ui';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -196,7 +197,7 @@ export function ConversionsPanel({ canResolve }: ConversionsPanelProps) {
       </label>
 
       {events === null ? null : events.length === 0 ? (
-        <p className="rounded-xl border border-border bg-card px-4 py-12 text-center text-sm text-muted-foreground">{t('empty')}</p>
+        <EmptyState icon={Send} title={t('empty')} body={t('emptyBody')} />
       ) : (
         <div className="overflow-x-auto rounded-xl border border-border bg-card">
           <table className="w-full text-sm">

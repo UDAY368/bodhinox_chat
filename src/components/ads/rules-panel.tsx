@@ -7,6 +7,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { Loader2, Plus, Trash2, Zap } from 'lucide-react';
+import { LoadingRows } from '@/components/ads/ads-ui';
 import { toast } from 'sonner';
 import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
@@ -86,7 +87,7 @@ export function RulesPanel({ canManage, canPause }: { canManage: boolean; canPau
         )}
       </div>
       {data === null ? (
-        <div className="flex justify-center py-10"><Loader2 className="size-5 animate-spin text-muted-foreground" /></div>
+        <LoadingRows rows={3} />
       ) : data.rules.length === 0 ? (
         <div className="rounded-xl border border-dashed border-border px-4 py-10 text-center">
           <Zap className="mx-auto size-6 text-muted-foreground" aria-hidden />

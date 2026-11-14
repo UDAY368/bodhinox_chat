@@ -5,7 +5,7 @@
 // campaigns. Reads GET /api/meta-ads/overview (stored rows only).
 
 import { useCallback, useEffect, useState } from 'react';
-import { Loader2 } from 'lucide-react';
+import { LoadingRows } from '@/components/ads/ads-ui';
 import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
 import { authFetch } from '@/lib/auth/client';
@@ -49,7 +49,7 @@ export function AdsOverview({ range, adAccountId }: { range: AdsRange; adAccount
       </div>
     );
   }
-  if (!data) return <Loader2 className="size-5 animate-spin text-primary" aria-label={t('loading')} />;
+  if (!data) return <LoadingRows rows={4} label={t('loading')} />;
 
   const { totals } = data;
   // One currency: show it; several (accounts billing differently): the spend tile lists each.

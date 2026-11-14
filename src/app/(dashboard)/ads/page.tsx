@@ -3,18 +3,22 @@
 // The Ads page. It asks GET /api/meta-ads/status first: while Meta ads are off
 // or not configured it shows the not-enabled state (with the count of
 // conversations started from ads, which needs no Meta approval). Otherwise it
-// shows the shared controls (ad account, date range) and the Overview, Ads,
-// Campaigns (manage campaigns, ad sets and ads, and the ads created here),
-// Leads and Conversions tabs; without a connection it points admins to
-// Settings > Ads. Admins create ads from "Create ad" once ad management is on
+// shows the setup card (admins, until every step is done), the shared
+// controls (ad account, date range) and five tabs: Overview, Campaigns
+// (Performance numbers, or Manage: the ads created here and the campaign
+// tree), Audiences, Leads (with the conversions sent to Meta) and Automation
+// (rules). The last tab, date range and ad account are kept in this browser.
+// Without a connection it points admins to Settings > Ads. Admins create ads from "Create ad" once ad management is on
 // and the grant has the permissions. No Facebook code loads on this page.
 
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { ExternalLink, Loader2, Plus } from 'lucide-react';
+import { ExternalLink, Loader2, MoreHorizontal, Plus } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 
 import { Button } from '@/components/ui/button';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { AdsSetupChecklist, setupSteps } from '@/components/ads/ads-setup-checklist';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { AdsNotEnabled } from '@/components/ads/ads-not-enabled';
 import { AdsOverview } from '@/components/ads/ads-overview';
@@ -27,7 +31,8 @@ import { CampaignsPanel } from '@/components/ads/campaigns-panel';
 import { CreateAdDialog } from '@/components/ads/create-ad-dialog';
 import { LeadsTable } from '@/components/ads/leads-table';
 import { ConversionsPanel } from '@/components/ads/conversions-panel';
-import { presetRange, type AdsRange } from '@/components/ads/ads-shared';
+import { customRange, presetRange, type AdsRange } from '@/components/ads/ads-shared';
+import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/use-auth';
 import { authFetch } from '@/lib/auth/client';
 import { hasMinRole } from '@/lib/auth/roles';
@@ -38,7 +43,38 @@ type Status =
   | { enabled: false; reason: 'flag_off' | 'not_configured' }
   | { enabled: true; connection: MetaAdConnectionDto | null };
 
+const TABS = ['overview', 'campaigns', 'audiences', 'leads', 'automation'] as const;
+type Tab = (typeof TABS)[number];
+type CampaignView = 'performance' | 'manage';
+const PREFS_KEY = 'bodhinox.ads.prefs';
+
+interface Prefs { tab?: Tab; view?: CampaignView; range?: AdsRange; account?: string | null }
+
+/** The saved choices, checked field by field (storage can hold anything). */
+function readPrefs(): Prefs {
+  try {
+    const raw = JSON.parse(window.localStorage.getItem(PREFS_KEY) ?? '{}') as Record<string, unknown>;
+    const prefs: Prefs = {};
+    if (TABS.includes(raw.tab as Tab)) prefs.tab = raw.tab as Tab;
+    if (raw.view === 'performance' || raw.view === 'manage') prefs.view = raw.view;
+    const range = raw.range as Partial<AdsRange> | undefined;
+    if (range && (range.preset === 'last_7d' || range.preset === 'last_30d' || range.preset === 'last_90d')) prefs.range = presetRange(range.preset);
+    else if (range?.preset === 'custom' && typeof range.from === 'string' && typeof range.to === 'string') prefs.range = customRange(range.from, range.to);
+    if (typeof raw.account === 'string' || raw.account === null) prefs.account = raw.account as string | null;
+    return prefs;
+  } catch {
+    return {};
+  }
+}
+
+function writePrefs(next: Prefs) {
+  try { window.localStorage.setItem(PREFS_KEY, JSON.stringify(next)); } catch { /* storage blocked: choices last for this view only */ }
+}
+
 interface CreateState { manageEnabled: boolean; createMissingScopes: string[]; pageName: string | null }
+
+const adsManagerUrl = (account: string) =>
+  `https://adsmanager.facebook.com/adsmanager/manage/campaigns?act=${encodeURIComponent(account)}`;
 
 export default function AdsPage() {
   const t = useTranslations('Ads');
@@ -47,8 +83,11 @@ export default function AdsPage() {
   const [status, setStatus] = useState<Status | null>(null);
   const [failed, setFailed] = useState(false);
   const [accounts, setAccounts] = useState<LinkedAdAccount[]>([]);
-  const [adAccountId, setAdAccountId] = useState<string | null>(null);
-  const [range, setRange] = useState<AdsRange>(() => presetRange('last_30d'));
+  const [prefs] = useState<Prefs>(() => (typeof window === 'undefined' ? {} : readPrefs()));
+  const [adAccountId, setAdAccountId] = useState<string | null>(prefs.account ?? null);
+  const [range, setRange] = useState<AdsRange>(() => prefs.range ?? presetRange('last_30d'));
+  const [tab, setTab] = useState<Tab>(prefs.tab ?? 'overview');
+  const [view, setView] = useState<CampaignView>(prefs.view ?? 'performance');
   const [create, setCreate] = useState<CreateState | null>(null);
   const [creating, setCreating] = useState(false);
   const [draftsKey, setDraftsKey] = useState(0);
@@ -89,6 +128,14 @@ export default function AdsPage() {
     return () => { live = false; };
   }, [reporting]);
 
+  // Keep the choices; drop a saved ad account that is no longer linked.
+  useEffect(() => {
+    writePrefs({ tab, view, range, account: adAccountId });
+  }, [tab, view, range, adAccountId]);
+  useEffect(() => {
+    if (adAccountId && accounts.length > 0 && !accounts.some((a) => a.adAccountId === adAccountId)) setAdAccountId(null);
+  }, [accounts, adAccountId]);
+
   const canCreate = isAdmin && active && !!create?.manageEnabled && create.createMissingScopes.length === 0 && accounts.length > 0;
   const primary = accounts.find((a) => a.isPrimary)?.adAccountId ?? connection?.adAccountId ?? null;
   const managerAccount = adAccountId ?? primary;
@@ -101,29 +148,40 @@ export default function AdsPage() {
           <p className="mt-1 text-sm text-muted-foreground">{tc('blurbs.ads')}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          {active && managerAccount && (
-            <a
-              href={`https://adsmanager.facebook.com/adsmanager/manage/campaigns?act=${encodeURIComponent(managerAccount)}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className={canCreate
-                ? 'inline-flex h-9 items-center gap-1.5 rounded-full border border-border px-4 text-sm font-medium text-foreground transition-colors duration-150 hover:bg-muted'
-                : 'inline-flex h-9 items-center gap-1.5 rounded-full bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors duration-150 hover:bg-primary/90'}
-            >
-              {canCreate ? t('openAdsManager') : t('createInAdsManager')} <ExternalLink className="size-3.5" />
-            </a>
-          )}
           {canCreate && (
             <Button type="button" className="rounded-full" onClick={() => setCreating(true)} data-testid="create-ad">
               <Plus className="size-4" /> {t('createAd')}
             </Button>
           )}
+          {active && managerAccount && !canCreate && (
+            <a
+              href={adsManagerUrl(managerAccount)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex h-9 items-center gap-1.5 rounded-full bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors duration-150 hover:bg-primary/90"
+            >
+              {t('createInAdsManager')} <ExternalLink className="size-3.5" />
+            </a>
+          )}
+          {active && managerAccount && canCreate && (
+            <DropdownMenu>
+              <DropdownMenuTrigger render={<Button type="button" variant="outline" size="icon" className="rounded-full" aria-label={t('moreActions')} data-testid="ads-more" />}>
+                <MoreHorizontal className="size-4" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem render={<a href={adsManagerUrl(managerAccount)} target="_blank" rel="noopener noreferrer" />}>
+                  <ExternalLink className="size-3.5" /> {t('openAdsManager')}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
         </div>
       </div>
-      {isAdmin && active && create?.manageEnabled && create.createMissingScopes.length > 0 && (
-        <p className="rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs text-amber-800 dark:text-amber-200">
-          {t('createNeedsScopes', { scopes: create.createMissingScopes.join(', ') })}
-        </p>
+      {isAdmin && status?.enabled && (connection === null || active) && (connection === null || create !== null) && (
+        <AdsSetupChecklist steps={setupSteps({
+          connected: active, adAccounts: accounts.length, pageId: connection?.pageId ?? null,
+          manageEnabled: !!create?.manageEnabled, missingScopes: create?.createMissingScopes ?? [],
+        })} />
       )}
 
       {!status && !failed && <Loader2 className="size-5 animate-spin text-primary" />}
@@ -151,37 +209,47 @@ export default function AdsPage() {
             </div>
           )}
           <AdsToolbar accounts={accounts} adAccountId={adAccountId} onAccount={setAdAccountId} range={range} onRange={setRange} />
-          <Tabs defaultValue="overview">
+          <Tabs value={tab} onValueChange={(next) => setTab(next as Tab)}>
             <TabsList className="max-w-full overflow-x-auto">
-              <TabsTrigger value="overview">{t('tabs.overview')}</TabsTrigger>
-              <TabsTrigger value="ads">{t('tabs.ads')}</TabsTrigger>
-              <TabsTrigger value="campaigns">{t('tabs.campaigns')}</TabsTrigger>
-              <TabsTrigger value="audiences">{t('tabs.audiences')}</TabsTrigger>
-              <TabsTrigger value="rules">{t('tabs.rules')}</TabsTrigger>
-              <TabsTrigger value="leads">{t('tabs.leads')}</TabsTrigger>
-              <TabsTrigger value="conversions">{t('tabs.conversions')}</TabsTrigger>
+              {TABS.map((key) => <TabsTrigger key={key} value={key}>{t(`tabs.${key}`)}</TabsTrigger>)}
             </TabsList>
             <TabsContent value="overview" className="pt-4">
               <AdsOverview range={range} adAccountId={adAccountId} />
             </TabsContent>
-            <TabsContent value="ads" className="pt-4">
-              <AdsTable canManage={isAdmin && active} canSegment={isAgent} range={range} adAccountId={adAccountId} />
-            </TabsContent>
             <TabsContent value="campaigns" className="space-y-4 pt-4">
-              <AdDrafts canManage={isAdmin && active} refreshKey={draftsKey} />
-              <CampaignsPanel canManage={isAdmin && active} adAccountId={adAccountId} />
+              <div role="radiogroup" aria-label={t('campaignView.label')} className="inline-flex gap-0.5 rounded-xl bg-muted p-[3px]" data-testid="campaign-view">
+                {(['performance', 'manage'] as const).map((key) => (
+                  <button key={key} type="button" role="radio" aria-checked={view === key} onClick={() => setView(key)}
+                    className={cn('h-8 rounded-[9px] px-3 text-xs font-medium outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-ring',
+                      view === key ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground')}>
+                    {t(`campaignView.${key}`)}
+                  </button>
+                ))}
+              </div>
+              {view === 'performance'
+                ? <AdsTable canManage={isAdmin && active} canSegment={isAgent} range={range} adAccountId={adAccountId} />
+                : (
+                  <>
+                    <AdDrafts canManage={isAdmin && active} refreshKey={draftsKey} />
+                    <CampaignsPanel canManage={isAdmin && active} adAccountId={adAccountId} />
+                  </>
+                )}
             </TabsContent>
             <TabsContent value="audiences" className="pt-4">
               <AudiencesPanel canManage={isAdmin && active && !!create?.manageEnabled} accounts={accounts} />
             </TabsContent>
-            <TabsContent value="rules" className="pt-4">
-              <RulesPanel canManage={isAdmin && active} canPause={!!create?.manageEnabled} />
-            </TabsContent>
-            <TabsContent value="leads" className="pt-4">
+            <TabsContent value="leads" className="space-y-8 pt-4">
               <LeadsTable canManage={isAdmin} />
+              <section className="space-y-3" aria-labelledby="ads-conversions-title">
+                <div>
+                  <h2 id="ads-conversions-title" className="text-sm font-semibold text-foreground">{t('conversionsTitle')}</h2>
+                  <p className="text-xs text-muted-foreground">{t('conversionsBlurb')}</p>
+                </div>
+                <ConversionsPanel canResolve={isAdmin} />
+              </section>
             </TabsContent>
-            <TabsContent value="conversions" className="pt-4">
-              <ConversionsPanel canResolve={isAdmin} />
+            <TabsContent value="automation" className="pt-4">
+              <RulesPanel canManage={isAdmin && active} canPause={!!create?.manageEnabled} />
             </TabsContent>
           </Tabs>
         </>
