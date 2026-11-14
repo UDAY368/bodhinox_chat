@@ -61,7 +61,7 @@ describe('ad image', () => {
   it('OpenAI: one square image; refusals and missing images are named errors', async () => {
     const ok = vi.fn(async () => new Response(JSON.stringify({ data: [{ b64_json: PNG }] })));
     expect(Buffer.from(await generateAdImage(config('openai'), 'x', ok as unknown as typeof fetch)).toString('base64')).toBe(PNG);
-    expect(JSON.parse(String((ok.mock.calls[0] as unknown as [string, RequestInit])[1].body))).toMatchObject({ size: '1024x1024', n: 1 });
+    expect(JSON.parse(String((ok.mock.calls[0] as unknown as [string, RequestInit])[1].body))).toMatchObject({ model: 'gpt-image-2.6-flare', size: '1024x1024', n: 1 });
     const refused = vi.fn(async () => new Response('{}', { status: 400 }));
     await expect(generateAdImage(config('openai'), 'x', refused as unknown as typeof fetch)).rejects.toMatchObject({ code: 'image_refused', status: 422 });
     const empty = vi.fn(async () => new Response(JSON.stringify({ data: [] })));
