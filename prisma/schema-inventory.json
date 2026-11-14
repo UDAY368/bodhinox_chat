@@ -9180,6 +9180,14 @@
         "default": null,
         "reference": null,
         "definition": "objects_synced_at timestamptz"
+      },
+      {
+        "name": "capi_deal_events",
+        "type": "boolean",
+        "nullable": false,
+        "default": "false",
+        "reference": null,
+        "definition": "capi_deal_events boolean NOT NULL DEFAULT false"
       }
     ],
     "ad_referrals": [
@@ -20356,6 +20364,22 @@
           "onDelete": "SET NULL"
         },
         "definition": "variant_of uuid"
+      },
+      {
+        "name": "bid_cap_minor",
+        "type": "bigint",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "bid_cap_minor bigint"
+      },
+      {
+        "name": "replaces_ad_id",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "replaces_ad_id text"
       }
     ],
     "meta_audiences": [
@@ -20538,6 +20562,22 @@
         "default": "now()",
         "reference": null,
         "definition": "updated_at timestamptz NOT NULL DEFAULT now()"
+      },
+      {
+        "name": "rule_source",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "rule_source text"
+      },
+      {
+        "name": "retention_days",
+        "type": "int",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "retention_days int"
       }
     ],
     "meta_ad_rules": [
@@ -20746,6 +20786,60 @@
         "default": null,
         "reference": null,
         "definition": "day date NOT NULL"
+      },
+      {
+        "name": "created_at",
+        "type": "timestamptz",
+        "nullable": false,
+        "default": "now()",
+        "reference": null,
+        "definition": "created_at timestamptz NOT NULL DEFAULT now()"
+      }
+    ],
+    "meta_ad_templates": [
+      {
+        "name": "id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "gen_random_uuid()",
+        "reference": null,
+        "definition": "id uuid PRIMARY KEY DEFAULT gen_random_uuid()"
+      },
+      {
+        "name": "account_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "NULLIF(current_setting('app.account_id', true),'')::uuid ",
+        "reference": {
+          "table": "accounts",
+          "column": "id",
+          "onDelete": "CASCADE"
+        },
+        "definition": "account_id uuid NOT NULL DEFAULT NULLIF(current_setting('app.account_id', true),'')::uuid"
+      },
+      {
+        "name": "name",
+        "type": "text",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "name text NOT NULL CHECK (char_length(name) BETWEEN 1 AND 100)"
+      },
+      {
+        "name": "settings",
+        "type": "jsonb",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "settings jsonb NOT NULL CHECK (jsonb_typeof(settings) = 'object' AND octet_length(settings::text) <= 16384)"
+      },
+      {
+        "name": "created_by",
+        "type": "uuid",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "created_by uuid"
       },
       {
         "name": "created_at",

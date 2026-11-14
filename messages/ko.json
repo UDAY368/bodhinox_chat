@@ -12594,6 +12594,10 @@
         "website": {
           "title": "웹사이트 방문",
           "body": "사람들이 광고를 누르면 웹사이트로 이동합니다."
+        },
+        "messenger": {
+          "title": "Messenger 채팅",
+          "body": "광고를 누르면 Messenger에서 Facebook 페이지로 메시지를 보냅니다."
         }
       },
       "adAccount": "광고 계정",
@@ -12757,7 +12761,17 @@
       },
       "moreTargeting": "추가 타겟팅",
       "moreTargetingHint": "오디언스, 지역, 관심사, 언어, 노출 위치",
-      "moreTargetingCount": "{count}개 선택"
+      "moreTargetingCount": "{count}개 선택",
+      "messengerNote": "Messenger 채팅은 Facebook 페이지 받은편지함으로 들어옵니다. Bodhinox는 아직 Messenger 대화를 표시하지 않습니다.",
+      "page": "Facebook 페이지",
+      "connectedPage": "연결됨",
+      "pageLocked": "Instagram Direct와 리드 양식 광고는 연결된 페이지에서 게재됩니다.",
+      "bidCap": "결과당 비용 한도 ({currency}), 선택",
+      "bidCapPlaceholder": "한도 없음",
+      "bidCapPlain": "결과당 비용 한도",
+      "bidCapHelp": "Meta는 평균 결과당 비용을 이 금액 이하로 유지하려고 합니다. 최저 비용으로 하려면 비워 두세요.",
+      "bidCapInvalid": "0보다 크고 일일 예산보다 크지 않은 금액을 입력하세요.",
+      "newForm": "새 양식"
     },
     "drafts": {
       "title": "Bodhinox에서 만든 광고",
@@ -12796,7 +12810,8 @@
       "duplicate": "복제",
       "duplicated": "복사본을 대기열에 넣었습니다(일시 중지).",
       "variant": "A/B 변형",
-      "variantBadge": "변형"
+      "variantBadge": "변형",
+      "edit": "수정"
     },
     "accounts": {
       "title": "광고 계정",
@@ -12875,7 +12890,37 @@
       "lookalikeName": "{name} · 유사 {percent}%",
       "autoSyncHelp": "6시간마다 동기화 유지",
       "cancel": "취소",
-      "create": "타겟 만들기"
+      "create": "타겟 만들기",
+      "source": "도달할 대상",
+      "sources": {
+        "contacts": {
+          "title": "내 연락처",
+          "body": "연락처 세그먼트를 해시해 올리고 계속 동기화합니다."
+        },
+        "page": {
+          "title": "Facebook 페이지 참여자",
+          "body": "연결된 페이지와 상호작용한 사람들입니다."
+        },
+        "instagram": {
+          "title": "Instagram 참여자",
+          "body": "페이지의 Instagram 계정과 상호작용한 사람들입니다."
+        },
+        "pixel": {
+          "title": "웹사이트 방문자",
+          "body": "Meta 픽셀이 웹사이트에서 확인한 사람들입니다."
+        }
+      },
+      "pixel": "Meta 픽셀 ID",
+      "pixelHelp": "이벤트 관리자의 데이터 소스에서 확인하세요.",
+      "retention": "최근 기간의 사람 포함",
+      "days": "{days}일",
+      "ruleOf": {
+        "page": "Facebook 페이지 참여자 · {days}일",
+        "instagram": "Instagram 참여자 · {days}일",
+        "pixel": "웹사이트 방문자 · {days}일"
+      },
+      "newRuleTitle": "새 오디언스",
+      "newRuleDescription": "Meta가 이 오디언스를 직접 최신 상태로 유지합니다. Bodhinox에서 올리는 정보는 없습니다."
     },
     "variant": {
       "title": "새 A/B 변형",
@@ -12891,7 +12936,10 @@
       "created": "변형을 대기열에 넣었습니다.",
       "failed": "실패했습니다. 다시 시도하세요.",
       "cancel": "취소",
-      "create": "변형 만들기"
+      "create": "변형 만들기",
+      "editTitle": "광고 수정",
+      "editDescription": "“{name}”의 새 버전을 새 문구나 이미지로 만듭니다. 새 광고가 게재되면 현재 광고는 일시중지됩니다(Meta는 게재 중인 광고를 그대로 바꾸지 않습니다).",
+      "editCreate": "새 버전 만들기"
     },
     "rules": {
       "title": "자동 규칙",
@@ -13060,6 +13108,54 @@
         "chats": "이 광고에서 Bodhinox로 시작된 채팅입니다.",
         "replied": "팀이나 봇이 답한 채팅입니다.",
         "deals": "광고 클릭 후 이 연락처들에 열린 거래입니다."
+      }
+    },
+    "setups": {
+      "startFrom": "저장한 설정으로 시작",
+      "choose": "선택…",
+      "applied": "설정을 채웠습니다. 이미지를 추가하고 나머지를 확인하세요.",
+      "name": "설정 이름",
+      "namePlaceholder": "이 설정을 다음 이름으로 저장…",
+      "save": "설정 저장",
+      "saved": "설정을 저장했습니다.",
+      "errors": {
+        "name_taken": "같은 이름의 설정이 이미 있습니다.",
+        "limit_reached": "저장한 설정이 50개입니다. 먼저 하나를 삭제하세요.",
+        "generic": "설정을 저장하지 못했습니다."
+      }
+    },
+    "leadForm": {
+      "title": "새 리드 양식",
+      "description": "페이지의 인스턴트 양식입니다. Facebook이나 Instagram을 벗어나지 않고 작성합니다.",
+      "name": "양식 이름",
+      "namePlaceholder": "할인 행사 양식",
+      "questions": "질문",
+      "needContact": "전화번호나 이메일을 물어보세요.",
+      "types": {
+        "FULL_NAME": "이름",
+        "PHONE": "전화번호",
+        "EMAIL": "이메일",
+        "CITY": "도시",
+        "COMPANY_NAME": "회사",
+        "JOB_TITLE": "직책"
+      },
+      "custom": "직접 만든 질문",
+      "customLabel": "질문 {n}",
+      "customPlaceholder": "어떤 상품에 관심이 있나요?",
+      "removeQuestion": "질문 삭제",
+      "addQuestion": "질문 추가",
+      "privacyUrl": "개인정보처리방침 링크",
+      "privacyHelp": "Meta는 개인정보처리방침 링크를 요구합니다.",
+      "thankYou": "감사 메시지",
+      "thankYouPlaceholder": "곧 연락드리겠습니다.",
+      "cancel": "취소",
+      "create": "양식 만들기",
+      "created": "양식을 만들었습니다.",
+      "errors": {
+        "name_taken": "페이지에 같은 이름의 양식이 이미 있습니다.",
+        "missing_scope": "Meta를 다시 연결하고 페이지 광고 관리를 허용하세요.",
+        "token_invalid": "Meta 로그인이 만료되었습니다. 설정 > 광고에서 다시 연결하세요.",
+        "generic": "Meta가 양식을 만들지 않았습니다. 다시 시도하세요."
       }
     }
   },

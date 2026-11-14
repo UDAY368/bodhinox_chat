@@ -16,13 +16,15 @@ import { Textarea } from '@/components/ui/textarea';
 import { authFetch } from '@/lib/auth/client';
 import type { AdDraftDto } from '@/lib/meta-ads/create';
 
-export function AdVariantDialog({ source, onClose, onCreated }: {
+export function AdVariantDialog({ source, onClose, onCreated, replace = false }: {
   source: AdDraftDto;
+  /** An edit of the running ad: the new version replaces it (the old one is paused once the new one exists). */
+  replace?: boolean;
   onClose: () => void;
   onCreated: (draft: AdDraftDto) => void;
 }) {
   const t = useTranslations('Ads.variant');
-  const [name, setName] = useState(`${source.name} · B`.slice(0, 200));
+  const [name, setName] = useState(`${source.name} · ${replace ? 'v2' : 'B'}`.slice(0, 200));
   const [primaryText, setPrimaryText] = useState('');
   const [headline, setHeadline] = useState('');
   const [image, setImage] = useState<{ hash: string; url: string | null; preview: string } | null>(null);
@@ -56,7 +58,7 @@ export function AdVariantDialog({ source, onClose, onCreated }: {
         method: 'POST', headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
           action: 'variant', sourceId: source.id, name: name.trim() || null, primaryText: primaryText.trim(),
-          headline: headline.trim() || null, imageHash: image.hash, imageUrl: image.url,
+          headline: headline.trim() || null, imageHash: image.hash, imageUrl: image.url, replace,
         }),
       });
       if (!res.ok) throw new Error();
@@ -73,8 +75,8 @@ export function AdVariantDialog({ source, onClose, onCreated }: {
     <Dialog open onOpenChange={(next) => { if (!next && !busy) onClose(); }}>
       <DialogContent className="sm:max-w-xl" data-testid="ad-variant-dialog">
         <DialogHeader>
-          <DialogTitle>{t('title')}</DialogTitle>
-          <DialogDescription>{t('description', { name: source.name })}</DialogDescription>
+          <DialogTitle>{t(replace ? 'editTitle' : 'title')}</DialogTitle>
+          <DialogDescription>{t(replace ? 'editDescription' : 'description', { name: source.name })}</DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 sm:grid-cols-[1fr_10rem]">
           <div className="space-y-3">
@@ -110,7 +112,7 @@ export function AdVariantDialog({ source, onClose, onCreated }: {
         <DialogFooter>
           <Button type="button" variant="outline" onClick={onClose} disabled={busy}>{t('cancel')}</Button>
           <Button type="button" onClick={() => void submit()} disabled={busy || uploading || !image || !primaryText.trim()}>
-            {busy && <Loader2 className="size-4 animate-spin" />} {t('create')}
+            {busy && <Loader2 className="size-4 animate-spin" />} {t(replace ? 'editCreate' : 'create')}
           </Button>
         </DialogFooter>
       </DialogContent>

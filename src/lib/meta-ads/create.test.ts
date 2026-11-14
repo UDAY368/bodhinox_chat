@@ -16,7 +16,7 @@ describe('parseAdCreateInput', () => {
       countries: ['IN', 'AE'], ageMin: 18, ageMax: 65, genders: [], primaryText: 'Chat with us', headline: null, description: null,
       linkUrl: null, leadFormId: null, ctaType: 'WHATSAPP_MESSAGE', imageHash: base.imageHash, imageUrl: null, whatsappNumber: null,
       welcomeMessage: null, publish: true, audienceIds: [], excludedAudienceIds: [],
-      format: 'image', videoId: null, cards: null, placements: [], interests: [], places: [], locales: [],
+      format: 'image', videoId: null, cards: null, placements: [], interests: [], places: [], locales: [], bidCapMinor: null, pageId: null,
     });
   });
 
@@ -29,7 +29,7 @@ describe('parseAdCreateInput', () => {
   it('refuses bad budgets, audiences and accounts', () => {
     for (const bad of [
       { dailyBudgetMinor: 0 }, { dailyBudgetMinor: 1.5 }, { dailyBudgetMinor: '500' }, { countries: [] }, { countries: ['IND'] },
-      { ageMin: 17 }, { ageMax: 70 }, { ageMin: 40, ageMax: 30 }, { genders: [3] }, { adAccountId: 'act_555' }, { kind: 'messenger' },
+      { ageMin: 17 }, { ageMax: 70 }, { ageMin: 40, ageMax: 30 }, { genders: [3] }, { adAccountId: 'act_555' }, { kind: 'tiktok' },
       { name: '' }, { primaryText: 'x'.repeat(2001) }, { imageHash: 'not-a-hash' }, { imageUrl: 'http://insecure.example/a.jpg' },
       { audienceIds: ['nope'] }, { audienceIds: Array.from({ length: 11 }, () => '33333333-3333-4333-8333-333333333333') },
       { audienceIds: ['33333333-3333-4333-8333-333333333333'], excludedAudienceIds: ['33333333-3333-4333-8333-333333333333'] },

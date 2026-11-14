@@ -12594,6 +12594,10 @@
         "website": {
           "title": "Visitas al sitio web",
           "body": "Las personas tocan el anuncio y van a tu sitio web."
+        },
+        "messenger": {
+          "title": "Chats de Messenger",
+          "body": "Las personas tocan el anuncio para escribir a tu página en Messenger."
         }
       },
       "adAccount": "Cuenta publicitaria",
@@ -12757,7 +12761,17 @@
       },
       "moreTargeting": "Más segmentación",
       "moreTargetingHint": "Públicos, lugares, intereses, idiomas, ubicaciones",
-      "moreTargetingCount": "{count, plural, one {# opción} other {# opciones}}"
+      "moreTargetingCount": "{count, plural, one {# opción} other {# opciones}}",
+      "messengerNote": "Los chats de Messenger llegan a la bandeja de tu página de Facebook. Bodhinox aún no muestra conversaciones de Messenger.",
+      "page": "Página de Facebook",
+      "connectedPage": "conectada",
+      "pageLocked": "Los anuncios de Instagram Direct y de formularios se publican desde la página conectada.",
+      "bidCap": "Límite de costo por resultado ({currency}), opcional",
+      "bidCapPlaceholder": "Sin límite",
+      "bidCapPlain": "Límite de costo por resultado",
+      "bidCapHelp": "Meta intenta que el costo medio por resultado no supere esto. Déjalo vacío para el menor costo.",
+      "bidCapInvalid": "Ingresa un monto mayor que cero y no mayor que el presupuesto diario.",
+      "newForm": "Nuevo formulario"
     },
     "drafts": {
       "title": "Anuncios creados en Bodhinox",
@@ -12796,7 +12810,8 @@
       "duplicate": "Duplicar",
       "duplicated": "Copia en cola (en pausa).",
       "variant": "Variante A/B",
-      "variantBadge": "Variante"
+      "variantBadge": "Variante",
+      "edit": "Editar"
     },
     "accounts": {
       "title": "Cuentas publicitarias",
@@ -12875,7 +12890,37 @@
       "lookalikeName": "{name} · similar {percent}%",
       "autoSyncHelp": "Mantenerla sincronizada cada 6 horas",
       "cancel": "Cancelar",
-      "create": "Crear audiencia"
+      "create": "Crear audiencia",
+      "source": "A quién llegar",
+      "sources": {
+        "contacts": {
+          "title": "Tus contactos",
+          "body": "Un segmento de contactos, subido cifrado y sincronizado."
+        },
+        "page": {
+          "title": "Interacción con tu página",
+          "body": "Personas que interactuaron con tu página conectada."
+        },
+        "instagram": {
+          "title": "Interacción en Instagram",
+          "body": "Personas que interactuaron con la cuenta de Instagram de la página."
+        },
+        "pixel": {
+          "title": "Visitantes del sitio web",
+          "body": "Personas que tu píxel de Meta vio en tu sitio."
+        }
+      },
+      "pixel": "ID del píxel de Meta",
+      "pixelHelp": "En el Administrador de eventos, en Orígenes de datos.",
+      "retention": "Incluir personas de los últimos",
+      "days": "{days} días",
+      "ruleOf": {
+        "page": "Interacción con la página · {days} días",
+        "instagram": "Interacción en Instagram · {days} días",
+        "pixel": "Visitantes del sitio · {days} días"
+      },
+      "newRuleTitle": "Nuevo público",
+      "newRuleDescription": "Meta mantiene este público actualizado. No se sube nada desde Bodhinox."
     },
     "variant": {
       "title": "Nueva variante A/B",
@@ -12891,7 +12936,10 @@
       "created": "Variante en cola.",
       "failed": "No funcionó. Inténtalo de nuevo.",
       "cancel": "Cancelar",
-      "create": "Crear variante"
+      "create": "Crear variante",
+      "editTitle": "Editar anuncio",
+      "editDescription": "Una nueva versión de “{name}” con otro texto o imagen. El anuncio actual se pausa cuando el nuevo está activo (Meta no cambia un anuncio activo en el sitio).",
+      "editCreate": "Crear nueva versión"
     },
     "rules": {
       "title": "Reglas automáticas",
@@ -13060,6 +13108,54 @@
         "chats": "Chats que empezaron desde este anuncio en Bodhinox.",
         "replied": "Chats que tu equipo o un bot respondió.",
         "deals": "Negocios abiertos para estos contactos después del clic."
+      }
+    },
+    "setups": {
+      "startFrom": "Empezar con una configuración guardada",
+      "choose": "Elegir…",
+      "applied": "Configuración aplicada. Agrega la imagen y revisa el resto.",
+      "name": "Nombre de la configuración",
+      "namePlaceholder": "Guardar esta configuración como…",
+      "save": "Guardar configuración",
+      "saved": "Configuración guardada.",
+      "errors": {
+        "name_taken": "Ya existe una configuración con ese nombre.",
+        "limit_reached": "Tienes 50 configuraciones. Borra una primero.",
+        "generic": "No se pudo guardar la configuración."
+      }
+    },
+    "leadForm": {
+      "title": "Nuevo formulario de leads",
+      "description": "Un formulario instantáneo en tu página. Las personas lo llenan sin salir de Facebook o Instagram.",
+      "name": "Nombre del formulario",
+      "namePlaceholder": "Formulario de oferta",
+      "questions": "Preguntas",
+      "needContact": "Pide un teléfono o un correo.",
+      "types": {
+        "FULL_NAME": "Nombre completo",
+        "PHONE": "Teléfono",
+        "EMAIL": "Correo",
+        "CITY": "Ciudad",
+        "COMPANY_NAME": "Empresa",
+        "JOB_TITLE": "Cargo"
+      },
+      "custom": "Tus propias preguntas",
+      "customLabel": "Pregunta {n}",
+      "customPlaceholder": "¿Qué producto te interesa?",
+      "removeQuestion": "Quitar pregunta",
+      "addQuestion": "Agregar pregunta",
+      "privacyUrl": "Enlace a la política de privacidad",
+      "privacyHelp": "Meta exige un enlace a tu política de privacidad.",
+      "thankYou": "Mensaje de agradecimiento",
+      "thankYouPlaceholder": "Te contactaremos pronto.",
+      "cancel": "Cancelar",
+      "create": "Crear formulario",
+      "created": "Formulario creado.",
+      "errors": {
+        "name_taken": "Tu página ya tiene un formulario con ese nombre.",
+        "missing_scope": "Vuelve a conectar Meta y permite gestionar los anuncios de la página.",
+        "token_invalid": "El inicio de sesión de Meta caducó. Vuelve a conectar en Configuración > Anuncios.",
+        "generic": "Meta no creó el formulario. Inténtalo de nuevo."
       }
     }
   },

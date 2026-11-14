@@ -12594,6 +12594,10 @@
         "website": {
           "title": "Website visits",
           "body": "People tap the ad and go to your website."
+        },
+        "messenger": {
+          "title": "Messenger chats",
+          "body": "People tap the ad to message your Facebook Page on Messenger."
         }
       },
       "adAccount": "Ad account",
@@ -12757,7 +12761,17 @@
       },
       "moreTargeting": "More targeting",
       "moreTargetingHint": "Audiences, places, interests, languages, placements",
-      "moreTargetingCount": "{count, plural, one {# choice} other {# choices}}"
+      "moreTargetingCount": "{count, plural, one {# choice} other {# choices}}",
+      "messengerNote": "Messenger chats arrive in your Facebook Page inbox. Bodhinox does not show Messenger conversations yet.",
+      "page": "Facebook Page",
+      "connectedPage": "connected",
+      "pageLocked": "Instagram Direct and lead form ads run from the connected Page.",
+      "bidCap": "Cost cap per result ({currency}), optional",
+      "bidCapPlaceholder": "No cap",
+      "bidCapPlain": "Cost cap per result",
+      "bidCapHelp": "Meta tries to keep the average cost per result at or under this. Leave empty for the lowest cost.",
+      "bidCapInvalid": "Enter an amount above zero and no higher than the daily budget.",
+      "newForm": "New form"
     },
     "drafts": {
       "title": "Ads created in Bodhinox",
@@ -12796,7 +12810,8 @@
       "duplicate": "Duplicate",
       "duplicated": "Copy queued (paused).",
       "variant": "A/B variant",
-      "variantBadge": "Variant"
+      "variantBadge": "Variant",
+      "edit": "Edit"
     },
     "accounts": {
       "title": "Ad accounts",
@@ -12875,7 +12890,37 @@
       "lookalikeName": "{name} · lookalike {percent}%",
       "autoSyncHelp": "Keep it in sync every 6 hours",
       "cancel": "Cancel",
-      "create": "Create audience"
+      "create": "Create audience",
+      "source": "Who to reach",
+      "sources": {
+        "contacts": {
+          "title": "Your contacts",
+          "body": "A contact segment, uploaded hashed and kept in sync."
+        },
+        "page": {
+          "title": "Facebook Page engagers",
+          "body": "People who engaged with your connected Page."
+        },
+        "instagram": {
+          "title": "Instagram engagers",
+          "body": "People who engaged with the Page's Instagram account."
+        },
+        "pixel": {
+          "title": "Website visitors",
+          "body": "People your Meta pixel saw on your website."
+        }
+      },
+      "pixel": "Meta pixel ID",
+      "pixelHelp": "In Events Manager, under Data sources.",
+      "retention": "Include people from the last",
+      "days": "{days} days",
+      "ruleOf": {
+        "page": "Facebook Page engagers · {days} days",
+        "instagram": "Instagram engagers · {days} days",
+        "pixel": "Website visitors · {days} days"
+      },
+      "newRuleTitle": "New audience",
+      "newRuleDescription": "Meta keeps this audience up to date itself. Nothing is uploaded from Bodhinox."
     },
     "variant": {
       "title": "New A/B variant",
@@ -12891,7 +12936,10 @@
       "created": "Variant queued.",
       "failed": "That did not work. Try again.",
       "cancel": "Cancel",
-      "create": "Create variant"
+      "create": "Create variant",
+      "editTitle": "Edit ad",
+      "editDescription": "A new version of “{name}” with new text or image. The current ad is paused once the new one is live (Meta does not change a running ad in place).",
+      "editCreate": "Make new version"
     },
     "rules": {
       "title": "Automated rules",
@@ -13060,6 +13108,54 @@
         "chats": "Chats that started from this ad in Bodhinox.",
         "replied": "Chats your team or a bot answered.",
         "deals": "Deals opened for these contacts after they clicked the ad."
+      }
+    },
+    "setups": {
+      "startFrom": "Start from a saved setup",
+      "choose": "Choose…",
+      "applied": "Setup filled in. Add the image and check the rest.",
+      "name": "Setup name",
+      "namePlaceholder": "Save this setup as…",
+      "save": "Save setup",
+      "saved": "Setup saved.",
+      "errors": {
+        "name_taken": "A setup with that name already exists.",
+        "limit_reached": "You have 50 saved setups. Delete one first.",
+        "generic": "Could not save the setup."
+      }
+    },
+    "leadForm": {
+      "title": "New lead form",
+      "description": "An instant form on your Facebook Page. People fill it in without leaving Facebook or Instagram.",
+      "name": "Form name",
+      "namePlaceholder": "Diwali offer form",
+      "questions": "Questions",
+      "needContact": "Ask for a phone number or an email.",
+      "types": {
+        "FULL_NAME": "Full name",
+        "PHONE": "Phone",
+        "EMAIL": "Email",
+        "CITY": "City",
+        "COMPANY_NAME": "Company",
+        "JOB_TITLE": "Job title"
+      },
+      "custom": "Your own questions",
+      "customLabel": "Question {n}",
+      "customPlaceholder": "Which product are you interested in?",
+      "removeQuestion": "Remove question",
+      "addQuestion": "Add a question",
+      "privacyUrl": "Privacy policy link",
+      "privacyHelp": "Meta requires a link to your privacy policy.",
+      "thankYou": "Thank-you message",
+      "thankYouPlaceholder": "We will contact you soon.",
+      "cancel": "Cancel",
+      "create": "Create form",
+      "created": "Form created.",
+      "errors": {
+        "name_taken": "Your Page already has a form with that name.",
+        "missing_scope": "Reconnect Meta and allow managing the Page's ads.",
+        "token_invalid": "The Meta login has expired. Reconnect in Settings > Ads.",
+        "generic": "Meta did not create the form. Try again."
       }
     }
   },

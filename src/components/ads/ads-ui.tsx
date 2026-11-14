@@ -82,7 +82,7 @@ export function EmptyState({ icon: Icon, title, body, action }: { icon: LucideIc
 /** A table header with a plain-word explanation on hover and focus. */
 export function MetricHeader({ label, help }: { label: string; help: string }) {
   return (
-    <span title={help} tabIndex={0} className="cursor-help underline decoration-dotted decoration-muted-foreground/60 underline-offset-4 outline-none focus-visible:ring-2 focus-visible:ring-ring">
+    <span title={help} tabIndex={0} className="cursor-help whitespace-nowrap underline decoration-dotted decoration-muted-foreground/60 underline-offset-4 outline-none focus-visible:ring-2 focus-visible:ring-ring">
       {label}
     </span>
   );
