@@ -41,10 +41,10 @@ export function TargetingPicker({ id, label, help, type, chosen, max, onAdd, onR
 
   useEffect(() => {
     const q = query.trim();
-    if (q.length < 2) { setResults(null); setLoading(false); return; }
+    if (q.length < 2) return;
     const ticket = ++latest.current;
-    setLoading(true);
     const timer = setTimeout(() => {
+      setLoading(true);
       authFetch(`/api/meta-ads/targeting?type=${type}&q=${encodeURIComponent(q)}`, { cache: 'no-store' })
         .then(async (res) => {
           if (!res.ok) throw new Error();
@@ -75,7 +75,12 @@ export function TargetingPicker({ id, label, help, type, chosen, max, onAdd, onR
       )}
       <div className="relative">
         <Input id={id} value={query} disabled={full} maxLength={100} autoComplete="off"
-          placeholder={full ? t('full', { max }) : t(`placeholder.${type}`)} onChange={(e) => setQuery(e.target.value)} />
+          placeholder={full ? t('full', { max }) : t(`placeholder.${type}`)}
+          onChange={(e) => {
+            setQuery(e.target.value);
+            // Too short to search: drop the results, and any answer still on its way.
+            if (e.target.value.trim().length < 2) { latest.current++; setResults(null); setLoading(false); }
+          }} />
         {loading && <Loader2 className="absolute right-2.5 top-2.5 size-4 animate-spin text-muted-foreground" />}
       </div>
       {results && (
