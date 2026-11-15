@@ -18,6 +18,7 @@ import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
@@ -31,6 +32,7 @@ import { useCan } from "@/hooks/use-can";
 import { CategoriesPanel } from "./categories-panel";
 import { InventoryPanel } from "./inventory-panel";
 import { MetaLinkPanel } from "./meta-link-panel";
+import { NewArrivalsDialog } from "./new-arrivals-dialog";
 import { priceRange } from "./catalogue-format";
 import {
   archiveShopProduct, createShopProduct, duplicateShopProduct, fetchCategories, fetchShopProducts, publishShopProduct, unpublishShopProduct,
@@ -120,6 +122,14 @@ function ProductsTab({ canManage, onOpenCategories }: { canManage: boolean; onOp
   const [busy, setBusy] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
   const [view, setView] = useState<"grid" | "table">("grid");
+  // Products chosen for "send as new arrivals" (published only; the order is the card order).
+  const [picked, setPicked] = useState<string[]>([]);
+  const [arrivalsOpen, setArrivalsOpen] = useState(false);
+  const tNa = useTranslations("Commerce.catalogue.newArrivals");
+  const toggle = (id: string, on: boolean) => setPicked((ids) => (on ? [...ids.filter((x) => x !== id), id].slice(0, 10) : ids.filter((x) => x !== id)));
+  const pickBox = (p: ShopProductSummary) => canManage && p.status === "published" ? (
+    <Checkbox checked={picked.includes(p.id)} aria-label={tNa("select", { name: p.name })} onCheckedChange={(on) => toggle(p.id, !!on)} />
+  ) : null;
 
   useEffect(() => {
     try {
@@ -263,6 +273,16 @@ function ProductsTab({ canManage, onOpenCategories }: { canManage: boolean; onOp
         </div>
       </div>
 
+      {picked.length > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-primary/30 bg-primary/5 px-3 py-2 text-sm">
+          <span>{tNa("selected", { count: picked.length })}</span>
+          <span className="flex gap-2">
+            <Button size="sm" variant="ghost" onClick={() => setPicked([])}>{tNa("clear")}</Button>
+            <Button size="sm" onClick={() => setArrivalsOpen(true)}>{tNa("action")}</Button>
+          </span>
+        </div>
+      )}
+
       {page === null ? (
         <div className="flex justify-center p-6"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" aria-label={t("loading")} /></div>
       ) : page.products.length === 0 ? (
@@ -290,7 +310,7 @@ function ProductsTab({ canManage, onOpenCategories }: { canManage: boolean; onOp
                   <div className="flex flex-1 flex-col gap-1.5 p-3">
                     <div className="flex items-start justify-between gap-1">
                       <Link href={`/commerce/catalogue/${p.id}`} className="min-w-0 font-semibold break-words text-foreground hover:underline">{p.name}</Link>
-                      {menu(p)}
+                      <span className="flex shrink-0 items-center gap-1.5">{pickBox(p)}{menu(p)}</span>
                     </div>
                     <span className="truncate text-xs text-muted-foreground">
                       {[p.category_name, t("variants", { count: p.variant_count })].filter(Boolean).join(" · ")}
@@ -314,6 +334,7 @@ function ProductsTab({ canManage, onOpenCategories }: { canManage: boolean; onOp
               <Table className="[&_td]:px-3.5 [&_td]:py-2.5">
                 <TableHeader className="bg-muted [&_th]:h-9 [&_th]:px-3.5 [&_th]:text-xs [&_th]:font-semibold [&_th]:text-muted-foreground">
                   <TableRow>
+                    <TableHead className="w-px"><span className="sr-only">{tNa("selectColumn")}</span></TableHead>
                     <TableHead>{t("colProduct")}</TableHead>
                     <TableHead>{t("colStatus")}</TableHead>
                     <TableHead className="text-right">{t("colPrice")}</TableHead>
@@ -325,6 +346,7 @@ function ProductsTab({ canManage, onOpenCategories }: { canManage: boolean; onOp
                 <TableBody>
                   {page.products.map((p) => (
                     <TableRow key={p.id}>
+                      <TableCell className="w-px">{pickBox(p)}</TableCell>
                       <TableCell className="max-w-[20rem]">
                         <Link href={`/commerce/catalogue/${p.id}`} className="flex items-center gap-3 hover:underline">
                           {p.image_url ? (
@@ -365,6 +387,8 @@ function ProductsTab({ canManage, onOpenCategories }: { canManage: boolean; onOp
           </div>
         </>
       )}
+
+      <NewArrivalsDialog open={arrivalsOpen} onOpenChange={setArrivalsOpen} productIds={picked} onDone={() => setPicked([])} />
 
       <Dialog open={newOpen} onOpenChange={setNewOpen}>
         <DialogContent className="sm:max-w-sm">

@@ -20,8 +20,8 @@ describe('parseNoticeTemplateInput', () => {
       expect(() => parseNoticeTemplateInput(body)).toThrow(expect.objectContaining({ code: 'invalid' }));
     }
   });
-  it('knows the four notice kinds only', () => {
-    expect(['dispatched', 'delivered', 'feedback', 'repeat_purchase'].every(isNoticeTemplateKind)).toBe(true);
+  it('knows the six notice kinds only', () => {
+    expect(['dispatched', 'delivered', 'feedback', 'repeat_purchase', 'abandoned_cart', 'cod_confirm', 'back_in_stock', 'review_request'].every(isNoticeTemplateKind)).toBe(true);
     expect(isNoticeTemplateKind('product_follow_up')).toBe(false);
   });
 });

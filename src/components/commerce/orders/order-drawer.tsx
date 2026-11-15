@@ -28,7 +28,7 @@ import { OfflinePaymentDialog } from "@/components/commerce/payments/offline-pay
 import { formatMoney } from "@/lib/commerce/money";
 import { canRecordPayment } from "./order-detail";
 import {
-  deliverOrder, dispatchOrder, getOrder, getOrderTimeline, updateOrder, type ApiResult, type OrderDetail, type OrderTimeline,
+  deliverOrder, discountRows, dispatchOrder, getOrder, getOrderTimeline, updateOrder, type ApiResult, type OrderDetail, type OrderTimeline,
 } from "./order-api";
 import { sendOrderPaymentLink, sendOrderUpdate } from "./order-actions";
 import { OrderFulfilmentPanel } from "./order-fulfilment-panel";
@@ -203,7 +203,7 @@ export function OrderDrawer({ orderId, intent, onClose, onChanged }: {
   const units = order ? order.items.reduce((n, i) => n + i.quantity, 0) : 0;
   const lines: Array<[string, number]> = order && order.priced_at ? [
     [tLife("subtotal"), order.subtotal_minor],
-    ...(order.discount_minor ? [[order.coupon_code ? tLife("discountCode", { code: order.coupon_code }) : tLife("discount"), -order.discount_minor] as [string, number]] : []),
+    ...discountRows(order, tLife),
     [tLife("shipping"), order.shipping_minor],
     ...(order.cod_fee_minor ? [[tLife("codFee"), order.cod_fee_minor] as [string, number]] : []),
     [order.tax_inclusive ? tLife("taxIncluded") : tLife("tax"), order.tax_minor],

@@ -138,3 +138,10 @@ export async function adjustInventory(variantId: string, body: { kind: AdjustKin
   return result(await send(`/api/commerce/inventory/${encodeURIComponent(variantId)}/adjust`, "POST", body),
     (j) => j.level as { variantId: string; onHand: number; reserved: number });
 }
+
+/** Start a "new arrivals" carousel campaign from the chosen products (POST /api/commerce/new-arrivals). */
+export async function sendNewArrivals(body: {
+  name: string; templateId: string; productIds: string[]; audience: Record<string, unknown>; bodyValues?: string[];
+}): Promise<ApiResult<{ id: string }>> {
+  return result(await send("/api/commerce/new-arrivals", "POST", body), (j) => ({ id: String(j.id) }));
+}

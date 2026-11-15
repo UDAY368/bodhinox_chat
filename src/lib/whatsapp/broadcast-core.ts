@@ -45,7 +45,7 @@ import { resolveTemplateRow } from '@/lib/whatsapp/template-body';
 import { buildSendComponents } from '@/lib/whatsapp/template-send-builder';
 import { templateKindOf } from '@/lib/whatsapp/template-validators';
 import {
-  splitFrozenParams,
+  mergeCampaignCards, splitFrozenParams,
   templateSendRefusal,
   type CampaignSendExtras,
 } from '@/lib/whatsapp/template-send-params';
@@ -435,9 +435,11 @@ export async function deliverBroadcast(
         // Carousels freeze each card's values after the top body values;
         // cut them apart and sign every card's media like the header's.
         const frozen = carousel ? splitFrozenParams(plan.templateRow!, recipient.params) : null;
+        // The campaign's fixed card values (new-arrivals image and link per card) join each recipient's body values.
+        const merged = frozen ? mergeCampaignCards(frozen.cards, extras.cards) : undefined;
         const cards = frozen && options
-          ? (await resolveTemplateMediaParams(options.accountId, plan.templateRow, { cards: frozen.cards }))?.cards
-          : frozen?.cards;
+          ? (await resolveTemplateMediaParams(options.accountId, plan.templateRow, { cards: merged }))?.cards
+          : merged;
         if (!flowTokensReady && options) {
           flowTokens = await templateFlowTokens({ accountId: options.accountId, buttons: plan.templateRow?.buttons,
             contactId: recipient.contactId ?? null, conversationId: null,
@@ -455,6 +457,8 @@ export async function deliverBroadcast(
           ...((options && (headerMediaUrl || (tracked >= 0 && recipient.clickToken))) || cards || flowTokens || Object.keys(extras).length
             ? { messageParams: {
                 ...extras,
+                // Card extras are merged into `cards` above, never sent as such.
+                cards: undefined,
                 ...(cards ? { cards } : {}),
                 ...(flowTokens ? { flowTokens } : {}),
                 ...(options && headerMediaUrl && !carousel ? { headerMediaUrl: await providerMediaUrl(options.accountId, headerMediaUrl) } : {}),

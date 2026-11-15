@@ -47,6 +47,8 @@ vi.mock('@/lib/inbox/inbox-settings', () => ({
     away_message_enabled: true, away_message: 'Back at 9' }),
 }));
 vi.mock('@/lib/whatsapp/bot-pause', () => ({ botRepliesPaused: async () => false }));
+// Review replies read the database; not under test here.
+vi.mock('@/lib/commerce/review-jobs', () => ({ handleReviewRating: async () => ({ handled: false }), handleReviewText: async () => ({ handled: false }) }));
 vi.mock('@/lib/jobs/dispatch', () => ({ dispatchOnce: h.dispatch }));
 vi.mock('@/lib/flows/meta-send', () => ({ engineSendText: h.send }));
 vi.mock('@/lib/automations/meta-send', () => ({ engineSendText: h.send, engineSendTemplate: h.send }));

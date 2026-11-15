@@ -383,6 +383,9 @@ export function Storefront({ token }: { token: string }) {
                           : t('payCod')}
                       </label>
                       {codOffered && !codPossible && !cod && <p className="text-xs text-muted-foreground">{t('codNotForCart')}</p>}
+                      {cod && onlineAvailable && quote && quote.prepaidSavingMinor > 0 && (
+                        <p className="text-sm font-medium text-primary">{t('payOnlineSave', { amount: money(quote.prepaidSavingMinor, quote.currency, locale) })}</p>
+                      )}
                     </fieldset>
                   )}
                   {quoteError && <p className="text-sm text-destructive" role="alert">{t(`errors.${(quoteError in ERROR_SET ? quoteError : 'error') as ShopErrorCode}`)}</p>}
@@ -424,6 +427,8 @@ const AUTOCOMPLETE: Record<string, string> = {
 function QuoteTotals({ quote, locale }: { quote: Quote; locale: string }) {
   const t = useTranslations('Storefront');
   const c = quote.currency;
+  // discountMinor is automatic discounts plus the coupon; each is shown on its own line.
+  const couponMinor = quote.discountMinor - quote.autoDiscountMinor;
   const row = (label: string, value: string, strong = false) => (
     <div className={`flex justify-between ${strong ? 'text-base font-semibold' : 'text-muted-foreground'}`}><span>{label}</span><span className="tabular-nums">{value}</span></div>
   );
@@ -432,7 +437,10 @@ function QuoteTotals({ quote, locale }: { quote: Quote; locale: string }) {
       {quote.lines.map((l) => <div key={l.variantId}>{row(`${l.productName} × ${l.qty}`, money(l.grossMinor, c, locale))}</div>)}
       <div className="border-t pt-1" />
       {row(t('subtotal'), money(quote.subtotalMinor, c, locale))}
-      {quote.discountMinor > 0 && row(t('discountWithCode', { code: quote.couponCode ?? '' }), `−${money(quote.discountMinor, c, locale)}`)}
+      {quote.autoDiscounts.map((d) => (
+        <div key={d.id}>{row(d.name, d.kind === 'free_shipping_over' ? t('freeShipping') : `−${money(d.savingMinor, c, locale)}`)}</div>
+      ))}
+      {couponMinor > 0 && row(t('discountWithCode', { code: quote.couponCode ?? '' }), `−${money(couponMinor, c, locale)}`)}
       {quote.shipping && row(t('shippingWith', { name: quote.shipping.name }), money(quote.shippingMinor, c, locale))}
       {quote.codFee && quote.codFeeMinor > 0 && row(t('codFee'), money(quote.codFeeMinor, c, locale))}
       {row(quote.taxInclusive ? t('taxIncluded') : t('tax'), money(quote.taxMinor, c, locale))}

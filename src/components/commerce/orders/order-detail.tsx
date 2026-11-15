@@ -17,11 +17,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { formatMoney } from "@/lib/commerce/money";
 import { nextStatuses, ORDER_LIMITS, type OrderStatus } from "@/lib/commerce/order-format";
 import {
-  getOrder, getOrderTimeline, listOrderReturns, updateOrder, type OrderDetail, type OrderReturn, type OrderTimeline,
+  discountRows, getOrder, getOrderTimeline, listOrderReturns, updateOrder, type OrderDetail, type OrderReturn, type OrderTimeline,
 } from "./order-api";
 import { OrderFulfilmentPanel } from "./order-fulfilment-panel";
 import { OrderReturnsPanel } from "./order-returns-panel";
+import { COD_CONFIRM_TONE } from "./order-state";
 import { OrderStatusBadge } from "./order-status-badge";
+import { StateBadge } from "./state-badge";
 import { OrderTimelinePanel } from "./order-timeline";
 
 /** A cash-on-delivery order whose cash is not recorded yet. */
@@ -154,7 +156,7 @@ export function OrderDetailView({ id }: { id: string }) {
   const address = order.shipping_address;
   const breakdown: Array<[string, number]> = priced ? [
     [tLife("subtotal"), order.subtotal_minor],
-    ...(order.discount_minor ? [[order.coupon_code ? tLife("discountCode", { code: order.coupon_code }) : tLife("discount"), -order.discount_minor] as [string, number]] : []),
+    ...discountRows(order, tLife),
     ...(order.shipping_minor ? [[tLife("shipping"), order.shipping_minor] as [string, number]] : []),
     ...(order.cod_fee_minor ? [[tLife("codFee"), order.cod_fee_minor] as [string, number]] : []),
     [order.tax_inclusive ? tLife("taxIncluded") : tLife("tax"), order.tax_minor],
@@ -177,6 +179,9 @@ export function OrderDetailView({ id }: { id: string }) {
         <div className="flex flex-wrap items-center gap-2">
           {order.payment_method === "cod" && (
             <Badge variant="outline" className="gap-1"><Banknote className="h-3.5 w-3.5" aria-hidden="true" />{t("cod.badge")}</Badge>
+          )}
+          {order.cod_confirmation && (
+            <StateBadge tone={COD_CONFIRM_TONE[order.cod_confirmation]}>{t(`cod.confirmation.${order.cod_confirmation}`)}</StateBadge>
           )}
           <OrderStatusBadge status={order.status} />
         </div>

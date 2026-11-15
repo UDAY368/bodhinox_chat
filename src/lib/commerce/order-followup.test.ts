@@ -87,7 +87,8 @@ describe('repeat purchase (Phase 9 D13)', () => {
     expect(shipmentTrackingUrl(null)).toBeNull();
   });
   it('maps each notice kind to its template category', () => {
-    expect(NOTICE_TEMPLATE_CATEGORY).toEqual({ dispatched: 'UTILITY', delivered: 'UTILITY', feedback: 'UTILITY', repeat_purchase: 'MARKETING' });
+    expect(NOTICE_TEMPLATE_CATEGORY).toEqual({ dispatched: 'UTILITY', delivered: 'UTILITY', feedback: 'UTILITY', repeat_purchase: 'MARKETING',
+      abandoned_cart: 'MARKETING', cod_confirm: 'UTILITY', back_in_stock: 'MARKETING', review_request: 'MARKETING' });
     expect(ORDER_FOLLOWUP_KINDS).toContain('repeat_purchase');
   });
 });

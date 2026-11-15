@@ -89,10 +89,15 @@ function Totals({ order, locale }: { order: StorefrontOrderView; locale: string 
   const row = (label: string, value: string, strong = false) => (
     <div className={`flex justify-between ${strong ? 'font-semibold' : 'text-muted-foreground'}`}><span>{label}</span><span className="tabular-nums">{value}</span></div>
   );
+  // discountMinor is the automatic discounts plus the coupon; each automatic discount has its own line.
+  const couponMinor = order.discountMinor - order.autoDiscountMinor;
   return (
     <div className="space-y-1 border-t pt-3 text-sm">
       {row(t('subtotal'), money(order.subtotalMinor, order.currency, locale))}
-      {order.discountMinor > 0 && row(t('discount'), `−${money(order.discountMinor, order.currency, locale)}`)}
+      {order.autoDiscounts.map((d, i) => (
+        <div key={i}>{row(d.name, d.kind === 'free_shipping_over' ? t('freeShipping') : `−${money(d.savingMinor, order.currency, locale)}`)}</div>
+      ))}
+      {couponMinor > 0 && row(t('discount'), `−${money(couponMinor, order.currency, locale)}`)}
       {row(t('shipping'), money(order.shippingMinor, order.currency, locale))}
       {order.codFeeMinor > 0 && row(t('codFee'), money(order.codFeeMinor, order.currency, locale))}
       {row(order.taxInclusive ? t('taxIncluded') : t('tax'), money(order.taxMinor, order.currency, locale))}

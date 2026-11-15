@@ -41,6 +41,7 @@ import { minorFromDb } from './money';
 import { canTransition, fulfilmentEvidence, type FulfilmentEvidence, type OrderStatus } from './order-format';
 import { repeatPurchaseDueAt, type OrderFollowupKind } from './order-followup';
 import { OrderError } from './orders';
+import { queueReviewRequestTx } from './reviews';
 import { releaseTx } from './stock';
 
 export type StaffContext = TenantContext & { userId: string };
@@ -207,7 +208,8 @@ export async function recordDelivery(ctx: StaffContext, orderId: string, input: 
  * delivered notice now, the feedback request a day later, the product
  * follow-up after the first product's follow_up_after_days when it has a
  * follow-up template, and the reorder reminder after the smallest
- * repurchase_after_days (its consent and template are checked when it runs).
+ * repurchase_after_days (its consent and template are checked when it runs),
+ * and the review request three days later when the store turned it on.
  * Each kind at
  * most once per order (dedupe ofu:<orderId>:<kind>).
  */
@@ -225,6 +227,8 @@ export async function scheduleDeliveryFollowups(tx: TenantTransaction, accountId
   if (followUp) await queueNotice(tx, accountId, orderId, 'product_follow_up', new Date(now + followUp.days * 86_400_000));
   const repeatAt = await repeatPurchaseDueAt(tx, accountId, orderId, new Date(now));
   if (repeatAt) await queueNotice(tx, accountId, orderId, 'repeat_purchase', repeatAt);
+  // Store plan Phase 3: the review request (three days later, only when the store switched it on).
+  await queueReviewRequestTx(tx, accountId, orderId, new Date(now));
 }
 
 // ---------------------------------------------------------------------------

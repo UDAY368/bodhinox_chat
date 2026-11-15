@@ -4,17 +4,18 @@
  * The product page's interactive part: image gallery, one picker per option
  * (size, color…), quantity and "Add to cart" into the browser cart. Prices
  * shown here are the variant prices; tax, shipping and coupons are worked out
- * on the server at checkout.
+ * on the server at checkout. A sold-out variant of a shop with a WhatsApp number
+ * offers "Notify me on WhatsApp": the buyer's own message claims the alert.
  */
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useLocale, useTranslations } from 'next-intl';
-import { Check, Minus, Plus } from 'lucide-react';
+import { Bell, Check, Loader2, Minus, Plus } from 'lucide-react';
 import type { PublicProduct } from '@/lib/commerce/public-shop';
 import { formatMoney } from '@/lib/commerce/money';
 import { addToCart, MAX_QTY } from './cart-store';
 
-export function ProductBuy({ handle, product, currency }: { handle: string; product: PublicProduct; currency: string | null }) {
+export function ProductBuy({ handle, product, currency, canNotify }: { handle: string; product: PublicProduct; currency: string | null; canNotify: boolean }) {
   const t = useTranslations('ShopPublic');
   const locale = useLocale();
   const optionNames = useMemo(() => [...new Set(product.variants.flatMap((v) => Object.keys(v.options)))], [product.variants]);
@@ -23,8 +24,26 @@ export function ProductBuy({ handle, product, currency }: { handle: string; prod
   const [qty, setQty] = useState(1);
   const [image, setImage] = useState(0);
   const [added, setAdded] = useState(false);
+  const [notifying, setNotifying] = useState(false);
+  const [notifyError, setNotifyError] = useState<string | null>(null);
   const variant = product.variants.find((v) => optionNames.every((n) => v.options[n] === picked[n])) ?? null;
   const money = (minor: number) => (currency ? formatMoney(minor, currency, locale) : '');
+  const notify = async () => {
+    if (!variant) return;
+    setNotifying(true); setNotifyError(null);
+    try {
+      const res = await fetch(`/api/public/store/${handle}/notify`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ variantId: variant.id }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && typeof data.whatsappUrl === 'string') { window.location.assign(data.whatsappUrl); return; }
+      const code = typeof data?.code === 'string' ? data.code : 'generic';
+      setNotifyError(t(`errors.${['in_stock', 'variant_unavailable', 'whatsapp_order_unavailable', 'too_many', 'not_found'].includes(code) ? code : 'generic'}`));
+    } catch {
+      setNotifyError(t('errors.network'));
+    }
+    setNotifying(false);
+  };
   const valuesOf = (name: string) => [...new Set(product.variants.map((v) => v.options[name]).filter(Boolean))];
 
   return (
@@ -102,6 +121,16 @@ export function ProductBuy({ handle, product, currency }: { handle: string; prod
             {t('addToCart')}
           </button>
         </div>
+        {canNotify && variant && !variant.inStock && (
+          <div className="flex flex-col gap-2">
+            <button type="button" disabled={notifying} onClick={() => void notify()}
+              className="flex h-11 items-center justify-center gap-2 rounded-[var(--shop-radius)] border border-[var(--shop-primary)] px-5 font-semibold text-[var(--shop-primary)] disabled:opacity-40">
+              {notifying ? <Loader2 className="size-5 animate-spin" aria-label={t('stockAlert.sending')} /> : <><Bell className="size-5" aria-hidden />{t('stockAlert.button')}</>}
+            </button>
+            <p className="text-xs opacity-70">{t('stockAlert.hint')}</p>
+            {notifyError && <p className="text-sm text-red-700" role="alert">{notifyError}</p>}
+          </div>
+        )}
         {added && (
           <p className="flex items-center gap-2 text-sm" role="status">
             <Check className="size-4" aria-hidden /> {t('added')}

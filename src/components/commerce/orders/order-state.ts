@@ -29,6 +29,9 @@ export function fulfilmentState(status: OrderStatus): FulfilmentState {
   }
 }
 
+/** The badge tone of a COD order's confirmation answer. */
+export const COD_CONFIRM_TONE: Record<"pending" | "confirmed" | "declined", Tone> = { pending: "warn", confirmed: "ok", declined: "bad" };
+
 export const PAYMENT_TONE: Record<PaymentState, Tone> = { paid: "ok", pending: "warn", refunded: "bad", partlyRefunded: "warn", cod: "accent" };
 export const FULFILMENT_TONE: Record<FulfilmentState, Tone> = {
   new: "neutral", confirmed: "neutral", shipped: "accent", delivered: "ok", cancelled: "bad", expired: "neutral", review: "warn",

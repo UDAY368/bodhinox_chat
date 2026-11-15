@@ -11,6 +11,7 @@ vi.mock('@/lib/data/admin', () => ({ createAdminClient: () => ({ from: (table: s
     then: (resolve: (r: { error: null }) => unknown) => resolve({ error: null }) };
   return b;
 } }) }));
+vi.mock('@/lib/commerce/review-jobs', () => ({ handleReviewRating: async () => ({ handled: false }), handleReviewText: async () => ({ handled: false }) }));
 vi.mock('@/lib/jobs/scope', () => ({ withJobScope: (_scope: unknown, action: () => unknown) => action() }));
 vi.mock('./quick-reply-actions', () => ({ dispatchQuickReplyAction: async () => ({ handled: false }) }));
 vi.mock('@/lib/automations/engine', () => ({ resumeAwaitingReply: async () => false, runAutomationsForTrigger: h.automations }));

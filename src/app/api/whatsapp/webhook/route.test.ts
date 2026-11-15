@@ -343,6 +343,8 @@ vi.mock('@/lib/ai/auto-reply', () => ({
   dispatchInboundToAiReply: h.dispatchInboundToAiReply,
 }));
 vi.mock('@/lib/inbox/lifecycle', () => ({ applyInboundLifecycle: async () => ({ state: 'requesting', botOwned: false, botReplied: false, routedTo: null, ruleId: null }) }));
+// Review replies read the database; not under test here.
+vi.mock('@/lib/commerce/review-jobs', () => ({ handleReviewRating: async () => ({ handled: false }), handleReviewText: async () => ({ handled: false }) }));
 vi.mock('@/lib/inbox/away-message', () => ({ sendAwayMessage: async () => 'off' }));
 vi.mock('@/lib/webhooks/deliver', () => ({
   dispatchWebhookEvent: h.dispatchWebhookEvent,

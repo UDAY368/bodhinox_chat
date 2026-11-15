@@ -18,6 +18,7 @@
  */
 import { getT } from '@/lib/i18n/translate';
 import type { TenantTransaction } from '@/lib/db/tenant';
+import { queueBackInStockTx } from './stock-alerts';
 
 export type StockMovementKind =
   | 'adjustment' | 'receipt' | 'reserve' | 'release' | 'sale' | 'return_restock' | 'write_off' | 'refund_restock';
@@ -70,10 +71,21 @@ async function trackedIds(tx: TenantTransaction, accountId: string, ids: string[
 async function movement(tx: TenantTransaction, accountId: string, m: {
   variantId: string; kind: StockMovementKind; quantity: number; level: LevelRow;
   orderId?: string | null; returnId?: string | null; reason?: string | null; actorUserId?: string | null;
-}): Promise<void> {
-  await tx.$executeRaw`INSERT INTO inventory_movements(account_id,variant_id,kind,quantity,on_hand_after,reserved_after,order_id,return_id,reason,actor_user_id)
+}): Promise<string> {
+  const [row] = await tx.$queryRaw<{ id: string }[]>`INSERT INTO inventory_movements(account_id,variant_id,kind,quantity,on_hand_after,reserved_after,order_id,return_id,reason,actor_user_id)
     VALUES(${accountId}::uuid,${m.variantId}::uuid,${m.kind},${m.quantity},${m.level.on_hand},${m.level.reserved},
-      ${m.orderId ?? null}::uuid,${m.returnId ?? null}::uuid,${m.reason?.slice(0, 200) ?? null},${m.actorUserId ?? null}::uuid)`;
+      ${m.orderId ?? null}::uuid,${m.returnId ?? null}::uuid,${m.reason?.slice(0, 200) ?? null},${m.actorUserId ?? null}::uuid)
+    RETURNING id::text AS id`;
+  return row.id;
+}
+
+/**
+ * A movement that raised available stock (on_hand - reserved) from nothing to something
+ * wakes the back-in-stock alerts of the variant (dedupe: the movement id).
+ */
+async function wakeAlertsTx(tx: TenantTransaction, accountId: string, variantId: string, movementId: string,
+  availableBefore: number, level: LevelRow): Promise<void> {
+  if (availableBefore <= 0 && level.on_hand - level.reserved > 0) await queueBackInStockTx(tx, accountId, variantId, movementId);
 }
 
 /**
@@ -120,7 +132,10 @@ export async function releaseTx(
       WHERE account_id=${accountId}::uuid AND variant_id=${r.variant_id}::uuid
       RETURNING variant_id::text AS variant_id, on_hand, reserved`;
     await tx.$executeRaw`UPDATE stock_reservations SET status='released' WHERE account_id=${accountId}::uuid AND id=${r.id}::uuid`;
-    if (level) await movement(tx, accountId, { variantId: r.variant_id, kind: 'release', quantity: -r.quantity, level, orderId, reason });
+    if (level) {
+      const id = await movement(tx, accountId, { variantId: r.variant_id, kind: 'release', quantity: -r.quantity, level, orderId, reason });
+      await wakeAlertsTx(tx, accountId, r.variant_id, id, level.on_hand - level.reserved - r.quantity, level);
+    }
   }
 }
 
@@ -193,7 +208,8 @@ export async function adjustTx(tx: TenantTransaction, accountId: string, input: 
     WHERE account_id=${accountId}::uuid AND variant_id=${variantId}::uuid AND on_hand + ${delta} >= reserved AND on_hand + ${delta} <= ${MAX_UNITS}
     RETURNING variant_id::text AS variant_id, on_hand, reserved`;
   if (!level) throw new StockError('below_reserved', 'below_reserved', variantId);
-  await movement(tx, accountId, { variantId, kind, quantity: delta, level, reason: input.reason, actorUserId: input.actorUserId });
+  const movementId = await movement(tx, accountId, { variantId, kind, quantity: delta, level, reason: input.reason, actorUserId: input.actorUserId });
+  await wakeAlertsTx(tx, accountId, variantId, movementId, level.on_hand - delta - level.reserved, level);
   await maybeNotifyLowStockTx(tx, accountId, variantId);
   return { variantId, onHand: level.on_hand, reserved: level.reserved };
 }
@@ -228,10 +244,11 @@ export async function restockTx(tx: TenantTransaction, accountId: string, input:
       UPDATE inventory_levels SET on_hand = on_hand + ${line.quantity}
       WHERE account_id=${accountId}::uuid AND variant_id=${line.variantId}::uuid
       RETURNING variant_id::text AS variant_id, on_hand, reserved`;
-    await movement(tx, accountId, {
+    const movementId = await movement(tx, accountId, {
       variantId: line.variantId, kind: input.kind, quantity: line.quantity, level: level!,
       orderId: input.orderId, returnId: input.returnId ?? null, actorUserId: input.actorUserId ?? null,
     });
+    await wakeAlertsTx(tx, accountId, line.variantId, movementId, level!.on_hand - line.quantity - level!.reserved, level!);
     await maybeNotifyLowStockTx(tx, accountId, line.variantId);
   }
 }

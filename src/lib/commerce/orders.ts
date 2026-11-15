@@ -11,7 +11,9 @@ import { NextResponse } from 'next/server';
 import { toErrorResponse } from '@/lib/auth/account';
 import { getWorkerPrisma } from '@/lib/db/prisma';
 import { withTenant, type TenantContext, type TenantTransaction } from '@/lib/db/tenant';
+import { isCodConfirmation, type CodConfirmation } from './cart-followups';
 import { isVariableMap } from './event-rules';
+import { parseDiscountDetails, type StoredDiscountDetail } from './auto-discounts';
 import { minorFromDb } from './money';
 import { classifyMaskedPhoneSearch, loadPhoneMask } from '@/lib/inbox/masking-apply';
 import { transitionOrder } from './order-lifecycle';
@@ -114,6 +116,8 @@ export interface OrderListItem {
   total_minor: number | null;
   /** 'cod': cash on delivery (the cash is recorded with Record offline payment). */
   payment_method: 'online' | 'cod';
+  /** A COD order's answer to the WhatsApp confirmation (null: not asked). A declined order is not cancelled; staff decide. */
+  cod_confirmation: CodConfirmation | null;
   item_count: number;
   /** When a payment was credited (null while unpaid); with refund_state it gives the order's payment state. */
   paid_at: string | null;
@@ -135,6 +139,10 @@ export interface OrderDetail extends OrderListItem {
   shipping_minor: number;
   /** The cash-on-delivery fee inside the total (its tax is inside tax_minor). */
   cod_fee_minor: number;
+  /** The automatic part of discount_minor (the rest is the coupon). */
+  auto_discount_minor: number;
+  /** The automatic discounts the order was placed with: names and savings only. */
+  discount_details: StoredDiscountDetail[];
   tax_minor: number;
   tax_inclusive: boolean | null;
   coupon_code: string | null;
@@ -162,6 +170,8 @@ export interface OrderFilters {
   source?: OrderSource;
   contactId?: string;
   conversationId?: string;
+  /** COD orders still waiting for the customer's answer, or that declined. */
+  codConfirmation?: 'pending' | 'declined';
   /** Matches the contact's name or phone, or the store's order number. */
   q?: string;
   from?: Date;
@@ -186,11 +196,13 @@ export function parseOrderFilters(params: URLSearchParams): OrderFilters {
   const source = params.get('source');
   const contactId = params.get('contact_id');
   const conversationId = params.get('conversation_id');
+  const codConfirmation = params.get('cod_confirmation');
   const limit = params.get('limit');
   if (status && !isOrderStatus(status)) throw new OrderError(400, 'invalid', 'Invalid status');
   if (source && !isOrderSource(source)) throw new OrderError(400, 'invalid', 'Invalid source');
   if (contactId && !UUID.test(contactId)) throw new OrderError(400, 'invalid', 'Invalid contact_id');
   if (conversationId && !UUID.test(conversationId)) throw new OrderError(400, 'invalid', 'Invalid conversation_id');
+  if (codConfirmation && codConfirmation !== 'pending' && codConfirmation !== 'declined') throw new OrderError(400, 'invalid', 'Invalid cod_confirmation');
   if (limit && !/^\d{1,3}$/.test(limit)) throw new OrderError(400, 'invalid', 'Invalid limit');
   const q = params.get('q')?.trim().slice(0, 100) || undefined;
   return {
@@ -198,6 +210,7 @@ export function parseOrderFilters(params: URLSearchParams): OrderFilters {
     ...(source ? { source: source as OrderSource } : {}),
     ...(contactId ? { contactId } : {}),
     ...(conversationId ? { conversationId } : {}),
+    ...(codConfirmation ? { codConfirmation: codConfirmation as 'pending' | 'declined' } : {}),
     ...(q ? { q } : {}),
     from: dateParam(params.get('from'), 'from'),
     to: dateParam(params.get('to'), 'to'),
@@ -224,6 +237,7 @@ const EPOCH_MICROS = Prisma.sql`(extract(epoch from date_trunc('second', created
 const listSelect = {
   id: true, source: true, external_id: true, status: true, currency: true, subtotal_minor: true, total_minor: true,
   contact_id: true, conversation_id: true, created_at: true, updated_at: true, payment_method: true, paid_at: true, refund_state: true,
+  cod_confirmation: true,
 } as const;
 type ListRow = Prisma.ordersGetPayload<{ select: typeof listSelect }>;
 
@@ -241,7 +255,8 @@ async function decorate(tx: TenantTransaction, accountId: string, rows: ListRow[
     return {
       id: r.id, source: r.source as OrderSource, external_id: r.external_id, status: r.status as OrderStatus,
       currency: r.currency, subtotal_minor: minorFromDb(r.subtotal_minor)!, total_minor: minorFromDb(r.total_minor),
-      payment_method: r.payment_method === 'cod' ? 'cod' : 'online', item_count: countOf.get(r.id) ?? 0,
+      payment_method: r.payment_method === 'cod' ? 'cod' : 'online',
+      cod_confirmation: r.payment_method === 'cod' && isCodConfirmation(r.cod_confirmation) ? r.cod_confirmation : null, item_count: countOf.get(r.id) ?? 0,
       paid_at: r.paid_at ? r.paid_at.toISOString() : null, refund_state: (r.refund_state ?? 'none') as RefundState,
       contact: contact ? { id: contact.id, name: contact.name ?? null, phone: contact.phone || null } : null,
       conversation_id: r.conversation_id, created_at: r.created_at.toISOString(), updated_at: r.updated_at.toISOString(),
@@ -259,6 +274,7 @@ export async function listOrders(ctx: TenantContext, filters: OrderFilters = {})
     if (filters.source) and.push({ source: filters.source });
     if (filters.contactId) and.push({ contact_id: filters.contactId });
     if (filters.conversationId) and.push({ conversation_id: filters.conversationId });
+    if (filters.codConfirmation) and.push({ cod_confirmation: filters.codConfirmation });
     if (filters.from) and.push({ created_at: { gte: filters.from } });
     if (filters.to) and.push({ created_at: { lte: filters.to } });
     if (filters.q) {
@@ -303,7 +319,7 @@ async function readOrder(tx: TenantTransaction, accountId: string, id: string): 
     where: { account_id: accountId, id },
     select: {
       ...listSelect, catalog_id: true, whatsapp_config_id: true, note: true, customer_note: true,
-      priced_at: true, discount_minor: true, shipping_minor: true, cod_fee_minor: true, tax_minor: true, tax_inclusive: true, coupon_code: true,
+      priced_at: true, discount_minor: true, shipping_minor: true, cod_fee_minor: true, auto_discount_minor: true, discount_details: true, tax_minor: true, tax_inclusive: true, coupon_code: true,
       shipping_address: true, reservation_expires_at: true, amount_paid_minor: true, amount_refunded_minor: true,
       dispatched_at: true, delivered_at: true, tracking_note: true, feedback_score: true,
     },
@@ -322,7 +338,8 @@ async function readOrder(tx: TenantTransaction, accountId: string, id: string): 
   return {
     ...base, catalog_id: row.catalog_id, whatsapp_config_id: row.whatsapp_config_id, note: row.note, customer_note: row.customer_note,
     priced_at: iso(row.priced_at), discount_minor: minorFromDb(row.discount_minor)!, shipping_minor: minorFromDb(row.shipping_minor)!,
-    cod_fee_minor: minorFromDb(row.cod_fee_minor) ?? 0, tax_minor: minorFromDb(row.tax_minor)!, tax_inclusive: row.tax_inclusive, coupon_code: row.coupon_code,
+    cod_fee_minor: minorFromDb(row.cod_fee_minor) ?? 0, auto_discount_minor: minorFromDb(row.auto_discount_minor) ?? 0,
+    discount_details: parseDiscountDetails(row.discount_details), tax_minor: minorFromDb(row.tax_minor)!, tax_inclusive: row.tax_inclusive, coupon_code: row.coupon_code,
     shipping_address: address && typeof address === 'object' && !Array.isArray(address) ? (address as Record<string, unknown>) : null,
     reservation_expires_at: iso(row.reservation_expires_at), paid_at: iso(row.paid_at),
     amount_paid_minor: minorFromDb(row.amount_paid_minor)!, amount_refunded_minor: minorFromDb(row.amount_refunded_minor)!,

@@ -6,12 +6,18 @@
  *
  * Order of operations (E4):
  *  1. line_gross = unit × qty, subtotal = Σ line_gross
- *  2. coupon discount on merchandise only (percent: min(round(subtotal × bps),
- *     max_discount, subtotal); fixed: min(value, subtotal))
- *  3. the discount is split across lines by largest remainder on line_gross
+ *  2. automatic discounts (auto-discounts.ts): the best order-level rule, then
+ *     the prepaid rule when paying online; each sits on its lines
+ *  2b. coupon discount on the merchandise left after them (percent:
+ *     min(round(reduced × bps), max_discount, reduced); fixed: min(value,
+ *     reduced)); its minimum reads the reduced subtotal too
+ *  3. the coupon is split across lines by largest remainder on what is left of
+ *     each line; discount = automatic + coupon, and the line discounts sum to it
  *  4. taxable = line_gross − line_discount; exclusive tax = round(taxable × bps);
  *     inclusive tax = taxable − round(taxable × 10000 / (10000 + bps))
- *  5. shipping is taxed the same way at its own rate; a cash-on-delivery (COD)
+ *  5. shipping is taxed the same way at its own rate (a free-shipping rule sets
+ *     the fee to 0; its minimum reads the subtotal after the order-level
+ *     automatic rule, before the prepaid discount and the coupon); a cash-on-delivery (COD)
  *     fee is taxed like shipping at the store's default rate
  *  6. total = subtotal − discount + shipping + cod_fee + (inclusive ? 0 : tax_total)
  *
@@ -22,6 +28,7 @@
  * is not configured, or no matching shipping rate refuses instead of
  * assuming zero (PRD :121).
  */
+import { applyAutoDiscounts, type AppliedAutoDiscount, type PricingAutoDiscount } from './auto-discounts';
 import { allocateLargestRemainder, MAX_MINOR, mulDivHalfUp, roundHalfUp } from './money';
 
 export const CART_LIMITS = { maxLines: 50, maxQty: 99 } as const;
@@ -129,7 +136,14 @@ export interface Quote {
   taxInclusive: boolean;
   lines: QuoteLine[];
   subtotalMinor: number;
+  /** Every discount on the merchandise: automatic discounts plus the coupon. The line discounts sum to it. */
   discountMinor: number;
+  /** The automatic part of discountMinor (the coupon's part is the rest). */
+  autoDiscountMinor: number;
+  /** The automatic discounts applied, in order. A free-shipping entry carries the fee waived and is not part of autoDiscountMinor. */
+  autoDiscounts: AppliedAutoDiscount[];
+  /** Paying by COD: what paying online would save through the prepaid rule (0 when there is none). */
+  prepaidSavingMinor: number;
   couponCode: string | null;
   /** null until an address is known (a quote without shipping cannot be placed). */
   shipping: { rateId: string; name: string; feeMinor: number; taxRateBps: number; taxMinor: number } | null;
@@ -160,6 +174,8 @@ export interface PriceCartInput {
   address: PricingAddress | null;
   /** The customer's choice (absent = online). COD is refused unless the store and every product allow it. */
   paymentMethod?: PaymentMethod;
+  /** The workspace's automatic discount rules (absent = none). Applied before the coupon. */
+  autoDiscounts?: readonly PricingAutoDiscount[];
   now?: Date;
 }
 
@@ -250,16 +266,26 @@ export function priceCart(input: PriceCartInput): PricingResult {
   const subtotal = safeAdd(...priced.map((p) => p.gross));
   if (subtotal === null) return { ok: false, code: 'amount_out_of_range' };
 
-  let discount = 0;
+  const paymentMethod: PaymentMethod = input.paymentMethod ?? 'online';
+  const auto = applyAutoDiscounts(input.autoDiscounts ?? [],
+    priced.map((p) => ({ productId: p.variant.productId, unitMinor: p.unit, qty: p.qty, grossMinor: p.gross })), paymentMethod, now);
+  const autoDiscounts = [...auto.applied];
+  // What is left of each line after the automatic discounts: the coupon works on this.
+  const remaining = priced.map((p, i) => p.gross - auto.lineDiscounts[i]);
+  const reduced = subtotal - auto.discountMinor;
+
+  let couponMinor = 0;
   let couponCode: string | null = null;
   if (input.coupon === 'missing') return { ok: false, code: 'coupon_not_found' };
   if (input.coupon) {
-    const applied = couponDiscount(input.coupon, subtotal, now);
+    const applied = couponDiscount(input.coupon, reduced, now);
     if (!applied.ok) return applied;
-    discount = applied.discount;
+    couponMinor = applied.discount;
     couponCode = input.coupon.code;
   }
-  const shares = discount > 0 ? allocateLargestRemainder(discount, priced.map((p) => p.gross)) : priced.map(() => 0);
+  const couponShares = couponMinor > 0 ? allocateLargestRemainder(couponMinor, remaining) : priced.map(() => 0);
+  const shares = priced.map((_, i) => auto.lineDiscounts[i] + couponShares[i]);
+  const discount = auto.discountMinor + couponMinor;
 
   const quoteLines: QuoteLine[] = priced.map((p, i) => {
     const taxable = p.gross - shares[i];
@@ -280,14 +306,17 @@ export function priceCart(input: PriceCartInput): PricingResult {
     if (!rate) return { ok: false, code: 'shipping_unavailable' };
     let bps = rate.taxRateBps ?? settings.defaultTaxRateBps;
     if (bps === null) {
-      if (rate.feeMinor > 0) return { ok: false, code: 'tax_not_configured' };
+      if (rate.feeMinor > 0 && !auto.freeShipping) return { ok: false, code: 'tax_not_configured' };
       bps = 0;
     }
-    shipping = { rateId: rate.id, name: rate.name, feeMinor: rate.feeMinor, taxRateBps: bps, taxMinor: taxOn(rate.feeMinor, bps, inclusive) };
+    // A free-shipping rule waives the fee of the rate that would have applied.
+    const feeMinor = auto.freeShipping ? 0 : rate.feeMinor;
+    if (auto.freeShipping && rate.feeMinor > 0)
+      autoDiscounts.push({ ...auto.freeShipping, kind: 'free_shipping_over', savingMinor: rate.feeMinor });
+    shipping = { rateId: rate.id, name: rate.name, feeMinor, taxRateBps: bps, taxMinor: taxOn(feeMinor, bps, inclusive) };
   }
   const shippingMinor = shipping?.feeMinor ?? 0;
 
-  const paymentMethod: PaymentMethod = input.paymentMethod ?? 'online';
   const codAvailable = settings.codEnabled === true && quoteLines.every((l) => l.codAvailable);
   let codFee: Quote['codFee'] = null;
   if (paymentMethod === 'cod') {
@@ -311,7 +340,7 @@ export function priceCart(input: PriceCartInput): PricingResult {
     ok: true,
     quote: {
       currency: settings.currency, taxInclusive: inclusive, lines: quoteLines, subtotalMinor: subtotal, discountMinor: discount,
-      couponCode, shipping, shippingMinor, paymentMethod, codAvailable, codFee, codFeeMinor, taxMinor, totalMinor: total,
+      autoDiscountMinor: auto.discountMinor, autoDiscounts, prepaidSavingMinor: auto.prepaidOffer?.savingMinor ?? 0, couponCode, shipping, shippingMinor, paymentMethod, codAvailable, codFee, codFeeMinor, taxMinor, totalMinor: total,
     },
   };
 }

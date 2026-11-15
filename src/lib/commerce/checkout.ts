@@ -25,6 +25,7 @@ import { createPaymentLinkRecord, PaymentLinkError } from '@/lib/payments/links'
 import { MetaApiError } from '@/lib/whatsapp/meta-api';
 import { extractVariableIndices } from '@/lib/whatsapp/template-validators';
 import { getT } from '@/lib/i18n/translate';
+import { startCodConfirmationTx } from './cart-followups';
 import { lockCouponTx, redeemCouponTx, releaseCouponTx } from './coupons';
 import { MARKETING_OPT_IN_VERSION } from './marketing-consent';
 import { minorFromDb } from './money';
@@ -214,16 +215,20 @@ export async function placeOrder(accountId: string, sessionId: string, input: Pl
     const address = JSON.stringify(session.address);
     // The repriced quote already refused cod_unavailable; COD is then confirmed with no payment link.
     const cod = quote.paymentMethod === 'cod';
+    // What the customer was shown: names and savings only (no rule ids, no rule settings).
+    const discountDetails = quote.autoDiscounts.length
+      ? JSON.stringify(quote.autoDiscounts.map((d) => ({ name: d.name, kind: d.kind, saving_minor: d.savingMinor }))) : null;
     // No Razorpay connection, so no payment link can be made: refuse before anything is held.
     if (!cod && !(await onlinePaymentReady(tx, accountId))) throw new StoreError('online_unavailable');
     if (!existing) {
       await tx.$executeRaw`INSERT INTO orders(id,account_id,source,contact_id,conversation_id,whatsapp_config_id,currency,subtotal_minor,
           discount_minor,shipping_minor,tax_minor,tax_inclusive,total_minor,coupon_code,shipping_address,storefront_session_id,status,
-          marketing_opt_in,marketing_opt_in_at,marketing_opt_in_version,payment_method,cod_fee_minor)
+          marketing_opt_in,marketing_opt_in_at,marketing_opt_in_version,payment_method,cod_fee_minor,auto_discount_minor,discount_details)
         VALUES(${orderId}::uuid,${accountId}::uuid,'storefront',${session.contact_id}::uuid,${session.conversation_id}::uuid,
           ${session.whatsapp_config_id}::uuid,${quote.currency},${quote.subtotalMinor},${quote.discountMinor},${quote.shippingMinor},
           ${quote.taxMinor},${quote.taxInclusive},${quote.totalMinor},${quote.couponCode},${address}::jsonb,${session.id}::uuid,'new',
-          ${optIn}::boolean,${optInAt}::timestamptz,${optInVersion}::text,${quote.paymentMethod},${quote.codFeeMinor})`;
+          ${optIn}::boolean,${optInAt}::timestamptz,${optInVersion}::text,${quote.paymentMethod},${quote.codFeeMinor},
+          ${quote.autoDiscountMinor},${discountDetails}::jsonb)`;
       for (const line of quote.lines) {
         const options = Object.values(line.optionValues).filter(Boolean).join(' / ');
         const name = (options ? `${line.productName} (${options})` : line.productName).slice(0, 500);
@@ -252,7 +257,8 @@ export async function placeOrder(accountId: string, sessionId: string, input: Pl
           shipping_minor=${quote.shippingMinor},tax_minor=${quote.taxMinor},tax_inclusive=${quote.taxInclusive},total_minor=${quote.totalMinor},
           coupon_code=${quote.couponCode},shipping_address=${address}::jsonb,storefront_session_id=${session.id}::uuid,
           marketing_opt_in=${optIn}::boolean,marketing_opt_in_at=${optInAt}::timestamptz,marketing_opt_in_version=${optInVersion}::text,
-          payment_method=${quote.paymentMethod},cod_fee_minor=${quote.codFeeMinor}
+          payment_method=${quote.paymentMethod},cod_fee_minor=${quote.codFeeMinor},
+          auto_discount_minor=${quote.autoDiscountMinor},discount_details=${discountDetails}::jsonb
         WHERE account_id=${accountId}::uuid AND id=${orderId}::uuid`;
     }
 
@@ -272,6 +278,8 @@ export async function placeOrder(accountId: string, sessionId: string, input: Pl
     await orderEvent(tx, accountId, orderId, 'priced', 'customer');
     await orderEvent(tx, accountId, orderId, 'reserved', 'system');
     if (cod) await orderEvent(tx, accountId, orderId, 'cod_confirmed', 'customer');
+    // The store asks COD customers to confirm on WhatsApp: pending now, the buttons go out as a queued job.
+    if (cod && settings.cod_confirm_enabled) await startCodConfirmationTx(tx, accountId, orderId);
     await tx.$executeRaw`UPDATE storefront_sessions SET order_id=${orderId}::uuid, version=version+1
       WHERE account_id=${accountId}::uuid AND id=${session.id}::uuid`;
     if (expiresAt) {

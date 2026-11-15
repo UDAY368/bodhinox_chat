@@ -344,6 +344,7 @@ function VariantForm({ variant, currency, canManage, busy, onSave, onAdjust }: {
         <h3 className="text-sm font-medium text-foreground">{variant ? variant.sku : t("addVariant")}</h3>
         {variant?.archived && <Badge variant="outline">{t("archivedVariant")}</Badge>}
         {variant?.meta_linked && <Badge variant="secondary">{t("metaLinked")}</Badge>}
+        {variant && variant.waiting > 0 && <Badge variant="outline">{t("waiting", { count: variant.waiting })}</Badge>}
         {variant && variant.price_minor !== null && currency && (
           <span className="text-xs text-muted-foreground">{formatMoney(variant.price_minor, currency, locale)}</span>
         )}
