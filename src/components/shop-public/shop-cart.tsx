@@ -111,7 +111,7 @@ export function ShopCart({ shop }: { shop: CartShopInfo }) {
   );
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[1fr_380px]">
+    <div className="grid gap-6 @5xl:grid-cols-[1fr_380px]">
       <section aria-labelledby="cart-heading" className="flex flex-col gap-3">
         <h1 id="cart-heading" className="text-2xl font-semibold" style={{ fontFamily: 'var(--shop-font-heading)' }}>{t('cart')}</h1>
         {loading && !preview && <p className="opacity-70"><Loader2 className="mr-2 inline size-4 animate-spin" aria-hidden />{t('loading')}</p>}
@@ -142,7 +142,7 @@ export function ShopCart({ shop }: { shop: CartShopInfo }) {
         </ul>
       </section>
 
-      <aside className="flex h-fit flex-col gap-4 rounded-[var(--shop-radius)] bg-[var(--shop-surface)] p-4 ring-1 ring-black/5 lg:sticky lg:top-20">
+      <aside className="flex h-fit flex-col gap-4 rounded-[var(--shop-radius)] bg-[var(--shop-surface)] p-4 ring-1 ring-black/5 @5xl:sticky @5xl:top-20">
         <div className="flex items-baseline justify-between">
           <span>{t('subtotal')}</span>
           <span className="text-lg font-semibold">{preview ? money(preview.subtotalMinor) : '…'}</span>

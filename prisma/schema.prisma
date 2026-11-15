@@ -3709,6 +3709,23 @@ model shop_storefronts {
   version Int @default(1)
   created_at DateTime @default(now()) @db.Timestamptz(6)
   updated_at DateTime @default(now()) @db.Timestamptz(6)
+  document Json @default("{}")
+  draft Json?
+  draft_version Int @default(0)
+  published_at DateTime? @db.Timestamptz(6)
+}
+
+model shop_theme_versions {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  number Int
+  template String
+  theme Json
+  document Json
+  published_by String? @db.Uuid
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  @@unique([account_id, id])
+  @@unique([account_id, number])
 }
 
 model shop_otp_challenges {

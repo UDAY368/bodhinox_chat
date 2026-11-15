@@ -43,7 +43,7 @@ export default async function ShopCategoryPage({ params, searchParams }: Props) 
         <Link href={`/s/${handle}`} className="hover:underline">{t('home')}</Link>
         {page.category.parentId && <> {' / '}<Link href={`/s/${handle}/c/${page.category.parentId}`} className="hover:underline">{t('up')}</Link></>}
       </nav>
-      <h1 className="text-2xl font-semibold sm:text-3xl" style={{ fontFamily: 'var(--shop-font-heading)' }}>{page.category.name}</h1>
+      <h1 className="text-2xl font-semibold @2xl:text-3xl" style={{ fontFamily: 'var(--shop-font-heading)' }}>{page.category.name}</h1>
       {page.children.length > 0 && (
         <div className="-mx-4 flex gap-2 overflow-x-auto px-4">
           {page.children.map((c) => (

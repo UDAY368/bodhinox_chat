@@ -22,7 +22,7 @@ export default async function ShopAllPage({ params, searchParams }: Props) {
   const locale = await getLocale();
   return (
     <div className="flex flex-col gap-5">
-      <h1 className="text-2xl font-semibold sm:text-3xl" style={{ fontFamily: 'var(--shop-font-heading)' }}>{t('allProducts')}</h1>
+      <h1 className="text-2xl font-semibold @2xl:text-3xl" style={{ fontFamily: 'var(--shop-font-heading)' }}>{t('allProducts')}</h1>
       {data.products.length === 0 ? <p className="opacity-70">{t('noProducts')}</p> : (
         <ProductGrid columns={data.shop.theme.layout.columns}>
           {data.products.map((p) => <ProductCard key={p.id} handle={handle} product={p} currency={data.shop.currency}
