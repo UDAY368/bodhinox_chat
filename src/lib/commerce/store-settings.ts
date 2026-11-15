@@ -29,7 +29,8 @@ export type StoreErrorCode =
   | 'coupon_not_found' | 'coupon_inactive' | 'coupon_not_started' | 'coupon_expired' | 'coupon_min_subtotal' | 'amount_out_of_range'
   | 'too_many_open_orders' | 'cod_unavailable' | 'online_unavailable'
   // Public shop (store plan Phase 1)
-  | 'handle_taken' | 'invalid_handle' | 'otp_unavailable' | 'otp_invalid' | 'otp_expired' | 'otp_locked' | 'whatsapp_order_unavailable';
+  | 'handle_taken' | 'invalid_handle' | 'otp_unavailable' | 'otp_invalid' | 'otp_expired' | 'otp_locked' | 'whatsapp_order_unavailable'
+  | 'shop_not_set_up' | 'no_draft';
 
 const STATUS: Partial<Record<StoreErrorCode, number>> = {
   not_found: 404, no_order: 404, contact_not_found: 404, conflict: 409, currency_locked: 409, coupon_code_taken: 409,
@@ -37,6 +38,7 @@ const STATUS: Partial<Record<StoreErrorCode, number>> = {
   checkout_disabled: 409, store_not_configured: 409, feature_unavailable: 403, contact_blocked: 409, outside_window: 409,
   number_unavailable: 409, too_many_open_orders: 409, cod_unavailable: 409, online_unavailable: 409, send_failed: 502, send_uncertain: 502, session_expired: 410,
   handle_taken: 409, otp_unavailable: 409, otp_expired: 410, otp_locked: 429, whatsapp_order_unavailable: 409,
+  shop_not_set_up: 409, no_draft: 409,
 };
 
 export class StoreError extends Error {

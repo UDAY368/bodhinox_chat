@@ -122,8 +122,8 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('public shop on PostgreSQL',
 
   it('shows only published, priced, live products of its own workspace, and no customer data', async () => {
     const home = await loadShopHome(handle);
-    expect(home?.featured.map((p) => p.id).sort()).toEqual([product, childProduct].sort());
-    expect(home?.featured.find((p) => p.id === product)?.variants.map((v) => v.id)).toEqual([variant]);
+    expect(home?.products.map((p) => p.id).sort()).toEqual([product, childProduct].sort());
+    expect(home?.products.find((p) => p.id === product)?.variants.map((v) => v.id)).toEqual([variant]);
     expect(home?.shop.logoUrl).toBe(`/api/public/store/${handle}/media/${logo}`);
     const text = JSON.stringify(home);
     for (const secret of ['Secret draft', 'Foreign', '919800000001', 'token-test', 'waba-p1', template, number, account]) expect(text).not.toContain(secret);

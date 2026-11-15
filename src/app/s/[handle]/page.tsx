@@ -1,7 +1,8 @@
 import { notFound } from 'next/navigation';
 import { getLocale, getTranslations } from 'next-intl/server';
-import { ShopHomeView } from '@/components/shop-public/shop-home';
-import { loadShopHome } from '@/lib/commerce/public-shop';
+import type { ShopT } from '@/components/shop-public/shop-link';
+import { ShopSectionsView } from '@/components/shop-public/shop-sections';
+import { loadShopHome, themeImageUrl } from '@/lib/commerce/public-shop';
 
 export const dynamic = 'force-dynamic';
 
@@ -9,11 +10,10 @@ export default async function ShopHomePage({ params }: { params: Promise<{ handl
   const home = await loadShopHome((await params).handle);
   if (!home) notFound();
   const t = await getTranslations('ShopPublic');
-  const template = home.shop.theme.template;
-  return <ShopHomeView home={home} locale={await getLocale()} labels={{
-    headline: home.shop.theme.headline ?? t(`templates.${template}.headline`),
-    subheadline: home.shop.theme.subheadline ?? t(`templates.${template}.subheadline`),
-    shopNow: t('shopNow'), categories: t('categories'), featured: t('featured'), viewAll: t('viewAll'), empty: t('noProducts'),
-    soldOut: t('soldOut'), from: t('from'),
+  const { shop } = home;
+  return <ShopSectionsView sections={home.content.sections} ctx={{
+    base: `/s/${shop.handle}`, handle: shop.handle, theme: shop.theme, currency: shop.currency, locale: await getLocale(),
+    products: home.products, categories: home.categories, tree: home.tree, whatsappPhone: shop.whatsappPhone,
+    image: (ref) => themeImageUrl(shop.handle, ref), t: t as unknown as ShopT,
   }} />;
 }

@@ -2,16 +2,18 @@
 
 /**
  * Commerce → Online store (store plan Phase 1): the public shop's setup
- * checklist, its address and publish switch, a share link and QR code, the
- * six ready-made templates, brand settings, and how buyers order (WhatsApp
- * code and/or "Order on WhatsApp"). Admins edit; agents read (the API and
- * RLS enforce the same rule). Every value is validated again on the server.
+ * checklist, its address and publish switch, a share link and QR code, and
+ * how buyers order (WhatsApp code and/or "Order on WhatsApp"). Template,
+ * brand, sections, menus and pages live in the theme editor
+ * (/commerce/store/editor, Phase 2), which publishes through a draft.
+ * Admins edit; agents read (the API and RLS enforce the same rule). Every
+ * value is validated again on the server.
  */
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
-import { Check, Circle, Copy, Download, ExternalLink, ImageIcon, Loader2 } from "lucide-react";
+import { Check, Circle, Copy, Download, ExternalLink, Loader2, Paintbrush } from "lucide-react";
 import { authFetch } from "@/lib/auth/client";
 import { useCan } from "@/hooks/use-can";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -19,15 +21,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { MediaPicker } from "@/components/inbox/media-library/media-picker";
 import type { ShopSiteView } from "@/lib/commerce/shop-site";
-import {
-  SHOP_COLOR_KEYS, SHOP_FONT_IDS, SHOP_FONTS, SHOP_TEMPLATE_IDS, SHOP_TEMPLATES, SHOP_TEXT_LIMITS,
-  type ShopColors, type ShopTemplateId, type ShopThemeSettings,
-} from "@/lib/commerce/shop-templates";
 import { encodeQr, qrSvgPath } from "@/lib/qr/encode";
-
-type ImageField = "logo" | "banner";
 
 function QrCode({ url, label }: { url: string; label: string }) {
   const { path, size } = useMemo(() => {
@@ -66,7 +61,6 @@ export function StoreSitePanel() {
   const [loadError, setLoadError] = useState(false);
   const [draft, setDraft] = useState<ShopSiteView["site"] | null>(null);
   const [saving, setSaving] = useState(false);
-  const [picker, setPicker] = useState<ImageField | null>(null);
 
   useEffect(() => {
     authFetch("/api/commerce/store-site", { cache: "no-store" })
@@ -82,9 +76,6 @@ export function StoreSitePanel() {
   if (loadError) return <p className="text-sm text-destructive" role="alert">{t("loadError")}</p>;
   if (!view || !draft) return <Loader2 className="size-5 animate-spin text-muted-foreground" aria-label={t("loading")} />;
 
-  const theme = draft.theme;
-  const template = SHOP_TEMPLATES[draft.template];
-  const setTheme = (patch: Partial<ShopThemeSettings>) => setDraft({ ...draft, theme: { ...theme, ...patch } });
   const doneCount = view.checklist.filter((i) => i.done).length;
   const shopUrl = view.site.url;
   const selectedNumber = view.numbers.find((n) => n.id === draft.whatsappConfigId) ?? null;
@@ -95,7 +86,7 @@ export function StoreSitePanel() {
     const res = await authFetch("/api/commerce/store-site", {
       method: "PUT", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        expectedVersion: draft.version, handle: draft.handle, published: draft.published, template: draft.template, theme: draft.theme,
+        expectedVersion: draft.version, handle: draft.handle, published: draft.published,
         whatsappConfigId: draft.whatsappConfigId, whatsappPhone: draft.whatsappPhone, otpTemplateId: draft.otpTemplateId,
       }),
     }).catch(() => null);
@@ -118,24 +109,6 @@ export function StoreSitePanel() {
     } catch {
       toast.error(t("copyFailed"));
     }
-  };
-
-  const imageField = (field: ImageField) => {
-    const value = theme[field];
-    return (
-      <div className="space-y-1.5">
-        <Label htmlFor={`shop-${field}`}>{t(field)}</Label>
-        <div className="flex gap-2">
-          <Input id={`shop-${field}`} placeholder="https://…" disabled={!canEdit}
-            value={value?.startsWith("media:") ? t("fromLibrary") : value ?? ""}
-            onChange={(e) => setTheme({ [field]: e.target.value || null })} />
-          <Button type="button" variant="outline" disabled={!canEdit} onClick={() => setPicker(field)} aria-label={t("pickImage")}>
-            <ImageIcon className="size-4" />
-          </Button>
-          {value && <Button type="button" variant="ghost" disabled={!canEdit} onClick={() => setTheme({ [field]: null })}>{t("clear")}</Button>}
-        </div>
-      </div>
-    );
   };
 
   return (
@@ -206,81 +179,13 @@ export function StoreSitePanel() {
 
       <Card id="template">
         <CardHeader>
-          <CardTitle>{t("templateTitle")}</CardTitle>
-          <CardDescription>{t("templateHint")}</CardDescription>
+          <CardTitle>{t("editorTitle")}</CardTitle>
+          <CardDescription>{t("editorHint")}</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3" role="radiogroup" aria-label={t("templateTitle")}>
-            {SHOP_TEMPLATE_IDS.map((id: ShopTemplateId) => {
-              const tpl = SHOP_TEMPLATES[id];
-              const on = draft.template === id;
-              return (
-                <button key={id} type="button" role="radio" aria-checked={on} disabled={!canEdit}
-                  onClick={() => setDraft({ ...draft, template: id })}
-                  className={`overflow-hidden rounded-lg border text-left transition ${on ? "border-primary ring-2 ring-primary" : "hover:border-foreground/40"}`}>
-                  <div className="flex h-20 flex-col justify-between p-3" style={{ background: tpl.colors.background, color: tpl.colors.text }}>
-                    <span className="text-sm font-semibold" style={{ fontFamily: SHOP_FONTS[tpl.font.heading] }}>{t(`templates.${id}.name`)}</span>
-                    <span className="flex gap-1">
-                      {[tpl.colors.primary, tpl.colors.accent, tpl.colors.surface].map((c) => (
-                        <span key={c} className="size-4 rounded-full border border-black/10" style={{ background: c }} />
-                      ))}
-                    </span>
-                  </div>
-                  <p className="p-3 text-xs text-muted-foreground">{t(`templates.${id}.description`)}</p>
-                </button>
-              );
-            })}
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>{t("brandTitle")}</CardTitle>
-          <CardDescription>{t("brandHint")}</CardDescription>
-        </CardHeader>
-        <CardContent className="grid gap-4 sm:grid-cols-2">
-          {imageField("logo")}
-          {imageField("banner")}
-          {SHOP_COLOR_KEYS.map((key: keyof ShopColors) => (
-            <div key={key} className="space-y-1.5">
-              <Label htmlFor={`shop-color-${key}`}>{t(`colors.${key}`)}</Label>
-              <div className="flex items-center gap-2">
-                <input id={`shop-color-${key}`} type="color" disabled={!canEdit} className="h-9 w-12 rounded border"
-                  value={theme.colors[key] ?? template.colors[key]}
-                  onChange={(e) => setTheme({ colors: { ...theme.colors, [key]: e.target.value } })} />
-                {theme.colors[key] && (
-                  <Button type="button" variant="ghost" size="sm" disabled={!canEdit}
-                    onClick={() => { const next = { ...theme.colors }; delete next[key]; setTheme({ colors: next }); }}>{t("useTemplateColor")}</Button>
-                )}
-              </div>
-            </div>
-          ))}
-          {(["heading", "body"] as const).map((key) => (
-            <div key={key} className="space-y-1.5">
-              <Label htmlFor={`shop-font-${key}`}>{t(`font.${key}`)}</Label>
-              <select id={`shop-font-${key}`} disabled={!canEdit} className="h-9 w-full rounded-md border bg-background px-2 text-sm"
-                value={theme.font[key] ?? ""} onChange={(e) => setTheme({ font: { ...theme.font, [key]: (e.target.value || undefined) as never } })}>
-                <option value="">{t("templateFont", { font: t(`fonts.${template.font[key]}`) })}</option>
-                {SHOP_FONT_IDS.map((f) => <option key={f} value={f}>{t(`fonts.${f}`)}</option>)}
-              </select>
-            </div>
-          ))}
-          {(["headline", "subheadline", "announcement"] as const).map((key) => (
-            <div key={key} className="space-y-1.5 sm:col-span-2">
-              <Label htmlFor={`shop-${key}`}>{t(key)}</Label>
-              <Input id={`shop-${key}`} disabled={!canEdit} maxLength={SHOP_TEXT_LIMITS[key]} value={theme[key] ?? ""}
-                placeholder={key === "announcement" ? t("announcementPlaceholder") : t(`templates.${draft.template}.${key}` as never)}
-                onChange={(e) => setTheme({ [key]: e.target.value || null })} />
-            </div>
-          ))}
-          {(["instagram", "facebook", "youtube"] as const).map((key) => (
-            <div key={key} className="space-y-1.5">
-              <Label htmlFor={`shop-social-${key}`}>{t(`social.${key}`)}</Label>
-              <Input id={`shop-social-${key}`} disabled={!canEdit} placeholder="https://…" value={theme.social[key] ?? ""}
-                onChange={(e) => setTheme({ social: { ...theme.social, [key]: e.target.value || null } })} />
-            </div>
-          ))}
+          {view.site.saved
+            ? <Link href="/commerce/store/editor" className={buttonVariants()}><Paintbrush className="size-4" />{t("openEditor")}</Link>
+            : <p className="text-sm text-muted-foreground">{t("editorNeedsSave")}</p>}
         </CardContent>
       </Card>
 
@@ -321,10 +226,6 @@ export function StoreSitePanel() {
           <Button type="button" onClick={save} disabled={saving}>{saving && <Loader2 className="size-4 animate-spin" />}{t("save")}</Button>
         </div>
       )}
-      <MediaPicker open={picker !== null} onOpenChange={(open) => { if (!open) setPicker(null); }} initialKind="image" onPick={(media) => {
-        if (media.kind !== "image" || !picker) return toast.error(t("imageOnly"));
-        setTheme({ [picker]: `media:${media.id}` });
-      }} />
     </div>
   );
 }

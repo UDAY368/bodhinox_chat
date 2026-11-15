@@ -45,6 +45,7 @@ import type { MessageTemplate } from '@/types';
 import { currencyExponent, minorFromDb } from './money';
 import { CART_LIMITS, normaliseCart, type CartLine } from './pricing';
 import { mediaIdOf, PUBLIC_SHOP_PATH, resolveTheme, SHOP_HANDLE, type ResolvedShopTheme, type ShopImageRef } from './shop-templates';
+import { pagesOn, readShopContent, type ShopContent, type ShopFooter, type ShopMenuLink } from './shop-sections';
 import {
   assertStoreOpenTx, issueSessionTx, linkMessageText, loadCatalogue, loadCatalogueCategories, loadVariants, seededUuid,
   sendStorefrontText, STOREFRONT_TTL,
@@ -109,6 +110,10 @@ export interface PublicShop {
   ordering: { otp: boolean; whatsapp: boolean };
   /** Checkout configured and on: the cart can be ordered. */
   checkoutOpen: boolean;
+  /** Top menu, footer and which store pages exist (theme editor, Phase 2). */
+  menu: ShopMenuLink[];
+  footer: ShopFooter;
+  pages: Record<'about' | 'contact' | 'faq', boolean>;
 }
 
 export interface PublicProduct {
@@ -124,42 +129,63 @@ export interface PublicProduct {
 
 interface StorefrontRow {
   handle: string; template: string; theme: unknown; whatsapp_config_id: string | null; whatsapp_phone: string | null;
-  otp_template_id: string | null;
+  otp_template_id: string | null; document: unknown;
 }
 
 async function loadStorefrontRow(tx: TenantTransaction, accountId: string): Promise<StorefrontRow | null> {
   const [row] = await tx.$queryRaw<StorefrontRow[]>`
-    SELECT handle, template, theme, whatsapp_config_id::text AS whatsapp_config_id, whatsapp_phone, otp_template_id::text AS otp_template_id
+    SELECT handle, template, theme, whatsapp_config_id::text AS whatsapp_config_id, whatsapp_phone, otp_template_id::text AS otp_template_id,
+      document
     FROM shop_storefronts WHERE account_id=${accountId}::uuid`;
   return row ?? null;
 }
 
 export const shopImageUrl = (handle: string, imageId: string) => `/api/public/store/${handle}/images/${imageId}`;
-const themeImageUrl = (handle: string, ref: ShopImageRef | null): string | null => {
+export const themeImageUrl = (handle: string, ref: ShopImageRef | null): string | null => {
   if (!ref) return null;
   const mediaId = mediaIdOf(ref);
   return mediaId ? `/api/public/store/${handle}/media/${mediaId}` : ref;
 };
 
 export async function loadPublicShopTx(tx: TenantTransaction, accountId: string): Promise<PublicShop | null> {
+  return (await loadPublicShopWithContent(tx, accountId))?.shop ?? null;
+}
+
+/** The shop and its published content (sections, menu, footer, pages). */
+export async function loadPublicShopWithContent(tx: TenantTransaction, accountId: string): Promise<{ shop: PublicShop; content: ShopContent } | null> {
   const row = await loadStorefrontRow(tx, accountId);
   if (!row) return null;
+  const content = readShopContent(row.document);
   const settings = await loadPricingSettings(tx, accountId);
   const [account] = await tx.$queryRaw<{ name: string }[]>`SELECT name FROM accounts WHERE id=${accountId}::uuid`;
   const theme = resolveTheme(row.template, row.theme);
-  return {
+  const shop: PublicShop = {
     handle: row.handle, name: settings?.storefront_title || account?.name || row.handle, currency: settings?.currency ?? null,
     pricesIncludeTax: settings?.prices_include_tax ?? true, theme,
     logoUrl: themeImageUrl(row.handle, theme.logo), bannerUrl: themeImageUrl(row.handle, theme.banner),
     whatsappPhone: row.whatsapp_phone,
     ordering: { otp: !!row.otp_template_id && !!row.whatsapp_config_id, whatsapp: !!row.whatsapp_phone && !!row.whatsapp_config_id },
     checkoutOpen: !!settings?.checkout_enabled,
+    menu: content.menu, footer: content.footer, pages: pagesOn(content),
   };
+  return { shop, content };
 }
 
 /** Products a page shows: published, with at least one priced live variant. Images as public URLs. */
-async function loadProducts(tx: TenantTransaction, accountId: string, handle: string,
+function loadProducts(tx: TenantTransaction, accountId: string, handle: string,
   where: { productId?: string; categoryId?: string; limit: number }): Promise<PublicProduct[]> {
+  return loadProductsWith(tx, accountId, where, (image) => shopImageUrl(handle, image.id));
+}
+
+export interface ProductImageRow { id: string; url: string | null; bucket: string | null; object_key: string | null }
+
+/**
+ * Published products with a priced live variant, in catalogue order. `imageUrl`
+ * turns an image row into a URL: the public image route for visitors, the
+ * signed-in media route for the theme editor's preview.
+ */
+export async function loadProductsWith(tx: TenantTransaction, accountId: string,
+  where: { productId?: string; categoryId?: string; limit: number }, imageUrl: (image: ProductImageRow) => string | null): Promise<PublicProduct[]> {
   const productId = where.productId ?? null;
   const categoryId = where.categoryId ?? null;
   const rows = await tx.$queryRaw<{ id: string; name: string; description: string | null; disclosure: string | null;
@@ -180,12 +206,13 @@ async function loadProducts(tx: TenantTransaction, accountId: string, handle: st
     FROM shop_variants v LEFT JOIN inventory_levels l ON l.account_id=v.account_id AND l.variant_id=v.id
     WHERE v.account_id=${accountId}::uuid AND v.product_id = ANY(${ids}::uuid[]) AND v.archived_at IS NULL AND v.price_minor IS NOT NULL
     ORDER BY v.position, v.sku`;
-  const images = await tx.$queryRaw<{ id: string; product_id: string }[]>`
-    SELECT id::text AS id, product_id::text AS product_id FROM shop_product_images
-    WHERE account_id=${accountId}::uuid AND product_id = ANY(${ids}::uuid[]) ORDER BY position`;
+  const images = await tx.$queryRaw<(ProductImageRow & { product_id: string })[]>`
+    SELECT i.id::text AS id, i.product_id::text AS product_id, i.url, m.bucket, m.object_key FROM shop_product_images i
+    LEFT JOIN media_objects m ON m.account_id=i.account_id AND m.id=i.media_id AND m.deleted_at IS NULL
+    WHERE i.account_id=${accountId}::uuid AND i.product_id = ANY(${ids}::uuid[]) ORDER BY i.position`;
   return rows.map((p) => ({
     id: p.id, name: p.name, description: p.description, disclosure: p.disclosure, categoryId: p.category_id, categoryName: p.category,
-    images: images.filter((i) => i.product_id === p.id).map((i) => shopImageUrl(handle, i.id)),
+    images: images.filter((i) => i.product_id === p.id).map(imageUrl).filter((u): u is string => !!u),
     variants: variants.filter((v) => v.product_id === p.id).map((v) => ({
       id: v.id, options: v.option_values ?? {}, priceMinor: minorFromDb(v.price_minor) ?? 0,
       compareAtMinor: minorFromDb(v.compare_at_minor), inStock: v.in_stock,
@@ -193,19 +220,70 @@ async function loadProducts(tx: TenantTransaction, accountId: string, handle: st
   }));
 }
 
-export interface ShopHome { shop: PublicShop; featured: PublicProduct[]; categories: Array<{ id: string; name: string }> }
+/** What the home page's sections draw from: the published content, products in catalogue order and the categories. */
+export interface ShopHome {
+  shop: PublicShop;
+  content: ShopContent;
+  products: PublicProduct[];
+  categories: Array<{ id: string; name: string }>;
+  /** Category rows, for "featured collection" sections (a category and its sub-categories). */
+  tree: Array<{ id: string; parentId: string | null }>;
+}
 
-export const HOME_FEATURED = 8;
+/** The most products the home page's product sections choose from. */
+export const HOME_SCAN_LIMIT = 200;
+
+export async function loadCategoryTree(tx: TenantTransaction, accountId: string): Promise<Array<{ id: string; parentId: string | null }>> {
+  const rows = await tx.$queryRaw<{ id: string; parent_id: string | null }[]>`SELECT id::text AS id, parent_id::text AS parent_id
+    FROM shop_categories WHERE account_id=${accountId}::uuid AND archived_at IS NULL ORDER BY position, name LIMIT 500`;
+  return rows.map((r) => ({ id: r.id, parentId: r.parent_id }));
+}
 
 export function loadShopHome(handle: string): Promise<ShopHome | null> {
   return withPublicShop(handle, async (tx, accountId) => {
-    const shop = await loadPublicShopTx(tx, accountId);
-    if (!shop) return null;
-    const [featured, categories] = await Promise.all([
-      loadProducts(tx, accountId, handle, { limit: HOME_FEATURED }),
-      loadCatalogueCategories(tx, accountId),
+    const loaded = await loadPublicShopWithContent(tx, accountId);
+    if (!loaded) return null;
+    const visible = loaded.content.sections.filter((s) => !s.hidden);
+    const wantsProducts = visible.some((s) => s.type === 'product_grid' || s.type === 'featured_collection');
+    const [products, categories, tree] = await Promise.all([
+      wantsProducts ? loadProducts(tx, accountId, handle, { limit: HOME_SCAN_LIMIT }) : Promise.resolve([]),
+      visible.some((s) => s.type === 'categories') ? loadCatalogueCategories(tx, accountId) : Promise.resolve([]),
+      visible.some((s) => s.type === 'featured_collection') ? loadCategoryTree(tx, accountId) : Promise.resolve([]),
     ]);
-    return { shop, featured, categories };
+    return { ...loaded, products, categories, tree };
+  });
+}
+
+/** What the generated policy pages say, from the store settings (no customer data). */
+export interface ShopPolicyFacts {
+  legalName: string | null;
+  address: string | null;
+  currency: string | null;
+  returnWindowDays: number;
+  cod: { enabled: boolean; feeMinor: number };
+  shippingRates: Array<{ name: string; country: string | null; feeMinor: number; minSubtotalMinor: number }>;
+}
+
+export async function loadPolicyFacts(tx: TenantTransaction, accountId: string): Promise<ShopPolicyFacts> {
+  const [settings] = await tx.$queryRaw<{ legal_name: string | null; address: string | null; currency: string; return_window_days: number;
+    cod_enabled: boolean; cod_fee_minor: bigint }[]>`SELECT legal_name, address, currency, return_window_days, cod_enabled, cod_fee_minor
+    FROM commerce_settings WHERE account_id=${accountId}::uuid`;
+  const rates = await tx.$queryRaw<{ name: string; country: string | null; fee_minor: bigint; min_subtotal_minor: bigint }[]>`SELECT name, country, fee_minor, min_subtotal_minor
+    FROM shipping_rates WHERE account_id=${accountId}::uuid AND active ORDER BY fee_minor, name LIMIT 20`;
+  return {
+    legalName: settings?.legal_name ?? null, address: settings?.address ?? null, currency: settings?.currency ?? null,
+    returnWindowDays: settings?.return_window_days ?? 7,
+    cod: { enabled: !!settings?.cod_enabled, feeMinor: minorFromDb(settings?.cod_fee_minor ?? null) ?? 0 },
+    shippingRates: rates.map((r) => ({ name: r.name, country: r.country, feeMinor: minorFromDb(r.fee_minor) ?? 0, minSubtotalMinor: minorFromDb(r.min_subtotal_minor) ?? 0 })),
+  };
+}
+
+/** A store page (About, Contact, FAQ or a policy): the shop, its content and the policy facts. */
+export function loadShopPage(handle: string): Promise<{ shop: PublicShop; content: ShopContent; facts: ShopPolicyFacts } | null> {
+  return withPublicShop(handle, async (tx, accountId) => {
+    const loaded = await loadPublicShopWithContent(tx, accountId);
+    if (!loaded) return null;
+    return { ...loaded, facts: await loadPolicyFacts(tx, accountId) };
   });
 }
 

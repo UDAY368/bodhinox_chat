@@ -82,7 +82,7 @@ export async function checklistOf(tx: TenantTransaction, accountId: string, site
   return [
     { key: 'settings', done: !!row?.settings, href: '/commerce/settings' },
     { key: 'product', done: !!row?.product, href: '/commerce/catalogue' },
-    { key: 'template', done: site.saved, href: '#template' },
+    { key: 'template', done: site.saved, href: '/commerce/store/editor' },
     { key: 'payments', done: online || !!row?.cod, href: '/commerce/payments' },
     { key: 'shipping', done: !!row?.shipping, href: '/commerce/settings' },
     { key: 'checkout', done: !!row?.checkout, href: '/commerce/settings' },
@@ -115,8 +115,9 @@ export interface ShopSiteInput {
   expectedVersion: number;
   handle: string;
   published: boolean;
-  template: ShopTemplateId;
-  theme: ShopThemeSettings;
+  /** Absent: unchanged. The theme editor (shop-theme.ts) publishes template and brand changes through its draft. */
+  template?: ShopTemplateId;
+  theme?: ShopThemeSettings;
   whatsappConfigId: string | null;
   whatsappPhone: string | null;
   otpTemplateId: string | null;
@@ -130,10 +131,10 @@ export function parseShopSiteInput(body: unknown): ShopSiteInput {
   const handle = normaliseHandle(b.handle);
   if (!handle) throw new StoreError('invalid_handle', { field: 'handle' });
   if (typeof b.published !== 'boolean') throw new StoreError('invalid', { field: 'published' });
-  if (!isShopTemplateId(b.template)) throw new StoreError('invalid', { field: 'template' });
-  let theme: ShopThemeSettings;
+  if (b.template !== undefined && !isShopTemplateId(b.template)) throw new StoreError('invalid', { field: 'template' });
+  let theme: ShopThemeSettings | undefined;
   try {
-    theme = parseThemeSettings(b.theme ?? {});
+    theme = b.theme === undefined ? undefined : parseThemeSettings(b.theme);
   } catch (error) {
     if (error instanceof ShopThemeError) throw new StoreError('invalid', { field: `theme.${error.field}` });
     throw error;
@@ -150,7 +151,7 @@ export function parseShopSiteInput(body: unknown): ShopSiteInput {
     whatsappPhone = digits;
   }
   return {
-    expectedVersion: b.expectedVersion as number, handle, published: b.published, template: b.template, theme,
+    expectedVersion: b.expectedVersion as number, handle, published: b.published, template: b.template as ShopTemplateId | undefined, theme,
     whatsappConfigId: optionalId(b.whatsappConfigId, 'whatsappConfigId'), whatsappPhone,
     otpTemplateId: optionalId(b.otpTemplateId, 'otpTemplateId'),
   };
@@ -179,18 +180,20 @@ export async function saveShopSite(ctx: TenantContext & { userId: string }, inpu
         if (!template || template.kind !== 'authentication' || (template.waba_id && wabaId && template.waba_id !== wabaId))
           throw new StoreError('invalid', { field: 'otpTemplateId' });
       }
-      const theme = JSON.stringify(input.theme);
+      const template = input.template ?? (current && isShopTemplateId(current.template) ? current.template : 'wellness');
+      const themeValue = input.theme ?? (current ? readThemeSettings(current.theme) : readThemeSettings({}));
+      const theme = JSON.stringify(themeValue);
       if (!current)
         await tx.$executeRaw`INSERT INTO shop_storefronts(account_id,handle,published,template,theme,whatsapp_config_id,whatsapp_phone,otp_template_id)
-          VALUES(${ctx.accountId}::uuid,${input.handle},${input.published},${input.template},${theme}::jsonb,${input.whatsappConfigId}::uuid,
+          VALUES(${ctx.accountId}::uuid,${input.handle},${input.published},${template},${theme}::jsonb,${input.whatsappConfigId}::uuid,
             ${input.whatsappPhone},${input.otpTemplateId}::uuid)`;
       else
-        await tx.$executeRaw`UPDATE shop_storefronts SET handle=${input.handle}, published=${input.published}, template=${input.template},
+        await tx.$executeRaw`UPDATE shop_storefronts SET handle=${input.handle}, published=${input.published}, template=${template},
           theme=${theme}::jsonb, whatsapp_config_id=${input.whatsappConfigId}::uuid, whatsapp_phone=${input.whatsappPhone},
           otp_template_id=${input.otpTemplateId}::uuid, version=version+1 WHERE account_id=${ctx.accountId}::uuid`;
       const fields = !current ? ['created'] : (['handle', 'published', 'template', 'theme', 'whatsapp_config_id', 'whatsapp_phone', 'otp_template_id'] as const)
         .filter((k) => {
-          const next = { handle: input.handle, published: input.published, template: input.template, theme: input.theme,
+          const next = { handle: input.handle, published: input.published, template, theme: themeValue,
             whatsapp_config_id: input.whatsappConfigId, whatsapp_phone: input.whatsappPhone, otp_template_id: input.otpTemplateId }[k];
           return JSON.stringify(next) !== JSON.stringify(k === 'theme' ? readThemeSettings(current.theme) : current[k]);
         });

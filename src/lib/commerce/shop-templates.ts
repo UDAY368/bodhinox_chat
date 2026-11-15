@@ -149,7 +149,7 @@ export class ShopThemeError extends Error {
 }
 
 const HEX = /^#[0-9a-f]{6}$/;
-const MEDIA_REF = /^media:[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+export const MEDIA_REF = /^media:[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const SOCIAL_HOSTS: Record<keyof ShopSocial, RegExp> = {
   instagram: /^(www\.)?instagram\.com$/,
   facebook: /^(www\.|m\.)?facebook\.com$/,
@@ -181,7 +181,7 @@ export function parseImageRef(value: unknown, field: string): ShopImageRef | nul
 /** The media library id of an image ref, or null for a URL. */
 export const mediaIdOf = (ref: ShopImageRef | null): string | null => (ref && ref.startsWith('media:') ? ref.slice(6) : null);
 
-function plainText(value: unknown, max: number, field: string): string | null {
+export function plainText(value: unknown, max: number, field: string): string | null {
   if (value === null || value === undefined) return null;
   if (typeof value !== 'string') throw new ShopThemeError(field);
   // Control characters out, whitespace folded; React escapes the rest on render.

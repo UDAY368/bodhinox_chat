@@ -28,7 +28,7 @@ export function ProductBuy({ handle, product, currency }: { handle: string; prod
   const valuesOf = (name: string) => [...new Set(product.variants.map((v) => v.options[name]).filter(Boolean))];
 
   return (
-    <div className="grid gap-6 md:grid-cols-2 md:gap-10">
+    <div className="grid gap-6 @3xl:grid-cols-2 @3xl:gap-10">
       <div className="flex flex-col gap-3">
         <div className="aspect-square overflow-hidden rounded-[var(--shop-radius)] bg-black/5">
           {product.images[image]
@@ -52,7 +52,7 @@ export function ProductBuy({ handle, product, currency }: { handle: string; prod
       <div className="flex flex-col gap-5">
         <div>
           {product.categoryName && <p className="text-xs uppercase tracking-wide opacity-60">{product.categoryName}</p>}
-          <h1 className="mt-1 text-2xl font-semibold sm:text-3xl" style={{ fontFamily: 'var(--shop-font-heading)' }}>{product.name}</h1>
+          <h1 className="mt-1 text-2xl font-semibold @2xl:text-3xl" style={{ fontFamily: 'var(--shop-font-heading)' }}>{product.name}</h1>
           {variant && (
             <p className="mt-3 flex flex-wrap items-baseline gap-x-3">
               <span className="text-xl font-semibold text-[var(--shop-primary)]">{money(variant.priceMinor)}</span>

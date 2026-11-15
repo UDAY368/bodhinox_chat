@@ -24,7 +24,7 @@ export function ProductCard({ handle, product, currency, layout, locale, labels 
         {soldOut && <span className="absolute left-2 top-2 rounded-full bg-black/75 px-2 py-0.5 text-xs font-medium text-white">{labels.soldOut}</span>}
       </div>
       <div className="flex flex-1 flex-col gap-1 p-3">
-        <h3 className="line-clamp-2 text-sm font-medium sm:text-base">{product.name}</h3>
+        <h3 className="line-clamp-2 text-sm font-medium @2xl:text-base">{product.name}</h3>
         {cheapest && (
           <p className="mt-auto flex flex-wrap items-baseline gap-x-2 text-sm">
             <span className="font-semibold text-[var(--shop-primary)]">{varied ? `${labels.from} ` : ''}{money(cheapest.priceMinor)}</span>
@@ -39,5 +39,5 @@ export function ProductCard({ handle, product, currency, layout, locale, labels 
 }
 
 export function ProductGrid({ children, columns }: { children: React.ReactNode; columns: 3 | 4 }) {
-  return <div className={`grid grid-cols-2 gap-3 sm:gap-4 ${columns === 4 ? 'md:grid-cols-3 lg:grid-cols-4' : 'md:grid-cols-3'}`}>{children}</div>;
+  return <div className={`grid grid-cols-2 gap-3 @2xl:gap-4 ${columns === 4 ? '@3xl:grid-cols-3 @5xl:grid-cols-4' : '@3xl:grid-cols-3'}`}>{children}</div>;
 }
