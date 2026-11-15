@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  categoryTree, contentMediaIds, defaultSections, newSection, pagesOn, parseLink, parseShopContent, parseShopDocument, pickProducts,
+  categoryTree, contentMediaIds, defaultSections, newSection, pagesOn, parseLink, parseShopContent, parseShopDocument, pickCollectionProducts, pickProducts,
   readShopContent, readShopDocument, SHOP_CONTENT_LIMITS, SHOP_SECTION_TYPES, shopHref, youtubeId,
 } from './shop-sections';
 import { ShopThemeError } from './shop-templates';
@@ -130,5 +130,37 @@ describe('what pages read', () => {
     expect(pickProducts(products, { limit: 2, sort: 'price_asc' }, tree).map((x) => x.id)).toEqual(['b', 'c']);
     expect(pickProducts(products, { limit: 8, sort: 'name', category: CAT }, tree).map((x) => x.id)).toEqual(['b', 'a']);
     expect(pickProducts(products, { limit: 8, category: '55555555-5555-4555-8555-555555555555' }, tree)).toEqual([]);
+  });
+});
+
+describe('collections in the theme editor (store plan Phase 4)', () => {
+  const COL = '55555555-5555-4555-8555-555555555555';
+  const section = (settings: Record<string, unknown>) => ({ sections: [{ id: 'abcd1', type: 'featured_collection', settings }] });
+
+  it('links to a collection by its address', () => {
+    expect(parseLink('/collections/summer-sale', 'l')).toBe('/collections/summer-sale');
+    expect(parseLink('/Collections/Summer-Sale', 'l')).toBe('/collections/summer-sale');
+    expect(shopHref('/collections/summer-sale', '/s/kumar')).toEqual({ href: '/s/kumar/collections/summer-sale', external: false });
+    for (const bad of ['/collections/', '/collections/-a', '/collections/a-', '/collections/a b', '/collections/a/b', `/collections/${'a'.repeat(61)}`]) {
+      expect(fieldOf(() => parseLink(bad, 'l'))).toBe('l');
+    }
+  });
+
+  it('accepts a collection in a featured collection section and keeps the old category field', () => {
+    const [s] = parseShopContent(section({ collection: COL.toUpperCase(), category: CAT })).sections;
+    expect(s.settings).toMatchObject({ collection: COL, category: CAT });
+    // A theme saved before collections existed has no such setting.
+    const [old] = parseShopContent(section({ category: CAT })).sections;
+    expect(old.settings.collection).toBeNull();
+    const [none] = readShopContent({ sections: [{ id: 'abcd1', type: 'featured_collection', settings: { category: CAT } }] }).sections;
+    expect(none.settings).toMatchObject({ category: CAT, collection: null });
+    expect(fieldOf(() => parseShopContent(section({ collection: 'summer-sale' })))).toBe('sections.0.settings.collection');
+    expect(fieldOf(() => parseShopContent(section({ collection: 5 })))).toBe('sections.0.settings.collection');
+  });
+
+  it('picks the products of a collection in its own order', () => {
+    const products = ['a', 'b', 'c', 'd'].map((id) => ({ id }));
+    expect(pickCollectionProducts(products, ['c', 'x', 'a', 'd'], 2)).toEqual([{ id: 'c' }, { id: 'a' }]);
+    expect(pickCollectionProducts(products, [], 4)).toEqual([]);
   });
 });

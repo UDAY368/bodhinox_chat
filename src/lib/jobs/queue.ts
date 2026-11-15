@@ -16,7 +16,11 @@ const types = new Set(['whatsapp.webhook', 'inbound.actions', 'automation.trigge
   // Auto-labelling of a new conversation (one job per conversation).
   'ai.auto_label',
   // Stage 5: public API flow starts and due sequence messages (both also inserted directly with their own dedupe keys).
-  'api.start_flow', 'sequences.due']);
+  'api.start_flow', 'sequences.due',
+  // Store plan Phase 4: a queued product CSV import.
+  'commerce.product_import', 'commerce.platform_import',
+  // Store plan Phase 4: an admin's "Sync now" of the full Meta catalogue sync (changes queue it from database triggers).
+  'commerce.meta_catalogue_sync']);
 export async function enqueueJob(type: string, payload: Record<string, unknown>, options: JobOptions = {}): Promise<string> {
   assertLiveEffects('job');
   if (!types.has(type) || JSON.stringify(payload).length > 2 * 1024 * 1024) throw new Error('Invalid job contract');
@@ -54,7 +58,7 @@ export async function persistWebhook(rawBody: string, payload: Record<string, un
  * never hold up inbound messages, flows, automations, AI replies and webhooks of other workspaces.
  */
 export const BULK_JOB_TYPES = ['broadcast.dispatch', 'ai.crawl_source', 'ai.insight_run', 'analytics.report',
-  'workspace.export', 'commerce.catalog_sync'] as const;
+  'workspace.export', 'commerce.catalog_sync', 'commerce.product_import', 'commerce.platform_import'] as const;
 /** 'all': any due job (one-lane worker and tests); 'main': everything except BULK_JOB_TYPES; 'bulk': only those. */
 export type JobLane = 'all' | 'main' | 'bulk';
 

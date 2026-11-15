@@ -2296,6 +2296,10 @@ model shop_products {
   created_by String? @db.Uuid
   created_at DateTime @default(now()) @db.Timestamptz(6)
   updated_at DateTime @default(now()) @db.Timestamptz(6)
+  tags String[] @default([])
+  brand String?
+  product_type String?
+  details Json @default("[]")
   @@unique([account_id, id])
 }
 
@@ -2309,6 +2313,7 @@ model shop_product_images {
   created_at DateTime @default(now()) @db.Timestamptz(6)
   @@unique([account_id, id])
   @@unique([account_id, product_id, position])
+  @@unique([account_id, product_id, id])
 }
 
 model shop_variants {
@@ -2327,6 +2332,7 @@ model shop_variants {
   archived_at DateTime? @db.Timestamptz(6)
   created_at DateTime @default(now()) @db.Timestamptz(6)
   updated_at DateTime @default(now()) @db.Timestamptz(6)
+  image_id String? @db.Uuid
   @@unique([account_id, id])
   @@unique([account_id, sku])
 }
@@ -3825,4 +3831,133 @@ model shop_cart_codes {
   created_at DateTime @default(now()) @db.Timestamptz(6)
   @@unique([account_id, id])
   @@unique([account_id, code])
+}
+
+/// Store plan Phase 4 (20261129000000_catalogue_fields_collections): collections of products, by hand or by fixed rules.
+model shop_collections {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  title String
+  slug String
+  description String?
+  kind String @default("manual")
+  rules Json @default("[]")
+  match String @default("all")
+  sort String @default("featured")
+  published Boolean @default(false)
+  created_by String? @db.Uuid
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @default(now()) @db.Timestamptz(6)
+
+  @@unique([account_id, id])
+  @@unique([account_id, slug])
+}
+
+model shop_collection_products {
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  collection_id String @db.Uuid
+  product_id String @db.Uuid
+  position Int @default(0)
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+
+  @@id([account_id, collection_id, product_id])
+  @@index([account_id, product_id])
+}
+
+/// Store plan Phase 4 (20261129010000_catalogue_csv_import): one queued product CSV import. The file text is
+/// cleared when the job ends; the browser never reads it. One queued or running job per workspace (partial index in SQL).
+model shop_import_jobs {
+  id String @db.Uuid @id @default(dbgenerated("gen_random_uuid()"))
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  requested_by String @db.Uuid
+  /// 'queued' | 'running' | 'done' | 'failed'
+  status String @default("queued")
+  csv_text String?
+  total_rows Int
+  processed_rows Int @default(0)
+  created_count Int @default(0)
+  updated_count Int @default(0)
+  error_count Int @default(0)
+  /// [{ row, field, code }], at most 200.
+  errors Json @default("[]")
+  error_code String?
+  created_at DateTime @db.Timestamptz(6) @default(now())
+  started_at DateTime? @db.Timestamptz(6)
+  completed_at DateTime? @db.Timestamptz(6)
+  @@unique([account_id, id])
+  @@index([account_id, created_at(sort: Desc)], map: "shop_import_jobs_account_idx")
+}
+
+/// Store plan Phase 4 (20261129020000_catalogue_platform_import): one queued import from a connected Shopify or
+/// WooCommerce store. credentials_enc (WooCommerce key and secret, encrypted) and cursor are never readable by the app
+/// role; both are cleared when the job ends. One queued or running job per workspace (partial index in SQL).
+model shop_platform_imports {
+  id String @db.Uuid @id @default(dbgenerated("gen_random_uuid()"))
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  requested_by String @db.Uuid
+  /// 'shopify' | 'woocommerce'
+  platform String
+  source_url String
+  /// 'queued' | 'running' | 'done' | 'failed' | 'canceled'
+  status String @default("queued")
+  credentials_enc String?
+  cursor String?
+  cancel_requested Boolean @default(false)
+  pages_done Int @default(0)
+  products_seen Int @default(0)
+  created_count Int @default(0)
+  updated_count Int @default(0)
+  skipped_count Int @default(0)
+  error_count Int @default(0)
+  /// [{ row, field, code }], at most 200.
+  errors Json @default("[]")
+  error_code String?
+  created_at DateTime @db.Timestamptz(6) @default(now())
+  started_at DateTime? @db.Timestamptz(6)
+  completed_at DateTime? @db.Timestamptz(6)
+  @@unique([account_id, id])
+  @@index([account_id, created_at(sort: Desc)], map: "shop_platform_imports_account_idx")
+}
+
+/// Store plan Phase 4 (20261129030000_meta_catalogue_full_sync): the workspace's opt-in to full Meta catalogue sync and
+/// which products sync ('all' published products, or the 'selected' product_ids).
+model shop_meta_sync_settings {
+  account_id String @id @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  enabled Boolean @default(false)
+  /// 'all' | 'selected'
+  scope String @default("all")
+  product_ids String[] @db.Uuid @default([])
+  updated_by String? @db.Uuid
+  created_at DateTime @db.Timestamptz(6) @default(now())
+  updated_at DateTime @db.Timestamptz(6) @default(now())
+}
+
+/// One row per variant: where its Meta catalogue item stands. Written by the worker; an admin may only resolve an
+/// 'uncertain' row (reconcile). No product name or price is stored; pushed_hash is a digest of what was sent.
+model shop_meta_sync_items {
+  id String @db.Uuid @id @default(dbgenerated("gen_random_uuid()"))
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  variant_id String @db.Uuid
+  catalog_id String
+  retailer_id String
+  /// 'not_synced' | 'pending' | 'synced' | 'failed' | 'uncertain'
+  status String @default("not_synced")
+  /// 'CREATE' | 'UPDATE'
+  method String?
+  in_meta Boolean @default(false)
+  pushed_hash String?
+  intent_key String?
+  batch_handle String?
+  meta_product_id String?
+  error_code String?
+  error_detail String?
+  attempts Int @default(0)
+  last_pushed_at DateTime? @db.Timestamptz(6)
+  last_checked_at DateTime? @db.Timestamptz(6)
+  synced_at DateTime? @db.Timestamptz(6)
+  created_at DateTime @db.Timestamptz(6) @default(now())
+  updated_at DateTime @db.Timestamptz(6) @default(now())
+  @@unique([account_id, id])
+  @@unique([account_id, variant_id])
+  @@index([account_id, status], map: "shop_meta_sync_items_status_idx")
 }

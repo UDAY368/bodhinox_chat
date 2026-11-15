@@ -107,12 +107,12 @@ export function ProductEditor({ id }: { id: string }) {
         {!product.currency && <p className="rounded-md bg-muted p-2 text-xs text-muted-foreground">{t("currencyMissing")}</p>}
         <div className="space-y-3">
           {product.variants.map((v) => (
-            <VariantForm key={`${v.id}:${product.version}`} variant={v} currency={product.currency} canManage={canManage} busy={busy}
+            <VariantForm key={`${v.id}:${product.version}`} variant={v} currency={product.currency} images={product.images} canManage={canManage} busy={busy}
               onSave={(body) => apply(saveVariant(product.id, v.id, body), t("variantSaved"))}
               onAdjust={() => setAdjusting({ variantId: v.id, label: `${product.name} · ${v.sku}`, onHand: v.on_hand, reserved: v.reserved })} />
           ))}
           {canManage && (
-            <VariantForm key={`new:${product.version}`} variant={null} currency={product.currency} canManage busy={busy}
+            <VariantForm key={`new:${product.version}`} variant={null} currency={product.currency} images={product.images} canManage busy={busy}
               onSave={(body) => apply(saveVariant(product.id, null, body), t("variantSaved"))} />
           )}
         </div>
@@ -141,14 +141,18 @@ function DetailsForm({ product, categories, canManage, busy, onSave }: {
     category_id: product.category_id ?? "", follow_up_template: product.follow_up_template ?? "",
     follow_up_template_language: product.follow_up_template_language ?? "", follow_up_after_days: product.follow_up_after_days?.toString() ?? "",
     repurchase_after_days: product.repurchase_after_days?.toString() ?? "",
+    brand: product.brand ?? "", product_type: product.product_type ?? "", tags: product.tags.join(", "),
   });
+  const [details, setDetails] = useState<{ label: string; value: string }[]>(product.details.map((d) => ({ ...d })));
   // Older responses have no cod_available: treat as allowed (the column defaults to true).
   const [codAvailable, setCodAvailable] = useState(product.cod_available !== false);
   const set = (k: keyof typeof form) => (e: { target: { value: string } }) => setForm((f) => ({ ...f, [k]: e.target.value }));
   const days = form.follow_up_after_days.trim() ? Number(form.follow_up_after_days) : null;
   const repurchase = form.repurchase_after_days.trim() ? Number(form.repurchase_after_days) : null;
   const dayOk = (n: number | null) => n === null || (Number.isInteger(n) && n >= 1 && n <= 365);
-  const valid = form.name.trim().length > 0 && dayOk(days) && dayOk(repurchase)
+  const tagList = form.tags.split(",").map((x) => x.trim()).filter(Boolean);
+  const detailsOk = details.every((d) => (!d.label.trim() && !d.value.trim()) || (d.label.trim() && d.value.trim()));
+  const valid = form.name.trim().length > 0 && dayOk(days) && dayOk(repurchase) && tagList.length <= 20 && tagList.every((x) => x.length <= 40) && detailsOk
     && (!form.follow_up_template.trim() || form.follow_up_template_language.trim().length >= 2);
   const submit = () => onSave({
     name: form.name, description: form.description || null, disclosure: form.disclosure || null, category_id: form.category_id || null,
@@ -156,6 +160,9 @@ function DetailsForm({ product, categories, canManage, busy, onSave }: {
     follow_up_after_days: form.follow_up_template.trim() ? days : null,
     repurchase_after_days: repurchase,
     cod_available: codAvailable,
+    brand: form.brand.trim() || null, product_type: form.product_type.trim() || null,
+    tags: tagList,
+    details: details.filter((d) => d.label.trim() || d.value.trim()).map((d) => ({ label: d.label.trim(), value: d.value.trim() })),
   });
   const ro = !canManage;
   return (
@@ -185,6 +192,38 @@ function DetailsForm({ product, categories, canManage, busy, onSave }: {
         <Textarea id="p-disc" rows={3} maxLength={2000} value={form.disclosure} readOnly={ro} onChange={set("disclosure")} />
         <p className="text-xs text-muted-foreground">{t("disclosureHint")}</p>
       </div>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div className="space-y-1">
+          <Label htmlFor="p-brand">{t("brand")}</Label>
+          <Input id="p-brand" value={form.brand} maxLength={80} readOnly={ro} onChange={set("brand")} />
+        </div>
+        <div className="space-y-1">
+          <Label htmlFor="p-type">{t("productType")}</Label>
+          <Input id="p-type" value={form.product_type} maxLength={80} readOnly={ro} onChange={set("product_type")} />
+        </div>
+      </div>
+      <div className="space-y-1">
+        <Label htmlFor="p-tags">{t("tags")}</Label>
+        <Input id="p-tags" value={form.tags} readOnly={ro} onChange={set("tags")} placeholder={t("tagsPlaceholder")} />
+        <p className="text-xs text-muted-foreground">{t("tagsHint")}</p>
+        {tagList.length > 20 && <p className="text-xs text-destructive">{t("tagsTooMany")}</p>}
+      </div>
+      <fieldset className="space-y-2">
+        <legend className="mb-1 text-sm font-medium text-foreground">{t("productDetails")}</legend>
+        <p className="text-xs text-muted-foreground">{t("detailsHint")}</p>
+        {details.map((d, i) => (
+          <div key={i} className="flex flex-wrap items-center gap-2">
+            <Input aria-label={t("detailLabel")} placeholder={t("detailLabel")} className="w-40" maxLength={40} value={d.label} readOnly={ro}
+              onChange={(e) => setDetails((list) => list.map((x, j) => (j === i ? { ...x, label: e.target.value } : x)))} />
+            <Input aria-label={t("detailValue")} placeholder={t("detailValue")} className="min-w-0 flex-1" maxLength={200} value={d.value} readOnly={ro}
+              onChange={(e) => setDetails((list) => list.map((x, j) => (j === i ? { ...x, value: e.target.value } : x)))} />
+            {!ro && <Button type="button" size="icon-sm" variant="ghost" aria-label={t("removeDetail")} onClick={() => setDetails((list) => list.filter((_, j) => j !== i))}><Trash2 className="h-4 w-4" /></Button>}
+          </div>
+        ))}
+        {!ro && details.length < 12 && (
+          <Button type="button" variant="outline" size="sm" onClick={() => setDetails((list) => [...list, { label: "", value: "" }])}><Plus className="h-4 w-4" />{t("addDetail")}</Button>
+        )}
+      </fieldset>
       <fieldset className="grid gap-3 sm:grid-cols-3">
         <legend className="mb-1 text-sm font-medium text-foreground">{t("followUp")}</legend>
         <div className="space-y-1">
@@ -285,8 +324,8 @@ function ImagesForm({ product, canManage, busy, onSave }: {
   );
 }
 
-function VariantForm({ variant, currency, canManage, busy, onSave, onAdjust }: {
-  variant: Variant | null; currency: string | null; canManage: boolean; busy: boolean;
+function VariantForm({ variant, currency, images, canManage, busy, onSave, onAdjust }: {
+  variant: Variant | null; currency: string | null; images: ShopProduct["images"]; canManage: boolean; busy: boolean;
   onSave: (body: VariantBody) => Promise<boolean>; onAdjust?: () => void;
 }) {
   const t = useTranslations("Commerce.catalogue.editor");
@@ -301,6 +340,7 @@ function VariantForm({ variant, currency, canManage, busy, onSave, onAdjust }: {
     hsn: variant?.hsn_code ?? "",
     track: variant?.track_inventory ?? true,
     weight: variant?.weight_grams?.toString() ?? "",
+    imageId: variant?.image_id ?? "",
   });
   const set = (k: keyof typeof form) => (e: { target: { value: string } }) => setForm((f) => ({ ...f, [k]: e.target.value }));
 
@@ -324,8 +364,9 @@ function VariantForm({ variant, currency, canManage, busy, onSave, onAdjust }: {
     const ok = await onSave({
       sku: form.sku.trim(), option_values: options ?? {}, price_minor: price ?? null, compare_at_minor: compareAt ?? null,
       tax_rate_bps: tax ?? null, hsn_code: form.hsn.trim() || null, track_inventory: form.track, weight_grams: weight,
+      image_id: form.imageId || null,
     });
-    if (ok && !variant) setForm({ sku: "", options: "", price: "", compareAt: "", tax: "", hsn: "", track: true, weight: "" });
+    if (ok && !variant) setForm({ sku: "", options: "", price: "", compareAt: "", tax: "", hsn: "", track: true, weight: "", imageId: "" });
   };
   const ro = !canManage;
   const field = (key: keyof typeof errors, label: string, input: React.ReactNode) => (
@@ -372,6 +413,25 @@ function VariantForm({ variant, currency, canManage, busy, onSave, onAdjust }: {
           {t("trackInventory")}
         </label>
       </div>
+      {images.length > 0 && (
+        <fieldset className="space-y-1">
+          <legend className="text-xs font-medium text-foreground">{t("variantImage")}</legend>
+          <div className="flex flex-wrap gap-2">
+            <button type="button" disabled={ro} aria-pressed={form.imageId === ""} onClick={() => setForm((f) => ({ ...f, imageId: "" }))}
+              className={`h-14 rounded border px-2 text-xs ${form.imageId === "" ? "border-primary ring-2 ring-primary" : "border-border"}`}>{t("noVariantImage")}</button>
+            {images.map((img, i) => (
+              <button key={img.id} type="button" disabled={ro || !img.display_url} aria-pressed={form.imageId === img.id} aria-label={t("variantImageN", { n: i + 1 })}
+                onClick={() => setForm((f) => ({ ...f, imageId: img.id }))}
+                className={`h-14 w-14 overflow-hidden rounded border ${form.imageId === img.id ? "border-primary ring-2 ring-primary" : "border-border"}`}>
+                {img.display_url
+                  // eslint-disable-next-line @next/next/no-img-element -- seller-provided https or library images
+                  ? <img src={img.display_url} alt="" className="size-full object-cover" referrerPolicy="no-referrer" loading="lazy" />
+                  : <span className="block size-full bg-muted" />}
+              </button>
+            ))}
+          </div>
+        </fieldset>
+      )}
       {canManage && (
         <div className="flex flex-wrap gap-2">
           <Button type="submit" size="sm" disabled={busy || !valid}>{variant ? t("saveVariant") : t("createVariant")}</Button>

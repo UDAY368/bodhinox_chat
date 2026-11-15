@@ -20,7 +20,8 @@ const routeModules = import.meta.glob('/src/app/api/**/route.ts');
 const databases = fixtureDatabaseUrls();
 
 type Extra = Record<'list' | 'segment' | 'team' | 'paymentLink' | 'media' | 'note' | 'attribute' | 'schedule'
-  | 'savedFilter' | 'form' | 'mediaKey' | 'igTemplate' | 'customField' | 'dealNote' | 'shopProduct' | 'aiAgent' | 'aiSource' | 'savedReport' | 'autoDiscount' | 'review', string>;
+  | 'savedFilter' | 'form' | 'mediaKey' | 'igTemplate' | 'customField' | 'dealNote' | 'shopProduct' | 'aiAgent' | 'aiSource' | 'savedReport' | 'autoDiscount' | 'review' | 'collection'
+  | 'platformImport' | 'metaSyncVariant', string>;
 type Ids = TenantFixture & { extra: Extra };
 
 type Case = {
@@ -104,6 +105,14 @@ export const CASES: Case[] = [
   { route: 'commerce/auto-discounts/[id]', method: 'PATCH', params: extra('autoDiscount'),
     body: () => ({ expected_version: 1, name: 'p15 changed', kind: 'percent_off_over', percent_bps: 5000, min_subtotal_minor: 0, active: true }) },
   { route: 'commerce/auto-discounts/[id]', method: 'DELETE', params: extra('autoDiscount') },
+  // Collections: another workspace's collection cannot be read, changed or deleted.
+  { route: 'commerce/shop/collections/[id]', method: 'GET', params: extra('collection') },
+  { route: 'commerce/shop/collections/[id]', method: 'PATCH', params: extra('collection'), body: () => ({ title: 'p15 changed' }) },
+  { route: 'commerce/shop/collections/[id]', method: 'DELETE', params: extra('collection') },
+  // Store imports: another workspace's queued Shopify / WooCommerce import cannot be cancelled.
+  { route: 'commerce/shop/platform-import/[id]/cancel', method: 'POST', params: extra('platformImport') },
+  // Full Meta catalogue sync: another workspace's uncertain item cannot be reconciled (the caller's own answers 409: no catalogue linked).
+  { route: 'commerce/shop/meta-sync/[id]/reconcile', method: 'POST', params: extra('metaSyncVariant') },
   // Product reviews: another workspace's review cannot be published or hidden.
   { route: 'commerce/reviews/[id]', method: 'PATCH', params: extra('review'), body: () => ({ status: 'hidden' }) },
   // Appointments
@@ -354,7 +363,7 @@ const TABLES = ['contacts', 'conversations', 'messages', 'tags', 'contact_tags',
   'workspace_attributes', 'report_schedules', 'analytics_saved_reports', 'saved_filters', 'whatsapp_forms', 'webhook_endpoints', 'api_keys',
   'account_memberships', 'quick_replies', 'message_templates', 'ai_knowledge_documents', 'whatsapp_config', 'accounts',
   'instagram_message_templates', 'custom_fields', 'contact_custom_values', 'contact_activity',
-  'deal_notes', 'shop_reviews', 'shop_products', 'shop_variants', 'ai_agents',
+  'deal_notes', 'shop_reviews', 'shop_products', 'shop_variants', 'shop_collections', 'shop_platform_imports', 'shop_meta_sync_items', 'ai_agents',
   'ai_knowledge_sources', 'shop_auto_discounts'];
 
 async function existingTables(): Promise<string[]> {
@@ -411,9 +420,25 @@ async function addExtras(t: TenantFixture, tag: string): Promise<Extra> {
     // One review of the workspace's own order and its first product (the product row is made just above).
     review: await one('INSERT INTO shop_reviews(account_id,product_id,order_id,contact_id,rating) SELECT $1, id, $2, $3, 5 FROM shop_products WHERE account_id=$1 LIMIT 1',
       [a, t.orderId, t.contactId]),
+    collection: await one("INSERT INTO shop_collections(account_id,title,slug,created_by) VALUES($1,$2,$3,$4)", [a, `p15 collection ${tag}`, `p15-${tag}`.toLowerCase().replace(/[^a-z0-9-]/g, '-').slice(0, 60), u]),
+    platformImport: await one("INSERT INTO shop_platform_imports(account_id,requested_by,platform,source_url) VALUES($1,$2,'shopify',$3)",
+      [a, u, `p15-${tag}.myshopify.com`]),
+    metaSyncVariant: await uncertainSyncVariant(a, tag),
     autoDiscount: await one("INSERT INTO shop_auto_discounts(account_id,name,kind,percent_bps,created_by) VALUES($1,$2,'percent_off_over',1000,$3)",
       [a, `p15 discount ${tag}`, u]),
   };
+}
+
+/** A variant of the workspace's product whose Meta catalogue item is 'uncertain', so reconcile has a row to act on. Returns the variant id. */
+async function uncertainSyncVariant(accountId: string, tag: string): Promise<string> {
+  const pool = fixtureOwnerPool();
+  const sku = `P15-SYNC-${tag}`.toUpperCase();
+  const variant = String((await pool.query<{ id: string }>(
+    'INSERT INTO shop_variants(account_id,product_id,sku,price_minor) SELECT $1, id, $2, 1000 FROM shop_products WHERE account_id=$1 LIMIT 1 RETURNING id',
+    [accountId, sku])).rows[0].id);
+  await pool.query("INSERT INTO shop_meta_sync_items(account_id,variant_id,catalog_id,retailer_id,status,method,error_code) VALUES($1,$2,'1234567890',$3,'uncertain','CREATE','outcome_unknown')",
+    [accountId, variant, sku]);
+  return variant;
 }
 
 /** A saved analytics report with an email schedule, so "Stop sending" has something to stop on the caller's own row. */

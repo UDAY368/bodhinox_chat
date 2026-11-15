@@ -10,7 +10,7 @@ import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { Play } from 'lucide-react';
 import type { PublicProduct } from '@/lib/commerce/public-shop';
-import { categoryTree, pickProducts, youtubeId, type FieldValues, type ShopSection } from '@/lib/commerce/shop-sections';
+import { categoryTree, pickCollectionProducts, pickProducts, youtubeId, type FieldValues, type ShopSection } from '@/lib/commerce/shop-sections';
 import type { ResolvedShopTheme } from '@/lib/commerce/shop-templates';
 import { ProductCard, ProductGrid } from './product-card';
 import { ShopLink, type ShopT } from './shop-link';
@@ -24,6 +24,8 @@ export interface SectionContext {
   products: PublicProduct[];
   categories: Array<{ id: string; name: string }>;
   tree: Array<{ id: string; parentId: string | null; name?: string }>;
+  /** Collections that "featured collection" sections name (published ones on the shop; every one in the editor's preview). */
+  collections?: Record<string, { slug: string; title: string; productIds: string[] }>;
   whatsappPhone: string | null;
   /** An image ref (https URL or media:<id>) to a URL the page can load. */
   image: (ref: string | null) => string | null;
@@ -144,16 +146,23 @@ function Categories({ s, ctx }: { s: ShopSection; ctx: SectionContext }) {
 }
 
 function Products({ s, ctx }: { s: ShopSection; ctx: SectionContext }) {
-  const category = str(s.settings, 'category');
-  const products = pickProducts(ctx.products, s.settings, categoryTree(ctx.tree));
+  const collectionId = str(s.settings, 'collection');
+  const collection = collectionId ? ctx.collections?.[collectionId] ?? null : null;
+  // A collection that is gone or not published shows nothing, never the category behind it.
+  const category = collectionId ? null : str(s.settings, 'category');
+  const limit = typeof s.settings.limit === 'number' ? s.settings.limit : 4;
+  const products = collectionId
+    ? pickCollectionProducts(ctx.products, collection?.productIds ?? [], limit)
+    : pickProducts(ctx.products, s.settings, categoryTree(ctx.tree));
   const categoryName = category ? ctx.tree.find((c) => c.id === category)?.name ?? ctx.categories.find((c) => c.id === category)?.name : null;
-  const title = str(s.settings, 'title') ?? categoryName ?? ctx.t('featured');
+  const title = str(s.settings, 'title') ?? collection?.title ?? categoryName ?? ctx.t('featured');
+  const viewAll = collection ? `${ctx.base}/collections/${collection.slug}` : category ? `${ctx.base}/c/${category}` : `${ctx.base}/all`;
   const id = `shop-${s.id}`;
   return (
     <section aria-labelledby={id} className="flex flex-col gap-3">
       <div className="flex items-baseline justify-between gap-3">
         <Title id={id}>{title}</Title>
-        <Link href={category ? `${ctx.base}/c/${category}` : `${ctx.base}/all`} className="text-sm font-medium underline">{ctx.t('viewAll')}</Link>
+        <Link href={viewAll} className="text-sm font-medium underline">{ctx.t('viewAll')}</Link>
       </div>
       {products.length === 0 ? <p className="opacity-70">{ctx.t('noProducts')}</p> : (
         <ProductGrid columns={ctx.theme.layout.columns}>

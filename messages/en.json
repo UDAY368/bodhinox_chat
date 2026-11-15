@@ -9845,7 +9845,8 @@
         "products": "Products",
         "categories": "Categories",
         "inventory": "Inventory",
-        "meta": "Meta catalogue link"
+        "meta": "Meta catalogue link",
+        "collections": "Collections"
       },
       "statuses": {
         "draft": "Draft",
@@ -9866,7 +9867,23 @@
         "below_reserved": "Stock cannot go below the units reserved for open orders.",
         "forbidden": "Your role cannot do this.",
         "rate_limited": "Too many changes at once. Wait a moment and try again.",
-        "generic": "Something went wrong. Try again."
+        "generic": "Something went wrong. Try again.",
+        "slug_taken": "Another collection already uses that web address.",
+        "import_running": "Another import is still queued or running. Wait for it to finish.",
+        "csv_empty": "The file has no product rows.",
+        "csv_too_large": "The file is larger than 5 MB.",
+        "csv_too_many_rows": "The file has more than 5,000 rows. Split it into smaller files.",
+        "csv_too_many_columns": "The file has too many columns.",
+        "csv_cell_too_long": "A cell is too long to read.",
+        "csv_unterminated_quote": "A quoted cell is never closed. Check the quotes in the file.",
+        "csv_missing_sku_column": "The file needs a \"sku\" column in its first row.",
+        "platform_not_connected": "That store is not connected.",
+        "shopify_scope_missing": "Shopify access to products was not approved. Reconnect Shopify in Settings and approve it.",
+        "woo_https_required": "Import needs a store address that starts with https.",
+        "meta_not_connected": "No Meta catalogue is connected.",
+        "meta_sync_off": "Turn on the Meta catalogue sync first.",
+        "meta_unavailable": "Meta could not be reached. Nothing was changed; try again later.",
+        "reconcile_too_soon": "This was sent less than two minutes ago. Give Meta a moment, then try again."
       },
       "products": {
         "newName": "New product name",
@@ -9924,6 +9941,52 @@
         "importHint": "A Meta price is copied only when it is in the store currency. Review every draft before publishing.",
         "notImportable": "Content ID is not a valid SKU",
         "imported": "{count} drafts created, {skipped} skipped"
+      },
+      "metaSync": {
+        "title": "Full Meta catalogue sync",
+        "description": "Bodhinox creates and updates these products in your Meta catalogue: name, description, price, stock, picture, brand and a link to the product page. Off until you turn it on. Nothing is ever deleted in Meta.",
+        "enable": "Sync products to the Meta catalogue",
+        "on": "On",
+        "off": "Off",
+        "notConnected": "No Meta catalogue is connected. Link a catalogue to a WhatsApp number first, then turn the sync on here.",
+        "offHint": "While this is off, Bodhinox only sends price and stock for products that already exist in Meta.",
+        "statuses": {
+          "synced": "Synced",
+          "pending": "Sending",
+          "not_synced": "Not synced",
+          "failed": "Failed",
+          "uncertain": "Uncertain"
+        },
+        "syncNow": "Sync now",
+        "queued": "Sync queued. It starts within a minute.",
+        "scopeLabel": "Which products sync",
+        "scope": {
+          "all": "All published products",
+          "selected": "Only the products I pick"
+        },
+        "problems": "Needs attention ({count})",
+        "uncertainHint": "Uncertain: Meta did not confirm whether a new item was created. It is not sent again until you check it. Reconcile looks the item up in Meta and settles it.",
+        "reasons": {
+          "missing_price": "The variant has no price.",
+          "missing_image": "The product has no picture.",
+          "missing_link": "The online store is not published, so there is no product page to link to.",
+          "token_invalid": "Meta refused the access token of the WhatsApp number. Reconnect the number.",
+          "catalog_permission": "The connection is not allowed to manage this catalogue. Grant catalogue management in Meta Business settings.",
+          "meta_rejected": "Meta refused the request.",
+          "meta_item_invalid": "Meta refused this item. Check its name, description, price and picture.",
+          "no_handle": "Meta did not return a receipt for the update. Use Sync now to send it again.",
+          "outcome_unknown": "Meta did not confirm the result.",
+          "generic": "The item could not be synced."
+        },
+        "metaCode": "Meta code {code}",
+        "reconcile": "Reconcile",
+        "reconciledFound": "Found in Meta. Marked as synced.",
+        "reconciledMissing": "Not in Meta. It will be created on the next sync.",
+        "products": "Published products ({count})",
+        "noProducts": "No published products yet.",
+        "selectProduct": "Sync {name}",
+        "variants": "{count, plural, one {# variant} other {# variants}}",
+        "notSelected": "Not selected"
       },
       "editor": {
         "notFound": "This product does not exist.",
@@ -9995,7 +10058,22 @@
         "codAvailableHint": "When off, a cart holding this product can only be paid online (cash on delivery must also be on in Store settings).",
         "uploadImage": "Upload or choose from library",
         "imageOnly": "Choose an image file.",
-        "waiting": "{count, plural, one {# person is waiting for this} other {# people are waiting for this}}"
+        "waiting": "{count, plural, one {# person is waiting for this} other {# people are waiting for this}}",
+        "brand": "Brand",
+        "productType": "Product type",
+        "tags": "Tags",
+        "tagsPlaceholder": "organic, gift, new",
+        "tagsHint": "Separate tags with commas. Up to 20, lower case. Collections can pick products by tag.",
+        "tagsTooMany": "A product can have at most 20 tags.",
+        "productDetails": "Product details",
+        "detailsHint": "Rows like Material: Cotton, shown as plain text on the product page. Up to 12.",
+        "detailLabel": "Label",
+        "detailValue": "Value",
+        "addDetail": "Add detail",
+        "removeDetail": "Remove detail",
+        "variantImage": "Picture for this variant",
+        "noVariantImage": "None",
+        "variantImageN": "Image {n}"
       },
       "newArrivals": {
         "action": "Send as new arrivals",
@@ -10022,6 +10100,228 @@
         "send": "Send campaign",
         "started": "Campaign started",
         "failed": "Could not start the campaign"
+      },
+      "collections": {
+        "description": "Group products into pages shoppers can open, like Summer sale or New this week. Pick products by hand, or set rules and let the page fill itself.",
+        "new": "New collection",
+        "empty": "No collections yet.",
+        "edit": "Edit",
+        "view": "View",
+        "published": "Published",
+        "draft": "Draft",
+        "products": "{count, plural, one {# product} other {# products}}",
+        "kinds": {
+          "manual": "Hand-picked",
+          "smart": "Smart (rules)"
+        },
+        "dialogHint": "Shoppers see only published products that can be bought now.",
+        "name": "Name",
+        "slug": "Web address ending",
+        "slugInvalid": "Use lower case letters, numbers and single dashes.",
+        "descriptionLabel": "Description (optional)",
+        "kind": "Type",
+        "sort": "Order",
+        "sorts": {
+          "featured": "Featured",
+          "price_asc": "Price: low to high",
+          "price_desc": "Price: high to low",
+          "name": "Name",
+          "newest": "Newest first"
+        },
+        "publishedLabel": "Show on the shop",
+        "saved": "Collection saved.",
+        "deleted": "Collection deleted.",
+        "delete": "Delete",
+        "deleteConfirm": "Delete this collection?",
+        "deleteYes": "Yes, delete",
+        "cancel": "Cancel",
+        "close": "Close",
+        "save": "Save",
+        "rules": "Rules",
+        "matchPrefix": "A product matches",
+        "match": "Match",
+        "matchAll": "all",
+        "matchAny": "any",
+        "matchSuffix": "of these rules",
+        "noRules": "Add at least one rule.",
+        "field": "Field",
+        "operator": "Condition",
+        "value": "Value",
+        "fields": {
+          "tag": "Tag",
+          "brand": "Brand",
+          "product_type": "Product type",
+          "category": "Category",
+          "price": "Price (lowest variant)",
+          "on_sale": "On sale"
+        },
+        "ops": {
+          "eq": "is",
+          "neq": "is not",
+          "gt": "is more than",
+          "lt": "is less than",
+          "is": "is"
+        },
+        "pickCategory": "Choose a category",
+        "onSaleYes": "yes (has a higher compare-at price)",
+        "onSaleNo": "no",
+        "addRule": "Add rule",
+        "removeRule": "Remove rule",
+        "pickedProducts": "Products",
+        "nonePicked": "No products picked yet.",
+        "moveUp": "Move up",
+        "moveDown": "Move down",
+        "removeProduct": "Remove product",
+        "searchProducts": "Search published products",
+        "addProduct": "Add",
+        "previewIncomplete": "Complete the rules to see how many products match.",
+        "previewLoading": "Counting products…",
+        "previewFailed": "The count could not be loaded.",
+        "previewCount": "{count, plural, one {# product matches} other {# products match}}"
+      },
+      "csv": {
+        "export": "Export CSV",
+        "title": "Import products from CSV",
+        "description": "One row per variant. A row is matched to an existing variant by its SKU; a new SKU is added. You see a dry run before anything is saved.",
+        "file": "CSV file",
+        "rules": "Columns: sku (required), name, description, category, tags (separated by |), brand, product_type, status, options (Size=M|Color=Red), price, compare_at_price, stock, track_inventory, weight_grams, image_urls (separated by |). A blank cell leaves the current value as it is. New products are saved as drafts unless the status column says otherwise. Up to 5 MB and 5,000 rows.",
+        "working": "Reading the file",
+        "tooLarge": "The file is larger than 5 MB.",
+        "previewTitle": "What this file would do",
+        "willCreate": "New variants",
+        "willUpdate": "Variants updated",
+        "newProducts": "New products",
+        "willSkip": "Rows skipped",
+        "modeInline": "This file is small, so it is applied right away when you confirm.",
+        "modeQueued": "This file has {count} rows, so it is queued and applied in the background. You can follow the progress here.",
+        "ignoredColumns": "{count} column(s) are not recognised and will be ignored.",
+        "errorsTitle": "Rows that will be skipped",
+        "colRow": "Row",
+        "colColumn": "Column",
+        "colProblem": "Problem",
+        "errorsCapped": "Showing the first part of {count} problems.",
+        "done": "{created} added, {updated} updated, {errors} problems.",
+        "queued": "Import queued.",
+        "close": "Close",
+        "confirm": "Import {count} rows",
+        "progress": "{done} of {total} rows",
+        "job": {
+          "queued": "Waiting to start",
+          "running": "Importing",
+          "done": "Finished",
+          "failed": "Stopped"
+        },
+        "jobErrors": {
+          "not_allowed": "The person who started this import is no longer an admin, so nothing more was applied.",
+          "import_failed": "The import stopped after several attempts. Rows already applied stay; upload the file again to finish.",
+          "queue_failed": "The import could not be queued. Try again.",
+          "csv_empty": "The file has no product rows.",
+          "csv_missing_sku_column": "The file needs a \"sku\" column.",
+          "csv_unterminated_quote": "A quoted cell is never closed."
+        },
+        "fields": {
+          "sku": "SKU",
+          "name": "Name",
+          "description": "Description",
+          "category": "Category",
+          "tags": "Tags",
+          "brand": "Brand",
+          "product_type": "Product type",
+          "status": "Status",
+          "options": "Options",
+          "price": "Price",
+          "compare_at_price": "Compare-at price",
+          "stock": "Stock",
+          "track_inventory": "Track inventory",
+          "weight_grams": "Weight (g)",
+          "image_urls": "Image URLs",
+          "row": "Row"
+        },
+        "codes": {
+          "required": "Required.",
+          "invalid": "Not a valid value.",
+          "too_long": "Too long.",
+          "duplicate_sku": "This SKU appears earlier in the file.",
+          "store_not_configured": "Set the store currency first.",
+          "unknown_category": "No category with this name.",
+          "name_required": "A new SKU needs a product name.",
+          "not_tracked": "This variant does not track stock.",
+          "below_reserved": "Below the units reserved for open orders.",
+          "needs_priced_variant": "A published product needs a priced variant.",
+          "sku_taken": "This SKU is already used.",
+          "conflict": "Changed by someone else.",
+          "not_found": "Not found.",
+          "failed": "Could not be saved."
+        },
+        "import": "Import CSV"
+      },
+      "platform": {
+        "open": "Import from Shopify / WooCommerce",
+        "title": "Import from Shopify or WooCommerce",
+        "description": "Bring products, variants and images over from a connected store. Everything arrives as a draft and is matched by SKU, so running it again updates instead of duplicating. Prices use your store currency here.",
+        "working": "Loading",
+        "loadFailed": "Could not load the connections. Close this and try again.",
+        "notConnected": "This store is not connected yet.",
+        "openSettings": "Open Settings → Integrations",
+        "shopifyScope": "{shop} is connected, but it was connected before product access was added. Reconnect it in Settings and approve access to products (read_products), then come back.",
+        "shopifyReady": "Connected: {shop}. Products are read with the access you already approved.",
+        "store": "Store",
+        "wooHttps": "This store address does not start with https. Import needs a secure address.",
+        "wooKeyHelp": "Create a read-only REST API key in WooCommerce (Settings, Advanced, REST API) and paste it here. It is kept encrypted for this import only and deleted when the import ends.",
+        "consumerKey": "Consumer key",
+        "consumerSecret": "Consumer secret",
+        "start": "Start import",
+        "queued": "Import queued.",
+        "close": "Close",
+        "cancel": "Cancel import",
+        "stopping": "Stopping after this page",
+        "seen": "{count} products read.",
+        "colProduct": "Product no.",
+        "job": {
+          "queued": "Waiting to start",
+          "running": "Importing",
+          "done": "Finished",
+          "failed": "Stopped",
+          "canceled": "Canceled"
+        },
+        "stats": {
+          "pages_done": "Pages",
+          "created_count": "Variants added",
+          "updated_count": "Variants updated",
+          "skipped_count": "Products skipped",
+          "error_count": "Problems"
+        },
+        "fields": {
+          "variants": "Variants",
+          "sku": "SKU",
+          "name": "Name",
+          "price": "Price",
+          "compare_at_price": "Compare-at price"
+        },
+        "codes": {
+          "sku_conflict": "This SKU belongs to a different product here.",
+          "no_variants": "The store sent no variants.",
+          "variants_truncated": "Only the first variants were read.",
+          "required": "Required.",
+          "invalid": "Not a valid value.",
+          "duplicate_sku": "This SKU appears earlier in the import."
+        },
+        "jobErrors": {
+          "not_connected": "The store is no longer connected.",
+          "scope_missing": "The store did not allow reading products. Check the permissions of the connection or API key.",
+          "unauthorized": "The store refused the login. Check the key and secret.",
+          "not_found": "The store address or the products endpoint was not found.",
+          "blocked": "This address cannot be reached from here.",
+          "bad_response": "The store sent an answer that could not be read.",
+          "unreachable": "The store could not be reached. Try again later.",
+          "rate_limited": "The store kept asking us to slow down. Try again later.",
+          "http_error": "The store refused the request.",
+          "woo_https_required": "Import needs a store address that starts with https.",
+          "not_allowed": "The person who started this import is no longer an admin, so nothing more was applied.",
+          "import_failed": "The import stopped after several attempts. Products already imported stay; start it again to finish.",
+          "queue_failed": "The import could not be queued. Try again.",
+          "product_limit": "Stopped at 5,000 products, the most one import reads."
+        }
       }
     },
     "inventory": {
@@ -10725,7 +11025,8 @@
         "video": "Video link",
         "caption": "Caption",
         "align": "Alignment",
-        "message": "Message the buyer starts with"
+        "message": "Message the buyer starts with",
+        "collection": "Collection"
       },
       "choices": {
         "style": {
@@ -10753,7 +11054,11 @@
         "slideshow": "Slide {n}",
         "testimonials": "Review {n}",
         "faq": "Question {n}"
-      }
+      },
+      "collectionPrefix": "Collection",
+      "collectionHint": "A collection replaces the category when both are set.",
+      "noCollection": "No collection",
+      "unpublished": "not published"
     },
     "reviews": {
       "title": "Reviews",
@@ -16938,7 +17243,8 @@
       "featured": "Featured",
       "price_asc": "Price: low to high",
       "price_desc": "Price: high to low",
-      "name": "Name"
+      "name": "Name",
+      "newest": "Newest first"
     },
     "minPrice": "Min price",
     "maxPrice": "Max price",
@@ -17075,6 +17381,7 @@
       "stars": "{rating} out of 5 stars"
     },
     "boughtTogether": "Often bought together",
-    "addOne": "Add"
+    "addOne": "Add",
+    "productDetails": "Details"
   }
 }

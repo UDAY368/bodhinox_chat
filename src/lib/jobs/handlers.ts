@@ -426,9 +426,18 @@ export async function handleJob(job: Job, assertLease: () => void = () => {}) {
       // SLA breach alerts, auto-resolve and unanswered-conversation reassignment.
       await handleInboxJob(accountId, job.type, job.payload);
     else if (job.type === 'commerce.catalog_sync') await (await import('@/lib/commerce/catalog-sync')).handleCatalogSyncJob(accountId, job.payload);
+    else if (job.type === 'commerce.product_import')
+      // A queued product CSV import, applied in chunks as the admin who uploaded it (resumable by SKU).
+      await (await import('@/lib/commerce/catalogue/product-csv-import')).handleProductImportJob(accountId, job.payload, { attempts: job.attempts, maxAttempts: job.max_attempts }, assertLease);
+    else if (job.type === 'commerce.platform_import')
+      // A queued import from a connected Shopify or WooCommerce store, a page at a time with a saved checkpoint (resumable by SKU).
+      await (await import('@/lib/commerce/catalogue/platform-import-job')).handlePlatformImportJob(accountId, job.payload, { attempts: job.attempts, maxAttempts: job.max_attempts }, assertLease);
     else if (job.type === 'commerce.catalog_push')
       // Price and availability of linked variants to the Meta catalogue (queued by stock / price triggers and after each sync).
       await (await import('@/lib/commerce/catalog-push')).handleCatalogPushJob(accountId);
+    else if (job.type === 'commerce.meta_catalogue_sync')
+      // Whole products to the Meta catalogue for workspaces that opted in; an unknown CREATE outcome waits for an admin's reconcile.
+      await (await import('@/lib/commerce/catalogue/meta-sync-job')).handleMetaCatalogueSyncJob(accountId, job.payload);
     else if (job.type === NOTIFICATION_DIGEST_JOB)
       // Entries are claimed before sending; only a provably undelivered email is retried.
       await sendNotificationDigest(accountId);
