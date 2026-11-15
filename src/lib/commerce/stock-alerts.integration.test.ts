@@ -246,7 +246,7 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('store phase 3 back-in-stock
     const sent = sends.text.mock.calls[0][0];
     expect(sent).toMatchObject({ accountId: account, contactId: contacts.buyer, conversationId: conversations[contacts.buyer] });
     expect(sent.text).toContain('Tulsi drops (60ml)');
-    expect(sent.text).toContain(`https://app.example.test/s/${handle}/p/${product}`);
+    expect(sent.text).toContain(`${new URL(process.env.APP_URL!).origin}/s/${handle}/p/${product}`);
     expect(await alertRow(id)).toMatchObject({ skip_reason: null });
     expect((await alertRow(id)).notified_at).not.toBeNull();
 

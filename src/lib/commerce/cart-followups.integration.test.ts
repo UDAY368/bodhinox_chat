@@ -176,7 +176,7 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('store phase 3 abandoned car
     expect(await handleAbandonedCartJob(account, { sessionId: id })).toBe('sent');
     expect(sends.text).toHaveBeenCalledTimes(1);
     expect(sends.text.mock.calls[0][0]).toMatchObject({ accountId: account, contactId: contacts.buyer, conversationId: conversations[contacts.buyer] });
-    expect(sends.text.mock.calls[0][0].text).toContain('https://app.example.test/shop/');
+    expect(sends.text.mock.calls[0][0].text).toContain(`${new URL(process.env.APP_URL!).origin}/shop/`);
     expect((await session(id)).reminded_at).not.toBeNull();
     // The job runs again: the session already has its reminder.
     expect(await handleAbandonedCartJob(account, { sessionId: id })).toBeNull();
@@ -248,7 +248,7 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('store phase 3 abandoned car
     expect(sends.template).toHaveBeenCalledTimes(1);
     const args = sends.template.mock.calls[0][0];
     expect(args).toMatchObject({ templateName: 'cart_offer', contactId: contacts.lateTemplate });
-    expect(args.params[1]).toContain('https://app.example.test/shop/');
+    expect(args.params[1]).toContain(`${new URL(process.env.APP_URL!).origin}/shop/`);
     expect(sends.text).not.toHaveBeenCalled();
   });
 
