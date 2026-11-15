@@ -18,7 +18,8 @@ export const AD_BRIEF_MAX = 1000
 export const AD_IMAGE_PROMPT_MAX = 1000
 export const AD_COPY_VARIANTS = 3
 const GEMINI_IMAGE_MODEL = 'gemini-2.5-flash-image'
-const OPENAI_IMAGE_MODEL = 'gpt-image-1'
+// gpt-image-1 was shut down on 23 Oct 2026; Flare is OpenAI's fast replacement for interactive generation.
+const OPENAI_IMAGE_MODEL = 'gpt-image-2.6-flare'
 const IMAGE_TIMEOUT_MS = 90_000
 const MAX_IMAGE_BASE64 = 12 * 1024 * 1024
 
