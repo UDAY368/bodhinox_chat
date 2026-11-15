@@ -23,6 +23,7 @@ import { decrypt } from '@/lib/whatsapp/encryption';
 import { getCatalogProducts, MetaApiError, type MetaCatalogProduct, type MetaCatalogProductsPage } from '@/lib/whatsapp/meta-api';
 import { CatalogError, loadCatalogNumber, queueCatalogSync, type CatalogSyncError } from './catalog';
 import { queueCatalogPush } from './catalog-push';
+import { queueMetaSyncIn } from './catalogue/meta-sync';
 import { currencyExponent, isCurrencyCode, MoneyError, parseMoney } from './money';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -226,6 +227,8 @@ export async function syncCatalog(args: SyncCatalogArgs): Promise<CatalogSyncRes
       WHERE account_id=${accountId}::uuid AND id=${catalogRowId}::uuid`;
     // Bodhinox prices and stock win for linked variants: push what the pass found different (audit finding 20).
     await queueCatalogPush(accountId, tx);
+    // The full catalogue sync (when the workspace opted in) plans against the mirror this pass just refreshed.
+    await queueMetaSyncIn(tx, accountId);
     return count;
   });
   return { status: 'synced', upserted, hidden };

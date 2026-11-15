@@ -1888,6 +1888,150 @@ export async function updateCatalogItems(args: {
   return { handles: Array.isArray(data.handles) ? data.handles.filter((h): h is string => typeof h === 'string') : [] }
 }
 
+/** A whole catalogue item as the Catalog Batch API takes it (store plan Phase 4, full sync). */
+export interface MetaCatalogItemData {
+  /** retailer_id (our variant SKU). */
+  id: string
+  title: string
+  description: string
+  availability: 'in stock' | 'out of stock'
+  condition: 'new'
+  /** Feed format, e.g. "1234.00 INR". */
+  price: string
+  link: string
+  image_link: string
+  brand?: string
+  item_group_id?: string
+  color?: string
+  size?: string
+}
+
+/** How much of the Graph rate budget a business has used (X-Business-Use-Case-Usage). */
+export interface MetaUsage {
+  /** The highest of call_count, total_cputime and total_time, in percent. */
+  percent: number
+  /** Meta's estimate of minutes until calls are accepted again (0 when not throttled). */
+  regainMinutes: number
+}
+
+/** Reads X-Business-Use-Case-Usage ({ "<business id>": [{ call_count, total_cputime, total_time, estimated_time_to_regain_access }] }). */
+export function parseBusinessUsage(header: string | null | undefined): MetaUsage | null {
+  if (!header) return null
+  let parsed: unknown
+  try { parsed = JSON.parse(header) } catch { return null }
+  if (!parsed || typeof parsed !== 'object') return null
+  let percent = 0
+  let regainMinutes = 0
+  let seen = false
+  for (const entries of Object.values(parsed as Record<string, unknown>)) {
+    if (!Array.isArray(entries)) continue
+    for (const entry of entries as Record<string, unknown>[]) {
+      if (!entry || typeof entry !== 'object') continue
+      seen = true
+      for (const key of ['call_count', 'total_cputime', 'total_time']) {
+        const value = Number(entry[key])
+        if (Number.isFinite(value)) percent = Math.max(percent, value)
+      }
+      const regain = Number(entry.estimated_time_to_regain_access)
+      if (Number.isFinite(regain)) regainMinutes = Math.max(regainMinutes, regain)
+    }
+  }
+  return seen ? { percent, regainMinutes } : null
+}
+
+/**
+ * Creates or updates whole catalogue items (items_batch, PRODUCT_ITEM). One
+ * method per call: an UPDATE never creates (allow_upsert false), so the caller
+ * always knows which calls can make a new item. Meta applies the batch
+ * asynchronously; the returned handle is polled with checkCatalogBatchStatus.
+ * The token needs catalog_management on the catalogue.
+ */
+export async function sendCatalogItemsBatch(args: {
+  catalogId: string
+  accessToken: string
+  method: 'CREATE' | 'UPDATE'
+  items: MetaCatalogItemData[]
+}): Promise<{ handles: string[]; usage: MetaUsage | null }> {
+  if (!META_NUMERIC_ID.test(args.catalogId)) throw new Error(tc('catalogIdInvalid'))
+  if (!args.items.length || args.items.length > CATALOG_BATCH_MAX) throw new Error('Invalid catalogue batch size')
+  const response = await fetch(`${META_API_BASE}/${args.catalogId}/items_batch`, {
+    method: 'POST',
+    signal: AbortSignal.timeout(30_000),
+    headers: { Authorization: `Bearer ${args.accessToken}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      item_type: 'PRODUCT_ITEM',
+      allow_upsert: false,
+      requests: args.items.map((data) => ({ method: args.method, data })),
+    }),
+  })
+  if (!response.ok) await throwMetaError(response, `Meta API error: ${response.status}`)
+  const data = (await response.json().catch(() => ({}))) as { handles?: unknown }
+  return {
+    handles: Array.isArray(data.handles) ? data.handles.filter((h): h is string => typeof h === 'string' && h.length > 0 && h.length <= 500) : [],
+    usage: parseBusinessUsage(response.headers.get('x-business-use-case-usage')),
+  }
+}
+
+/** What Meta says about one batch handle. `status` is null when Meta does not know the handle. */
+export interface MetaBatchStatus {
+  /** 'started' | 'finished' | 'error' | 'canceled' (lower case), or null. */
+  status: string | null
+  /** retailer_ids Meta refused in this batch. */
+  invalidIds: string[]
+  /** True when Meta reported more errors than it listed, so a refused item may be missing from invalidIds. */
+  errorsTruncated: boolean
+}
+
+/** Reads the outcome of an items_batch handle. A read: safe to repeat. Meta's error texts are not returned. */
+export async function checkCatalogBatchStatus(args: {
+  catalogId: string
+  accessToken: string
+  handle: string
+}): Promise<MetaBatchStatus> {
+  if (!META_NUMERIC_ID.test(args.catalogId)) throw new Error(tc('catalogIdInvalid'))
+  const params = new URLSearchParams({ handle: args.handle, load_ids_of_invalid_requests: 'true' })
+  const response = await fetch(`${META_API_BASE}/${args.catalogId}/check_batch_request_status?${params.toString()}`, {
+    signal: AbortSignal.timeout(20_000),
+    headers: { Authorization: `Bearer ${args.accessToken}` },
+  })
+  if (!response.ok) await throwMetaError(response, `Meta API error: ${response.status}`)
+  const body = (await response.json().catch(() => ({}))) as { data?: unknown }
+  const entry = (Array.isArray(body.data) ? body.data[0] : null) as Record<string, unknown> | null
+  if (!entry || typeof entry !== 'object') return { status: null, invalidIds: [], errorsTruncated: false }
+  const ids = new Set<string>()
+  if (Array.isArray(entry.ids_of_invalid_requests)) for (const id of entry.ids_of_invalid_requests) if (typeof id === 'string') ids.add(id)
+  const errors = Array.isArray(entry.errors) ? entry.errors as Record<string, unknown>[] : []
+  for (const error of errors) if (error && typeof error.id === 'string') ids.add(error.id)
+  const total = Number(entry.errors_total_count)
+  return {
+    status: typeof entry.status === 'string' ? entry.status.toLowerCase() : null,
+    invalidIds: [...ids],
+    errorsTruncated: Number.isFinite(total) && total > ids.size,
+  }
+}
+
+/** The catalogue item with this retailer_id, or null when the catalogue has none. A read: safe to repeat. */
+export async function findCatalogItem(args: {
+  catalogId: string
+  accessToken: string
+  retailerId: string
+}): Promise<{ id: string } | null> {
+  if (!META_NUMERIC_ID.test(args.catalogId)) throw new Error(tc('catalogIdInvalid'))
+  const params = new URLSearchParams({
+    fields: 'id,retailer_id',
+    filter: JSON.stringify({ retailer_id: { eq: args.retailerId } }),
+    limit: '5',
+  })
+  const response = await fetch(`${META_API_BASE}/${args.catalogId}/products?${params.toString()}`, {
+    signal: AbortSignal.timeout(20_000),
+    headers: { Authorization: `Bearer ${args.accessToken}` },
+  })
+  if (!response.ok) await throwMetaError(response, `Meta API error: ${response.status}`)
+  const body = (await response.json().catch(() => ({}))) as { data?: { id?: unknown; retailer_id?: unknown }[] }
+  const match = (Array.isArray(body.data) ? body.data : []).find((p) => p && p.retailer_id === args.retailerId && typeof p.id === 'string')
+  return match ? { id: match.id as string } : null
+}
+
 /** The catalogues owned by a WhatsApp Business Account. */
 export async function getWabaCatalogs(args: {
   wabaId: string

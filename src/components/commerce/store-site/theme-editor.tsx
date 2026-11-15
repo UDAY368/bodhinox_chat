@@ -178,6 +178,7 @@ export function ThemeEditor() {
     { value: "/cart", label: tp("cart") },
     ...SHOP_PAGE_SLUGS.map((slug) => ({ value: `/pages/${slug}`, label: tp(`pages.${slug}`) })),
     ...view.preview.tree.map((c) => ({ value: `/c/${c.id}`, label: `${t("categoryPrefix")}: ${c.name}` })),
+    ...view.preview.collections.map((c) => ({ value: `/collections/${c.slug}`, label: `${t("collectionPrefix")}: ${c.title}` })),
     ...view.preview.products.map((p) => ({ value: `/p/${p.id}`, label: `${t("productPrefix")}: ${p.name}` })),
   ];
 
@@ -226,6 +227,14 @@ export function ThemeEditor() {
           <select id={id} className={selectClass} disabled={!canEdit} value={(value as string) ?? ""} onChange={(e) => set(e.target.value || null)}>
             <option value="">{t("allCategories")}</option>
             {view.preview.tree.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+        </Field>
+      );
+      case "collection": return (
+        <Field id={id} label={label} hint={t("collectionHint")}>
+          <select id={id} className={selectClass} disabled={!canEdit} value={(value as string) ?? ""} onChange={(e) => set(e.target.value || null)}>
+            <option value="">{t("noCollection")}</option>
+            {view.preview.collections.map((c) => <option key={c.id} value={c.id}>{c.published ? c.title : `${c.title} (${t("unpublished")})`}</option>)}
           </select>
         </Field>
       );
@@ -304,6 +313,7 @@ export function ThemeEditor() {
   const ctx = {
     base: `/s/${view.preview.handle}`, handle: view.preview.handle, theme, currency: view.preview.currency, locale,
     products: view.preview.products, categories: view.preview.categories, tree: view.preview.tree,
+    collections: Object.fromEntries(view.preview.collections.map((c) => [c.id, { slug: c.slug, title: c.title, productIds: c.productIds }])),
     whatsappPhone: view.preview.whatsappPhone, image, t: tShop, preview: true,
   };
   const status = dirty ? t("statusUnsaved") : view.hasDraft ? t("statusDraft") : t("statusLive");

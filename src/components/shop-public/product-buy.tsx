@@ -22,11 +22,13 @@ export function ProductBuy({ handle, product, currency, canNotify }: { handle: s
   const first = product.variants.find((v) => v.inStock) ?? product.variants[0];
   const [picked, setPicked] = useState<Record<string, string>>(first?.options ?? {});
   const [qty, setQty] = useState(1);
-  const [image, setImage] = useState(0);
+  // A variant with its own picture shows it in the gallery (imageIndex is its place among `product.images`).
+  const [image, setImage] = useState(first?.imageIndex ?? 0);
   const [added, setAdded] = useState(false);
   const [notifying, setNotifying] = useState(false);
   const [notifyError, setNotifyError] = useState<string | null>(null);
-  const variant = product.variants.find((v) => optionNames.every((n) => v.options[n] === picked[n])) ?? null;
+  const variantFor = (choice: Record<string, string>) => product.variants.find((v) => optionNames.every((n) => v.options[n] === choice[n])) ?? null;
+  const variant = variantFor(picked);
   const money = (minor: number) => (currency ? formatMoney(minor, currency, locale) : '');
   const notify = async () => {
     if (!variant) return;
@@ -89,7 +91,13 @@ export function ProductBuy({ handle, product, currency, canNotify }: { handle: s
               {valuesOf(name).map((value) => {
                 const on = picked[name] === value;
                 return (
-                  <button key={value} type="button" aria-pressed={on} onClick={() => { setPicked({ ...picked, [name]: value }); setAdded(false); }}
+                  <button key={value} type="button" aria-pressed={on} onClick={() => {
+                    const next = { ...picked, [name]: value };
+                    setPicked(next);
+                    setAdded(false);
+                    const shows = variantFor(next)?.imageIndex;
+                    if (shows !== null && shows !== undefined) setImage(shows);
+                  }}
                     className={`min-h-11 rounded-[var(--shop-radius)] border px-4 text-sm ${on
                       ? 'border-[var(--shop-primary)] bg-[var(--shop-primary)] text-[var(--shop-on-primary)]'
                       : 'border-black/15 bg-[var(--shop-surface)] hover:border-black/40'}`}>
@@ -139,6 +147,19 @@ export function ProductBuy({ handle, product, currency, canNotify }: { handle: s
         )}
 
         {product.description && <div className="whitespace-pre-line text-sm leading-relaxed opacity-90">{product.description}</div>}
+        {product.details.length > 0 && (
+          <section aria-labelledby="shop-product-details" className="flex flex-col gap-2">
+            <h2 id="shop-product-details" className="text-sm font-semibold">{t('productDetails')}</h2>
+            <dl className="grid grid-cols-[minmax(0,1fr)_minmax(0,2fr)] gap-x-4 gap-y-1.5 text-sm">
+              {product.details.map((d, i) => (
+                <div key={i} className="contents">
+                  <dt className="opacity-60">{d.label}</dt>
+                  <dd>{d.value}</dd>
+                </div>
+              ))}
+            </dl>
+          </section>
+        )}
         {product.disclosure && <p className="text-xs opacity-60">{product.disclosure}</p>}
       </div>
     </div>

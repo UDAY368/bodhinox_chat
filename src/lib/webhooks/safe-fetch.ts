@@ -16,7 +16,7 @@ export const SAFE_FETCH_TIMEOUT_MS = 10_000
 export const SAFE_FETCH_MAX_BYTES = 256 * 1024
 
 export type SafeFetchResult =
-  | { ok: true; status: number; contentType: string; body: string }
+  | { ok: true; status: number; contentType: string; body: string; retryAfter?: string }
   | { ok: false; error: 'invalid_url' | 'blocked' | 'timeout' | 'too_large' | 'network' }
 
 type LookupCallback = (err: NodeJS.ErrnoException | null, address: string | LookupAddress[], family?: number) => void
@@ -93,6 +93,7 @@ export async function safeFetch(
         status: res.statusCode ?? 0,
         contentType: String(res.headers['content-type'] ?? ''),
         body: Buffer.concat(chunks).toString('utf8'),
+        ...(typeof res.headers['retry-after'] === 'string' ? { retryAfter: res.headers['retry-after'] } : {}),
       }))
       res.on('error', () => done({ ok: false, error: 'network' }))
     })

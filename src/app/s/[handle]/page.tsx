@@ -13,7 +13,7 @@ export default async function ShopHomePage({ params }: { params: Promise<{ handl
   const { shop } = home;
   return <ShopSectionsView sections={home.content.sections} ctx={{
     base: `/s/${shop.handle}`, handle: shop.handle, theme: shop.theme, currency: shop.currency, locale: await getLocale(),
-    products: home.products, categories: home.categories, tree: home.tree, whatsappPhone: shop.whatsappPhone,
+    products: home.products, categories: home.categories, tree: home.tree, collections: home.collections, whatsappPhone: shop.whatsappPhone,
     image: (ref) => themeImageUrl(shop.handle, ref), t: t as unknown as ShopT,
   }} />;
 }

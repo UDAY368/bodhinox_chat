@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { formatMoney } from "@/lib/commerce/money";
 import { fetchMetaLink, importMetaProducts, type MetaLinkReport } from "./catalogue-api";
 import { useCatalogueError } from "./catalogue-admin";
+import { MetaSyncSection } from "./meta-sync-section";
 
 const IMPORT_MAX = 100;
 
@@ -58,6 +59,8 @@ export function MetaLinkPanel({ canManage }: { canManage: boolean }) {
 
   return (
     <section className="space-y-6">
+      <MetaSyncSection canManage={canManage} />
+
       <p className="max-w-2xl text-sm text-muted-foreground">{t("description")}</p>
 
       <div className="space-y-2">

@@ -9845,7 +9845,8 @@
         "products": "Productos",
         "categories": "Categorías",
         "inventory": "Inventario",
-        "meta": "Vínculo con el catálogo de Meta"
+        "meta": "Vínculo con el catálogo de Meta",
+        "collections": "Colecciones"
       },
       "statuses": {
         "draft": "Borrador",
@@ -9866,7 +9867,23 @@
         "below_reserved": "Las existencias no pueden quedar por debajo de las unidades reservadas para pedidos abiertos.",
         "forbidden": "Tu rol no puede hacer esto.",
         "rate_limited": "Demasiados cambios a la vez. Espera un momento e inténtalo de nuevo.",
-        "generic": "Algo salió mal. Inténtalo de nuevo."
+        "generic": "Algo salió mal. Inténtalo de nuevo.",
+        "slug_taken": "Otra colección ya usa esa dirección web.",
+        "import_running": "Hay otra importación en cola o en curso. Espera a que termine.",
+        "csv_empty": "El archivo no tiene filas de productos.",
+        "csv_too_large": "El archivo supera los 5 MB.",
+        "csv_too_many_rows": "El archivo tiene más de 5.000 filas. Divídelo en archivos más pequeños.",
+        "csv_too_many_columns": "El archivo tiene demasiadas columnas.",
+        "csv_cell_too_long": "Una celda es demasiado larga para leerla.",
+        "csv_unterminated_quote": "Una celda entre comillas no se cierra. Revisa las comillas del archivo.",
+        "csv_missing_sku_column": "El archivo necesita una columna \"sku\" en la primera fila.",
+        "platform_not_connected": "Esa tienda no está conectada.",
+        "shopify_scope_missing": "No se aprobó el acceso de Shopify a productos. Vuelve a conectar Shopify en Ajustes y apruébalo.",
+        "woo_https_required": "La importación necesita una dirección de tienda que empiece por https.",
+        "meta_not_connected": "No hay ningún catálogo de Meta conectado.",
+        "meta_sync_off": "Activa primero la sincronización del catálogo de Meta.",
+        "meta_unavailable": "No se pudo contactar con Meta. No se cambió nada; inténtalo más tarde.",
+        "reconcile_too_soon": "Esto se envió hace menos de dos minutos. Dale un momento a Meta y vuelve a intentarlo."
       },
       "products": {
         "newName": "Nombre del nuevo producto",
@@ -9924,6 +9941,52 @@
         "importHint": "El precio de Meta solo se copia si está en la moneda de la tienda. Revisa cada borrador antes de publicarlo.",
         "notImportable": "El ID de contenido no es un SKU válido",
         "imported": "{count} borradores creados, {skipped} omitidos"
+      },
+      "metaSync": {
+        "title": "Sincronización completa del catálogo de Meta",
+        "description": "Bodhinox crea y actualiza estos productos en tu catálogo de Meta: nombre, descripción, precio, existencias, imagen, marca y un enlace a la página del producto. Desactivado hasta que lo actives. Nunca se elimina nada en Meta.",
+        "enable": "Sincronizar productos con el catálogo de Meta",
+        "on": "Activado",
+        "off": "Desactivado",
+        "notConnected": "No hay ningún catálogo de Meta conectado. Primero vincula un catálogo a un número de WhatsApp y después activa aquí la sincronización.",
+        "offHint": "Mientras esté desactivado, Bodhinox solo envía el precio y las existencias de los productos que ya existen en Meta.",
+        "statuses": {
+          "synced": "Sincronizado",
+          "pending": "Enviando",
+          "not_synced": "Sin sincronizar",
+          "failed": "Fallido",
+          "uncertain": "Incierto"
+        },
+        "syncNow": "Sincronizar ahora",
+        "queued": "Sincronización en cola. Empieza en menos de un minuto.",
+        "scopeLabel": "Qué productos se sincronizan",
+        "scope": {
+          "all": "Todos los productos publicados",
+          "selected": "Solo los productos que yo elija"
+        },
+        "problems": "Requiere atención ({count})",
+        "uncertainHint": "Incierto: Meta no confirmó si se creó un artículo nuevo. No se vuelve a enviar hasta que lo compruebes. Conciliar busca el artículo en Meta y lo resuelve.",
+        "reasons": {
+          "missing_price": "La variante no tiene precio.",
+          "missing_image": "El producto no tiene imagen.",
+          "missing_link": "La tienda en línea no está publicada, así que no hay página de producto a la que enlazar.",
+          "token_invalid": "Meta rechazó el token de acceso del número de WhatsApp. Vuelve a conectar el número.",
+          "catalog_permission": "La conexión no tiene permiso para gestionar este catálogo. Concede la gestión del catálogo en la configuración de Meta Business.",
+          "meta_rejected": "Meta rechazó la solicitud.",
+          "meta_item_invalid": "Meta rechazó este artículo. Revisa su nombre, descripción, precio e imagen.",
+          "no_handle": "Meta no devolvió un comprobante de la actualización. Usa Sincronizar ahora para enviarla de nuevo.",
+          "outcome_unknown": "Meta no confirmó el resultado.",
+          "generic": "No se pudo sincronizar el artículo."
+        },
+        "metaCode": "Código de Meta {code}",
+        "reconcile": "Conciliar",
+        "reconciledFound": "Encontrado en Meta. Marcado como sincronizado.",
+        "reconciledMissing": "No está en Meta. Se creará en la próxima sincronización.",
+        "products": "Productos publicados ({count})",
+        "noProducts": "Aún no hay productos publicados.",
+        "selectProduct": "Sincronizar {name}",
+        "variants": "{count, plural, one {# variante} other {# variantes}}",
+        "notSelected": "No seleccionado"
       },
       "editor": {
         "notFound": "Este producto no existe.",
@@ -9995,7 +10058,22 @@
         "codAvailableHint": "Si está desactivado, un carrito con este producto solo se puede pagar en línea (el pago contra entrega también debe estar activo en la configuración de la tienda).",
         "uploadImage": "Subir o elegir de la biblioteca",
         "imageOnly": "Elige un archivo de imagen.",
-        "waiting": "{count, plural, one {# persona está esperando esto} other {# personas están esperando esto}}"
+        "waiting": "{count, plural, one {# persona está esperando esto} other {# personas están esperando esto}}",
+        "brand": "Marca",
+        "productType": "Tipo de producto",
+        "tags": "Etiquetas",
+        "tagsPlaceholder": "orgánico, regalo, novedad",
+        "tagsHint": "Separa las etiquetas con comas. Hasta 20, en minúsculas. Las colecciones pueden elegir productos por etiqueta.",
+        "tagsTooMany": "Un producto puede tener como máximo 20 etiquetas.",
+        "productDetails": "Detalles del producto",
+        "detailsHint": "Filas como Material: Algodón, que se muestran como texto sencillo en la página del producto. Hasta 12.",
+        "detailLabel": "Etiqueta",
+        "detailValue": "Valor",
+        "addDetail": "Añadir detalle",
+        "removeDetail": "Quitar detalle",
+        "variantImage": "Imagen de esta variante",
+        "noVariantImage": "Ninguna",
+        "variantImageN": "Imagen {n}"
       },
       "newArrivals": {
         "action": "Enviar como novedades",
@@ -10022,6 +10100,228 @@
         "send": "Enviar campaña",
         "started": "Campaña iniciada",
         "failed": "No se pudo iniciar la campaña"
+      },
+      "collections": {
+        "description": "Agrupa productos en páginas que los clientes pueden abrir, como Rebajas de verano o Novedades de la semana. Elige los productos a mano o define reglas y deja que la página se llene sola.",
+        "new": "Nueva colección",
+        "empty": "Aún no hay colecciones.",
+        "edit": "Editar",
+        "view": "Ver",
+        "published": "Publicada",
+        "draft": "Borrador",
+        "products": "{count, plural, one {# producto} other {# productos}}",
+        "kinds": {
+          "manual": "Elegida a mano",
+          "smart": "Inteligente (reglas)"
+        },
+        "dialogHint": "Los clientes solo ven productos publicados que se pueden comprar ahora.",
+        "name": "Nombre",
+        "slug": "Final de la dirección web",
+        "slugInvalid": "Usa minúsculas, números y guiones simples.",
+        "descriptionLabel": "Descripción (opcional)",
+        "kind": "Tipo",
+        "sort": "Orden",
+        "sorts": {
+          "featured": "Destacados",
+          "price_asc": "Precio: de menor a mayor",
+          "price_desc": "Precio: de mayor a menor",
+          "name": "Nombre",
+          "newest": "Más recientes primero"
+        },
+        "publishedLabel": "Mostrar en la tienda",
+        "saved": "Colección guardada.",
+        "deleted": "Colección eliminada.",
+        "delete": "Eliminar",
+        "deleteConfirm": "¿Eliminar esta colección?",
+        "deleteYes": "Sí, eliminar",
+        "cancel": "Cancelar",
+        "close": "Cerrar",
+        "save": "Guardar",
+        "rules": "Reglas",
+        "matchPrefix": "Un producto cumple",
+        "match": "Coincidencia",
+        "matchAll": "todas",
+        "matchAny": "alguna",
+        "matchSuffix": "de estas reglas",
+        "noRules": "Añade al menos una regla.",
+        "field": "Campo",
+        "operator": "Condición",
+        "value": "Valor",
+        "fields": {
+          "tag": "Etiqueta",
+          "brand": "Marca",
+          "product_type": "Tipo de producto",
+          "category": "Categoría",
+          "price": "Precio (variante más barata)",
+          "on_sale": "En oferta"
+        },
+        "ops": {
+          "eq": "es",
+          "neq": "no es",
+          "gt": "es mayor que",
+          "lt": "es menor que",
+          "is": "es"
+        },
+        "pickCategory": "Elige una categoría",
+        "onSaleYes": "sí (tiene un precio de comparación más alto)",
+        "onSaleNo": "no",
+        "addRule": "Añadir regla",
+        "removeRule": "Quitar regla",
+        "pickedProducts": "Productos",
+        "nonePicked": "Aún no has elegido productos.",
+        "moveUp": "Subir",
+        "moveDown": "Bajar",
+        "removeProduct": "Quitar producto",
+        "searchProducts": "Buscar productos publicados",
+        "addProduct": "Añadir",
+        "previewIncomplete": "Completa las reglas para ver cuántos productos coinciden.",
+        "previewLoading": "Contando productos…",
+        "previewFailed": "No se pudo cargar el recuento.",
+        "previewCount": "{count, plural, one {# producto coincide} other {# productos coinciden}}"
+      },
+      "csv": {
+        "export": "Exportar CSV",
+        "title": "Importar productos desde CSV",
+        "description": "Una fila por variante. Cada fila se asocia a una variante existente por su SKU; un SKU nuevo se agrega. Ves una simulación antes de guardar nada.",
+        "file": "Archivo CSV",
+        "rules": "Columnas: sku (obligatoria), name, description, category, tags (separadas por |), brand, product_type, status, options (Size=M|Color=Red), price, compare_at_price, stock, track_inventory, weight_grams, image_urls (separadas por |). Una celda vacía deja el valor actual como está. Los productos nuevos se guardan como borrador salvo que la columna status indique otra cosa. Hasta 5 MB y 5.000 filas.",
+        "working": "Leyendo el archivo",
+        "tooLarge": "El archivo supera los 5 MB.",
+        "previewTitle": "Lo que haría este archivo",
+        "willCreate": "Variantes nuevas",
+        "willUpdate": "Variantes actualizadas",
+        "newProducts": "Productos nuevos",
+        "willSkip": "Filas omitidas",
+        "modeInline": "El archivo es pequeño, así que se aplica de inmediato al confirmar.",
+        "modeQueued": "El archivo tiene {count} filas, así que se pone en cola y se aplica en segundo plano. Puedes seguir el avance aquí.",
+        "ignoredColumns": "{count} columna(s) no se reconocen y se ignorarán.",
+        "errorsTitle": "Filas que se omitirán",
+        "colRow": "Fila",
+        "colColumn": "Columna",
+        "colProblem": "Problema",
+        "errorsCapped": "Se muestra el inicio de {count} problemas.",
+        "done": "{created} agregadas, {updated} actualizadas, {errors} problemas.",
+        "queued": "Importación en cola.",
+        "close": "Cerrar",
+        "confirm": "Importar {count} filas",
+        "progress": "{done} de {total} filas",
+        "job": {
+          "queued": "Esperando para empezar",
+          "running": "Importando",
+          "done": "Terminada",
+          "failed": "Detenida"
+        },
+        "jobErrors": {
+          "not_allowed": "Quien inició esta importación ya no es administrador, así que no se aplicó nada más.",
+          "import_failed": "La importación se detuvo tras varios intentos. Las filas ya aplicadas se conservan; sube el archivo otra vez para terminar.",
+          "queue_failed": "No se pudo poner en cola la importación. Inténtalo de nuevo.",
+          "csv_empty": "El archivo no tiene filas de productos.",
+          "csv_missing_sku_column": "El archivo necesita una columna \"sku\".",
+          "csv_unterminated_quote": "Una celda entre comillas no se cierra."
+        },
+        "fields": {
+          "sku": "SKU",
+          "name": "Nombre",
+          "description": "Descripción",
+          "category": "Categoría",
+          "tags": "Etiquetas",
+          "brand": "Marca",
+          "product_type": "Tipo de producto",
+          "status": "Estado",
+          "options": "Opciones",
+          "price": "Precio",
+          "compare_at_price": "Precio de comparación",
+          "stock": "Stock",
+          "track_inventory": "Controlar inventario",
+          "weight_grams": "Peso (g)",
+          "image_urls": "URL de imágenes",
+          "row": "Fila"
+        },
+        "codes": {
+          "required": "Obligatorio.",
+          "invalid": "Valor no válido.",
+          "too_long": "Demasiado largo.",
+          "duplicate_sku": "Este SKU aparece antes en el archivo.",
+          "store_not_configured": "Configura primero la moneda de la tienda.",
+          "unknown_category": "No hay una categoría con este nombre.",
+          "name_required": "Un SKU nuevo necesita nombre de producto.",
+          "not_tracked": "Esta variante no controla stock.",
+          "below_reserved": "Por debajo de las unidades reservadas para pedidos abiertos.",
+          "needs_priced_variant": "Un producto publicado necesita una variante con precio.",
+          "sku_taken": "Este SKU ya está en uso.",
+          "conflict": "Cambiado por otra persona.",
+          "not_found": "No encontrado.",
+          "failed": "No se pudo guardar."
+        },
+        "import": "Importar CSV"
+      },
+      "platform": {
+        "open": "Importar desde Shopify / WooCommerce",
+        "title": "Importar desde Shopify o WooCommerce",
+        "description": "Trae productos, variantes e imágenes desde una tienda conectada. Todo llega como borrador y se empareja por SKU, así que volver a ejecutarlo actualiza en lugar de duplicar. Aquí los precios usan la moneda de tu tienda.",
+        "working": "Cargando",
+        "loadFailed": "No se pudieron cargar las conexiones. Cierra esto e inténtalo de nuevo.",
+        "notConnected": "Esta tienda aún no está conectada.",
+        "openSettings": "Abrir Ajustes → Integraciones",
+        "shopifyScope": "{shop} está conectada, pero se conectó antes de añadir el acceso a productos. Vuelve a conectarla en Ajustes y aprueba el acceso a productos (read_products); luego regresa.",
+        "shopifyReady": "Conectada: {shop}. Los productos se leen con el acceso que ya aprobaste.",
+        "store": "Tienda",
+        "wooHttps": "La dirección de esta tienda no empieza por https. La importación necesita una dirección segura.",
+        "wooKeyHelp": "Crea una clave de API REST de solo lectura en WooCommerce (Ajustes, Avanzado, API REST) y pégala aquí. Se guarda cifrada solo para esta importación y se borra al terminar.",
+        "consumerKey": "Clave de consumidor",
+        "consumerSecret": "Secreto de consumidor",
+        "start": "Iniciar importación",
+        "queued": "Importación en cola.",
+        "close": "Cerrar",
+        "cancel": "Cancelar importación",
+        "stopping": "Se detendrá tras esta página",
+        "seen": "{count} productos leídos.",
+        "colProduct": "N.º de producto",
+        "job": {
+          "queued": "Esperando para empezar",
+          "running": "Importando",
+          "done": "Terminada",
+          "failed": "Detenida",
+          "canceled": "Cancelada"
+        },
+        "stats": {
+          "pages_done": "Páginas",
+          "created_count": "Variantes añadidas",
+          "updated_count": "Variantes actualizadas",
+          "skipped_count": "Productos omitidos",
+          "error_count": "Problemas"
+        },
+        "fields": {
+          "variants": "Variantes",
+          "sku": "SKU",
+          "name": "Nombre",
+          "price": "Precio",
+          "compare_at_price": "Precio de comparación"
+        },
+        "codes": {
+          "sku_conflict": "Este SKU pertenece a otro producto aquí.",
+          "no_variants": "La tienda no envió variantes.",
+          "variants_truncated": "Solo se leyeron las primeras variantes.",
+          "required": "Obligatorio.",
+          "invalid": "Valor no válido.",
+          "duplicate_sku": "Este SKU aparece antes en la importación."
+        },
+        "jobErrors": {
+          "not_connected": "La tienda ya no está conectada.",
+          "scope_missing": "La tienda no permitió leer productos. Revisa los permisos de la conexión o de la clave de API.",
+          "unauthorized": "La tienda rechazó el acceso. Revisa la clave y el secreto.",
+          "not_found": "No se encontró la dirección de la tienda ni su punto de productos.",
+          "blocked": "Esta dirección no es accesible desde aquí.",
+          "bad_response": "La tienda envió una respuesta que no se pudo leer.",
+          "unreachable": "No se pudo contactar con la tienda. Inténtalo más tarde.",
+          "rate_limited": "La tienda nos pidió ir más despacio una y otra vez. Inténtalo más tarde.",
+          "http_error": "La tienda rechazó la solicitud.",
+          "woo_https_required": "La importación necesita una dirección de tienda que empiece por https.",
+          "not_allowed": "Quien inició esta importación ya no es administrador, así que no se aplicó nada más.",
+          "import_failed": "La importación se detuvo tras varios intentos. Los productos ya importados se quedan; inicia de nuevo para terminar.",
+          "queue_failed": "No se pudo poner la importación en cola. Inténtalo de nuevo.",
+          "product_limit": "Se detuvo en 5.000 productos, el máximo que lee una importación."
+        }
       }
     },
     "inventory": {
@@ -10725,7 +11025,8 @@
         "video": "Enlace del video",
         "caption": "Pie de foto",
         "align": "Alineación",
-        "message": "Mensaje con el que empieza el comprador"
+        "message": "Mensaje con el que empieza el comprador",
+        "collection": "Colección"
       },
       "choices": {
         "style": {
@@ -10753,7 +11054,11 @@
         "slideshow": "Diapositiva {n}",
         "testimonials": "Opinión {n}",
         "faq": "Pregunta {n}"
-      }
+      },
+      "collectionPrefix": "Colección",
+      "collectionHint": "Si defines ambas, la colección sustituye a la categoría.",
+      "noCollection": "Sin colección",
+      "unpublished": "sin publicar"
     },
     "reviews": {
       "title": "Reseñas",
@@ -16938,7 +17243,8 @@
       "featured": "Destacados",
       "price_asc": "Precio: de menor a mayor",
       "price_desc": "Precio: de mayor a menor",
-      "name": "Nombre"
+      "name": "Nombre",
+      "newest": "Más recientes primero"
     },
     "minPrice": "Precio mín.",
     "maxPrice": "Precio máx.",
@@ -17075,6 +17381,7 @@
       "stars": "{rating} de 5 estrellas"
     },
     "boughtTogether": "Se compran juntos con frecuencia",
-    "addOne": "Añadir"
+    "addOne": "Añadir",
+    "productDetails": "Detalles"
   }
 }

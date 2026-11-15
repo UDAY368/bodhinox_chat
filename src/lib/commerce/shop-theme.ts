@@ -15,6 +15,8 @@
 import { requireFeature } from '@/lib/billing/entitlements';
 import { withTenant, type TenantContext, type TenantTransaction } from '@/lib/db/tenant';
 import { mediaObjectUrl } from '@/lib/storage/client';
+import { collectionProductIds, MAX_COLLECTIONS } from './catalogue/collections';
+import { readStoredRules, type CollectionKind, type CollectionMatch, type CollectionSort } from './catalogue/collection-rules';
 import { loadCategoryTree, loadPolicyFacts, loadProductsWith, type PublicProduct, type ShopPolicyFacts } from './public-shop';
 import {
   contentMediaIds, contentOf, parseShopDocument, readShopDocument, type ShopDocument,
@@ -49,6 +51,8 @@ export interface ThemeEditorView {
     categories: Array<{ id: string; name: string }>;
     /** Every category, for pickers and "featured collection". */
     tree: Array<{ id: string; name: string; parentId: string | null }>;
+    /** Every collection (published or not), for "featured collection" sections and links. */
+    collections: Array<{ id: string; title: string; slug: string; published: boolean; productIds: string[] }>;
     facts: ShopPolicyFacts;
   };
 }
@@ -97,6 +101,15 @@ export async function getThemeEditor(ctx: TenantContext): Promise<ThemeEditorVie
       loadPolicyFacts(tx, ctx.accountId),
     ]);
     const nameOf = new Map(names.map((n) => [n.id, n.name]));
+    const collectionRows = await tx.$queryRaw<{ id: string; title: string; slug: string; published: boolean; kind: CollectionKind; rules: unknown;
+      match: CollectionMatch; sort: CollectionSort }[]>`
+      SELECT id::text AS id, title, slug, published, kind, rules, match, sort FROM shop_collections
+      WHERE account_id=${ctx.accountId}::uuid ORDER BY lower(title), id LIMIT ${MAX_COLLECTIONS}`;
+    const collections: ThemeEditorView['preview']['collections'] = [];
+    for (const c of collectionRows) {
+      collections.push({ id: c.id, title: c.title, slug: c.slug, published: c.published,
+        productIds: await collectionProductIds(tx, ctx.accountId, { id: c.id, kind: c.kind, rules: readStoredRules(c.rules), match: c.match, sort: c.sort }, PREVIEW_PRODUCTS) });
+    }
     return {
       ready: !!row, draft, draftVersion: row?.draft_version ?? 0, hasDraft: !!row?.draft,
       publishedAt: row?.published_at?.toISOString() ?? null,
@@ -105,7 +118,7 @@ export async function getThemeEditor(ctx: TenantContext): Promise<ThemeEditorVie
       preview: {
         handle: row?.handle ?? 'preview', name: account?.title || account?.name || '', currency: account?.currency ?? null,
         whatsappPhone: row?.whatsapp_phone ?? null, products, categories,
-        tree: tree.map((c) => ({ ...c, name: nameOf.get(c.id) ?? '' })), facts,
+        tree: tree.map((c) => ({ ...c, name: nameOf.get(c.id) ?? '' })), collections, facts,
       },
     };
   });

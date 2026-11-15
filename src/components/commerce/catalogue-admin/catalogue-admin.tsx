@@ -30,17 +30,20 @@ import { StateBadge } from "@/components/commerce/orders/state-badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useCan } from "@/hooks/use-can";
 import { CategoriesPanel } from "./categories-panel";
+import { CollectionsPanel } from "./collections-panel";
 import { InventoryPanel } from "./inventory-panel";
 import { MetaLinkPanel } from "./meta-link-panel";
 import { NewArrivalsDialog } from "./new-arrivals-dialog";
+import { CsvImportDialog } from "./csv-dialog";
+import { PlatformImportDialog } from "./platform-import-dialog";
 import { priceRange } from "./catalogue-format";
 import {
-  archiveShopProduct, createShopProduct, duplicateShopProduct, fetchCategories, fetchShopProducts, publishShopProduct, unpublishShopProduct,
+  archiveShopProduct, createShopProduct, downloadProductCsv, duplicateShopProduct, fetchCategories, fetchShopProducts, publishShopProduct, unpublishShopProduct,
   type ApiResult, type ProductListFilter, type ShopCategory, type ShopProductSummary,
 } from "./catalogue-api";
 
 const PAGE = 50;
-const TABS = ["products", "categories", "inventory", "meta"] as const;
+const TABS = ["products", "categories", "collections", "inventory", "meta"] as const;
 type Tab = (typeof TABS)[number];
 export const selectClass = "h-9 rounded-lg border border-border bg-card px-2.5 text-sm text-foreground";
 
@@ -82,6 +85,7 @@ export function CatalogueAdmin() {
       <div role="tabpanel">
         {tab === "products" && <ProductsTab canManage={canManage} onOpenCategories={() => setTab("categories")} />}
         {tab === "categories" && <CategoriesPanel canManage={canManage} />}
+        {tab === "collections" && <CollectionsPanel canManage={canManage} />}
         {tab === "inventory" && <InventoryPanel canManage={canManage} />}
         {tab === "meta" && <MetaLinkPanel canManage={canManage} />}
       </div>
@@ -125,7 +129,15 @@ function ProductsTab({ canManage, onOpenCategories }: { canManage: boolean; onOp
   // Products chosen for "send as new arrivals" (published only; the order is the card order).
   const [picked, setPicked] = useState<string[]>([]);
   const [arrivalsOpen, setArrivalsOpen] = useState(false);
+  const [csvOpen, setCsvOpen] = useState(false);
+  const [platformOpen, setPlatformOpen] = useState(false);
+  const tPlatform = useTranslations("Commerce.catalogue.platform");
+  const tCsv = useTranslations("Commerce.catalogue.csv");
   const tNa = useTranslations("Commerce.catalogue.newArrivals");
+  const exportCsv = async () => {
+    const r = await downloadProductCsv();
+    if (!r.ok) toast.error(errorText(r));
+  };
   const toggle = (id: string, on: boolean) => setPicked((ids) => (on ? [...ids.filter((x) => x !== id), id].slice(0, 10) : ids.filter((x) => x !== id)));
   const pickBox = (p: ShopProductSummary) => canManage && p.status === "published" ? (
     <Checkbox checked={picked.includes(p.id)} aria-label={tNa("select", { name: p.name })} onCheckedChange={(on) => toggle(p.id, !!on)} />
@@ -238,7 +250,12 @@ function ProductsTab({ canManage, onOpenCategories }: { canManage: boolean; onOp
           </button>
         </div>
         {canManage && (
-          <Button onClick={() => setNewOpen(true)}><Plus className="h-4 w-4" /> {t("create")}</Button>
+          <>
+            <Button variant="outline" onClick={() => void exportCsv()}>{tCsv("export")}</Button>
+            <Button variant="outline" onClick={() => setCsvOpen(true)}>{tCsv("import")}</Button>
+            <Button variant="outline" onClick={() => setPlatformOpen(true)}>{tPlatform("open")}</Button>
+            <Button onClick={() => setNewOpen(true)}><Plus className="h-4 w-4" /> {t("create")}</Button>
+          </>
         )}
       </div>
       <div className="flex flex-wrap items-center gap-2">
@@ -388,6 +405,8 @@ function ProductsTab({ canManage, onOpenCategories }: { canManage: boolean; onOp
         </>
       )}
 
+      <CsvImportDialog open={csvOpen} onOpenChange={setCsvOpen} onDone={() => setReloadKey((k) => k + 1)} />
+      <PlatformImportDialog open={platformOpen} onOpenChange={setPlatformOpen} onDone={() => setReloadKey((k) => k + 1)} />
       <NewArrivalsDialog open={arrivalsOpen} onOpenChange={setArrivalsOpen} productIds={picked} onDone={() => setPicked([])} />
 
       <Dialog open={newOpen} onOpenChange={setNewOpen}>

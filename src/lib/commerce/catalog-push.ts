@@ -24,6 +24,11 @@
  * Meta failures throw, so the job retries with backoff and stays
  * visible as failed; the next sync queues a fresh push. Tokens, product names
  * and prices are never logged.
+ *
+ * With the full catalogue sync (store plan Phase 4, catalogue/meta-sync-job.ts)
+ * switched on, a variant that sync has 'pending' or 'synced' is left out here:
+ * its price and availability travel with the whole item, once. Every other
+ * linked variant is pushed here as before.
  */
 
 import { getEntitlements } from '@/lib/billing/entitlements';
@@ -77,6 +82,11 @@ async function linkedItems(tx: TenantTransaction, accountId: string, catalogRowI
     LEFT JOIN inventory_levels l ON l.account_id=v.account_id AND l.variant_id=v.id
     LEFT JOIN commerce_settings st ON st.account_id=m.account_id
     WHERE m.account_id=${accountId}::uuid AND m.catalog_row_id=${catalogRowId}::uuid AND NOT m.is_hidden
+      -- A variant the full catalogue sync has in hand (catalogue/meta-sync-job.ts) is sent there, as a whole item, not here too.
+      AND NOT EXISTS (SELECT 1 FROM shop_meta_sync_settings fs
+        JOIN shop_meta_sync_items fi ON fi.account_id=fs.account_id AND fi.variant_id=v.id AND fi.status IN ('pending','synced')
+        JOIN whatsapp_catalogs fc ON fc.account_id=fs.account_id AND fc.id=m.catalog_row_id AND fc.catalog_id=fi.catalog_id
+        WHERE fs.account_id=m.account_id AND fs.enabled)
     ORDER BY m.retailer_id`;
   return rows.map((r) => ({
     retailer_id: r.retailer_id, meta_price_minor: minorFromDb(r.meta_price), meta_currency: r.meta_currency,

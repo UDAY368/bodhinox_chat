@@ -64,3 +64,21 @@ export function catalogueErrorResponse(error: unknown): NextResponse {
 }
 
 export type IdContext = { params: Promise<{ id: string }> };
+
+/** The request body as text, refused with csv_too_large over `max` bytes (checked on the way in, not after buffering it all). */
+export async function readCsvBody(request: Request, max: number): Promise<string> {
+  const declared = Number(request.headers.get('content-length') ?? 0);
+  if (declared > max) throw new CatalogueError('csv_too_large');
+  const reader = request.body?.getReader();
+  if (!reader) throw new CatalogueError('invalid', 'csv');
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    size += value.byteLength;
+    if (size > max) { await reader.cancel().catch(() => {}); throw new CatalogueError('csv_too_large'); }
+    chunks.push(value);
+  }
+  return new TextDecoder('utf-8').decode(Buffer.concat(chunks));
+}

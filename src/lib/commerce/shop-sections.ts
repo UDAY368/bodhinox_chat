@@ -25,6 +25,7 @@ export type ShopField =
   | { key: string; kind: 'link' }
   | { key: string; kind: 'video' }
   | { key: string; kind: 'category' }
+  | { key: string; kind: 'collection' }
   | { key: string; kind: 'choice'; options: readonly string[] }
   | { key: string; kind: 'number'; min: number; max: number; default: number };
 
@@ -61,7 +62,9 @@ export const SECTION_SPECS: Record<ShopSectionType, SectionSpec> = {
   slideshow: { fields: [], items: { fields: [image, line('heading', 80), line('text', 200), ...button], min: 1, max: 6 } },
   categories: { fields: [line('title', 60)] },
   featured_collection: {
-    fields: [line('title', 60), { key: 'category', kind: 'category' }, { key: 'limit', kind: 'number', min: 2, max: 12, default: 4 }],
+    // A collection, when set, wins over the category (older saved themes only have the category).
+    fields: [line('title', 60), { key: 'collection', kind: 'collection' }, { key: 'category', kind: 'category' },
+      { key: 'limit', kind: 'number', min: 2, max: 12, default: 4 }],
   },
   product_grid: {
     fields: [line('title', 60), { key: 'sort', kind: 'choice', options: PRODUCT_SORTS },
@@ -97,9 +100,9 @@ export const isPageSlug = (value: unknown): value is ShopPageSlug =>
 
 const UUID = '[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}';
 /** Paths inside the shop a link may point at ("" is the home page). */
-const SHOP_PATH = new RegExp(`^/(?:all|cart|c/${UUID}|p/${UUID}|pages/(?:${SHOP_PAGE_SLUGS.join('|')}))?$`);
+const SHOP_PATH = new RegExp(`^/(?:all|cart|c/${UUID}|p/${UUID}|collections/[a-z0-9](?:[a-z0-9-]{0,58}[a-z0-9])?|pages/(?:${SHOP_PAGE_SLUGS.join('|')}))?$`);
 
-/** A link as stored: a shop path ("/", "/all", "/c/<id>", "/p/<id>", "/pages/<slug>", "/cart") or an https URL. */
+/** A link as stored: a shop path ("/", "/all", "/c/<id>", "/p/<id>", "/collections/<slug>", "/pages/<slug>", "/cart") or an https URL. */
 export function parseLink(value: unknown, field: string): string | null {
   if (value === null || value === undefined || value === '') return null;
   if (typeof value !== 'string') throw new ShopThemeError(field);
@@ -171,6 +174,11 @@ function parseField(field: ShopField, value: unknown, path: string): FieldValue 
       return url;
     }
     case 'category': {
+      if (value === null || value === undefined || value === '') return null;
+      if (typeof value !== 'string' || !new RegExp(`^${UUID}$`).test(value.toLowerCase())) throw new ShopThemeError(at);
+      return value.toLowerCase();
+    }
+    case 'collection': {
       if (value === null || value === undefined || value === '') return null;
       if (typeof value !== 'string' || !new RegExp(`^${UUID}$`).test(value.toLowerCase())) throw new ShopThemeError(at);
       return value.toLowerCase();
@@ -418,6 +426,12 @@ export function pickProducts<P extends PickableProduct>(products: P[], settings:
   else if (settings.sort === 'price_desc') list = [...list].sort((a, b) => low(b) - low(a));
   else if (settings.sort === 'name') list = [...list].sort((a, b) => a.name.localeCompare(b.name));
   return list.slice(0, limit);
+}
+
+/** The products of a collection, in the collection's order (ids), limited. Ids outside `products` are skipped. */
+export function pickCollectionProducts<P extends { id: string }>(products: P[], productIds: string[], limit: number): P[] {
+  const byId = new Map(products.map((p) => [p.id, p]));
+  return productIds.flatMap((id) => (byId.has(id) ? [byId.get(id)!] : [])).slice(0, limit);
 }
 
 /** A category and its sub-categories, from (id, parentId) rows. */

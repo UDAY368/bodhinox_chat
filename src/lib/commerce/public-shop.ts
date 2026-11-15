@@ -42,6 +42,8 @@ import { getNumberConfig, isNumberDisconnected, NoNumberError } from '@/lib/what
 import { parseInternationalPhone } from '@/lib/whatsapp/phone-utils';
 import { assertTemplateOnNumber } from '@/lib/whatsapp/sender-config';
 import type { MessageTemplate } from '@/types';
+import { collectionProductIds } from './catalogue/collections';
+import { COLLECTION_SORTS, readStoredRules, type CollectionKind, type CollectionMatch, type CollectionSort } from './catalogue/collection-rules';
 import { queueAbandonedCartTx } from './cart-followups';
 import { STOCK_ALERT_CODE_HOURS, stockAlertMessage } from './stock-alerts';
 import { currencyExponent, minorFromDb } from './money';
@@ -129,7 +131,10 @@ export interface PublicProduct {
   categoryId: string | null;
   categoryName: string | null;
   images: string[];
-  variants: Array<{ id: string; options: Record<string, string>; priceMinor: number; compareAtMinor: number | null; inStock: boolean }>;
+  /** Label and value rows from the product's details (plain text). */
+  details: Array<{ label: string; value: string }>;
+  /** `imageIndex`: the position in `images` this variant shows, or null. */
+  variants: Array<{ id: string; options: Record<string, string>; priceMinor: number; compareAtMinor: number | null; inStock: boolean; imageIndex: number | null }>;
   /** Average and count of the published reviews (store plan Phase 3); null until there is one. */
   rating: RatingSummary | null;
 }
@@ -196,9 +201,9 @@ export async function loadProductsWith(tx: TenantTransaction, accountId: string,
   const productId = where.productId ?? null;
   const productIds = where.productIds ?? null;
   const categoryId = where.categoryId ?? null;
-  const rows = await tx.$queryRaw<{ id: string; name: string; description: string | null; disclosure: string | null;
+  const rows = await tx.$queryRaw<{ id: string; name: string; description: string | null; disclosure: string | null; details: unknown;
     category_id: string | null; category: string | null }[]>`
-    SELECT p.id::text AS id, p.name, p.description, p.disclosure, c.id::text AS category_id, c.name AS category FROM shop_products p
+    SELECT p.id::text AS id, p.name, p.description, p.disclosure, p.details, c.id::text AS category_id, c.name AS category FROM shop_products p
     LEFT JOIN shop_categories c ON c.account_id=p.account_id AND c.id=p.category_id AND c.archived_at IS NULL
     WHERE p.account_id=${accountId}::uuid AND p.status='published'
       AND EXISTS (SELECT 1 FROM shop_variants v WHERE v.account_id=p.account_id AND v.product_id=p.id AND v.archived_at IS NULL AND v.price_minor IS NOT NULL)
@@ -209,8 +214,8 @@ export async function loadProductsWith(tx: TenantTransaction, accountId: string,
   if (!rows.length) return [];
   const ids = rows.map((r) => r.id);
   const variants = await tx.$queryRaw<{ id: string; product_id: string; option_values: Record<string, string>; price_minor: bigint;
-    compare_at_minor: bigint | null; in_stock: boolean }[]>`
-    SELECT v.id::text AS id, v.product_id::text AS product_id, v.option_values, v.price_minor, v.compare_at_minor,
+    compare_at_minor: bigint | null; in_stock: boolean; image_id: string | null }[]>`
+    SELECT v.id::text AS id, v.product_id::text AS product_id, v.option_values, v.price_minor, v.compare_at_minor, v.image_id::text AS image_id,
       (NOT v.track_inventory OR COALESCE(l.on_hand - l.reserved, 0) > 0) AS in_stock
     FROM shop_variants v LEFT JOIN inventory_levels l ON l.account_id=v.account_id AND l.variant_id=v.id
     WHERE v.account_id=${accountId}::uuid AND v.product_id = ANY(${ids}::uuid[]) AND v.archived_at IS NULL AND v.price_minor IS NOT NULL
@@ -221,15 +226,32 @@ export async function loadProductsWith(tx: TenantTransaction, accountId: string,
     WHERE i.account_id=${accountId}::uuid AND i.product_id = ANY(${ids}::uuid[]) ORDER BY i.position`;
   // One grouped query for every product on the page.
   const ratings = await loadRatingSummaries(tx, accountId, ids);
-  return rows.map((p) => ({
-    id: p.id, name: p.name, description: p.description, disclosure: p.disclosure, categoryId: p.category_id, categoryName: p.category,
-    rating: ratings.get(p.id) ?? null,
-    images: images.filter((i) => i.product_id === p.id).map(imageUrl).filter((u): u is string => !!u),
-    variants: variants.filter((v) => v.product_id === p.id).map((v) => ({
-      id: v.id, options: v.option_values ?? {}, priceMinor: minorFromDb(v.price_minor) ?? 0,
-      compareAtMinor: minorFromDb(v.compare_at_minor), inStock: v.in_stock,
-    })),
-  }));
+  return rows.map((p) => {
+    // Only images with a URL are shown; a variant's picture is its place among those.
+    const shown = images.filter((i) => i.product_id === p.id).map((i) => ({ id: i.id, url: imageUrl(i) })).filter((i): i is { id: string; url: string } => !!i.url);
+    return {
+      id: p.id, name: p.name, description: p.description, disclosure: p.disclosure, categoryId: p.category_id, categoryName: p.category,
+      rating: ratings.get(p.id) ?? null,
+      details: publicDetails(p.details),
+      images: shown.map((i) => i.url),
+      variants: variants.filter((v) => v.product_id === p.id).map((v) => {
+        const at = v.image_id ? shown.findIndex((i) => i.id === v.image_id) : -1;
+        return {
+          id: v.id, options: v.option_values ?? {}, priceMinor: minorFromDb(v.price_minor) ?? 0,
+          compareAtMinor: minorFromDb(v.compare_at_minor), inStock: v.in_stock, imageIndex: at >= 0 ? at : null,
+        };
+      }),
+    };
+  });
+}
+
+/** Stored detail rows read back leniently: only plain label/value strings, at most twelve. */
+function publicDetails(value: unknown): Array<{ label: string; value: string }> {
+  if (!Array.isArray(value)) return [];
+  return value.slice(0, 12).flatMap((row) => {
+    const r = row as { label?: unknown; value?: unknown } | null;
+    return r && typeof r.label === 'string' && typeof r.value === 'string' && r.label && r.value ? [{ label: r.label, value: r.value }] : [];
+  });
 }
 
 /** What the home page's sections draw from: the published content, products in catalogue order and the categories. */
@@ -240,6 +262,8 @@ export interface ShopHome {
   categories: Array<{ id: string; name: string }>;
   /** Category rows, for "featured collection" sections (a category and its sub-categories). */
   tree: Array<{ id: string; parentId: string | null }>;
+  /** Published collections that "featured collection" sections name: address, title and product ids in order. */
+  collections: Record<string, { slug: string; title: string; productIds: string[] }>;
 }
 
 /** The most products the home page's product sections choose from. */
@@ -262,7 +286,14 @@ export function loadShopHome(handle: string): Promise<ShopHome | null> {
       visible.some((s) => s.type === 'categories') ? loadCatalogueCategories(tx, accountId) : Promise.resolve([]),
       visible.some((s) => s.type === 'featured_collection') ? loadCategoryTree(tx, accountId) : Promise.resolve([]),
     ]);
-    return { ...loaded, products, categories, tree };
+    const wanted = [...new Set(visible.filter((s) => s.type === 'featured_collection')
+      .flatMap((s) => (typeof s.settings.collection === 'string' ? [s.settings.collection] : [])))];
+    const collections: ShopHome['collections'] = {};
+    for (const id of wanted) {
+      const found = await loadPublishedCollection(tx, accountId, { id });
+      if (found) collections[id] = { slug: found.slug, title: found.title, productIds: await collectionProductIds(tx, accountId, found.def, HOME_SCAN_LIMIT) };
+    }
+    return { ...loaded, products, categories, tree, collections };
   });
 }
 
@@ -430,6 +461,57 @@ export function loadShopCategory(handle: string, categoryId: string, query: Cate
   });
 }
 
+// ---------------------------------------------------------------------------
+// Collections (store plan Phase 4)
+
+interface PublishedCollection {
+  id: string; slug: string; title: string; description: string | null;
+  def: { id: string; kind: CollectionKind; rules: ReturnType<typeof readStoredRules>; match: CollectionMatch; sort: CollectionSort };
+}
+
+/** A published collection by id or slug, or null. */
+async function loadPublishedCollection(tx: TenantTransaction, accountId: string, by: { id?: string; slug?: string }): Promise<PublishedCollection | null> {
+  const [row] = await tx.$queryRaw<{ id: string; slug: string; title: string; description: string | null; kind: CollectionKind; rules: unknown;
+    match: CollectionMatch; sort: CollectionSort }[]>`
+    SELECT id::text AS id, slug, title, description, kind, rules, match, sort FROM shop_collections
+    WHERE account_id=${accountId}::uuid AND published AND (${by.id ?? null}::uuid IS NULL OR id=${by.id ?? null}::uuid)
+      AND (${by.slug ?? null}::text IS NULL OR slug=${by.slug ?? null}) AND (${by.id ?? null}::uuid IS NOT NULL OR ${by.slug ?? null}::text IS NOT NULL)`;
+  if (!row) return null;
+  return { id: row.id, slug: row.slug, title: row.title, description: row.description,
+    def: { id: row.id, kind: row.kind, rules: readStoredRules(row.rules), match: row.match, sort: row.sort } };
+}
+
+export interface ShopCollectionPage {
+  shop: PublicShop;
+  collection: { id: string; slug: string; title: string; description: string | null };
+  products: PublicProduct[];
+  sort: CollectionSort;
+  page: number;
+  pages: number;
+  total: number;
+}
+
+/** A collection page: its published, sellable products in the collection's order (or ?sort=), 24 per page. */
+export function loadShopCollection(handle: string, slug: string, query: { sort?: unknown; page?: unknown } = {}): Promise<ShopCollectionPage | null> {
+  if (typeof slug !== 'string' || !/^[a-z0-9]+(-[a-z0-9]+)*$/.test(slug) || slug.length > 60) return Promise.resolve(null);
+  return withPublicShop(handle, async (tx, accountId) => {
+    const shop = await loadPublicShopTx(tx, accountId);
+    const found = await loadPublishedCollection(tx, accountId, { slug });
+    if (!shop || !found) return null;
+    const sort = COLLECTION_SORTS.includes(query.sort as CollectionSort) ? query.sort as CollectionSort : found.def.sort;
+    const ids = await collectionProductIds(tx, accountId, { ...found.def, sort });
+    const loaded = ids.length ? await loadProducts(tx, accountId, handle, { productIds: ids, limit: ids.length }) : [];
+    const byId = new Map(loaded.map((p) => [p.id, p]));
+    const all = ids.flatMap((id) => (byId.has(id) ? [byId.get(id)!] : []));
+    const pages = Math.max(1, Math.ceil(all.length / CATEGORY_PAGE_SIZE));
+    const page = Math.min(pages, Math.max(1, wholeNumber(query.page) ?? 1));
+    return {
+      shop, collection: { id: found.id, slug: found.slug, title: found.title, description: found.description },
+      products: all.slice((page - 1) * CATEGORY_PAGE_SIZE, page * CATEGORY_PAGE_SIZE), sort, page, pages, total: all.length,
+    };
+  });
+}
+
 /** All listed products for the "all products" page (first page of the catalogue order). */
 export function loadShopAll(handle: string, cursor?: string): Promise<{ shop: PublicShop; products: PublicProduct[]; next: string | null } | null> {
   return withPublicShop(handle, async (tx, accountId) => {
@@ -442,8 +524,8 @@ export function loadShopAll(handle: string, cursor?: string): Promise<{ shop: Pu
       products: page.products.map((p) => ({
         rating: ratings.get(p.id) ?? null,
         id: p.id, name: p.name, description: p.description, disclosure: p.disclosure, categoryId: null, categoryName: p.categoryName,
-        images: p.images.map((id) => shopImageUrl(handle, id)),
-        variants: p.variants.map((v) => ({ id: v.id, options: v.options, priceMinor: v.priceMinor, compareAtMinor: v.compareAtMinor, inStock: v.inStock })),
+        images: p.images.map((id) => shopImageUrl(handle, id)), details: [],
+        variants: p.variants.map((v) => ({ id: v.id, options: v.options, priceMinor: v.priceMinor, compareAtMinor: v.compareAtMinor, inStock: v.inStock, imageIndex: null })),
       })),
     };
   });
