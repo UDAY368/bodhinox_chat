@@ -118,7 +118,8 @@
     "expandSidebar": "Expand",
     "analyticsConversations": "Conversations",
     "analyticsTeam": "Team",
-    "analyticsCampaigns": "Campaigns"
+    "analyticsCampaigns": "Campaigns",
+    "onlineStore": "Online store"
   },
   "Header": {
     "notificationsUnread": "{count, plural, =1 {Notifications, 1 unread} other {Notifications, # unread}}",
@@ -10094,7 +10095,14 @@
         "amount_out_of_range": "The amount is too large.",
         "too_many_open_orders": "This customer already has the most open orders allowed. An unpaid order must be paid or expire, or a cash-on-delivery order must ship or be cancelled, first.",
         "cod_unavailable": "Cash on delivery is not available for this cart.",
-        "online_unavailable": "Online payment is not available right now. Choose cash on delivery or try again later."
+        "online_unavailable": "Online payment is not available right now. Choose cash on delivery or try again later.",
+        "handle_taken": "That shop address is taken. Try another one.",
+        "invalid_handle": "Use 3 to 40 lowercase letters, numbers and single dashes for the shop address.",
+        "otp_unavailable": "Ordering with a WhatsApp code is not set up for this shop.",
+        "otp_invalid": "That code is not right. Check the code and try again.",
+        "otp_expired": "That code has expired. Ask for a new one.",
+        "otp_locked": "Too many wrong tries. Ask for a new code.",
+        "whatsapp_order_unavailable": "Ordering on WhatsApp is not set up for this shop."
       },
       "title": "Store settings",
       "subtitle": "Currency, tax, checkout, seller details, shipping and coupons for your storefront.",
@@ -10396,6 +10404,129 @@
         "not_connected": "Razorpay is not connected",
         "provider_auth": "Razorpay did not accept the saved keys",
         "other": "Razorpay refused the request"
+      }
+    },
+    "storeSite": {
+      "title": "Online store",
+      "subtitle": "Your public shop that anyone can open, with a ready-made template.",
+      "loadError": "The online store settings could not be loaded.",
+      "loading": "Loading",
+      "saved": "Online store saved.",
+      "copied": "Link copied.",
+      "copyFailed": "Could not copy. Select the link and copy it.",
+      "fromLibrary": "Image from your media library",
+      "pickImage": "Pick from media library",
+      "clear": "Clear",
+      "logo": "Logo",
+      "banner": "Banner image",
+      "openShop": "Open shop",
+      "checklistTitle": "Store setup",
+      "checklistProgress": "{done} of {total} done",
+      "checklist": {
+        "settings": "Fill in store settings (currency and tax)",
+        "product": "Publish your first product with a price",
+        "template": "Pick a template and save",
+        "payments": "Connect Razorpay or turn on cash on delivery",
+        "shipping": "Add a shipping rate",
+        "checkout": "Turn on checkout in store settings",
+        "ordering": "Choose how buyers order (WhatsApp code or WhatsApp chat)",
+        "published": "Publish the shop"
+      },
+      "done": "Done",
+      "todo": "To do",
+      "addressTitle": "Shop address",
+      "addressHint": "Your shop lives at this web address. Only published products show up.",
+      "handle": "Shop address",
+      "handleHint": "3 to 40 lowercase letters, numbers and dashes.",
+      "published": "Published: anyone can open the shop",
+      "hidden": "Hidden: only you can see these settings",
+      "copyLink": "Copy link",
+      "shareHint": "Share the link in WhatsApp, Instagram bio, broadcasts and flows, or print the QR code.",
+      "downloadQr": "Download QR code",
+      "templateTitle": "Template",
+      "templateHint": "Pick a ready-made look. Your products and settings stay the same when you switch.",
+      "brandTitle": "Brand",
+      "brandHint": "Logo, colors, fonts and texts on top of the template. Leave a field empty to use the template default.",
+      "colors": {
+        "primary": "Main color",
+        "accent": "Accent color",
+        "background": "Background",
+        "surface": "Card color",
+        "text": "Text color"
+      },
+      "useTemplateColor": "Use template color",
+      "font": {
+        "heading": "Heading font",
+        "body": "Text font"
+      },
+      "templateFont": "Template font ({font})",
+      "fonts": {
+        "modern": "Modern sans",
+        "humanist": "Friendly sans",
+        "rounded": "Rounded",
+        "classic": "Classic serif",
+        "elegant": "Elegant serif",
+        "technical": "Technical"
+      },
+      "headline": "Banner headline",
+      "subheadline": "Banner text",
+      "announcement": "Announcement bar",
+      "announcementPlaceholder": "Free delivery over ₹999",
+      "social": {
+        "instagram": "Instagram link",
+        "facebook": "Facebook link",
+        "youtube": "YouTube link"
+      },
+      "orderingTitle": "How buyers order",
+      "orderingHint": "Buyers browse freely. To place an order they confirm their WhatsApp number with a code, or send their cart to you on WhatsApp. Both open the usual checkout.",
+      "number": "WhatsApp number",
+      "noNumber": "No number (ordering off)",
+      "disconnected": "disconnected",
+      "whatsappPhone": "Number shown to buyers",
+      "whatsappPhoneHint": "Digits with country code, for the chat button and Order on WhatsApp.",
+      "otpTemplate": "Code template",
+      "noOtp": "No code (off)",
+      "otpHint": "An approved authentication template on this number sends the code.",
+      "otpNoneHint": "Create an authentication template in Templates and wait for approval to turn on codes.",
+      "save": "Save",
+      "imageOnly": "Pick an image.",
+      "templates": {
+        "wellness": {
+          "name": "Wellness and Ayurveda",
+          "description": "Calm greens and gold, a classic serif and large category tiles.",
+          "headline": "Natural care, made with love",
+          "subheadline": "Herbal products, oils and blends, delivered to your door."
+        },
+        "fashion": {
+          "name": "Fashion",
+          "description": "Black and white with a bold red, tall photos and a full-width banner.",
+          "headline": "New season, new style",
+          "subheadline": "Fresh arrivals picked for you. Order in a few taps."
+        },
+        "beauty": {
+          "name": "Beauty",
+          "description": "Soft rose tones, an elegant serif and rounded cards.",
+          "headline": "Glow every day",
+          "subheadline": "Skincare and makeup you will love, with easy ordering on WhatsApp."
+        },
+        "food": {
+          "name": "Food and bakery",
+          "description": "Warm oranges, a friendly rounded font and big food photos.",
+          "headline": "Freshly baked, every day",
+          "subheadline": "Cakes, snacks and treats made fresh. Order now."
+        },
+        "grocery": {
+          "name": "Grocery",
+          "description": "Fresh green and yellow, a clean sans font and four products per row.",
+          "headline": "Daily needs, delivered",
+          "subheadline": "Fresh groceries and essentials at fair prices."
+        },
+        "electronics": {
+          "name": "Electronics",
+          "description": "Cool blue and teal, a technical font and compact cards.",
+          "headline": "The latest gadgets",
+          "subheadline": "Phones, accessories and more, with fast delivery."
+        }
       }
     }
   },
@@ -16502,6 +16633,120 @@
       "es": "Spanish (Español)",
       "ko": "Korean (한국어)",
       "pt": "Portuguese (Português)"
+    }
+  },
+  "ShopPublic": {
+    "home": "Home",
+    "allProducts": "All products",
+    "cart": "Cart",
+    "footerNote": "Order online or chat with us on WhatsApp.",
+    "chatOnWhatsApp": "Chat on WhatsApp",
+    "shopNow": "Shop now",
+    "categories": "Categories",
+    "featured": "Featured products",
+    "viewAll": "View all",
+    "noProducts": "No products yet. Please check back soon.",
+    "soldOut": "Sold out",
+    "from": "From",
+    "nextPage": "Next page",
+    "prevPage": "Previous page",
+    "pageOf": "Page {page} of {pages}",
+    "pagination": "Pages",
+    "imageN": "Image {n}",
+    "pickOptions": "Choose the options above.",
+    "inStock": "In stock",
+    "decrease": "Fewer",
+    "increase": "More",
+    "addToCart": "Add to cart",
+    "added": "Added to your cart.",
+    "viewCart": "View cart",
+    "breadcrumb": "You are here",
+    "related": "You may also like",
+    "up": "Back",
+    "sortLabel": "Sort",
+    "sort": {
+      "featured": "Featured",
+      "price_asc": "Price: low to high",
+      "price_desc": "Price: high to low",
+      "name": "Name"
+    },
+    "minPrice": "Min price",
+    "maxPrice": "Max price",
+    "optionLabel": "Option",
+    "anyOption": "Any",
+    "apply": "Apply",
+    "resultCount": "{count, plural, one {# product} other {# products}}",
+    "noMatching": "No products match these filters.",
+    "loading": "Loading…",
+    "cartEmpty": "Your cart is empty.",
+    "keepShopping": "Keep shopping",
+    "removedLines": "Some items are no longer on sale and were taken out of your cart.",
+    "onlyLeft": "{count, plural, one {Only # left} other {Only # left}}",
+    "remove": "Remove",
+    "subtotal": "Subtotal",
+    "taxIncludedNote": "Prices include tax. Shipping and coupons are added at checkout.",
+    "taxExtraNote": "Tax, shipping and coupons are added at checkout.",
+    "orderingClosed": "This shop is not taking orders online right now. Please chat with us on WhatsApp.",
+    "otpHeading": "Check out with a WhatsApp code",
+    "phoneLabel": "Your WhatsApp number with country code",
+    "sendCode": "Send code on WhatsApp",
+    "codeLabel": "Enter the 6-digit code we sent on WhatsApp",
+    "verifyAndCheckout": "Verify and check out",
+    "changeNumber": "Use a different number",
+    "or": "or",
+    "orderOnWhatsApp": "Order on WhatsApp",
+    "checkoutNote": "At checkout you add your address, see shipping and tax, and pay online or choose cash on delivery if the shop offers it.",
+    "errors": {
+      "invalid": "Something in the form is not right. Please check it.",
+      "invalid_cart": "Your cart could not be read. Please add the items again.",
+      "variant_unavailable": "An item in your cart is no longer on sale. Please refresh the page.",
+      "otp_unavailable": "Ordering with a WhatsApp code is not available. Try Order on WhatsApp.",
+      "otp_invalid": "That code is not right. Check it and try again.",
+      "otp_expired": "That code has expired. Ask for a new one.",
+      "otp_locked": "Too many wrong tries. Ask for a new code.",
+      "too_many": "Too many tries. Please wait a few minutes.",
+      "send_failed": "WhatsApp could not deliver the code to this number. Check the number.",
+      "send_uncertain": "We could not confirm the code was sent. If it does not arrive in a minute, ask again.",
+      "checkout_disabled": "This shop is not taking orders online right now.",
+      "store_not_configured": "This shop is not taking orders online right now.",
+      "contact_blocked": "This number cannot order from this shop.",
+      "whatsapp_order_unavailable": "Ordering on WhatsApp is not available.",
+      "not_found": "This shop is not available.",
+      "invalid_phone": "Enter your number with + and the country code, for example +91 98765 43210.",
+      "network": "No connection. Please try again.",
+      "generic": "Something went wrong. Please try again."
+    },
+    "whatsapp": {
+      "intro": "Hi {shop}, I would like to order:",
+      "more": "and {count} more items",
+      "expired": "This order code has expired. Please place your order again from our shop:",
+      "checkout": "Thanks for your order! Add your address and pay here:"
+    },
+    "templates": {
+      "wellness": {
+        "headline": "Natural care, made with love",
+        "subheadline": "Herbal products, oils and blends, delivered to your door."
+      },
+      "fashion": {
+        "headline": "New season, new style",
+        "subheadline": "Fresh arrivals picked for you. Order in a few taps."
+      },
+      "beauty": {
+        "headline": "Glow every day",
+        "subheadline": "Skincare and makeup you will love, with easy ordering on WhatsApp."
+      },
+      "food": {
+        "headline": "Freshly baked, every day",
+        "subheadline": "Cakes, snacks and treats made fresh. Order now."
+      },
+      "grocery": {
+        "headline": "Daily needs, delivered",
+        "subheadline": "Fresh groceries and essentials at fair prices."
+      },
+      "electronics": {
+        "headline": "The latest gadgets",
+        "subheadline": "Phones, accessories and more, with fast delivery."
+      }
     }
   }
 }

@@ -7,6 +7,16 @@ import {
 import { cookieNames } from '@/lib/auth/cookies';
 import { AuthError } from '@/lib/auth/errors';
 import { postLoginPath } from '@/lib/auth/callback';
+import { checkRateLimit } from '@/lib/rate-limit';
+
+/** Public shop page views per client IP per minute (in memory, best effort). */
+const STORE_PAGE_BURST = { limit: 240, windowMs: 60_000 };
+
+/** Rightmost x-forwarded-for hop (the edge's view of the client), as the public APIs do. */
+function proxyClientIp(request: NextRequest): string {
+  const forwarded = request.headers.get('x-forwarded-for')?.split(',').map((hop) => hop.trim()).filter(Boolean).at(-1);
+  return (forwarded || request.headers.get('x-real-ip')?.trim() || 'unknown').slice(0, 64);
+}
 const protectedPaths = [
   '/dashboard',
   '/analytics',
@@ -42,8 +52,16 @@ export async function proxy(request: NextRequest) {
   // gated by its own contact-bound token): each mutation checks its own Origin,
   // and a staff session cookie must neither 401 nor demand the staff CSRF header there.
   if (pathname.startsWith('/api/auth/') || pathname === '/auth/callback' || pathname === '/api/health' ||
-    pathname.startsWith('/api/public/booking/') || pathname.startsWith('/api/public/shop/'))
+    pathname.startsWith('/api/public/booking/') || pathname.startsWith('/api/public/shop/') ||
+    pathname.startsWith('/api/public/store/'))
     return response;
+  // The public shop pages (/s/<handle>): anonymous and indexable, so a burst
+  // budget per client IP keeps one visitor from hammering the catalogue.
+  if (pathname.startsWith('/s/')) {
+    if (!checkRateLimit(`store:page:${proxyClientIp(request)}`, STORE_PAGE_BURST).success)
+      return new NextResponse('Too many requests', { status: 429, headers: { 'Retry-After': '60', 'Cache-Control': 'no-store' } });
+    return response;
+  }
   const protectedPage = protectedPaths.some(
     (path) => pathname === path || pathname.startsWith(`${path}/`)
   );

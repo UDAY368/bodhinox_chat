@@ -22,6 +22,7 @@ import { applyInboundLifecycle } from "@/lib/inbox/lifecycle";
 import { sendAwayMessage } from "@/lib/inbox/away-message";
 import { parseHoldCodeMessage } from "@/lib/appointments/types";
 import { handleBookingCode } from "@/lib/appointments/inbound";
+import { handleShopCartCode, parseShopOrderMessage } from "@/lib/commerce/public-shop";
 import { aiDeploymentEnabled } from "@/lib/ai/gate";
 import { enqueueAssessmentForInbound } from "@/lib/ai/assess/enqueue";
 import { enqueueAutoLabelForInbound } from "@/lib/ai/auto-label";
@@ -120,7 +121,15 @@ export async function processInboundActions(input: InboundActionsPayload, assert
       const holdCode=input.contentType==="text"&&!input.interactiveReplyId&&!form&&!order ? parseHoldCodeMessage(text) : null;
       const booking=holdCode ? await handleBookingCode({accountId:input.accountId,userId:input.userId,contactId:input.contactId,
         conversationId:input.conversationId,messageId:input.messageId,whatsappConfigId:input.whatsappConfigId??null,code:holdCode}) : {handled:false};
-      if(!booking.handled) await respondAutomatically(db,input,text,stage,Boolean(form)||Boolean(order));
+      // "... ORDER <CODE>" from the public shop's "Order on WhatsApp" button: the
+      // sender claims the saved cart and gets the checkout link. The reply is
+      // one outbound intent inside a stage checkpoint, so a retried job never
+      // sends it twice. An unknown code is ordinary text for the bots.
+      const cartCode=!holdCode&&input.contentType==="text"&&!input.interactiveReplyId&&!form&&!order ? parseShopOrderMessage(text) : null;
+      const shopOrder=cartCode ? await handleShopCartCode({accountId:input.accountId,contactId:input.contactId,
+        conversationId:input.conversationId,whatsappConfigId:input.whatsappConfigId??null,code:cartCode},
+        send=>stage("shop_cart_code",send)) : {handled:false};
+      if(!booking.handled&&!shopOrder.handled) await respondAutomatically(db,input,text,stage,Boolean(form)||Boolean(order));
       // After the flow and automations, so an unresolved confirmation never holds them back.
       if(order) await stage("order_confirmation",()=>sendOrderConfirmation({accountId:input.accountId,userId:input.userId,
         conversationId:input.conversationId,contactId:input.contactId,order}));
@@ -129,7 +138,7 @@ export async function processInboundActions(input: InboundActionsPayload, assert
       const lifecycle=await applyInboundLifecycle({accountId:input.accountId,conversationId:input.conversationId,
         contactId:input.contactId,messageId:input.messageId,text});
       // Out of hours and nobody automatic answered: the away message, once per window.
-      if(!booking.handled&&!lifecycle.botOwned&&!lifecycle.botReplied) await stage("away_message",()=>sendAwayMessage({accountId:input.accountId,
+      if(!booking.handled&&!shopOrder.handled&&!lifecycle.botOwned&&!lifecycle.botReplied) await stage("away_message",()=>sendAwayMessage({accountId:input.accountId,
         userId:input.userId,conversationId:input.conversationId,contactId:input.contactId,messageId:input.messageId}));
     }
     await stage("message_webhook",()=>dispatchWebhookEvent(db,input.accountId,"message.received",{

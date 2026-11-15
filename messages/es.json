@@ -118,7 +118,8 @@
     "expandSidebar": "Expandir",
     "analyticsConversations": "Conversaciones",
     "analyticsTeam": "Equipo",
-    "analyticsCampaigns": "Campañas"
+    "analyticsCampaigns": "Campañas",
+    "onlineStore": "Tienda en línea"
   },
   "Header": {
     "notificationsUnread": "{count, plural, =1 {Notificaciones, 1 sin leer} other {Notificaciones, # sin leer}}",
@@ -10094,7 +10095,14 @@
         "amount_out_of_range": "El importe es demasiado grande.",
         "too_many_open_orders": "Este cliente ya tiene el máximo de pedidos abiertos. Primero un pedido sin pagar debe pagarse o caducar, o un pedido contra entrega debe enviarse o cancelarse.",
         "cod_unavailable": "El pago contra entrega no está disponible para este carrito.",
-        "online_unavailable": "El pago en línea no está disponible ahora. Elige pago contra entrega o inténtalo más tarde."
+        "online_unavailable": "El pago en línea no está disponible ahora. Elige pago contra entrega o inténtalo más tarde.",
+        "handle_taken": "Esa dirección de tienda ya está en uso. Prueba otra.",
+        "invalid_handle": "Usa de 3 a 40 letras minúsculas, números y guiones simples para la dirección de la tienda.",
+        "otp_unavailable": "Los pedidos con código de WhatsApp no están configurados en esta tienda.",
+        "otp_invalid": "Ese código no es correcto. Revísalo e inténtalo de nuevo.",
+        "otp_expired": "Ese código ha caducado. Pide uno nuevo.",
+        "otp_locked": "Demasiados intentos fallidos. Pide un código nuevo.",
+        "whatsapp_order_unavailable": "Los pedidos por WhatsApp no están configurados en esta tienda."
       },
       "title": "Ajustes de la tienda",
       "subtitle": "Moneda, impuestos, pago, datos del vendedor, envío y cupones de tu tienda en línea.",
@@ -10396,6 +10404,129 @@
         "not_connected": "Razorpay no está conectado",
         "provider_auth": "Razorpay no aceptó las claves guardadas",
         "other": "Razorpay rechazó la solicitud"
+      }
+    },
+    "storeSite": {
+      "title": "Tienda en línea",
+      "subtitle": "Tu tienda pública que cualquiera puede abrir, con una plantilla lista.",
+      "loadError": "No se pudo cargar la configuración de la tienda en línea.",
+      "loading": "Cargando",
+      "saved": "Tienda en línea guardada.",
+      "copied": "Enlace copiado.",
+      "copyFailed": "No se pudo copiar. Selecciona el enlace y cópialo.",
+      "fromLibrary": "Imagen de tu biblioteca de medios",
+      "pickImage": "Elegir de la biblioteca de medios",
+      "clear": "Quitar",
+      "logo": "Logotipo",
+      "banner": "Imagen del banner",
+      "openShop": "Abrir tienda",
+      "checklistTitle": "Configuración de la tienda",
+      "checklistProgress": "{done} de {total} hechos",
+      "checklist": {
+        "settings": "Completa la configuración de la tienda (moneda e impuestos)",
+        "product": "Publica tu primer producto con precio",
+        "template": "Elige una plantilla y guarda",
+        "payments": "Conecta Razorpay o activa el pago contra reembolso",
+        "shipping": "Añade una tarifa de envío",
+        "checkout": "Activa el pago en la configuración de la tienda",
+        "ordering": "Elige cómo piden los compradores (código de WhatsApp o chat)",
+        "published": "Publica la tienda"
+      },
+      "done": "Hecho",
+      "todo": "Pendiente",
+      "addressTitle": "Dirección de la tienda",
+      "addressHint": "Tu tienda vive en esta dirección web. Solo se muestran los productos publicados.",
+      "handle": "Dirección de la tienda",
+      "handleHint": "De 3 a 40 letras minúsculas, números y guiones.",
+      "published": "Publicada: cualquiera puede abrir la tienda",
+      "hidden": "Oculta: solo tú ves esta configuración",
+      "copyLink": "Copiar enlace",
+      "shareHint": "Comparte el enlace en WhatsApp, la bio de Instagram, difusiones y flujos, o imprime el código QR.",
+      "downloadQr": "Descargar código QR",
+      "templateTitle": "Plantilla",
+      "templateHint": "Elige un diseño listo. Tus productos y ajustes se mantienen al cambiar.",
+      "brandTitle": "Marca",
+      "brandHint": "Logotipo, colores, fuentes y textos sobre la plantilla. Deja un campo vacío para usar el de la plantilla.",
+      "colors": {
+        "primary": "Color principal",
+        "accent": "Color de acento",
+        "background": "Fondo",
+        "surface": "Color de las tarjetas",
+        "text": "Color del texto"
+      },
+      "useTemplateColor": "Usar color de la plantilla",
+      "font": {
+        "heading": "Fuente de títulos",
+        "body": "Fuente del texto"
+      },
+      "templateFont": "Fuente de la plantilla ({font})",
+      "fonts": {
+        "modern": "Sans moderna",
+        "humanist": "Sans amable",
+        "rounded": "Redondeada",
+        "classic": "Serif clásica",
+        "elegant": "Serif elegante",
+        "technical": "Técnica"
+      },
+      "headline": "Título del banner",
+      "subheadline": "Texto del banner",
+      "announcement": "Barra de anuncio",
+      "announcementPlaceholder": "Envío gratis desde ₹999",
+      "social": {
+        "instagram": "Enlace de Instagram",
+        "facebook": "Enlace de Facebook",
+        "youtube": "Enlace de YouTube"
+      },
+      "orderingTitle": "Cómo piden los compradores",
+      "orderingHint": "Los compradores navegan libremente. Para pedir, confirman su número de WhatsApp con un código o te envían el carrito por WhatsApp. Ambos abren el pago habitual.",
+      "number": "Número de WhatsApp",
+      "noNumber": "Sin número (pedidos desactivados)",
+      "disconnected": "desconectado",
+      "whatsappPhone": "Número visible para compradores",
+      "whatsappPhoneHint": "Dígitos con código de país, para el botón de chat y Pedir por WhatsApp.",
+      "otpTemplate": "Plantilla del código",
+      "noOtp": "Sin código (desactivado)",
+      "otpHint": "Una plantilla de autenticación aprobada en este número envía el código.",
+      "otpNoneHint": "Crea una plantilla de autenticación en Plantillas y espera su aprobación para activar los códigos.",
+      "save": "Guardar",
+      "imageOnly": "Elige una imagen.",
+      "templates": {
+        "wellness": {
+          "name": "Bienestar y Ayurveda",
+          "description": "Verdes tranquilos y dorado, una serif clásica y mosaicos grandes de categorías.",
+          "headline": "Cuidado natural, hecho con cariño",
+          "subheadline": "Productos de hierbas, aceites y mezclas, a tu puerta."
+        },
+        "fashion": {
+          "name": "Moda",
+          "description": "Blanco y negro con un rojo intenso, fotos altas y un banner a todo lo ancho.",
+          "headline": "Nueva temporada, nuevo estilo",
+          "subheadline": "Novedades elegidas para ti. Pide en pocos toques."
+        },
+        "beauty": {
+          "name": "Belleza",
+          "description": "Tonos rosa suaves, una serif elegante y tarjetas redondeadas.",
+          "headline": "Brilla cada día",
+          "subheadline": "Cuidado de la piel y maquillaje que te encantarán, con pedidos fáciles por WhatsApp."
+        },
+        "food": {
+          "name": "Comida y panadería",
+          "description": "Naranjas cálidos, una fuente redondeada y fotos grandes de comida.",
+          "headline": "Recién horneado, cada día",
+          "subheadline": "Pasteles, snacks y dulces hechos al momento. Pide ahora."
+        },
+        "grocery": {
+          "name": "Supermercado",
+          "description": "Verde fresco y amarillo, una sans limpia y cuatro productos por fila.",
+          "headline": "Lo de cada día, a domicilio",
+          "subheadline": "Comestibles frescos y básicos a precios justos."
+        },
+        "electronics": {
+          "name": "Electrónica",
+          "description": "Azul y turquesa, una fuente técnica y tarjetas compactas.",
+          "headline": "Lo último en tecnología",
+          "subheadline": "Teléfonos, accesorios y más, con entrega rápida."
+        }
       }
     }
   },
@@ -16502,6 +16633,120 @@
       "es": "Español",
       "ko": "Coreano (한국어)",
       "pt": "Portugués (Português)"
+    }
+  },
+  "ShopPublic": {
+    "home": "Inicio",
+    "allProducts": "Todos los productos",
+    "cart": "Carrito",
+    "footerNote": "Pide en línea o escríbenos por WhatsApp.",
+    "chatOnWhatsApp": "Escribir por WhatsApp",
+    "shopNow": "Comprar ahora",
+    "categories": "Categorías",
+    "featured": "Productos destacados",
+    "viewAll": "Ver todo",
+    "noProducts": "Aún no hay productos. Vuelve pronto.",
+    "soldOut": "Agotado",
+    "from": "Desde",
+    "nextPage": "Página siguiente",
+    "prevPage": "Página anterior",
+    "pageOf": "Página {page} de {pages}",
+    "pagination": "Páginas",
+    "imageN": "Imagen {n}",
+    "pickOptions": "Elige las opciones de arriba.",
+    "inStock": "En stock",
+    "decrease": "Menos",
+    "increase": "Más",
+    "addToCart": "Añadir al carrito",
+    "added": "Añadido a tu carrito.",
+    "viewCart": "Ver carrito",
+    "breadcrumb": "Estás aquí",
+    "related": "También te puede gustar",
+    "up": "Volver",
+    "sortLabel": "Ordenar",
+    "sort": {
+      "featured": "Destacados",
+      "price_asc": "Precio: de menor a mayor",
+      "price_desc": "Precio: de mayor a menor",
+      "name": "Nombre"
+    },
+    "minPrice": "Precio mín.",
+    "maxPrice": "Precio máx.",
+    "optionLabel": "Opción",
+    "anyOption": "Cualquiera",
+    "apply": "Aplicar",
+    "resultCount": "{count, plural, one {# producto} other {# productos}}",
+    "noMatching": "Ningún producto coincide con estos filtros.",
+    "loading": "Cargando…",
+    "cartEmpty": "Tu carrito está vacío.",
+    "keepShopping": "Seguir comprando",
+    "removedLines": "Algunos artículos ya no están a la venta y se quitaron de tu carrito.",
+    "onlyLeft": "{count, plural, one {Solo queda #} other {Solo quedan #}}",
+    "remove": "Quitar",
+    "subtotal": "Subtotal",
+    "taxIncludedNote": "Los precios incluyen impuestos. El envío y los cupones se añaden al pagar.",
+    "taxExtraNote": "Los impuestos, el envío y los cupones se añaden al pagar.",
+    "orderingClosed": "Esta tienda no acepta pedidos en línea ahora. Escríbenos por WhatsApp.",
+    "otpHeading": "Pagar con un código de WhatsApp",
+    "phoneLabel": "Tu número de WhatsApp con código de país",
+    "sendCode": "Enviar código por WhatsApp",
+    "codeLabel": "Escribe el código de 6 dígitos que enviamos por WhatsApp",
+    "verifyAndCheckout": "Verificar y pagar",
+    "changeNumber": "Usar otro número",
+    "or": "o",
+    "orderOnWhatsApp": "Pedir por WhatsApp",
+    "checkoutNote": "Al pagar añades tu dirección, ves el envío y los impuestos, y pagas en línea o eliges contra reembolso si la tienda lo ofrece.",
+    "errors": {
+      "invalid": "Algo del formulario no es correcto. Revísalo.",
+      "invalid_cart": "No se pudo leer tu carrito. Añade los artículos de nuevo.",
+      "variant_unavailable": "Un artículo de tu carrito ya no está a la venta. Actualiza la página.",
+      "otp_unavailable": "Los pedidos con código de WhatsApp no están disponibles. Prueba Pedir por WhatsApp.",
+      "otp_invalid": "Ese código no es correcto. Revísalo e inténtalo de nuevo.",
+      "otp_expired": "Ese código ha caducado. Pide uno nuevo.",
+      "otp_locked": "Demasiados intentos fallidos. Pide un código nuevo.",
+      "too_many": "Demasiados intentos. Espera unos minutos.",
+      "send_failed": "WhatsApp no pudo entregar el código a este número. Revisa el número.",
+      "send_uncertain": "No pudimos confirmar el envío del código. Si no llega en un minuto, pídelo otra vez.",
+      "checkout_disabled": "Esta tienda no acepta pedidos en línea ahora.",
+      "store_not_configured": "Esta tienda no acepta pedidos en línea ahora.",
+      "contact_blocked": "Este número no puede pedir en esta tienda.",
+      "whatsapp_order_unavailable": "Los pedidos por WhatsApp no están disponibles.",
+      "not_found": "Esta tienda no está disponible.",
+      "invalid_phone": "Escribe tu número con + y el código de país, por ejemplo +34 612 345 678.",
+      "network": "Sin conexión. Inténtalo de nuevo.",
+      "generic": "Algo salió mal. Inténtalo de nuevo."
+    },
+    "whatsapp": {
+      "intro": "Hola {shop}, quiero pedir:",
+      "more": "y {count} artículos más",
+      "expired": "Este código de pedido ha caducado. Vuelve a hacer tu pedido en nuestra tienda:",
+      "checkout": "¡Gracias por tu pedido! Añade tu dirección y paga aquí:"
+    },
+    "templates": {
+      "wellness": {
+        "headline": "Cuidado natural, hecho con cariño",
+        "subheadline": "Productos de hierbas, aceites y mezclas, a tu puerta."
+      },
+      "fashion": {
+        "headline": "Nueva temporada, nuevo estilo",
+        "subheadline": "Novedades elegidas para ti. Pide en pocos toques."
+      },
+      "beauty": {
+        "headline": "Brilla cada día",
+        "subheadline": "Cuidado de la piel y maquillaje que te encantarán, con pedidos fáciles por WhatsApp."
+      },
+      "food": {
+        "headline": "Recién horneado, cada día",
+        "subheadline": "Pasteles, snacks y dulces hechos al momento. Pide ahora."
+      },
+      "grocery": {
+        "headline": "Lo de cada día, a domicilio",
+        "subheadline": "Comestibles frescos y básicos a precios justos."
+      },
+      "electronics": {
+        "headline": "Lo último en tecnología",
+        "subheadline": "Teléfonos, accesorios y más, con entrega rápida."
+      }
     }
   }
 }

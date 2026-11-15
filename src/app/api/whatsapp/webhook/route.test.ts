@@ -308,7 +308,9 @@ vi.mock('@/lib/whatsapp/encryption', () => ({
   encrypt: (v: string) => v,
   isLegacyFormat: () => false,
 }));
-vi.mock('@/lib/whatsapp/meta-api', () => ({
+vi.mock('@/lib/whatsapp/meta-api', async (original) => ({
+  // The real constants (catalog batch size and so on) reach this test through the public shop's "ORDER <CODE>" hook.
+  ...(await original<typeof import('@/lib/whatsapp/meta-api')>()),
   META_API_VERSION: 'v21.0',
   getMediaUrl: vi.fn(),
   downloadMedia: vi.fn(),
