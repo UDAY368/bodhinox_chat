@@ -50,12 +50,18 @@ export const ORDER_FOLLOWUP_KINDS = ['dispatched', 'delivered', 'feedback', 'pro
 export type OrderFollowupKind = (typeof ORDER_FOLLOWUP_KINDS)[number];
 
 /** Kinds with a workspace template setting (order_notice_templates.kind). */
-export const NOTICE_TEMPLATE_KINDS = ['dispatched', 'delivered', 'feedback', 'repeat_purchase'] as const;
+export const NOTICE_TEMPLATE_KINDS = ['dispatched', 'delivered', 'feedback', 'repeat_purchase', 'abandoned_cart', 'cod_confirm', 'back_in_stock', 'review_request'] as const;
 export type NoticeTemplateKind = (typeof NOTICE_TEMPLATE_KINDS)[number];
 
 /** The template category each notice kind needs (D13: the reorder reminder is marketing). */
 export const NOTICE_TEMPLATE_CATEGORY: Record<NoticeTemplateKind, 'UTILITY' | 'MARKETING'> = {
   dispatched: 'UTILITY', delivered: 'UTILITY', feedback: 'UTILITY', repeat_purchase: 'MARKETING',
+  // Store plan Phase 3: the abandoned-cart reminder is marketing; the COD confirmation asks about an order already placed.
+  abandoned_cart: 'MARKETING', cod_confirm: 'UTILITY',
+  // Store plan Phase 3: the back-in-stock message is marketing (sent only to buyers who asked for it on WhatsApp).
+  back_in_stock: 'MARKETING',
+  // Store plan Phase 3: the review request is marketing (it asks for a rating; the template only asks for a reply of 1 to 5).
+  review_request: 'MARKETING',
 };
 
 /** The tracking page for an AWB; defined once in fulfilment/types. */
@@ -100,14 +106,14 @@ export function consentRefusal(contact: { blocked_at: Date | null; opted_out_at:
  * the chat (conversations.bot_paused) holds it back: blocked/bot_paused. The
  * order notices are service messages and still go.
  */
-export function agentHoldRefusal(kind: OrderFollowupKind, botPaused: boolean): string | null {
-  return kind === 'repeat_purchase' && botPaused ? 'bot_paused' : null;
+export function agentHoldRefusal(kind: OrderFollowupKind | 'review_request', botPaused: boolean): string | null {
+  return (kind === 'repeat_purchase' || kind === 'review_request') && botPaused ? 'bot_paused' : null;
 }
 
 type CheckedTemplate = Pick<MessageTemplate,
   'category' | 'body_text' | 'header_type' | 'header_content' | 'header_media_url' | 'buttons' | 'template_kind' | 'cards' | 'lto'>;
 
-interface TemplateRow extends CheckedTemplate {
+export interface TemplateRow extends CheckedTemplate {
   name: string;
   language: string | null;
   status: string | null;
@@ -178,12 +184,12 @@ async function settleTx(tx: TenantTransaction, accountId: string, orderId: strin
     WHERE order_messages.resolved_at IS NULL`;
 }
 
-const worker = <T,>(accountId: string, fn: (tx: TenantTransaction) => Promise<T>) =>
+export const worker = <T,>(accountId: string, fn: (tx: TenantTransaction) => Promise<T>) =>
   withTenant({ accountId, role: 'owner' }, fn, getWorkerPrisma());
 
 export const intentKey = (orderId: string, kind: OrderFollowupKind) => `order:${orderId}:${kind}`;
 
-async function loadTemplate(tx: TenantTransaction, accountId: string, name: string, language: string | null): Promise<TemplateRow | null> {
+export async function loadTemplate(tx: TenantTransaction, accountId: string, name: string, language: string | null): Promise<TemplateRow | null> {
   const rows = await tx.$queryRaw<TemplateRow[]>`
     SELECT name, language, status, category, body_text, header_type, header_content, header_media_url, buttons,
       template_kind, cards, lto, waba_id
@@ -194,7 +200,7 @@ async function loadTemplate(tx: TenantTransaction, accountId: string, name: stri
 }
 
 /** The workspace's template for a notice kind, or null when none is set. */
-async function noticeTemplate(tx: TenantTransaction, accountId: string, kind: NoticeTemplateKind): Promise<{ name: string; language: string } | null> {
+export async function noticeTemplate(tx: TenantTransaction, accountId: string, kind: NoticeTemplateKind): Promise<{ name: string; language: string } | null> {
   const [row] = await tx.$queryRaw<{ name: string; language: string }[]>`
     SELECT template_name AS name, language FROM order_notice_templates WHERE account_id=${accountId}::uuid AND kind=${kind}`;
   return row ?? null;

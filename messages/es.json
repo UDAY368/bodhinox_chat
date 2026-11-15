@@ -119,7 +119,8 @@
     "analyticsConversations": "Conversaciones",
     "analyticsTeam": "Equipo",
     "analyticsCampaigns": "Campañas",
-    "onlineStore": "Tienda en línea"
+    "onlineStore": "Tienda en línea",
+    "reviews": "Reseñas"
   },
   "Header": {
     "notificationsUnread": "{count, plural, =1 {Notificaciones, 1 sin leer} other {Notificaciones, # sin leer}}",
@@ -9744,7 +9745,8 @@
         "courierTracked": "El seguimiento de Shiprocket actualiza este pedido automáticamente. También puedes registrarlo tú.",
         "shipmentLive": "Cancela el envío con el transportista antes de cancelar este pedido, o usa Devoluciones si ya se recogió.",
         "codFee": "Cargo por pago contra entrega",
-        "refundedInFull": "Este pedido se reembolsó por completo, así que no se puede enviar. Usa Cancelar y reembolsar para cerrarlo."
+        "refundedInFull": "Este pedido se reembolsó por completo, así que no se puede enviar. Usa Cancelar y reembolsar para cerrarlo.",
+        "freeShipping": "{name} (envío gratis)"
       },
       "timeline": {
         "title": "Historial",
@@ -9774,7 +9776,9 @@
           "payment_link_failed": "No se pudo crear el enlace de pago",
           "shipment_pickup_requested": "Recogida del mensajero solicitada de nuevo",
           "return_refunded_outside": "Devolución reembolsada fuera de Bodhinox",
-          "manual_created": "Creado por un miembro del equipo"
+          "manual_created": "Creado por un miembro del equipo",
+          "cod_customer_confirmed": "El cliente confirmó el pedido contra reembolso",
+          "cod_customer_declined": "El cliente rechazó el pedido contra reembolso (no se canceló)"
         },
         "documents": "Documentos",
         "documentKinds": {
@@ -9790,7 +9794,9 @@
           "delivered": "Aviso de entrega",
           "feedback": "Solicitud de valoración",
           "product_follow_up": "Seguimiento del producto",
-          "repeat_purchase": "Recordatorio de nueva compra"
+          "repeat_purchase": "Recordatorio de nueva compra",
+          "cod_confirm": "Confirmación contra reembolso",
+          "review_request": "Solicitud de reseña"
         },
         "messageStatuses": {
           "sent": "Enviado",
@@ -9804,8 +9810,15 @@
         "badge": "Contra entrega",
         "collect": "Pago contra entrega: cobra {amount} al entregar el pedido.",
         "recordCash": "Registrar efectivo recibido",
-        "recordPayment": "Registrar pago"
-      }
+        "recordPayment": "Registrar pago",
+        "confirmation": {
+          "pending": "Contra reembolso: en espera",
+          "confirmed": "Contra reembolso: confirmado",
+          "declined": "Contra reembolso: rechazado"
+        }
+      },
+      "filterCodConfirmation": "Filtrar por confirmación contra reembolso",
+      "allCodConfirmations": "Todas las confirmaciones"
     },
     "attention": {
       "title": "{count, plural, one {# mensaje de la tienda requiere atención} other {# mensajes de la tienda requieren atención}}",
@@ -9981,7 +9994,34 @@
         "codAvailable": "Pago contra entrega disponible",
         "codAvailableHint": "Si está desactivado, un carrito con este producto solo se puede pagar en línea (el pago contra entrega también debe estar activo en la configuración de la tienda).",
         "uploadImage": "Subir o elegir de la biblioteca",
-        "imageOnly": "Elige un archivo de imagen."
+        "imageOnly": "Elige un archivo de imagen.",
+        "waiting": "{count, plural, one {# persona está esperando esto} other {# personas están esperando esto}}"
+      },
+      "newArrivals": {
+        "action": "Enviar como novedades",
+        "selected": "{count} seleccionados",
+        "clear": "Quitar",
+        "select": "Seleccionar {name}",
+        "selectColumn": "Seleccionar",
+        "title": "Enviar novedades",
+        "description": "Rellena una plantilla de carrusel con los {count} productos seleccionados y envíala como campaña. Las tarjetas siguen el orden de selección.",
+        "loading": "Cargando",
+        "template": "Plantilla de carrusel",
+        "choose": "Elegir…",
+        "noTemplates": "Ninguna plantilla de carrusel aprobada tiene exactamente {count} tarjetas. Crea una en Plantillas o cambia cuántos productos seleccionaste.",
+        "messageValue": "Valor del mensaje {n}",
+        "audience": "Audiencia",
+        "audAll": "Todos los contactos",
+        "audSegment": "Un segmento",
+        "audList": "Una lista",
+        "consentNote": "Los contactos que se dieron de baja o están bloqueados nunca lo reciben. Se aplican los límites del plan, como en el asistente de campañas.",
+        "campaignName": "Nombre de la campaña",
+        "defaultName": "Novedades",
+        "orderNote": "Cada tarjeta muestra la imagen, el nombre y el precio del producto, y su botón abre la página del producto. Tu tienda debe estar publicada.",
+        "cancel": "Cancelar",
+        "send": "Enviar campaña",
+        "started": "Campaña iniciada",
+        "failed": "No se pudo iniciar la campaña"
       }
     },
     "inventory": {
@@ -10104,7 +10144,9 @@
         "otp_locked": "Demasiados intentos fallidos. Pide un código nuevo.",
         "whatsapp_order_unavailable": "Los pedidos por WhatsApp no están configurados en esta tienda.",
         "shop_not_set_up": "Primero guarda la dirección de la tienda en Tienda en línea.",
-        "no_draft": "No hay cambios para publicar."
+        "no_draft": "No hay cambios para publicar.",
+        "auto_discount_limit": "Puedes tener como máximo 20 descuentos automáticos.",
+        "in_stock": "Este artículo ya está en stock, así que no hay nada que esperar."
       },
       "title": "Ajustes de la tienda",
       "subtitle": "Moneda, impuestos, pago, datos del vendedor, envío y cupones de tu tienda en línea.",
@@ -10175,7 +10217,41 @@
         "enabled": "Ofrecer pago contra entrega",
         "help": "Los clientes pueden pagar en efectivo cuando reciben el pedido. Solo se ofrece si todos los productos del carrito lo permiten. Registras el efectivo en el pedido con Registrar pago.",
         "fee": "Cargo por pago contra entrega ({currency})",
-        "feeHelp": "Se suma al total del pedido cuando el cliente elige pago contra entrega y lleva la tasa de impuesto predeterminada. Déjalo vacío para no cobrar cargo."
+        "feeHelp": "Se suma al total del pedido cuando el cliente elige pago contra entrega y lleva la tasa de impuesto predeterminada. Déjalo vacío para no cobrar cargo.",
+        "confirmEnabled": "Pedir a los clientes que confirmen los pedidos contra reembolso por WhatsApp",
+        "confirmHelp": "Tras hacer un pedido contra reembolso, el cliente recibe un mensaje con los botones Sí y Cancelar. Responder Cancelar no cancela el pedido: lo ves en el pedido y decides tú."
+      },
+      "autoTitle": "Descuentos automáticos",
+      "autoHelp": "Se aplican al pagar sin código. Solo se aplica el mayor descuento del pedido. El descuento por pago en línea y el envío gratis se suman. El cupón se aplica después.",
+      "noAuto": "Aún no hay descuentos automáticos.",
+      "addAuto": "Añadir descuento automático",
+      "autoName": "Nombre que ve el cliente",
+      "autoKind": "Tipo",
+      "autoAmount": "Importe de descuento ({currency})",
+      "autoPercent": "Porcentaje de descuento",
+      "autoPrepaidHelp": "Indica un importe o un porcentaje, no ambos.",
+      "buyQty": "Cantidad a comprar",
+      "getQty": "Cantidad gratis",
+      "autoProducts": "Productos que cuentan (ninguno marcado = todos los productos)",
+      "autoOver": "desde {amount}",
+      "autoKinds": {
+        "amount_off_over": "Importe de descuento desde un mínimo",
+        "percent_off_over": "Porcentaje de descuento desde un mínimo",
+        "free_shipping_over": "Envío gratis desde un mínimo",
+        "buy_x_get_y": "Compra X y llévate Y gratis",
+        "prepaid": "Descuento por pagar en línea"
+      },
+      "abandoned": {
+        "title": "Recordatorio de carrito abandonado",
+        "enabled": "Recordar a quienes dejan productos en el carrito",
+        "help": "Un mensaje de WhatsApp con su enlace de pago, enviado una sola vez si no han comprado. Solo se envía a quienes no se han dado de baja. Fuera de la ventana de 24 horas necesita una plantilla de marketing aprobada (más abajo).",
+        "delay": "Enviar después de (minutos)",
+        "delayHelp": "Entre 30 y 2880 minutos desde que el carrito tiene productos por primera vez."
+      },
+      "reviewRequests": {
+        "title": "Reseñas de productos",
+        "enabled": "Pedir una reseña tras la entrega",
+        "help": "Tres días después de entregar un pedido, el cliente recibe un mensaje de WhatsApp para valorar el producto principal. Dentro de la ventana de 24 horas elige las estrellas en una lista; fuera de ella necesitas una plantilla de marketing aprobada (abajo). Las valoraciones esperan tu aprobación en Comercio, Reseñas. Nunca se pregunta a quien canceló su suscripción."
       }
     },
     "storefrontLink": {
@@ -10389,7 +10465,11 @@
         "dispatched": "Aviso de envío",
         "delivered": "Aviso de entrega",
         "feedback": "Solicitud de opinión",
-        "repeat_purchase": "Recordatorio de recompra"
+        "repeat_purchase": "Recordatorio de recompra",
+        "abandoned_cart": "Recordatorio de carrito abandonado",
+        "cod_confirm": "Confirmación de pago contra reembolso",
+        "back_in_stock": "Mensaje de regreso en stock",
+        "review_request": "Solicitud de reseña"
       },
       "utilityHelp": "Una plantilla de utilidad aprobada. Variables: '{{'1'}}' nombre del cliente, '{{'2'}}' producto, '{{'3'}}' número de pedido, '{{'4'}}' enlace de seguimiento (solo envío).",
       "marketingHelp": "Una plantilla de marketing aprobada, que se usa siempre para este mensaje. Solo se envía a clientes que marcaron la casilla de recompra al pagar y nunca se dieron de baja. Variables: '{{'1'}}' nombre del cliente, '{{'2'}}' producto, '{{'3'}}' número de pedido.",
@@ -10397,7 +10477,11 @@
       "errors": {
         "invalid": "Elige una plantilla y su idioma.",
         "template_not_found": "No se encontró esa plantilla. Sincroniza tus plantillas e inténtalo de nuevo."
-      }
+      },
+      "abandonedCartHelp": "Una plantilla de marketing aprobada, que se usa cuando la ventana de 24 horas del cliente se ha cerrado. Variables: '{{'1'}}' nombre del cliente, '{{'2'}}' enlace de pago. Sin plantilla, el recordatorio no se envía fuera de la ventana.",
+      "codConfirmHelp": "Una plantilla de utilidad aprobada que pide al cliente confirmar un pedido contra reembolso. Variables: '{{'1'}}' nombre del cliente, '{{'2'}}' número de pedido. Una plantilla no puede llevar los botones Sí y Cancelar, así que el pedido queda en espera y tu equipo hace el seguimiento.",
+      "backInStockHelp": "Una plantilla de marketing aprobada, que se usa cuando la ventana de 24 horas del cliente ya se cerró. Solo se envía a quienes pidieron el aviso por WhatsApp. Variables: '{{'1'}}' nombre del cliente, '{{'2'}}' producto, '{{'3'}}' enlace del producto. Sin plantilla, el mensaje no se envía fuera de la ventana y espera a la siguiente reposición.",
+      "reviewRequestHelp": "Una plantilla de marketing aprobada, que se usa cuando la ventana de 24 horas del cliente ya se cerró. Solo puede pedir al cliente que responda con un número del 1 al 5, que se acepta durante 7 días. Variables: '{{'1'}}' nombre del cliente, '{{'2'}}' producto, '{{'3'}}' número de pedido. Sin plantilla, la solicitud no se envía fuera de la ventana."
     },
     "checkoutLinkFailed": {
       "title": "Falló el enlace de pago del checkout",
@@ -10670,6 +10754,34 @@
         "testimonials": "Opinión {n}",
         "faq": "Pregunta {n}"
       }
+    },
+    "reviews": {
+      "title": "Reseñas",
+      "subtitle": "Las valoraciones que tus clientes dieron por WhatsApp tras la entrega. Publica las que quieras en la página del producto.",
+      "filter": "Filtrar por estado",
+      "filters": {
+        "all": "Todas",
+        "pending": "Pendientes",
+        "published": "Publicadas",
+        "hidden": "Ocultas"
+      },
+      "status": {
+        "pending": "Pendiente",
+        "published": "Publicada",
+        "hidden": "Oculta"
+      },
+      "loadError": "No se pudieron cargar las reseñas.",
+      "loading": "Cargando reseñas",
+      "empty": "Aún no hay reseñas aquí.",
+      "noText": "Sin texto, solo una valoración.",
+      "customer": "Cliente",
+      "stars": "{rating} de 5 estrellas",
+      "publish": "Publicar",
+      "hide": "Ocultar",
+      "published": "Reseña publicada.",
+      "hidden": "Reseña oculta.",
+      "saveError": "No se pudo cambiar la reseña.",
+      "loadMore": "Cargar más"
     }
   },
   "Payments": {
@@ -14055,14 +14167,30 @@
     "categories": "Categorías",
     "allCategories": "Todas",
     "noMatchingProducts": "Ningún producto coincide con tu búsqueda.",
-    "showMore": "Ver más productos"
+    "showMore": "Ver más productos",
+    "freeShipping": "Gratis",
+    "payOnlineSave": "Paga en línea y ahorra {amount}"
   },
   "OrderNotices": {
     "dispatched": "Tu pedido {ref} ya va en camino.",
     "dispatchedWithTracking": "Tu pedido {ref} ya va en camino. Seguimiento: {tracking}",
     "delivered": "Tu pedido {ref} ha sido entregado. ¡Gracias!",
     "feedback": "¿Qué tal tu pedido {ref}? Responde con una puntuación del 1 al 5.",
-    "dispatchedWithLink": "Tu pedido {ref} ya va en camino. Síguelo aquí: {url}"
+    "dispatchedWithLink": "Tu pedido {ref} ya va en camino. Síguelo aquí: {url}",
+    "abandonedCart": "Dejaste productos en tu carrito. Retoma tu compra aquí:",
+    "codConfirmBody": "Confirma tu pedido contra reembolso {ref}. Pulsa Sí para confirmarlo o Cancelar si no lo quieres.",
+    "codConfirmYes": "Sí, confirmar",
+    "codConfirmNo": "Cancelar",
+    "codConfirmThanksYes": "Gracias, tu pedido {ref} está confirmado.",
+    "codConfirmThanksNo": "Entendido. Nuestro equipo te contactará sobre el pedido {ref}.",
+    "reviewRequestBody": "¿Qué tal {product}?",
+    "reviewRate": "Valorar",
+    "reviewLabel5": "Excelente",
+    "reviewLabel4": "Bueno",
+    "reviewLabel3": "Regular",
+    "reviewLabel2": "Malo",
+    "reviewLabel1": "Muy malo",
+    "reviewThanks": "¡Gracias! Añade unas palabras al respecto, o simplemente omite este paso."
   },
   "AiSettings": {
     "features": {
@@ -16856,7 +16984,8 @@
       "not_found": "Esta tienda no está disponible.",
       "invalid_phone": "Escribe tu número con + y el código de país, por ejemplo +34 612 345 678.",
       "network": "Sin conexión. Inténtalo de nuevo.",
-      "generic": "Algo salió mal. Inténtalo de nuevo."
+      "generic": "Algo salió mal. Inténtalo de nuevo.",
+      "in_stock": "Este artículo ya está disponible. Actualiza la página."
     },
     "whatsapp": {
       "intro": "Hola {shop}, quiero pedir:",
@@ -16929,6 +17058,23 @@
       "termsCancel": "Si no podemos cumplir un pedido, lo cancelamos y te devolvemos todo el dinero.",
       "seller": "Vendedor: {name}",
       "address": "Dirección: {address}"
-    }
+    },
+    "stockAlert": {
+      "button": "Avísame por WhatsApp",
+      "sending": "Abriendo WhatsApp…",
+      "hint": "Te escribiremos una sola vez, cuando vuelva a haber stock.",
+      "intro": "Avísame cuando {product} vuelva a estar disponible.",
+      "ack": "Te escribiremos cuando vuelva a estar disponible.",
+      "back": "{product} ya está disponible de nuevo. Pídelo aquí:"
+    },
+    "reviews": {
+      "title": "Reseñas",
+      "average": "{average} de 5",
+      "count": "{count, plural, one {# reseña} other {# reseñas}}",
+      "customer": "Cliente",
+      "stars": "{rating} de 5 estrellas"
+    },
+    "boughtTogether": "Se compran juntos con frecuencia",
+    "addOne": "Añadir"
   }
 }

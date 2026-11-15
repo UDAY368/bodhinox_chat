@@ -30,7 +30,11 @@ export type StoreErrorCode =
   | 'too_many_open_orders' | 'cod_unavailable' | 'online_unavailable'
   // Public shop (store plan Phase 1)
   | 'handle_taken' | 'invalid_handle' | 'otp_unavailable' | 'otp_invalid' | 'otp_expired' | 'otp_locked' | 'whatsapp_order_unavailable'
-  | 'shop_not_set_up' | 'no_draft';
+  | 'shop_not_set_up' | 'no_draft'
+  // Automatic discounts (store plan Phase 3)
+  | 'auto_discount_limit'
+  // Back-in-stock alerts (store plan Phase 3)
+  | 'in_stock';
 
 const STATUS: Partial<Record<StoreErrorCode, number>> = {
   not_found: 404, no_order: 404, contact_not_found: 404, conflict: 409, currency_locked: 409, coupon_code_taken: 409,
@@ -38,7 +42,7 @@ const STATUS: Partial<Record<StoreErrorCode, number>> = {
   checkout_disabled: 409, store_not_configured: 409, feature_unavailable: 403, contact_blocked: 409, outside_window: 409,
   number_unavailable: 409, too_many_open_orders: 409, cod_unavailable: 409, online_unavailable: 409, send_failed: 502, send_uncertain: 502, session_expired: 410,
   handle_taken: 409, otp_unavailable: 409, otp_expired: 410, otp_locked: 429, whatsapp_order_unavailable: 409,
-  shop_not_set_up: 409, no_draft: 409,
+  shop_not_set_up: 409, no_draft: 409, auto_discount_limit: 409, in_stock: 409,
 };
 
 export class StoreError extends Error {
@@ -80,6 +84,12 @@ export interface StoreSettings {
   cod_enabled: boolean;
   /** Fixed fee added to a COD order, in the store currency's minor units (0 = none). */
   cod_fee_minor: number;
+  /** Minutes after a shop cart first gets items before the one reminder is sent (30..2880); null = off. */
+  abandoned_cart_delay_minutes: number | null;
+  /** Ask a COD customer on WhatsApp to confirm the order (buttons Yes / Cancel). */
+  cod_confirm_enabled: boolean;
+  /** Ask the buyer for a product review on WhatsApp three days after delivery. */
+  review_requests_enabled: boolean;
   /** True once any variant is priced: the currency can no longer change. */
   currency_locked: boolean;
   /** Razorpay is connected, so the storefront can offer online payment (read-only here). */
@@ -90,7 +100,8 @@ const DEFAULTS: Omit<StoreSettings, 'configured' | 'currency_locked' | 'online_p
   currency: null, prices_include_tax: true, default_tax_rate_bps: null, reservation_minutes: 15, checkout_enabled: false,
   low_stock_default: 5, legal_name: null, gstin: null, address: null, state_code: null, document_prefix: 'RCPT',
   storefront_title: null, return_window_days: 7, checkout_template_name: null, checkout_template_language: null,
-  cod_enabled: false, cod_fee_minor: 0,
+  cod_enabled: false, cod_fee_minor: 0, abandoned_cart_delay_minutes: null, cod_confirm_enabled: false,
+  review_requests_enabled: false,
 };
 
 type SettingsRow = Omit<StoreSettings, 'configured' | 'currency_locked' | 'online_payment_ready'>;
@@ -100,11 +111,13 @@ export async function loadSettingsRow(tx: TenantTransaction, accountId: string, 
   const rows = lock
     ? await tx.$queryRaw<RawSettingsRow[]>`SELECT currency, prices_include_tax, default_tax_rate_bps, reservation_minutes, checkout_enabled,
         low_stock_default, legal_name, gstin, address, state_code, document_prefix, storefront_title, return_window_days,
-        checkout_template_name, checkout_template_language, cod_enabled, cod_fee_minor
+        checkout_template_name, checkout_template_language, cod_enabled, cod_fee_minor, abandoned_cart_delay_minutes, cod_confirm_enabled,
+        review_requests_enabled
       FROM commerce_settings WHERE account_id=${accountId}::uuid FOR UPDATE`
     : await tx.$queryRaw<RawSettingsRow[]>`SELECT currency, prices_include_tax, default_tax_rate_bps, reservation_minutes, checkout_enabled,
         low_stock_default, legal_name, gstin, address, state_code, document_prefix, storefront_title, return_window_days,
-        checkout_template_name, checkout_template_language, cod_enabled, cod_fee_minor
+        checkout_template_name, checkout_template_language, cod_enabled, cod_fee_minor, abandoned_cart_delay_minutes, cod_confirm_enabled,
+        review_requests_enabled
       FROM commerce_settings WHERE account_id=${accountId}::uuid`;
   const row = rows[0];
   return row ? { ...row, cod_fee_minor: minorFromDb(row.cod_fee_minor) ?? 0 } : null;
@@ -159,9 +172,11 @@ export async function getStoreSettings(ctx: TenantContext): Promise<StoreSetting
   });
 }
 
-/** cod_enabled and cod_fee_minor are optional: a client that does not send them keeps the stored values. */
-export type StoreSettingsInput = Omit<StoreSettings, 'configured' | 'currency_locked' | 'online_payment_ready' | 'currency' | 'cod_enabled' | 'cod_fee_minor'>
-  & { currency: string; cod_enabled?: boolean; cod_fee_minor?: number };
+/** The COD, reminder and confirmation fields are optional: a client that does not send them keeps the stored values. */
+export type StoreSettingsInput = Omit<StoreSettings, 'configured' | 'currency_locked' | 'online_payment_ready' | 'currency' | 'cod_enabled' | 'cod_fee_minor'
+    | 'abandoned_cart_delay_minutes' | 'cod_confirm_enabled' | 'review_requests_enabled'>
+  & { currency: string; cod_enabled?: boolean; cod_fee_minor?: number; abandoned_cart_delay_minutes?: number | null; cod_confirm_enabled?: boolean;
+    review_requests_enabled?: boolean };
 
 const optText = (value: unknown, max: number): string | null => {
   if (value === null || value === undefined) return null;
@@ -192,6 +207,10 @@ export function parseStoreSettings(body: unknown): StoreSettingsInput {
   const templateLanguage = templateName ? optText(b.checkout_template_language, 15) : null;
   if (b.cod_enabled !== undefined && typeof b.cod_enabled !== 'boolean') throw new StoreError('invalid', { field: 'cod_enabled' });
   const codFee = b.cod_fee_minor === undefined ? undefined : int(b.cod_fee_minor, 0, MAX_MINOR, 'cod_fee_minor');
+  if (b.cod_confirm_enabled !== undefined && typeof b.cod_confirm_enabled !== 'boolean') throw new StoreError('invalid', { field: 'cod_confirm_enabled' });
+  if (b.review_requests_enabled !== undefined && typeof b.review_requests_enabled !== 'boolean') throw new StoreError('invalid', { field: 'review_requests_enabled' });
+  const abandonedDelay = b.abandoned_cart_delay_minutes === undefined || b.abandoned_cart_delay_minutes === null
+    ? b.abandoned_cart_delay_minutes : int(b.abandoned_cart_delay_minutes, 30, 2880, 'abandoned_cart_delay_minutes');
   return {
     currency: b.currency,
     prices_include_tax: b.prices_include_tax,
@@ -210,6 +229,9 @@ export function parseStoreSettings(body: unknown): StoreSettingsInput {
     checkout_template_language: templateLanguage,
     ...(b.cod_enabled === undefined ? {} : { cod_enabled: b.cod_enabled }),
     ...(codFee === undefined ? {} : { cod_fee_minor: codFee }),
+    ...(abandonedDelay === undefined ? {} : { abandoned_cart_delay_minutes: abandonedDelay }),
+    ...(b.cod_confirm_enabled === undefined ? {} : { cod_confirm_enabled: b.cod_confirm_enabled }),
+    ...(b.review_requests_enabled === undefined ? {} : { review_requests_enabled: b.review_requests_enabled }),
   };
 }
 
@@ -220,23 +242,28 @@ export async function saveStoreSettings(ctx: TenantContext & { userId: string },
     if (locked && current?.currency && current.currency !== input.currency) throw new StoreError('currency_locked');
     const codEnabled = input.cod_enabled ?? current?.cod_enabled ?? false;
     const codFeeMinor = input.cod_fee_minor ?? current?.cod_fee_minor ?? 0;
+    const abandonedDelay = input.abandoned_cart_delay_minutes === undefined ? current?.abandoned_cart_delay_minutes ?? null : input.abandoned_cart_delay_minutes;
+    const codConfirm = input.cod_confirm_enabled ?? current?.cod_confirm_enabled ?? false;
+    const reviewRequests = input.review_requests_enabled ?? current?.review_requests_enabled ?? false;
     // The fee is taxed at the store default rate: without one every COD quote would be refused.
     if (codEnabled && codFeeMinor > 0 && input.default_tax_rate_bps === null)
       throw new StoreError('tax_not_configured', { field: 'default_tax_rate_bps' });
     await tx.$executeRaw`INSERT INTO commerce_settings(account_id,currency,prices_include_tax,default_tax_rate_bps,reservation_minutes,
         checkout_enabled,low_stock_default,legal_name,gstin,address,state_code,document_prefix,storefront_title,return_window_days,
-        checkout_template_name,checkout_template_language,cod_enabled,cod_fee_minor)
+        checkout_template_name,checkout_template_language,cod_enabled,cod_fee_minor,abandoned_cart_delay_minutes,cod_confirm_enabled,review_requests_enabled)
       VALUES(${ctx.accountId}::uuid,${input.currency},${input.prices_include_tax},${input.default_tax_rate_bps},${input.reservation_minutes},
         ${input.checkout_enabled},${input.low_stock_default},${input.legal_name},${input.gstin},${input.address},${input.state_code},
         ${input.document_prefix},${input.storefront_title},${input.return_window_days},${input.checkout_template_name},
-        ${input.checkout_template_language},${codEnabled},${codFeeMinor})
+        ${input.checkout_template_language},${codEnabled},${codFeeMinor},${abandonedDelay},${codConfirm},${reviewRequests})
       ON CONFLICT (account_id) DO UPDATE SET currency=EXCLUDED.currency,prices_include_tax=EXCLUDED.prices_include_tax,
         default_tax_rate_bps=EXCLUDED.default_tax_rate_bps,reservation_minutes=EXCLUDED.reservation_minutes,
         checkout_enabled=EXCLUDED.checkout_enabled,low_stock_default=EXCLUDED.low_stock_default,legal_name=EXCLUDED.legal_name,
         gstin=EXCLUDED.gstin,address=EXCLUDED.address,state_code=EXCLUDED.state_code,document_prefix=EXCLUDED.document_prefix,
         storefront_title=EXCLUDED.storefront_title,return_window_days=EXCLUDED.return_window_days,
         checkout_template_name=EXCLUDED.checkout_template_name,checkout_template_language=EXCLUDED.checkout_template_language,
-        cod_enabled=EXCLUDED.cod_enabled,cod_fee_minor=EXCLUDED.cod_fee_minor`;
+        cod_enabled=EXCLUDED.cod_enabled,cod_fee_minor=EXCLUDED.cod_fee_minor,
+        abandoned_cart_delay_minutes=EXCLUDED.abandoned_cart_delay_minutes,cod_confirm_enabled=EXCLUDED.cod_confirm_enabled,
+        review_requests_enabled=EXCLUDED.review_requests_enabled`;
     const changed = Object.keys(input).filter((k) => !current || current[k as keyof SettingsRow] !== input[k as keyof StoreSettingsInput]);
     // Checkout turned on (Bodhinox becomes the seller of record) or the store currency changed: push linked
     // variants' price and availability to the Meta catalogue (audit finding 20). Same transaction, ids only.

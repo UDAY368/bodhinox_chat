@@ -20,7 +20,7 @@ const routeModules = import.meta.glob('/src/app/api/**/route.ts');
 const databases = fixtureDatabaseUrls();
 
 type Extra = Record<'list' | 'segment' | 'team' | 'paymentLink' | 'media' | 'note' | 'attribute' | 'schedule'
-  | 'savedFilter' | 'form' | 'mediaKey' | 'igTemplate' | 'customField' | 'dealNote' | 'shopProduct' | 'aiAgent' | 'aiSource' | 'savedReport', string>;
+  | 'savedFilter' | 'form' | 'mediaKey' | 'igTemplate' | 'customField' | 'dealNote' | 'shopProduct' | 'aiAgent' | 'aiSource' | 'savedReport' | 'autoDiscount' | 'review', string>;
 type Ids = TenantFixture & { extra: Extra };
 
 type Case = {
@@ -100,6 +100,12 @@ export const CASES: Case[] = [
   { route: 'payments/links/[id]', method: 'POST', params: extra('paymentLink'), body: () => ({ action: 'cancel' }) },
   // Catalogue: another workspace's product cannot be duplicated.
   { route: 'commerce/shop/products/[id]/duplicate', method: 'POST', params: extra('shopProduct'), body: () => ({}) },
+  // Automatic discounts: another workspace's rule cannot be changed or removed.
+  { route: 'commerce/auto-discounts/[id]', method: 'PATCH', params: extra('autoDiscount'),
+    body: () => ({ expected_version: 1, name: 'p15 changed', kind: 'percent_off_over', percent_bps: 5000, min_subtotal_minor: 0, active: true }) },
+  { route: 'commerce/auto-discounts/[id]', method: 'DELETE', params: extra('autoDiscount') },
+  // Product reviews: another workspace's review cannot be published or hidden.
+  { route: 'commerce/reviews/[id]', method: 'PATCH', params: extra('review'), body: () => ({ status: 'hidden' }) },
   // Appointments
   { route: 'appointments/[id]', method: 'GET', params: id('appointmentId') },
   { route: 'appointments/[id]', method: 'PATCH', params: id('appointmentId'), body: () => ({ action: 'cancel', reason: 'staff', expected_version: 1 }) },
@@ -348,8 +354,8 @@ const TABLES = ['contacts', 'conversations', 'messages', 'tags', 'contact_tags',
   'workspace_attributes', 'report_schedules', 'analytics_saved_reports', 'saved_filters', 'whatsapp_forms', 'webhook_endpoints', 'api_keys',
   'account_memberships', 'quick_replies', 'message_templates', 'ai_knowledge_documents', 'whatsapp_config', 'accounts',
   'instagram_message_templates', 'custom_fields', 'contact_custom_values', 'contact_activity',
-  'deal_notes', 'shop_products', 'shop_variants', 'ai_agents',
-  'ai_knowledge_sources'];
+  'deal_notes', 'shop_reviews', 'shop_products', 'shop_variants', 'ai_agents',
+  'ai_knowledge_sources', 'shop_auto_discounts'];
 
 async function existingTables(): Promise<string[]> {
   const rows = await fixtureOwnerPool().query<{ t: string }>(
@@ -402,6 +408,11 @@ async function addExtras(t: TenantFixture, tag: string): Promise<Extra> {
     // A ready text source (a queued one would make the re-index case a 409 busy).
     aiSource: await one("INSERT INTO ai_knowledge_sources(account_id,kind,title,status) VALUES($1,'text',$2,'ready')", [a, `p15 source ${tag}`]),
     savedReport: await savedReportWithSchedule(a, u, tag),
+    // One review of the workspace's own order and its first product (the product row is made just above).
+    review: await one('INSERT INTO shop_reviews(account_id,product_id,order_id,contact_id,rating) SELECT $1, id, $2, $3, 5 FROM shop_products WHERE account_id=$1 LIMIT 1',
+      [a, t.orderId, t.contactId]),
+    autoDiscount: await one("INSERT INTO shop_auto_discounts(account_id,name,kind,percent_bps,created_by) VALUES($1,$2,'percent_off_over',1000,$3)",
+      [a, `p15 discount ${tag}`, u]),
   };
 }
 

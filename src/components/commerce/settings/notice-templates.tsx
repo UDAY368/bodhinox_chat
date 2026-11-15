@@ -5,6 +5,8 @@
  * template each order notice uses once the customer's 24-hour window has
  * closed: UTILITY for dispatched, delivered and feedback, MARKETING for the
  * reorder reminder (sent only to customers who ticked the checkout opt-in).
+ * Store plan Phase 3 adds the abandoned-cart reminder (MARKETING) and the COD
+ * confirmation (UTILITY), the back-in-stock message and the review request (both MARKETING); each has its own variable help.
  * Admins edit; agents read (the API and RLS enforce the same rule).
  */
 import { useEffect, useState } from "react";
@@ -82,7 +84,9 @@ export function NoticeTemplates({ canEdit }: { canEdit: boolean }) {
                 ))}
               </select>
               <p className="text-xs text-muted-foreground">
-                {t(s.category === "MARKETING" ? "marketingHelp" : "utilityHelp")}
+                {t(s.kind === "abandoned_cart" ? "abandonedCartHelp" : s.kind === "cod_confirm" ? "codConfirmHelp"
+                  : s.kind === "back_in_stock" ? "backInStockHelp" : s.kind === "review_request" ? "reviewRequestHelp"
+                  : s.category === "MARKETING" ? "marketingHelp" : "utilityHelp")}
               </p>
               {s.template_name && !s.usable && (
                 <p className="flex items-center gap-1 text-xs text-destructive">

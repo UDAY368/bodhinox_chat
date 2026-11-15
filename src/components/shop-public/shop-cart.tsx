@@ -16,7 +16,7 @@ import { useLocale, useTranslations } from 'next-intl';
 import { Loader2, MessageCircle, Minus, Plus, Trash2 } from 'lucide-react';
 import { formatMoney } from '@/lib/commerce/money';
 import type { CartPreview } from '@/lib/commerce/public-shop';
-import { CART_EVENT, readCart, setLineQty, writeCart, type BrowserCartLine } from './cart-store';
+import { addToCart, CART_EVENT, readCart, setLineQty, writeCart, type BrowserCartLine } from './cart-store';
 
 export interface CartShopInfo {
   handle: string;
@@ -140,6 +140,35 @@ export function ShopCart({ shop }: { shop: CartShopInfo }) {
             </li>
           ))}
         </ul>
+        {preview?.suggestions?.length ? (
+          <section aria-labelledby="cart-suggestions" className="mt-4 flex flex-col gap-3">
+            <h2 id="cart-suggestions" className="text-lg font-semibold" style={{ fontFamily: 'var(--shop-font-heading)' }}>{t('related')}</h2>
+            <ul className="grid gap-3 @2xl:grid-cols-2">
+              {preview.suggestions.map((p) => {
+                const variant = p.variants.find((v) => v.inStock);
+                if (!variant) return null;
+                return (
+                  <li key={p.id} className="flex items-center gap-3 rounded-[var(--shop-radius)] bg-[var(--shop-surface)] p-3 ring-1 ring-black/5">
+                    <Link href={`/s/${shop.handle}/p/${p.id}`} className="flex min-w-0 flex-1 items-center gap-3">
+                      {p.images[0]
+                        // eslint-disable-next-line @next/next/no-img-element -- shop images come from our own route or the shop's https URL
+                        ? <img src={p.images[0]} alt="" loading="lazy" className="size-14 shrink-0 rounded-[var(--shop-radius)] object-cover" />
+                        : <div className="grid size-14 shrink-0 place-items-center rounded-[var(--shop-radius)] bg-black/5 opacity-40" aria-hidden>{p.name.slice(0, 1)}</div>}
+                      <span className="min-w-0">
+                        <span className="line-clamp-2 block text-sm font-medium">{p.name}</span>
+                        <span className="block text-sm">{money(variant.priceMinor)}</span>
+                      </span>
+                    </Link>
+                    <button type="button" onClick={() => addToCart(shop.handle, variant.id, 1)}
+                      className="h-11 shrink-0 rounded-[var(--shop-radius)] bg-[var(--shop-primary)] px-4 text-sm font-semibold text-[var(--shop-on-primary)]">
+                      {t('addOne')}
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
+        ) : null}
       </section>
 
       <aside className="flex h-fit flex-col gap-4 rounded-[var(--shop-radius)] bg-[var(--shop-surface)] p-4 ring-1 ring-black/5 @5xl:sticky @5xl:top-20">

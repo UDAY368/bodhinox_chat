@@ -479,6 +479,21 @@ export async function handleJob(job: Job, assertLease: () => void = () => {}) {
         { orderId: uuid(job.payload.orderId), kind: kind as (typeof followup.ORDER_FOLLOWUP_KINDS)[number] },
         { attempts: job.attempts, maxAttempts: job.max_attempts });
     }
+    else if (job.type === 'commerce.abandoned_cart')
+      // The one reminder for a shop session that filled its cart and never ordered; the handler re-checks everything and records why it skipped.
+      await (await import('@/lib/commerce/cart-followup-jobs')).handleAbandonedCartJob(accountId, { sessionId: uuid(job.payload.sessionId) });
+    else if (job.type === 'commerce.cod_confirm')
+      // The COD confirmation buttons for a placed order; an uncertain send is recorded for staff, never repeated.
+      await (await import('@/lib/commerce/cart-followup-jobs')).handleCodConfirmJob(accountId,
+        { orderId: uuid(job.payload.orderId) }, { attempts: job.attempts, maxAttempts: job.max_attempts });
+    else if (job.type === 'commerce.back_in_stock')
+      // A variant came back in stock: message the buyers who asked and claimed it on WhatsApp (once each, 200 per run).
+      await (await import('@/lib/commerce/stock-alert-jobs')).handleBackInStockJob(accountId,
+        { variantId: uuid(job.payload.variantId), ...(job.payload.afterId ? { afterId: uuid(job.payload.afterId) } : {}) });
+    else if (job.type === 'commerce.review_request')
+      // Ask the buyer to rate the order's main product three days after delivery; an uncertain send is recorded for staff, never repeated.
+      await (await import('@/lib/commerce/review-jobs')).handleReviewRequestJob(accountId,
+        { orderId: uuid(job.payload.orderId) }, { attempts: job.attempts, maxAttempts: job.max_attempts });
     else if (job.type === 'appointments.meeting_sync')
       // Zoom meeting create/update/delete for one appointment version; claimed, an ambiguous create is reconciled, never repeated.
       await (await import('@/lib/meetings/sync')).handleMeetingSyncJob(accountId,

@@ -357,11 +357,46 @@ export function parseSendTimeParams(
  */
 export const CAMPAIGN_SEND_EXTRAS_KEY = '_send';
 
+/** Per carousel card, the same for every recipient: a header image link and URL-button suffixes (new-arrivals campaigns). */
+export interface CampaignCardExtras {
+  headerMediaUrl?: string;
+  buttonParams?: Record<number, string>;
+}
+
 /** Same for every recipient of a campaign. */
 export interface CampaignSendExtras {
   location?: LocationSendParams;
   offerExpirationTimeMs?: number;
   couponCode?: string;
+  /** Carousel cards by position; an empty entry keeps the template's own card. */
+  cards?: CampaignCardExtras[];
+}
+
+function cardExtras(v: unknown, i: number): CampaignCardExtras {
+  const field = `cards[${i + 1}]`;
+  if (v == null) return {};
+  if (!isRecord(v)) return fail('valueNotObject', { field });
+  const out: CampaignCardExtras = {};
+  const url = optionalText(v.headerMediaUrl, `${field}.headerMediaUrl`, 2048);
+  if (url) {
+    // A link Meta can fetch: https, no credentials.
+    let parsed: URL | null = null;
+    try { parsed = new URL(url); } catch { /* handled below */ }
+    if (!parsed || parsed.protocol !== 'https:' || parsed.username || parsed.password) fail('valueNotText', { field: `${field}.headerMediaUrl` });
+    out.headerMediaUrl = url;
+  }
+  if (v.buttonParams != null) out.buttonParams = buttonValues(v.buttonParams, `${field}.buttonParams`);
+  return out;
+}
+
+/** A campaign's fixed per-card values laid over each recipient's frozen card body values. */
+export function mergeCampaignCards(
+  frozen: CarouselCardSendParams[] | undefined,
+  fixed: CampaignSendExtras['cards'],
+): CarouselCardSendParams[] | undefined {
+  if (!fixed?.some((c) => Object.keys(c).length)) return frozen;
+  const length = Math.max(frozen?.length ?? 0, fixed.length);
+  return Array.from({ length }, (_, i) => ({ ...(frozen?.[i] ?? {}), ...fixed[i] }));
 }
 
 /** Validate campaign extras; `notBefore` is when sending starts (now or the schedule). */
@@ -379,6 +414,12 @@ export function parseCampaignSendExtras(
     if (offer !== undefined) out.offerExpirationTimeMs = offer;
     const coupon = unwrap(parseCouponCode(r.couponCode));
     if (coupon !== undefined) out.couponCode = coupon;
+    if (r.cards != null) {
+      if (!Array.isArray(r.cards)) fail('valueNotList', { field: 'cards' });
+      const list = r.cards as unknown[];
+      if (list.length > MAX_CARDS) fail('tooManyValues', { field: 'cards', max: MAX_CARDS });
+      out.cards = list.map(cardExtras);
+    }
     return { ok: true, value: out };
   } catch (err) {
     if (err instanceof ParamError) return { ok: false, error: err.message };
@@ -398,6 +439,9 @@ export function storedCampaignSendExtras(raw: unknown): CampaignSendExtras {
   if (typeof ms === 'number' && Number.isInteger(ms) && ms > 0) out.offerExpirationTimeMs = ms;
   const coupon = parseCouponCode(raw.couponCode);
   if (coupon.ok && coupon.value) out.couponCode = coupon.value;
+  if (Array.isArray(raw.cards)) {
+    try { out.cards = raw.cards.slice(0, MAX_CARDS).map(cardExtras); } catch { /* malformed stored cards are dropped */ }
+  }
   return out;
 }
 

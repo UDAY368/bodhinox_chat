@@ -42,8 +42,13 @@ import { getNumberConfig, isNumberDisconnected, NoNumberError } from '@/lib/what
 import { parseInternationalPhone } from '@/lib/whatsapp/phone-utils';
 import { assertTemplateOnNumber } from '@/lib/whatsapp/sender-config';
 import type { MessageTemplate } from '@/types';
+import { queueAbandonedCartTx } from './cart-followups';
+import { STOCK_ALERT_CODE_HOURS, stockAlertMessage } from './stock-alerts';
 import { currencyExponent, minorFromDb } from './money';
+import { loadProductReviews, loadRatingSummaries, type ProductReviews } from './review-data';
+import type { RatingSummary } from './reviews';
 import { CART_LIMITS, normaliseCart, type CartLine } from './pricing';
+import { pickSuggestions } from './bought-together';
 import { mediaIdOf, PUBLIC_SHOP_PATH, resolveTheme, SHOP_HANDLE, type ResolvedShopTheme, type ShopImageRef } from './shop-templates';
 import { pagesOn, readShopContent, type ShopContent, type ShopFooter, type ShopMenuLink } from './shop-sections';
 import {
@@ -125,6 +130,8 @@ export interface PublicProduct {
   categoryName: string | null;
   images: string[];
   variants: Array<{ id: string; options: Record<string, string>; priceMinor: number; compareAtMinor: number | null; inStock: boolean }>;
+  /** Average and count of the published reviews (store plan Phase 3); null until there is one. */
+  rating: RatingSummary | null;
 }
 
 interface StorefrontRow {
@@ -173,7 +180,7 @@ export async function loadPublicShopWithContent(tx: TenantTransaction, accountId
 
 /** Products a page shows: published, with at least one priced live variant. Images as public URLs. */
 function loadProducts(tx: TenantTransaction, accountId: string, handle: string,
-  where: { productId?: string; categoryId?: string; limit: number }): Promise<PublicProduct[]> {
+  where: { productId?: string; productIds?: string[]; categoryId?: string; limit: number }): Promise<PublicProduct[]> {
   return loadProductsWith(tx, accountId, where, (image) => shopImageUrl(handle, image.id));
 }
 
@@ -185,8 +192,9 @@ export interface ProductImageRow { id: string; url: string | null; bucket: strin
  * signed-in media route for the theme editor's preview.
  */
 export async function loadProductsWith(tx: TenantTransaction, accountId: string,
-  where: { productId?: string; categoryId?: string; limit: number }, imageUrl: (image: ProductImageRow) => string | null): Promise<PublicProduct[]> {
+  where: { productId?: string; productIds?: string[]; categoryId?: string; limit: number }, imageUrl: (image: ProductImageRow) => string | null): Promise<PublicProduct[]> {
   const productId = where.productId ?? null;
+  const productIds = where.productIds ?? null;
   const categoryId = where.categoryId ?? null;
   const rows = await tx.$queryRaw<{ id: string; name: string; description: string | null; disclosure: string | null;
     category_id: string | null; category: string | null }[]>`
@@ -195,6 +203,7 @@ export async function loadProductsWith(tx: TenantTransaction, accountId: string,
     WHERE p.account_id=${accountId}::uuid AND p.status='published'
       AND EXISTS (SELECT 1 FROM shop_variants v WHERE v.account_id=p.account_id AND v.product_id=p.id AND v.archived_at IS NULL AND v.price_minor IS NOT NULL)
       AND (${productId}::uuid IS NULL OR p.id=${productId}::uuid)
+      AND (${productIds}::uuid[] IS NULL OR p.id = ANY(${productIds}::uuid[]))
       AND (${categoryId}::uuid IS NULL OR c.id=${categoryId}::uuid OR c.parent_id=${categoryId}::uuid)
     ORDER BY COALESCE(c.position, 2147483647), p.name, p.id LIMIT ${where.limit}`;
   if (!rows.length) return [];
@@ -210,8 +219,11 @@ export async function loadProductsWith(tx: TenantTransaction, accountId: string,
     SELECT i.id::text AS id, i.product_id::text AS product_id, i.url, m.bucket, m.object_key FROM shop_product_images i
     LEFT JOIN media_objects m ON m.account_id=i.account_id AND m.id=i.media_id AND m.deleted_at IS NULL
     WHERE i.account_id=${accountId}::uuid AND i.product_id = ANY(${ids}::uuid[]) ORDER BY i.position`;
+  // One grouped query for every product on the page.
+  const ratings = await loadRatingSummaries(tx, accountId, ids);
   return rows.map((p) => ({
     id: p.id, name: p.name, description: p.description, disclosure: p.disclosure, categoryId: p.category_id, categoryName: p.category,
+    rating: ratings.get(p.id) ?? null,
     images: images.filter((i) => i.product_id === p.id).map(imageUrl).filter((u): u is string => !!u),
     variants: variants.filter((v) => v.product_id === p.id).map((v) => ({
       id: v.id, options: v.option_values ?? {}, priceMinor: minorFromDb(v.price_minor) ?? 0,
@@ -287,7 +299,44 @@ export function loadShopPage(handle: string): Promise<{ shop: PublicShop; conten
   });
 }
 
-export interface ShopProductPage { shop: PublicShop; product: PublicProduct; related: PublicProduct[] }
+export interface ShopProductPage {
+  shop: PublicShop; product: PublicProduct; related: PublicProduct[]; reviews: ProductReviews;
+  /** Often bought together (store plan Phase 3): same shape as any product, never counts or order ids. Falls back to `related`. */
+  boughtTogether: PublicProduct[];
+  /** True when too few shared sales exist and `boughtTogether` is just `related`. */
+  togetherIsRelated: boolean;
+}
+
+/** Candidates fetched before unsellable ones are dropped; the page shows at most SUGGESTION_LIMIT. */
+const SUGGESTION_CANDIDATES = 12;
+
+/**
+ * Up to four other published, sellable products that most often share a real
+ * sale (paid, confirmed cash on delivery, dispatched or fulfilled; the last
+ * 365 days) with any of `seedIds`, ranked by shared orders then name. One SQL
+ * ranking, then the ordinary public product load, so nothing but the public
+ * product shape leaves.
+ */
+export async function loadBoughtTogether(tx: TenantTransaction, accountId: string, handle: string, seedIds: string[]): Promise<PublicProduct[]> {
+  if (!seedIds.length) return [];
+  const ranked = await tx.$queryRaw<{ id: string }[]>`
+    SELECT v2.product_id::text AS id
+    FROM orders o
+    JOIN order_items i1 ON i1.account_id=o.account_id AND i1.order_id=o.id
+    JOIN shop_variants v1 ON v1.account_id=i1.account_id AND v1.id=i1.variant_id
+    JOIN order_items i2 ON i2.account_id=o.account_id AND i2.order_id=o.id
+    JOIN shop_variants v2 ON v2.account_id=i2.account_id AND v2.id=i2.variant_id
+    JOIN shop_products p ON p.account_id=v2.account_id AND p.id=v2.product_id AND p.status='published'
+    WHERE o.account_id=${accountId}::uuid AND o.created_at > now() - interval '365 days'
+      AND (o.status IN ('paid','dispatched','fulfilled') OR (o.status='confirmed' AND o.payment_method='cod'))
+      AND v1.product_id = ANY(${seedIds}::uuid[]) AND v2.product_id <> ALL(${seedIds}::uuid[])
+    GROUP BY v2.product_id, p.name
+    ORDER BY count(DISTINCT o.id) DESC, p.name, v2.product_id
+    LIMIT ${SUGGESTION_CANDIDATES}`;
+  const ids = ranked.map((r) => r.id);
+  if (!ids.length) return [];
+  return pickSuggestions(ids, await loadProducts(tx, accountId, handle, { productIds: ids, limit: SUGGESTION_CANDIDATES }));
+}
 
 export function loadShopProduct(handle: string, productId: string): Promise<ShopProductPage | null> {
   if (!isUuid(productId)) return Promise.resolve(null);
@@ -298,7 +347,8 @@ export function loadShopProduct(handle: string, productId: string): Promise<Shop
     const related = product.categoryId
       ? (await loadProducts(tx, accountId, handle, { categoryId: product.categoryId, limit: 5 })).filter((p) => p.id !== product.id).slice(0, 4)
       : [];
-    return { shop, product, related };
+    const together = await loadBoughtTogether(tx, accountId, handle, [product.id]);
+    return { shop, product, related, boughtTogether: together.length >= 2 ? together : related, togetherIsRelated: together.length < 2, reviews: await loadProductReviews(tx, accountId, product.id) };
   });
 }
 
@@ -386,9 +436,11 @@ export function loadShopAll(handle: string, cursor?: string): Promise<{ shop: Pu
     const shop = await loadPublicShopTx(tx, accountId);
     if (!shop) return null;
     const page = await loadCatalogue(tx, accountId, { cursor });
+    const ratings = await loadRatingSummaries(tx, accountId, page.products.map((p) => p.id));
     return {
       shop, next: page.nextCursor,
       products: page.products.map((p) => ({
+        rating: ratings.get(p.id) ?? null,
         id: p.id, name: p.name, description: p.description, disclosure: p.disclosure, categoryId: null, categoryName: p.categoryName,
         images: p.images.map((id) => shopImageUrl(handle, id)),
         variants: p.variants.map((v) => ({ id: v.id, options: v.options, priceMinor: v.priceMinor, compareAtMinor: v.compareAtMinor, inStock: v.inStock })),
@@ -413,6 +465,8 @@ export interface CartPreviewLine {
 }
 export interface CartPreview {
   lines: CartPreviewLine[];
+  /** "You may also like": up to four products bought with the cart's products, not already in it. */
+  suggestions?: PublicProduct[];
   /** Variants that are no longer on sale, dropped from the cart. */
   removed: string[];
   subtotalMinor: number;
@@ -465,8 +519,10 @@ const storedCart = (value: unknown): CartLine[] => (Array.isArray(value) ? value
 
 /** Put a cart into a freshly issued session (version 1, nothing else set yet). */
 async function seedSessionCart(tx: TenantTransaction, accountId: string, sessionId: string, lines: CartLine[]): Promise<void> {
-  await tx.$executeRaw`UPDATE storefront_sessions SET cart=${cartJson(lines)}::jsonb
+  const seeded = await tx.$executeRaw`UPDATE storefront_sessions SET cart=${cartJson(lines)}::jsonb
     WHERE account_id=${accountId}::uuid AND id=${sessionId}::uuid AND cart='[]'::jsonb AND order_id IS NULL`;
+  // The session now has items for the first time: the one abandoned-cart reminder, when the store has a delay set.
+  if (seeded === 1 && lines.length > 0) await queueAbandonedCartTx(tx, accountId, sessionId);
 }
 
 // ---------------------------------------------------------------------------
@@ -483,6 +539,8 @@ export const PUBLIC_SHOP_LIMITS = {
   cartCodeIp: { action: 'shop_cart_code_ip', maximum: 20, windowSeconds: 3600 },
   /** identity: contact id; an unknown "ORDER <CODE>" from one sender */
   cartCodeMiss: { action: 'shop_cart_code_miss', maximum: 10, windowSeconds: 3600 },
+  /** identity: client IP; "Notify me on WhatsApp" codes */
+  stockAlertIp: { action: 'shop_stock_alert_ip', maximum: 20, windowSeconds: 3600 },
 } as const;
 
 function limit(kind: keyof typeof PUBLIC_SHOP_LIMITS, identity: string): Promise<void> {
@@ -738,6 +796,51 @@ export async function createCartCode(handle: string, input: { cart: unknown; cli
   }
 }
 
+export interface StockAlertResult { code: string; whatsappUrl: string }
+
+/**
+ * "Notify me on WhatsApp" for a sold-out variant: saves a code (48 hours) and answers the wa.me link whose
+ * message ends with "NOTIFY <CODE>". Only a published product's live, priced, tracked variant that is out of
+ * stock now gets one (variant_unavailable otherwise, in_stock when it can be bought); the shop needs its
+ * WhatsApp number. Nothing is sent to anyone until the buyer's own message claims the code.
+ */
+export async function createStockAlert(handle: string, input: { variantId: unknown; clientIp: string }): Promise<StockAlertResult | null> {
+  if (!isUuid(input.variantId)) throw new StoreError('invalid', { field: 'variantId' });
+  const variantId = input.variantId;
+  const accountId = await resolvePublicShop(handle);
+  if (!accountId) return null;
+  await limit('stockAlertIp', input.clientIp);
+  try {
+    return await inShopTenant(accountId, async (tx) => {
+      const row = await loadStorefrontRow(tx, accountId);
+      if (!row) throw new StoreError('not_found');
+      if (!row.whatsapp_phone || !row.whatsapp_config_id) throw new StoreError('whatsapp_order_unavailable');
+      const [variant] = await tx.$queryRaw<{ name: string; option_values: Record<string, string> | null; in_stock: boolean }[]>`
+        SELECT p.name, v.option_values, (COALESCE(l.on_hand - l.reserved, 0) > 0) AS in_stock
+        FROM shop_variants v JOIN shop_products p ON p.account_id=v.account_id AND p.id=v.product_id
+        LEFT JOIN inventory_levels l ON l.account_id=v.account_id AND l.variant_id=v.id
+        WHERE v.account_id=${accountId}::uuid AND v.id=${variantId}::uuid AND p.status='published' AND v.archived_at IS NULL
+          AND v.price_minor IS NOT NULL AND v.track_inventory`;
+      if (!variant) throw new StoreError('variant_unavailable', { variantId });
+      if (variant.in_stock) throw new StoreError('in_stock', { variantId });
+      const options = Object.values(variant.option_values ?? {}).filter(Boolean).join(', ');
+      const intro = getT('ShopPublic.stockAlert')('intro', { product: options ? `${variant.name} (${options})` : variant.name });
+      for (let attempt = 0; attempt < 5; attempt++) {
+        const code = newCartCode();
+        const [saved] = await tx.$queryRaw<{ id: string }[]>`
+          INSERT INTO shop_stock_alerts(account_id,code,variant_id,expires_at)
+          VALUES(${accountId}::uuid,${code},${variantId}::uuid,now() + make_interval(hours => ${STOCK_ALERT_CODE_HOURS}))
+          ON CONFLICT (account_id, code) DO NOTHING RETURNING id::text AS id`;
+        if (saved) return { code, whatsappUrl: `https://wa.me/${row.whatsapp_phone}?text=${encodeURIComponent(stockAlertMessage(intro, code))}` };
+      }
+      throw new StoreError('conflict');
+    });
+  } catch (error) {
+    if (isShopHidden(error)) return null;
+    throw error;
+  }
+}
+
 export interface ShopCartCodeInput {
   accountId: string;
   contactId: string;
@@ -753,7 +856,7 @@ export interface ShopCartCodeResult {
   outcome: 'sent' | 'expired' | 'not_shop' | 'code_unknown' | 'rate_limited' | 'store_closed';
 }
 
-async function codeLimitReached(contactId: string): Promise<boolean> {
+export async function codeLimitReached(contactId: string): Promise<boolean> {
   const { action, maximum } = PUBLIC_SHOP_LIMITS.cartCodeMiss;
   const key = hashToken(`${action}:${contactId.trim().toLowerCase()}`);
   // Reads the same auth_rate_limits row enforceAuthRateLimit writes, without counting (as booking codes do).
@@ -762,7 +865,7 @@ async function codeLimitReached(contactId: string): Promise<boolean> {
   return Boolean(row && row.attempts >= maximum);
 }
 
-async function countMiss(contactId: string): Promise<void> {
+export async function countMiss(contactId: string): Promise<void> {
   try {
     await limit('cartCodeMiss', contactId);
   } catch (error) {

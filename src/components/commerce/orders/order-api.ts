@@ -18,6 +18,8 @@ export interface OrderListItem {
   total_minor: number | null;
   /** 'cod': cash on delivery; absent from older responses (= online). */
   payment_method?: 'online' | 'cod';
+  /** A COD order's answer to the WhatsApp confirmation; absent from older responses. */
+  cod_confirmation?: 'pending' | 'confirmed' | 'declined' | null;
   item_count: number;
   /** When a payment was credited; absent from older responses. */
   paid_at?: string | null;
@@ -38,6 +40,10 @@ export interface OrderDetail extends OrderListItem {
   shipping_minor: number;
   /** The cash-on-delivery fee inside the total; absent from older responses. */
   cod_fee_minor?: number;
+  /** The automatic part of discount_minor; absent from older responses. */
+  auto_discount_minor?: number;
+  /** The automatic discounts the order was placed with (names and savings); absent from older responses. */
+  discount_details?: Array<{ name: string; kind: string; saving_minor: number }>;
   tax_minor: number;
   tax_inclusive: boolean | null;
   coupon_code: string | null;
@@ -94,6 +100,8 @@ export interface OrderQuery {
   status?: OrderStatus | "";
   source?: OrderSource | "";
   q?: string;
+  /** Only COD orders waiting for the customer's answer, or that declined. */
+  codConfirmation?: "pending" | "declined" | "";
   cursor?: string | null;
 }
 
@@ -113,6 +121,7 @@ export async function listOrders(query: OrderQuery): Promise<{ orders: OrderList
   const params = new URLSearchParams();
   if (query.status) params.set("status", query.status);
   if (query.source) params.set("source", query.source);
+  if (query.codConfirmation) params.set("cod_confirmation", query.codConfirmation);
   if (query.q?.trim()) params.set("q", query.q.trim());
   if (query.cursor) params.set("cursor", query.cursor);
   const res = await authFetch(`/api/commerce/orders?${params}`, { cache: "no-store" });
@@ -246,4 +255,21 @@ export async function createManualOrder(input: {
   contact_id: string; lines: Array<{ variant_id: string; qty: number }>; note?: string | null; client_request_id: string;
 }): Promise<ApiResult<OrderDetail>> {
   return result(await post("/api/commerce/orders", input), "order");
+}
+
+/**
+ * The discount rows of an order's breakdown: one per automatic discount (a free-shipping rule shows 0,
+ * its saving is the shipping line), then the coupon's part of discount_minor.
+ */
+export function discountRows(
+  order: Pick<OrderDetail, "discount_minor" | "auto_discount_minor" | "discount_details" | "coupon_code">,
+  tLife: (key: "discount" | "discountCode" | "freeShipping", values?: Record<string, string>) => string,
+): Array<[string, number]> {
+  const auto = order.auto_discount_minor ?? 0;
+  const rows: Array<[string, number]> = (order.discount_details ?? []).map((d) =>
+    d.kind === "free_shipping_over" ? [tLife("freeShipping", { name: d.name }), 0] : [d.name, -d.saving_minor]);
+  // An order whose details are missing still shows its whole discount.
+  const rest = order.discount_minor - (rows.length ? auto : 0);
+  if (rest > 0) rows.push([order.coupon_code ? tLife("discountCode", { code: order.coupon_code }) : tLife("discount"), -rest]);
+  return rows;
 }

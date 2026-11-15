@@ -119,7 +119,8 @@
     "analyticsConversations": "대화",
     "analyticsTeam": "팀",
     "analyticsCampaigns": "캠페인",
-    "onlineStore": "온라인 스토어"
+    "onlineStore": "온라인 스토어",
+    "reviews": "리뷰"
   },
   "Header": {
     "notificationsUnread": "알림, 읽지 않음 {count}개",
@@ -9744,7 +9745,8 @@
         "courierTracked": "Shiprocket 배송 추적이 이 주문을 자동으로 업데이트합니다. 직접 기록할 수도 있습니다.",
         "shipmentLive": "이 주문을 취소하기 전에 택배 발송을 먼저 취소하거나, 이미 수거되었다면 반품을 이용하세요.",
         "codFee": "착불 수수료",
-        "refundedInFull": "이 주문은 전액 환불되어 배송할 수 없습니다. 취소 및 환불로 주문을 종료하세요."
+        "refundedInFull": "이 주문은 전액 환불되어 배송할 수 없습니다. 취소 및 환불로 주문을 종료하세요.",
+        "freeShipping": "{name} (무료 배송)"
       },
       "timeline": {
         "title": "기록",
@@ -9774,7 +9776,9 @@
           "payment_link_failed": "결제 링크를 만들 수 없음",
           "shipment_pickup_requested": "택배 픽업 다시 요청함",
           "return_refunded_outside": "Bodhinox 외부에서 반품 환불함",
-          "manual_created": "팀원이 만든 주문"
+          "manual_created": "팀원이 만든 주문",
+          "cod_customer_confirmed": "고객이 착불 주문을 확인함",
+          "cod_customer_declined": "고객이 착불 주문을 거절함(주문은 취소되지 않음)"
         },
         "documents": "문서",
         "documentKinds": {
@@ -9790,7 +9794,9 @@
           "delivered": "배송 완료 알림",
           "feedback": "평가 요청",
           "product_follow_up": "제품 후속 안내",
-          "repeat_purchase": "재구매 알림"
+          "repeat_purchase": "재구매 알림",
+          "cod_confirm": "착불 주문 확인",
+          "review_request": "리뷰 요청"
         },
         "messageStatuses": {
           "sent": "전송됨",
@@ -9804,8 +9810,15 @@
         "badge": "착불",
         "collect": "착불: 배송 시 {amount}을(를) 받으세요.",
         "recordCash": "받은 현금 기록",
-        "recordPayment": "결제 기록"
-      }
+        "recordPayment": "결제 기록",
+        "confirmation": {
+          "pending": "착불: 대기 중",
+          "confirmed": "착불: 확인됨",
+          "declined": "착불: 거절됨"
+        }
+      },
+      "filterCodConfirmation": "착불 확인 상태로 필터",
+      "allCodConfirmations": "모든 착불 확인"
     },
     "attention": {
       "title": "{count, plural, other {확인이 필요한 스토어 메시지 #개}}",
@@ -9981,7 +9994,34 @@
         "codAvailable": "착불 결제 가능",
         "codAvailableHint": "끄면 이 상품이 담긴 장바구니는 온라인 결제만 가능합니다(스토어 설정에서 착불도 켜져 있어야 합니다).",
         "uploadImage": "업로드 또는 라이브러리에서 선택",
-        "imageOnly": "이미지 파일을 선택하세요."
+        "imageOnly": "이미지 파일을 선택하세요.",
+        "waiting": "{count, plural, other {#명이 이 상품을 기다리고 있습니다}}"
+      },
+      "newArrivals": {
+        "action": "신상품으로 보내기",
+        "selected": "{count}개 선택됨",
+        "clear": "선택 해제",
+        "select": "{name} 선택",
+        "selectColumn": "선택",
+        "title": "신상품 보내기",
+        "description": "선택한 상품 {count}개로 캐러셀 템플릿을 채워 캠페인으로 보냅니다. 카드는 선택한 순서를 따릅니다.",
+        "loading": "불러오는 중",
+        "template": "캐러셀 템플릿",
+        "choose": "선택…",
+        "noTemplates": "카드가 정확히 {count}개인 승인된 캐러셀 템플릿이 없습니다. 템플릿에서 만들거나 선택한 상품 수를 바꾸세요.",
+        "messageValue": "메시지 값 {n}",
+        "audience": "대상",
+        "audAll": "모든 연락처",
+        "audSegment": "세그먼트",
+        "audList": "목록",
+        "consentNote": "수신 거부했거나 차단된 연락처에는 보내지 않습니다. 캠페인 마법사와 같이 요금제 한도가 적용됩니다.",
+        "campaignName": "캠페인 이름",
+        "defaultName": "신상품",
+        "orderNote": "각 카드에는 상품 이미지, 이름, 가격이 표시되고 버튼은 상품 페이지를 엽니다. 쇼핑몰이 게시되어 있어야 합니다.",
+        "cancel": "취소",
+        "send": "캠페인 보내기",
+        "started": "캠페인을 시작했습니다",
+        "failed": "캠페인을 시작할 수 없습니다"
       }
     },
     "inventory": {
@@ -10104,7 +10144,9 @@
         "otp_locked": "잘못된 시도가 너무 많습니다. 새 코드를 요청하세요.",
         "whatsapp_order_unavailable": "이 스토어에는 WhatsApp 주문이 설정되어 있지 않습니다.",
         "shop_not_set_up": "먼저 온라인 스토어에서 스토어 주소를 저장하세요.",
-        "no_draft": "게시할 변경 사항이 없습니다."
+        "no_draft": "게시할 변경 사항이 없습니다.",
+        "auto_discount_limit": "자동 할인은 최대 20개까지 만들 수 있습니다.",
+        "in_stock": "이 상품은 이미 재고가 있어 기다릴 필요가 없습니다."
       },
       "title": "스토어 설정",
       "subtitle": "온라인 스토어의 통화, 세금, 결제, 판매자 정보, 배송, 쿠폰입니다.",
@@ -10175,7 +10217,41 @@
         "enabled": "착불 결제(COD) 제공",
         "help": "고객이 주문을 받을 때 현금으로 결제할 수 있습니다. 장바구니의 모든 상품이 허용할 때만 표시됩니다. 현금은 주문에서 결제 기록으로 남깁니다.",
         "fee": "착불 수수료 ({currency})",
-        "feeHelp": "고객이 착불을 선택하면 주문 합계에 더해지며 기본 세율이 적용됩니다. 수수료가 없으면 비워 두세요."
+        "feeHelp": "고객이 착불을 선택하면 주문 합계에 더해지며 기본 세율이 적용됩니다. 수수료가 없으면 비워 두세요.",
+        "confirmEnabled": "착불 주문을 WhatsApp으로 고객에게 확인받기",
+        "confirmHelp": "착불 주문이 접수되면 고객에게 예/취소 버튼이 있는 메시지가 갑니다. 취소를 눌러도 주문은 취소되지 않으며, 주문 화면에서 확인하고 직접 결정합니다."
+      },
+      "autoTitle": "자동 할인",
+      "autoHelp": "코드 없이 결제 시 적용됩니다. 주문 할인은 가장 큰 것 하나만 적용됩니다. 온라인 결제 할인과 무료 배송은 그 위에 더해집니다. 쿠폰은 그다음에 적용됩니다.",
+      "noAuto": "아직 자동 할인이 없습니다.",
+      "addAuto": "자동 할인 추가",
+      "autoName": "고객에게 보이는 이름",
+      "autoKind": "유형",
+      "autoAmount": "할인 금액 ({currency})",
+      "autoPercent": "할인율",
+      "autoPrepaidHelp": "금액 또는 할인율 중 하나만 입력하세요.",
+      "buyQty": "구매 수량",
+      "getQty": "무료 수량",
+      "autoProducts": "대상 상품 (선택하지 않으면 모든 상품)",
+      "autoOver": "{amount} 이상",
+      "autoKinds": {
+        "amount_off_over": "최소 금액 이상 금액 할인",
+        "percent_off_over": "최소 금액 이상 비율 할인",
+        "free_shipping_over": "최소 금액 이상 무료 배송",
+        "buy_x_get_y": "X개 구매 시 Y개 무료",
+        "prepaid": "온라인 결제 할인"
+      },
+      "abandoned": {
+        "title": "장바구니 미결제 알림",
+        "enabled": "장바구니에 상품을 두고 떠난 고객에게 알리기",
+        "help": "주문하지 않은 고객에게 결제 링크가 담긴 WhatsApp 메시지를 한 번만 보냅니다. 수신을 거부한 고객에게는 보내지 않습니다. 24시간 대화 창 밖에서는 승인된 마케팅 템플릿이 필요합니다(아래).",
+        "delay": "발송 시점(분)",
+        "delayHelp": "장바구니에 처음 상품이 담긴 뒤 30분에서 2880분 사이로 설정합니다."
+      },
+      "reviewRequests": {
+        "title": "상품 리뷰",
+        "enabled": "배송 후 리뷰 요청",
+        "help": "주문이 배송 완료되고 3일 후, 고객에게 대표 상품을 평가해 달라는 WhatsApp 메시지가 한 번 전송됩니다. 24시간 이내에는 목록에서 별점을 고르고, 그 이후에는 승인된 마케팅 템플릿이 필요합니다(아래). 평점은 커머스의 리뷰에서 승인을 기다립니다. 수신을 거부한 고객에게는 요청하지 않습니다."
       }
     },
     "storefrontLink": {
@@ -10389,7 +10465,11 @@
         "dispatched": "발송 알림",
         "delivered": "배송 완료 알림",
         "feedback": "평가 요청",
-        "repeat_purchase": "재주문 알림"
+        "repeat_purchase": "재주문 알림",
+        "abandoned_cart": "장바구니 미결제 알림",
+        "cod_confirm": "착불 주문 확인",
+        "back_in_stock": "재입고 알림 메시지",
+        "review_request": "리뷰 요청"
       },
       "utilityHelp": "승인된 유틸리티 템플릿입니다. 변수: '{{'1'}}' 고객 이름, '{{'2'}}' 상품, '{{'3'}}' 주문 번호, '{{'4'}}' 배송 조회 링크(발송 알림만).",
       "marketingHelp": "승인된 마케팅 템플릿으로, 이 메시지에는 항상 사용됩니다. 결제 시 재주문 체크박스를 선택하고 수신 거부한 적이 없는 고객에게만 보냅니다. 변수: '{{'1'}}' 고객 이름, '{{'2'}}' 상품, '{{'3'}}' 주문 번호.",
@@ -10397,7 +10477,11 @@
       "errors": {
         "invalid": "템플릿과 언어를 선택하세요.",
         "template_not_found": "템플릿을 찾을 수 없습니다. 템플릿을 동기화한 뒤 다시 시도하세요."
-      }
+      },
+      "abandonedCartHelp": "고객의 24시간 대화 창이 닫힌 뒤에 사용하는 승인된 마케팅 템플릿입니다. 변수: '{{'1'}}' 고객 이름, '{{'2'}}' 결제 링크. 템플릿이 없으면 대화 창 밖에서는 알림이 발송되지 않습니다.",
+      "codConfirmHelp": "고객에게 착불 주문 확인을 요청하는 승인된 유틸리티 템플릿입니다. 변수: '{{'1'}}' 고객 이름, '{{'2'}}' 주문 번호. 템플릿에는 예/취소 버튼을 넣을 수 없으므로 주문은 대기 상태로 남고 담당자가 직접 확인합니다.",
+      "backInStockHelp": "승인된 마케팅 템플릿으로, 고객의 24시간 창이 닫힌 뒤에 사용됩니다. WhatsApp으로 알림을 요청한 사람에게만 발송됩니다. 변수: '{{'1'}}' 고객 이름, '{{'2'}}' 상품, '{{'3'}}' 상품 링크. 템플릿이 없으면 창 밖에서는 보내지 않고 다음 재입고를 기다립니다.",
+      "reviewRequestHelp": "고객의 24시간 창이 닫혔을 때 사용하는 승인된 마케팅 템플릿입니다. 고객에게 1에서 5 사이의 숫자로 답하도록 요청하는 내용만 담을 수 있으며, 답은 7일 동안 인정됩니다. 변수: '{{'1'}}' 고객 이름, '{{'2'}}' 상품, '{{'3'}}' 주문 번호. 템플릿이 없으면 24시간 창 밖에서는 요청을 보내지 않습니다."
     },
     "checkoutLinkFailed": {
       "title": "결제 링크 생성 실패",
@@ -10670,6 +10754,34 @@
         "testimonials": "후기 {n}",
         "faq": "질문 {n}"
       }
+    },
+    "reviews": {
+      "title": "리뷰",
+      "subtitle": "배송 후 고객이 WhatsApp에서 남긴 평점입니다. 상품 페이지에 게시할 리뷰를 선택하세요.",
+      "filter": "상태별 필터",
+      "filters": {
+        "all": "전체",
+        "pending": "대기 중",
+        "published": "게시됨",
+        "hidden": "숨김"
+      },
+      "status": {
+        "pending": "대기 중",
+        "published": "게시됨",
+        "hidden": "숨김"
+      },
+      "loadError": "리뷰를 불러오지 못했습니다.",
+      "loading": "리뷰 불러오는 중",
+      "empty": "아직 리뷰가 없습니다.",
+      "noText": "글 없이 평점만 있습니다.",
+      "customer": "고객",
+      "stars": "5점 만점에 {rating}점",
+      "publish": "게시",
+      "hide": "숨기기",
+      "published": "리뷰를 게시했습니다.",
+      "hidden": "리뷰를 숨겼습니다.",
+      "saveError": "리뷰를 변경하지 못했습니다.",
+      "loadMore": "더 보기"
     }
   },
   "Payments": {
@@ -14055,14 +14167,30 @@
     "categories": "카테고리",
     "allCategories": "전체",
     "noMatchingProducts": "검색과 일치하는 상품이 없습니다.",
-    "showMore": "상품 더 보기"
+    "showMore": "상품 더 보기",
+    "freeShipping": "무료",
+    "payOnlineSave": "온라인으로 결제하고 {amount} 절약하세요"
   },
   "OrderNotices": {
     "dispatched": "주문 {ref}이(가) 발송되었습니다.",
     "dispatchedWithTracking": "주문 {ref}이(가) 발송되었습니다. 배송 추적: {tracking}",
     "delivered": "주문 {ref}이(가) 배송 완료되었습니다. 감사합니다!",
     "feedback": "주문 {ref}은(는) 어떠셨나요? 1부터 5까지 점수로 답해 주세요.",
-    "dispatchedWithLink": "주문 {ref}이(가) 발송되었습니다. 배송 조회: {url}"
+    "dispatchedWithLink": "주문 {ref}이(가) 발송되었습니다. 배송 조회: {url}",
+    "abandonedCart": "장바구니에 담아 둔 상품이 있어요. 이어서 주문해 보세요:",
+    "codConfirmBody": "착불(현금 결제) 주문 {ref}을(를) 확인해 주세요. 주문하시려면 확인을, 원하지 않으시면 취소를 눌러 주세요.",
+    "codConfirmYes": "예, 확인",
+    "codConfirmNo": "취소",
+    "codConfirmThanksYes": "감사합니다. 주문 {ref}이(가) 확인되었습니다.",
+    "codConfirmThanksNo": "알겠습니다. 주문 {ref}에 대해 담당자가 연락드리겠습니다.",
+    "reviewRequestBody": "{product}은(는) 어떠셨나요?",
+    "reviewRate": "평가하기",
+    "reviewLabel5": "매우 좋음",
+    "reviewLabel4": "좋음",
+    "reviewLabel3": "보통",
+    "reviewLabel2": "별로",
+    "reviewLabel1": "매우 별로",
+    "reviewThanks": "감사합니다! 한마디 남겨 주셔도 좋고, 건너뛰셔도 됩니다."
   },
   "AiSettings": {
     "features": {
@@ -16856,7 +16984,8 @@
       "not_found": "이 스토어를 이용할 수 없습니다.",
       "invalid_phone": "+와 국가 번호를 포함해 입력하세요. 예: +82 10 1234 5678",
       "network": "연결되어 있지 않습니다. 다시 시도하세요.",
-      "generic": "문제가 발생했습니다. 다시 시도하세요."
+      "generic": "문제가 발생했습니다. 다시 시도하세요.",
+      "in_stock": "이 상품은 지금 재고가 있습니다. 페이지를 새로고침해 주세요."
     },
     "whatsapp": {
       "intro": "안녕하세요 {shop}, 주문하고 싶어요:",
@@ -16929,6 +17058,23 @@
       "termsCancel": "주문을 처리할 수 없으면 주문을 취소하고 전액 환불해 드립니다.",
       "seller": "판매자: {name}",
       "address": "주소: {address}"
-    }
+    },
+    "stockAlert": {
+      "button": "WhatsApp으로 재입고 알림 받기",
+      "sending": "WhatsApp을 여는 중…",
+      "hint": "재입고되면 한 번만 메시지를 보내 드립니다.",
+      "intro": "{product} 재입고 시 알려 주세요.",
+      "ack": "재입고되면 메시지를 보내 드리겠습니다.",
+      "back": "{product} 상품이 재입고되었습니다. 여기에서 주문하세요:"
+    },
+    "reviews": {
+      "title": "리뷰",
+      "average": "5점 만점에 {average}점",
+      "count": "{count, plural, other {리뷰 #개}}",
+      "customer": "고객",
+      "stars": "5점 만점에 {rating}점"
+    },
+    "boughtTogether": "함께 자주 구매하는 상품",
+    "addOne": "추가"
   }
 }

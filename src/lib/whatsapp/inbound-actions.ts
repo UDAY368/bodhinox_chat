@@ -23,6 +23,12 @@ import { sendAwayMessage } from "@/lib/inbox/away-message";
 import { parseHoldCodeMessage } from "@/lib/appointments/types";
 import { handleBookingCode } from "@/lib/appointments/inbound";
 import { handleShopCartCode, parseShopOrderMessage } from "@/lib/commerce/public-shop";
+import { parseCodConfirmReply } from "@/lib/commerce/cart-followups";
+import { handleCodConfirmReply } from "@/lib/commerce/cart-followup-jobs";
+import { parseStockAlertMessage } from "@/lib/commerce/stock-alerts";
+import { handleStockAlertCode } from "@/lib/commerce/stock-alert-jobs";
+import { parseReviewReplyId } from "@/lib/commerce/reviews";
+import { handleReviewRating, handleReviewText } from "@/lib/commerce/review-jobs";
 import { aiDeploymentEnabled } from "@/lib/ai/gate";
 import { enqueueAssessmentForInbound } from "@/lib/ai/assess/enqueue";
 import { enqueueAutoLabelForInbound } from "@/lib/ai/auto-label";
@@ -129,7 +135,30 @@ export async function processInboundActions(input: InboundActionsPayload, assert
       const shopOrder=cartCode ? await handleShopCartCode({accountId:input.accountId,contactId:input.contactId,
         conversationId:input.conversationId,whatsappConfigId:input.whatsappConfigId??null,code:cartCode},
         send=>stage("shop_cart_code",send)) : {handled:false};
-      if(!booking.handled&&!shopOrder.handled) await respondAutomatically(db,input,text,stage,Boolean(form)||Boolean(order));
+      // "... NOTIFY <CODE>" from the shop's "Notify me on WhatsApp" button: the sender claims the back-in-stock alert
+      // (first sender wins, replay-safe, outside the stage) and gets one acknowledgement inside a stage checkpoint.
+      // An unknown, expired or foreign code is ordinary text for the bots.
+      const alertCode=!holdCode&&!cartCode&&input.contentType==="text"&&!input.interactiveReplyId&&!form&&!order ? parseStockAlertMessage(text) : null;
+      const stockAlert=alertCode ? await handleStockAlertCode({accountId:input.accountId,contactId:input.contactId,
+        conversationId:input.conversationId,whatsappConfigId:input.whatsappConfigId??null,code:alertCode},
+        send=>stage("stock_alert_ack",send)) : {handled:false};
+      // A tap on the COD confirmation buttons (codc:<order>:yes|no) from the order's own contact: the answer is stored
+      // (replay-safe, outside the stage) and the one thank-you reply is a stage checkpoint. Any other id is ordinary.
+      const codConfirm=!holdCode&&input.interactiveReplyId&&parseCodConfirmReply(input.interactiveReplyId)
+        ? await handleCodConfirmReply({accountId:input.accountId,contactId:input.contactId,conversationId:input.conversationId,
+          replyId:input.interactiveReplyId},send=>stage("cod_confirm_reply",send)) : {handled:false};
+      // A tap on a review star row (rvw:<order>:<product>:<1-5>) from the order's own contact stores the rating (replay-safe,
+      // outside the stage) and the one thank-you is a stage checkpoint. Any other id is ordinary.
+      const reviewTap=!holdCode&&input.interactiveReplyId&&parseReviewReplyId(input.interactiveReplyId)
+        ? await handleReviewRating({accountId:input.accountId,contactId:input.contactId,conversationId:input.conversationId,
+          messageId:input.messageId,replyId:input.interactiveReplyId},send=>stage("review_rating_ack",send)) : {handled:false};
+      // A plain 1 to 5 after a template review request, or the words after a rating (next message within 30 minutes). Shop
+      // commands and STOP are never taken. A thank-you after a typed rating is a stage checkpoint.
+      const reviewText=!holdCode&&!cartCode&&!alertCode&&!reviewTap.handled&&input.contentType==="text"&&!input.interactiveReplyId&&!form&&!order
+        ? await handleReviewText({accountId:input.accountId,contactId:input.contactId,conversationId:input.conversationId,
+          messageId:input.messageId,text},send=>stage("review_text_ack",send)) : {handled:false};
+      const review=reviewTap.handled||reviewText.handled;
+      if(!booking.handled&&!shopOrder.handled&&!stockAlert.handled&&!codConfirm.handled&&!review) await respondAutomatically(db,input,text,stage,Boolean(form)||Boolean(order));
       // After the flow and automations, so an unresolved confirmation never holds them back.
       if(order) await stage("order_confirmation",()=>sendOrderConfirmation({accountId:input.accountId,userId:input.userId,
         conversationId:input.conversationId,contactId:input.contactId,order}));
@@ -138,7 +167,7 @@ export async function processInboundActions(input: InboundActionsPayload, assert
       const lifecycle=await applyInboundLifecycle({accountId:input.accountId,conversationId:input.conversationId,
         contactId:input.contactId,messageId:input.messageId,text});
       // Out of hours and nobody automatic answered: the away message, once per window.
-      if(!booking.handled&&!shopOrder.handled&&!lifecycle.botOwned&&!lifecycle.botReplied) await stage("away_message",()=>sendAwayMessage({accountId:input.accountId,
+      if(!booking.handled&&!shopOrder.handled&&!stockAlert.handled&&!codConfirm.handled&&!review&&!lifecycle.botOwned&&!lifecycle.botReplied) await stage("away_message",()=>sendAwayMessage({accountId:input.accountId,
         userId:input.userId,conversationId:input.conversationId,contactId:input.contactId,messageId:input.messageId}));
     }
     await stage("message_webhook",()=>dispatchWebhookEvent(db,input.accountId,"message.received",{

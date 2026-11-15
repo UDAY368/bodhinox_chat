@@ -12,6 +12,7 @@ vi.mock('@/lib/contacts/channel-consent', async (original) => {
   const actual = await original<typeof import('@/lib/contacts/channel-consent')>();
   return { ...actual, applyInstagramConsent: vi.fn(), workerConsentSettings: async () => ({ ...actual.DEFAULT_CONSENT_SETTINGS }) };
 });
+vi.mock('@/lib/commerce/review-jobs', () => ({ handleReviewRating: async () => ({ handled: false }), handleReviewText: async () => ({ handled: false }) }));
 vi.mock('@/lib/jobs/scope', () => ({ withJobScope: (_scope: unknown, action: () => unknown) => action() }));
 vi.mock('./quick-reply-actions', () => ({ dispatchQuickReplyAction: h.explicit }));
 vi.mock('@/lib/automations/engine', () => ({ resumeAwaitingReply: h.resume, runAutomationsForTrigger: h.automations }));

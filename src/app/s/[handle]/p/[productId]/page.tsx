@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation';
 import { getLocale, getTranslations } from 'next-intl/server';
 import { ProductBuy } from '@/components/shop-public/product-buy';
 import { ProductCard, ProductGrid } from '@/components/shop-public/product-card';
+import { ProductReviewsSection } from '@/components/shop-public/product-reviews';
 import { loadShopProduct } from '@/lib/commerce/public-shop';
 
 export const dynamic = 'force-dynamic';
@@ -28,7 +29,8 @@ export default async function ShopProductPage({ params }: Props) {
   if (!page) notFound();
   const t = await getTranslations('ShopPublic');
   const locale = await getLocale();
-  const { product } = page;
+  const { product, reviews } = page;
+  const summary = reviews.summary;
   return (
     <div className="flex flex-col gap-10">
       <nav aria-label={t('breadcrumb')} className="text-sm opacity-70">
@@ -40,12 +42,16 @@ export default async function ShopProductPage({ params }: Props) {
           </>
         )}
       </nav>
-      <ProductBuy handle={handle} product={product} currency={page.shop.currency} />
-      {page.related.length > 0 && (
+      <ProductBuy handle={handle} product={product} currency={page.shop.currency} canNotify={page.shop.ordering.whatsapp} />
+      <ProductReviewsSection reviews={reviews} locale={locale} labels={{
+        title: t('reviews.title'), customer: t('reviews.customer'), stars: (rating) => t('reviews.stars', { rating }),
+        average: summary ? t('reviews.average', { average: summary.average }) : '', count: summary ? t('reviews.count', { count: summary.count }) : '',
+      }} />
+      {page.boughtTogether.length > 0 && (
         <section className="flex flex-col gap-4">
-          <h2 className="text-xl font-semibold" style={{ fontFamily: 'var(--shop-font-heading)' }}>{t('related')}</h2>
+          <h2 className="text-xl font-semibold" style={{ fontFamily: 'var(--shop-font-heading)' }}>{t(page.togetherIsRelated ? 'related' : 'boughtTogether')}</h2>
           <ProductGrid columns={page.shop.theme.layout.columns}>
-            {page.related.map((p) => <ProductCard key={p.id} handle={handle} product={p} currency={page.shop.currency}
+            {page.boughtTogether.map((p) => <ProductCard key={p.id} handle={handle} product={p} currency={page.shop.currency}
               layout={page.shop.theme.layout} locale={locale} labels={{ soldOut: t('soldOut'), from: t('from') }} />)}
           </ProductGrid>
         </section>

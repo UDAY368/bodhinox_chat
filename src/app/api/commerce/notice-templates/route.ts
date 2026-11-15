@@ -2,7 +2,7 @@
 //   approved UTILITY/MARKETING templates to choose from (agents and above). 200 { templates }
 // PUT /api/commerce/notice-templates { kind, template_name, language } (admins; both null clears).
 //   200 { templates }; 400 { error, code: invalid | template_not_found | wrong_category }.
-// Dispatched, delivered and feedback need a UTILITY template; repeat_purchase a MARKETING one.
+// Dispatched, delivered, feedback and cod_confirm need a UTILITY template; repeat_purchase, abandoned_cart and back_in_stock a MARKETING one.
 
 import { NextResponse } from 'next/server';
 import { requireRole } from '@/lib/auth/account';

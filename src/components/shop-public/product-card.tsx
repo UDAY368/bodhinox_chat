@@ -2,6 +2,7 @@ import Link from 'next/link';
 import type { PublicProduct } from '@/lib/commerce/public-shop';
 import type { ShopLayout } from '@/lib/commerce/shop-templates';
 import { formatMoney } from '@/lib/commerce/money';
+import { Stars } from './product-reviews';
 
 export interface CardLabels { soldOut: string; from: string }
 
@@ -25,6 +26,12 @@ export function ProductCard({ handle, product, currency, layout, locale, labels 
       </div>
       <div className="flex flex-1 flex-col gap-1 p-3">
         <h3 className="line-clamp-2 text-sm font-medium @2xl:text-base">{product.name}</h3>
+        {product.rating && (
+          <p className="flex items-center gap-1 text-xs @2xl:text-sm">
+            <Stars value={product.rating.average} label={`${product.rating.average}/5`} />
+            <span className="opacity-70">({product.rating.count})</span>
+          </p>
+        )}
         {cheapest && (
           <p className="mt-auto flex flex-wrap items-baseline gap-x-2 text-sm">
             <span className="font-semibold text-[var(--shop-primary)]">{varied ? `${labels.from} ` : ''}{money(cheapest.priceMinor)}</span>

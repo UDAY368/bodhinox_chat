@@ -31,7 +31,10 @@ import { sendTextMessage } from '@/lib/whatsapp/meta-api';
 import { assertWhatsAppConversation, getNumberConfig, isNumberDisconnected, NoNumberError } from '@/lib/whatsapp/numbers';
 import { isRecipientNotAllowedError, phoneVariants } from '@/lib/whatsapp/phone-utils';
 import { resolveContactSendTarget } from '@/lib/whatsapp/wa-identity';
+import { loadAutoDiscountsTx } from './auto-discount-rules';
+import { parseDiscountDetails, type AutoDiscountKind } from './auto-discounts';
 import { findCouponTx, normaliseCouponCode, toPricingCoupon, type CouponRow } from './coupons';
+import { queueAbandonedCartTx } from './cart-followups';
 import { minorFromDb } from './money';
 import type { OrderStatus } from './order-format';
 import {
@@ -430,12 +433,12 @@ interface OrderRow {
   conversation_id: string | null; whatsapp_config_id: string | null; subtotal_minor: bigint; discount_minor: bigint;
   shipping_minor: bigint; tax_minor: bigint; total_minor: bigint | null; tax_inclusive: boolean | null; amount_paid_minor: bigint;
   reservation_expires_at: Date | null; paid_at: Date | null; checkout_attempt: number; created_at: Date;
-  payment_method: PaymentMethod; cod_fee_minor: bigint;
+  payment_method: PaymentMethod; cod_fee_minor: bigint; auto_discount_minor: bigint; discount_details: unknown;
 }
 const ORDER_COLUMNS = `id::text AS id, source, status, currency, priced_at, contact_id::text AS contact_id,
   conversation_id::text AS conversation_id, whatsapp_config_id::text AS whatsapp_config_id, subtotal_minor, discount_minor, shipping_minor,
   tax_minor, total_minor, tax_inclusive, amount_paid_minor, reservation_expires_at, paid_at, checkout_attempt, created_at,
-  payment_method, cod_fee_minor`;
+  payment_method, cod_fee_minor, auto_discount_minor, discount_details`;
 
 export async function loadOrder(tx: TenantTransaction, accountId: string, orderId: string, lock = false): Promise<OrderRow | null> {
   const rows = await tx.$queryRawUnsafe<OrderRow[]>(
@@ -505,11 +508,13 @@ export async function quoteSessionTx(tx: TenantTransaction, accountId: string, s
   const variants = await loadVariants(tx, accountId, lines.map((l) => l.variantId));
   const address = asAddress(session.address);
   const rates = address ? (await selectRates(tx, accountId, true)).map(pricingRate) : [];
+  // The workspace's own rules only (account-scoped query under RLS); the quote and the place reprice both read them here.
+  const autoDiscounts = await loadAutoDiscountsTx(tx, accountId);
   const result = priceCart({
     lines, variants, settings, shippingRates: rates,
     coupon: session.coupon_code ? (coupon ? toPricingCoupon(coupon) : 'missing') : null,
     address: address ? { country: address.country, postalCode: address.postal_code } : null,
-    paymentMethod: session.payment_method, now: options.now,
+    paymentMethod: session.payment_method, autoDiscounts, now: options.now,
   });
   return { result, coupon, lines };
 }
@@ -561,6 +566,8 @@ export async function updateCartTx(tx: TenantTransaction, accountId: string, ses
     if (!v || !v.sellable || v.priceMinor === null) throw new StoreError('variant_unavailable', { variantId: line.variantId });
   }
   await bump(tx, accountId, sessionId, { cart: lines });
+  // The cart just went from empty to filled: the one abandoned-cart reminder, when the store has a delay set.
+  if (lines.length > 0 && sessionCart(session).length === 0) await queueAbandonedCartTx(tx, accountId, sessionId);
 }
 
 export async function setAddressTx(tx: TenantTransaction, accountId: string, sessionId: string, input: { expectedVersion: number; address: unknown }): Promise<void> {
@@ -622,6 +629,10 @@ export interface StorefrontOrderView {
   currency: string;
   subtotalMinor: number;
   discountMinor: number;
+  /** The automatic part of discountMinor (the rest is the coupon). */
+  autoDiscountMinor: number;
+  /** The automatic discounts the order was placed with: names and savings (a free-shipping entry carries the fee waived). */
+  autoDiscounts: Array<{ name: string; kind: AutoDiscountKind; savingMinor: number }>;
   shippingMinor: number;
   /** 'cod': the customer pays in cash on delivery (no payment link). */
   paymentMethod: PaymentMethod;
@@ -696,6 +707,8 @@ export async function loadOrderView(tx: TenantTransaction, accountId: string, or
   return {
     reference: orderReference(order.id), status: order.status, currency: order.currency,
     subtotalMinor: minorFromDb(order.subtotal_minor) ?? 0, discountMinor: minorFromDb(order.discount_minor) ?? 0,
+    autoDiscountMinor: minorFromDb(order.auto_discount_minor) ?? 0,
+    autoDiscounts: parseDiscountDetails(order.discount_details).map((d) => ({ name: d.name, kind: d.kind, savingMinor: d.saving_minor })),
     shippingMinor: minorFromDb(order.shipping_minor) ?? 0, paymentMethod: order.payment_method,
     codFeeMinor: minorFromDb(order.cod_fee_minor) ?? 0, taxMinor: minorFromDb(order.tax_minor) ?? 0,
     totalMinor: minorFromDb(order.total_minor), taxInclusive: order.tax_inclusive, amountPaidMinor: minorFromDb(order.amount_paid_minor) ?? 0,

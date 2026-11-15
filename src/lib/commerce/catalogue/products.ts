@@ -316,6 +316,8 @@ export interface ShopVariant {
   reserved: number;
   available: number;
   low_stock_threshold: number;
+  /** People who asked on WhatsApp to be told when it is back (claimed, open back-in-stock alerts). */
+  waiting: number;
   /** A mirrored Meta product with retailer_id = sku exists. */
   meta_linked: boolean;
 }
@@ -374,6 +376,8 @@ export async function getShopProduct(tx: TenantTransaction, accountId: string, i
     SELECT v.id::text AS id, v.sku, v.option_values, v.price_minor, v.compare_at_minor, v.tax_rate_bps, v.hsn_code, v.track_inventory,
       v.weight_grams, v.position, v.archived_at, COALESCE(l.on_hand,0) AS on_hand, COALESCE(l.reserved,0) AS reserved,
       COALESCE(l.low_stock_threshold, st.low_stock_default, 5) AS low_stock_threshold,
+      (SELECT count(*) FROM shop_stock_alerts a WHERE a.account_id=v.account_id AND a.variant_id=v.id
+        AND a.claimed_at IS NOT NULL AND a.closed_at IS NULL)::int AS waiting,
       EXISTS (SELECT 1 FROM products m WHERE m.account_id=v.account_id AND m.retailer_id=v.sku) AS meta_linked
     FROM shop_variants v
     LEFT JOIN inventory_levels l ON l.account_id=v.account_id AND l.variant_id=v.id
@@ -399,6 +403,7 @@ export async function getShopProduct(tx: TenantTransaction, accountId: string, i
       reserved: Number(v.reserved),
       available: Math.max(Number(v.on_hand) - Number(v.reserved), 0),
       low_stock_threshold: Number(v.low_stock_threshold),
+      waiting: Number(v.waiting),
     })),
     images: images.map((i) => ({ id: i.id, media_id: i.media_id, url: i.url, display_url: imageUrl(i.url, i.bucket, i.object_key), position: i.position })),
   };

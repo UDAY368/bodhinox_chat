@@ -23,7 +23,7 @@ import { OrderDrawer, type OrderIntent } from "./order-drawer";
 import { NewOrderDialog } from "./new-order-dialog";
 import { OrderSettingsDialog } from "./order-settings-dialog";
 import {
-  canCancelUnpaid, canTakeLinkPayment, FULFILMENT_TONE, fulfilmentState, orderRef, PAYMENT_TONE, paymentState, toCsv,
+  canCancelUnpaid, canTakeLinkPayment, COD_CONFIRM_TONE, FULFILMENT_TONE, fulfilmentState, orderRef, PAYMENT_TONE, paymentState, toCsv,
 } from "./order-state";
 import { StateBadge } from "./state-badge";
 
@@ -54,6 +54,7 @@ export function OrdersList() {
 
   const [status, setStatus] = useState<OrderStatus | "">("");
   const [source, setSource] = useState<OrderSource | "">("");
+  const [codConfirmation, setCodConfirmation] = useState<"pending" | "declined" | "">("");
   const [draft, setDraft] = useState("");
   const [q, setQ] = useState("");
   const [orders, setOrders] = useState<OrderListItem[]>([]);
@@ -70,7 +71,7 @@ export function OrdersList() {
     let cancelled = false;
      
     setLoading(true);
-    listOrders({ status, source, q })
+    listOrders({ status, source, q, codConfirmation })
       .then((page) => {
         if (cancelled) return;
         setOrders(page.orders);
@@ -81,13 +82,13 @@ export function OrdersList() {
     return () => {
       cancelled = true;
     };
-  }, [status, source, q, t, reloadKey]);
+  }, [status, source, q, codConfirmation, t, reloadKey]);
 
   const loadMore = useCallback(async () => {
     if (!cursor) return;
     setLoadingMore(true);
     try {
-      const page = await listOrders({ status, source, q, cursor });
+      const page = await listOrders({ status, source, q, codConfirmation, cursor });
       setOrders((prev) => [...prev, ...page.orders.filter((o) => !prev.some((p) => p.id === o.id))]);
       setCursor(page.next_cursor);
     } catch {
@@ -95,7 +96,7 @@ export function OrdersList() {
     } finally {
       setLoadingMore(false);
     }
-  }, [cursor, status, source, q, t]);
+  }, [cursor, status, source, q, codConfirmation, t]);
 
   const refresh = useCallback(() => setReloadKey((k) => k + 1), []);
 
@@ -113,7 +114,7 @@ export function OrdersList() {
       const all: OrderListItem[] = [];
       let next: string | null = null;
       do {
-        const page = await listOrders({ status, source, q, cursor: next });
+        const page = await listOrders({ status, source, q, codConfirmation, cursor: next });
         all.push(...page.orders);
         next = page.next_cursor;
       } while (next && all.length < EXPORT_MAX);
@@ -141,7 +142,7 @@ export function OrdersList() {
   }
 
   const openOrder = (id: string, intent: OrderIntent | null = null) => setOpen({ id, intent });
-  const filtered = Boolean(q || status || source);
+  const filtered = Boolean(q || status || source || codConfirmation);
 
   return (
     <div className="space-y-5">
@@ -194,6 +195,14 @@ export function OrdersList() {
           <SelectContent>
             <SelectItem value={ALL}>{t("allSources")}</SelectItem>
             {ORDER_SOURCES.map((s) => <SelectItem key={s} value={s}>{tSource(s)}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <Select value={codConfirmation || ALL} onValueChange={(v) => setCodConfirmation(v === ALL ? "" : (v as "pending" | "declined"))}>
+          <SelectTrigger className="w-48 max-w-full" aria-label={t("filterCodConfirmation")}><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value={ALL}>{t("allCodConfirmations")}</SelectItem>
+            <SelectItem value="pending">{t("cod.confirmation.pending")}</SelectItem>
+            <SelectItem value="declined">{t("cod.confirmation.declined")}</SelectItem>
           </SelectContent>
         </Select>
       </form>
@@ -251,7 +260,14 @@ export function OrdersList() {
                     <TableCell className="whitespace-nowrap text-right font-medium tabular-nums">
                       {money(order.total_minor ?? order.subtotal_minor, order.currency)}
                     </TableCell>
-                    <TableCell><StateBadge tone={PAYMENT_TONE[pay]}>{ts(`pay.${pay}`)}</StateBadge></TableCell>
+                    <TableCell>
+                      <div className="flex flex-col items-start gap-1">
+                        <StateBadge tone={PAYMENT_TONE[pay]}>{ts(`pay.${pay}`)}</StateBadge>
+                        {order.cod_confirmation && (
+                          <StateBadge tone={COD_CONFIRM_TONE[order.cod_confirmation]}>{t(`cod.confirmation.${order.cod_confirmation}`)}</StateBadge>
+                        )}
+                      </div>
+                    </TableCell>
                     <TableCell><StateBadge tone={FULFILMENT_TONE[ful]}>{ts(`ful.${ful}`)}</StateBadge></TableCell>
                     <TableCell className="w-px text-right" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
                       <DropdownMenu>

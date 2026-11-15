@@ -8,7 +8,7 @@ import { buildSendComponents } from '@/lib/whatsapp/template-send-builder';
 import { assertMessageTemplate } from '@/lib/whatsapp/template-row-guard';
 import { templateKindOf } from '@/lib/whatsapp/template-validators';
 import {
-  CAMPAIGN_SEND_EXTRAS_KEY, CAMPAIGN_VARIABLE_KEY, campaignVariableKeys, parseCampaignSendExtras, splitFrozenParams, templateSendRefusal,
+  CAMPAIGN_SEND_EXTRAS_KEY, CAMPAIGN_VARIABLE_KEY, campaignVariableKeys, mergeCampaignCards, parseCampaignSendExtras, splitFrozenParams, templateSendRefusal,
 } from '@/lib/whatsapp/template-send-params';
 import { normalizePhone, isValidE164 } from '@/lib/whatsapp/phone-utils';
 import { AudienceFilterError, assertFilterReferences, compileAudienceFilter } from '@/lib/audience/filter';
@@ -217,12 +217,14 @@ export async function createCampaign(scope:TenantContext,raw:unknown,now=new Dat
     await assertOwnedIds(tx,scope.accountId,'custom_fields',fieldIds);
     const headerMediaUrl=input.headerMediaUrl??(template.header_media_url?.trim()||undefined);
     await assertMedia(tx,scope.accountId,headerMediaUrl);
+    // A card's own image link (new-arrivals campaigns) is held to the same rule as the header.
+    for(const card of extras.value.cards??[])await assertMedia(tx,scope.accountId,card.headerMediaUrl);
     const tracked=trackedButtonIndex(template);
     if(scheduledAt)await requireFeature(tx,scope.accountId,'campaign_scheduling');
     if(tracked>=0)await requireFeature(tx,scope.accountId,'click_tracking');
     if(tracked>=0&&!(input.trackedUrl&&validTrackedUrl(input.trackedUrl)))invalid('This template tracks link clicks: enter the HTTPS page the button should open');
     // Header media, body count and the tracking button are the same for every recipient, so one sample validates the campaign.
-    try{buildSendComponents(template,{...extras.value,...splitFrozenParams(template,keys.map(()=>'x')),...(headerMediaUrl?{headerMediaUrl}:{}),...(tracked>=0?{buttonParams:{[tracked]:'x'}}:{})});}
+    try{buildSendComponents(template,{...extras.value,...(()=>{const split=splitFrozenParams(template,keys.map(()=>'x'));return {...split,cards:mergeCampaignCards(split.cards,extras.value.cards)};})(),...(headerMediaUrl?{headerMediaUrl}:{}),...(tracked>=0?{buttonParams:{[tracked]:'x'}}:{})});}
     catch(error){
       // Standard templates keep the general hint; the new kinds name the missing value (location, offer end, card).
       invalid(templateKindOf(template)==='standard'||!(error instanceof Error)?'Template send parameters are incomplete; check header media, body variables and link buttons':error.message);
