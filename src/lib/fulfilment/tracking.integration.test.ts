@@ -29,6 +29,8 @@ vi.mock('./connection', async (original) => ({
 }));
 
 import { disconnectDatabases, getPrisma } from '@/lib/db/prisma';
+import { withTenant } from '@/lib/db/tenant';
+import { orderLinesShipped } from './shipments';
 import { cancelAndRefund, recordDelivery, recordDispatch, type StaffContext } from '@/lib/commerce/order-lifecycle';
 import { POST as trackingRoute } from '@/app/api/fulfilment/tracking/[accountId]/route';
 import { resolveShipmentException } from './exceptions';
@@ -83,8 +85,12 @@ async function shipment(orderId: string, account = accountA, conn = connA): Prom
 }
 
 const statusOf = async (id: string) => (await db.query('SELECT status FROM orders WHERE id=$1', [id])).rows[0].status as string;
-const liveRow = (orderId: string) => db.query(`INSERT INTO order_shipments(account_id,order_id,connection_id,reference,length_cm,breadth_cm,
-  height_cm,weight_grams) VALUES($1,$2,$3,$4,10,10,10,500)`, [accountA, orderId, connA, `bx${randomUUID().replace(/-/g, '').slice(0, 12)}`]);
+/**
+ * Units of the order that no live shipment carries (split shipments: the server refuses a new shipment
+ * when this is 0; the one-live-shipment unique index is gone).
+ */
+const unshipped = async (orderId: string) => (await withTenant(asAdmin, (tx) => orderLinesShipped(tx, accountA, orderId)))
+  .reduce((n, line) => n + line.quantity - line.shipped, 0);
 const shipmentRow = async (id: string) => (await db.query(`SELECT tracking_status, tracking_rank, tracking_event_at, provider_dispatched_at,
   provider_delivered_at FROM order_shipments WHERE id=$1`, [id])).rows[0];
 const notices = async (orderId: string) => (await db.query(`SELECT dedupe_key FROM jobs WHERE tenant_id=$1 AND dedupe_key LIKE $2 ORDER BY dedupe_key`,
@@ -344,7 +350,7 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('courier tracking (FUL-02) o
   it('a Shiprocket cancel before any dispatch scan frees the order for a new shipment, once, as the system', async () => {
     const o = await order('paid');
     const s = await shipment(o);
-    await expect(liveRow(o)).rejects.toThrow();
+    expect(await unshipped(o)).toBe(0);
     h.scans.set(s.awb, [CANCELLED(2)]);
     await track(s);
     await track(s);
@@ -353,8 +359,8 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('courier tracking (FUL-02) o
     expect((await db.query(`SELECT actor FROM order_events WHERE order_id=$1 AND kind='shipment_cancelled'`, [o])).rows).toEqual([{ actor: 'system' }]);
     expect(await statusOf(o)).toBe('paid');
     expect(await exceptions(s.id)).toEqual([]);
-    // The one-live-shipment slot (partial unique index) is free again.
-    await liveRow(o);
+    // The cancelled parcel's units are free for a new shipment again.
+    expect(await unshipped(o)).toBe(2);
   });
 
   it('a cancel claimed by staff is left to staff; a cancel after a pickup scan opens an exception and keeps the slot', async () => {
@@ -371,7 +377,7 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('courier tracking (FUL-02) o
     await track(out);
     expect((await db.query('SELECT create_state FROM order_shipments WHERE id=$1', [out.id])).rows[0].create_state).toBe('created');
     expect((await exceptions(out.id)).map((e) => [e.kind, e.observed_status])).toEqual([['order_conflict', 'cancelled']]);
-    await expect(liveRow(o2)).rejects.toThrow();
+    expect(await unshipped(o2)).toBe(0);
   });
 
   it('a lost parcel can be released with "recreate" after the admin checked with the courier', async () => {
@@ -383,7 +389,7 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('courier tracking (FUL-02) o
     expect(lost).toMatchObject({ kind: 'lost_or_damaged', status: 'open' });
     await resolveShipmentException(asAdmin, lost.id, 'recreate');
     expect((await db.query('SELECT create_state FROM order_shipments WHERE id=$1', [s.id])).rows[0].create_state).toBe('failed');
-    await liveRow(o);
+    expect(await unshipped(o)).toBe(2);
   });
 
   it('a second contradiction with another observed status opens its own exception while the first is open', async () => {

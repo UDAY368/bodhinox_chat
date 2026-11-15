@@ -359,7 +359,7 @@ export async function loadBoughtTogether(tx: TenantTransaction, accountId: strin
     JOIN shop_variants v2 ON v2.account_id=i2.account_id AND v2.id=i2.variant_id
     JOIN shop_products p ON p.account_id=v2.account_id AND p.id=v2.product_id AND p.status='published'
     WHERE o.account_id=${accountId}::uuid AND o.created_at > now() - interval '365 days'
-      AND (o.status IN ('paid','dispatched','fulfilled') OR (o.status='confirmed' AND o.payment_method='cod'))
+      AND (o.status IN ('paid','partially_shipped','dispatched','fulfilled') OR (o.status='confirmed' AND o.payment_method='cod'))
       AND v1.product_id = ANY(${seedIds}::uuid[]) AND v2.product_id <> ALL(${seedIds}::uuid[])
     GROUP BY v2.product_id, p.name
     ORDER BY count(DISTINCT o.id) DESC, p.name, v2.product_id
@@ -589,7 +589,7 @@ export async function previewCartTx(tx: TenantTransaction, accountId: string, li
 }
 
 /** Every line must be on sale now; the stored cart of a code or a challenge is always sellable when saved. */
-async function assertSellable(tx: TenantTransaction, accountId: string, lines: CartLine[]): Promise<void> {
+export async function assertSellable(tx: TenantTransaction, accountId: string, lines: CartLine[]): Promise<void> {
   const preview = await previewCartTx(tx, accountId, lines);
   if (preview.removed.length) throw new StoreError('variant_unavailable', { variantId: preview.removed[0] });
 }
@@ -600,7 +600,7 @@ const storedCart = (value: unknown): CartLine[] => (Array.isArray(value) ? value
     ? [{ variantId: (l as { variant_id: string }).variant_id, qty: (l as { qty: number }).qty }] : []);
 
 /** Put a cart into a freshly issued session (version 1, nothing else set yet). */
-async function seedSessionCart(tx: TenantTransaction, accountId: string, sessionId: string, lines: CartLine[]): Promise<void> {
+export async function seedSessionCart(tx: TenantTransaction, accountId: string, sessionId: string, lines: CartLine[]): Promise<void> {
   const seeded = await tx.$executeRaw`UPDATE storefront_sessions SET cart=${cartJson(lines)}::jsonb
     WHERE account_id=${accountId}::uuid AND id=${sessionId}::uuid AND cart='[]'::jsonb AND order_id IS NULL`;
   // The session now has items for the first time: the one abandoned-cart reminder, when the store has a delay set.
@@ -623,9 +623,11 @@ export const PUBLIC_SHOP_LIMITS = {
   cartCodeMiss: { action: 'shop_cart_code_miss', maximum: 10, windowSeconds: 3600 },
   /** identity: client IP; "Notify me on WhatsApp" codes */
   stockAlertIp: { action: 'shop_stock_alert_ip', maximum: 20, windowSeconds: 3600 },
+  /** identity: sha256 of the buyer's account cookie; changes and "check out as" from a signed-in buyer */
+  customerMutate: { action: 'shop_customer_mutate', maximum: 60, windowSeconds: 600 },
 } as const;
 
-function limit(kind: keyof typeof PUBLIC_SHOP_LIMITS, identity: string): Promise<void> {
+export function enforceShopLimit(kind: keyof typeof PUBLIC_SHOP_LIMITS, identity: string): Promise<void> {
   const { action, maximum, windowSeconds } = PUBLIC_SHOP_LIMITS[kind];
   return enforceAuthRateLimit(action, identity, maximum, windowSeconds);
 }
@@ -683,7 +685,7 @@ async function loadOtpSender(tx: TenantTransaction, accountId: string, row: Stor
 }
 
 /** The shop is open for an order: a storefront row, checkout configured and on. */
-async function openShopRow(tx: TenantTransaction, accountId: string): Promise<StorefrontRow> {
+export async function openShopRow(tx: TenantTransaction, accountId: string): Promise<StorefrontRow> {
   await assertStoreOpenTx(tx, accountId, 'shop');
   const row = await loadStorefrontRow(tx, accountId);
   if (!row) throw new StoreError('not_found');
@@ -691,6 +693,13 @@ async function openShopRow(tx: TenantTransaction, accountId: string): Promise<St
 }
 
 export interface OtpStartInput { phone: unknown; cart: unknown; clientIp: string }
+
+/**
+ * What a code is for. A challenge is stored with its purpose and each verify
+ * reads only its own, so the cart's code never signs a buyer in and the
+ * account page's code never opens checkout.
+ */
+export type OtpPurpose = 'checkout' | 'sign_in';
 
 /**
  * Send a one-time code to the buyer's WhatsApp for this cart. Returns the
@@ -701,23 +710,34 @@ export interface OtpStartInput { phone: unknown; cart: unknown; clientIp: string
 export async function startOtp(handle: string, input: OtpStartInput): Promise<{ challengeId: string; expiresAt: string } | null> {
   const phone = normaliseBuyerPhone(input.phone);
   if (!phone) throw new StoreError('invalid', { field: 'phone' });
-  const lines = parseCartLines(input.cart);
+  return sendOtp(handle, { phone, lines: parseCartLines(input.cart), purpose: 'checkout', clientIp: input.clientIp });
+}
+
+/**
+ * The one send path for every code: the same template, limits per IP and per
+ * number, and outbound intent. A checkout code needs the shop open for orders
+ * and a sellable cart; a sign-in code (no cart) needs only the shop itself.
+ */
+export async function sendOtp(handle: string, input: { phone: string; lines: CartLine[]; purpose: OtpPurpose; clientIp: string }):
+  Promise<{ challengeId: string; expiresAt: string } | null> {
+  const { phone, lines, purpose } = input;
   const accountId = await resolvePublicShop(handle);
   if (!accountId) return null;
-  await limit('otpStartIp', input.clientIp);
+  await enforceShopLimit('otpStartIp', input.clientIp);
   const code = newOtpCode();
   let prepared: { challengeId: string; expiresAt: Date; sender: OtpSender };
   try {
     prepared = await inShopTenant(accountId, async (tx) => {
-      const row = await openShopRow(tx, accountId);
+      const row = purpose === 'checkout' ? await openShopRow(tx, accountId) : await loadStorefrontRow(tx, accountId);
+      if (!row) throw new StoreError('not_found');
       const sender = await loadOtpSender(tx, accountId, row);
-      await assertSellable(tx, accountId, lines);
+      if (purpose === 'checkout') await assertSellable(tx, accountId, lines);
       // Per number, after every other check, so a closed shop never spends the buyer's allowance.
-      await limit('otpStartPhone', `${accountId}:${phone}`);
+      await enforceShopLimit('otpStartPhone', `${accountId}:${phone}`);
       const challengeId = randomUUID();
       const [inserted] = await tx.$queryRaw<{ expires_at: Date }[]>`
-        INSERT INTO shop_otp_challenges(id,account_id,phone,code_hash,cart,expires_at)
-        VALUES(${challengeId}::uuid,${accountId}::uuid,${phone},${otpHash(challengeId, code)},${cartJson(lines)}::jsonb,
+        INSERT INTO shop_otp_challenges(id,account_id,phone,code_hash,cart,purpose,expires_at)
+        VALUES(${challengeId}::uuid,${accountId}::uuid,${phone},${otpHash(challengeId, code)},${cartJson(lines)}::jsonb,${purpose},
           now() + make_interval(mins => ${OTP.ttlMinutes}))
         RETURNING expires_at`;
       return { challengeId, expiresAt: inserted.expires_at, sender };
@@ -742,7 +762,7 @@ export async function startOtp(handle: string, input: OtpStartInput): Promise<{ 
 
 export interface OtpVerifyInput { challengeId: unknown; code: unknown; clientIp: string }
 
-interface ChallengeRow { id: string; phone: string; code_hash: string; cart: unknown; attempts: number; expires_at: Date;
+export interface ChallengeRow { id: string; phone: string; code_hash: string; cart: unknown; attempts: number; expires_at: Date;
   verified_at: Date | null; session_id: string | null }
 
 /**
@@ -751,39 +771,60 @@ interface ChallengeRow { id: string; phone: string; code_hash: string; cart: unk
  * verified challenge answers the same link. Refusals: otp_invalid,
  * otp_expired, otp_locked, contact_blocked, too_many.
  */
-export async function verifyOtp(handle: string, input: OtpVerifyInput): Promise<{ url: string } | null> {
+/** The challenge id and code of a verify request, format-checked (otp_invalid otherwise). */
+export function parseOtpVerify(input: { challengeId: unknown; code: unknown }): { challengeId: string; code: string } {
   if (!isUuid(input.challengeId) || typeof input.code !== 'string' || !/^\d{6}$/.test(input.code.trim()))
     throw new StoreError('otp_invalid');
-  const challengeId = input.challengeId;
-  const code = input.code.trim();
+  return { challengeId: input.challengeId, code: input.code.trim() };
+}
+
+/**
+ * Check a code against its challenge and count the attempt (committed even
+ * when it is wrong). Only a challenge of the asked purpose is found: a code of
+ * the other purpose is otp_invalid like an unknown one. `replay` is true when
+ * the challenge was verified before with this same code.
+ */
+export async function checkOtp(accountId: string, challengeId: string, code: string, purpose: OtpPurpose):
+  Promise<{ row: ChallengeRow; replay: boolean }> {
+  const checked = await inShopTenant(accountId, async (tx) => {
+    const [row] = await tx.$queryRaw<ChallengeRow[]>`
+      SELECT id::text AS id, phone, code_hash, cart, attempts, expires_at, verified_at, session_id::text AS session_id
+      FROM shop_otp_challenges WHERE account_id=${accountId}::uuid AND id=${challengeId}::uuid AND purpose=${purpose} FOR UPDATE`;
+    if (!row) return { ok: false as const, code: 'otp_invalid' as const };
+    const expected = Buffer.from(row.code_hash, 'hex');
+    const given = Buffer.from(otpHash(challengeId, code), 'hex');
+    const match = expected.length === given.length && timingSafeEqual(expected, given);
+    if (row.verified_at) return match ? { ok: true as const, row, replay: true } : { ok: false as const, code: 'otp_invalid' as const };
+    if (row.attempts >= OTP.maxAttempts) return { ok: false as const, code: 'otp_locked' as const };
+    if (row.expires_at.getTime() <= Date.now()) return { ok: false as const, code: 'otp_expired' as const };
+    await tx.$executeRaw`UPDATE shop_otp_challenges SET attempts=attempts+1,
+      verified_at=CASE WHEN ${match} THEN now() ELSE verified_at END WHERE account_id=${accountId}::uuid AND id=${challengeId}::uuid`;
+    return match ? { ok: true as const, row, replay: false } : { ok: false as const, code: 'otp_invalid' as const };
+  });
+  if (!checked.ok) throw new StoreError(checked.code);
+  return { row: checked.row, replay: checked.replay };
+}
+
+/** The buyer's contact for a verified phone (created like an API contact, inside the plan's contact limit). */
+export async function buyerContactId(accountId: string, phone: string): Promise<string> {
+  const db = createAdminClient({ accountId, role: 'owner' });
+  const auditUserId = await resolveAuditUserId(db, accountId);
+  return (await findOrCreateContact(db, accountId, auditUserId, { phone }, { enforceLimit: true })).id;
+}
+
+export async function verifyOtp(handle: string, input: OtpVerifyInput): Promise<{ url: string } | null> {
+  const { challengeId, code } = parseOtpVerify(input);
   const accountId = await resolvePublicShop(handle);
   if (!accountId) return null;
-  await limit('otpVerifyIp', input.clientIp);
+  await enforceShopLimit('otpVerifyIp', input.clientIp);
   const sessionId = seededUuid(`storefront:public-otp:${accountId}:${challengeId}`);
   try {
-    // 1. Check the code and count the attempt (committed even when it is wrong).
-    const checked = await inShopTenant(accountId, async (tx) => {
-      const [row] = await tx.$queryRaw<ChallengeRow[]>`
-        SELECT id::text AS id, phone, code_hash, cart, attempts, expires_at, verified_at, session_id::text AS session_id
-        FROM shop_otp_challenges WHERE account_id=${accountId}::uuid AND id=${challengeId}::uuid FOR UPDATE`;
-      if (!row) return { ok: false as const, code: 'otp_invalid' as const };
-      const expected = Buffer.from(row.code_hash, 'hex');
-      const given = Buffer.from(otpHash(challengeId, code), 'hex');
-      const match = expected.length === given.length && timingSafeEqual(expected, given);
-      if (row.verified_at) return match ? { ok: true as const, row } : { ok: false as const, code: 'otp_invalid' as const };
-      if (row.attempts >= OTP.maxAttempts) return { ok: false as const, code: 'otp_locked' as const };
-      if (row.expires_at.getTime() <= Date.now()) return { ok: false as const, code: 'otp_expired' as const };
-      await tx.$executeRaw`UPDATE shop_otp_challenges SET attempts=attempts+1,
-        verified_at=CASE WHEN ${match} THEN now() ELSE verified_at END WHERE account_id=${accountId}::uuid AND id=${challengeId}::uuid`;
-      return match ? { ok: true as const, row } : { ok: false as const, code: 'otp_invalid' as const };
-    });
-    if (!checked.ok) throw new StoreError(checked.code);
+    // 1. Check the code (a checkout challenge only).
+    const checked = await checkOtp(accountId, challengeId, code, 'checkout');
     if (checked.row.session_id) return { url: await sessionUrl(accountId, checked.row.session_id) };
 
-    // 2. The buyer's contact (created like an API contact, inside the plan's contact limit).
-    const db = createAdminClient({ accountId, role: 'owner' });
-    const auditUserId = await resolveAuditUserId(db, accountId);
-    const contact = await findOrCreateContact(db, accountId, auditUserId, { phone: checked.row.phone }, { enforceLimit: true });
+    // 2. The buyer's contact.
+    const contact = { id: await buyerContactId(accountId, checked.row.phone) };
 
     // 3. The session, replay-safe by challenge.
     const url = await inShopTenant(accountId, async (tx) => {
@@ -851,7 +892,7 @@ export async function createCartCode(handle: string, input: { cart: unknown; cli
   const lines = parseCartLines(input.cart);
   const accountId = await resolvePublicShop(handle);
   if (!accountId) return null;
-  await limit('cartCodeIp', input.clientIp);
+  await enforceShopLimit('cartCodeIp', input.clientIp);
   try {
     return await inShopTenant(accountId, async (tx) => {
       const row = await openShopRow(tx, accountId);
@@ -891,7 +932,7 @@ export async function createStockAlert(handle: string, input: { variantId: unkno
   const variantId = input.variantId;
   const accountId = await resolvePublicShop(handle);
   if (!accountId) return null;
-  await limit('stockAlertIp', input.clientIp);
+  await enforceShopLimit('stockAlertIp', input.clientIp);
   try {
     return await inShopTenant(accountId, async (tx) => {
       const row = await loadStorefrontRow(tx, accountId);
@@ -949,7 +990,7 @@ export async function codeLimitReached(contactId: string): Promise<boolean> {
 
 export async function countMiss(contactId: string): Promise<void> {
   try {
-    await limit('cartCodeMiss', contactId);
+    await enforceShopLimit('cartCodeMiss', contactId);
   } catch (error) {
     if (!(error instanceof AuthError && error.status === 429)) throw error;
   }

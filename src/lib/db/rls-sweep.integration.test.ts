@@ -44,6 +44,7 @@ const KNOWN_APP_READABLE_SECRETS: Record<string, string> = {
   "account_invitations.token_hash": "hash only; invitation lookup",
   "appointments.manage_token_hash": "hash only; manage-link lookup",
   "broadcast_recipients.click_token": "click-tracking token, not a credential",
+  "courier_connections.secret_hint": "masked hint (last 4 characters) of the courier key, shown in settings; the key itself is encrypted and not app-readable",
   "contacts.inbound_created_meta_id": "internalFields: provider id, stripped by contracts",
   "conversations.inbound_created_meta_id": "internalFields: provider id, stripped by contracts",
   "jobs.lease_token": "queue fencing token, not a credential",

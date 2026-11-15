@@ -31,7 +31,7 @@ import {
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export type OrderErrorCode = 'invalid' | 'not_found' | 'bad_transition' | 'conflict' | 'shipment_live' | 'order_refunded'
-  | 'return_window_closed';
+  | 'return_window_closed' | 'invalid_gstin' | 'seller_gstin_missing' | 'buyer_gstin_missing' | 'invoice_issued';
 export class OrderError extends Error {
   constructor(readonly status: number, readonly code: OrderErrorCode, message: string) {
     super(message);

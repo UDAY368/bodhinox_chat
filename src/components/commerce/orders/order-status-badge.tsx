@@ -11,6 +11,7 @@ const TONE: Record<OrderStatus, string> = {
   awaiting_payment: "border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300",
   payment_review: "border-rose-500/40 bg-rose-500/10 text-rose-700 dark:text-rose-300",
   paid: "border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
+  partially_shipped: "border-cyan-500/40 bg-cyan-500/10 text-cyan-700 dark:text-cyan-300",
   dispatched: "border-teal-500/40 bg-teal-500/10 text-teal-700 dark:text-teal-300",
   fulfilled: "border-border bg-muted text-foreground",
   expired: "border-border bg-muted text-muted-foreground",

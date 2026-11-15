@@ -66,6 +66,8 @@ export interface PricingVariant {
   sellable: boolean;
   /** The product allows cash on delivery (absent = allowed). */
   codAvailable?: boolean;
+  /** Shipping weight of one unit in grams (absent or null counts as 0). */
+  weightGrams?: number | null;
 }
 
 export interface PricingSettings {
@@ -88,6 +90,18 @@ export interface PricingShippingRate {
   feeMinor: number;
   taxRateBps: number | null;
   position: number;
+  /** Zone: state names or codes. A rate with no prefixes and no states covers the whole country. */
+  states?: string[];
+  /** Weight slab: feeMinor covers up to baseWeightGrams, then extraPerStepMinor for every started stepGrams. Both step fields set, or neither. */
+  baseWeightGrams?: number | null;
+  stepGrams?: number | null;
+  extraPerStepMinor?: number | null;
+  /** A cart heavier than this is not shipped by this rate. */
+  maxWeightGrams?: number | null;
+  /** The fee is 0 once the merchandise (after discounts) reaches this. */
+  freeOverMinor?: number | null;
+  /** Cash on delivery is allowed for this zone (absent = allowed). */
+  codAllowed?: boolean;
 }
 
 export interface PricingCoupon {
@@ -104,6 +118,9 @@ export interface PricingCoupon {
 export interface PricingAddress {
   country: string;
   postalCode: string;
+  /** State name and/or code, matched against a rate's states without regard to case. */
+  state?: string | null;
+  stateCode?: string | null;
 }
 
 export interface CartLine {
@@ -211,29 +228,74 @@ export function couponDiscount(coupon: PricingCoupon, subtotal: number, now: Dat
 }
 
 const postal = (value: string) => value.toUpperCase().replace(/[\s-]/g, '');
+const stateKey = (value: string) => value.toUpperCase().replace(/[^0-9A-Z]/g, '');
+
+/** The fee of `rate` for a cart: the base fee plus the weight slab, or 0 past the free threshold. */
+export function shippingFeeMinor(rate: PricingShippingRate, weightGrams: number, merchandiseMinor: number): number {
+  if (rate.freeOverMinor != null && merchandiseMinor >= rate.freeOverMinor) return 0;
+  if (rate.stepGrams == null || rate.extraPerStepMinor == null || rate.stepGrams < 1) return rate.feeMinor;
+  const over = Math.max(0, weightGrams - (rate.baseWeightGrams ?? 0));
+  const steps = Math.ceil(over / rate.stepGrams);
+  const fee = BigInt(rate.feeMinor) + BigInt(steps) * BigInt(rate.extraPerStepMinor);
+  return fee > BigInt(MAX_MINOR) ? MAX_MINOR : Number(fee);
+}
 
 /**
- * The shipping rate for an address and merchandise amount (after discount):
- * the longest matching postal prefix wins (an empty list matches the whole
- * country with length 0), then the lower position, then the lower fee.
+ * The shipping rate for an address, cart weight and merchandise amount (after
+ * discount). A postal prefix match beats a state match, which beats a
+ * whole-country rate (empty prefixes and states); among prefixes the longest
+ * wins, then the lower position, then the lower fee. A rate whose weight limit
+ * the cart exceeds is skipped.
  */
-export function pickShippingRate(rates: readonly PricingShippingRate[], address: PricingAddress, merchandiseMinor: number): PricingShippingRate | null {
+export function pickShippingRate(rates: readonly PricingShippingRate[], address: PricingAddress, merchandiseMinor: number,
+  options: { weightGrams?: number } = {}): PricingShippingRate | null {
   const code = postal(address.postalCode);
-  let best: { rate: PricingShippingRate; specificity: number } | null = null;
+  const weight = options.weightGrams ?? 0;
+  const states = new Set([address.state, address.stateCode].flatMap((s) => (s ? [stateKey(s)] : [])));
+  let best: { rate: PricingShippingRate; specificity: number; fee: number } | null = null;
   for (const rate of rates) {
     if (rate.country !== address.country.toUpperCase()) continue;
     if (merchandiseMinor < rate.minSubtotalMinor) continue;
     if (rate.maxSubtotalMinor !== null && merchandiseMinor > rate.maxSubtotalMinor) continue;
+    if (rate.maxWeightGrams != null && weight > rate.maxWeightGrams) continue;
+    const zoneStates = rate.states ?? [];
     let specificity = -1;
-    if (!rate.postalPrefixes.length) specificity = 0;
-    else for (const prefix of rate.postalPrefixes) if (code.startsWith(prefix)) specificity = Math.max(specificity, prefix.length);
+    if (!rate.postalPrefixes.length && !zoneStates.length) specificity = 0;
+    for (const prefix of rate.postalPrefixes) if (code.startsWith(prefix)) specificity = Math.max(specificity, 10 + prefix.length);
+    if (zoneStates.some((s) => states.has(stateKey(s)))) specificity = Math.max(specificity, 5);
     if (specificity < 0) continue;
+    const fee = shippingFeeMinor(rate, weight, merchandiseMinor);
     if (!best || specificity > best.specificity
       || (specificity === best.specificity && (rate.position < best.rate.position
-        || (rate.position === best.rate.position && rate.feeMinor < best.rate.feeMinor))))
-      best = { rate, specificity };
+        || (rate.position === best.rate.position && fee < best.fee))))
+      best = { rate, specificity, fee };
   }
   return best?.rate ?? null;
+}
+
+export interface ShippingQuoteForPincode {
+  deliverable: boolean;
+  /** The shipping fee in minor units (0 when not deliverable). */
+  priceMinor: number;
+  /** The zone allows cash on delivery. The store-wide COD switch and each product's flag are separate. */
+  cod: boolean;
+  rateName: string | null;
+}
+
+/**
+ * Can the store ship to this pincode, at what price, and does that zone take
+ * COD. Pass the workspace's active rates (`selectRates(...).map(pricingRate)`).
+ * Pure: no database.
+ */
+export function quoteShippingForPincode(rates: readonly PricingShippingRate[], input: {
+  pincode: string; country?: string; state?: string | null; stateCode?: string | null; weightGrams?: number; subtotalMinor?: number;
+}): ShippingQuoteForPincode {
+  const weight = Math.max(0, Math.floor(input.weightGrams ?? 0));
+  const subtotal = input.subtotalMinor ?? 0;
+  const rate = pickShippingRate(rates, { country: input.country ?? 'IN', postalCode: input.pincode, state: input.state, stateCode: input.stateCode },
+    subtotal, { weightGrams: weight });
+  if (!rate) return { deliverable: false, priceMinor: 0, cod: false, rateName: null };
+  return { deliverable: true, priceMinor: shippingFeeMinor(rate, weight, subtotal), cod: rate.codAllowed !== false, rateName: rate.name };
 }
 
 function safeAdd(...values: number[]): number | null {
@@ -301,23 +363,29 @@ export function priceCart(input: PriceCartInput): PricingResult {
   if (lineTax === null) return { ok: false, code: 'amount_out_of_range' };
 
   let shipping: Quote['shipping'] = null;
+  let zoneCod = true;
   if (input.address) {
-    const rate = pickShippingRate(input.shippingRates, input.address, subtotal - discount);
+    // Cart weight from the server's own variant rows; a variant with no weight counts as 0.
+    const weightGrams = priced.reduce((sum, p) => sum + (p.variant.weightGrams ?? 0) * p.qty, 0);
+    const merchandise = subtotal - discount;
+    const rate = pickShippingRate(input.shippingRates, input.address, merchandise, { weightGrams });
     if (!rate) return { ok: false, code: 'shipping_unavailable' };
+    zoneCod = rate.codAllowed !== false;
+    const rateFee = shippingFeeMinor(rate, weightGrams, merchandise);
     let bps = rate.taxRateBps ?? settings.defaultTaxRateBps;
     if (bps === null) {
-      if (rate.feeMinor > 0 && !auto.freeShipping) return { ok: false, code: 'tax_not_configured' };
+      if (rateFee > 0 && !auto.freeShipping) return { ok: false, code: 'tax_not_configured' };
       bps = 0;
     }
     // A free-shipping rule waives the fee of the rate that would have applied.
-    const feeMinor = auto.freeShipping ? 0 : rate.feeMinor;
-    if (auto.freeShipping && rate.feeMinor > 0)
-      autoDiscounts.push({ ...auto.freeShipping, kind: 'free_shipping_over', savingMinor: rate.feeMinor });
+    const feeMinor = auto.freeShipping ? 0 : rateFee;
+    if (auto.freeShipping && rateFee > 0)
+      autoDiscounts.push({ ...auto.freeShipping, kind: 'free_shipping_over', savingMinor: rateFee });
     shipping = { rateId: rate.id, name: rate.name, feeMinor, taxRateBps: bps, taxMinor: taxOn(feeMinor, bps, inclusive) };
   }
   const shippingMinor = shipping?.feeMinor ?? 0;
 
-  const codAvailable = settings.codEnabled === true && quoteLines.every((l) => l.codAvailable);
+  const codAvailable = settings.codEnabled === true && zoneCod && quoteLines.every((l) => l.codAvailable);
   let codFee: Quote['codFee'] = null;
   if (paymentMethod === 'cod') {
     if (!codAvailable) return { ok: false, code: 'cod_unavailable' };

@@ -63,7 +63,8 @@ describe('store currency lock', () => {
 
   it('holds the settings row shared before inserting a shipping rate', async () => {
     await createShippingRate(ctx, { name: 'Std', country: 'IN', postal_prefixes: [], min_subtotal_minor: 0, max_subtotal_minor: null,
-      fee_minor: 4900, tax_rate_bps: null, active: true, position: 0 });
+      fee_minor: 4900, tax_rate_bps: null, active: true, position: 0,
+      states: [], base_weight_grams: null, step_grams: null, extra_per_step_minor: null, max_weight_grams: null, free_over_minor: null, cod_allowed: true });
     const lock = calls.findIndex((s) => /FROM commerce_settings .*FOR SHARE/.test(s));
     expect(lock).toBeGreaterThanOrEqual(0);
     expect(lock).toBeLessThan(calls.findIndex((s) => s.includes('INSERT INTO shipping_rates')));

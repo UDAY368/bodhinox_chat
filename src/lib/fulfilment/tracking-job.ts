@@ -24,74 +24,16 @@ import { lockOrder, systemDeliver, systemDispatch } from '@/lib/commerce/order-l
 import { orderEventTx } from '@/lib/payments/ledger';
 import { deriveTracking, type TrackingEvent } from './derive-tracking';
 import { openShipmentException, isTrackingStatus } from './exceptions';
-import { shiprocketCall, shiprocketDisabled, ShiprocketError } from './shiprocket-client';
-import { normalizeShiprocket, parseShiprocketTime } from './status-map';
+import { getCourierProvider } from './providers';
+import { CourierError, type CourierProviderId } from './providers/types';
 import { SHIPMENT_TRACK_JOB, ShipmentError, type ShipmentJobPayload, type TrackingEventSource, type TrackingStatus } from './types';
 
 /** Re-fetches are coalesced: pushes within this window share one job run. */
 export const TRACK_COALESCE_MS = 30_000;
-const MAX_SCANS = 500;
 const AWB = /^[A-Za-z0-9-]{4,40}$/;
 
-type Json = Record<string, unknown>;
-const isObject = (v: unknown): v is Json => Boolean(v) && typeof v === 'object' && !Array.isArray(v);
-
-function trackingData(body: unknown, awb: string): Json | null {
-  if (Array.isArray(body)) {
-    for (const item of body.slice(0, 5)) {
-      const found = trackingData(item, awb);
-      if (found) return found;
-    }
-    return null;
-  }
-  if (!isObject(body)) return null;
-  if (isObject(body.tracking_data)) return body.tracking_data;
-  const keyed = body[awb];
-  if (isObject(keyed) && isObject(keyed.tracking_data)) return keyed.tracking_data;
-  return null;
-}
-
-function providerCode(code: unknown, label: unknown): string | null {
-  if (typeof code === 'number' && Number.isSafeInteger(code)) return String(code);
-  if (typeof code === 'string' && /^\d{1,4}$/.test(code.trim())) return code.trim();
-  if (typeof label === 'string') {
-    const slug = label.trim().toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
-    if (slug) return `label_${slug}`.slice(0, 40);
-  }
-  return null;
-}
-
-function scan(code: unknown, label: unknown, at: unknown): TrackingEvent | null {
-  const status = normalizeShiprocket(typeof code === 'number' || typeof code === 'string' ? code : null, typeof label === 'string' ? label : null);
-  if (status === 'unrecognised') return null;
-  const eventAt = parseShiprocketTime(typeof at === 'string' ? at : null);
-  const pc = providerCode(code, label);
-  return eventAt && pc ? { status, providerCode: pc, eventAt } : null;
-}
-
-/**
- * The normalised scans in a Shiprocket tracking response (status, provider
- * code, time only: no location, activity text or customer field survives).
- * Unmapped ("NA") and undated scans are dropped.
- */
-export function parseTrackingResponse(body: unknown, awb: string): TrackingEvent[] {
-  const data = trackingData(body, awb);
-  if (!data) return [];
-  const events: TrackingEvent[] = [];
-  const activities = Array.isArray(data.shipment_track_activities) ? data.shipment_track_activities.slice(0, MAX_SCANS) : [];
-  for (const a of activities) {
-    if (!isObject(a)) continue;
-    const event = scan(a['sr-status'], a['sr-status-label'] ?? a.status, a.date);
-    if (event) events.push(event);
-  }
-  // The delivery itself, when Shiprocket reports it with a date but no scan for it yet.
-  const track = Array.isArray(data.shipment_track) && isObject(data.shipment_track[0]) ? data.shipment_track[0] : null;
-  if (track && typeof track.delivered_date === 'string') {
-    const event = scan(data.shipment_status, track.current_status, track.delivered_date);
-    if (event?.status === 'delivered') events.push(event);
-  }
-  return events;
-}
+// The Shiprocket response parser lives in providers/shiprocket.ts; re-exported so existing imports keep working.
+export { parseTrackingResponse } from './providers/shiprocket';
 
 /** A tracking push minimised to {awb, code, ts} (the route's receipt payload): no names, phones, addresses or scan locations. */
 export function minimiseShiprocketPush(body: unknown): { awb: string; code: string | null; ts: string | null } | null {
@@ -130,35 +72,36 @@ export async function enqueueShipmentTrack(tx: TenantTransaction, accountId: str
   if (current?.status === 'running') await arm(`${key}:next`);
 }
 
-export interface TrackTarget { id: string; order_id: string; awb: string }
+export interface TrackTarget { id: string; order_id: string; awb: string; provider: CourierProviderId }
 
 async function loadTarget(accountId: string, shipmentId: string): Promise<TrackTarget | null> {
   return withTenant({ accountId }, async (tx) => {
-    const [row] = await tx.$queryRaw<{ id: string; order_id: string; awb: string | null; create_state: string; live: boolean }[]>`
-      SELECT s.id::text AS id, s.order_id::text AS order_id, s.awb, s.create_state,
-        EXISTS (SELECT 1 FROM courier_connections c WHERE c.account_id=s.account_id AND c.status='active') AS live
+    const [row] = await tx.$queryRaw<{ id: string; order_id: string; awb: string | null; create_state: string; provider: CourierProviderId; live: boolean }[]>`
+      SELECT s.id::text AS id, s.order_id::text AS order_id, s.awb, s.create_state, s.provider,
+        EXISTS (SELECT 1 FROM courier_connections c WHERE c.account_id=s.account_id AND c.provider=s.provider AND c.status='active') AS live
       FROM order_shipments s WHERE s.account_id=${accountId}::uuid AND s.id=${shipmentId}::uuid`;
     if (!row || !row.live || row.create_state !== 'created' || !row.awb || !AWB.test(row.awb)) return null;
-    return { id: row.id, order_id: row.order_id, awb: row.awb };
+    return { id: row.id, order_id: row.order_id, awb: row.awb, provider: row.provider };
   }, getWorkerPrisma());
 }
 
 /** commerce.shipment_track job. */
 export async function handleShipmentTrackJob(accountId: string, payload: ShipmentJobPayload): Promise<void> {
-  if (shiprocketDisabled()) return;
   const target = await loadTarget(accountId, payload.shipmentId);
   if (!target) return;
-  let body: unknown;
+  const adapter = getCourierProvider(target.provider);
+  if (adapter.disabled()) return;
+  let scans: TrackingEvent[];
   try {
-    body = await shiprocketCall(accountId, 'GET', `/courier/track/awb/${encodeURIComponent(target.awb)}`);
+    scans = await adapter.track(accountId, { awb: target.awb });
   } catch (error) {
     // Not connected any more, or a definite refusal (unknown AWB, bad token): a
     // retry cannot help; the sweep polls again later. Ambiguous or throttled → retry.
     if (error instanceof ShipmentError && ['not_connected', 'not_configured', 'auth', 'feature_unavailable'].includes(error.code)) return;
-    if (error instanceof ShiprocketError && (error.kind === 'rejected' || error.kind === 'auth')) return;
+    if (error instanceof CourierError && (error.kind === 'rejected' || error.kind === 'auth')) return;
     throw error;
   }
-  await applyTracking(accountId, target, parseTrackingResponse(body, target.awb), 'refetch');
+  await applyTracking(accountId, target, scans, 'refetch');
 }
 
 /**

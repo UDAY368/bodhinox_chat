@@ -178,6 +178,68 @@ export async function rereserveTx(tx: TenantTransaction, accountId: string, orde
   return true;
 }
 
+/**
+ * Order edit: move what one order holds (an unpaid order: reserved) or sold (a paid order: on hand)
+ * by `delta` units per variant, in ascending variant order. A positive delta needs that many units
+ * available (StockError out_of_stock otherwise, and the caller's transaction rolls back); a negative
+ * one gives units back. The order's reservation row follows, so a later commit, release or
+ * cancel-and-refund restock reads the edited quantity. Untracked variants are skipped.
+ */
+export async function adjustOrderStockTx(tx: TenantTransaction, accountId: string, orderId: string,
+  changes: ReadonlyArray<{ variantId: string; delta: number }>, opts: { committed: boolean; actorUserId?: string | null }): Promise<void> {
+  const merged = new Map<string, number>();
+  for (const c of changes) {
+    if (!UUID.test(c.variantId) || !Number.isInteger(c.delta) || Math.abs(c.delta) > MAX_UNITS) throw new StockError('invalid', 'invalid', c.variantId);
+    merged.set(c.variantId.toLowerCase(), (merged.get(c.variantId.toLowerCase()) ?? 0) + c.delta);
+  }
+  const ordered = [...merged].filter(([, delta]) => delta !== 0).sort((a, b) => (a[0] < b[0] ? -1 : 1));
+  const tracked = await trackedIds(tx, accountId, ordered.map(([id]) => id));
+  const status = opts.committed ? 'committed' : 'held';
+  for (const [variantId, delta] of ordered) {
+    if (!tracked.has(variantId)) continue;
+    const [row] = await tx.$queryRaw<{ id: string; quantity: number; status: string }[]>`
+      SELECT id::text AS id, quantity, status FROM stock_reservations
+      WHERE account_id=${accountId}::uuid AND order_id=${orderId}::uuid AND variant_id=${variantId}::uuid FOR UPDATE`;
+    const current = row && row.status === status ? row.quantity : 0;
+    if (delta > 0) {
+      const [level] = opts.committed
+        ? await tx.$queryRaw<LevelRow[]>`UPDATE inventory_levels SET on_hand = on_hand - ${delta}
+            WHERE account_id=${accountId}::uuid AND variant_id=${variantId}::uuid AND on_hand - reserved >= ${delta}
+            RETURNING variant_id::text AS variant_id, on_hand, reserved`
+        : await tx.$queryRaw<LevelRow[]>`UPDATE inventory_levels SET reserved = reserved + ${delta}
+            WHERE account_id=${accountId}::uuid AND variant_id=${variantId}::uuid AND on_hand - reserved >= ${delta}
+            RETURNING variant_id::text AS variant_id, on_hand, reserved`;
+      if (!level) throw new StockError('out_of_stock', 'out_of_stock', variantId);
+      await tx.$executeRaw`INSERT INTO stock_reservations(account_id,order_id,variant_id,quantity,status,expires_at)
+        VALUES(${accountId}::uuid,${orderId}::uuid,${variantId}::uuid,${current + delta},${status},NULL)
+        ON CONFLICT (account_id,order_id,variant_id) DO UPDATE SET quantity=EXCLUDED.quantity,status=EXCLUDED.status,expires_at=NULL`;
+      await movement(tx, accountId, { variantId, kind: opts.committed ? 'sale' : 'reserve', quantity: opts.committed ? -delta : delta,
+        level, orderId, reason: 'order_edit', actorUserId: opts.actorUserId ?? null });
+      if (opts.committed) await maybeNotifyLowStockTx(tx, accountId, variantId);
+      continue;
+    }
+    // Never gives back more than the order holds or sold of this variant.
+    const back = Math.min(-delta, current);
+    if (back <= 0 || !row) continue;
+    const [level] = opts.committed
+      ? await tx.$queryRaw<LevelRow[]>`UPDATE inventory_levels SET on_hand = on_hand + ${back}
+          WHERE account_id=${accountId}::uuid AND variant_id=${variantId}::uuid
+          RETURNING variant_id::text AS variant_id, on_hand, reserved`
+      : await tx.$queryRaw<LevelRow[]>`UPDATE inventory_levels SET reserved = reserved - ${back}
+          WHERE account_id=${accountId}::uuid AND variant_id=${variantId}::uuid
+          RETURNING variant_id::text AS variant_id, on_hand, reserved`;
+    if (current - back > 0)
+      await tx.$executeRaw`UPDATE stock_reservations SET quantity=${current - back} WHERE account_id=${accountId}::uuid AND id=${row.id}::uuid`;
+    else
+      await tx.$executeRaw`UPDATE stock_reservations SET status='released' WHERE account_id=${accountId}::uuid AND id=${row.id}::uuid`;
+    if (!level) continue;
+    const id = await movement(tx, accountId, { variantId, kind: opts.committed ? 'refund_restock' : 'release', quantity: opts.committed ? back : -back,
+      level, orderId, reason: 'order_edit', actorUserId: opts.actorUserId ?? null });
+    await wakeAlertsTx(tx, accountId, variantId, id, level.on_hand - level.reserved - back, level);
+    if (opts.committed) await maybeNotifyLowStockTx(tx, accountId, variantId);
+  }
+}
+
 async function upsertLevel(tx: TenantTransaction, accountId: string, variantId: string): Promise<void> {
   const [variant] = await tx.$queryRaw<{ id: string }[]>`
     SELECT id::text AS id FROM shop_variants WHERE account_id=${accountId}::uuid AND id=${variantId}::uuid`;

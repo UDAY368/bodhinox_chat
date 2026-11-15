@@ -19,7 +19,8 @@ import { withTenant } from '@/lib/db/tenant';
 import { zoomConfig } from '@/lib/meetings/config';
 import { loadCourierSecrets } from './connection';
 import { reconcileShipment, requeueUnsentShipment } from './shipments';
-import { shiprocketDisabled } from './shiprocket-client';
+import { allCourierProviders } from './providers';
+import type { CourierProviderId } from './providers/types';
 import { TRACKING_RANK } from './status-map';
 import { enqueueShipmentTrack } from './tracking-job';
 import { FULFILMENT_SWEEP_JOB } from './types';
@@ -43,7 +44,7 @@ export async function scheduleFulfilmentSweeps(now: number = Date.now(), force =
   if (!force && now - lastSchedule < FULFILMENT_SWEEP_INTERVAL_MS) return 0;
   lastSchedule = now;
   // Nothing can be called: no query either.
-  if (shiprocketDisabled() && !zoomConfig()) return 0;
+  if (allCourierProviders().every((p) => p.disabled()) && !zoomConfig()) return 0;
   let accounts: { account_id: string }[];
   try {
     accounts = await getWorkerPrisma().$queryRaw<{ account_id: string }[]>`
@@ -78,8 +79,8 @@ export interface FulfilmentSweepSummary {
   failures: number;
 }
 
-async function sweepShipments(accountId: string, summary: FulfilmentSweepSummary): Promise<void> {
-  const secrets = await loadCourierSecrets(accountId);
+async function sweepShipments(accountId: string, summary: FulfilmentSweepSummary, provider: CourierProviderId): Promise<void> {
+  const secrets = await loadCourierSecrets(accountId, provider);
   if (!secrets || secrets.status !== 'active') return;
   const connectionId = secrets.connectionId;
   const work = await withTenant({ accountId, role: 'owner' }, async (tx) => {
@@ -105,7 +106,7 @@ async function sweepShipments(accountId: string, summary: FulfilmentSweepSummary
     await tx.$executeRaw`INSERT INTO shipment_exceptions(account_id, shipment_id, kind)
       SELECT s.account_id, s.id, CASE WHEN s.create_state IN ('unknown','creating') THEN 'create_unknown' ELSE 'awb_unknown' END
       FROM order_shipments s
-      WHERE s.account_id=${accountId}::uuid AND s.connection_id<>${connectionId}::uuid AND (
+      WHERE s.account_id=${accountId}::uuid AND s.provider=${provider} AND s.connection_id<>${connectionId}::uuid AND (
           s.create_state='unknown'
           OR (s.create_state='creating' AND s.claim_token IS NOT NULL AND s.claimed_until <= now())
           OR (s.create_state='created' AND (s.awb_state='unknown'
@@ -152,9 +153,11 @@ async function sweepShipments(accountId: string, summary: FulfilmentSweepSummary
 /** Polls stale tracking, opens stale_tracking exceptions, reconciles ambiguous shipments and meetings, refreshes ageing Zoom tokens. */
 export async function runFulfilmentSweep(accountId: string): Promise<FulfilmentSweepSummary> {
   const summary: FulfilmentSweepSummary = { polled: 0, stale: 0, reconciled: 0, requeued: 0, failures: 0 };
-  if (!shiprocketDisabled()) {
+  // One pass per courier the deployment has not switched off (a workspace may have several connected).
+  for (const provider of allCourierProviders()) {
+    if (provider.disabled()) continue;
     try {
-      await sweepShipments(accountId, summary);
+      await sweepShipments(accountId, summary, provider.id);
     } catch (error) {
       summary.failures += 1;
       console.error('[fulfilment] shipment sweep failed', error instanceof Error ? error.name : 'unknown');

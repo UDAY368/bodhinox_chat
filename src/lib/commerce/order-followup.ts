@@ -87,7 +87,7 @@ export interface FollowupOrderRow {
 
 /** Why this kind no longer applies to the order (a skip code), or null. */
 export function followupApplies(order: FollowupOrderRow, kind: OrderFollowupKind): string | null {
-  if (kind === 'dispatched') return order.status === 'dispatched' ? null : 'stale_status';
+  if (kind === 'dispatched') return order.status === 'dispatched' || order.status === 'partially_shipped' ? null : 'stale_status';
   if (order.status !== 'fulfilled') return 'stale_status';
   if (order.refund_state === 'full' && kind !== 'delivered') return 'refunded';
   if (kind === 'feedback' && order.feedback_score != null) return 'feedback_recorded';

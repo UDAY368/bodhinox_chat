@@ -12,6 +12,7 @@
 import { getWorkerPrisma } from '@/lib/db/prisma';
 import { withTenant, type TenantContext, type TenantTransaction } from '@/lib/db/tenant';
 import { formatMoney, minorFromDb, mulDivHalfUp } from './money';
+import { lineTaxableMinor, placeOfSupply as placeOfSupplyOf, taxInvoiceSplit } from './tax-invoice';
 
 /** commerce.issue_receipt — dedupe receipt:<paymentId>, queued by settlement. */
 export interface IssueReceiptJobPayload {
@@ -23,7 +24,7 @@ export interface IssueCreditNoteJobPayload {
   refundId: string;
 }
 
-export type DocumentErrorCode = 'not_found' | 'not_applicable';
+export type DocumentErrorCode = 'not_found' | 'not_applicable' | 'seller_gstin_missing' | 'buyer_gstin_missing' | 'invoice_issued';
 export class DocumentError extends Error {
   constructor(readonly code: DocumentErrorCode, message: string = code) {
     super(message);
@@ -31,7 +32,7 @@ export class DocumentError extends Error {
   }
 }
 
-export type DocumentKind = 'receipt' | 'credit_note';
+export type DocumentKind = 'receipt' | 'credit_note' | 'tax_invoice';
 
 export interface DocumentLine {
   name: string;
@@ -43,6 +44,8 @@ export interface DocumentLine {
   tax_rate_bps: number | null;
   tax_minor: number;
   line_total_minor: number;
+  /** Tax invoices only: the line's value before tax. */
+  taxable_minor?: number;
 }
 
 export interface CommerceDocument {
@@ -56,7 +59,8 @@ export interface CommerceDocument {
   payment_id: string | null;
   refund_id: string | null;
   seller: { legal_name: string | null; gstin: string | null; address: string | null; state_code: string | null };
-  buyer: { name: string | null };
+  /** gstin, legal_name and place_of_supply (a GST state code) are set on a tax invoice and on the credit note of one. */
+  buyer: { name: string | null; gstin: string | null; legal_name: string | null; place_of_supply: string | null };
   address: Record<string, string> | null;
   line_items: DocumentLine[];
   subtotal_minor: number;
@@ -167,13 +171,13 @@ async function nextNumber(tx: TenantTransaction, accountId: string, fy: string):
 interface OrderSnapshot {
   id: string; contact_id: string | null; currency: string; subtotal_minor: bigint; discount_minor: bigint; shipping_minor: bigint;
   tax_minor: bigint; total_minor: bigint | null; tax_inclusive: boolean | null; priced_at: Date | null; shipping_address: unknown;
-  cod_fee_minor: bigint;
+  cod_fee_minor: bigint; buyer_gstin: string | null; buyer_legal_name: string | null;
 }
 
 async function orderSnapshot(tx: TenantTransaction, accountId: string, orderId: string) {
   const [order] = await tx.$queryRaw<OrderSnapshot[]>`
     SELECT id, contact_id, currency, subtotal_minor, discount_minor, shipping_minor, tax_minor, total_minor, tax_inclusive,
-      priced_at, shipping_address, cod_fee_minor
+      priced_at, shipping_address, cod_fee_minor, buyer_gstin, buyer_legal_name
     FROM orders WHERE account_id=${accountId}::uuid AND id=${orderId}::uuid`;
   if (!order) return null;
   const items = await tx.$queryRaw<{
@@ -226,6 +230,8 @@ interface Draft {
   subtotal: number; discount: number; shipping: number; tax: number; total: number;
   /** The COD fee line (absent = 0). */
   codFee?: number;
+  /** A business buyer (tax invoice, or the credit note of one): GSTIN, legal name and the GST state of supply. */
+  buyerTax?: { gstin: string; legalName: string | null; placeOfSupply: string | null };
 }
 
 async function insertDocument(tx: TenantTransaction, accountId: string, draft: Draft): Promise<string> {
@@ -234,7 +240,7 @@ async function insertDocument(tx: TenantTransaction, accountId: string, draft: D
   const fy = financialYear(now, s.timezone || 'UTC');
   const seq = await nextNumber(tx, accountId, fy);
   const number = documentNumber(s.document_prefix || 'RCPT', fy, seq);
-  const split = gstSplit(draft.tax, s.state_code, draft.address);
+  const split = draft.buyerTax ? taxInvoiceSplit(draft.tax, s.state_code, draft.buyerTax.placeOfSupply) : gstSplit(draft.tax, s.state_code, draft.address);
   const sellerJson = { legal_name: s.legal_name || s.account_name.slice(0, 200), gstin: s.gstin, address: s.address, state_code: s.state_code };
   const [row] = await tx.$queryRaw<{ id: string }[]>`
     INSERT INTO commerce_documents(account_id, order_id, appointment_id, payment_id, refund_id, kind, number, fy, currency,
@@ -242,7 +248,9 @@ async function insertDocument(tx: TenantTransaction, accountId: string, draft: D
       igst_minor, total_minor, issued_at, cod_fee_minor)
     VALUES(${accountId}::uuid, ${draft.orderId}::uuid, ${draft.appointmentId}::uuid, ${draft.paymentId}::uuid,
       ${draft.refundId}::uuid, ${draft.kind}, ${number}, ${fy}, ${draft.currency}, ${JSON.stringify(sellerJson)}::jsonb,
-      ${JSON.stringify({ name: draft.buyer })}::jsonb, ${draft.address ? JSON.stringify(draft.address) : null}::jsonb,
+      ${JSON.stringify(draft.buyerTax
+        ? { name: draft.buyer, gstin: draft.buyerTax.gstin, legal_name: draft.buyerTax.legalName, place_of_supply: draft.buyerTax.placeOfSupply }
+        : { name: draft.buyer })}::jsonb, ${draft.address ? JSON.stringify(draft.address) : null}::jsonb,
       ${JSON.stringify(draft.lines)}::jsonb, ${draft.subtotal}, ${draft.discount}, ${draft.shipping}, ${draft.tax},
       ${split.cgst_minor}, ${split.sgst_minor}, ${split.igst_minor}, ${draft.total}, ${now}, ${draft.codFee ?? 0})
     RETURNING id::text AS id`;
@@ -278,12 +286,20 @@ export async function issueReceiptTx(tx: TenantTransaction, accountId: string, p
   const [existing] = await tx.$queryRaw<{ id: string }[]>`SELECT id::text AS id FROM commerce_documents
     WHERE account_id=${accountId}::uuid AND payment_id=${paymentId}::uuid AND kind='receipt'`;
   if (existing) return existing.id;
+  if (payment.order_id) {
+    // One tax invoice covers the order: a later payment of it gets no second document.
+    const [invoice] = await tx.$queryRaw<{ id: string }[]>`SELECT id::text AS id FROM commerce_documents
+      WHERE account_id=${accountId}::uuid AND order_id=${payment.order_id}::uuid AND kind='tax_invoice'`;
+    if (invoice) return invoice.id;
+  }
   if (payment.status !== 'captured' || payment.settlement !== 'settled') throw new DocumentError('not_applicable');
   const amount = minorFromDb(payment.amount_minor)!;
 
   if (payment.order_id) {
     const snap = await orderSnapshot(tx, accountId, payment.order_id);
     if (!snap) throw new DocumentError('not_applicable');
+    // A business buyer (GSTIN on the order) takes a tax invoice in place of the receipt, when the seller has a GSTIN.
+    if (snap.order.buyer_gstin && (await seller(tx, accountId)).gstin) return issueTaxInvoiceTx(tx, accountId, payment.order_id, paymentId);
     return insertDocument(tx, accountId, {
       kind: 'receipt', currency: snap.order.currency, orderId: payment.order_id, appointmentId: null, paymentId, refundId: null,
       buyer: await buyerName(tx, accountId, snap.order.contact_id), address: documentAddress(snap.order.shipping_address),
@@ -309,6 +325,49 @@ export async function issueReceiptTx(tx: TenantTransaction, accountId: string, p
 }
 
 /**
+ * Issue (or return the existing) GST tax invoice of an order (Store Phase 5). One per order: the order row lock
+ * and the unique index on (workspace, order) serialise issuers, and a replay returns the same document. The
+ * order needs a buyer GSTIN (DocumentError 'buyer_gstin_missing') and the seller a GSTIN ('seller_gstin_missing');
+ * an unpriced or cancelled order, or an unpaid prepaid one (when no settled payment is given), is 'not_applicable'. Place of supply is the buyer
+ * GSTIN's state; CGST + SGST when it is the seller's state, IGST otherwise. Numbers come from the same
+ * gap-free series as receipts and credit notes.
+ */
+export async function issueTaxInvoiceTx(tx: TenantTransaction, accountId: string, orderId: string, paymentId: string | null = null): Promise<string> {
+  const [locked] = await tx.$queryRaw<{ id: string }[]>`SELECT id::text AS id FROM orders
+    WHERE account_id=${accountId}::uuid AND id=${orderId}::uuid FOR UPDATE`;
+  if (!locked) throw new DocumentError('not_found', 'Order not found');
+  const [existing] = await tx.$queryRaw<{ id: string }[]>`SELECT id::text AS id FROM commerce_documents
+    WHERE account_id=${accountId}::uuid AND order_id=${orderId}::uuid AND kind='tax_invoice'`;
+  if (existing) return existing.id;
+  const snap = await orderSnapshot(tx, accountId, orderId);
+  if (!snap) throw new DocumentError('not_found', 'Order not found');
+  const gstin = snap.order.buyer_gstin;
+  if (!gstin) throw new DocumentError('buyer_gstin_missing');
+  const s = await seller(tx, accountId);
+  if (!s.gstin) throw new DocumentError('seller_gstin_missing');
+  const [state] = await tx.$queryRaw<{ status: string; priced: boolean; paid: boolean; cod: boolean }[]>`
+    SELECT status, priced_at IS NOT NULL AS priced, paid_at IS NOT NULL AS paid, payment_method='cod' AS cod FROM orders
+    WHERE account_id=${accountId}::uuid AND id=${orderId}::uuid`;
+  if (!state.priced || ['cancelled', 'expired'].includes(state.status) || (!paymentId && !(state.paid || state.cod))) throw new DocumentError('not_applicable');
+  let payment = paymentId;
+  if (!payment) {
+    const [latest] = await tx.$queryRaw<{ id: string }[]>`SELECT id::text AS id FROM customer_payments
+      WHERE account_id=${accountId}::uuid AND order_id=${orderId}::uuid AND status='captured' AND settlement='settled'
+      ORDER BY captured_at DESC NULLS LAST, id LIMIT 1`;
+    payment = latest?.id ?? null;
+  }
+  const address = documentAddress(snap.order.shipping_address);
+  return insertDocument(tx, accountId, {
+    kind: 'tax_invoice', currency: snap.order.currency, orderId, appointmentId: null, paymentId: payment, refundId: null,
+    buyer: await buyerName(tx, accountId, snap.order.contact_id), address,
+    lines: snap.lines.map((l) => ({ ...l, taxable_minor: lineTaxableMinor(l.line_total_minor, l.tax_minor) })),
+    subtotal: snap.subtotal_minor, discount: snap.discount_minor, shipping: snap.shipping_minor,
+    codFee: snap.cod_fee_minor, tax: snap.tax_minor, total: snap.total_minor,
+    buyerTax: { gstin, legalName: snap.order.buyer_legal_name, placeOfSupply: placeOfSupplyOf(gstin, address) },
+  });
+}
+
+/**
  * Issue (or return the existing) credit note for a processed refund. Returns
  * the document id. Only a payment that got a receipt takes a credit note: a
  * refund of an exception or unattached payment reverses no invoiced supply
@@ -328,11 +387,13 @@ export async function issueCreditNoteTx(tx: TenantTransaction, accountId: string
   if (refund.status !== 'processed' || !payment) throw new DocumentError('not_applicable');
   // The receipt is the invoiced supply this note reverses; without one there is nothing to credit.
   const [receipt] = await tx.$queryRaw<{ id: string }[]>`SELECT id::text AS id FROM commerce_documents
-    WHERE account_id=${accountId}::uuid AND payment_id=${refund.payment_id}::uuid AND kind='receipt'`;
+    WHERE account_id=${accountId}::uuid AND (payment_id=${refund.payment_id}::uuid AND kind='receipt'
+      OR (order_id=${payment.order_id}::uuid AND kind='tax_invoice')) LIMIT 1`;
   if (!receipt) throw new DocumentError('not_applicable');
   const amount = minorFromDb(refund.amount_minor)!;
 
   let orderId: string | null = null, buyer: string | null = null, address: Record<string, string> | null = null, tax = 0;
+  let buyerTax: Draft['buyerTax'];
   if (payment.order_id) {
     // Serialises the order's credit notes (lock order: payment -> order), so the cumulative tax share is exact.
     await tx.$queryRaw`SELECT 1 FROM orders WHERE account_id=${accountId}::uuid AND id=${payment.order_id}::uuid FOR UPDATE`;
@@ -344,6 +405,12 @@ export async function issueCreditNoteTx(tx: TenantTransaction, accountId: string
       const [prior] = await tx.$queryRaw<{ n: bigint | number | null }[]>`SELECT COALESCE(sum(total_minor),0) AS n FROM commerce_documents
         WHERE account_id=${accountId}::uuid AND order_id=${payment.order_id}::uuid AND kind='credit_note'`;
       tax = refundTaxShare(amount, snap.total_minor, snap.tax_minor, minorFromDb(prior?.n) ?? 0);
+      // The credit note of a tax invoice names the same business buyer and splits the tax by the same place of supply.
+      const [invoice] = await tx.$queryRaw<{ id: string }[]>`SELECT id::text AS id FROM commerce_documents
+        WHERE account_id=${accountId}::uuid AND order_id=${payment.order_id}::uuid AND kind='tax_invoice'`;
+      if (invoice && snap.order.buyer_gstin) {
+        buyerTax = { gstin: snap.order.buyer_gstin, legalName: snap.order.buyer_legal_name, placeOfSupply: placeOfSupplyOf(snap.order.buyer_gstin, address) };
+      }
     }
   } else if (payment.appointment_id) {
     const [appt] = await tx.$queryRaw<{ contact_id: string | null }[]>`SELECT contact_id::text AS contact_id FROM appointments
@@ -352,7 +419,7 @@ export async function issueCreditNoteTx(tx: TenantTransaction, accountId: string
   }
   return insertDocument(tx, accountId, {
     kind: 'credit_note', currency: refund.currency, orderId, appointmentId: payment.appointment_id, paymentId: null, refundId,
-    buyer, address,
+    buyer, address, buyerTax,
     lines: [{ name: 'Refund', sku: null, hsn_code: null, quantity: 1, unit_price_minor: amount, discount_minor: 0,
       tax_rate_bps: null, tax_minor: tax, line_total_minor: amount }],
     // The refunded amount includes its tax share.
@@ -403,7 +470,8 @@ function toDocument(row: DocumentDbRow): CommerceDocument {
     id: row.id, kind: row.kind, number: row.number, fy: row.fy, currency: row.currency, order_id: row.order_id,
     appointment_id: row.appointment_id, payment_id: row.payment_id, refund_id: row.refund_id,
     seller: { legal_name: str(s.legal_name), gstin: str(s.gstin), address: str(s.address), state_code: str(s.state_code) },
-    buyer: { name: str(obj(row.buyer).name) },
+    buyer: { name: str(obj(row.buyer).name), gstin: str(obj(row.buyer).gstin), legal_name: str(obj(row.buyer).legal_name),
+      place_of_supply: str(obj(row.buyer).place_of_supply) },
     address: row.address ? Object.fromEntries(Object.entries(address).filter(([, v]) => typeof v === 'string')) as Record<string, string> : null,
     line_items: Array.isArray(row.line_items) ? (row.line_items as DocumentLine[]) : [],
     subtotal_minor: minorFromDb(row.subtotal_minor)!, discount_minor: minorFromDb(row.discount_minor)!,
@@ -436,6 +504,7 @@ export interface DocumentLabels {
   billTo: string; shipTo: string; item: string; hsn: string; qty: string; price: string; discount: string; tax: string;
   amount: string; subtotal: string; shipping: string; cgst: string; sgst: string; igst: string; total: string;
   taxIncluded: string; codFee: string;
+  placeOfSupply: string; taxable: string; rate: string;
 }
 
 /**
@@ -444,14 +513,16 @@ export interface DocumentLabels {
  */
 export function renderCommerceDocumentHtml(doc: CommerceDocument, labels: DocumentLabels, locale = 'en'): string {
   const m = (minor: number) => escapeHtml(formatMoney(minor, doc.currency, locale));
-  const title = doc.kind === 'credit_note' ? labels.creditNote : doc.seller.gstin ? labels.taxInvoice : labels.receipt;
+  const business = doc.buyer.gstin !== null;
+  const invoice = doc.kind === 'tax_invoice';
+  const title = doc.kind === 'credit_note' ? labels.creditNote : invoice || doc.seller.gstin ? labels.taxInvoice : labels.receipt;
   const issued = new Intl.DateTimeFormat(locale, { dateStyle: 'medium' }).format(new Date(doc.issued_at));
   const addressLines = doc.address
     ? ['name', 'line1', 'line2', 'city', 'state', 'postal_code', 'country'].map((k) => doc.address![k]).filter(Boolean)
     : [];
   const rows = doc.line_items.map((l) => `<tr><td>${escapeHtml(l.name)}${l.sku ? `<div class="muted">${escapeHtml(l.sku)}</div>` : ''}</td>
 <td>${escapeHtml(l.hsn_code ?? '')}</td><td class="num">${escapeHtml(l.quantity)}</td><td class="num">${m(l.unit_price_minor)}</td>
-<td class="num">${l.discount_minor ? m(l.discount_minor) : ''}</td><td class="num">${l.tax_minor ? m(l.tax_minor) : ''}</td>
+<td class="num">${l.discount_minor ? m(l.discount_minor) : ''}</td>${invoice ? `<td class="num">${m(l.taxable_minor ?? l.line_total_minor - l.tax_minor)}</td><td class="num">${l.tax_rate_bps === null ? '' : `${l.tax_rate_bps / 100}%`}</td>` : ''}<td class="num">${l.tax_minor ? m(l.tax_minor) : ''}</td>
 <td class="num">${m(l.line_total_minor)}</td></tr>`).join('\n');
   const total = (label: string, minor: number, strong = false) =>
     `<tr${strong ? ' class="strong"' : ''}><td>${escapeHtml(label)}</td><td class="num">${m(minor)}</td></tr>`;
@@ -477,10 +548,11 @@ h1{font-size:22px;margin:0 0 4px}.muted{color:#555;font-size:12px}.cols{display:
 <h1>${escapeHtml(title)}</h1><div class="muted">${escapeHtml(labels.number)}: ${escapeHtml(doc.number)} · ${escapeHtml(labels.date)}: ${escapeHtml(issued)}</div>
 <div class="cols"><div><strong>${escapeHtml(labels.seller)}</strong><div>${escapeHtml(doc.seller.legal_name ?? '')}</div>
 <div>${escapeHtml(doc.seller.address ?? '')}</div>${doc.seller.gstin ? `<div>${escapeHtml(labels.gstin)}: ${escapeHtml(doc.seller.gstin)}</div>` : ''}</div>
-<div><strong>${escapeHtml(labels.billTo)}</strong><div>${escapeHtml(doc.buyer.name ?? '')}</div></div>
+<div><strong>${escapeHtml(labels.billTo)}</strong>${doc.buyer.legal_name ? `<div>${escapeHtml(doc.buyer.legal_name)}</div>` : ''}<div>${escapeHtml(doc.buyer.name ?? '')}</div>
+${business ? `<div>${escapeHtml(labels.gstin)}: ${escapeHtml(doc.buyer.gstin)}</div>` : ''}${doc.buyer.place_of_supply ? `<div>${escapeHtml(labels.placeOfSupply)}: ${escapeHtml(doc.buyer.place_of_supply)}</div>` : ''}</div>
 ${addressLines.length ? `<div><strong>${escapeHtml(labels.shipTo)}</strong>${addressLines.map((l) => `<div>${escapeHtml(l)}</div>`).join('')}</div>` : ''}</div>
 <table><thead><tr><th>${escapeHtml(labels.item)}</th><th>${escapeHtml(labels.hsn)}</th><th class="num">${escapeHtml(labels.qty)}</th>
-<th class="num">${escapeHtml(labels.price)}</th><th class="num">${escapeHtml(labels.discount)}</th><th class="num">${escapeHtml(labels.tax)}</th>
+<th class="num">${escapeHtml(labels.price)}</th><th class="num">${escapeHtml(labels.discount)}</th>${invoice ? `<th class="num">${escapeHtml(labels.taxable)}</th><th class="num">${escapeHtml(labels.rate)}</th>` : ''}<th class="num">${escapeHtml(labels.tax)}</th>
 <th class="num">${escapeHtml(labels.amount)}</th></tr></thead><tbody>${rows}</tbody></table>
 <table class="totals"><tbody>${totals}</tbody></table>
 ${doc.tax_inclusive ? `<p class="muted">${escapeHtml(labels.taxIncluded)}</p>` : ''}

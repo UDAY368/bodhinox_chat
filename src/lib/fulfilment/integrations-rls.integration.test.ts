@@ -178,9 +178,12 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('phase 9 integration tables 
       refresh_token_enc=NULL WHERE id=$1::uuid`, ids.meetingConn);
     expect(await getWorkerPrisma().$queryRaw<unknown[]>`SELECT * FROM crm_resolve_zoom_connection(${zoomAccount})`).toEqual([]);
     await worker({ accountId: accountB, role: 'owner' }, `INSERT INTO meeting_connections(zoom_account_id) VALUES($1)`, zoomAccount);
-    // Shipments: one live shipment per order, and an AWB belongs to one shipment.
+    // Shipments: an order may hold several live shipments (split shipments; the server keeps each line's shipped
+    // quantity within the ordered one), but only the worker writes them, and a reference keeps its form.
+    expect(await fails(app(asAdmin, `INSERT INTO order_shipments(order_id,connection_id,reference,length_cm,breadth_cm,height_cm,weight_grams)
+      VALUES($1::uuid,$2::uuid,'bxyyyyyyyyyyyy',1,1,1,1)`, ids.order, ids.courierConn))).toBe(true);
     expect(await fails(worker(asWorkerA, `INSERT INTO order_shipments(order_id,connection_id,reference,length_cm,breadth_cm,height_cm,weight_grams)
-      VALUES($1::uuid,$2::uuid,'bxzzzzzzzzzzzz',1,1,1,1)`, ids.order, ids.courierConn))).toBe(true);
+      VALUES($1::uuid,$2::uuid,'bxzzzzzzzzzzzz',1,1,1,1)`, ids.order, ids.courierConn))).toBe(false);
     expect(await fails(worker(asWorkerA, `UPDATE order_shipments SET reference='BX-not-ours' WHERE id=$1::uuid`, ids.shipment))).toBe(true);
   });
 

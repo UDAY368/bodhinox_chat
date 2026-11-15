@@ -37,6 +37,7 @@ import {
 } from './storefront';
 import { deriveStorefrontToken, storefrontUrl } from './storefront-token';
 import { isUuid, loadPricingSettings, StoreError } from './store-settings';
+import { parseBuyerTaxIdentity } from './tax-invoice';
 
 /** commerce.prepare_whatsapp_order — dedupe prep:<orderId>, queued by recordWhatsAppOrder. */
 export interface PrepareWhatsAppOrderJobPayload {
@@ -152,6 +153,9 @@ export interface PlaceInput {
    * reads as unknown and never sends.
    */
   marketingOptIn?: boolean;
+  /** A business buyer's GSTIN and legal name (optional). A GSTIN that fails the format, state or check-character test is refused. */
+  buyerGstin?: unknown;
+  buyerLegalName?: unknown;
 }
 
 export interface PlaceResult {
@@ -172,6 +176,8 @@ export async function placeOrder(accountId: string, sessionId: string, input: Pl
   if (!isUuid(sessionId) || !isUuid(input.clientRequestId) || !Number.isInteger(input.expectedVersion)
     || !Number.isSafeInteger(input.expectedTotalMinor) || input.expectedTotalMinor < 0
     || (input.marketingOptIn !== undefined && typeof input.marketingOptIn !== 'boolean')) throw new StoreError('invalid');
+  const buyerTax = parseBuyerTaxIdentity(input.buyerGstin, input.buyerLegalName);
+  if (!buyerTax) throw new StoreError('invalid', { field: 'buyer_gstin' });
   const optIn = input.marketingOptIn ?? null;
   const optInAt = optIn === null ? null : now;
   const optInVersion = optIn === null ? null : MARKETING_OPT_IN_VERSION;
@@ -223,12 +229,13 @@ export async function placeOrder(accountId: string, sessionId: string, input: Pl
     if (!existing) {
       await tx.$executeRaw`INSERT INTO orders(id,account_id,source,contact_id,conversation_id,whatsapp_config_id,currency,subtotal_minor,
           discount_minor,shipping_minor,tax_minor,tax_inclusive,total_minor,coupon_code,shipping_address,storefront_session_id,status,
-          marketing_opt_in,marketing_opt_in_at,marketing_opt_in_version,payment_method,cod_fee_minor,auto_discount_minor,discount_details)
+          marketing_opt_in,marketing_opt_in_at,marketing_opt_in_version,payment_method,cod_fee_minor,auto_discount_minor,discount_details,
+          buyer_gstin,buyer_legal_name)
         VALUES(${orderId}::uuid,${accountId}::uuid,'storefront',${session.contact_id}::uuid,${session.conversation_id}::uuid,
           ${session.whatsapp_config_id}::uuid,${quote.currency},${quote.subtotalMinor},${quote.discountMinor},${quote.shippingMinor},
           ${quote.taxMinor},${quote.taxInclusive},${quote.totalMinor},${quote.couponCode},${address}::jsonb,${session.id}::uuid,'new',
           ${optIn}::boolean,${optInAt}::timestamptz,${optInVersion}::text,${quote.paymentMethod},${quote.codFeeMinor},
-          ${quote.autoDiscountMinor},${discountDetails}::jsonb)`;
+          ${quote.autoDiscountMinor},${discountDetails}::jsonb,${buyerTax.gstin},${buyerTax.legal_name})`;
       for (const line of quote.lines) {
         const options = Object.values(line.optionValues).filter(Boolean).join(' / ');
         const name = (options ? `${line.productName} (${options})` : line.productName).slice(0, 500);
@@ -258,7 +265,8 @@ export async function placeOrder(accountId: string, sessionId: string, input: Pl
           coupon_code=${quote.couponCode},shipping_address=${address}::jsonb,storefront_session_id=${session.id}::uuid,
           marketing_opt_in=${optIn}::boolean,marketing_opt_in_at=${optInAt}::timestamptz,marketing_opt_in_version=${optInVersion}::text,
           payment_method=${quote.paymentMethod},cod_fee_minor=${quote.codFeeMinor},
-          auto_discount_minor=${quote.autoDiscountMinor},discount_details=${discountDetails}::jsonb
+          auto_discount_minor=${quote.autoDiscountMinor},discount_details=${discountDetails}::jsonb,
+          buyer_gstin=${buyerTax.gstin},buyer_legal_name=${buyerTax.legal_name}
         WHERE account_id=${accountId}::uuid AND id=${orderId}::uuid`;
     }
 

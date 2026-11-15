@@ -95,6 +95,14 @@ export const CASES: Case[] = [
   { route: 'commerce/orders/[id]/cancel-refund', method: 'POST', params: id('orderId'), body: () => ({ reason: 'p15' }) },
   { route: 'commerce/orders/[id]/offline-payment', method: 'POST', params: id('orderId'), body: () => ({ amount: '10.00', method: 'cash', client_request_id: randomUUID() }) },
   { route: 'commerce/orders/[id]/returns', method: 'GET', params: id('orderId') },
+  // GST tax invoice: another workspace's order cannot be read, edited or invoiced.
+  { route: 'commerce/orders/[id]/tax-invoice', method: 'GET', params: id('orderId') },
+  { route: 'commerce/orders/[id]/tax-invoice', method: 'PUT', params: id('orderId'), body: () => ({ gstin: '29AABCU9603R1ZJ', legal_name: 'p15 tamper' }) },
+  { route: 'commerce/orders/[id]/tax-invoice', method: 'POST', params: id('orderId'), body: () => ({}) },
+  { route: 'commerce/orders/[id]/edit', method: 'GET', params: id('orderId') },
+  { route: 'commerce/orders/[id]/edit', method: 'POST', params: id('orderId'),
+    body: () => ({ expected_version: 0, lines: [{ variant_id: randomUUID(), qty: 1 }], reason: 'p15 tamper', client_request_id: randomUUID() }) },
+  { route: 'commerce/orders/[id]/edit/[editId]/balance-link', method: 'POST', params: (b) => ({ id: b.orderId, editId: randomUUID() }) },
   { route: 'commerce/orders/[id]/shipment', method: 'GET', params: id('orderId') },
   { route: 'commerce/orders/[id]/shipment/pickup', method: 'POST', params: id('orderId') },
   { route: 'payments/links/[id]', method: 'GET', params: extra('paymentLink') },
@@ -201,7 +209,12 @@ export const CASES: Case[] = [
  * Mutation cases that refuse even on the caller's own fresh rows, for a state reason (not the tenant
  * lookup); the positive control expects exactly this status. Any other own-row 403/404 fails it.
  */
-export const OWN_ROW_REFUSALS: Record<string, { status: number; reason: string }> = {};
+export const OWN_ROW_REFUSALS: Record<string, { status: number; reason: string }> = {
+  'POST commerce/orders/[id]/edit/[editId]/balance-link': {
+    status: 404,
+    reason: 'the fixture order has no edit, so an unknown edit id is not found for its own workspace too; the owner path (and another workspace refused) is in order-edits.integration.test.ts',
+  },
+};
 
 /** Dynamic routes outside tenant-session id semantics, with the reason. */
 export const EXEMPT: Record<string, string> = {
@@ -213,6 +226,8 @@ export const EXEMPT: Record<string, string> = {
   'payments/razorpay/webhook/[accountId]': 'signature-authenticated webhook: worker-db route test',
   'fulfilment/tracking/[accountId]': 'signature-authenticated webhook: worker-db route test',
   'integrations/woocommerce/webhook/[storeId]': 'signature-authenticated webhook: worker-db route test',
+  'integrations/couriers/[provider]': 'fixed courier name (delhivery or shipway), not an id; the workspace comes from the session: couriers.integration.test.ts',
+  'integrations/couriers/[provider]/test': 'fixed courier name (delhivery or shipway), not an id; the workspace comes from the session: couriers.integration.test.ts',
   'whatsapp/forms/endpoint/[accountId]': 'Meta-encrypted data exchange endpoint, key per account',
   'reports/shared/[shareId]': 'public share link (token-authorized)',
   'reports/shared/[shareId]/info': 'public share link (token-authorized)',

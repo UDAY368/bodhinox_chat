@@ -5,7 +5,7 @@ import { canTransition, type OrderStatus, type RefundState } from "@/lib/commerc
 
 export type Tone = "ok" | "warn" | "bad" | "accent" | "neutral";
 export type PaymentState = "paid" | "pending" | "refunded" | "partlyRefunded" | "cod";
-export type FulfilmentState = "new" | "confirmed" | "shipped" | "delivered" | "cancelled" | "expired" | "review";
+export type FulfilmentState = "new" | "confirmed" | "partlyShipped" | "shipped" | "delivered" | "cancelled" | "expired" | "review";
 
 type Paymentish = { status: OrderStatus; paid_at?: string | null; refund_state?: RefundState; payment_method?: "online" | "cod" };
 
@@ -19,6 +19,7 @@ export function paymentState(o: Paymentish): PaymentState {
 
 export function fulfilmentState(status: OrderStatus): FulfilmentState {
   switch (status) {
+    case "partially_shipped": return "partlyShipped";
     case "dispatched": return "shipped";
     case "fulfilled": return "delivered";
     case "cancelled": return "cancelled";
@@ -34,7 +35,7 @@ export const COD_CONFIRM_TONE: Record<"pending" | "confirmed" | "declined", Tone
 
 export const PAYMENT_TONE: Record<PaymentState, Tone> = { paid: "ok", pending: "warn", refunded: "bad", partlyRefunded: "warn", cod: "accent" };
 export const FULFILMENT_TONE: Record<FulfilmentState, Tone> = {
-  new: "neutral", confirmed: "neutral", shipped: "accent", delivered: "ok", cancelled: "bad", expired: "neutral", review: "warn",
+  new: "neutral", confirmed: "neutral", partlyShipped: "accent", shipped: "accent", delivered: "ok", cancelled: "bad", expired: "neutral", review: "warn",
 };
 
 /** The next fulfilment step staff can take from this state, or null (the server re-checks every rule). */

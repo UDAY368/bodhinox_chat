@@ -6242,7 +6242,51 @@
       "recent": "Last 30 days",
       "loadFailed": "Couldn’t load conversion events."
     },
-    "unsavedChanges": "Unsaved changes"
+    "unsavedChanges": "Unsaved changes",
+    "couriers": {
+      "loading": "Loading…",
+      "loadFailed": "Could not load the connection.",
+      "unavailable": "{name} is switched off on this deployment.",
+      "notConnected": "Not connected. Connect your own {name} account to ship orders with it.",
+      "connectedAs": "Connected as {label}.",
+      "reconnectNeeded": "{name} refused the saved details. Enter them again to reconnect.",
+      "connectedBadge": "Connected",
+      "reconnectBadge": "Reconnect needed",
+      "notTestedBadge": "Not tested live",
+      "notTested": "{name} is not tested against the live API yet. Try it with one real order and check it in {name}'s own panel before relying on it.",
+      "delhivery": {
+        "name": "Delhivery",
+        "help": "Use your own Delhivery API token. The warehouse name must match a warehouse registered in Delhivery exactly.",
+        "labelField": "Client name",
+        "secretField": "API token"
+      },
+      "shipway": {
+        "name": "Shipway",
+        "help": "Use your own Shipway username and licence key. Shipway picks the carrier after the order is sent; cancel and labels are done in Shipway.",
+        "labelField": "Username",
+        "secretField": "Licence key"
+      },
+      "secretKeep": "Leave blank to keep {hint}",
+      "warehouse": "Warehouse (pickup location)",
+      "warehouseHelp": "Exactly as registered in Delhivery.",
+      "defaults": "Default package",
+      "length": "Length (cm)",
+      "breadth": "Breadth (cm)",
+      "height": "Height (cm)",
+      "weight": "Weight (g)",
+      "connect": "Connect",
+      "save": "Save",
+      "saved": "Saved.",
+      "saveFailed": "Could not save.",
+      "test": "Test connection",
+      "testOk": "The courier accepted the details.",
+      "testFailed": "The courier did not accept the details.",
+      "disconnect": "Disconnect",
+      "disconnectConfirm": "Disconnect {name}? The saved credentials are deleted. Existing shipments keep their records.",
+      "disconnected": "Disconnected.",
+      "disconnectFailed": "Could not disconnect.",
+      "adminOnly": "Only admins can change courier connections."
+    }
   },
   "SignupPage": {
     "passwordsMismatch": "Passwords do not match",
@@ -8248,7 +8292,8 @@
       "throttled": "Shiprocket is busy. Try again in a minute.",
       "feature_unavailable": "Courier shipping is not included in your plan.",
       "not_implemented": "This action is not available yet.",
-      "order_refunded": "This order was refunded in full, so it cannot be shipped."
+      "order_refunded": "This order was refunded in full, so it cannot be shipped.",
+      "over_shipped": "That is more than is left to ship for this item."
     }
   },
   "Api": {
@@ -9631,7 +9676,8 @@
         "cancelled": "Cancelled",
         "payment_review": "Payment review",
         "dispatched": "Dispatched",
-        "expired": "Expired"
+        "expired": "Expired",
+        "partially_shipped": "Partially shipped"
       },
       "sources": {
         "whatsapp": "WhatsApp",
@@ -9694,7 +9740,8 @@
           "order_total": "Order total",
           "order_currency": "Currency",
           "order_items_count": "Number of items",
-          "order_items": "Items"
+          "order_items": "Items",
+          "tracking_link": "Tracking link"
         }
       },
       "bubble": {
@@ -9778,12 +9825,15 @@
           "return_refunded_outside": "Return refunded outside Bodhinox",
           "manual_created": "Created by a team member",
           "cod_customer_confirmed": "Customer confirmed the COD order",
-          "cod_customer_declined": "Customer declined the COD order (not cancelled)"
+          "cod_customer_declined": "Customer declined the COD order (not cancelled)",
+          "buyer_tax_updated": "Buyer GST details changed",
+          "order_edited": "Order edited"
         },
         "documents": "Documents",
         "documentKinds": {
           "receipt": "Receipt",
-          "credit_note": "Credit note"
+          "credit_note": "Credit note",
+          "tax_invoice": "Tax invoice"
         },
         "messages": "Customer notices",
         "messageKinds": {
@@ -9818,7 +9868,124 @@
         }
       },
       "filterCodConfirmation": "Filter by COD confirmation",
-      "allCodConfirmations": "All COD confirmations"
+      "allCodConfirmations": "All COD confirmations",
+      "taxInvoice": {
+        "title": "GST tax invoice",
+        "gstin": "Buyer GSTIN",
+        "legalName": "Buyer legal name",
+        "invalid": "This is not a valid GSTIN.",
+        "locked": "The tax invoice is already issued, so the buyer details are locked.",
+        "sellerMissing": "Add your GSTIN in Store settings to issue tax invoices.",
+        "buyerMissing": "Add the buyer GSTIN first.",
+        "notYet": "A tax invoice cannot be issued for this order yet.",
+        "forbidden": "You do not have permission to do this.",
+        "error": "Something went wrong. Try again.",
+        "save": "Save buyer details",
+        "saved": "Buyer details saved.",
+        "issue": "Issue tax invoice",
+        "issued": "Tax invoice issued.",
+        "open": "Open tax invoice"
+      },
+      "edit": {
+        "title": "Order changes",
+        "open": "Edit order",
+        "blocked": {
+          "payment_link_open": "A payment link for this order is still open. Cancel it before editing the order.",
+          "refund_in_flight": "A refund for this order is still in progress. Edit the order once it is done.",
+          "not_editable": "This order can no longer be edited."
+        },
+        "balance": {
+          "due": "Balance due: {amount}",
+          "linkHelp": "Copy this payment link and send it to the customer. It is not sent automatically.",
+          "copy": "Copy link",
+          "copied": "Link copied",
+          "copyFailed": "Could not copy the link",
+          "noLink": "The payment link could not be created.",
+          "notConnected": "Razorpay is not connected, so no payment link could be created.",
+          "linkUnknown": "The payment link is still being checked with Razorpay. Try again in a moment.",
+          "createLink": "Create payment link",
+          "linkReady": "Payment link ready",
+          "linkFailed": "The payment link could not be created"
+        },
+        "history": {
+          "line": "Total changed from {before} to {after}",
+          "someone": "A team member",
+          "payment": {
+            "link_pending": "{amount} to collect",
+            "link_created": "{amount} to collect, link created",
+            "link_failed": "{amount} to collect, no link yet",
+            "link_unknown": "{amount} to collect, link being checked",
+            "link_paid": "{amount} balance paid",
+            "refund_requested": "{amount} refund requested",
+            "refund_outside": "{amount} returned outside the app"
+          }
+        },
+        "dialogTitle": "Edit order",
+        "dialogHelp": "Change quantities, add or remove items. Prices are set by the server. Nothing is saved until you confirm.",
+        "items": "Items",
+        "shipped": "{count} already shipped",
+        "added": "new",
+        "less": "One less of {name}",
+        "more": "One more of {name}",
+        "qty": "Quantity of {name}",
+        "remove": "Remove {name}",
+        "addItem": "Add an item",
+        "searchProducts": "Search products by name or SKU",
+        "noProducts": "No more products to add.",
+        "madeToOrder": "Made to order",
+        "stock": "{count} in stock",
+        "add": "Add",
+        "preview": {
+          "none": "Change something to see the new total.",
+          "checking": "Working out the new total…",
+          "row": "Amount",
+          "before": "Now",
+          "after": "After",
+          "collect": "The customer owes {amount} more. A payment link for it is created when you confirm.",
+          "refund": "{amount} will be refunded to the customer.",
+          "noPayment": "Nothing is paid yet. The new amount to collect is {amount}."
+        },
+        "totals": {
+          "subtotal": "Subtotal",
+          "discount": "Discount",
+          "shipping": "Shipping",
+          "codFee": "Cash on delivery fee",
+          "tax": "Tax",
+          "total": "Total"
+        },
+        "refundedOutside": "I have returned {amount} to the customer outside the app (cash or bank transfer).",
+        "reason": "Reason for the change",
+        "reasonPlaceholder": "For example: the customer asked on a call",
+        "cancel": "Cancel",
+        "confirm": "Confirm changes",
+        "saved": "Order updated",
+        "savedCollect": "Order updated. Copy the payment link for the balance.",
+        "savedRefund": "Order updated. The refund has been requested.",
+        "errors": {
+          "generic": "The order could not be changed. Try again.",
+          "conflict": "This order changed while you were editing. It has been reloaded.",
+          "not_editable": "This order can no longer be edited.",
+          "no_change": "Nothing was changed.",
+          "cart_empty": "An order needs at least one item. Cancel the order instead.",
+          "below_shipped": "You cannot go below the quantity that has already shipped.",
+          "out_of_stock": "There is not enough stock for this change.",
+          "payment_link_open": "A payment link for this order is still open. Cancel it first.",
+          "refund_in_flight": "A refund for this order is still in progress.",
+          "invoice_issued": "A tax invoice was already issued for this order. Only a reduction that refunds the customer is allowed.",
+          "offline_payment": "Confirm that the money was returned outside the app.",
+          "amount_exceeds": "The refund is more than what can still be refunded.",
+          "cod_shipment_live": "A cash on delivery parcel is already with the courier. Cancel that shipment before changing shipping or fees.",
+          "store_not_configured": "Finish the store settings first.",
+          "store_changed": "The store currency or tax setting changed since this order was placed, so it cannot be repriced.",
+          "variant_unavailable": "One of the items is not available for sale.",
+          "price_not_configured": "One of the items has no price.",
+          "tax_not_configured": "Tax is not set up for one of the items.",
+          "shipping_unavailable": "No shipping rate covers this order after the change.",
+          "cod_unavailable": "One of the items cannot be paid by cash on delivery.",
+          "coupon_min_subtotal": "The order would fall below the minimum for its coupon.",
+          "forbidden": "You do not have permission for this change. A change that refunds money needs an admin."
+        }
+      }
     },
     "attention": {
       "title": "{count, plural, one {# store message needs attention} other {# store messages need attention}}",
@@ -10446,7 +10613,9 @@
         "shop_not_set_up": "Save the shop address in Online store first.",
         "no_draft": "There are no changes to publish.",
         "auto_discount_limit": "You can have at most 20 automatic discounts.",
-        "in_stock": "This item is in stock now, so there is nothing to wait for."
+        "in_stock": "This item is in stock now, so there is nothing to wait for.",
+        "signed_out": "Please sign in again.",
+        "address_limit": "You can save up to 5 addresses. Delete one to add another."
       },
       "title": "Store settings",
       "subtitle": "Currency, tax, checkout, seller details, shipping and coupons for your storefront.",
@@ -10552,7 +10721,17 @@
         "title": "Product reviews",
         "enabled": "Ask for a review after delivery",
         "help": "Three days after an order is delivered, the customer gets one WhatsApp message asking them to rate the main product. Inside the 24-hour window they pick stars from a list; outside it you need an approved marketing template (below). Ratings wait for your approval in Commerce, Reviews. Customers who opted out are never asked."
-      }
+      },
+      "states": "States",
+      "statesHelp": "Separated by commas: names or codes, for example MH, Karnataka. Empty means any state.",
+      "baseWeight": "Weight the fee covers (grams)",
+      "stepGrams": "Each extra step (grams)",
+      "extraPerStep": "Charge per extra step ({currency})",
+      "weightHelp": "Optional. Leave all three empty for a flat fee. The step and its charge go together.",
+      "maxWeight": "Heaviest order shipped (grams)",
+      "freeOver": "Free shipping from ({currency})",
+      "freeOverHelp": "Order amount after discounts. Empty means never free.",
+      "codAllowed": "Cash on delivery allowed here"
     },
     "storefrontLink": {
       "title": "Send storefront link",
@@ -10639,7 +10818,10 @@
         "igst": "IGST",
         "total": "Total",
         "taxIncluded": "Prices include tax.",
-        "codFee": "Cash on delivery fee"
+        "codFee": "Cash on delivery fee",
+        "placeOfSupply": "Place of supply",
+        "taxable": "Taxable value",
+        "rate": "Rate"
       }
     },
     "shipments": {
@@ -10695,7 +10877,18 @@
         "cancelled": "Cancelled"
       },
       "pickupAgain": "Request pickup again",
-      "pickupRequested": "Pickup requested from Shiprocket."
+      "pickupRequested": "Pickup requested from Shiprocket.",
+      "chooseCourier": "Courier",
+      "confirmCourier": "Create this shipment with {name}?",
+      "notTested": "{name} is not tested against the live API yet. Check this first shipment in {name}'s own panel.",
+      "bookedWith": "Booked with",
+      "parcels": "{count} parcels",
+      "parcel": "Parcel {number}",
+      "unknownItem": "Item",
+      "createAnother": "Create another shipment",
+      "pickLines": "Items in this parcel",
+      "lineLeft": "({count} left)",
+      "weightFromItems": "Leave the weight empty to use the weight of these items from the catalogue."
     },
     "evidence": {
       "provider": "Courier confirmed",
@@ -11087,6 +11280,9 @@
       "hidden": "Review hidden.",
       "saveError": "Could not change the review.",
       "loadMore": "Load more"
+    },
+    "orderEdit": {
+      "balanceLinkDescription": "Balance for order {reference}"
     }
   },
   "Payments": {
@@ -14414,7 +14610,8 @@
       "dispatched": "Dispatched",
       "fulfilled": "Delivered",
       "expired": "Expired: not paid in time",
-      "cancelled": "Cancelled"
+      "cancelled": "Cancelled",
+      "partially_shipped": "Partly shipped"
     },
     "errors": {
       "not_found": "Not found.",
@@ -14474,7 +14671,14 @@
     "noMatchingProducts": "No products match your search.",
     "showMore": "Show more products",
     "freeShipping": "Free",
-    "payOnlineSave": "Pay online and save {amount}"
+    "payOnlineSave": "Pay online and save {amount}",
+    "trackOrder": "Track your order",
+    "gstInvoice": {
+      "toggle": "I need a GST tax invoice (business purchase)",
+      "gstin": "Business GSTIN",
+      "legalName": "Business legal name (optional)",
+      "invalid": "Check the GSTIN: it must be 15 characters and valid."
+    }
   },
   "OrderNotices": {
     "dispatched": "Your order {ref} is on its way.",
@@ -16340,7 +16544,8 @@
         "delivered": "Delivered",
         "cancelled": "Cancelled",
         "expired": "Expired",
-        "review": "In review"
+        "review": "In review",
+        "partlyShipped": "Partly shipped"
       },
       "stepFailed": "The order could not be updated",
       "stepDone": "Order confirmed",
@@ -17291,7 +17496,9 @@
       "invalid_phone": "Enter your number with + and the country code, for example +91 98765 43210.",
       "network": "No connection. Please try again.",
       "generic": "Something went wrong. Please try again.",
-      "in_stock": "This item is in stock now. Please refresh the page."
+      "in_stock": "This item is in stock now. Please refresh the page.",
+      "signed_out": "Please sign in again.",
+      "address_limit": "You can save up to 5 addresses. Delete one to add another."
     },
     "whatsapp": {
       "intro": "Hi {shop}, I would like to order:",
@@ -17382,6 +17589,76 @@
     },
     "boughtTogether": "Often bought together",
     "addOne": "Add",
-    "productDetails": "Details"
+    "productDetails": "Details",
+    "track": {
+      "title": "Order tracking",
+      "order": "Order {code}",
+      "placedOn": "Placed {date}",
+      "timeline": "Order progress",
+      "steps": {
+        "placed": "Order placed",
+        "confirmed": "Confirmed",
+        "shipped": "Packed and shipped",
+        "out_for_delivery": "Out for delivery",
+        "delivered": "Delivered",
+        "cancelled": "Cancelled"
+      },
+      "courier": "Courier",
+      "awb": "Tracking number: {awb}",
+      "courierLink": "Track with the courier",
+      "items": "Items",
+      "subtotal": "Subtotal",
+      "discount": "Discount",
+      "shipping": "Shipping",
+      "codFee": "Cash on delivery fee",
+      "total": "Total",
+      "codNote": "Pay in cash when your order arrives.",
+      "deliveringTo": "Delivering to {place}"
+    },
+    "pincode": {
+      "label": "Check delivery",
+      "placeholder": "Pincode",
+      "button": "Check",
+      "checking": "Checking…",
+      "invalid": "Enter a 6-digit pincode.",
+      "delivers": "Delivers to {pincode}",
+      "shipping": "{amount} shipping",
+      "freeShipping": "Free shipping",
+      "codYes": "Cash on delivery available",
+      "codNo": "Cash on delivery not available",
+      "no": "Sorry, we don’t deliver here.",
+      "atCheckout": "Delivery and shipping are confirmed at checkout for your address."
+    },
+    "account": {
+      "link": "My account",
+      "title": "My account",
+      "signIn": "Sign in",
+      "signInIntro": "Enter your WhatsApp number. We will send you a code to sign in.",
+      "signInUnavailable": "Sign-in is not available for this shop right now.",
+      "signedInAs": "Signed in as {phone}",
+      "signOut": "Sign out",
+      "orders": "My orders",
+      "noOrders": "You have no orders yet.",
+      "items": "{count, plural, one {# item} other {# items}}",
+      "back": "Back to my account",
+      "track": "Track this order",
+      "tax": "Tax",
+      "reorder": "Order again",
+      "reorderAdded": "The items are in your cart.",
+      "reorderNone": "None of these items are available right now.",
+      "reorderSkipped": "{count, plural, one {# item is no longer available and was left out.} other {# items are no longer available and were left out.}}",
+      "addresses": "Saved addresses",
+      "addressesIntro": "Save up to {max} addresses to check out faster.",
+      "noAddresses": "No saved addresses yet.",
+      "addAddress": "Add an address",
+      "editAddress": "Edit",
+      "deleteAddress": "Delete",
+      "saveAddress": "Save address",
+      "cancel": "Cancel",
+      "checkoutAs": "Check out as {phone}",
+      "deliverTo": "Deliver to",
+      "enterAtCheckout": "Enter another address at checkout",
+      "otherNumber": "Use a different number"
+    }
   }
 }

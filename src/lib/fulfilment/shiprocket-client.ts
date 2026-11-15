@@ -11,6 +11,7 @@
 // days (Shiprocket documents 10); a 401/403 on login and a 400/422 whose
 // message mentions the credentials both mean "bad API user details".
 import { leaseFetch as fetch } from '@/lib/jobs/lease';
+import { CourierError, type CourierErrorKind } from './providers/types';
 import { ShipmentError } from './types';
 
 type Env = Record<string, string | undefined>;
@@ -37,15 +38,11 @@ export { shipmentTrackingUrl as shiprocketTrackingUrl } from './types';
  * rejected: a definite 4xx; unknown: 5xx, timeout or network (outcome ambiguous); auth: 401/403; throttled: 429;
  * unavailable: the login inside shiprocketCall failed ambiguously, so the business request was never sent (retry later).
  */
-export type ShiprocketErrorKind = 'rejected' | 'unknown' | 'auth' | 'throttled' | 'unavailable';
+export type ShiprocketErrorKind = CourierErrorKind;
 
-export class ShiprocketError extends Error {
-  constructor(
-    readonly kind: ShiprocketErrorKind,
-    readonly status: number | null,
-    readonly code: string | null,
-  ) {
-    super(`shiprocket_${kind}`);
+export class ShiprocketError extends CourierError {
+  constructor(kind: ShiprocketErrorKind, status: number | null, code: string | null) {
+    super(kind, status, code, 'shiprocket');
     this.name = 'ShiprocketError';
   }
 }

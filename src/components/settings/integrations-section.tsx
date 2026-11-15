@@ -20,6 +20,7 @@ import { GoogleSheetsCard } from './integrations/google-sheets-card';
 import { IntegrationHealthCard } from './integrations/health-card';
 import { PaymentsCard } from './payments-card';
 import { SettingsPanelHead } from './settings-panel-head';
+import { CourierCard } from './courier-card';
 import { ShiprocketCard } from './shiprocket-card';
 import { ShopifyCard } from './shopify-card';
 import { WooCommerceCard } from './woocommerce-card';
@@ -122,6 +123,8 @@ export function IntegrationsSection({ focus, onOpenApi }: { focus?: 'payments' |
       <div id="integration-razorpay" tabIndex={-1} className="scroll-mt-4 outline-none"><PaymentsCard /></div>
       <div id="integration-zoom" tabIndex={-1} className="scroll-mt-4 outline-none"><ZoomCard /></div>
       <div id="integration-shiprocket" tabIndex={-1} className="scroll-mt-4 outline-none"><ShiprocketCard /></div>
+      <div id="integration-delhivery" tabIndex={-1} className="scroll-mt-4 outline-none"><CourierCard provider="delhivery" /></div>
+      <div id="integration-shipway" tabIndex={-1} className="scroll-mt-4 outline-none"><CourierCard provider="shipway" /></div>
       {/* Stage 5 (5G): Google Sheets, behind GOOGLE_SHEETS_ENABLED. */}
       <div id="integration-sheets" tabIndex={-1} className="scroll-mt-4 outline-none"><GoogleSheetsCard canEdit={canEditSettings} /></div>
     </div>

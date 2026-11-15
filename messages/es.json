@@ -6242,7 +6242,51 @@
       "recent": "Últimos 30 días",
       "loadFailed": "No se pudieron cargar los eventos de conversión."
     },
-    "unsavedChanges": "Cambios sin guardar"
+    "unsavedChanges": "Cambios sin guardar",
+    "couriers": {
+      "loading": "Cargando…",
+      "loadFailed": "No se pudo cargar la conexión.",
+      "unavailable": "{name} está desactivado en este despliegue.",
+      "notConnected": "No conectado. Conecta tu propia cuenta de {name} para enviar pedidos con ella.",
+      "connectedAs": "Conectado como {label}.",
+      "reconnectNeeded": "{name} rechazó los datos guardados. Vuelve a introducirlos para reconectar.",
+      "connectedBadge": "Conectado",
+      "reconnectBadge": "Reconexión necesaria",
+      "notTestedBadge": "Sin probar en vivo",
+      "notTested": "{name} aún no se ha probado con la API real. Pruébalo con un pedido real y revísalo en el panel de {name} antes de depender de él.",
+      "delhivery": {
+        "name": "Delhivery",
+        "help": "Usa tu propio token de API de Delhivery. El nombre del almacén debe coincidir exactamente con un almacén registrado en Delhivery.",
+        "labelField": "Nombre de cliente",
+        "secretField": "Token de API"
+      },
+      "shipway": {
+        "name": "Shipway",
+        "help": "Usa tu propio usuario y clave de licencia de Shipway. Shipway elige el transportista después de enviar el pedido; la cancelación y las etiquetas se hacen en Shipway.",
+        "labelField": "Usuario",
+        "secretField": "Clave de licencia"
+      },
+      "secretKeep": "Déjalo vacío para conservar {hint}",
+      "warehouse": "Almacén (punto de recogida)",
+      "warehouseHelp": "Exactamente como está registrado en Delhivery.",
+      "defaults": "Paquete por defecto",
+      "length": "Largo (cm)",
+      "breadth": "Ancho (cm)",
+      "height": "Alto (cm)",
+      "weight": "Peso (g)",
+      "connect": "Conectar",
+      "save": "Guardar",
+      "saved": "Guardado.",
+      "saveFailed": "No se pudo guardar.",
+      "test": "Probar conexión",
+      "testOk": "El transportista aceptó los datos.",
+      "testFailed": "El transportista no aceptó los datos.",
+      "disconnect": "Desconectar",
+      "disconnectConfirm": "¿Desconectar {name}? Se eliminan las credenciales guardadas. Los envíos existentes conservan sus registros.",
+      "disconnected": "Desconectado.",
+      "disconnectFailed": "No se pudo desconectar.",
+      "adminOnly": "Solo los administradores pueden cambiar las conexiones de transportistas."
+    }
   },
   "SignupPage": {
     "passwordsMismatch": "Las contraseñas no coinciden",
@@ -8248,7 +8292,8 @@
       "throttled": "Shiprocket está ocupado. Inténtalo de nuevo en un minuto.",
       "feature_unavailable": "Los envíos por mensajería no están incluidos en tu plan.",
       "not_implemented": "Esta acción aún no está disponible.",
-      "order_refunded": "Este pedido se reembolsó por completo, así que no se puede enviar."
+      "order_refunded": "Este pedido se reembolsó por completo, así que no se puede enviar.",
+      "over_shipped": "Es más de lo que queda por enviar de este artículo."
     }
   },
   "Api": {
@@ -9631,7 +9676,8 @@
         "cancelled": "Cancelado",
         "payment_review": "Pago en revisión",
         "dispatched": "Enviado",
-        "expired": "Caducado"
+        "expired": "Caducado",
+        "partially_shipped": "Enviado en parte"
       },
       "sources": {
         "whatsapp": "WhatsApp",
@@ -9694,7 +9740,8 @@
           "order_total": "Total del pedido",
           "order_currency": "Moneda",
           "order_items_count": "Número de artículos",
-          "order_items": "Artículos"
+          "order_items": "Artículos",
+          "tracking_link": "Enlace de seguimiento"
         }
       },
       "bubble": {
@@ -9778,12 +9825,15 @@
           "return_refunded_outside": "Devolución reembolsada fuera de Bodhinox",
           "manual_created": "Creado por un miembro del equipo",
           "cod_customer_confirmed": "El cliente confirmó el pedido contra reembolso",
-          "cod_customer_declined": "El cliente rechazó el pedido contra reembolso (no se canceló)"
+          "cod_customer_declined": "El cliente rechazó el pedido contra reembolso (no se canceló)",
+          "buyer_tax_updated": "Cambiaron los datos GST del comprador",
+          "order_edited": "Pedido editado"
         },
         "documents": "Documentos",
         "documentKinds": {
           "receipt": "Recibo",
-          "credit_note": "Nota de crédito"
+          "credit_note": "Nota de crédito",
+          "tax_invoice": "Factura fiscal"
         },
         "messages": "Avisos al cliente",
         "messageKinds": {
@@ -9818,7 +9868,124 @@
         }
       },
       "filterCodConfirmation": "Filtrar por confirmación contra reembolso",
-      "allCodConfirmations": "Todas las confirmaciones"
+      "allCodConfirmations": "Todas las confirmaciones",
+      "taxInvoice": {
+        "title": "Factura fiscal GST",
+        "gstin": "GSTIN del comprador",
+        "legalName": "Razón social del comprador",
+        "invalid": "Este GSTIN no es válido.",
+        "locked": "La factura fiscal ya está emitida, por eso los datos del comprador están bloqueados.",
+        "sellerMissing": "Añade tu GSTIN en Ajustes de la tienda para emitir facturas fiscales.",
+        "buyerMissing": "Añade primero el GSTIN del comprador.",
+        "notYet": "Todavía no se puede emitir una factura fiscal para este pedido.",
+        "forbidden": "No tienes permiso para hacer esto.",
+        "error": "Algo salió mal. Inténtalo de nuevo.",
+        "save": "Guardar datos del comprador",
+        "saved": "Datos del comprador guardados.",
+        "issue": "Emitir factura fiscal",
+        "issued": "Factura fiscal emitida.",
+        "open": "Abrir factura fiscal"
+      },
+      "edit": {
+        "title": "Cambios del pedido",
+        "open": "Editar pedido",
+        "blocked": {
+          "payment_link_open": "Este pedido todavía tiene un enlace de pago abierto. Cancélalo antes de editar el pedido.",
+          "refund_in_flight": "Hay un reembolso de este pedido en curso. Edita el pedido cuando termine.",
+          "not_editable": "Este pedido ya no se puede editar."
+        },
+        "balance": {
+          "due": "Saldo pendiente: {amount}",
+          "linkHelp": "Copia este enlace de pago y envíalo al cliente. No se envía automáticamente.",
+          "copy": "Copiar enlace",
+          "copied": "Enlace copiado",
+          "copyFailed": "No se pudo copiar el enlace",
+          "noLink": "No se pudo crear el enlace de pago.",
+          "notConnected": "Razorpay no está conectado, así que no se pudo crear el enlace de pago.",
+          "linkUnknown": "El enlace de pago todavía se está comprobando con Razorpay. Inténtalo de nuevo en un momento.",
+          "createLink": "Crear enlace de pago",
+          "linkReady": "Enlace de pago listo",
+          "linkFailed": "No se pudo crear el enlace de pago"
+        },
+        "history": {
+          "line": "El total cambió de {before} a {after}",
+          "someone": "Un miembro del equipo",
+          "payment": {
+            "link_pending": "{amount} por cobrar",
+            "link_created": "{amount} por cobrar, enlace creado",
+            "link_failed": "{amount} por cobrar, aún sin enlace",
+            "link_unknown": "{amount} por cobrar, enlace en comprobación",
+            "link_paid": "Saldo de {amount} pagado",
+            "refund_requested": "Reembolso de {amount} solicitado",
+            "refund_outside": "{amount} devuelto fuera de la aplicación"
+          }
+        },
+        "dialogTitle": "Editar pedido",
+        "dialogHelp": "Cambia cantidades, añade o quita artículos. Los precios los fija el servidor. No se guarda nada hasta que confirmes.",
+        "items": "Artículos",
+        "shipped": "{count} ya enviados",
+        "added": "nuevo",
+        "less": "Uno menos de {name}",
+        "more": "Uno más de {name}",
+        "qty": "Cantidad de {name}",
+        "remove": "Quitar {name}",
+        "addItem": "Añadir un artículo",
+        "searchProducts": "Buscar productos por nombre o SKU",
+        "noProducts": "No hay más productos para añadir.",
+        "madeToOrder": "Bajo pedido",
+        "stock": "{count} en stock",
+        "add": "Añadir",
+        "preview": {
+          "none": "Cambia algo para ver el nuevo total.",
+          "checking": "Calculando el nuevo total…",
+          "row": "Importe",
+          "before": "Ahora",
+          "after": "Después",
+          "collect": "El cliente debe {amount} más. Al confirmar se crea un enlace de pago por ese importe.",
+          "refund": "Se reembolsarán {amount} al cliente.",
+          "noPayment": "Aún no se ha pagado nada. El nuevo importe a cobrar es {amount}."
+        },
+        "totals": {
+          "subtotal": "Subtotal",
+          "discount": "Descuento",
+          "shipping": "Envío",
+          "codFee": "Cargo por pago contra entrega",
+          "tax": "Impuestos",
+          "total": "Total"
+        },
+        "refundedOutside": "He devuelto {amount} al cliente fuera de la aplicación (efectivo o transferencia).",
+        "reason": "Motivo del cambio",
+        "reasonPlaceholder": "Por ejemplo: el cliente lo pidió por teléfono",
+        "cancel": "Cancelar",
+        "confirm": "Confirmar cambios",
+        "saved": "Pedido actualizado",
+        "savedCollect": "Pedido actualizado. Copia el enlace de pago del saldo.",
+        "savedRefund": "Pedido actualizado. Se ha solicitado el reembolso.",
+        "errors": {
+          "generic": "No se pudo cambiar el pedido. Inténtalo de nuevo.",
+          "conflict": "Este pedido cambió mientras lo editabas. Se ha vuelto a cargar.",
+          "not_editable": "Este pedido ya no se puede editar.",
+          "no_change": "No se cambió nada.",
+          "cart_empty": "Un pedido necesita al menos un artículo. Cancela el pedido en su lugar.",
+          "below_shipped": "No puedes bajar de la cantidad que ya se envió.",
+          "out_of_stock": "No hay stock suficiente para este cambio.",
+          "payment_link_open": "Este pedido todavía tiene un enlace de pago abierto. Cancélalo primero.",
+          "refund_in_flight": "Hay un reembolso de este pedido en curso.",
+          "invoice_issued": "Ya se emitió una factura fiscal de este pedido. Solo se permite una reducción que reembolse al cliente.",
+          "offline_payment": "Confirma que el dinero se devolvió fuera de la aplicación.",
+          "amount_exceeds": "El reembolso supera lo que todavía se puede reembolsar.",
+          "cod_shipment_live": "Un paquete contra entrega ya está con el transportista. Cancela ese envío antes de cambiar el envío o los cargos.",
+          "store_not_configured": "Termina primero la configuración de la tienda.",
+          "store_changed": "La moneda o el ajuste de impuestos de la tienda cambió desde que se hizo este pedido, así que no se puede volver a calcular.",
+          "variant_unavailable": "Uno de los artículos no está disponible para la venta.",
+          "price_not_configured": "Uno de los artículos no tiene precio.",
+          "tax_not_configured": "Uno de los artículos no tiene el impuesto configurado.",
+          "shipping_unavailable": "Ninguna tarifa de envío cubre este pedido después del cambio.",
+          "cod_unavailable": "Uno de los artículos no se puede pagar contra entrega.",
+          "coupon_min_subtotal": "El pedido quedaría por debajo del mínimo de su cupón.",
+          "forbidden": "No tienes permiso para este cambio. Un cambio que reembolsa dinero necesita un administrador."
+        }
+      }
     },
     "attention": {
       "title": "{count, plural, one {# mensaje de la tienda requiere atención} other {# mensajes de la tienda requieren atención}}",
@@ -10446,7 +10613,9 @@
         "shop_not_set_up": "Primero guarda la dirección de la tienda en Tienda en línea.",
         "no_draft": "No hay cambios para publicar.",
         "auto_discount_limit": "Puedes tener como máximo 20 descuentos automáticos.",
-        "in_stock": "Este artículo ya está en stock, así que no hay nada que esperar."
+        "in_stock": "Este artículo ya está en stock, así que no hay nada que esperar.",
+        "signed_out": "Inicia sesión de nuevo.",
+        "address_limit": "Puedes guardar hasta 5 direcciones. Elimina una para añadir otra."
       },
       "title": "Ajustes de la tienda",
       "subtitle": "Moneda, impuestos, pago, datos del vendedor, envío y cupones de tu tienda en línea.",
@@ -10552,7 +10721,17 @@
         "title": "Reseñas de productos",
         "enabled": "Pedir una reseña tras la entrega",
         "help": "Tres días después de entregar un pedido, el cliente recibe un mensaje de WhatsApp para valorar el producto principal. Dentro de la ventana de 24 horas elige las estrellas en una lista; fuera de ella necesitas una plantilla de marketing aprobada (abajo). Las valoraciones esperan tu aprobación en Comercio, Reseñas. Nunca se pregunta a quien canceló su suscripción."
-      }
+      },
+      "states": "Estados",
+      "statesHelp": "Separados por comas: nombres o códigos, por ejemplo MH, Karnataka. Vacío significa cualquier estado.",
+      "baseWeight": "Peso que cubre la tarifa (gramos)",
+      "stepGrams": "Cada tramo adicional (gramos)",
+      "extraPerStep": "Cargo por tramo adicional ({currency})",
+      "weightHelp": "Opcional. Deja los tres vacíos para una tarifa fija. El tramo y su cargo van juntos.",
+      "maxWeight": "Pedido más pesado que se envía (gramos)",
+      "freeOver": "Envío gratis desde ({currency})",
+      "freeOverHelp": "Importe del pedido tras descuentos. Vacío significa que nunca es gratis.",
+      "codAllowed": "Pago contra entrega permitido aquí"
     },
     "storefrontLink": {
       "title": "Enviar enlace de la tienda",
@@ -10639,7 +10818,10 @@
         "igst": "IGST",
         "total": "Total",
         "taxIncluded": "Los precios incluyen impuestos.",
-        "codFee": "Cargo por pago contra entrega"
+        "codFee": "Cargo por pago contra entrega",
+        "placeOfSupply": "Lugar de suministro",
+        "taxable": "Valor imponible",
+        "rate": "Tasa"
       }
     },
     "shipments": {
@@ -10695,7 +10877,18 @@
         "cancelled": "Cancelado"
       },
       "pickupAgain": "Solicitar recogida de nuevo",
-      "pickupRequested": "Recogida solicitada a Shiprocket."
+      "pickupRequested": "Recogida solicitada a Shiprocket.",
+      "chooseCourier": "Transportista",
+      "confirmCourier": "¿Crear este envío con {name}?",
+      "notTested": "{name} aún no se ha probado con la API real. Revisa este primer envío en el panel de {name}.",
+      "bookedWith": "Reservado con",
+      "parcels": "{count} paquetes",
+      "parcel": "Paquete {number}",
+      "unknownItem": "Artículo",
+      "createAnother": "Crear otro envío",
+      "pickLines": "Artículos de este paquete",
+      "lineLeft": "(quedan {count})",
+      "weightFromItems": "Deja el peso vacío para usar el peso de estos artículos del catálogo."
     },
     "evidence": {
       "provider": "Confirmado por el transportista",
@@ -11087,6 +11280,9 @@
       "hidden": "Reseña oculta.",
       "saveError": "No se pudo cambiar la reseña.",
       "loadMore": "Cargar más"
+    },
+    "orderEdit": {
+      "balanceLinkDescription": "Saldo del pedido {reference}"
     }
   },
   "Payments": {
@@ -14414,7 +14610,8 @@
       "dispatched": "Enviado",
       "fulfilled": "Entregado",
       "expired": "Caducado: no se pagó a tiempo",
-      "cancelled": "Cancelado"
+      "cancelled": "Cancelado",
+      "partially_shipped": "Enviado en parte"
     },
     "errors": {
       "not_found": "No encontrado.",
@@ -14474,7 +14671,14 @@
     "noMatchingProducts": "Ningún producto coincide con tu búsqueda.",
     "showMore": "Ver más productos",
     "freeShipping": "Gratis",
-    "payOnlineSave": "Paga en línea y ahorra {amount}"
+    "payOnlineSave": "Paga en línea y ahorra {amount}",
+    "trackOrder": "Seguir tu pedido",
+    "gstInvoice": {
+      "toggle": "Necesito una factura fiscal GST (compra de empresa)",
+      "gstin": "GSTIN de la empresa",
+      "legalName": "Razón social de la empresa (opcional)",
+      "invalid": "Revisa el GSTIN: debe tener 15 caracteres y ser válido."
+    }
   },
   "OrderNotices": {
     "dispatched": "Tu pedido {ref} ya va en camino.",
@@ -16340,7 +16544,8 @@
         "delivered": "Entregado",
         "cancelled": "Cancelado",
         "expired": "Caducado",
-        "review": "En revisión"
+        "review": "En revisión",
+        "partlyShipped": "Enviado en parte"
       },
       "stepFailed": "No se pudo actualizar el pedido",
       "stepDone": "Pedido confirmado",
@@ -17291,7 +17496,9 @@
       "invalid_phone": "Escribe tu número con + y el código de país, por ejemplo +34 612 345 678.",
       "network": "Sin conexión. Inténtalo de nuevo.",
       "generic": "Algo salió mal. Inténtalo de nuevo.",
-      "in_stock": "Este artículo ya está disponible. Actualiza la página."
+      "in_stock": "Este artículo ya está disponible. Actualiza la página.",
+      "signed_out": "Inicia sesión de nuevo.",
+      "address_limit": "Puedes guardar hasta 5 direcciones. Elimina una para añadir otra."
     },
     "whatsapp": {
       "intro": "Hola {shop}, quiero pedir:",
@@ -17382,6 +17589,76 @@
     },
     "boughtTogether": "Se compran juntos con frecuencia",
     "addOne": "Añadir",
-    "productDetails": "Detalles"
+    "productDetails": "Detalles",
+    "track": {
+      "title": "Seguimiento del pedido",
+      "order": "Pedido {code}",
+      "placedOn": "Realizado el {date}",
+      "timeline": "Progreso del pedido",
+      "steps": {
+        "placed": "Pedido realizado",
+        "confirmed": "Confirmado",
+        "shipped": "Preparado y enviado",
+        "out_for_delivery": "En reparto",
+        "delivered": "Entregado",
+        "cancelled": "Cancelado"
+      },
+      "courier": "Transportista",
+      "awb": "Número de seguimiento: {awb}",
+      "courierLink": "Seguir con el transportista",
+      "items": "Artículos",
+      "subtotal": "Subtotal",
+      "discount": "Descuento",
+      "shipping": "Envío",
+      "codFee": "Cargo por pago contra reembolso",
+      "total": "Total",
+      "codNote": "Paga en efectivo cuando llegue tu pedido.",
+      "deliveringTo": "Entrega en {place}"
+    },
+    "pincode": {
+      "label": "Comprobar entrega",
+      "placeholder": "Código postal",
+      "button": "Comprobar",
+      "checking": "Comprobando…",
+      "invalid": "Introduce un código postal de 6 dígitos.",
+      "delivers": "Entregamos en {pincode}",
+      "shipping": "Envío {amount}",
+      "freeShipping": "Envío gratis",
+      "codYes": "Pago contra reembolso disponible",
+      "codNo": "Pago contra reembolso no disponible",
+      "no": "Lo sentimos, no entregamos aquí.",
+      "atCheckout": "La entrega y el envío se confirman al finalizar la compra con tu dirección."
+    },
+    "account": {
+      "link": "Mi cuenta",
+      "title": "Mi cuenta",
+      "signIn": "Iniciar sesión",
+      "signInIntro": "Escribe tu número de WhatsApp. Te enviaremos un código para iniciar sesión.",
+      "signInUnavailable": "El inicio de sesión no está disponible en esta tienda por ahora.",
+      "signedInAs": "Sesión iniciada como {phone}",
+      "signOut": "Cerrar sesión",
+      "orders": "Mis pedidos",
+      "noOrders": "Aún no tienes pedidos.",
+      "items": "{count, plural, one {# artículo} other {# artículos}}",
+      "back": "Volver a mi cuenta",
+      "track": "Seguir este pedido",
+      "tax": "Impuestos",
+      "reorder": "Pedir de nuevo",
+      "reorderAdded": "Los artículos están en tu carrito.",
+      "reorderNone": "Ninguno de estos artículos está disponible ahora.",
+      "reorderSkipped": "{count, plural, one {# artículo ya no está disponible y no se añadió.} other {# artículos ya no están disponibles y no se añadieron.}}",
+      "addresses": "Direcciones guardadas",
+      "addressesIntro": "Guarda hasta {max} direcciones para comprar más rápido.",
+      "noAddresses": "Aún no hay direcciones guardadas.",
+      "addAddress": "Añadir una dirección",
+      "editAddress": "Editar",
+      "deleteAddress": "Eliminar",
+      "saveAddress": "Guardar dirección",
+      "cancel": "Cancelar",
+      "checkoutAs": "Comprar como {phone}",
+      "deliverTo": "Entregar en",
+      "enterAtCheckout": "Escribir otra dirección al pagar",
+      "otherNumber": "Usar otro número"
+    }
   }
 }

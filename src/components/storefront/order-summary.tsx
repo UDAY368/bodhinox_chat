@@ -13,7 +13,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { formatMoney } from '@/lib/commerce/money';
 import type { StorefrontOrderView } from './api';
 
-const PAID = new Set(['paid', 'dispatched', 'fulfilled']);
+const PAID = new Set(['paid', 'partially_shipped', 'dispatched', 'fulfilled']);
 const CLOSED = new Set(['expired', 'cancelled']);
 
 export function money(minor: number | null, currency: string, locale: string): string {
@@ -65,6 +65,9 @@ export function OrderSummary({ order, locale }: { order: StorefrontOrderView; lo
           </p>
         )}
         {order.documentNumber && <p className="text-sm">{t('receiptNumber', { number: order.documentNumber })}</p>}
+        {order.trackingPath && !closed && (
+          <a href={order.trackingPath} className={buttonVariants({ variant: 'outline', className: 'w-full' })}>{t('trackOrder')}</a>
+        )}
         {order.returnWindowDays !== null && (
           <p className="text-xs text-muted-foreground">
             {order.returnWindowDays > 0 ? t('returnWindow', { days: order.returnWindowDays }) : t('noReturns')}

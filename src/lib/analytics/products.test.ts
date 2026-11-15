@@ -20,7 +20,7 @@ describe('productStats', () => {
     expect(await productStats(tx, ACCOUNT, range)).toEqual([]);
     const sql = squash(statements[0].text);
     expect(sql).toMatch(/FROM orders o WHERE o\.account_id=\$\d+::uuid AND o\.paid_at >= \$\d+::timestamptz AND o\.paid_at < \$\d+::timestamptz/);
-    expect(sql).toContain("o.status IN ('paid','dispatched','fulfilled','cancelled')");
+    expect(sql).toContain("o.status IN ('paid','partially_shipped','dispatched','fulfilled','cancelled')");
     expect(sql).toMatch(/JOIN order_items i ON i\.account_id=\$\d+::uuid AND i\.order_id=c\.id/);
     // Refunds are capped at the order's merchandise, as commerceStats does.
     expect(sql).toContain('LEAST(m.amount_refunded_minor, sum(m.merch) OVER w)');

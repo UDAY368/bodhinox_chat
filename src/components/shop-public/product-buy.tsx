@@ -14,6 +14,7 @@ import { Bell, Check, Loader2, Minus, Plus } from 'lucide-react';
 import type { PublicProduct } from '@/lib/commerce/public-shop';
 import { formatMoney } from '@/lib/commerce/money';
 import { addToCart, MAX_QTY } from './cart-store';
+import { PincodeCheck } from './pincode-check';
 
 export function ProductBuy({ handle, product, currency, canNotify }: { handle: string; product: PublicProduct; currency: string | null; canNotify: boolean }) {
   const t = useTranslations('ShopPublic');
@@ -129,6 +130,7 @@ export function ProductBuy({ handle, product, currency, canNotify }: { handle: s
             {t('addToCart')}
           </button>
         </div>
+        <PincodeCheck handle={handle} variantId={variant?.id ?? null} quantity={qty} />
         {canNotify && variant && !variant.inStock && (
           <div className="flex flex-col gap-2">
             <button type="button" disabled={notifying} onClick={() => void notify()}

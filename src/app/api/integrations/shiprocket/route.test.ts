@@ -36,6 +36,9 @@ vi.mock('@/lib/fulfilment/connection', () => ({
 }));
 vi.mock('@/lib/fulfilment/shipments', () => ({
   requestShipment: h.request, cancelShipment: h.cancel, reassignAwb: h.reassign, labelUrl: h.label, getOrderShipment: h.shipment,
+  // Split shipments: the route lists every shipment and the order's lines with their shipped quantities.
+  listOrderShipments: async (...args: unknown[]) => { const one = await h.shipment(...args); return one ? [one] : []; },
+  orderLinesShipped: async () => [],
 }));
 
 import { ShipmentError } from '@/lib/fulfilment/types';
@@ -126,7 +129,7 @@ describe('/api/commerce/orders/[id]/shipment', () => {
   it('reports the shipment to agents; viewers are refused', async () => {
     h.role = 'agent';
     const res = await shipmentGet(new Request('http://localhost/x'), params());
-    expect(await res.json()).toEqual({ connected: false, shipment: null,
+    expect(await res.json()).toEqual({ connected: false, shipment: null, shipments: [], lines: [], couriers: [],
       defaults: { length_cm: null, breadth_cm: null, height_cm: null, weight_grams: null } });
     h.get.mockResolvedValueOnce({ ...NOT_CONNECTED, connected: true, status: 'active' });
     h.disabled = true;
@@ -150,8 +153,22 @@ describe('/api/commerce/orders/[id]/shipment', () => {
     h.request.mockResolvedValueOnce({ shipmentId: 's1' });
     const ok = await createRoute(req({ length_cm: 10, breadth_cm: 10, height_cm: 10, weight_grams: 500 }, 'POST'), params());
     expect(ok.status).toBe(202);
-    expect(h.request).toHaveBeenCalledWith(actor, ORDER, { length_cm: 10, breadth_cm: 10, height_cm: 10, weight_grams: 500 });
+    expect(h.request).toHaveBeenCalledWith(actor, ORDER, { length_cm: 10, breadth_cm: 10, height_cm: 10, weight_grams: 500 }, undefined, undefined);
     expect((await createRoute(req({ length_cm: '10', breadth_cm: 10, height_cm: 10, weight_grams: 500 }, 'POST'), params())).status).toBe(400);
+    // Split shipments: the lines of the parcel are ids and whole quantities; a null weight is allowed only with them.
+    const ITEM = '22222222-2222-4222-8222-222222222222';
+    h.request.mockResolvedValueOnce({ shipmentId: 's2' });
+    const split = await createRoute(req({ length_cm: 10, breadth_cm: 10, height_cm: 10, weight_grams: null, items: [{ order_item_id: ITEM, quantity: 2 }] }, 'POST'), params());
+    expect(split.status).toBe(202);
+    expect(h.request).toHaveBeenLastCalledWith(actor, ORDER, { length_cm: 10, breadth_cm: 10, height_cm: 10, weight_grams: null }, undefined,
+      [{ orderItemId: ITEM, quantity: 2 }]);
+    const dims = { length_cm: 10, breadth_cm: 10, height_cm: 10 };
+    for (const bad of [{ ...dims, weight_grams: null }, { ...dims, weight_grams: 500, items: [] }, { ...dims, weight_grams: 500, items: [{ order_item_id: 'x', quantity: 1 }] },
+      { ...dims, weight_grams: 500, items: [{ order_item_id: ITEM, quantity: 0 }] }, { ...dims, weight_grams: 500, items: [{ order_item_id: ITEM, quantity: 1.5 }] }])
+      expect((await createRoute(req(bad, 'POST'), params())).status).toBe(400);
+    h.request.mockRejectedValueOnce(new ShipmentError('over_shipped'));
+    const over = await createRoute(req({ ...dims, weight_grams: 500, items: [{ order_item_id: ITEM, quantity: 9 }] }, 'POST'), params());
+    expect([over.status, (await over.json()).code]).toEqual([409, 'over_shipped']);
     for (const [code, status] of [['not_connected', 503], ['shipment_exists', 409], ['order_not_paid', 409], ['address_incomplete', 409]] as const) {
       h.request.mockRejectedValueOnce(new ShipmentError(code));
       const res = await createRoute(req({ length_cm: 10, breadth_cm: 10, height_cm: 10, weight_grams: 500 }, 'POST'), params());
@@ -164,9 +181,14 @@ describe('/api/commerce/orders/[id]/shipment', () => {
   it('cancels, assigns again and fetches a label through the services', async () => {
     h.label.mockResolvedValueOnce('https://label.example/x.pdf');
     expect((await cancelRoute(new Request('http://localhost/x', { method: 'DELETE' }), params())).status).toBe(200);
-    expect(h.cancel).toHaveBeenCalledWith(actor, ORDER);
+    expect(h.cancel).toHaveBeenCalledWith(actor, ORDER, null);
+    // Split shipments: one named shipment of the order.
+    const SHIPMENT = '33333333-3333-4333-8333-333333333333';
+    expect((await cancelRoute(new Request(`http://localhost/x?shipment_id=${SHIPMENT}`, { method: 'DELETE' }), params())).status).toBe(200);
+    expect(h.cancel).toHaveBeenLastCalledWith(actor, ORDER, SHIPMENT);
+    expect((await cancelRoute(new Request('http://localhost/x?shipment_id=nope', { method: 'DELETE' }), params())).status).toBe(404);
     expect((await awbRoute(new Request('http://localhost/x', { method: 'POST' }), params())).status).toBe(202);
-    expect(h.reassign).toHaveBeenCalledWith(actor, ORDER);
+    expect(h.reassign).toHaveBeenCalledWith(actor, ORDER, null);
     expect(await (await labelRoute(new Request('http://localhost/x'), params())).json()).toEqual({ url: 'https://label.example/x.pdf' });
     h.limited = true;
     expect((await labelRoute(new Request('http://localhost/x'), params())).status).toBe(429);

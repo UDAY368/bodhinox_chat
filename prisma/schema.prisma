@@ -1182,6 +1182,9 @@ model orders {
   marketing_opt_in Boolean?
   marketing_opt_in_at DateTime? @db.Timestamptz(6)
   marketing_opt_in_version String?
+  buyer_gstin String?
+  buyer_legal_name String?
+  edit_version Int @default(0)
   @@unique([account_id, message_id])
   @@unique([account_id, source, external_id])
   @@unique([account_id, id])
@@ -2374,6 +2377,13 @@ model shipping_rates {
   max_subtotal_minor BigInt?
   fee_minor BigInt
   tax_rate_bps Int?
+  states String[] @default([])
+  base_weight_grams Int?
+  step_grams Int?
+  extra_per_step_minor BigInt?
+  max_weight_grams Int?
+  free_over_minor BigInt?
+  cod_allowed Boolean @default(true)
   active Boolean @default(true)
   position Int @default(0)
   created_at DateTime @default(now()) @db.Timestamptz(6)
@@ -2689,6 +2699,7 @@ model courier_connections {
   token_enc String?
   token_expires_at DateTime? @db.Timestamptz(6)
   webhook_token_hash String?
+  secret_hint String?
   pickup_location String?
   default_length_cm Decimal? @db.Decimal(6, 1)
   default_breadth_cm Decimal? @db.Decimal(6, 1)
@@ -3814,9 +3825,43 @@ model shop_otp_challenges {
   expires_at DateTime @db.Timestamptz(6)
   verified_at DateTime? @db.Timestamptz(6)
   session_id String? @db.Uuid
+  purpose String @default("checkout")
   created_at DateTime @default(now()) @db.Timestamptz(6)
   @@unique([account_id, id])
   @@index([account_id, phone, created_at(sort: Desc)], map: "shop_otp_challenges_phone_idx")
+}
+
+model shop_customer_sessions {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  contact_id String @db.Uuid
+  token_hash String @unique
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  expires_at DateTime @db.Timestamptz(6)
+  last_seen_at DateTime @default(now()) @db.Timestamptz(6)
+  revoked_at DateTime? @db.Timestamptz(6)
+  @@unique([account_id, id])
+  @@index([account_id, contact_id], map: "shop_customer_sessions_contact_idx")
+}
+
+model shop_customer_addresses {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  contact_id String @db.Uuid
+  name String
+  phone String
+  line1 String
+  line2 String?
+  city String
+  state String?
+  state_code String?
+  postal_code String
+  country String
+  instructions String?
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @default(now()) @db.Timestamptz(6)
+  @@unique([account_id, id])
+  @@index([account_id, contact_id, created_at], map: "shop_customer_addresses_contact_idx")
 }
 
 model shop_cart_codes {
@@ -3960,4 +4005,41 @@ model shop_meta_sync_items {
   @@unique([account_id, id])
   @@unique([account_id, variant_id])
   @@index([account_id, status], map: "shop_meta_sync_items_status_idx")
+}
+
+model order_edits {
+  id String @id @db.Uuid
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  order_id String @db.Uuid
+  actor_user_id String @db.Uuid
+  reason String
+  lines_before Json
+  lines_after Json
+  totals_before Json
+  totals_after Json
+  total_before_minor BigInt
+  total_after_minor BigInt
+  payment_action String
+  difference_minor BigInt @default(0)
+  payment_state String
+  payment_link_id String? @db.Uuid
+  refund_ids String[] @default([]) @db.Uuid
+  failure_code String?
+  version_after Int
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @default(now()) @db.Timestamptz(6)
+  @@unique([account_id, id])
+  @@index([account_id, order_id, created_at], map: "order_edits_order_idx")
+}
+
+model shipment_items {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  shipment_id String @db.Uuid
+  order_item_id String @db.Uuid
+  quantity Int
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  @@unique([account_id, id])
+  @@unique([account_id, shipment_id, order_item_id])
+  @@index([account_id, order_item_id], map: "shipment_items_order_item_idx")
 }

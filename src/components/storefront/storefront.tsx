@@ -22,6 +22,7 @@ import {
   MARKETING_OPT_IN_VERSION, shopApi, shopErrorCode, type Quote, type ShopErrorCode, type StorefrontProduct, type StorefrontView,
 } from './api';
 import { money, OrderSummary } from './order-summary';
+import { validateGstin } from '@/lib/billing/gst';
 
 type Address = Record<'name' | 'phone' | 'line1' | 'line2' | 'city' | 'state' | 'state_code' | 'postal_code' | 'country' | 'instructions', string>;
 const EMPTY_ADDRESS: Address = { name: '', phone: '', line1: '', line2: '', city: '', state: '', state_code: '', postal_code: '', country: 'IN', instructions: '' };
@@ -39,6 +40,11 @@ export function Storefront({ token }: { token: string }) {
   const [picked, setPicked] = useState<Record<string, string>>({});
   // Repeat-purchase consent (Phase 9 D13): unticked by default, sent with the place request only.
   const [marketingOptIn, setMarketingOptIn] = useState(false);
+  // An optional GST tax invoice for a business buyer: the GSTIN is checked here for a quick hint and again on the server.
+  const [wantInvoice, setWantInvoice] = useState(false);
+  const [buyerGstin, setBuyerGstin] = useState('');
+  const [buyerLegalName, setBuyerLegalName] = useState('');
+  const gstinInvalid = wantInvoice && buyerGstin.trim() !== '' && validateGstin(buyerGstin) === null;
   const justPlaced = useRef(false);
   // The catalogue is paged and searched on its own (GET …/products): set from the first view only, so a cart
   // change never resets the pages the customer already loaded.
@@ -197,7 +203,7 @@ export function Storefront({ token }: { token: string }) {
     void run(async () => {
       try {
         const placed = await shopApi.place(token, { expectedVersion: view.version, expectedTotalMinor: quote.totalMinor, clientRequestId: crypto.randomUUID(),
-          marketingOptIn });
+          marketingOptIn, ...(wantInvoice && buyerGstin.trim() ? { buyerGstin: buyerGstin.trim().toUpperCase(), buyerLegalName: buyerLegalName.trim() } : {}) });
         if (placed.view?.order?.paymentUrl) window.location.assign(placed.view.order.paymentUrl);
         return placed.view;
       } catch (e) {
@@ -391,6 +397,27 @@ export function Storefront({ token }: { token: string }) {
                   {quoteError && <p className="text-sm text-destructive" role="alert">{t(`errors.${(quoteError in ERROR_SET ? quoteError : 'error') as ShopErrorCode}`)}</p>}
                   {quote && <QuoteTotals quote={quote} locale={locale} />}
                   {quote && !quote.shipping && <p className="text-sm text-muted-foreground">{t('addAddressForShipping')}</p>}
+                  <div className="space-y-2">
+                    <div className="flex items-start gap-2">
+                      <Checkbox id="want-gst-invoice" checked={wantInvoice} disabled={busy} onCheckedChange={(v) => setWantInvoice(v === true)} />
+                      <Label htmlFor="want-gst-invoice" className="text-sm font-normal leading-snug">{t('gstInvoice.toggle')}</Label>
+                    </div>
+                    {wantInvoice && (
+                      <div className="space-y-2">
+                        <div className="space-y-1">
+                          <Label htmlFor="buyer-gstin" className="text-xs">{t('gstInvoice.gstin')}</Label>
+                          <Input id="buyer-gstin" value={buyerGstin} maxLength={15} autoCapitalize="characters" autoComplete="off" disabled={busy}
+                            aria-invalid={gstinInvalid} onChange={(e) => setBuyerGstin(e.target.value.toUpperCase())} />
+                          {gstinInvalid && <p className="text-xs text-destructive" role="alert">{t('gstInvoice.invalid')}</p>}
+                        </div>
+                        <div className="space-y-1">
+                          <Label htmlFor="buyer-legal-name" className="text-xs">{t('gstInvoice.legalName')}</Label>
+                          <Input id="buyer-legal-name" value={buyerLegalName} maxLength={200} autoComplete="organization" disabled={busy}
+                            onChange={(e) => setBuyerLegalName(e.target.value)} />
+                        </div>
+                      </div>
+                    )}
+                  </div>
                   <div className="flex items-start gap-2">
                     <Checkbox id="marketing-opt-in" checked={marketingOptIn} disabled={busy}
                       onCheckedChange={(v) => setMarketingOptIn(v === true)} />
@@ -398,7 +425,7 @@ export function Storefront({ token }: { token: string }) {
                       {t(`marketingOptIn.${MARKETING_OPT_IN_VERSION}`)}
                     </Label>
                   </div>
-                  <Button className="w-full" disabled={busy || !quote?.shipping || !view.store.checkoutEnabled || (!cod && !onlineAvailable)} onClick={placeOrder}>
+                  <Button className="w-full" disabled={busy || gstinInvalid || !quote?.shipping || !view.store.checkoutEnabled || (!cod && !onlineAvailable)} onClick={placeOrder}>
                     {busy && <Loader2 className="size-4 animate-spin" aria-hidden />}
                     {quote ? t(cod ? 'placeCod' : 'placeAndPay', { amount: money(quote.totalMinor, quote.currency, locale) }) : t('placeOrder')}
                   </Button>

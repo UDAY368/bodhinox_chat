@@ -195,6 +195,31 @@ export async function requestRefund(ctx: TenantContext & { userId: string }, inp
 }
 
 /**
+ * Order edit (commerce/order-edits): a gateway refund of part of one payment, written row-first in
+ * the edit's own transaction so the refund, its job and the edit commit together and a replay of
+ * the edit can never request it twice. The caller holds the payment's row lock, checked the
+ * permission, and computed `amountMinor` from what the payment can still refund. Never restocks:
+ * the edit moved the stock itself. Returns the refund id (`refundId` is derived from the edit).
+ */
+export async function requestEditRefundTx(tx: TenantTransaction, ctx: TenantContext & { userId: string }, input: {
+  refundId: string; payment: Pick<LockedPayment, 'id' | 'currency' | 'order_id'>; amountMinor: number; note: string | null;
+}): Promise<string> {
+  if (!UUID.test(input.refundId) || !Number.isSafeInteger(input.amountMinor) || input.amountMinor <= 0) throw new RefundError('invalid_amount');
+  const rows = await tx.$queryRaw<{ id: string }[]>`INSERT INTO customer_refunds(id,account_id,payment_id,order_id,source,amount_minor,currency,
+      reason_code,note,status,attempt,requested_by,restock)
+    VALUES(${input.refundId}::uuid,${ctx.accountId}::uuid,${input.payment.id}::uuid,${input.payment.order_id}::uuid,'bodhinox',
+      ${BigInt(input.amountMinor)},${input.payment.currency},'other',${input.note?.slice(0, NOTE_MAX) || null},'requested',1,${ctx.userId}::uuid,false)
+    ON CONFLICT (id) DO NOTHING RETURNING id::text AS id`;
+  if (!rows[0]) return input.refundId;
+  await enqueueJobTx(tx, ctx.accountId, REFUND_JOB, { refundId: input.refundId, attempt: 1 }, `refund:${input.refundId}:1`);
+  await auditTx(tx, ctx.accountId, ctx.userId, 'commerce.refund_requested', input.refundId, {
+    payment_id: input.payment.id, order_id: input.payment.order_id, amount_minor: input.amountMinor, currency: input.payment.currency, reason: 'order_edit', restock: false,
+  });
+  if (input.payment.order_id) await orderEventTx(tx, ctx.accountId, input.payment.order_id, 'refund_requested', { actorUserId: ctx.userId, detail: 'order_edit' });
+  return input.refundId;
+}
+
+/**
  * Staff retry of a refund Razorpay definitely did not make (a refusal, or
  * reconciliation proved absence): a new attempt with its own job.
  */
@@ -474,7 +499,7 @@ async function restockForRefundTx(tx: TenantTransaction, accountId: string, orde
 
 /** The non-return restock applies only to an order being unwound before dispatch. */
 export function orderRestockable(order: { status: string; dispatched_at: Date | null; refund_state: string | null }): boolean {
-  if (order.dispatched_at || order.status === 'dispatched' || order.status === 'fulfilled' || order.status === 'delivered') return false;
+  if (order.dispatched_at || order.status === 'partially_shipped' || order.status === 'dispatched' || order.status === 'fulfilled' || order.status === 'delivered') return false;
   return order.status === 'cancelled' || order.refund_state === 'full';
 }
 

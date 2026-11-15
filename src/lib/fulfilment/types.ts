@@ -5,7 +5,7 @@
  */
 import type { TenantContext } from '@/lib/db/tenant';
 
-export const COURIER_PROVIDERS = ['shiprocket'] as const;
+export const COURIER_PROVIDERS = ['shiprocket', 'delhivery', 'shipway'] as const;
 export type CourierProvider = (typeof COURIER_PROVIDERS)[number];
 
 export const COURIER_CONNECTION_STATUSES = ['active', 'token_invalid', 'disconnected'] as const;
@@ -64,7 +64,7 @@ export interface ShipmentDims {
 export const SHIPMENT_ERROR_CODES = [
   'not_connected', 'not_configured', 'auth', 'provider_unreachable', 'order_not_paid', 'shipment_exists',
   'refund_in_flight', 'order_refunded', 'shipment_live', 'address_incomplete', 'wrong_category', 'not_found', 'conflict', 'invalid',
-  'throttled', 'feature_unavailable', 'not_implemented',
+  'throttled', 'feature_unavailable', 'not_implemented', 'over_shipped',
 ] as const;
 export type ShipmentErrorCode = (typeof SHIPMENT_ERROR_CODES)[number];
 
@@ -86,6 +86,7 @@ const STATUS: Record<ShipmentErrorCode, number> = {
   throttled: 429,
   feature_unavailable: 402,
   not_implemented: 501,
+  over_shipped: 409,
 };
 
 export class ShipmentError extends Error {
@@ -102,6 +103,8 @@ export interface OrderShipmentView {
   id: string;
   order_id: string;
   reference: string;
+  /** Which courier holds this shipment (a Shiprocket shipment before Phase 5 has 'shiprocket'). */
+  provider: CourierProvider;
   create_state: ShipmentCreateState;
   awb_state: ShipmentAwbState;
   awb: string | null;
@@ -117,6 +120,8 @@ export interface OrderShipmentView {
   height_cm: number;
   weight_grams: number;
   created_at: string;
+  /** The order lines and quantities this parcel carries; empty for a shipment made before split shipments (the whole order). */
+  items?: Array<{ order_item_id: string; quantity: number }>;
 }
 
 /** The public view of a workspace's Shiprocket connection (never a secret or the webhook token). */

@@ -139,7 +139,9 @@ export async function recordOfflinePayment(ctx: TenantContext & { userId: string
     planOrThrow(order, amountMinor);
     // A COD courier shipment for this still-confirmed order will collect the total at the door: taking the money now as
     // well would charge twice. Staff cancel that shipment first (once it has left, the order is dispatched and cash is fine).
-    if (order.payment_method === 'cod' && !order.paid_at && order.status === 'confirmed' && (await liveCodShipment(tx, ctx.accountId, orderId)))
+    // The same holds while only some parcels left (partially shipped): the ones still to go collect their share.
+    if (order.payment_method === 'cod' && !order.paid_at && (order.status === 'confirmed' || order.status === 'partially_shipped')
+      && (await liveCodShipment(tx, ctx.accountId, orderId)))
       throw new OfflinePaymentError('shipment_live');
     // Again under the order lock: a link may have been paid since the check above.
     refuseLiveLinks(await liveLinks(tx, ctx.accountId, orderId));

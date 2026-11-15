@@ -12,7 +12,7 @@
 import type { CSSProperties, ReactNode } from 'react';
 import Link from 'next/link';
 import { getTranslations } from 'next-intl/server';
-import { Menu, MessageCircle } from 'lucide-react';
+import { Menu, MessageCircle, User } from 'lucide-react';
 import type { PublicShop } from '@/lib/commerce/public-shop';
 import { POLICY_SLUGS, type ShopFooter, type ShopMenuLink } from '@/lib/commerce/shop-sections';
 import { themeCssVars, type ResolvedShopTheme } from '@/lib/commerce/shop-templates';
@@ -70,6 +70,9 @@ export function ShopFrameView({ shop, t, children, preview = false }: { shop: Fr
                 {menu.map((item) => <ShopLink key={`${item.label}${item.link}`} link={item.link} base={base} className={`${navLink} flex min-h-11 items-center`}>{item.label}</ShopLink>)}
               </div>
             </details>
+            <Link href={`${base}/account`} aria-label={t('account.link')} className="grid size-11 place-items-center rounded-full hover:bg-black/5">
+              <User className="size-5" aria-hidden />
+            </Link>
             <CartButton handle={shop.handle} label={t('cart')} />
           </nav>
         </div>
