@@ -164,7 +164,13 @@
     "sequences": "Sequences",
     "subscription": "Subscription",
     "automation": "Automation",
-    "ai": "AI"
+    "ai": "AI",
+    "catalogue": "Catalogue",
+    "onlineStore": "Online store",
+    "reviews": "Reviews",
+    "shopReports": "Shop reports",
+    "storeSettings": "Store settings",
+    "reports": "Reports"
   },
   "ModeToggle": {
     "switchMode": "Switch to {mode} mode"
@@ -5724,7 +5730,6 @@
       "title": "Audit log",
       "description": "Who did what in this workspace, newest first. Entries show identifiers and counts, never message content.",
       "linkDescription": "Review member, team, permission and export activity.",
-      "back": "Back to settings",
       "adminsOnly": "Only admins and owners can view the audit log.",
       "member": "Member",
       "anyMember": "Any member",
@@ -10619,7 +10624,7 @@
           "running": "Importing",
           "done": "Finished",
           "failed": "Stopped",
-          "canceled": "Canceled"
+          "canceled": "Cancelled"
         },
         "stats": {
           "pages_done": "Pages",

@@ -52,7 +52,7 @@ export function auditQuery(filters: AuditFilters, cursor: string | null): string
   return params.toString();
 }
 
-export function AuditLogTable({ canView, showHeader = true }: { canView: boolean; showHeader?: boolean }) {
+export function AuditLogTable({ canView }: { canView: boolean }) {
   const t = useTranslations("Settings.auditLog");
   const tr = useTranslations("SettingsRedesign.audit");
   const format = useFormatter();
@@ -147,17 +147,13 @@ export function AuditLogTable({ canView, showHeader = true }: { canView: boolean
 
   return (
     <section className="space-y-4">
-      {showHeader ? (
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div className="min-w-0">
-            <h2 className="text-[19px] font-bold tracking-tight text-foreground">{t("title")}</h2>
-            <p className="mt-1 max-w-[62ch] text-sm text-muted-foreground">{tr("description")}</p>
-          </div>
-          <div className="shrink-0">{exportButton}</div>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <h2 className="text-[19px] font-bold tracking-tight text-foreground">{t("title")}</h2>
+          <p className="mt-1 max-w-[62ch] text-sm text-muted-foreground">{tr("description")}</p>
         </div>
-      ) : (
-        <div className="flex justify-end">{exportButton}</div>
-      )}
+        <div className="shrink-0">{exportButton}</div>
+      </div>
 
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,14rem)]">
         <label className="relative block min-w-0">

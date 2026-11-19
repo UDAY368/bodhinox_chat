@@ -164,7 +164,13 @@
     "sequences": "Secuencias",
     "subscription": "Suscripción",
     "automation": "Automatización",
-    "ai": "IA"
+    "ai": "IA",
+    "catalogue": "Catálogo",
+    "onlineStore": "Tienda en línea",
+    "reviews": "Reseñas",
+    "shopReports": "Informes de la tienda",
+    "storeSettings": "Ajustes de la tienda",
+    "reports": "Informes"
   },
   "ModeToggle": {
     "switchMode": "Cambiar al modo {mode}"
@@ -5724,7 +5730,6 @@
       "title": "Registro de auditoría",
       "description": "Quién hizo qué en este espacio de trabajo, de lo más reciente a lo más antiguo. Las entradas muestran identificadores y recuentos, nunca el contenido de los mensajes.",
       "linkDescription": "Revisa la actividad de miembros, equipos, permisos y exportaciones.",
-      "back": "Volver a la configuración",
       "adminsOnly": "Solo los administradores y propietarios pueden ver el registro de auditoría.",
       "member": "Miembro",
       "anyMember": "Cualquier miembro",
