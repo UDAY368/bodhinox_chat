@@ -34,7 +34,7 @@ export function orderCsvRow(o: OrderListItem, maskPhone: boolean): string {
   ]);
 }
 
-/** The CSV text and whether more orders matched than the cap allows. Filters: status, source, tag, q, from, to. */
+/** The CSV text and whether more orders matched than the cap allows. Filters: the same as the list (parseOrderFilters). */
 export async function exportOrdersCsv(ctx: TenantContext, filters: OrderFilters): Promise<{ csv: string; rows: number; truncated: boolean }> {
   const mask = await resolvePhoneMask(ctx);
   const lines = [csvRow(EXPORT_HEADER)];

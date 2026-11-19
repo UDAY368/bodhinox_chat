@@ -69,6 +69,7 @@ import { SendFormDialog } from "./send-form-dialog";
 import { SendPaymentLinkDialog } from "./send-payment-link-dialog";
 import { SendStorefrontLinkDialog } from "./send-storefront-link-dialog";
 import { SendProductDialog } from "@/components/commerce/catalog/send-product-dialog";
+import { ComposerRecordDialogs, ComposerRecordItems, type ComposerContact, type ComposerRecord } from "./composer-records";
 import { MediaPicker, type PickedMedia } from "./media-library/media-picker";
 import type { ConversationChannel } from "@/types";
 import { instagramMediaAllowed } from "@/lib/channels/capabilities";
@@ -209,6 +210,8 @@ interface MessageComposerProps {
   onSendLocation?: (location: SendLocationPayload, replyToId?: string) => void;
   /** The thread shows reminders in its own banner; the follow-up bar keeps scheduled replies. */
   remindersInBanner?: boolean;
+  /** The chat's contact, for + > New order / New quote / New deal (hidden without it). */
+  contact?: ComposerContact | null;
 }
 
 /** Time left in an Instagram reply window: "3d", "5h", "12m". */
@@ -248,6 +251,7 @@ export function MessageComposer({
   onAddNote,
   onSendLocation,
   remindersInBanner = false,
+  contact = null,
 }: MessageComposerProps) {
   const t = useTranslations("Inbox.composer");
   const tAssist = useTranslations("AiAssist");
@@ -311,6 +315,7 @@ export function MessageComposer({
   const [storefrontLinkOpen, setStorefrontLinkOpen] = useState(false);
   const [sendProductOpen, setSendProductOpen] = useState(false);
   const [mediaLibraryOpen, setMediaLibraryOpen] = useState(false);
+  const [recordOpen, setRecordOpen] = useState<ComposerRecord | null>(null);
   const attachItems = attachMenuItems(isInstagram);
 
   // Media attachment state. `draft` holds an uploaded-but-not-yet-sent
@@ -1105,11 +1110,11 @@ export function MessageComposer({
             </DropdownMenuContent>
           </DropdownMenu>
 
-          {/* + menu — interactive messages + quick replies. Gated on the
-              24h window like free-form text (interactive requires it). */}
+          {/* + menu — interactive messages, quick replies and the other sends are
+              gated on the 24h window like free-form text; New order / quote / deal are not. */}
           <DropdownMenu>
             <DropdownMenuTrigger
-              disabled={inputsDisabled}
+              disabled={readOnly}
               title={
                 readOnly
                   ? t("readOnlyTitle")
@@ -1123,33 +1128,33 @@ export function MessageComposer({
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="border-border bg-popover">
               {!isInstagram && (
-                <DropdownMenuItem onClick={() => openInteractiveBuilder()}>
+                <DropdownMenuItem disabled={windowClosed} onClick={() => openInteractiveBuilder()}>
                   <MessageSquareDashed className="mr-2 h-4 w-4" />
                   {t("interactiveMessage")}
                 </DropdownMenuItem>
               )}
-              <DropdownMenuItem onClick={() => setQuickReplyOpen(true)}>
+              <DropdownMenuItem disabled={windowClosed} onClick={() => setQuickReplyOpen(true)}>
                 <Zap className="mr-2 h-4 w-4" />
                 {t("quickReplies")}
               </DropdownMenuItem>
               {!isInstagram && (
-                <DropdownMenuItem onClick={() => setSendFormOpen(true)}>
+                <DropdownMenuItem disabled={windowClosed} onClick={() => setSendFormOpen(true)}>
                   <ClipboardList className="mr-2 h-4 w-4" />
                   {t("sendForm")}
                 </DropdownMenuItem>
               )}
-              <DropdownMenuItem onClick={() => setPaymentLinkOpen(true)}>
+              <DropdownMenuItem disabled={windowClosed} onClick={() => setPaymentLinkOpen(true)}>
                 <CreditCard className="mr-2 h-4 w-4" />
                 {t("sendPaymentLink")}
               </DropdownMenuItem>
               {!isInstagram && (
-                <DropdownMenuItem onClick={() => setSendProductOpen(true)}>
+                <DropdownMenuItem disabled={windowClosed} onClick={() => setSendProductOpen(true)}>
                   <ShoppingBag className="mr-2 h-4 w-4" />
                   {t("sendProducts")}
                 </DropdownMenuItem>
               )}
               {canSend && (
-                <DropdownMenuItem onClick={() => setStorefrontLinkOpen(true)}>
+                <DropdownMenuItem disabled={windowClosed} onClick={() => setStorefrontLinkOpen(true)}>
                   <Store className="mr-2 h-4 w-4" />
                   {t("sendStorefrontLink")}
                 </DropdownMenuItem>
@@ -1164,13 +1169,14 @@ export function MessageComposer({
               {!readOnly && (
                 <DropdownMenuItem
                   className="md:hidden"
-                  disabled={drafting}
+                  disabled={drafting || windowClosed}
                   onClick={() => void (assistSuggest ? handleSuggest() : handleDraft())}
                 >
                   <Sparkles className="mr-2 h-4 w-4" />
                   {assistSuggest ? tAssist("suggestReplies") : t("draftWithAI")}
                 </DropdownMenuItem>
               )}
+              {canSend && contact && <ComposerRecordItems onOpen={setRecordOpen} />}
             </DropdownMenuContent>
           </DropdownMenu>
 
@@ -1284,6 +1290,7 @@ export function MessageComposer({
       <SendPaymentLinkDialog open={paymentLinkOpen} onOpenChange={setPaymentLinkOpen} conversationId={conversationId} />
       <SendStorefrontLinkDialog open={storefrontLinkOpen} onOpenChange={setStorefrontLinkOpen} conversationId={conversationId} />
       <SendProductDialog open={sendProductOpen} onOpenChange={setSendProductOpen} conversationId={conversationId} />
+      {canSend && contact && <ComposerRecordDialogs open={recordOpen} contact={contact} onClose={() => setRecordOpen(null)} />}
 
       <MediaPicker
         open={mediaLibraryOpen}

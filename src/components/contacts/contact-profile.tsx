@@ -46,6 +46,7 @@ import type { Channel, Contact, ContactNote, Deal, MessageTemplate, Tag } from '
 import { ContactForm } from './contact-form';
 import { ContactIdentities } from './contact-identities';
 import { InstagramFacts } from './instagram-facts';
+import { ContactPayments } from './contact-payments';
 import { CustomFieldInput, FIELD_SELECT } from './custom-field-input';
 import { downloadContactsCsv, memberName, saveContactField, useContactMembers, useCustomFields } from './contacts-client';
 import { formatDay, formatLastSeen, formatWhen } from './format';
@@ -809,6 +810,9 @@ export function ContactProfile({ contactId }: { contactId: string }) {
             )}
           </section>
 
+          {/* Payments (agents and above, like orders) */}
+          {canEdit && <ContactPayments contactId={contactId} className={CARD} titleClassName={CARD_TITLE} />}
+
           {/* Deals */}
           <section className={CARD} aria-labelledby="ct-deals">
             <h2 id="ct-deals" className={cn(CARD_TITLE, 'mb-2')}>{t('profile.deals')}</h2>
@@ -816,7 +820,7 @@ export function ContactProfile({ contactId }: { contactId: string }) {
               <ul className="-mx-2 flex flex-col gap-0.5">
                 {deals.map((deal) => (
                   <li key={deal.id}>
-                    <Link href="/pipelines" className="flex items-center gap-2.5 rounded-lg p-2 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50">
+                    <Link href={`/pipelines?deal=${encodeURIComponent(deal.id)}`} className="flex items-center gap-2.5 rounded-lg p-2 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50">
                       <span className="min-w-0 flex-1">
                         <strong className="block truncate text-[13px] font-semibold text-foreground">{deal.title}</strong>
                         <small className="block truncate text-xs text-muted-foreground">

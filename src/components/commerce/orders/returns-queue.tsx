@@ -1,0 +1,105 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { useFormatter, useTranslations } from "next-intl";
+import { Undo2 } from "lucide-react";
+
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { TablePagination } from "@/components/ui/table-pagination";
+import { listReturnQueue, RETURN_QUEUE_PAGE, type ReturnQueueFilter, type ReturnQueueItem } from "./orders-list-api";
+import { ListError, RowPlaceholders } from "./list-states";
+import { StateBadge } from "./state-badge";
+import type { Tone } from "./order-state";
+
+const FILTERS: ReturnQueueFilter[] = ["open", "requested", "received", "inspected", "closed", "rejected"];
+const ALL = "all";
+const TONE: Record<ReturnQueueItem["status"], Tone> = { requested: "warn", received: "accent", inspected: "accent", closed: "ok", rejected: "neutral" };
+
+/** Every return of the workspace, newest first; a row opens its order, where the return is handled. */
+export function ReturnsQueue({ onOpenOrder, reloadKey }: { onOpenOrder: (orderId: string) => void; reloadKey: number }) {
+  const t = useTranslations("Commerce.orders.listing");
+  const tr = useTranslations("Commerce.returns");
+  const format = useFormatter();
+  const [status, setStatus] = useState<ReturnQueueFilter | "">("open");
+  const [page, setPage] = useState(0);
+  const [data, setData] = useState<{ returns: ReturnQueueItem[]; total: number } | null>(null);
+  const [failed, setFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
+
+  useEffect(() => {
+    let cancelled = false;
+    setData(null);
+    setFailed(false);
+    listReturnQueue(status, page)
+      .then((next) => !cancelled && setData(next))
+      .catch(() => !cancelled && setFailed(true));
+    return () => { cancelled = true; };
+  }, [status, page, attempt, reloadKey]);
+
+  const totalPages = data ? Math.max(1, Math.ceil(data.total / RETURN_QUEUE_PAGE)) : 1;
+
+  return (
+    <div className="space-y-4">
+      <Select value={status || ALL} onValueChange={(v) => { setStatus(v === ALL ? "" : (v as ReturnQueueFilter)); setPage(0); }}>
+        <SelectTrigger className="min-h-11 w-48 max-w-full sm:min-h-9" aria-label={t("returns.filter")}><SelectValue /></SelectTrigger>
+        <SelectContent>
+          <SelectItem value={ALL}>{t("returns.all")}</SelectItem>
+          {FILTERS.map((f) => <SelectItem key={f} value={f}>{f === "open" ? t("returns.open") : tr(`statuses.${f}`)}</SelectItem>)}
+        </SelectContent>
+      </Select>
+
+      {failed ? (
+        <ListError message={t("returns.loadError")} retry={t("retry")} onRetry={() => setAttempt((n) => n + 1)} />
+      ) : !data ? (
+        <RowPlaceholders label={t("loading")} />
+      ) : data.returns.length === 0 ? (
+        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border px-6 py-14 text-center">
+          <Undo2 className="h-6 w-6 text-muted-foreground" />
+          <p className="mt-3 text-sm text-muted-foreground">{t("returns.empty")}</p>
+        </div>
+      ) : (
+        <div className="overflow-x-auto rounded-xl border border-border bg-card">
+          <Table className="[&_td]:px-3.5 [&_td]:py-2.5">
+            <TableHeader className="bg-muted [&_th]:h-9 [&_th]:px-3.5 [&_th]:text-xs [&_th]:font-semibold [&_th]:text-muted-foreground">
+              <TableRow>
+                <TableHead>{t("returns.colOrder")}</TableHead>
+                <TableHead>{t("returns.colCustomer")}</TableHead>
+                <TableHead className="text-right">{t("returns.colUnits")}</TableHead>
+                <TableHead>{t("returns.colStatus")}</TableHead>
+                <TableHead>{t("returns.colOpened")}</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {data.returns.map((r) => (
+                <TableRow key={r.id} tabIndex={0} className="min-h-11 cursor-pointer focus-visible:bg-muted focus-visible:outline-none"
+                  aria-label={t("returns.openOrder", { ref: r.order_ref })}
+                  onClick={() => onOpenOrder(r.order_id)}
+                  onKeyDown={(e) => { if (e.key === "Enter" && e.target === e.currentTarget) onOpenOrder(r.order_id); }}>
+                  <TableCell className="whitespace-nowrap font-medium tabular-nums">{r.order_ref}</TableCell>
+                  <TableCell className="max-w-[14rem] truncate">{r.contact_name || t("unknownCustomer")}</TableCell>
+                  <TableCell className="text-right tabular-nums">{r.units}</TableCell>
+                  <TableCell>
+                    <div className="flex flex-wrap items-center gap-1">
+                      <StateBadge tone={r.pending_approval ? "warn" : TONE[r.status]}>
+                        {r.pending_approval ? t("returns.waitingApproval") : tr(`statuses.${r.status}`)}
+                      </StateBadge>
+                      {r.is_exchange && <StateBadge tone="neutral">{t("returns.exchange")}</StateBadge>}
+                      {r.source === "buyer" && !r.pending_approval && <span className="text-xs text-muted-foreground">{t("returns.buyer")}</span>}
+                    </div>
+                  </TableCell>
+                  <TableCell className="whitespace-nowrap text-muted-foreground">{format.dateTime(new Date(r.created_at), { dateStyle: "medium" })}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+          {data.total > RETURN_QUEUE_PAGE && (
+            <TablePagination className="border-t border-border" page={page} totalPages={totalPages} onPageChange={setPage}
+              summary={t("pageSummary", { start: page * RETURN_QUEUE_PAGE + 1, end: Math.min((page + 1) * RETURN_QUEUE_PAGE, data.total), total: data.total })}
+              labels={{ nav: t("pageNav"), previous: t("pagePrevious"), next: t("pageNext"), page: (n) => t("pageNumber", { n }) }} />
+          )}
+        </div>
+      )}
+    </div>
+  );
+}

@@ -5,7 +5,6 @@ import type {
   ContactCustomValue,
   ContactNote,
   CustomField,
-  Deal,
   Tag,
 } from '@/types';
 
@@ -20,14 +19,17 @@ export interface SidebarFlowRun {
 
 export interface ContactDetails {
   contact: Contact;
-  deals: Deal[];
   notes: ContactNote[];
   tags: (Tag & { contact_tag_id: string })[];
-  availableTags: Tag[];
-  customFields: CustomField[];
   customValues: Record<string, string>;
   flowRuns: SidebarFlowRun[];
   flowNames: Record<string, string>;
+}
+
+/** Workspace-wide lists the panel needs for every contact: read once per session, not per contact. */
+export interface WorkspaceLists {
+  availableTags: Tag[];
+  customFields: CustomField[];
 }
 
 function checked<T>({ data, error }: QueryResult<T>): T {
@@ -44,11 +46,6 @@ export async function loadContactDetails(
   const results = await Promise.all([
     db.from('contacts').select<Contact>('*').eq('id', contactId).single(),
     db
-      .from('deals')
-      .select<Deal>('*, stage:pipeline_stages(*)')
-      .eq('contact_id', contactId)
-      .order('created_at', { ascending: false }),
-    db
       .from('contact_notes')
       .select<ContactNote>('*')
       .eq('contact_id', contactId)
@@ -57,8 +54,6 @@ export async function loadContactDetails(
       .from('contact_tags')
       .select<{ id: string; tags: Tag | null }>('id, tag_id, tags(*)')
       .eq('contact_id', contactId),
-    db.from('tags').select<Tag>('*').order('name'),
-    db.from('custom_fields').select<CustomField>('*').order('field_name'),
     db
       .from('contact_custom_values')
       .select<ContactCustomValue>('*')
@@ -72,24 +67,12 @@ export async function loadContactDetails(
       .order('started_at', { ascending: false })
       .limit(20),
   ]);
-  const [
-    contact,
-    deals,
-    notes,
-    assignments,
-    availableTags,
-    customFields,
-    values,
-    flowRuns,
-  ] = [
+  const [contact, notes, assignments, values, flowRuns] = [
     checked(results[0]),
     checked(results[1]),
     checked(results[2]),
     checked(results[3]),
     checked(results[4]),
-    checked(results[5]),
-    checked(results[6]),
-    checked(results[7]),
   ];
   const flowIds = [...new Set(flowRuns.map((run) => run.flow_id))];
   const flows = flowIds.length
@@ -102,10 +85,7 @@ export async function loadContactDetails(
     : [];
   return {
     contact,
-    deals,
     notes,
-    availableTags,
-    customFields,
     flowRuns,
     tags: assignments.flatMap((row) =>
       row.tags ? [{ ...row.tags, contact_tag_id: row.id }] : []
@@ -115,6 +95,39 @@ export async function loadContactDetails(
     ),
     flowNames: Object.fromEntries(flows.map((flow) => [flow.id, flow.name])),
   };
+}
+
+const listsCache = new Map<string, Promise<WorkspaceLists>>();
+
+/**
+ * The workspace's tags and custom fields, cached per account for the browser
+ * session. `fresh` re-reads them (the panel's Refresh button, or after the
+ * panel itself added a field). A failed read is not cached.
+ */
+export function loadWorkspaceLists(
+  accountId: string,
+  { fresh = false }: { fresh?: boolean } = {}
+): Promise<WorkspaceLists> {
+  const cached = listsCache.get(accountId);
+  if (cached && !fresh) return cached;
+  const db = createClient();
+  const pending = Promise.all([
+    db.from('tags').select<Tag>('*').order('name'),
+    db.from('custom_fields').select<CustomField>('*').order('field_name'),
+  ]).then(([tags, fields]) => ({
+    availableTags: checked(tags),
+    customFields: checked(fields),
+  }));
+  listsCache.set(accountId, pending);
+  pending.catch(() => {
+    if (listsCache.get(accountId) === pending) listsCache.delete(accountId);
+  });
+  return pending;
+}
+
+/** Test hook: forget every cached list. */
+export function clearWorkspaceListsCache() {
+  listsCache.clear();
 }
 
 export async function saveContactBasics(

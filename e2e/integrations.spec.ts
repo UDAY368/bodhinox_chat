@@ -30,7 +30,7 @@ test.describe('meetings and shipping without provider configuration', () => {
     const { unshippedOrderId } = fixtures().integrations;
     await login(page, fixtures().users.owner);
     await page.goto(`/commerce/orders/${unshippedOrderId}`);
-    await expect(page.getByRole('button', { name: 'Mark dispatched' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Mark as shipped' })).toBeVisible();
     await expect(page.getByRole('button', { name: /Create shipment/i })).toHaveCount(0);
     const detail = await page.request.get(`/api/commerce/orders/${unshippedOrderId}`);
     expect(detail.status()).toBe(200);

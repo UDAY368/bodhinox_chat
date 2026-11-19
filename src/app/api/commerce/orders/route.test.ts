@@ -47,13 +47,36 @@ describe('GET /api/commerce/orders', () => {
     expect(filters.from).toEqual(new Date('2026-11-01'));
   });
 
+  it.each([
+    ['?payment=paid', { payment: 'paid' }],
+    ['?payment=waiting', { payment: 'waiting' }],
+    ['?payment=refunded', { payment: 'refunded' }],
+    ['?payment=partly_refunded', { payment: 'partly_refunded' }],
+    ['?payment=cod', { payment: 'cod' }],
+    ['?cash_due=1', { cashDue: true }],
+    ['?cod_confirmation=declined&tag=VIP', { codConfirmation: 'declined', tag: 'vip' }],
+  ])('passes %s to the SQL list for the caller workspace', async (query, expected) => {
+    expect((await get(query)).status).toBe(200);
+    const [ctx, filters] = h.listOrders.mock.calls[0];
+    expect(ctx).toEqual({ accountId: ACCOUNT, userId: USER, role: 'agent' });
+    expect(filters).toMatchObject(expected);
+  });
+
+  it('takes a date range, inclusive at both ends', async () => {
+    await get('?from=2026-11-01T00:00:00.000Z&to=2026-11-07T23:59:59.999Z');
+    const [, filters] = h.listOrders.mock.calls[0];
+    expect(filters.from).toEqual(new Date('2026-11-01T00:00:00.000Z'));
+    expect(filters.to).toEqual(new Date('2026-11-07T23:59:59.999Z'));
+  });
+
   it('refuses viewers', async () => {
     h.role = 'viewer';
     expect((await get()).status).toBe(403);
     expect(h.listOrders).not.toHaveBeenCalled();
   });
 
-  it.each(['?status=shipped', '?source=amazon', '?contact_id=nope', '?limit=-1', '?from=yesterday'])('rejects %s', async (query) => {
+  it.each(['?status=shipped', '?source=amazon', '?contact_id=nope', '?limit=-1', '?from=yesterday', '?payment=pending', '?payment=PAID',
+    '?cash_due=true', '?to=2026-13-45'])('rejects %s', async (query) => {
     expect((await get(query)).status).toBe(400);
     expect(h.listOrders).not.toHaveBeenCalled();
   });

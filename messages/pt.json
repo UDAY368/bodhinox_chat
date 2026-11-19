@@ -575,7 +575,10 @@
       "messageLabel": "Mensagem",
       "notePlaceholder": "Escreva uma nota para a equipe (o cliente nunca vê)",
       "location": "Localização",
-      "addNote": "Adicionar nota"
+      "addNote": "Adicionar nota",
+      "newOrder": "Novo pedido",
+      "newQuote": "Novo orçamento",
+      "newDeal": "Novo negócio"
     },
     "bubble": {
       "photo": "Foto",
@@ -706,7 +709,13 @@
       "editDetails": "Editar dados",
       "channel": "Canal",
       "phone": "Telefone",
-      "firstSeen": "Primeiro contato"
+      "firstSeen": "Primeiro contato",
+      "orders": "Pedidos",
+      "noOrders": "Sem pedidos",
+      "payments": "Pagamentos",
+      "noPayments": "Sem pagamentos",
+      "seeAll": "Ver todos os {count}",
+      "orderRef": "Pedido {ref}"
     },
     "aiBanner": {
       "pausedTitle": "O assistente de IA está pausado aqui",
@@ -1813,7 +1822,11 @@
           "not_a_date": "Digite uma data.",
           "not_a_choice": "Escolha uma das opções.",
           "field_not_found": "Este campo foi excluído."
-        }
+        },
+        "payments": "Pagamentos",
+        "noPayments": "Ainda não há pagamentos.",
+        "paymentsFailed": "Não foi possível carregar os pagamentos.",
+        "retry": "Tentar novamente"
       },
       "timeline": {
         "by": "{text} por {name}",
@@ -2006,7 +2019,8 @@
     },
     "board": {
       "dropDealHere": "Solte um negócio aqui",
-      "addDeal": "Adicionar negócio"
+      "addDeal": "Adicionar negócio",
+      "loadMore": "Mostrar mais {count}"
     },
     "card": {
       "noContact": "Sem contato",
@@ -10079,6 +10093,136 @@
           "coupon_min_subtotal": "O pedido ficaria abaixo do mínimo do cupom.",
           "forbidden": "Você não tem permissão para esta alteração. Uma alteração que reembolsa dinheiro precisa de um administrador."
         }
+      },
+      "listing": {
+        "tabs": {
+          "orders": "Pedidos",
+          "returns": "Devoluções",
+          "quotes": "Orçamentos"
+        },
+        "more": "Mais ações",
+        "loading": "Carregando",
+        "retry": "Tentar novamente",
+        "cancel": "Cancelar",
+        "forbidden": "Sua função não pode fazer isso.",
+        "unknownCustomer": "Cliente desconhecido",
+        "filterPayment": "Pagamento",
+        "allPayments": "Todos os pagamentos",
+        "payment": {
+          "paid": "Pago",
+          "waiting": "Aguardando pagamento",
+          "refunded": "Reembolsado",
+          "partly_refunded": "Reembolso parcial",
+          "cod": "Pagamento na entrega",
+          "cash_due": "Dinheiro a receber"
+        },
+        "cashDueHelp": "Dinheiro a receber: pedidos com pagamento na entrega confirmados, enviados ou entregues, e pedidos manuais confirmados, ainda sem pagamento registrado.",
+        "filterDate": "Data",
+        "dateFrom": "De",
+        "dateTo": "Até",
+        "date": {
+          "any": "Qualquer data",
+          "today": "Hoje",
+          "d7": "Últimos 7 dias",
+          "d30": "Últimos 30 dias",
+          "month": "Este mês",
+          "custom": "Período personalizado"
+        },
+        "shownOf": "Mostrando {shown} de {total} pedidos.",
+        "exportDone": "{rows} pedidos baixados.",
+        "exportTruncated": "Só os {rows} pedidos mais recentes foram exportados. Refine os filtros para obter o restante.",
+        "exportThrottled": "Exportações demais. Tente novamente em um minuto.",
+        "select": "Selecionar o pedido {ref}",
+        "selectAll": "Selecionar todos os pedidos exibidos",
+        "selected": "{count} selecionados",
+        "clear": "Limpar seleção",
+        "tooMany": "Selecione até {max} pedidos por vez.",
+        "pageSummary": "Mostrando {start}–{end} de {total}",
+        "pageNav": "Páginas",
+        "pagePrevious": "Página anterior",
+        "pageNext": "Próxima página",
+        "pageNumber": "Página {n}",
+        "bulk": {
+          "create": "Criar envios",
+          "labels": "Imprimir etiquetas",
+          "createTitle": "Criar envios",
+          "labelsTitle": "Etiquetas de envio",
+          "createBody": "Cada um dos {count} pedidos recebe um envio com o tamanho de pacote padrão, pesado pelos itens. A transportadora debita seu saldo quando atribui um código de rastreio. Pedidos que já estão com uma transportadora são ignorados.",
+          "labelsBody": "Obtenha a etiqueta de envio de cada um dos {count} pedidos. A etiqueta fica pronta quando a transportadora atribui um código de rastreio.",
+          "createGo": "Criar {count, plural, one {# envio} other {# envios}}",
+          "labelsGo": "Obter {count, plural, one {# etiqueta} other {# etiquetas}}",
+          "summary": "{ok} de {count} concluídos.",
+          "created": "Envio solicitado",
+          "openLabel": "Abrir etiqueta",
+          "done": "Concluído",
+          "cancel": "Cancelar",
+          "unknown": "Não é certo que funcionou. Abra o pedido para conferir antes de tentar novamente.",
+          "noDefaults": "Defina primeiro um tamanho de pacote padrão nas configurações da transportadora.",
+          "failed": "Não foi possível concluir. Abra os pedidos para conferir antes de tentar novamente.",
+          "throttled": "Solicitações demais. Tente novamente em um minuto.",
+          "forbidden": "Sua função não pode fazer isso."
+        },
+        "returns": {
+          "filter": "Status da devolução",
+          "all": "Todas as devoluções",
+          "open": "A tratar",
+          "empty": "Nenhuma devolução aqui.",
+          "loadError": "Não foi possível carregar as devoluções.",
+          "colOrder": "Pedido",
+          "colCustomer": "Cliente",
+          "colUnits": "Itens",
+          "colStatus": "Status",
+          "colOpened": "Aberta em",
+          "waitingApproval": "Aguardando sua aprovação",
+          "buyer": "Pedida pelo cliente",
+          "exchange": "Troca",
+          "openOrder": "Abrir o pedido {ref}"
+        },
+        "quotes": {
+          "empty": "Nenhum orçamento enviado ainda.",
+          "new": "Novo orçamento",
+          "loadError": "Não foi possível carregar os orçamentos.",
+          "colCustomer": "Cliente",
+          "colItems": "Itens",
+          "colState": "Status",
+          "colSent": "Enviado",
+          "colExpires": "Link válido até",
+          "colActions": "Ações",
+          "state": {
+            "open": "Link ativo",
+            "ordered": "Pedido feito",
+            "expired": "Expirado",
+            "revoked": "Revogado"
+          },
+          "revoke": "Revogar",
+          "revokeTitle": "Revogar este orçamento?",
+          "revokeBody": "O link enviado para {name} para de funcionar na hora e não pode mais ser usado para finalizar a compra. Isso não pode ser desfeito.",
+          "revokeGo": "Revogar orçamento",
+          "revoked": "Orçamento revogado",
+          "revokeFailed": "Não foi possível revogar o orçamento. Tente novamente."
+        }
+      },
+      "view": {
+        "more": "Mais ações",
+        "retry": "Tentar de novo",
+        "loadFailed": "Não foi possível carregar este pedido.",
+        "payment": "Pagamento",
+        "shipment": "Envio",
+        "customer": "Cliente",
+        "items": "Itens",
+        "returns": "Devoluções",
+        "taxInvoice": "Nota fiscal",
+        "tags": "Etiquetas",
+        "history": "Histórico",
+        "notes": "Notas",
+        "paid": "Pago",
+        "refunded": "Reembolsado",
+        "due": "Falta pagar",
+        "moveTo": "Marcar como {status}",
+        "waitingForPayment": "Aguardando pagamento",
+        "cancelAmount": "Total do pedido: {amount}. Nada foi pago.",
+        "refundTitle": "Cancelar e reembolsar {ref}?",
+        "refundAmount": "{amount} volta para o cliente e depois o pedido é cancelado. O estoque volta quando o reembolso for processado."
       }
     },
     "attention": {
@@ -10813,10 +10957,61 @@
       "title": "Configurações da loja",
       "subtitle": "Moeda, impostos, checkout, dados do vendedor, frete e cupons da sua loja online.",
       "loadError": "Não foi possível carregar as configurações da loja.",
-      "loading": "Carregando",
       "saved": "Configurações da loja salvas.",
-      "generalTitle": "Checkout e impostos",
-      "generalHelp": "Preços e impostos sempre vêm destas configurações; sem alíquota, o checkout para em vez de cobrar imposto zero.",
+      "sections": {
+        "navLabel": "Seções das configurações da loja",
+        "groups": {
+          "store": "Loja",
+          "selling": "Vendas",
+          "customers": "Clientes",
+          "other": "Outros"
+        },
+        "general": {
+          "title": "Geral",
+          "help": "O nome da sua loja online e a moeda de todos os preços."
+        },
+        "taxes": {
+          "title": "Impostos e notas",
+          "help": "Preços e impostos sempre vêm destas configurações; sem alíquota, o checkout para em vez de cobrar imposto zero."
+        },
+        "checkout": {
+          "title": "Checkout e pagamentos",
+          "help": "Checkout online, pagamento na entrega, devoluções e o modelo do link de checkout."
+        },
+        "shipping": {
+          "title": "Frete e entrega",
+          "help": "Tarifas de frete, retirada na loja e entrega local."
+        },
+        "discounts": {
+          "title": "Descontos e preços",
+          "help": "Cupons, descontos automáticos, listas de preços, brindes e fidelidade."
+        },
+        "buyers": {
+          "title": "Compradores e contas",
+          "help": "O que os compradores podem fazer sozinhos e o que o checkout pede a eles."
+        },
+        "notifications": {
+          "title": "Avisos e mensagens",
+          "help": "Lembretes e os modelos de WhatsApp das mensagens de pedidos."
+        },
+        "marketing": {
+          "title": "Marketing",
+          "help": "E-mails de pedidos, campanhas de e-mail, indicações e sua página de links."
+        },
+        "advanced": {
+          "title": "Avançado",
+          "help": "Reserva de estoque e alertas de estoque baixo."
+        },
+        "needsSetup": "Primeiro defina a moeda da loja em Geral.",
+        "openGeneral": "Abrir Geral",
+        "retry": "Tentar de novo",
+        "leave": {
+          "title": "Descartar as alterações não salvas?",
+          "body": "As alterações desta seção ainda não foram salvas. Sair as descarta.",
+          "stay": "Continuar editando",
+          "discard": "Descartar alterações"
+        }
+      },
       "checkoutEnabled": "Checkout online ativado",
       "razorpayMissing": "O Razorpay não está conectado, então os clientes não podem pagar online. Só é possível fazer pedidos com pagamento na entrega. Conecte o Razorpay em Configurações → Pagamentos.",
       "currency": "Moeda da loja",
@@ -17304,7 +17499,14 @@
       "deleteTitle": "Excluir este negócio?",
       "deleteBody": "\"{title}\" será removido do funil.",
       "deleted": "Negócio excluído",
-      "deleteFailed": "Não foi possível excluir o negócio"
+      "deleteFailed": "Não foi possível excluir o negócio",
+      "viewLabel": "Negócios a mostrar",
+      "viewOpen": "Abertos",
+      "viewWon": "Ganhos",
+      "viewLost": "Perdidos",
+      "loadFailed": "Não foi possível carregar os negócios.",
+      "retry": "Tentar novamente",
+      "dealNotFound": "Esse negócio não foi encontrado neste espaço de trabalho"
     },
     "deal": {
       "saving": "Salvando…",
@@ -17327,7 +17529,15 @@
       "noteDeleted": "Nota excluída",
       "delete": "Excluir",
       "markLost": "Marcar como perdido",
-      "markWon": "Marcar como ganho"
+      "markWon": "Marcar como ganho",
+      "pipeline": "Funil",
+      "closedWon": "Ganho",
+      "closedLost": "Perdido",
+      "lostReasonShown": "Motivo: {reason}",
+      "lostTitle": "Marcar este negócio como perdido?",
+      "lostBody": "Adicione um motivo, se quiser. Você pode reabrir o negócio depois.",
+      "lostReason": "Motivo (opcional)",
+      "lostReasonPlaceholder": "Por exemplo, escolheu outro fornecedor"
     },
     "paymentLink": {
       "sendNow": "Enviar agora para o cliente",
@@ -17352,7 +17562,7 @@
       "colFulfilment": "Entrega",
       "pay": {
         "paid": "Pago",
-        "pending": "Pendente",
+        "pending": "Aguardando pagamento",
         "refunded": "Reembolsado",
         "partlyRefunded": "Reembolso parcial",
         "cod": "Pagamento na entrega"

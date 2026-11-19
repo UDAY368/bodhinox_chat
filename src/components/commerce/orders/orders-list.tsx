@@ -1,24 +1,30 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useFormatter, useLocale, useTranslations } from "next-intl";
 import { toast } from "sonner";
 import {
-  Banknote, Download, Eye, FileText, Link2, Loader2, MoreHorizontal, Plus, Search, Send, Settings2, ShoppingBag, Truck, Undo2, X,
+  Banknote, Download, Eye, FileText, Link2, Loader2, MoreHorizontal, Plus, Printer, Search, Send, Settings2, ShoppingBag, Truck, Undo2, X,
 } from "lucide-react";
 
 import { useCan } from "@/hooks/use-can";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectSeparator, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatMoney } from "@/lib/commerce/money";
 import { ORDER_SOURCES, ORDER_STATUSES, type OrderSource, type OrderStatus } from "@/lib/commerce/order-format";
-import { listOrders, type OrderListItem } from "./order-api";
+import type { OrderListItem } from "./order-api";
+import {
+  BULK_DISPATCH_MAX, DATE_PRESETS, dateRangeFor, exportOrders, listOrders, PAYMENT_FILTERS, type DatePreset, type OrderQuery, type PaymentFilter,
+} from "./orders-list-api";
 import { OrderDrawer, type OrderIntent } from "./order-drawer";
 import { NewOrderDialog } from "./new-order-dialog";
 import { OrderRiskBadge } from "./order-risk-badge";
@@ -27,8 +33,14 @@ import {
   canCancelUnpaid, canTakeLinkPayment, COD_CONFIRM_TONE, FULFILMENT_TONE, fulfilmentState, orderRef, PAYMENT_TONE, paymentState,
 } from "./order-state";
 import { StateBadge } from "./state-badge";
+import { BulkDispatchSheet, type BulkOrder } from "./bulk-dispatch-sheet";
+import { ListError, RowPlaceholders } from "./list-states";
+import { QuotesList } from "./quotes-list";
+import { ReturnsQueue } from "./returns-queue";
 
 const ALL = "all";
+const CASH_DUE = "cash_due";
+type Tab = "orders" | "returns" | "quotes";
 
 /** The step a list row can offer without the order's detail (the drawer re-checks it with the full order). */
 function listStep(o: OrderListItem): "ship" | "deliver" | "confirm" | null {
@@ -40,9 +52,108 @@ function listStep(o: OrderListItem): "ship" | "deliver" | "confirm" | null {
   return null;
 }
 
-/** Orders from WhatsApp carts, the storefront, connected stores and manual orders, newest first, for agents and above. */
+/**
+ * Sales → Orders: the order list (filters run on the server, with a count and the matching CSV export), the
+ * returns queue and the quotes sent. Admins can select orders to create courier shipments or print labels in bulk.
+ */
 export function OrdersList() {
   const t = useTranslations("Commerce.orders");
+  const tl = useTranslations("Commerce.orders.listing");
+  const ts = useTranslations("Sales.orders");
+  const canAct = useCan("send-messages");
+  const canAdmin = useCan("edit-settings");
+  const router = useRouter();
+
+  const [tab, setTab] = useState<Tab>("orders");
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [creating, setCreating] = useState<"order" | "quote" | null>(null);
+  const [open, setOpen] = useState<{ id: string; intent: OrderIntent | null } | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
+  const [exportQuery, setExportQuery] = useState<OrderQuery>({});
+  const [exporting, setExporting] = useState(false);
+
+  const refresh = useCallback(() => setReloadKey((k) => k + 1), []);
+  const openOrder = useCallback((id: string, intent: OrderIntent | null = null) => setOpen({ id, intent }), []);
+
+  // Admins download the server-built CSV (formula-safe, masking-aware) for exactly the list's filters.
+  const runExport = async () => {
+    setExporting(true);
+    const res = await exportOrders(exportQuery).catch(() => null);
+    setExporting(false);
+    if (!res || !res.ok) toast.error(res?.status === 429 ? tl("exportThrottled") : ts("exportFailed"));
+    else if (res.truncated) toast.warning(tl("exportTruncated", { rows: res.rows }));
+    else toast.success(tl("exportDone", { rows: res.rows }));
+  };
+
+  return (
+    <div className="space-y-5">
+      <header className="flex flex-wrap items-end justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="text-[22px] font-bold tracking-tight text-foreground">{t("title")}</h1>
+          <p className="mt-1 max-w-2xl text-sm text-muted-foreground">{t("description")}</p>
+        </div>
+        <div className="flex items-center gap-2">
+          {(canAct || canAdmin) && (
+            <DropdownMenu>
+              <DropdownMenuTrigger aria-label={tl("more")}
+                className="inline-flex size-11 items-center justify-center rounded-lg border border-border text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-primary sm:size-9">
+                <MoreHorizontal className="h-4 w-4" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                {canAct && <DropdownMenuItem onClick={() => setCreating("quote")}><FileText className="h-4 w-4" /> {t("quote.open")}</DropdownMenuItem>}
+                {canAdmin && <DropdownMenuItem onClick={() => router.push("/commerce/orders/counter")}><ShoppingBag className="h-4 w-4" /> {t("counter.open")}</DropdownMenuItem>}
+                {canAdmin && (
+                  <DropdownMenuItem disabled={exporting} onClick={() => void runExport()}>
+                    {exporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />} {t("exportCsv")}
+                  </DropdownMenuItem>
+                )}
+                {canAct && <DropdownMenuSeparator />}
+                {canAct && <DropdownMenuItem onClick={() => setSettingsOpen(true)}><Settings2 className="h-4 w-4" /> {t("settings.open")}</DropdownMenuItem>}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+          {canAct && (
+            <Button className="min-h-11 sm:min-h-9" onClick={() => setCreating("order")}>
+              <Plus className="h-4 w-4" />
+              {ts("newOrder")}
+            </Button>
+          )}
+        </div>
+      </header>
+
+      <Tabs value={tab} onValueChange={(v) => setTab(v as Tab)}>
+        <TabsList className="h-11 sm:h-9">
+          <TabsTrigger value="orders" className="px-4">{tl("tabs.orders")}</TabsTrigger>
+          <TabsTrigger value="returns" className="px-4">{tl("tabs.returns")}</TabsTrigger>
+          <TabsTrigger value="quotes" className="px-4">{tl("tabs.quotes")}</TabsTrigger>
+        </TabsList>
+      </Tabs>
+
+      {tab === "orders" && (
+        <OrdersTab reloadKey={reloadKey} onOpenOrder={openOrder} onNewOrder={() => setCreating("order")} onQueryChange={setExportQuery} />
+      )}
+      {tab === "returns" && <ReturnsQueue reloadKey={reloadKey} onOpenOrder={(id) => openOrder(id)} />}
+      {tab === "quotes" && <QuotesList reloadKey={reloadKey} onNewQuote={() => setCreating("quote")} />}
+
+      {settingsOpen && <OrderSettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />}
+      {canAct && (
+        <NewOrderDialog open={creating !== null} mode={creating ?? "order"} onOpenChange={(v) => !v && setCreating(null)}
+          onCreated={(order) => { refresh(); openOrder(order.id); }} />
+      )}
+      <OrderDrawer orderId={open?.id ?? null} intent={open?.intent ?? null} onClose={() => setOpen(null)} onChanged={refresh} />
+    </div>
+  );
+}
+
+/** The filtered order list, paged by "Load more", with row selection for bulk dispatch (admins). */
+function OrdersTab({ reloadKey, onOpenOrder, onNewOrder, onQueryChange }: {
+  reloadKey: number;
+  onOpenOrder: (id: string, intent?: OrderIntent | null) => void;
+  onNewOrder: () => void;
+  onQueryChange: (query: OrderQuery) => void;
+}) {
+  const t = useTranslations("Commerce.orders");
+  const tl = useTranslations("Commerce.orders.listing");
   const ts = useTranslations("Sales.orders");
   const tSource = useTranslations("Commerce.orders.sources");
   const tStatus = useTranslations("Commerce.orders.statuses");
@@ -53,41 +164,56 @@ export function OrdersList() {
 
   const [status, setStatus] = useState<OrderStatus | "">("");
   const [source, setSource] = useState<OrderSource | "">("");
+  const [payment, setPayment] = useState<PaymentFilter | typeof CASH_DUE | "">("");
+  const [datePreset, setDatePreset] = useState<DatePreset>("any");
+  const [customFrom, setCustomFrom] = useState("");
+  const [customTo, setCustomTo] = useState("");
   const [codConfirmation, setCodConfirmation] = useState<"pending" | "declined" | "">("");
   const [tag, setTag] = useState("");
   const [draft, setDraft] = useState("");
   const [q, setQ] = useState("");
   const [orders, setOrders] = useState<OrderListItem[]>([]);
+  const [total, setTotal] = useState<number | null>(null);
   const [cursor, setCursor] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [failed, setFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [settingsOpen, setSettingsOpen] = useState(false);
-  const [creating, setCreating] = useState<"order" | "quote" | null>(null);
-  const [open, setOpen] = useState<{ id: string; intent: OrderIntent | null } | null>(null);
-  const [reloadKey, setReloadKey] = useState(0);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulk, setBulk] = useState<{ action: "create" | "labels"; orders: BulkOrder[] } | null>(null);
+
+  const range = useMemo(() => dateRangeFor(datePreset, { from: customFrom, to: customTo }), [datePreset, customFrom, customTo]);
+  const query = useMemo<OrderQuery>(() => ({
+    status, source, q, tag, codConfirmation,
+    payment: payment === CASH_DUE ? "" : payment, cashDue: payment === CASH_DUE, from: range.from, to: range.to,
+  }), [status, source, q, tag, codConfirmation, payment, range]);
+
+  useEffect(() => { onQueryChange(query); }, [query, onQueryChange]);
 
   useEffect(() => {
     let cancelled = false;
-     
     setLoading(true);
-    listOrders({ status, source, q, tag, codConfirmation })
+    setFailed(false);
+    setSelected(new Set());
+    listOrders(query)
       .then((page) => {
         if (cancelled) return;
         setOrders(page.orders);
+        setTotal(page.total);
         setCursor(page.next_cursor);
       })
-      .catch(() => !cancelled && toast.error(t("loadError")))
+      .catch(() => !cancelled && setFailed(true))
       .finally(() => !cancelled && setLoading(false));
     return () => {
       cancelled = true;
     };
-  }, [status, source, q, tag, codConfirmation, t, reloadKey]);
+  }, [query, reloadKey, attempt]);
 
   const loadMore = useCallback(async () => {
     if (!cursor) return;
     setLoadingMore(true);
     try {
-      const page = await listOrders({ status, source, q, tag, codConfirmation, cursor });
+      const page = await listOrders({ ...query, cursor });
       setOrders((prev) => [...prev, ...page.orders.filter((o) => !prev.some((p) => p.id === o.id))]);
       setCursor(page.next_cursor);
     } catch {
@@ -95,9 +221,7 @@ export function OrdersList() {
     } finally {
       setLoadingMore(false);
     }
-  }, [cursor, status, source, q, tag, codConfirmation, t]);
-
-  const refresh = useCallback(() => setReloadKey((k) => k + 1), []);
+  }, [cursor, query, t]);
 
   const money = (minor: number, currency: string) => {
     try {
@@ -107,52 +231,21 @@ export function OrdersList() {
     }
   };
 
-  const openOrder = (id: string, intent: OrderIntent | null = null) => setOpen({ id, intent });
-  const filtered = Boolean(q || status || source || tag || codConfirmation);
-  // Admins download the server-built CSV (formula-safe, masking-aware) for the current filters.
-  const exportHref = `/api/commerce/orders/export?${new URLSearchParams(Object.entries({ status, source, q, tag }).filter(([, v]) => v))}`;
+  const filtered = Boolean(q || status || source || tag || codConfirmation || payment || range.from || range.to);
+  const selectable = canAdmin;
+  const allSelected = orders.length > 0 && orders.every((o) => selected.has(o.id));
+  const toggle = (id: string, on: boolean) => setSelected((prev) => {
+    const next = new Set(prev);
+    if (on) next.add(id); else next.delete(id);
+    return next;
+  });
+  const tooMany = selected.size > BULK_DISPATCH_MAX;
+  // The sheet keeps its own copy: the list reloads (and clears the selection) once shipments were requested.
+  const startBulk = (action: "create" | "labels") =>
+    setBulk({ action, orders: orders.filter((o) => selected.has(o.id)).map((o) => ({ id: o.id, ref: orderRef(o) })) });
 
   return (
-    <div className="space-y-5">
-      <header className="flex flex-wrap items-end justify-between gap-3">
-        <div className="min-w-0">
-          <h1 className="text-[22px] font-bold tracking-tight text-foreground">{t("title")}</h1>
-          <p className="mt-1 max-w-2xl text-sm text-muted-foreground">{t("description")}</p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {canAct && (
-            <Button variant="ghost" onClick={() => setSettingsOpen(true)}>
-              <Settings2 className="h-4 w-4" />
-              {t("settings.open")}
-            </Button>
-          )}
-          {canAdmin && (
-            <a href={exportHref} download className={buttonVariants({ variant: "outline" })}>
-              <Download className="h-4 w-4" />
-              {t("exportCsv")}
-            </a>
-          )}
-          {canAct && (
-            <Button variant="outline" onClick={() => setCreating("quote")}>
-              <FileText className="h-4 w-4" />
-              {t("quote.open")}
-            </Button>
-          )}
-          {canAdmin && (
-            <Link href="/commerce/orders/counter" className={buttonVariants({ variant: "outline" })}>
-              <ShoppingBag className="h-4 w-4" />
-              {t("counter.open")}
-            </Link>
-          )}
-          {canAct && (
-            <Button onClick={() => setCreating("order")}>
-              <Plus className="h-4 w-4" />
-              {ts("newOrder")}
-            </Button>
-          )}
-        </div>
-      </header>
-
+    <div className="space-y-4">
       <form
         className="flex flex-wrap items-center gap-2"
         onSubmit={(e) => {
@@ -163,37 +256,78 @@ export function OrdersList() {
         <div className="relative min-w-0 flex-1 basis-48 sm:max-w-xs">
           <Search className="pointer-events-none absolute top-1/2 left-2.5 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input value={draft} onChange={(e) => setDraft(e.target.value)} onBlur={() => setQ(draft.trim())}
-            placeholder={t("searchPlaceholder")} aria-label={t("searchPlaceholder")} className="pl-8" maxLength={100} />
+            placeholder={t("searchPlaceholder")} aria-label={t("searchPlaceholder")} className="min-h-11 pl-8 sm:min-h-9" maxLength={100} />
         </div>
         <Select value={status || ALL} onValueChange={(v) => setStatus(v === ALL ? "" : (v as OrderStatus))}>
-          <SelectTrigger className="w-44 max-w-full" aria-label={t("filterStatus")}><SelectValue /></SelectTrigger>
+          <SelectTrigger className="min-h-11 w-44 max-w-full sm:min-h-9" aria-label={t("filterStatus")}><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value={ALL}>{t("allStatuses")}</SelectItem>
             {ORDER_STATUSES.map((s) => <SelectItem key={s} value={s}>{tStatus(s)}</SelectItem>)}
           </SelectContent>
         </Select>
+        <Select value={payment || ALL} onValueChange={(v) => setPayment(v === ALL ? "" : (v as PaymentFilter | typeof CASH_DUE))}>
+          <SelectTrigger className="min-h-11 w-48 max-w-full sm:min-h-9" aria-label={tl("filterPayment")}><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value={ALL}>{tl("allPayments")}</SelectItem>
+            {PAYMENT_FILTERS.map((p) => <SelectItem key={p} value={p}>{tl(`payment.${p}`)}</SelectItem>)}
+            <SelectSeparator />
+            <SelectItem value={CASH_DUE}>{tl("payment.cash_due")}</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={datePreset} onValueChange={(v) => setDatePreset(v as DatePreset)}>
+          <SelectTrigger className="min-h-11 w-40 max-w-full sm:min-h-9" aria-label={tl("filterDate")}><SelectValue /></SelectTrigger>
+          <SelectContent>
+            {DATE_PRESETS.map((p) => <SelectItem key={p} value={p}>{tl(`date.${p}`)}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        {datePreset === "custom" && (
+          <>
+            <Input type="date" value={customFrom} max={customTo || undefined} onChange={(e) => setCustomFrom(e.target.value)}
+              aria-label={tl("dateFrom")} className="min-h-11 w-40 sm:min-h-9" />
+            <Input type="date" value={customTo} min={customFrom || undefined} onChange={(e) => setCustomTo(e.target.value)}
+              aria-label={tl("dateTo")} className="min-h-11 w-40 sm:min-h-9" />
+          </>
+        )}
         <Select value={source || ALL} onValueChange={(v) => setSource(v === ALL ? "" : (v as OrderSource))}>
-          <SelectTrigger className="w-40 max-w-full" aria-label={t("filterSource")}><SelectValue /></SelectTrigger>
+          <SelectTrigger className="min-h-11 w-40 max-w-full sm:min-h-9" aria-label={t("filterSource")}><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value={ALL}>{t("allSources")}</SelectItem>
             {ORDER_SOURCES.map((s) => <SelectItem key={s} value={s}>{tSource(s)}</SelectItem>)}
           </SelectContent>
         </Select>
-        <Input value={tag} onChange={(e) => setTag(e.target.value.slice(0, 24))} placeholder={t("tags.filter")} aria-label={t("tags.filter")} className="w-36" maxLength={24} />
         <Select value={codConfirmation || ALL} onValueChange={(v) => setCodConfirmation(v === ALL ? "" : (v as "pending" | "declined"))}>
-          <SelectTrigger className="w-48 max-w-full" aria-label={t("filterCodConfirmation")}><SelectValue /></SelectTrigger>
+          <SelectTrigger className="min-h-11 w-48 max-w-full sm:min-h-9" aria-label={t("filterCodConfirmation")}><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value={ALL}>{t("allCodConfirmations")}</SelectItem>
             <SelectItem value="pending">{t("cod.confirmation.pending")}</SelectItem>
             <SelectItem value="declined">{t("cod.confirmation.declined")}</SelectItem>
           </SelectContent>
         </Select>
+        <Input value={tag} onChange={(e) => setTag(e.target.value.slice(0, 24))} placeholder={t("tags.filter")} aria-label={t("tags.filter")}
+          className="min-h-11 w-36 sm:min-h-9" maxLength={24} />
       </form>
+      {payment === CASH_DUE && <p className="text-xs text-muted-foreground">{tl("cashDueHelp")}</p>}
 
-      {loading ? (
-        <div className="flex justify-center py-16">
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" aria-label={t("loading")} />
+      {selectable && selected.size > 0 && (
+        <div className="flex flex-wrap items-center gap-2 rounded-xl bg-muted px-3 py-2" role="region" aria-label={tl("selected", { count: selected.size })}>
+          <span className="text-sm font-medium">{tl("selected", { count: selected.size })}</span>
+          {tooMany && <span className="text-xs text-destructive">{tl("tooMany", { max: BULK_DISPATCH_MAX })}</span>}
+          <div className="ml-auto flex flex-wrap items-center gap-2">
+            <Button variant="outline" className="min-h-11 sm:min-h-8" size="sm" disabled={tooMany} onClick={() => startBulk("create")}>
+              <Truck className="h-4 w-4" /> {tl("bulk.create")}
+            </Button>
+            <Button variant="outline" className="min-h-11 sm:min-h-8" size="sm" disabled={tooMany} onClick={() => startBulk("labels")}>
+              <Printer className="h-4 w-4" /> {tl("bulk.labels")}
+            </Button>
+            <Button variant="ghost" className="min-h-11 sm:min-h-8" size="sm" onClick={() => setSelected(new Set())}>{tl("clear")}</Button>
+          </div>
         </div>
+      )}
+
+      {failed ? (
+        <ListError message={t("loadError")} retry={tl("retry")} onRetry={() => setAttempt((n) => n + 1)} />
+      ) : loading ? (
+        <RowPlaceholders label={t("loading")} />
       ) : orders.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border px-6 py-16 text-center">
           <div className="flex size-[52px] items-center justify-center rounded-2xl bg-primary/10">
@@ -202,7 +336,7 @@ export function OrdersList() {
           <h2 className="mt-4 text-base font-semibold text-foreground">{filtered ? t("noMatches") : t("emptyTitle")}</h2>
           {!filtered && <p className="mt-1 max-w-md text-sm text-muted-foreground">{t("emptyDesc")}</p>}
           {canAct && !filtered && (
-            <Button className="mt-4" variant="outline" onClick={() => setCreating("order")}><Plus className="h-4 w-4" /> {ts("newOrder")}</Button>
+            <Button className="mt-4 min-h-11 sm:min-h-9" variant="outline" onClick={onNewOrder}><Plus className="h-4 w-4" /> {ts("newOrder")}</Button>
           )}
         </div>
       ) : (
@@ -210,6 +344,12 @@ export function OrdersList() {
           <Table className="[&_td]:px-3.5 [&_td]:py-2.5">
             <TableHeader className="bg-muted [&_th]:h-9 [&_th]:px-3.5 [&_th]:text-xs [&_th]:font-semibold [&_th]:text-muted-foreground">
               <TableRow>
+                {selectable && (
+                  <TableHead className="w-px">
+                    <Checkbox checked={allSelected} indeterminate={!allSelected && selected.size > 0} aria-label={tl("selectAll")}
+                      onCheckedChange={(on) => setSelected(on ? new Set(orders.map((o) => o.id)) : new Set())} />
+                  </TableHead>
+                )}
                 <TableHead>{t("colOrder")}</TableHead>
                 <TableHead>{t("colCustomer")}</TableHead>
                 <TableHead className="text-right">{t("colItems")}</TableHead>
@@ -227,9 +367,17 @@ export function OrdersList() {
                 const step = canAct ? listStep(order) : null;
                 return (
                   <TableRow key={order.id} tabIndex={0} className="cursor-pointer focus-visible:bg-muted focus-visible:outline-none"
+                    data-state={selected.has(order.id) ? "selected" : undefined}
                     aria-label={ts("openOrderLabel", { ref })}
-                    onClick={() => openOrder(order.id)}
-                    onKeyDown={(e) => { if (e.key === "Enter" && e.target === e.currentTarget) openOrder(order.id); }}>
+                    onClick={() => onOpenOrder(order.id)}
+                    onKeyDown={(e) => { if (e.key === "Enter" && e.target === e.currentTarget) onOpenOrder(order.id); }}>
+                    {selectable && (
+                      <TableCell className="w-px" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+                        <label className="-m-3 flex size-11 items-center justify-center sm:-m-2 sm:size-8">
+                          <Checkbox checked={selected.has(order.id)} aria-label={tl("select", { ref })} onCheckedChange={(on) => toggle(order.id, on)} />
+                        </label>
+                      </TableCell>
+                    )}
                     <TableCell className="whitespace-nowrap">
                       <span className="font-medium tabular-nums text-foreground">{ref}</span>
                       <div className="text-xs text-muted-foreground">
@@ -257,27 +405,27 @@ export function OrdersList() {
                     <TableCell className="w-px text-right" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
                       <DropdownMenu>
                         <DropdownMenuTrigger aria-label={ts("orderActions", { ref })}
-                          className="inline-flex size-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-primary">
+                          className="inline-flex size-11 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-primary sm:size-8">
                           <MoreHorizontal className="h-4 w-4" />
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="w-56">
-                          <DropdownMenuItem onClick={() => openOrder(order.id)}><Eye className="h-4 w-4" /> {ts("openOrder")}</DropdownMenuItem>
-                          {step && <DropdownMenuItem onClick={() => openOrder(order.id, "step")}><Truck className="h-4 w-4" /> {ts(`next.${step}`)}</DropdownMenuItem>}
+                          <DropdownMenuItem onClick={() => onOpenOrder(order.id)}><Eye className="h-4 w-4" /> {ts("openOrder")}</DropdownMenuItem>
+                          {step && <DropdownMenuItem onClick={() => onOpenOrder(order.id, "step")}><Truck className="h-4 w-4" /> {ts(`next.${step}`)}</DropdownMenuItem>}
                           {canAct && canTakeLinkPayment(order) && (
-                            <DropdownMenuItem onClick={() => openOrder(order.id, "link")}><Link2 className="h-4 w-4" /> {ts("sendPaymentLink")}</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => onOpenOrder(order.id, "link")}><Link2 className="h-4 w-4" /> {ts("sendPaymentLink")}</DropdownMenuItem>
                           )}
                           {canAdmin && canCancelUnpaid(order) && (
-                            <DropdownMenuItem onClick={() => openOrder(order.id, "pay")}><Banknote className="h-4 w-4" /> {ts("recordPayment")}</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => onOpenOrder(order.id, "pay")}><Banknote className="h-4 w-4" /> {ts("recordPayment")}</DropdownMenuItem>
                           )}
                           {canAct && order.conversation_id && (
-                            <DropdownMenuItem onClick={() => openOrder(order.id, "update")}><Send className="h-4 w-4" /> {ts("sendUpdate")}</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => onOpenOrder(order.id, "update")}><Send className="h-4 w-4" /> {ts("sendUpdate")}</DropdownMenuItem>
                           )}
                           {((canAdmin && order.status === "paid") || (canAct && canCancelUnpaid(order))) && <DropdownMenuSeparator />}
                           {canAdmin && order.status === "paid" && (
-                            <DropdownMenuItem variant="destructive" onClick={() => openOrder(order.id, "refund")}><Undo2 className="h-4 w-4" /> {ts("refund")}</DropdownMenuItem>
+                            <DropdownMenuItem variant="destructive" onClick={() => onOpenOrder(order.id, "refund")}><Undo2 className="h-4 w-4" /> {ts("refund")}</DropdownMenuItem>
                           )}
                           {canAct && canCancelUnpaid(order) && (
-                            <DropdownMenuItem variant="destructive" onClick={() => openOrder(order.id, "cancel")}><X className="h-4 w-4" /> {ts("cancelOrder")}</DropdownMenuItem>
+                            <DropdownMenuItem variant="destructive" onClick={() => onOpenOrder(order.id, "cancel")}><X className="h-4 w-4" /> {ts("cancelOrder")}</DropdownMenuItem>
                           )}
                         </DropdownMenuContent>
                       </DropdownMenu>
@@ -290,28 +438,26 @@ export function OrdersList() {
         </div>
       )}
 
-      {!loading && orders.length > 0 && (
+      {!loading && !failed && orders.length > 0 && (
         <p className="text-xs text-muted-foreground">
-          {ts("shown", { count: orders.length })}{" "}
+          {total !== null ? tl("shownOf", { shown: orders.length, total }) : ts("shown", { count: orders.length })}{" "}
           <Link href="/commerce/payments" className="text-primary hover:underline">{ts("seePayments")}</Link>
         </p>
       )}
 
-      {cursor && !loading && (
+      {cursor && !loading && !failed && (
         <div className="flex justify-center">
-          <Button variant="outline" onClick={loadMore} disabled={loadingMore}>
+          <Button variant="outline" className="min-h-11 sm:min-h-9" onClick={loadMore} disabled={loadingMore}>
             {loadingMore && <Loader2 className="h-4 w-4 animate-spin" />}
             {t("loadMore")}
           </Button>
         </div>
       )}
 
-      {settingsOpen && <OrderSettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />}
-      {canAct && (
-        <NewOrderDialog open={creating !== null} mode={creating ?? "order"} onOpenChange={(v) => !v && setCreating(null)}
-          onCreated={(order) => { refresh(); openOrder(order.id); }} />
+      {selectable && (
+        <BulkDispatchSheet action={bulk?.action ?? null} orders={bulk?.orders ?? []} onOpenChange={(v) => !v && setBulk(null)}
+          onDone={() => setAttempt((n) => n + 1)} />
       )}
-      <OrderDrawer orderId={open?.id ?? null} intent={open?.intent ?? null} onClose={() => setOpen(null)} onChanged={refresh} />
     </div>
   );
 }

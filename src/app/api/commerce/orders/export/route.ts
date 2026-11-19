@@ -1,4 +1,4 @@
-// GET /api/commerce/orders/export?status=&source=&tag=&q=&from=&to= — the orders as a CSV download (admins and
+// GET /api/commerce/orders/export?<the list's filters> — the orders as a CSV download (admins and
 //   owners only; agents get 403). At most 5000 newest orders; X-Truncated: 1 when more matched. Formula cells are
 //   defused, numbers follow the member's phone masking, internal notes are not included.
 

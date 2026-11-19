@@ -98,6 +98,8 @@ test.describe('staff order journey', () => {
     const origin = new URL(baseURL as string).origin;
     await login(page, fixtures().users.owner);
     await page.goto(`/commerce/orders/${paidOrderId}`);
+    // The receipt is in the order's history, a closed section.
+    await page.getByRole('button', { name: 'History' }).click();
     await expect(page.getByText(receiptNumber).first()).toBeVisible();
 
     expect((await staffPost(page, origin, `/api/commerce/orders/${paidOrderId}/dispatch`, { from: 'paid', tracking_note: 'E2E courier 42' })).status()).toBe(200);

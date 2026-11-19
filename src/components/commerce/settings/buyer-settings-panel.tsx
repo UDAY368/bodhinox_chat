@@ -19,6 +19,7 @@ import { Label } from "@/components/ui/label";
 import { CUSTOM_FIELD_TYPES, EXTRAS_LIMITS } from "@/lib/commerce/checkout-extras-limits";
 import type { CustomField } from "@/lib/commerce/checkout-extras";
 import type { BuyerSettings } from "@/lib/commerce/buyer-settings";
+import { useReportDirty } from "./section-dirty";
 
 const newId = () => Math.random().toString(36).slice(2, 8);
 
@@ -27,10 +28,18 @@ export function BuyerSettingsPanel({ canEdit }: { canEdit: boolean }) {
   const te = useTranslations("Commerce.settings.errors");
   const [settings, setSettings] = useState<BuyerSettings | null>(null);
   const [busy, setBusy] = useState(false);
+  const [saved, setSaved] = useState<string | null>(null);
+  useReportDirty("buyer-settings", saved !== null && JSON.stringify(settings) !== saved);
+  const load = (s: BuyerSettings) => { setSettings(s); setSaved(JSON.stringify(s)); };
 
   useEffect(() => {
     authFetch("/api/commerce/buyer-settings", { cache: "no-store" })
-      .then(async (res) => { if (res.ok) setSettings(((await res.json()) as { settings: BuyerSettings }).settings); })
+      .then(async (res) => {
+        if (!res.ok) return;
+        const loaded = ((await res.json()) as { settings: BuyerSettings }).settings;
+        setSettings(loaded);
+        setSaved(JSON.stringify(loaded));
+      })
       .catch(() => undefined);
   }, []);
   if (!settings) return null;
@@ -48,7 +57,7 @@ export function BuyerSettingsPanel({ canEdit }: { canEdit: boolean }) {
       toast.error(data.code && te.has(data.code as never) ? te(data.code as never) : te("invalid"));
       return;
     }
-    setSettings(data.settings);
+    load(data.settings);
     toast.success(t("saved"));
   };
 

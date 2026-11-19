@@ -756,6 +756,10 @@ export interface Deal {
   status?: DealStatus;
   created_at: string;
   updated_at?: string;
+  /** Set by the database when the deal becomes won or lost; null while open. */
+  closed_at?: string | null;
+  /** Optional short note kept while the deal is lost. */
+  lost_reason?: string | null;
   contact?: Contact;
   stage?: PipelineStage;
   assignee?: Profile;

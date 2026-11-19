@@ -21,6 +21,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import type { AudiencePreview, CampaignView } from "@/lib/commerce/email-campaigns";
 import { EMAIL_LIMITS } from "@/lib/commerce/email-limits";
+import { useReportDirty } from "./section-dirty";
 
 const selectClass = "h-9 w-full rounded-lg border border-border bg-card px-2 text-sm text-foreground";
 type Segment = { id: string; name: string };
@@ -35,6 +36,7 @@ export function EmailCampaignsCard({ canEdit, connected }: { canEdit: boolean; c
   const [attest, setAttest] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<string | null>(null);
+  useReportDirty("email-campaign", [form.name, form.subject, form.body].some((v) => v.trim() !== ""));
 
   const load = useCallback(async () => {
     const res = await authFetch("/api/commerce/email-campaigns", { cache: "no-store" }).catch(() => null);

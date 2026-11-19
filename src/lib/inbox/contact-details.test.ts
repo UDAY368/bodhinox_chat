@@ -2,9 +2,11 @@ import { beforeEach, expect, it, vi } from 'vitest';
 import { buildQuery } from '@/lib/data/builder';
 import type { QuerySpec } from '@/lib/data/types';
 import {
+  clearWorkspaceListsCache,
   createAddressField,
   flowAnswers,
   loadContactDetails,
+  loadWorkspaceLists,
   saveContactBasics,
   saveContactField,
 } from './contact-details';
@@ -20,6 +22,7 @@ const specs: QuerySpec[] = [];
 const contact = { id: 'c1', phone: '123', name: 'Alice' };
 beforeEach(() => {
   specs.length = 0;
+  clearWorkspaceListsCache();
   state.execute.mockReset().mockImplementation(async (spec: QuerySpec) => {
     specs.push(spec);
     const rows: Record<string, unknown> = {
@@ -45,8 +48,10 @@ it('loads contact scoped data and the latest twenty flow runs without combining 
   ]);
   expect(details.customValues).toEqual({ field1: 'Pune' });
   expect(details.flowNames).toEqual({ f1: 'Enquiry' });
+  // Workspace lists and deals are not read per contact (session cache; summary route).
+  for (const resource of ['tags', 'custom_fields', 'deals'])
+    expect(specs.some((s) => s.resource === resource)).toBe(false);
   for (const resource of [
-    'deals',
     'contact_notes',
     'contact_tags',
     'contact_custom_values',
@@ -68,6 +73,23 @@ it('loads contact scoped data and the latest twenty flow runs without combining 
   expect(specs.find((s) => s.resource === 'flows')?.filters).toEqual([
     { field: 'id', op: 'in', value: ['f1'] },
   ]);
+});
+
+it('reads the tag and custom field lists once per workspace until asked for fresh ones', async () => {
+  const first = await loadWorkspaceLists('a1');
+  expect(first.availableTags).toEqual([{ id: 'tag1', name: 'Customer' }]);
+  await loadWorkspaceLists('a1');
+  expect(specs.filter((s) => s.resource === 'tags')).toHaveLength(1);
+  await loadWorkspaceLists('a2');
+  await loadWorkspaceLists('a1', { fresh: true });
+  expect(specs.filter((s) => s.resource === 'tags')).toHaveLength(3);
+  expect(specs.filter((s) => s.resource === 'custom_fields')).toHaveLength(3);
+});
+
+it('does not keep a failed list read', async () => {
+  state.execute.mockResolvedValueOnce({ data: null, error: { message: 'Down' } });
+  await expect(loadWorkspaceLists('a1')).rejects.toThrow('Down');
+  await expect(loadWorkspaceLists('a1')).resolves.toMatchObject({ customFields: [] });
 });
 
 it('surfaces a failed load instead of presenting partial data as empty', async () => {

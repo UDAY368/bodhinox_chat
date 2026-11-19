@@ -119,16 +119,6 @@ export interface OrderSettings {
   variable_map: Record<string, string>;
 }
 
-export interface OrderQuery {
-  status?: OrderStatus | "";
-  source?: OrderSource | "";
-  q?: string;
-  tag?: string;
-  /** Only COD orders waiting for the customer's answer, or that declined. */
-  codConfirmation?: "pending" | "declined" | "";
-  cursor?: string | null;
-}
-
 export type ApiResult<T> = { ok: true; value: T } | { ok: false; status: number; code?: string; error?: string };
 
 async function result<T>(res: Response, key: string): Promise<ApiResult<T>> {
@@ -139,19 +129,6 @@ async function result<T>(res: Response, key: string): Promise<ApiResult<T>> {
     code: typeof json.code === "string" ? json.code : undefined,
     error: typeof json.error === "string" ? json.error : undefined,
   };
-}
-
-export async function listOrders(query: OrderQuery): Promise<{ orders: OrderListItem[]; next_cursor: string | null }> {
-  const params = new URLSearchParams();
-  if (query.status) params.set("status", query.status);
-  if (query.source) params.set("source", query.source);
-  if (query.codConfirmation) params.set("cod_confirmation", query.codConfirmation);
-  if (query.q?.trim()) params.set("q", query.q.trim());
-  if (query.tag?.trim()) params.set("tag", query.tag.trim());
-  if (query.cursor) params.set("cursor", query.cursor);
-  const res = await authFetch(`/api/commerce/orders?${params}`, { cache: "no-store" });
-  if (!res.ok) throw new Error(`orders ${res.status}`);
-  return (await res.json()) as { orders: OrderListItem[]; next_cursor: string | null };
 }
 
 export async function getOrder(id: string): Promise<ApiResult<OrderDetail>> {

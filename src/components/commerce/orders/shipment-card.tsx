@@ -24,6 +24,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useCan } from "@/hooks/use-can";
 import { authFetch } from "@/lib/auth/client";
+import { isReadyToShip } from "@/lib/commerce/order-state";
 import { shipmentTrackingUrl, type OrderShipmentView } from "@/lib/fulfilment/types";
 
 export interface ShipmentCardProps {
@@ -77,7 +78,7 @@ function trackingUrl(shipment: OrderShipmentView): string | null {
 }
 
 export function ShipmentCard({ orderId, orderStatus, unpaidCod = false, refundedInFull = false, onChanged }: ShipmentCardProps) {
-  const readyToShip = !refundedInFull && (orderStatus === "paid" || orderStatus === "partially_shipped" || (orderStatus === "confirmed" && unpaidCod));
+  const readyToShip = !refundedInFull && isReadyToShip({ status: orderStatus, unpaidCod });
   const t = useTranslations("Commerce.shipments");
   const canManage = useCan("edit-settings");
   const [state, setState] = useState<ShipmentState | null>(null);

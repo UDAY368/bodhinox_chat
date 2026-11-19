@@ -1,8 +1,10 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { Suspense, useState, useEffect, useRef, useCallback } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/data/client";
-import { loadPipelineDeals } from "@/lib/pipelines/deals";
+import { authFetch } from "@/lib/auth/client";
+import type { BoardView, OverviewRow, StageSummary } from "@/lib/pipelines/board";
 import type { Pipeline, PipelineStage, Deal, Profile } from "@/types";
 import { PipelineBoard } from "@/components/pipelines/pipeline-board";
 import { PipelineSettings } from "@/components/pipelines/pipeline-settings";
@@ -25,7 +27,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { GitBranch, Plus, ChevronDown, Settings, Search, User, Check, BarChart3 } from "lucide-react";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { GitBranch, Plus, ChevronDown, Settings, Search, User, Check, BarChart3, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import { useCan } from "@/hooks/use-can";
 import { useAuth } from "@/hooks/use-auth";
@@ -48,7 +51,50 @@ const SPEC_DEFAULT_STAGES = [
   { nameKey: "won", color: "#22c55e", position: 4 }, // green
 ] as const;
 
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const VIEWS: BoardView[] = ["open", "won", "lost"];
+const VIEW_LABEL = { open: "viewOpen", won: "viewWon", lost: "viewLost" } as const;
+
+/** The board as loaded: deals so far, SQL stage summaries for the view, and the overview aggregate. */
+interface BoardData {
+  deals: Deal[];
+  summaries: Record<string, StageSummary>;
+  overview: OverviewRow[];
+  hasMore: Record<string, boolean>;
+}
+
+function boardQuery(view: BoardView, owner: string, q: string, extra: Record<string, string> = {}) {
+  const params = new URLSearchParams({ view, owner, ...extra });
+  if (q) params.set("q", q);
+  return params.toString();
+}
+
+function BoardSkeleton() {
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div className="h-7 w-40 animate-pulse rounded-lg bg-muted" />
+        <div className="h-8 w-28 animate-pulse rounded-full bg-muted" />
+      </div>
+      <div className="flex gap-3 overflow-hidden">
+        {[1, 2, 3, 4, 5].map((i) => (
+          <div key={i} className="h-96 w-60 shrink-0 animate-pulse rounded-xl bg-muted" />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function PipelinesPage() {
+  // useSearchParams (the ?deal= link) needs a Suspense boundary for the production build.
+  return (
+    <Suspense fallback={<BoardSkeleton />}>
+      <PipelinesBoard />
+    </Suspense>
+  );
+}
+
+function PipelinesBoard() {
   const t = useTranslations("Pipelines.page");
   const tGate = useTranslations("GatedButton");
   const tNav = useTranslations("Sidebar");
@@ -56,15 +102,26 @@ export default function PipelinesPage() {
   const canEditSettings = useCan("edit-settings");
   const canCreateDeals = useCan("send-messages");
   const { accountId } = useAuth();
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const dealParam = searchParams.get("deal");
 
   const [pipelines, setPipelines] = useState<Pipeline[]>([]);
   const [selectedPipelineId, setSelectedPipelineId] = useState<string>("");
   const [stages, setStages] = useState<PipelineStage[]>([]);
-  const [deals, setDeals] = useState<Deal[]>([]);
   const [loading, setLoading] = useState(true);
-  // Board filters (prototype bar): owner ("all", "none" = unassigned, or a member id) and a deal search.
+  // Board filters, applied in SQL: the view (open, won or lost deals), owner
+  // ("all", "none" = unassigned, or a member id) and a deal search.
+  const [view, setView] = useState<BoardView>("open");
   const [owner, setOwner] = useState<string>("all");
   const [dealQuery, setDealQuery] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [board, setBoard] = useState<BoardData | null>(null);
+  const [boardError, setBoardError] = useState(false);
+  const [boardKey, setBoardKey] = useState(0);
+  const [loadingMore, setLoadingMore] = useState<Record<string, boolean>>({});
+  const boardRequest = useRef(0);
   const [members, setMembers] = useState<Profile[]>([]);
   const [showAnalytics, setShowAnalytics] = useState(false);
   const [deletingDeal, setDeletingDeal] = useState<Deal | null>(null);
@@ -108,20 +165,6 @@ export default function PipelinesPage() {
       return data ?? [];
     },
     [db],
-  );
-
-  const loadDeals = useCallback(
-    async (pipelineId: string) => {
-      try {
-        return await loadPipelineDeals(db, pipelineId);
-      } catch (error) {
-        // An empty board would read as "no deals": say the load failed.
-        console.error("Failed to load deals:", error instanceof Error ? error.message : error);
-        toast.error(t("toastFailedLoadDeals"));
-        return [] as Deal[];
-      }
-    },
-    [db, t],
   );
 
   const seedDefaultPipeline = useCallback(async (): Promise<Pipeline | null> => {
@@ -195,32 +238,126 @@ export default function PipelinesPage() {
     };
   }, [db]);
 
-  // Load stages + deals whenever selected pipeline changes.
-  // Clearing on no-selection is a legitimate sync with URL/prop
-  // state; the load completion uses async setters inside promise
-  // callbacks (not synchronous in the effect body).
+  // Stages whenever the selected pipeline changes. Clearing on no-selection
+  // is a legitimate sync with state; loads set state in promise callbacks.
   useEffect(() => {
     if (!selectedPipelineId) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setStages([]);
-       
-      setDeals([]);
       return;
     }
     let cancelled = false;
-    (async () => {
-      const [s, d] = await Promise.all([
-        loadStages(selectedPipelineId),
-        loadDeals(selectedPipelineId),
-      ]);
-      if (cancelled) return;
-      setStages(s);
-      setDeals(d);
-    })();
+    void loadStages(selectedPipelineId).then((s) => {
+      if (!cancelled) setStages(s);
+    });
     return () => {
       cancelled = true;
     };
-  }, [selectedPipelineId, loadStages, loadDeals]);
+  }, [selectedPipelineId, loadStages]);
+
+  // The search applies a moment after typing stops.
+  useEffect(() => {
+    const id = setTimeout(() => setSearchTerm(dealQuery.trim()), 300);
+    return () => clearTimeout(id);
+  }, [dealQuery]);
+
+  // The board: the first page of each stage, the stage totals and the overview, all from SQL.
+  useEffect(() => {
+    if (!selectedPipelineId) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setBoard(null);
+      return;
+    }
+    const request = ++boardRequest.current;
+    void (async () => {
+      try {
+        const res = await authFetch(
+          `/api/pipelines/${encodeURIComponent(selectedPipelineId)}/board?${boardQuery(view, owner, searchTerm)}`,
+          { cache: "no-store" },
+        );
+        if (!res.ok) throw new Error(`board ${res.status}`);
+        const body = (await res.json()) as { deals: Deal[]; stages: StageSummary[]; overview: OverviewRow[] };
+        if (request !== boardRequest.current) return;
+        const summaries = Object.fromEntries(body.stages.map((st) => [st.stage_id, st]));
+        const loaded: Record<string, number> = {};
+        for (const d of body.deals) loaded[d.stage_id] = (loaded[d.stage_id] ?? 0) + 1;
+        const hasMore = Object.fromEntries(body.stages.map((st) => [st.stage_id, st.count > (loaded[st.stage_id] ?? 0)]));
+        setBoard({ deals: body.deals, summaries, overview: body.overview, hasMore });
+        setBoardError(false);
+      } catch {
+        if (request !== boardRequest.current) return;
+        // An empty board would read as "no deals": say the load failed.
+        setBoardError(true);
+      }
+    })();
+  }, [selectedPipelineId, view, owner, searchTerm, boardKey]);
+
+  const refreshBoard = useCallback(() => setBoardKey((k) => k + 1), []);
+
+  const loadMore = useCallback(async (stageId: string) => {
+    if (!board || !selectedPipelineId) return;
+    const offset = board.deals.filter((d) => d.stage_id === stageId).length;
+    setLoadingMore((m) => ({ ...m, [stageId]: true }));
+    try {
+      const res = await authFetch(
+        `/api/pipelines/${encodeURIComponent(selectedPipelineId)}/deals?${boardQuery(view, owner, searchTerm, { stage: stageId, offset: String(offset) })}`,
+        { cache: "no-store" },
+      );
+      if (!res.ok) throw new Error(`deals ${res.status}`);
+      const page = (await res.json()) as { deals: Deal[]; hasMore: boolean };
+      setBoard((prev) => {
+        if (!prev) return prev;
+        const seen = new Set(prev.deals.map((d) => d.id));
+        return {
+          ...prev,
+          deals: [...prev.deals, ...page.deals.filter((d) => !seen.has(d.id))],
+          hasMore: { ...prev.hasMore, [stageId]: page.hasMore },
+        };
+      });
+    } catch {
+      toast.error(t("toastFailedLoadDeals"));
+    } finally {
+      setLoadingMore((m) => ({ ...m, [stageId]: false }));
+    }
+  }, [board, selectedPipelineId, view, owner, searchTerm, t]);
+
+  // /pipelines?deal=<id> (from the chat panel and the contact profile): open that deal
+  // even when it is not on the loaded page, on its own pipeline. Another workspace's
+  // deal is a 404 like any unknown id.
+  const openedDealParam = useRef<string | null>(null);
+  useEffect(() => {
+    if (!dealParam || openedDealParam.current === dealParam) return;
+    openedDealParam.current = dealParam;
+    if (!UUID.test(dealParam)) {
+      toast.error(tSales("dealNotFound"));
+      return;
+    }
+    void (async () => {
+      const res = await authFetch(`/api/deals/${encodeURIComponent(dealParam)}`, { cache: "no-store" }).catch(() => null);
+      if (!res?.ok) {
+        toast.error(tSales("dealNotFound"));
+        return;
+      }
+      const { deal } = (await res.json()) as { deal: Deal };
+      setSelectedPipelineId(deal.pipeline_id);
+      if (deal.status && deal.status !== "open") setView(deal.status);
+      setEditingDeal(deal);
+      setDefaultStageId(deal.stage_id);
+      setDealFormOpen(true);
+    })();
+  }, [dealParam, tSales]);
+
+  const handleDealFormOpenChange = useCallback((open: boolean) => {
+    setDealFormOpen(open);
+    // Closing the deal drops ?deal= so a reload does not reopen it.
+    if (!open && dealParam) {
+      const params = new URLSearchParams(searchParams.toString());
+      params.delete("deal");
+      const query = params.toString();
+      openedDealParam.current = null;
+      router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+    }
+  }, [dealParam, searchParams, router, pathname]);
 
   const refreshPipelines = useCallback(async () => {
     const list = await loadPipelines();
@@ -235,41 +372,29 @@ export default function PipelinesPage() {
     setStages(await loadStages(selectedPipelineId));
   }, [loadStages, selectedPipelineId]);
 
-  const refreshDeals = useCallback(async () => {
-    if (!selectedPipelineId) return;
-    setDeals(await loadDeals(selectedPipelineId));
-  }, [loadDeals, selectedPipelineId]);
-
   const handleDealMoved = useCallback(
     async (dealId: string, newStageId: string) => {
-      // Optimistic update — board already animated; just persist.
-      setDeals((prev) =>
-        prev.map((d) => (d.id === dealId ? { ...d, stage_id: newStageId } : d)),
-      );
+      // Optimistic update — board already animated; persist, then reload the totals.
+      setBoard((prev) => prev && {
+        ...prev,
+        deals: prev.deals.map((d) => (d.id === dealId ? { ...d, stage_id: newStageId } : d)),
+      });
       const { error } = await db
         .from("deals")
         .update({ stage_id: newStageId })
         .eq("id", dealId);
+      refreshBoard();
       if (error) {
         toast.error(t("toastFailedMoveDeal"));
-        refreshDeals();
         return;
       }
       const stage = stages.find((s) => s.id === newStageId);
       if (stage) toast.success(tSales("moved", { stage: stage.name }));
     },
-    [db, refreshDeals, t, stages, tSales],
+    [db, refreshBoard, t, stages, tSales],
   );
 
-  const visibleDeals = useMemo(() => {
-    const q = dealQuery.trim().toLowerCase();
-    return deals.filter((d) => {
-      if (owner === "none" ? Boolean(d.assigned_to) : owner !== "all" && d.assigned_to !== owner) return false;
-      if (!q) return true;
-      return [d.title, d.contact?.name, d.contact?.phone].some((v) => (v ?? "").toLowerCase().includes(q));
-    });
-  }, [deals, owner, dealQuery]);
-  const filtering = owner !== "all" || dealQuery.trim() !== "";
+  const filtering = owner !== "all" || searchTerm !== "";
   const ownerMember = members.find((m) => m.id === owner);
   const ownerLabel = owner === "all" ? tSales("allOwners") : owner === "none" ? tSales("unassigned")
     : (ownerMember?.full_name || ownerMember?.email || tSales("allOwners"));
@@ -284,9 +409,9 @@ export default function PipelinesPage() {
       return;
     }
     toast.success(tSales("deleted"));
-    if (editingDeal?.id === deletingDeal.id) setDealFormOpen(false);
+    if (editingDeal?.id === deletingDeal.id) handleDealFormOpenChange(false);
     setDeletingDeal(null);
-    refreshDeals();
+    refreshBoard();
   }
 
   const handleAddDeal = useCallback(
@@ -354,21 +479,7 @@ export default function PipelinesPage() {
 
   const selectedPipeline = pipelines.find((p) => p.id === selectedPipelineId);
 
-  if (loading) {
-    return (
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <div className="h-7 w-40 animate-pulse rounded-lg bg-muted" />
-          <div className="h-8 w-28 animate-pulse rounded-full bg-muted" />
-        </div>
-        <div className="flex gap-3 overflow-hidden">
-          {[1, 2, 3, 4, 5].map((i) => (
-            <div key={i} className="h-96 w-60 shrink-0 animate-pulse rounded-xl bg-muted" />
-          ))}
-        </div>
-      </div>
-    );
-  }
+  if (loading) return <BoardSkeleton />;
 
   return (
     <div className="space-y-4">
@@ -452,6 +563,15 @@ export default function PipelinesPage() {
               {tSales("manageStages")}
             </Button>
           )}
+          <Tabs value={view} onValueChange={(v) => setView(v as BoardView)}>
+            <TabsList aria-label={tSales("viewLabel")} className="bg-muted">
+              {VIEWS.map((v) => (
+                <TabsTrigger key={v} value={v} className="min-h-11 px-3 sm:min-h-0">
+                  {tSales(VIEW_LABEL[v])}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </Tabs>
           <span className="hidden flex-1 sm:block" />
           <DropdownMenu>
             <DropdownMenuTrigger
@@ -512,23 +632,43 @@ export default function PipelinesPage() {
         </div>
       ) : (
         <>
-          <PipelineSummary deals={visibleDeals} />
-          <div>
-            <Button variant="ghost" size="sm" aria-expanded={showAnalytics} onClick={() => setShowAnalytics((v) => !v)}>
-              <BarChart3 className="h-4 w-4" />
-              {showAnalytics ? tSales("fewerStats") : tSales("moreStats")}
-            </Button>
-            {showAnalytics && <div className="mt-2"><PipelineAnalytics stages={stages} deals={visibleDeals} /></div>}
-          </div>
-          <PipelineBoard
-            stages={stages}
-            deals={visibleDeals}
-            onDealMoved={canCreateDeals ? handleDealMoved : undefined}
-            onAddDeal={handleAddDeal}
-            onEditDeal={handleEditDeal}
-            onDeleteDeal={canCreateDeals ? setDeletingDeal : undefined}
-            emptyText={filtering ? tSales("noMatches") : undefined}
-          />
+          {boardError ? (
+            <div role="alert" className="flex flex-col items-center gap-3 px-4 py-12 text-center">
+              <AlertCircle className="size-6 text-destructive" />
+              <p className="text-sm text-foreground">{tSales("loadFailed")}</p>
+              <Button variant="outline" onClick={refreshBoard}>{tSales("retry")}</Button>
+            </div>
+          ) : !board ? (
+            <div className="flex gap-3 overflow-hidden">
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="h-72 w-60 shrink-0 animate-pulse rounded-xl bg-muted" />
+              ))}
+            </div>
+          ) : (
+            <>
+              <PipelineSummary overview={board.overview} />
+              <div>
+                <Button variant="ghost" size="sm" aria-expanded={showAnalytics} onClick={() => setShowAnalytics((v) => !v)}>
+                  <BarChart3 className="h-4 w-4" />
+                  {showAnalytics ? tSales("fewerStats") : tSales("moreStats")}
+                </Button>
+                {showAnalytics && <div className="mt-2"><PipelineAnalytics stages={stages} overview={board.overview} /></div>}
+              </div>
+              <PipelineBoard
+                stages={stages}
+                deals={board.deals}
+                summaries={board.summaries}
+                hasMore={board.hasMore}
+                loadingMore={loadingMore}
+                onLoadMore={(stageId) => void loadMore(stageId)}
+                onDealMoved={canCreateDeals ? handleDealMoved : undefined}
+                onAddDeal={view === "open" ? handleAddDeal : undefined}
+                onEditDeal={handleEditDeal}
+                onDeleteDeal={canCreateDeals ? setDeletingDeal : undefined}
+                emptyText={filtering ? tSales("noMatches") : undefined}
+              />
+            </>
+          )}
         </>
       )}
 
@@ -607,12 +747,12 @@ export default function PipelinesPage() {
       {/* Deal Form (Sheet) */}
       <DealForm
         open={dealFormOpen}
-        onOpenChange={setDealFormOpen}
+        onOpenChange={handleDealFormOpenChange}
         deal={editingDeal}
         pipelineId={selectedPipelineId}
         stages={stages}
         defaultStageId={defaultStageId}
-        onSaved={refreshDeals}
+        onSaved={refreshBoard}
         onDelete={(deal) => setDeletingDeal(deal)}
       />
     </div>

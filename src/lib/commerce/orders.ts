@@ -20,8 +20,8 @@ import { transitionOrder } from './order-lifecycle';
 import { loadOrderRisks, type OrderRisk } from './order-risk';
 import { readBuyerExtras, type BuyerExtras } from './checkout-extras';
 import { parseTags } from './order-tags';
+import { canChangeStatusByHand, transitionOpts } from './order-state';
 import {
-  canTransition,
   isOrderSource,
   isOrderStatus,
   ORDER_LIMITS,
@@ -195,12 +195,52 @@ export interface OrderFilters {
   q?: string;
   /** Only orders carrying this tag. */
   tag?: string;
+  /** The order's payment state, as the list shows it (see paymentWhere). */
+  payment?: PaymentFilter;
+  /** Cash still to collect (see CASH_DUE). */
+  cashDue?: boolean;
   from?: Date;
   to?: Date;
   limit?: number;
   /** Opaque cursor from a previous page's next_cursor. */
   cursor?: string;
 }
+
+export const PAYMENT_FILTERS = ['paid', 'waiting', 'refunded', 'partly_refunded', 'cod'] as const;
+export type PaymentFilter = (typeof PAYMENT_FILTERS)[number];
+const isPaymentFilter = (v: unknown): v is PaymentFilter => typeof v === 'string' && (PAYMENT_FILTERS as readonly string[]).includes(v);
+const OPEN_UNPAID = { paid_at: null, refund_state: 'none', status: { notIn: ['paid', 'cancelled', 'expired'] } } satisfies Prisma.ordersWhereInput;
+
+/**
+ * The payment filter in SQL, the same states the list badge shows (order-state.paymentState):
+ * paid = a payment credited (paid_at, or status paid) and nothing refunded; refunded / partly_refunded =
+ * refund_state full / partial; waiting = an online order not paid, refunded, cancelled or expired;
+ * cod = the same for a cash-on-delivery order.
+ */
+export function paymentWhere(payment: PaymentFilter): Prisma.ordersWhereInput {
+  switch (payment) {
+    case 'paid': return { refund_state: 'none', OR: [{ paid_at: { not: null } }, { status: 'paid' }] };
+    case 'refunded': return { refund_state: 'full' };
+    case 'partly_refunded': return { refund_state: 'partial' };
+    case 'waiting': return { ...OPEN_UNPAID, payment_method: 'online' };
+    case 'cod': return { ...OPEN_UNPAID, payment_method: 'cod' };
+  }
+}
+
+/**
+ * Cash due: money the team still has to collect in person. No payment credited (paid_at null), nothing
+ * refunded, and either a cash-on-delivery order that is confirmed, dispatched or delivered (the courier or
+ * the team collects the cash; Record offline payment clears it), or a manual order still confirmed (staff
+ * took it and no payment link moved it to awaiting_payment). Cancelled and expired orders are never due.
+ * The partial index orders_cash_due_idx (20261204000200) matches this predicate.
+ */
+export const CASH_DUE: Prisma.ordersWhereInput = {
+  paid_at: null, refund_state: 'none',
+  OR: [
+    { payment_method: 'cod', status: { in: ['confirmed', 'dispatched', 'fulfilled'] } },
+    { source: 'manual', payment_method: 'online', status: 'confirmed' },
+  ],
+};
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}(T[\d:.]+(Z|[+-]\d{2}:\d{2})?)?$/;
 
@@ -218,12 +258,16 @@ export function parseOrderFilters(params: URLSearchParams): OrderFilters {
   const contactId = params.get('contact_id');
   const conversationId = params.get('conversation_id');
   const codConfirmation = params.get('cod_confirmation');
+  const payment = params.get('payment');
+  const cashDue = params.get('cash_due');
   const limit = params.get('limit');
   if (status && !isOrderStatus(status)) throw new OrderError(400, 'invalid', 'Invalid status');
   if (source && !isOrderSource(source)) throw new OrderError(400, 'invalid', 'Invalid source');
   if (contactId && !UUID.test(contactId)) throw new OrderError(400, 'invalid', 'Invalid contact_id');
   if (conversationId && !UUID.test(conversationId)) throw new OrderError(400, 'invalid', 'Invalid conversation_id');
   if (codConfirmation && codConfirmation !== 'pending' && codConfirmation !== 'declined') throw new OrderError(400, 'invalid', 'Invalid cod_confirmation');
+  if (payment && !isPaymentFilter(payment)) throw new OrderError(400, 'invalid', 'Invalid payment');
+  if (cashDue && cashDue !== '1') throw new OrderError(400, 'invalid', 'Invalid cash_due');
   if (limit && !/^\d{1,3}$/.test(limit)) throw new OrderError(400, 'invalid', 'Invalid limit');
   const q = params.get('q')?.trim().slice(0, 100) || undefined;
   const tagParam = params.get('tag');
@@ -237,6 +281,8 @@ export function parseOrderFilters(params: URLSearchParams): OrderFilters {
     ...(codConfirmation ? { codConfirmation: codConfirmation as 'pending' | 'declined' } : {}),
     ...(q ? { q } : {}),
     ...(tag ? { tag } : {}),
+    ...(payment ? { payment: payment as PaymentFilter } : {}),
+    ...(cashDue ? { cashDue: true } : {}),
     from: dateParam(params.get('from'), 'from'),
     to: dateParam(params.get('to'), 'to'),
     ...(limit ? { limit: Math.min(Math.max(Number(limit), 1), 100) } : {}),
@@ -291,8 +337,11 @@ async function decorate(tx: TenantTransaction, accountId: string, rows: ListRow[
   });
 }
 
-/** Newest first, keyset-paged. */
-export async function listOrders(ctx: TenantContext, filters: OrderFilters = {}): Promise<{ orders: OrderListItem[]; next_cursor: string | null }> {
+/**
+ * Newest first, keyset-paged. `total` counts every order matching the filters (first page only; null on
+ * later pages, where the browser keeps the first page's number).
+ */
+export async function listOrders(ctx: TenantContext, filters: OrderFilters = {}): Promise<{ orders: OrderListItem[]; next_cursor: string | null; total: number | null }> {
   const limit = filters.limit ?? 50;
   const cursor = filters.cursor ? decodeCursor(filters.cursor) : null;
   return withTenant(ctx, async (tx) => {
@@ -305,6 +354,8 @@ export async function listOrders(ctx: TenantContext, filters: OrderFilters = {})
     if (filters.from) and.push({ created_at: { gte: filters.from } });
     if (filters.to) and.push({ created_at: { lte: filters.to } });
     if (filters.tag) and.push({ tags: { has: filters.tag } });
+    if (filters.payment) and.push(paymentWhere(filters.payment));
+    if (filters.cashDue) and.push(CASH_DUE);
     if (filters.q) {
       // A member whose numbers are masked may search a number only by its last digits.
       const phoneSearch = /\d/.test(filters.q) && (await loadPhoneMask(tx, ctx)) ? classifyMaskedPhoneSearch(filters.q) : null;
@@ -317,6 +368,7 @@ export async function listOrders(ctx: TenantContext, filters: OrderFilters = {})
       });
       and.push({ OR: [{ external_id: { contains: filters.q, mode: 'insensitive' } }, { contact_id: { in: contacts.map((c) => c.id) } }] });
     }
+    const total = cursor ? null : await tx.orders.count({ where: { AND: [...and] } });
     if (cursor) {
       // (created_at, id) < cursor at full precision. Rows in an earlier
       // millisecond go through the indexed Prisma filter; the few in the
@@ -337,7 +389,7 @@ export async function listOrders(ctx: TenantContext, filters: OrderFilters = {})
         SELECT ${EPOCH_MICROS}::text AS micros FROM orders WHERE account_id=${ctx.accountId}::uuid AND id=${last.id}::uuid`;
       nextCursor = `${stamp.micros}_${last.id}`;
     }
-    return { orders: await decorate(tx, ctx.accountId, page), next_cursor: nextCursor };
+    return { orders: await decorate(tx, ctx.accountId, page), next_cursor: nextCursor, total };
   });
 }
 
@@ -429,9 +481,7 @@ export function parseOrderPatch(body: unknown): OrderPatch {
 export async function updateOrder(ctx: TenantContext, id: string, patch: OrderPatch): Promise<OrderDetail> {
   const current = await withTenant(ctx, (tx) => readOrder(tx, ctx.accountId, id));
   if (patch.status !== undefined && patch.status !== current.status) {
-    if (!canTransition(current.status, patch.status, {
-      priced: current.priced_at !== null, unpaidCod: current.payment_method === 'cod' && !current.paid_at && current.priced_at !== null,
-    }))
+    if (!canChangeStatusByHand(current.status, patch.status, transitionOpts(current)))
       throw new OrderError(409, 'bad_transition', `An order cannot move from ${current.status} to ${patch.status}`);
     if (!ctx.userId) throw new OrderError(403, 'invalid', 'A signed-in member is required');
     await transitionOrder({ ...ctx, userId: ctx.userId }, id, { from: current.status, to: patch.status });

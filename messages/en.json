@@ -575,7 +575,10 @@
       "messageLabel": "Message",
       "notePlaceholder": "Write a note for your team (the customer never sees it)",
       "location": "Location",
-      "addNote": "Add note"
+      "addNote": "Add note",
+      "newOrder": "New order",
+      "newQuote": "New quote",
+      "newDeal": "New deal"
     },
     "bubble": {
       "photo": "Photo",
@@ -706,7 +709,13 @@
       "editDetails": "Edit details",
       "channel": "Channel",
       "phone": "Phone",
-      "firstSeen": "First seen"
+      "firstSeen": "First seen",
+      "orders": "Orders",
+      "noOrders": "No orders",
+      "payments": "Payments",
+      "noPayments": "No payments",
+      "seeAll": "See all {count}",
+      "orderRef": "Order {ref}"
     },
     "aiBanner": {
       "pausedTitle": "AI assistant is paused here",
@@ -1813,7 +1822,11 @@
           "not_a_date": "Enter a date.",
           "not_a_choice": "Pick one of the choices.",
           "field_not_found": "This field was deleted."
-        }
+        },
+        "payments": "Payments",
+        "noPayments": "No payments yet.",
+        "paymentsFailed": "Could not load payments.",
+        "retry": "Retry"
       },
       "timeline": {
         "by": "{text} by {name}",
@@ -2006,7 +2019,8 @@
     },
     "board": {
       "dropDealHere": "Drop a deal here",
-      "addDeal": "Add Deal"
+      "addDeal": "Add Deal",
+      "loadMore": "Show {count} more"
     },
     "card": {
       "noContact": "No contact",
@@ -10079,6 +10093,136 @@
           "coupon_min_subtotal": "The order would fall below the minimum for its coupon.",
           "forbidden": "You do not have permission for this change. A change that refunds money needs an admin."
         }
+      },
+      "listing": {
+        "tabs": {
+          "orders": "Orders",
+          "returns": "Returns",
+          "quotes": "Quotes"
+        },
+        "more": "More actions",
+        "loading": "Loading",
+        "retry": "Retry",
+        "cancel": "Cancel",
+        "forbidden": "Your role can’t do this.",
+        "unknownCustomer": "Unknown customer",
+        "filterPayment": "Payment",
+        "allPayments": "All payments",
+        "payment": {
+          "paid": "Paid",
+          "waiting": "Waiting for payment",
+          "refunded": "Refunded",
+          "partly_refunded": "Partly refunded",
+          "cod": "Cash on delivery",
+          "cash_due": "Cash due"
+        },
+        "cashDueHelp": "Cash due: cash-on-delivery orders confirmed, shipped or delivered, and manual orders confirmed, with no payment recorded yet.",
+        "filterDate": "Date",
+        "dateFrom": "From",
+        "dateTo": "To",
+        "date": {
+          "any": "Any time",
+          "today": "Today",
+          "d7": "Last 7 days",
+          "d30": "Last 30 days",
+          "month": "This month",
+          "custom": "Custom range"
+        },
+        "shownOf": "Showing {shown} of {total} orders.",
+        "exportDone": "Downloaded {rows} orders.",
+        "exportTruncated": "Only the newest {rows} orders were exported. Narrow the filters to get the rest.",
+        "exportThrottled": "Too many exports. Try again in a minute.",
+        "select": "Select order {ref}",
+        "selectAll": "Select all shown orders",
+        "selected": "{count} selected",
+        "clear": "Clear",
+        "tooMany": "Select up to {max} orders at a time.",
+        "pageSummary": "Showing {start}–{end} of {total}",
+        "pageNav": "Pages",
+        "pagePrevious": "Previous page",
+        "pageNext": "Next page",
+        "pageNumber": "Page {n}",
+        "bulk": {
+          "create": "Create shipments",
+          "labels": "Print labels",
+          "createTitle": "Create shipments",
+          "labelsTitle": "Shipping labels",
+          "createBody": "Each of the {count} orders gets a courier shipment with your default parcel size, weighed from its items. The courier charges your wallet when it assigns a tracking number. Orders already with a courier are skipped.",
+          "labelsBody": "Get the shipping label for each of the {count} orders. A label is ready once the courier has assigned a tracking number.",
+          "createGo": "Create {count, plural, one {# shipment} other {# shipments}}",
+          "labelsGo": "Get {count, plural, one {# label} other {# labels}}",
+          "summary": "{ok} of {count} done.",
+          "created": "Shipment requested",
+          "openLabel": "Open label",
+          "done": "Done",
+          "cancel": "Cancel",
+          "unknown": "Not certain this worked. Open the order to check before trying again.",
+          "noDefaults": "Set a default parcel size in the courier settings first.",
+          "failed": "This could not finish. Open the orders to check before trying again.",
+          "throttled": "Too many requests. Try again in a minute.",
+          "forbidden": "Your role can’t do this."
+        },
+        "returns": {
+          "filter": "Return status",
+          "all": "All returns",
+          "open": "To handle",
+          "empty": "No returns here.",
+          "loadError": "Couldn’t load returns.",
+          "colOrder": "Order",
+          "colCustomer": "Customer",
+          "colUnits": "Items",
+          "colStatus": "Status",
+          "colOpened": "Opened",
+          "waitingApproval": "Waiting for your approval",
+          "buyer": "Asked by the customer",
+          "exchange": "Exchange",
+          "openOrder": "Open order {ref}"
+        },
+        "quotes": {
+          "empty": "No quotes sent yet.",
+          "new": "New quote",
+          "loadError": "Couldn’t load quotes.",
+          "colCustomer": "Customer",
+          "colItems": "Items",
+          "colState": "Status",
+          "colSent": "Sent",
+          "colExpires": "Link valid until",
+          "colActions": "Actions",
+          "state": {
+            "open": "Link live",
+            "ordered": "Ordered",
+            "expired": "Expired",
+            "revoked": "Revoked"
+          },
+          "revoke": "Revoke",
+          "revokeTitle": "Revoke this quote?",
+          "revokeBody": "The link sent to {name} stops working at once and can’t be used to check out. This can’t be undone.",
+          "revokeGo": "Revoke quote",
+          "revoked": "Quote revoked",
+          "revokeFailed": "Couldn’t revoke the quote. Try again."
+        }
+      },
+      "view": {
+        "more": "More actions",
+        "retry": "Retry",
+        "loadFailed": "This order could not be loaded.",
+        "payment": "Payment",
+        "shipment": "Shipment",
+        "customer": "Customer",
+        "items": "Items",
+        "returns": "Returns",
+        "taxInvoice": "Tax invoice",
+        "tags": "Tags",
+        "history": "History",
+        "notes": "Notes",
+        "paid": "Paid",
+        "refunded": "Refunded",
+        "due": "Still to pay",
+        "moveTo": "Mark as {status}",
+        "waitingForPayment": "Waiting for payment",
+        "cancelAmount": "Order total: {amount}. Nothing has been paid.",
+        "refundTitle": "Cancel and refund {ref}?",
+        "refundAmount": "{amount} goes back to the customer, then the order is cancelled. Stock returns when the refund is processed."
       }
     },
     "attention": {
@@ -10813,10 +10957,61 @@
       "title": "Store settings",
       "subtitle": "Currency, tax, checkout, seller details, shipping and coupons for your storefront.",
       "loadError": "Store settings could not be loaded.",
-      "loading": "Loading",
       "saved": "Store settings saved.",
-      "generalTitle": "Checkout and tax",
-      "generalHelp": "Prices and tax always come from these settings; a missing tax rate stops checkout instead of charging zero tax.",
+      "sections": {
+        "navLabel": "Store settings sections",
+        "groups": {
+          "store": "Store",
+          "selling": "Selling",
+          "customers": "Customers",
+          "other": "Other"
+        },
+        "general": {
+          "title": "General",
+          "help": "Your storefront's name and the currency every price uses."
+        },
+        "taxes": {
+          "title": "Taxes and invoices",
+          "help": "Prices and tax always come from these settings; a missing tax rate stops checkout instead of charging zero tax."
+        },
+        "checkout": {
+          "title": "Checkout and payments",
+          "help": "Online checkout, cash on delivery, returns and the checkout link template."
+        },
+        "shipping": {
+          "title": "Shipping and delivery",
+          "help": "Shipping rates, store pickup and local delivery."
+        },
+        "discounts": {
+          "title": "Discounts and pricing",
+          "help": "Coupons, automatic discounts, price lists, gifts and loyalty."
+        },
+        "buyers": {
+          "title": "Buyers and accounts",
+          "help": "What buyers can do themselves and what checkout asks them."
+        },
+        "notifications": {
+          "title": "Notifications and messages",
+          "help": "Reminders and the WhatsApp templates order messages use."
+        },
+        "marketing": {
+          "title": "Marketing",
+          "help": "Order emails, email campaigns, referrals and your link page."
+        },
+        "advanced": {
+          "title": "Advanced",
+          "help": "Stock hold and low-stock alerts."
+        },
+        "needsSetup": "Set the store currency in General first.",
+        "openGeneral": "Open General",
+        "retry": "Retry",
+        "leave": {
+          "title": "Discard unsaved changes?",
+          "body": "Changes in this section are not saved yet. Leaving drops them.",
+          "stay": "Keep editing",
+          "discard": "Discard changes"
+        }
+      },
       "checkoutEnabled": "Online checkout on",
       "razorpayMissing": "Razorpay is not connected, so customers cannot pay online. Only cash on delivery can be placed. Connect Razorpay in Settings → Payments.",
       "currency": "Store currency",
@@ -17304,7 +17499,14 @@
       "deleteTitle": "Delete this deal?",
       "deleteBody": "\"{title}\" will be removed from the pipeline.",
       "deleted": "Deal deleted",
-      "deleteFailed": "The deal could not be deleted"
+      "deleteFailed": "The deal could not be deleted",
+      "viewLabel": "Deals to show",
+      "viewOpen": "Open",
+      "viewWon": "Won",
+      "viewLost": "Lost",
+      "loadFailed": "The deals could not be loaded.",
+      "retry": "Retry",
+      "dealNotFound": "That deal was not found in this workspace"
     },
     "deal": {
       "saving": "Saving…",
@@ -17327,7 +17529,15 @@
       "noteDeleted": "Note deleted",
       "delete": "Delete",
       "markLost": "Mark lost",
-      "markWon": "Mark won"
+      "markWon": "Mark won",
+      "pipeline": "Pipeline",
+      "closedWon": "Won",
+      "closedLost": "Lost",
+      "lostReasonShown": "Reason: {reason}",
+      "lostTitle": "Mark this deal lost?",
+      "lostBody": "Add a reason if you like. You can reopen the deal later.",
+      "lostReason": "Reason (optional)",
+      "lostReasonPlaceholder": "For example, chose another supplier"
     },
     "paymentLink": {
       "sendNow": "Send it to the customer now",
@@ -17352,7 +17562,7 @@
       "colFulfilment": "Fulfilment",
       "pay": {
         "paid": "Paid",
-        "pending": "Pending",
+        "pending": "Waiting for payment",
         "refunded": "Refunded",
         "partlyRefunded": "Partly refunded",
         "cod": "Cash on delivery"

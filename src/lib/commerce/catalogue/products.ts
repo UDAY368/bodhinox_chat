@@ -16,6 +16,8 @@ import { mediaObjectUrl } from '@/lib/storage/client';
 import { likePattern } from '../catalog';
 import { minorFromDb, MAX_MINOR } from '../money';
 import { normaliseTag } from './collection-rules';
+import { PUBLIC_SHOP_PATH } from '../shop-templates';
+import { appOrigin } from '@/lib/auth/csrf';
 import { bundleAvailability, parseScheduleTime, parseShipDate, preorderProblem, scheduleProblem } from '../selling-rules';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -279,6 +281,10 @@ export interface ShopProductSummary {
   low_count: number;
   image_url: string | null;
   updated_at: string;
+  /** The only active variant when there is exactly one (inline price and stock edits), else null. */
+  single_variant_id: string | null;
+  /** That variant's units on hand (null when it does not track stock or there is not exactly one variant). */
+  single_on_hand: number | null;
 }
 
 export interface ShopProductQuery {
@@ -314,11 +320,12 @@ type SummaryRow = {
   id: string; name: string; status: ProductStatus; category_id: string | null; category_name: string | null; version: number;
   variant_count: number; min_price: bigint | null; max_price: bigint | null; available: bigint; tracked: number; untracked: number;
   low_count: number; img_url: string | null; img_bucket: string | null; img_key: string | null; updated_at: Date; total: bigint;
+  single_variant_id: string | null; single_on_hand: number | null;
 };
 
 /** A page of products with price range and stock summary (agents and above). The search matches name or any SKU, LIKE-escaped. */
 export async function listShopProducts(tx: TenantTransaction, accountId: string, query: ShopProductQuery = {}):
-  Promise<{ products: ShopProductSummary[]; total: number; currency: string | null }> {
+  Promise<{ products: ShopProductSummary[]; total: number; currency: string | null; shop_url: string | null }> {
   const pattern = query.q ? likePattern(query.q) : null;
   const status = query.status ?? null;
   const stock = query.stock ?? null;
@@ -326,7 +333,7 @@ export async function listShopProducts(tx: TenantTransaction, accountId: string,
   const offset = Math.max(query.offset ?? 0, 0);
   const rows = await tx.$queryRaw<SummaryRow[]>`
     SELECT p.id::text AS id, p.name, p.status, p.category_id::text AS category_id, c.name AS category_name, p.version,
-      s.variant_count, s.min_price, s.max_price, s.available, s.tracked, s.untracked, s.low_count,
+      s.variant_count, s.min_price, s.max_price, s.available, s.tracked, s.untracked, s.low_count, s.single_variant_id, s.single_on_hand,
       img.url AS img_url, img.bucket AS img_bucket, img.object_key AS img_key, p.updated_at, count(*) OVER() AS total
     FROM shop_products p
     LEFT JOIN commerce_settings st ON st.account_id=p.account_id
@@ -337,7 +344,9 @@ export async function listShopProducts(tx: TenantTransaction, accountId: string,
         count(*) FILTER (WHERE v.track_inventory)::int AS tracked,
         count(*) FILTER (WHERE NOT v.track_inventory)::int AS untracked,
         count(*) FILTER (WHERE v.track_inventory AND COALESCE(l.on_hand,0)-COALESCE(l.reserved,0)
-          <= COALESCE(l.low_stock_threshold, st.low_stock_default, 5))::int AS low_count
+          <= COALESCE(l.low_stock_threshold, st.low_stock_default, 5))::int AS low_count,
+        CASE WHEN count(*)=1 THEN min(v.id::text) END AS single_variant_id,
+        CASE WHEN count(*)=1 AND bool_and(v.track_inventory) THEN min(COALESCE(l.on_hand,0))::int END AS single_on_hand
       FROM shop_variants v LEFT JOIN inventory_levels l ON l.account_id=v.account_id AND l.variant_id=v.id
       WHERE v.account_id=p.account_id AND v.product_id=p.id AND v.archived_at IS NULL) s
     LEFT JOIN LATERAL (
@@ -359,14 +368,18 @@ export async function listShopProducts(tx: TenantTransaction, accountId: string,
   let total = rows.length ? Number(rows[0].total) : 0;
   if (!rows.length && offset > 0) total = (await listShopProducts(tx, accountId, { ...query, offset: 0, limit: 1 })).total;
   const settings = await tx.$queryRaw<{ currency: string }[]>`SELECT currency FROM commerce_settings WHERE account_id=${accountId}::uuid`;
+  // The public shop address (only once the storefront is published), for "Open on shop" and sharing.
+  const [site] = await tx.$queryRaw<{ handle: string }[]>`SELECT handle FROM shop_storefronts WHERE account_id=${accountId}::uuid AND published`;
   return {
     total,
     currency: settings[0]?.currency ?? null,
+    shop_url: site ? `${appOrigin()}${PUBLIC_SHOP_PATH}${site.handle}` : null,
     products: rows.map((r) => ({
       id: r.id, name: r.name, status: r.status, category_id: r.category_id, category_name: r.category_name, version: r.version,
       variant_count: r.variant_count, min_price_minor: minorFromDb(r.min_price), max_price_minor: minorFromDb(r.max_price),
       available: Number(r.available), tracked_count: r.tracked, untracked_count: r.untracked, low_count: r.low_count,
       image_url: imageUrl(r.img_url, r.img_bucket, r.img_key), updated_at: r.updated_at.toISOString(),
+      single_variant_id: r.single_variant_id, single_on_hand: r.single_on_hand,
     })),
   };
 }
@@ -393,6 +406,8 @@ export interface ShopVariant {
   waiting: number;
   /** A mirrored Meta product with retailer_id = sku exists. */
   meta_linked: boolean;
+  /** Some order already holds this variant (removing it from the options asks first). */
+  ordered: boolean;
   /** Pre-order (Phase 8): sells past zero stock, shown as "Ships by <date>". */
   preorder: boolean;
   /** YYYY-MM-DD; set whenever `preorder` is on. */
@@ -488,6 +503,7 @@ export async function getShopProduct(tx: TenantTransaction, accountId: string, i
       (SELECT count(*) FROM shop_stock_alerts a WHERE a.account_id=v.account_id AND a.variant_id=v.id
         AND a.claimed_at IS NOT NULL AND a.closed_at IS NULL)::int AS waiting,
       EXISTS (SELECT 1 FROM products m WHERE m.account_id=v.account_id AND m.retailer_id=v.sku) AS meta_linked,
+      EXISTS (SELECT 1 FROM order_items oi WHERE oi.account_id=v.account_id AND oi.variant_id=v.id) AS ordered,
       v.preorder, to_char(v.preorder_ship_date, 'YYYY-MM-DD') AS preorder_ship_date, v.preorder_cap
     FROM shop_variants v
     LEFT JOIN inventory_levels l ON l.account_id=v.account_id AND l.variant_id=v.id
@@ -787,28 +803,41 @@ export async function duplicateProduct(tx: TenantTransaction, accountId: string,
 
 // ------------------------------------------------------------ variants
 
+/** A variant row as stored (prices raw from the database), as read FOR UPDATE before a change. */
+export interface VariantCurrent {
+  id: string; sku: string; option_values: unknown; price_minor: bigint | null; compare_at_minor: bigint | null; tax_rate_bps: number | null;
+  hsn_code: string | null; track_inventory: boolean; weight_grams: number | null; position: number; image_id: string | null;
+  archived_at: Date | null; preorder: boolean; preorder_ship_date: string | null; preorder_cap: number | null;
+}
+
+/** The product's variants FOR UPDATE (one variant when `variantId` is given). */
+export async function lockVariants(tx: TenantTransaction, accountId: string, productId: string, variantId: string | null = null): Promise<VariantCurrent[]> {
+  return tx.$queryRaw<VariantCurrent[]>`
+    SELECT id::text AS id, sku, option_values, price_minor, compare_at_minor, tax_rate_bps, hsn_code, track_inventory, weight_grams, position,
+      image_id::text AS image_id, archived_at,
+      preorder, to_char(preorder_ship_date, 'YYYY-MM-DD') AS preorder_ship_date, preorder_cap
+    FROM shop_variants WHERE account_id=${accountId}::uuid AND product_id=${productId}::uuid
+      AND (${variantId}::uuid IS NULL OR id=${variantId}::uuid)
+    ORDER BY position, created_at, id FOR UPDATE`;
+}
+
+/** Facts a batch of variant writes looks up once (product kind, whether the store has a currency). */
+export interface VariantWriteCache { kind?: { is_bundle: boolean; is_digital: boolean }; currency?: boolean }
+
+const sameOptions = (a: unknown, b: Record<string, string>) => JSON.stringify(a ?? {}) === JSON.stringify(b);
+
 /**
- * Create (variantId null) or update a variant. Prices are integer minor units
- * of the store currency, so setting a price needs the store settings first
- * (store_not_configured). A published product must keep one priced, active
- * variant (needs_priced_variant). Stock is never written here (stock.ts).
+ * Validate and write one variant (create when `current` is undefined) without
+ * reading the product back or bumping its version. Returns the variant id.
+ * `checkPriced` keeps a published product's last priced, active variant; a
+ * batch that writes several variants checks once at the end instead. An update
+ * that changes nothing writes nothing (so no sync trigger fires).
  */
-export async function upsertVariant(tx: TenantTransaction, accountId: string, userId: string, productId: string,
-  variantId: string | null, raw: unknown): Promise<ShopProduct> {
+export async function applyVariant(tx: TenantTransaction, accountId: string, userId: string, product: { id: string; status: ProductStatus },
+  current: VariantCurrent | undefined, raw: unknown, opts: { checkPriced: boolean; cache?: VariantWriteCache }): Promise<string> {
   const b = asBody(raw);
-  const product = await lockProduct(tx, accountId, productId);
-  let current: { sku: string; option_values: unknown; price_minor: bigint | null; compare_at_minor: bigint | null; tax_rate_bps: number | null;
-    hsn_code: string | null; track_inventory: boolean; weight_grams: number | null; position: number; image_id: string | null;
-    archived_at: Date | null; preorder: boolean; preorder_ship_date: string | null; preorder_cap: number | null } | undefined;
-  if (variantId) {
-    if (!isId(variantId)) throw new CatalogueError('not_found');
-    current = (await tx.$queryRaw<NonNullable<typeof current>[]>`
-      SELECT sku, option_values, price_minor, compare_at_minor, tax_rate_bps, hsn_code, track_inventory, weight_grams, position,
-        image_id::text AS image_id, archived_at,
-        preorder, to_char(preorder_ship_date, 'YYYY-MM-DD') AS preorder_ship_date, preorder_cap
-      FROM shop_variants WHERE account_id=${accountId}::uuid AND id=${variantId}::uuid AND product_id=${productId}::uuid FOR UPDATE`)[0];
-    if (!current) throw new CatalogueError('not_found');
-  }
+  const cache = opts.cache ?? {};
+  const productId = product.id;
   const sku = has(b, 'sku') ? text(b, 'sku', 1, 64) : current?.sku ?? text(b, 'sku', 1, 64);
   if (!SKU.test(sku)) throw new CatalogueError('invalid', 'sku');
   const next = {
@@ -827,6 +856,12 @@ export async function upsertVariant(tx: TenantTransaction, accountId: string, us
     preorder_ship_date: has(b, 'preorder_ship_date') ? shipDate(b, 'preorder_ship_date') : current?.preorder_ship_date ?? null,
     preorder_cap: has(b, 'preorder_cap') ? optInt(b, 'preorder_cap', 1, 1_000_000) : current?.preorder_cap ?? null,
   };
+  if (current && next.sku === current.sku && sameOptions(current.option_values, next.option_values)
+    && next.price_minor === minorFromDb(current.price_minor) && next.compare_at_minor === minorFromDb(current.compare_at_minor)
+    && next.tax_rate_bps === current.tax_rate_bps && next.hsn_code === current.hsn_code && next.track_inventory === current.track_inventory
+    && next.weight_grams === current.weight_grams && next.position === current.position && next.archived === !!current.archived_at
+    && next.image_id === current.image_id && next.preorder === current.preorder && next.preorder_ship_date === current.preorder_ship_date
+    && next.preorder_cap === current.preorder_cap) return current.id;
   // Only an image of this product (the composite foreign key says the same underneath).
   if (next.image_id && next.image_id !== current?.image_id) {
     const own = await tx.$queryRaw<{ id: string }[]>`SELECT id::text AS id FROM shop_product_images
@@ -838,17 +873,18 @@ export async function upsertVariant(tx: TenantTransaction, accountId: string, us
   if (pre) throw new CatalogueError('invalid', pre === 'ship_date' ? 'preorder_ship_date' : 'preorder_cap');
   if (next.preorder) {
     // A pre-order sells a physical product that is not a bundle or a download.
-    const kind = await tx.$queryRaw<{ is_bundle: boolean; is_digital: boolean }[]>`SELECT is_bundle, is_digital FROM shop_products
-      WHERE account_id=${accountId}::uuid AND id=${productId}::uuid`;
-    if (kind[0]?.is_bundle || kind[0]?.is_digital) throw new CatalogueError('invalid', 'preorder');
+    cache.kind ??= (await tx.$queryRaw<{ is_bundle: boolean; is_digital: boolean }[]>`SELECT is_bundle, is_digital FROM shop_products
+      WHERE account_id=${accountId}::uuid AND id=${productId}::uuid`)[0];
+    if (cache.kind?.is_bundle || cache.kind?.is_digital) throw new CatalogueError('invalid', 'preorder');
   }
-  if (next.price_minor !== null || next.compare_at_minor !== null) {
+  if ((next.price_minor !== null || next.compare_at_minor !== null) && !cache.currency) {
     // Shared lock: a concurrent currency change (FOR UPDATE, then currencyInUse) commits first or sees this price.
     const settings = await tx.$queryRaw<{ currency: string }[]>`SELECT currency FROM commerce_settings WHERE account_id=${accountId}::uuid FOR SHARE`;
     if (!settings[0]) throw new CatalogueError('store_not_configured', 'price_minor');
+    cache.currency = true;
   }
   const stillPriced = next.price_minor !== null && !next.archived;
-  if (product.status === 'published' && !stillPriced && (await pricedVariantCount(tx, accountId, productId, variantId)) === 0)
+  if (opts.checkPriced && product.status === 'published' && !stillPriced && (await pricedVariantCount(tx, accountId, productId, current?.id ?? null)) === 0)
     throw new CatalogueError('needs_priced_variant', 'price_minor');
   const options = JSON.stringify(next.option_values);
   if (!current) {
@@ -860,21 +896,41 @@ export async function upsertVariant(tx: TenantTransaction, accountId: string, us
         CASE WHEN ${next.archived} THEN now() END,${next.preorder},${next.preorder_ship_date}::date,${next.preorder_cap})
       RETURNING id::text AS id`.catch((e) => mapDbError(e, 'sku'));
     await auditCatalogue(tx, accountId, userId, 'commerce.variant_created', rows[0].id, { product_id: productId });
-  } else {
-    await tx.$executeRaw`
-      UPDATE shop_variants SET sku=${next.sku}, option_values=${options}::jsonb, price_minor=${next.price_minor}::bigint,
-        compare_at_minor=${next.compare_at_minor}::bigint, tax_rate_bps=${next.tax_rate_bps}, hsn_code=${next.hsn_code},
-        track_inventory=${next.track_inventory}, weight_grams=${next.weight_grams}, position=${next.position}, image_id=${next.image_id}::uuid,
-        preorder=${next.preorder}, preorder_ship_date=${next.preorder_ship_date}::date, preorder_cap=${next.preorder_cap},
-        archived_at=CASE WHEN ${next.archived} THEN COALESCE(archived_at, now()) ELSE NULL END
-      WHERE account_id=${accountId}::uuid AND id=${variantId}::uuid`.catch((e) => mapDbError(e, 'sku'));
-    const priceChanged = minorFromDb(current.price_minor) !== next.price_minor;
-    await auditCatalogue(tx, accountId, userId, 'commerce.variant_updated', variantId!, {
-      product_id: productId, fields: Object.keys(b).filter((k) => has(b, k)),
-      // Prices are the seller's own configuration, not customer content.
-      ...(priceChanged ? { price_from: minorFromDb(current.price_minor), price_to: next.price_minor } : {}),
-    });
+    return rows[0].id;
   }
+  await tx.$executeRaw`
+    UPDATE shop_variants SET sku=${next.sku}, option_values=${options}::jsonb, price_minor=${next.price_minor}::bigint,
+      compare_at_minor=${next.compare_at_minor}::bigint, tax_rate_bps=${next.tax_rate_bps}, hsn_code=${next.hsn_code},
+      track_inventory=${next.track_inventory}, weight_grams=${next.weight_grams}, position=${next.position}, image_id=${next.image_id}::uuid,
+      preorder=${next.preorder}, preorder_ship_date=${next.preorder_ship_date}::date, preorder_cap=${next.preorder_cap},
+      archived_at=CASE WHEN ${next.archived} THEN COALESCE(archived_at, now()) ELSE NULL END
+    WHERE account_id=${accountId}::uuid AND id=${current.id}::uuid`.catch((e) => mapDbError(e, 'sku'));
+  const priceChanged = minorFromDb(current.price_minor) !== next.price_minor;
+  await auditCatalogue(tx, accountId, userId, 'commerce.variant_updated', current.id, {
+    product_id: productId, fields: Object.keys(b).filter((k) => has(b, k)),
+    // Prices are the seller's own configuration, not customer content.
+    ...(priceChanged ? { price_from: minorFromDb(current.price_minor), price_to: next.price_minor } : {}),
+  });
+  return current.id;
+}
+
+/**
+ * Create (variantId null) or update a variant. Prices are integer minor units
+ * of the store currency, so setting a price needs the store settings first
+ * (store_not_configured). A published product must keep one priced, active
+ * variant (needs_priced_variant). Stock is never written here (stock.ts).
+ */
+export async function upsertVariant(tx: TenantTransaction, accountId: string, userId: string, productId: string,
+  variantId: string | null, raw: unknown): Promise<ShopProduct> {
+  const b = asBody(raw);
+  const product = await lockProduct(tx, accountId, productId);
+  let current: VariantCurrent | undefined;
+  if (variantId) {
+    if (!isId(variantId)) throw new CatalogueError('not_found');
+    current = (await lockVariants(tx, accountId, productId, variantId))[0];
+    if (!current) throw new CatalogueError('not_found');
+  }
+  await applyVariant(tx, accountId, userId, { id: productId, status: product.status }, current, b, { checkPriced: true });
   await tx.$executeRaw`UPDATE shop_products SET version=version+1 WHERE account_id=${accountId}::uuid AND id=${productId}::uuid`;
   return getShopProduct(tx, accountId, productId);
 }
@@ -890,8 +946,18 @@ export const MAX_BUNDLE_PARTS = 20;
  * decide stock (stock.ts reserves them on checkout and puts them back on a return).
  */
 export async function setBundleParts(tx: TenantTransaction, accountId: string, userId: string, id: string, raw: unknown): Promise<ShopProduct> {
+  await writeBundleParts(tx, accountId, userId, id, raw);
+  await tx.$executeRaw`UPDATE shop_products SET version=version+1 WHERE account_id=${accountId}::uuid AND id=${id}::uuid`;
+  return getShopProduct(tx, accountId, id);
+}
+
+/** setBundleParts without the version bump and the read back (the product form saves parts with everything else). */
+export async function writeBundleParts(tx: TenantTransaction, accountId: string, userId: string, id: string, raw: unknown): Promise<void> {
   const b = asBody(raw);
-  const product = await getShopProduct(tx, accountId, id);
+  if (!isId(id)) throw new CatalogueError('not_found');
+  const [product] = await tx.$queryRaw<{ is_bundle: boolean }[]>`SELECT is_bundle FROM shop_products
+    WHERE account_id=${accountId}::uuid AND id=${id}::uuid`;
+  if (!product) throw new CatalogueError('not_found');
   if (!product.is_bundle) throw new CatalogueError('invalid', 'is_bundle');
   const list = b.parts;
   if (!Array.isArray(list) || list.length > MAX_BUNDLE_PARTS) throw new CatalogueError('invalid', 'parts');
@@ -910,9 +976,7 @@ export async function setBundleParts(tx: TenantTransaction, accountId: string, u
   for (const [position, part] of parts.entries())
     await tx.$executeRaw`INSERT INTO shop_bundle_parts(account_id,product_id,part_variant_id,quantity,position)
       VALUES(${accountId}::uuid,${id}::uuid,${part.variantId}::uuid,${part.quantity},${position})`.catch((e) => mapDbError(e, 'parts'));
-  await tx.$executeRaw`UPDATE shop_products SET version=version+1 WHERE account_id=${accountId}::uuid AND id=${id}::uuid`;
   await auditCatalogue(tx, accountId, userId, 'commerce.bundle_parts_set', id, { count: parts.length });
-  return getShopProduct(tx, accountId, id);
 }
 
 // ------------------------------------------------------------ Meta mirror

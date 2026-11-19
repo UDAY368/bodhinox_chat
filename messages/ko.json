@@ -575,7 +575,10 @@
       "messageLabel": "메시지",
       "notePlaceholder": "팀을 위한 메모를 작성하세요 (고객에게는 보이지 않습니다)",
       "location": "위치",
-      "addNote": "메모 추가"
+      "addNote": "메모 추가",
+      "newOrder": "새 주문",
+      "newQuote": "새 견적",
+      "newDeal": "새 거래"
     },
     "bubble": {
       "photo": "사진",
@@ -706,7 +709,13 @@
       "editDetails": "정보 편집",
       "channel": "채널",
       "phone": "전화번호",
-      "firstSeen": "처음 연락"
+      "firstSeen": "처음 연락",
+      "orders": "주문",
+      "noOrders": "주문 없음",
+      "payments": "결제",
+      "noPayments": "결제 없음",
+      "seeAll": "{count}개 모두 보기",
+      "orderRef": "주문 {ref}"
     },
     "aiBanner": {
       "pausedTitle": "이 대화에서 AI 어시스턴트가 일시 중지됨",
@@ -1813,7 +1822,11 @@
           "not_a_date": "날짜를 입력하세요.",
           "not_a_choice": "선택지 중 하나를 고르세요.",
           "field_not_found": "이 필드는 삭제되었습니다."
-        }
+        },
+        "payments": "결제",
+        "noPayments": "아직 결제가 없습니다.",
+        "paymentsFailed": "결제 내역을 불러오지 못했습니다.",
+        "retry": "다시 시도"
       },
       "timeline": {
         "by": "{text} ({name})",
@@ -2006,7 +2019,8 @@
     },
     "board": {
       "dropDealHere": "여기에 딜을 놓으세요",
-      "addDeal": "딜 추가"
+      "addDeal": "딜 추가",
+      "loadMore": "{count}개 더 보기"
     },
     "card": {
       "noContact": "연락처 없음",
@@ -10079,6 +10093,136 @@
           "coupon_min_subtotal": "주문 금액이 쿠폰의 최소 금액보다 낮아집니다.",
           "forbidden": "이 변경을 할 권한이 없습니다. 환불이 포함된 변경은 관리자가 해야 합니다."
         }
+      },
+      "listing": {
+        "tabs": {
+          "orders": "주문",
+          "returns": "반품",
+          "quotes": "견적"
+        },
+        "more": "추가 작업",
+        "loading": "불러오는 중",
+        "retry": "다시 시도",
+        "cancel": "취소",
+        "forbidden": "현재 역할로는 할 수 없습니다.",
+        "unknownCustomer": "알 수 없는 고객",
+        "filterPayment": "결제",
+        "allPayments": "모든 결제",
+        "payment": {
+          "paid": "결제 완료",
+          "waiting": "결제 대기 중",
+          "refunded": "환불됨",
+          "partly_refunded": "부분 환불됨",
+          "cod": "착불",
+          "cash_due": "받을 현금"
+        },
+        "cashDueHelp": "받을 현금: 확인·발송·배송된 착불 주문과 확인된 수동 주문 중 아직 결제가 기록되지 않은 주문입니다.",
+        "filterDate": "날짜",
+        "dateFrom": "시작",
+        "dateTo": "종료",
+        "date": {
+          "any": "전체 기간",
+          "today": "오늘",
+          "d7": "최근 7일",
+          "d30": "최근 30일",
+          "month": "이번 달",
+          "custom": "기간 직접 선택"
+        },
+        "shownOf": "주문 {total}건 중 {shown}건 표시",
+        "exportDone": "주문 {rows}건을 다운로드했습니다.",
+        "exportTruncated": "최신 주문 {rows}건만 내보냈습니다. 나머지를 받으려면 필터를 좁히세요.",
+        "exportThrottled": "내보내기 요청이 너무 많습니다. 1분 후 다시 시도하세요.",
+        "select": "주문 {ref} 선택",
+        "selectAll": "표시된 주문 모두 선택",
+        "selected": "{count}건 선택됨",
+        "clear": "선택 해제",
+        "tooMany": "한 번에 최대 {max}건까지 선택할 수 있습니다.",
+        "pageSummary": "{total}개 중 {start}–{end}",
+        "pageNav": "페이지",
+        "pagePrevious": "이전 페이지",
+        "pageNext": "다음 페이지",
+        "pageNumber": "{n}페이지",
+        "bulk": {
+          "create": "배송 생성",
+          "labels": "라벨 인쇄",
+          "createTitle": "배송 생성",
+          "labelsTitle": "배송 라벨",
+          "createBody": "주문 {count}건마다 기본 포장 크기로 택배 배송을 만들고, 무게는 상품 기준으로 계산합니다. 택배사가 운송장 번호를 배정할 때 잔액에서 요금이 차감됩니다. 이미 택배사에 넘긴 주문은 건너뜁니다.",
+          "labelsBody": "주문 {count}건의 배송 라벨을 가져옵니다. 택배사가 운송장 번호를 배정하면 라벨이 준비됩니다.",
+          "createGo": "배송 {count}건 생성",
+          "labelsGo": "라벨 {count}건 가져오기",
+          "summary": "{count}건 중 {ok}건 완료",
+          "created": "배송 요청됨",
+          "openLabel": "라벨 열기",
+          "done": "완료",
+          "cancel": "취소",
+          "unknown": "처리되었는지 확실하지 않습니다. 다시 시도하기 전에 주문을 열어 확인하세요.",
+          "noDefaults": "먼저 택배 설정에서 기본 포장 크기를 설정하세요.",
+          "failed": "완료하지 못했습니다. 다시 시도하기 전에 주문을 열어 확인하세요.",
+          "throttled": "요청이 너무 많습니다. 1분 후 다시 시도하세요.",
+          "forbidden": "현재 역할로는 할 수 없습니다."
+        },
+        "returns": {
+          "filter": "반품 상태",
+          "all": "모든 반품",
+          "open": "처리할 반품",
+          "empty": "반품이 없습니다.",
+          "loadError": "반품을 불러오지 못했습니다.",
+          "colOrder": "주문",
+          "colCustomer": "고객",
+          "colUnits": "상품 수",
+          "colStatus": "상태",
+          "colOpened": "접수일",
+          "waitingApproval": "승인 대기 중",
+          "buyer": "고객 요청",
+          "exchange": "교환",
+          "openOrder": "주문 {ref} 열기"
+        },
+        "quotes": {
+          "empty": "보낸 견적이 아직 없습니다.",
+          "new": "새 견적",
+          "loadError": "견적을 불러오지 못했습니다.",
+          "colCustomer": "고객",
+          "colItems": "상품 수",
+          "colState": "상태",
+          "colSent": "보낸 날짜",
+          "colExpires": "링크 유효 기한",
+          "colActions": "작업",
+          "state": {
+            "open": "링크 사용 가능",
+            "ordered": "주문됨",
+            "expired": "만료됨",
+            "revoked": "취소됨"
+          },
+          "revoke": "취소",
+          "revokeTitle": "이 견적을 취소할까요?",
+          "revokeBody": "{name}님에게 보낸 링크가 즉시 작동하지 않으며 결제에 사용할 수 없습니다. 되돌릴 수 없습니다.",
+          "revokeGo": "견적 취소",
+          "revoked": "견적을 취소했습니다",
+          "revokeFailed": "견적을 취소하지 못했습니다. 다시 시도하세요."
+        }
+      },
+      "view": {
+        "more": "추가 작업",
+        "retry": "다시 시도",
+        "loadFailed": "이 주문을 불러오지 못했습니다.",
+        "payment": "결제",
+        "shipment": "배송",
+        "customer": "고객",
+        "items": "상품",
+        "returns": "반품",
+        "taxInvoice": "세금 계산서",
+        "tags": "태그",
+        "history": "기록",
+        "notes": "메모",
+        "paid": "결제됨",
+        "refunded": "환불됨",
+        "due": "남은 결제 금액",
+        "moveTo": "{status}(으)로 표시",
+        "waitingForPayment": "결제 대기 중",
+        "cancelAmount": "주문 합계: {amount}. 결제된 금액이 없습니다.",
+        "refundTitle": "{ref}을(를) 취소하고 환불할까요?",
+        "refundAmount": "{amount}이(가) 고객에게 환불된 뒤 주문이 취소됩니다. 재고는 환불이 처리되면 돌아옵니다."
       }
     },
     "attention": {
@@ -10813,10 +10957,61 @@
       "title": "스토어 설정",
       "subtitle": "온라인 스토어의 통화, 세금, 결제, 판매자 정보, 배송, 쿠폰입니다.",
       "loadError": "스토어 설정을 불러오지 못했습니다.",
-      "loading": "불러오는 중",
       "saved": "스토어 설정을 저장했습니다.",
-      "generalTitle": "결제 및 세금",
-      "generalHelp": "가격과 세금은 항상 이 설정을 따릅니다. 세율이 없으면 세금 0으로 결제하지 않고 결제를 멈춥니다.",
+      "sections": {
+        "navLabel": "스토어 설정 섹션",
+        "groups": {
+          "store": "스토어",
+          "selling": "판매",
+          "customers": "고객",
+          "other": "기타"
+        },
+        "general": {
+          "title": "일반",
+          "help": "스토어 이름과 모든 가격에 쓰이는 통화입니다."
+        },
+        "taxes": {
+          "title": "세금 및 영수증",
+          "help": "가격과 세금은 항상 이 설정을 따릅니다. 세율이 없으면 세금 0으로 결제하지 않고 결제를 멈춥니다."
+        },
+        "checkout": {
+          "title": "결제 및 지불",
+          "help": "온라인 결제, 착불, 반품, 결제 링크 템플릿입니다."
+        },
+        "shipping": {
+          "title": "배송 및 수령",
+          "help": "배송 요금, 매장 픽업, 지역 배달입니다."
+        },
+        "discounts": {
+          "title": "할인 및 가격",
+          "help": "쿠폰, 자동 할인, 가격표, 사은품, 적립입니다."
+        },
+        "buyers": {
+          "title": "구매자 및 계정",
+          "help": "구매자가 직접 할 수 있는 일과 결제 시 묻는 항목입니다."
+        },
+        "notifications": {
+          "title": "알림 및 메시지",
+          "help": "리마인더와 주문 메시지에 쓰는 WhatsApp 템플릿입니다."
+        },
+        "marketing": {
+          "title": "마케팅",
+          "help": "주문 이메일, 이메일 캠페인, 추천, 링크 페이지입니다."
+        },
+        "advanced": {
+          "title": "고급",
+          "help": "재고 보류와 재고 부족 알림입니다."
+        },
+        "needsSetup": "먼저 일반에서 스토어 통화를 설정하세요.",
+        "openGeneral": "일반 열기",
+        "retry": "다시 시도",
+        "leave": {
+          "title": "저장하지 않은 변경을 버릴까요?",
+          "body": "이 섹션의 변경 사항이 아직 저장되지 않았습니다. 나가면 사라집니다.",
+          "stay": "계속 편집",
+          "discard": "변경 버리기"
+        }
+      },
       "checkoutEnabled": "온라인 결제 사용",
       "razorpayMissing": "Razorpay가 연결되어 있지 않아 고객이 온라인으로 결제할 수 없습니다. 착불 주문만 가능합니다. 설정 → 결제에서 Razorpay를 연결하세요.",
       "currency": "스토어 통화",
@@ -17304,7 +17499,14 @@
       "deleteTitle": "이 거래를 삭제할까요?",
       "deleteBody": "\"{title}\" 거래가 파이프라인에서 삭제됩니다.",
       "deleted": "거래를 삭제했습니다",
-      "deleteFailed": "거래를 삭제하지 못했습니다"
+      "deleteFailed": "거래를 삭제하지 못했습니다",
+      "viewLabel": "표시할 거래",
+      "viewOpen": "진행 중",
+      "viewWon": "성사",
+      "viewLost": "실패",
+      "loadFailed": "거래를 불러오지 못했습니다.",
+      "retry": "다시 시도",
+      "dealNotFound": "이 워크스페이스에서 해당 거래를 찾을 수 없습니다"
     },
     "deal": {
       "saving": "저장 중…",
@@ -17327,7 +17529,15 @@
       "noteDeleted": "메모를 삭제했습니다",
       "delete": "삭제",
       "markLost": "실패로 표시",
-      "markWon": "성사로 표시"
+      "markWon": "성사로 표시",
+      "pipeline": "파이프라인",
+      "closedWon": "성사",
+      "closedLost": "실패",
+      "lostReasonShown": "사유: {reason}",
+      "lostTitle": "이 거래를 실패로 표시할까요?",
+      "lostBody": "원하면 사유를 남기세요. 나중에 거래를 다시 열 수 있습니다.",
+      "lostReason": "사유(선택)",
+      "lostReasonPlaceholder": "예: 다른 공급업체를 선택함"
     },
     "paymentLink": {
       "sendNow": "지금 고객에게 보내기",
@@ -17352,7 +17562,7 @@
       "colFulfilment": "배송",
       "pay": {
         "paid": "결제 완료",
-        "pending": "결제 대기",
+        "pending": "결제 대기 중",
         "refunded": "환불됨",
         "partlyRefunded": "부분 환불",
         "cod": "착불 결제"

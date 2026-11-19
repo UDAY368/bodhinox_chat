@@ -5,7 +5,8 @@ import {
   DndContext,
   DragOverlay,
   KeyboardSensor,
-  PointerSensor,
+  MouseSensor,
+  TouchSensor,
   useSensor,
   useSensors,
   useDroppable,
@@ -15,19 +16,28 @@ import {
   type DragStartEvent,
 } from "@dnd-kit/core";
 import type { Deal, PipelineStage } from "@/types";
+import type { StageSummary } from "@/lib/pipelines/board";
 import { DealCard } from "./deal-card";
+import { formatTotals } from "./pipeline-analytics";
 import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
+import { Loader2, Plus } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
-import { formatCurrency } from "@/lib/currency";
 import { useTranslations } from "next-intl";
 
 interface PipelineBoardProps {
   stages: PipelineStage[];
+  /** The deals loaded so far (a page or more per stage). */
   deals: Deal[];
+  /** Each stage's deal count and value per currency, from SQL; a stage without deals may be missing. */
+  summaries?: Record<string, StageSummary>;
+  /** Stages with more deals than loaded show "Load more". */
+  hasMore?: Record<string, boolean>;
+  loadingMore?: Record<string, boolean>;
+  onLoadMore?: (stageId: string) => void;
   /** Moving a deal (drag and the card menu's "Move to"); omitted for viewers, who cannot move deals. */
   onDealMoved?: (dealId: string, newStageId: string) => void;
-  onAddDeal: (stageId: string) => void;
+  /** The column's "Add deal" (omitted where new deals do not belong, e.g. the Won view). */
+  onAddDeal?: (stageId: string) => void;
   onEditDeal: (deal: Deal) => void;
   /** The card menu's Delete (omitted for members who cannot delete). */
   onDeleteDeal?: (deal: Deal) => void;
@@ -38,6 +48,10 @@ interface PipelineBoardProps {
 export function PipelineBoard({
   stages,
   deals,
+  summaries,
+  hasMore,
+  loadingMore,
+  onLoadMore,
   onDealMoved,
   onAddDeal,
   onEditDeal,
@@ -63,8 +77,11 @@ export function PipelineBoard({
   }, [sortedStages, deals]);
 
   const sensors = useSensors(
-    // 5px activation distance avoids clicks being interpreted as drags.
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    // Mouse: 5px activation distance avoids clicks being interpreted as drags.
+    useSensor(MouseSensor, { activationConstraint: { distance: 5 } }),
+    // Touch: press and hold to pick a card up, so a swipe still scrolls the page
+    // and the board (cards use touch-action: manipulation, not none).
+    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 8 } }),
     // Keyboard drag support: focus a card, Space to pick up, arrows to move,
     // Space to drop, Escape to cancel.
     useSensor(KeyboardSensor),
@@ -113,17 +130,17 @@ export function PipelineBoard({
       <div className="pipeline-scroll flex snap-x snap-mandatory items-start gap-3 overflow-x-auto pb-2 lg:snap-none">
         {sortedStages.map((stage) => {
           const stageDeals = dealsByStage.get(stage.id) ?? [];
-          const totalValue = stageDeals.reduce(
-            (s, d) => s + Number(d.value || 0),
-            0,
-          );
+          const summary = summaries?.[stage.id];
           return (
             <StageColumn
               key={stage.id}
               stage={stage}
               deals={stageDeals}
-              totalValue={totalValue}
-              currency={defaultCurrency}
+              count={summary?.count ?? stageDeals.length}
+              totalLabel={formatTotals(summary?.totals ?? [], defaultCurrency)}
+              hasMore={Boolean(hasMore?.[stage.id])}
+              loadingMore={Boolean(loadingMore?.[stage.id])}
+              onLoadMore={onLoadMore}
               onAddDeal={onAddDeal}
               onEditDeal={onEditDeal}
               stages={sortedStages}
@@ -200,8 +217,11 @@ export function PipelineBoard({
 function StageColumn({
   stage,
   deals,
-  totalValue,
-  currency,
+  count,
+  totalLabel,
+  hasMore,
+  loadingMore,
+  onLoadMore,
   onAddDeal,
   onEditDeal,
   stages,
@@ -211,9 +231,12 @@ function StageColumn({
 }: {
   stage: PipelineStage;
   deals: Deal[];
-  totalValue: number;
-  currency: string;
-  onAddDeal: (stageId: string) => void;
+  count: number;
+  totalLabel: string;
+  hasMore: boolean;
+  loadingMore: boolean;
+  onLoadMore?: (stageId: string) => void;
+  onAddDeal?: (stageId: string) => void;
   onEditDeal: (deal: Deal) => void;
   stages: PipelineStage[];
   onMove?: (deal: Deal, stageId: string) => void;
@@ -241,10 +264,10 @@ function StageColumn({
           {stage.name}
         </h3>
         <span className="shrink-0 rounded-full bg-card px-2 py-0.5 text-[11px] font-medium tabular-nums text-muted-foreground">
-          {deals.length}
+          {count}
         </span>
-        <span className="ml-auto shrink-0 pr-1 text-xs tabular-nums text-muted-foreground">
-          {formatCurrency(totalValue, currency)}
+        <span className="ml-auto min-w-0 truncate pr-1 text-right text-xs tabular-nums text-muted-foreground" title={totalLabel}>
+          {totalLabel}
         </span>
       </div>
 
@@ -273,15 +296,30 @@ function StageColumn({
         )}
       </div>
 
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={() => onAddDeal(stage.id)}
-        className="w-full justify-start text-muted-foreground hover:bg-card hover:text-foreground"
-      >
-        <Plus className="mr-1 h-3 w-3" />
-        {t("addDeal")}
-      </Button>
+      {hasMore && onLoadMore && (
+        <Button
+          variant="ghost"
+          size="sm"
+          disabled={loadingMore}
+          onClick={() => onLoadMore(stage.id)}
+          className="min-h-11 w-full text-muted-foreground hover:bg-card hover:text-foreground sm:min-h-8"
+        >
+          {loadingMore && <Loader2 className="h-3 w-3 animate-spin" />}
+          {t("loadMore", { count: Math.max(0, count - deals.length) })}
+        </Button>
+      )}
+
+      {onAddDeal && (
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => onAddDeal(stage.id)}
+          className="min-h-11 w-full justify-start text-muted-foreground hover:bg-card hover:text-foreground sm:min-h-8"
+        >
+          <Plus className="mr-1 h-3 w-3" />
+          {t("addDeal")}
+        </Button>
+      )}
     </div>
   );
 }
@@ -313,7 +351,8 @@ function DraggableDealCard({
       ref={setNodeRef}
       {...(canMove ? listeners : {})}
       {...(canMove ? attributes : {})}
-      style={{ opacity: isDragging ? 0.3 : 1, touchAction: canMove ? "none" : undefined }}
+      // manipulation (not none): a finger swipe keeps scrolling; a long press picks the card up.
+      style={{ opacity: isDragging ? 0.3 : 1, touchAction: "manipulation" }}
     >
       <DealCard deal={deal} stage={stage} onEdit={onEdit} stages={stages} onMove={onMove} onDelete={onDelete} />
     </div>

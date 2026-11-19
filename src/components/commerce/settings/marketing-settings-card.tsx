@@ -19,6 +19,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { minorToDecimalString, parseMoney } from "@/lib/commerce/money";
 import type { MarketingSettings } from "@/lib/commerce/marketing-settings";
+import { useReportDirty } from "./section-dirty";
 
 export function MarketingSettingsCard({ canEdit, currency, onChanged }: { canEdit: boolean; currency: string; onChanged?: (s: MarketingSettings) => void }) {
   const t = useTranslations("Commerce.settings.marketing.settings");
@@ -26,14 +27,18 @@ export function MarketingSettingsCard({ canEdit, currency, onChanged }: { canEdi
   const [settings, setSettings] = useState<MarketingSettings | null>(null);
   const [reward, setReward] = useState("");
   const [busy, setBusy] = useState(false);
+  const [saved, setSaved] = useState<string | null>(null);
+  useReportDirty("marketing-settings", saved !== null && JSON.stringify({ settings, reward }) !== saved);
 
   useEffect(() => {
     authFetch("/api/commerce/marketing-settings", { cache: "no-store" })
       .then(async (res) => {
         if (!res.ok) return;
         const s = ((await res.json()) as { settings: MarketingSettings }).settings;
+        const r = minorToDecimalString(s.referral_reward_minor, currency);
         setSettings(s);
-        setReward(minorToDecimalString(s.referral_reward_minor, currency));
+        setReward(r);
+        setSaved(JSON.stringify({ settings: s, reward: r }));
         onChanged?.(s);
       })
       .catch(() => undefined);
@@ -54,8 +59,10 @@ export function MarketingSettingsCard({ canEdit, currency, onChanged }: { canEdi
       toast.error(data.code && te.has(data.code as never) ? te(data.code as never) : te("invalid"));
       return;
     }
+    const savedReward = minorToDecimalString(data.settings.referral_reward_minor, currency);
     setSettings(data.settings);
-    setReward(minorToDecimalString(data.settings.referral_reward_minor, currency));
+    setReward(savedReward);
+    setSaved(JSON.stringify({ settings: data.settings, reward: savedReward }));
     onChanged?.(data.settings);
     toast.success(t("saved"));
   };

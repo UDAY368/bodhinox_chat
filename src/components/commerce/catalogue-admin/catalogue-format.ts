@@ -45,17 +45,3 @@ export function priceRange(min: number | null, max: number | null, currency: str
   return max !== null && max !== min ? `${low} – ${formatMoney(max, currency, locale)}` : low;
 }
 
-/** "Size: M, Colour: Blue" -> { Size: "M", Colour: "Blue" }; null when malformed or more than four pairs. */
-export function parseOptionsText(text: string): Record<string, string> | null {
-  const out: Record<string, string> = {};
-  const parts = text.split(",").map((p) => p.trim()).filter(Boolean);
-  if (parts.length > 4) return null;
-  for (const part of parts) {
-    const i = part.indexOf(":");
-    if (i < 1) return null;
-    const k = part.slice(0, i).trim(), v = part.slice(i + 1).trim();
-    if (!k || !v || k.length > 40 || v.length > 80 || Object.hasOwn(out, k)) return null;
-    out[k] = v;
-  }
-  return out;
-}

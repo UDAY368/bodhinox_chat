@@ -24,6 +24,7 @@ import type { CustomerGroupView, DiscountRuleView, GiftRuleView, PriceListView }
 import type { ContactBalances, LoyaltySettingsView } from "@/lib/commerce/store-credit";
 import { listSellableVariants, type SellableVariant } from "../orders/order-api";
 import { storeApi } from "./settings-api";
+import { useReportDirty } from "./section-dirty";
 
 type Result<T> = { ok: true; value: T } | { ok: false; code?: string; error?: string };
 type Option = { id: string; name: string };
@@ -284,6 +285,7 @@ function PriceLists({ currency, canEdit, pickers }: { currency: string; canEdit:
   const t = useTranslations("Commerce.priceRules");
   const api = useRules<PriceListView>("price-lists", "price_lists", "price_list");
   const [draft, setDraft] = useState<ListDraft | null>(null);
+  useReportDirty("price-list", draft !== null);
   const set = (patch: Partial<ListDraft>) => setDraft((d) => (d ? { ...d, ...patch } : d));
   const body = (d: ListDraft): Record<string, unknown> | null => {
     const prices = d.prices.map((p) => ({ variant_id: p.variant, min_qty: Number(p.qty), price_minor: minor(p.price, currency) }));
@@ -365,6 +367,7 @@ function DiscountRules({ currency, canEdit, pickers }: { currency: string; canEd
   const t = useTranslations("Commerce.priceRules");
   const api = useRules<DiscountRuleView>("discount-rules", "discount_rules", "discount_rule");
   const [draft, setDraft] = useState<RuleDraft | null>(null);
+  useReportDirty("discount-rule", draft !== null);
   const set = (patch: Partial<RuleDraft>) => setDraft((d) => (d ? { ...d, ...patch } : d));
   const body = (d: RuleDraft): Record<string, unknown> | null => {
     const value = d.kind === "percent" ? percentBps(d.value) : minor(d.value, currency);
@@ -459,6 +462,7 @@ function GiftRules({ currency, canEdit, pickers }: { currency: string; canEdit: 
   const t = useTranslations("Commerce.priceRules");
   const api = useRules<GiftRuleView>("gift-rules", "gift_rules", "gift_rule");
   const [draft, setDraft] = useState<GiftDraft | null>(null);
+  useReportDirty("gift-rule", draft !== null);
   const set = (patch: Partial<GiftDraft>) => setDraft((d) => (d ? { ...d, ...patch } : d));
   const body = (d: GiftDraft): Record<string, unknown> | null => {
     const spend = d.condition === "spend" ? minor(d.spend, currency) : null;

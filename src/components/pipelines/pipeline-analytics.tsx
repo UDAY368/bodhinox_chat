@@ -1,7 +1,9 @@
 "use client";
 
 import { useMemo } from "react";
-import type { Deal, PipelineStage } from "@/types";
+import type { PipelineStage } from "@/types";
+import type { CurrencyTotal, OverviewRow } from "@/lib/pipelines/board";
+import { analyzeOverview, summarizeOverview } from "@/lib/pipelines/board-summary";
 import { Info } from "lucide-react";
 import {
   Tooltip,
@@ -13,152 +15,54 @@ import { useAuth } from "@/hooks/use-auth";
 import { formatCurrency } from "@/lib/currency";
 import { useTranslations } from "next-intl";
 
+/** Amounts per currency side by side ("₹12,000 · $300"); zero in the workspace currency when empty. */
+export function formatTotals(totals: CurrencyTotal[], fallbackCurrency: string): string {
+  if (totals.length === 0) return formatCurrency(0, fallbackCurrency);
+  return totals.map((t) => formatCurrency(t.total, t.currency)).join(" · ");
+}
+
 interface PipelineAnalyticsProps {
   stages: PipelineStage[];
-  deals: Deal[];
+  /** The board's SQL aggregate (status x stage x currency) under the current filters. */
+  overview: OverviewRow[];
 }
 
-/**
- * Weighted pipeline value: value × per-stage probability.
- * First stage ≈ 10%, stages interpolate up to 90% before the final stage,
- * final stage (Won) = 100%. Lost deals excluded.
- */
-function computeStageProbability(
-  stage: PipelineStage,
-  sortedStages: PipelineStage[],
-): number {
-  const n = sortedStages.length;
-  if (n <= 1) return 1;
-  const index = sortedStages.findIndex((s) => s.id === stage.id);
-  if (index < 0) return 0;
-  if (index === n - 1) return 1;
-  const slots = n - 1;
-  if (slots <= 1) return 0.1;
-  const t = index / (slots - 1);
-  return 0.1 + t * (0.9 - 0.1);
-}
-
-export function PipelineAnalytics({ stages, deals }: PipelineAnalyticsProps) {
+export function PipelineAnalytics({ stages, overview }: PipelineAnalyticsProps) {
   const t = useTranslations("Pipelines.analytics");
   const { defaultCurrency } = useAuth();
-  const sortedStages = useMemo(
-    () => [...stages].sort((a, b) => a.position - b.position),
-    [stages],
-  );
-
-  const stats = useMemo(() => {
-    const active = deals.filter((d) => d.status !== "lost");
-    const openDeals = active.filter((d) => d.status !== "won");
-
-    const totalCount = active.length;
-    const totalValue = active.reduce((sum, d) => sum + Number(d.value || 0), 0);
-    const avgValue = totalCount > 0 ? totalValue / totalCount : 0;
-
-    const stageById = new Map(sortedStages.map((s) => [s.id, s]));
-    const weightedValue = openDeals.reduce((sum, d) => {
-      const stage = stageById.get(d.stage_id);
-      if (!stage) return sum;
-      const prob = computeStageProbability(stage, sortedStages);
-      return sum + Number(d.value || 0) * prob;
-    }, 0);
-
-    const now = new Date();
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-    const thisMonth = (d: Deal) => {
-      const ts = d.updated_at ?? d.created_at;
-      return ts ? new Date(ts) >= monthStart : false;
-    };
-    const wonThisMonth = deals.filter(
-      (d) => d.status === "won" && thisMonth(d),
-    ).length;
-    const lostThisMonth = deals.filter(
-      (d) => d.status === "lost" && thisMonth(d),
-    ).length;
-
-    return {
-      totalCount,
-      totalValue,
-      avgValue,
-      weightedValue,
-      wonThisMonth,
-      lostThisMonth,
-    };
-  }, [deals, sortedStages]);
+  const stats = useMemo(() => analyzeOverview(overview, stages), [overview, stages]);
 
   return (
     <TooltipProvider>
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3 xl:grid-cols-6">
-        <Metric
-          label={t("totalDeals")}
-          value={String(stats.totalCount)}
-          tooltip={t("totalDealsTooltip")}
-          t={t}
-        />
-        <Metric
-          label={t("pipelineValue")}
-          value={formatCurrency(stats.totalValue, defaultCurrency)}
-          tooltip={t("pipelineValueTooltip")}
-          t={t}
-        />
-        <Metric
-          label={t("avgDealSize")}
-          value={formatCurrency(stats.avgValue, defaultCurrency)}
-          tooltip={t("avgDealSizeTooltip")}
-          t={t}
-        />
-        <Metric
-          label={t("weightedValue")}
-          value={formatCurrency(stats.weightedValue, defaultCurrency)}
-          tooltip={t("weightedValueTooltip")}
-          t={t}
-        />
-        <Metric
-          label={t("wonThisMonth")}
-          value={String(stats.wonThisMonth)}
-          tooltip={t("wonThisMonthTooltip")}
-          t={t}
-        />
-        <Metric
-          label={t("lostThisMonth")}
-          value={String(stats.lostThisMonth)}
-          tooltip={t("lostThisMonthTooltip")}
-          t={t}
-        />
+        <Metric label={t("totalDeals")} value={String(stats.totalCount)} tooltip={t("totalDealsTooltip")} t={t} />
+        <Metric label={t("pipelineValue")} value={formatTotals(stats.value, defaultCurrency)} tooltip={t("pipelineValueTooltip")} t={t} />
+        <Metric label={t("avgDealSize")} value={formatTotals(stats.average, defaultCurrency)} tooltip={t("avgDealSizeTooltip")} t={t} />
+        <Metric label={t("weightedValue")} value={formatTotals(stats.weighted, defaultCurrency)} tooltip={t("weightedValueTooltip")} t={t} />
+        <Metric label={t("wonThisMonth")} value={String(stats.wonThisMonth)} tooltip={t("wonThisMonthTooltip")} t={t} />
+        <Metric label={t("lostThisMonth")} value={String(stats.lostThisMonth)} tooltip={t("lostThisMonthTooltip")} t={t} />
       </div>
     </TooltipProvider>
   );
 }
 
-/** Open, won and lost deals of a (filtered) board, for the three summary cards. Pure; tested. */
-export function summarizeDeals(deals: Pick<Deal, "status" | "value">[]) {
-  const sum = (list: typeof deals) => list.reduce((s, d) => s + Number(d.value || 0), 0);
-  const open = deals.filter((d) => !d.status || d.status === "open");
-  const won = deals.filter((d) => d.status === "won");
-  const lost = deals.filter((d) => d.status === "lost");
-  const closed = won.length + lost.length;
-  return {
-    openCount: open.length, openValue: sum(open), wonCount: won.length, wonValue: sum(won), lostCount: lost.length,
-    winRate: closed > 0 ? Math.round((won.length / closed) * 100) : null,
-  };
-}
-
-/** The Sales board's three summary cards: open deals value, won value and win rate (of the deals shown). */
-export function PipelineSummary({ deals }: { deals: Deal[] }) {
+/** The Sales board's three summary cards: open value, won value and win rate, from SQL totals per currency. */
+export function PipelineSummary({ overview }: { overview: OverviewRow[] }) {
   const t = useTranslations("Sales.pipeline");
   const { defaultCurrency } = useAuth();
-  const s = useMemo(() => summarizeDeals(deals), [deals]);
+  const s = useMemo(() => summarizeOverview(overview), [overview]);
   const card = "flex min-w-0 flex-col gap-1 rounded-xl border border-border bg-card px-3 py-2.5 sm:px-4 sm:py-3.5";
-  const value = "truncate text-[17px] font-bold tracking-tight tabular-nums text-foreground sm:text-[22px]";
+  const value = "break-words text-[17px] font-bold tracking-tight tabular-nums text-foreground sm:text-[22px]";
   return (
     <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3">
       <div className={card}>
         <span className="text-xs font-medium text-muted-foreground">{t("openDeals")}</span>
-        <p className={value}>{formatCurrency(s.openValue, defaultCurrency)}</p>
+        <p className={value}>{formatTotals(s.open, defaultCurrency)}</p>
         <span className="text-xs text-muted-foreground">{t("dealsCount", { count: s.openCount })}</span>
       </div>
       <div className={card}>
         <span className="text-xs font-medium text-muted-foreground">{t("won")}</span>
-        <p className={value}>{formatCurrency(s.wonValue, defaultCurrency)}</p>
+        <p className={value}>{formatTotals(s.won, defaultCurrency)}</p>
         <span className="text-xs text-muted-foreground">{t("dealsCount", { count: s.wonCount })}</span>
       </div>
       <div className={`${card} col-span-2 sm:col-span-1`}>
@@ -203,7 +107,7 @@ function Metric({
           </TooltipContent>
         </Tooltip>
       </div>
-      <p className="truncate text-[17px] font-bold tracking-tight tabular-nums text-foreground sm:text-[22px]">{value}</p>
+      <p className="break-words text-[17px] font-bold tracking-tight tabular-nums text-foreground sm:text-[22px]">{value}</p>
     </div>
   );
 }

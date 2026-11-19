@@ -324,7 +324,10 @@ model deals {
   updated_at DateTime? @db.Timestamptz(6) @default(now())
   assigned_to String? @db.Uuid
   account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  closed_at DateTime? @db.Timestamptz(6)
+  lost_reason String?
   @@unique([account_id, id])
+  @@index([account_id, pipeline_id, stage_id, status, created_at(sort: Desc), id], map: "deals_board_idx")
 }
 
 model broadcasts {

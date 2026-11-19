@@ -1961,6 +1961,7 @@ export function MessageThread({
         onAddNote={threadNotes.add}
         onSendLocation={isInstagram ? undefined : (location, replyToId) => void handleSendLocation(location, replyToId)}
         remindersInBanner
+        contact={contact}
       />}
       </div>
       {notesOpen && (

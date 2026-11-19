@@ -53,8 +53,8 @@ export function DealCard({ deal, stage, onEdit, isOverlay, stages, onMove, onDel
       <button
         type="button"
         onClick={(e) => {
-          // `onClick` still fires after a non-drag tap because the PointerSensor
-          // requires 5px movement before it counts as a drag.
+          // `onClick` still fires after a tap: a mouse drag needs 5px of movement
+          // and a touch drag a long press before either counts as a drag.
           if (isOverlay) return;
           e.stopPropagation();
           onEdit(deal);
@@ -89,6 +89,12 @@ export function DealCard({ deal, stage, onEdit, isOverlay, stages, onMove, onDel
             </span>
           )}
         </div>
+
+        {deal.status === "lost" && deal.lost_reason && (
+          <p className="truncate text-xs text-muted-foreground" title={deal.lost_reason}>
+            {deal.lost_reason}
+          </p>
+        )}
 
         {/* Contact row */}
         <div className="flex min-w-0 items-center gap-[7px] text-[13px] text-muted-foreground">

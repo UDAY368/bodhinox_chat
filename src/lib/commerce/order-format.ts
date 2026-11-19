@@ -18,41 +18,11 @@ export type OrderSource = (typeof ORDER_SOURCES)[number];
 export const REFUND_STATES = ['none', 'partial', 'full'] as const;
 export type RefundState = (typeof REFUND_STATES)[number];
 
-/**
- * Statuses only the worker sets, after a verified payment, a reservation
- * expiry or a payment exception (the orders_status_guard trigger refuses them
- * for a browser session). Staff never mark an order paid by hand: a payment
- * taken outside a link is recorded through "Record offline payment".
- */
-export const WORKER_ONLY_STATUSES: readonly OrderStatus[] = ['paid', 'payment_review', 'expired', 'partially_shipped'];
-
-/**
- * Status changes staff may make. `fulfilled` is shown as "Delivered" (the
- * evidence badge says who confirmed it). paid -> cancelled goes through "Cancel and refund" only.
- * Final for staff: fulfilled, cancelled, expired, payment_review (resolved
- * through the payment exceptions queue).
- */
-export const ORDER_TRANSITIONS: Record<OrderStatus, readonly OrderStatus[]> = {
-  new: ['confirmed', 'awaiting_payment', 'cancelled'],
-  confirmed: ['awaiting_payment', 'dispatched', 'fulfilled', 'cancelled'],
-  awaiting_payment: ['cancelled'],
-  payment_review: [],
-  paid: ['dispatched', 'cancelled'],
-  // Some parcels left (set from the courier shipments, never by hand): staff may record that the rest left too.
-  partially_shipped: ['dispatched'],
-  dispatched: ['fulfilled', 'cancelled'],
-  fulfilled: [],
-  expired: [],
-  cancelled: [],
-};
-
-/** Moves allowed only for legacy unpriced orders (a priced order is paid before it is fulfilled). */
-const UNPRICED_ONLY: ReadonlySet<string> = new Set(['new>awaiting_payment', 'confirmed>awaiting_payment']);
-/**
- * Moves allowed only for an unpaid cash-on-delivery order: it ships before the cash arrives, and a
- * parcel the customer refuses (return to origin) is cancelled from dispatched, releasing its stock.
- */
-const UNPAID_COD_ONLY: ReadonlySet<string> = new Set(['confirmed>dispatched', 'dispatched>cancelled']);
+// The transition rules live in ./order-state (one copy for the server and the screens); re-exported here for
+// the callers that read them with the rest of the order format.
+export {
+  canTransition, isUnpaidCod, nextStatuses, ORDER_TRANSITIONS, WORKER_ONLY_STATUSES,
+} from './order-state';
 
 export function isOrderStatus(value: unknown): value is OrderStatus {
   return typeof value === 'string' && (ORDER_STATUSES as readonly string[]).includes(value);
@@ -60,29 +30,6 @@ export function isOrderStatus(value: unknown): value is OrderStatus {
 
 export function isOrderSource(value: unknown): value is OrderSource {
   return typeof value === 'string' && (ORDER_SOURCES as readonly string[]).includes(value);
-}
-
-/**
- * May staff move an order from `from` to `to`? `priced` = the order has server-priced snapshots
- * (priced_at set); `unpaidCod` = a cash-on-delivery order whose cash is not recorded yet.
- */
-export function canTransition(from: OrderStatus, to: OrderStatus, opts: { priced?: boolean; unpaidCod?: boolean } = {}): boolean {
-  if (!ORDER_TRANSITIONS[from].includes(to)) return false;
-  const move = `${from}>${to}`;
-  if (opts.priced && UNPRICED_ONLY.has(move)) return false;
-  if (UNPAID_COD_ONLY.has(move)) return !!opts.unpaidCod;
-  // A priced order is paid before it is delivered, except an unpaid COD order (cash on delivery).
-  if (move === 'confirmed>fulfilled') return !opts.priced || !!opts.unpaidCod;
-  return true;
-}
-
-/** True for a cash-on-delivery order whose cash has not been recorded. */
-export const isUnpaidCod = (order: { payment_method?: string | null; paid_at?: Date | string | null }): boolean =>
-  order.payment_method === 'cod' && !order.paid_at;
-
-/** Statuses staff can pick next for an order (the order detail selector). */
-export function nextStatuses(from: OrderStatus, opts: { priced?: boolean; unpaidCod?: boolean } = {}): OrderStatus[] {
-  return ORDER_TRANSITIONS[from].filter((to) => canTransition(from, to, opts));
 }
 
 /**

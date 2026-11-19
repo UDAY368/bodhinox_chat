@@ -185,7 +185,11 @@ the "Adjust stock" permission can change it.
 
 Commerce → Store settings holds the store currency, tax, how long a placed order holds stock while the customer pays,
 the online checkout switch, the seller details printed on receipts, shipping rates and coupons. Only admins can change them.
-The currency cannot change once any variant has a price. If no tax rate applies to an item, or no shipping rate covers an
+The page is split into sections listed on the left (on a phone, tap a section to open it and Back to return): General,
+Taxes and invoices, Checkout and payments, Shipping and delivery, Discounts and pricing, Buyers and accounts, Notifications
+and messages, Marketing and Advanced. Each section has its own Save, and the app asks before you leave a section with
+unsaved changes. A link can open one section directly with `?section=`, for example `/commerce/settings?section=shipping`.
+Set the store currency in General first; the other sections open once it is saved. The currency cannot change once any variant has a price. If no tax rate applies to an item, or no shipping rate covers an
 address, checkout refuses rather than charging zero.
 
 **Cash on delivery (COD).** Turn on **Offer cash on delivery** in Store settings and, if you like, set a COD fee. Customers

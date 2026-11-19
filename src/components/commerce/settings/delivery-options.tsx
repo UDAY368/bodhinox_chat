@@ -5,7 +5,7 @@
  * (the API and RLS enforce the same rule). The local delivery fee is typed as a decimal and
  * stored in minor units; the checkout prices it on the server.
  */
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
@@ -16,6 +16,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { minorToDecimalString, parseMoney } from "@/lib/commerce/money";
+import { useReportDirty } from "./section-dirty";
 import { storeApi, type DeliveryOptions } from "./settings-api";
 
 export function DeliveryOptionsCard({ currency, canEdit }: { currency: string; canEdit: boolean }) {
@@ -25,15 +26,20 @@ export function DeliveryOptionsCard({ currency, canEdit }: { currency: string; c
   const [fee, setFee] = useState("");
   const [prefixes, setPrefixes] = useState("");
   const [busy, setBusy] = useState(false);
+  const [saved, setSaved] = useState<string | null>(null);
+  useReportDirty("delivery-options", saved !== null && JSON.stringify({ o, fee, prefixes }) !== saved);
 
-  useEffect(() => {
-    storeApi.deliveryOptions().then((r) => {
-      if (!r.ok) return;
-      setO(r.value);
-      setFee(r.value.local_fee_minor ? minorToDecimalString(r.value.local_fee_minor, currency) : "");
-      setPrefixes(r.value.local_postal_prefixes.join(", "));
-    }).catch(() => undefined);
+  const load = useCallback((v: DeliveryOptions) => {
+    const f = v.local_fee_minor ? minorToDecimalString(v.local_fee_minor, currency) : "";
+    const p = v.local_postal_prefixes.join(", ");
+    setO(v);
+    setFee(f);
+    setPrefixes(p);
+    setSaved(JSON.stringify({ o: v, fee: f, prefixes: p }));
   }, [currency]);
+  useEffect(() => {
+    storeApi.deliveryOptions().then((r) => { if (r.ok) load(r.value); }).catch(() => undefined);
+  }, [load]);
 
   if (!o) return null;
   const set = <K extends keyof DeliveryOptions>(key: K, value: DeliveryOptions[K]) => setO({ ...o, [key]: value });
@@ -53,7 +59,7 @@ export function DeliveryOptionsCard({ currency, canEdit }: { currency: string; c
         local_fee_minor: feeMinor, local_postal_prefixes: prefixes.split(/[\s,]+/).map((p) => p.trim()).filter(Boolean),
       });
       if (!r.ok) return void toast.error(r.code && te.has(r.code as never) ? te(r.code as never) : te("invalid"));
-      setO(r.value);
+      load(r.value);
       toast.success(t("saved"));
     } finally {
       setBusy(false);

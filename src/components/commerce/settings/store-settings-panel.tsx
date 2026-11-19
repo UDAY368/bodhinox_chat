@@ -1,681 +1,231 @@
 "use client";
 
 /**
- * Commerce → Store settings (design §6): currency, tax, reservation minutes,
- * checkout toggle, review requests, seller details, shipping rates, coupons, automatic discounts, price rules
- * (price lists, discount rules, gifts, loyalty points and customer balances) and the order notice templates (Phase 9). Admins edit;
- * agents read (the APIs and RLS enforce the same rule). Money is typed as a
- * decimal and stored in integer minor units; tax rates are typed as percent
- * and stored in basis points.
+ * Commerce → Store settings, split into sections (Apple Settings style): a grouped side list on the left on desktop, and on
+ * phones a list that drills into one section with a back button. The selected section is in the URL (?section=), so links and
+ * Back work. Only the open section is mounted, so each section loads its own data when it is opened; the store's core settings
+ * row is one cheap call loaded up front (it holds the currency every money field needs). Each section saves with one Save
+ * (switches in lists apply at once), and leaving a section with unsaved changes asks first. Admins edit; agents read (the APIs
+ * and RLS enforce the same rule).
  */
-import { useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { toast } from "sonner";
-import { Loader2, Plus, Trash2 } from "lucide-react";
+import {
+  BadgePercent, Bell, ChevronLeft, ChevronRight, CreditCard, Megaphone, Receipt, SlidersHorizontal, Store, Truck, Users, type LucideIcon,
+} from "lucide-react";
 import { useCan } from "@/hooks/use-can";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
-import { Textarea } from "@/components/ui/textarea";
-import { useApprovedTemplates } from "@/components/flows/forms/use-pickers";
-import { formatMoney, minorToDecimalString, parseMoney } from "@/lib/commerce/money";
-import { DeliveryOptionsCard } from "./delivery-options";
-import { NoticeTemplates } from "./notice-templates";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { cn } from "@/lib/utils";
 import { BuyerSettingsPanel } from "./buyer-settings-panel";
+import { CoreSettingsForm, type CorePart } from "./core-settings-form";
+import { DeliveryOptionsCard } from "./delivery-options";
+import { AutoDiscounts, Coupons } from "./discounts";
 import { MarketingPanel } from "./marketing-panel";
+import { NoticeTemplates } from "./notice-templates";
 import { PriceRulesPanel } from "./price-rules-panel";
-import { storeApi, type ApiResult, type AutoDiscountView, type CouponView, type ShippingRateView, type StoreSettings, type StoreSettingsInput } from "./settings-api";
+import { DirtyScope, useDirtyRegistry } from "./section-dirty";
+import { storeApi, type StoreSettings } from "./settings-api";
+import { ShippingRates } from "./shipping-rates";
+import {
+  DEFAULT_STORE_SECTION, STORE_SECTION_GROUPS, resolveStoreSection, storeSectionHref, type StoreSection,
+} from "./store-settings-sections";
 
-/** "18" or "12.5" percent -> basis points; null for empty; NaN when invalid. */
-export function percentToBps(value: string): number | null {
-  const v = value.trim();
-  if (!v) return null;
-  if (!/^\d{1,3}(\.\d{1,2})?$/.test(v)) return NaN;
-  const [whole, fraction = ""] = v.split(".");
-  const bps = Number(whole) * 100 + Number(fraction.padEnd(2, "0"));
-  return bps <= 10000 ? bps : NaN;
-}
-export const bpsToPercent = (bps: number | null) => (bps === null ? "" : (bps / 100).toString());
-
-function useErrorText() {
-  const te = useTranslations("Commerce.settings.errors");
-  return (r: ApiResult<unknown>) => (r.ok ? "" : r.code ? te(r.code as never) : r.error ?? te("invalid"));
-}
+const ICONS: Record<StoreSection, LucideIcon> = {
+  general: Store, taxes: Receipt, checkout: CreditCard, shipping: Truck, discounts: BadgePercent,
+  buyers: Users, notifications: Bell, marketing: Megaphone, advanced: SlidersHorizontal,
+};
 
 export function StoreSettingsPanel() {
-  const t = useTranslations("Commerce.settings");
+  // useSearchParams needs a Suspense boundary so the page can still prerender around it.
+  return (
+    <Suspense fallback={<SectionSkeleton />}>
+      <StoreSettingsLoader />
+    </Suspense>
+  );
+}
+
+function StoreSettingsLoader() {
   const canEdit = useCan("edit-settings");
   const [settings, setSettings] = useState<StoreSettings | null>(null);
   const [loadError, setLoadError] = useState(false);
-
-  useEffect(() => {
+  const [savedVersion, setSavedVersion] = useState(0);
+  const load = useCallback(() => {
     storeApi.settings().then((r) => (r.ok ? setSettings(r.value) : setLoadError(true))).catch(() => setLoadError(true));
   }, []);
+  useEffect(load, [load]);
+  return (
+    <StoreSettingsScreen settings={settings} loadError={loadError} canEdit={canEdit} savedVersion={savedVersion}
+      onRetry={() => { setLoadError(false); load(); }}
+      onSaved={(s) => { setSettings(s); setSavedVersion((n) => n + 1); }} />
+  );
+}
+
+export function StoreSettingsScreen({ settings, loadError, canEdit, savedVersion, onRetry, onSaved }: {
+  settings: StoreSettings | null; loadError: boolean; canEdit: boolean; savedVersion: number;
+  onRetry: () => void; onSaved: (s: StoreSettings) => void;
+}) {
+  const t = useTranslations("Commerce.settings");
+  const ts = useTranslations("Commerce.settings.sections");
+  const params = useSearchParams();
+  const pathname = usePathname();
+  const selected = resolveStoreSection(params.get("section"));
+  const shown = selected ?? DEFAULT_STORE_SECTION;
+  const { anyDirty, report } = useDirtyRegistry();
+  const [pending, setPending] = useState<{ to: StoreSection | null } | null>(null);
+
+  // Native history keeps the switch on the client (no server round trip) and still updates useSearchParams.
+  const navigate = (to: StoreSection | null) => {
+    window.history.pushState(null, "", storeSectionHref(pathname, params.toString(), to));
+    window.scrollTo({ top: 0 });
+  };
+  const go = (to: StoreSection | null) => {
+    if (to === selected) return;
+    // Only a change of the section on screen drops its edits (phones: Back to the list keeps the default section mounted).
+    if (anyDirty && (to ?? DEFAULT_STORE_SECTION) !== shown) return setPending({ to });
+    navigate(to);
+  };
 
   return (
-    <div className="mx-auto w-full max-w-4xl space-y-5">
-      <div>
+    <div className="mx-auto w-full max-w-5xl">
+      <header className={cn(selected && "hidden md:block")}>
         <h1 className="text-[22px] font-bold tracking-tight text-foreground">{t("title")}</h1>
         <p className="text-sm text-muted-foreground">{t("subtitle")}</p>
-      </div>
-      {loadError && <p className="text-sm text-destructive" role="alert">{t("loadError")}</p>}
-      {!settings && !loadError && <Loader2 className="size-5 animate-spin text-muted-foreground" aria-label={t("loading")} />}
-      {settings && <GeneralForm initial={settings} canEdit={canEdit} onSaved={setSettings} />}
-      {settings?.configured && settings.currency && <ShippingRates currency={settings.currency} canEdit={canEdit} />}
-      {settings?.configured && settings.currency && <DeliveryOptionsCard currency={settings.currency} canEdit={canEdit} />}
-      {settings?.configured && settings.currency && <Coupons currency={settings.currency} canEdit={canEdit} />}
-      {settings?.configured && settings.currency && <AutoDiscounts currency={settings.currency} canEdit={canEdit} />}
-      {settings?.configured && settings.currency && <PriceRulesPanel currency={settings.currency} canEdit={canEdit} />}
-      {settings?.configured && <BuyerSettingsPanel canEdit={canEdit} />}
-      {settings?.configured && settings.currency && <MarketingPanel canEdit={canEdit} currency={settings.currency} />}
-      {settings?.configured && <NoticeTemplates canEdit={canEdit} />}
-    </div>
-  );
-}
+      </header>
 
-// ---------------------------------------------------------------------------
+      <div className="mt-5 md:grid md:grid-cols-[13rem_minmax(0,1fr)] md:items-start md:gap-8">
+        <nav aria-label={ts("navLabel")} className={cn("space-y-5 md:sticky md:top-4 md:space-y-4", selected && "hidden md:block")}>
+          {STORE_SECTION_GROUPS.map((group) => (
+            <div key={group.id}>
+              <p className="px-3 pb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">{ts(`groups.${group.id}`)}</p>
+              <ul className="divide-y overflow-hidden rounded-xl border bg-card md:divide-y-0 md:rounded-none md:border-0 md:bg-transparent">
+                {group.sections.map((id) => {
+                  const Icon = ICONS[id];
+                  const active = id === shown;
+                  return (
+                    <li key={id}>
+                      <button type="button" onClick={() => go(id)} aria-current={active ? "page" : undefined}
+                        className={cn(
+                          "flex min-h-11 w-full items-center gap-3 px-3 text-left text-sm transition-colors hover:bg-muted/60 md:min-h-9 md:rounded-lg",
+                          active ? "md:bg-muted md:font-medium md:text-foreground" : "md:text-muted-foreground",
+                        )}>
+                        <Icon className={cn("size-4 shrink-0", active ? "text-primary" : "text-muted-foreground")} aria-hidden />
+                        <span className="min-w-0 flex-1 truncate">{ts(`${id}.title`)}</span>
+                        <ChevronRight className="size-4 shrink-0 text-muted-foreground md:hidden" aria-hidden />
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          ))}
+        </nav>
 
-function GeneralForm({ initial, canEdit, onSaved }: { initial: StoreSettings; canEdit: boolean; onSaved: (s: StoreSettings) => void }) {
-  const t = useTranslations("Commerce.settings");
-  const errorText = useErrorText();
-  const templates = useApprovedTemplates();
-  const [s, setS] = useState(initial);
-  const [tax, setTax] = useState(bpsToPercent(initial.default_tax_rate_bps));
-  const [codFee, setCodFee] = useState(initial.currency && initial.cod_fee_minor ? minorToDecimalString(initial.cod_fee_minor, initial.currency) : "");
-  const [abandonedMinutes, setAbandonedMinutes] = useState(initial.abandoned_cart_delay_minutes === null ? "" : String(initial.abandoned_cart_delay_minutes));
-  const [abandonedOn, setAbandonedOn] = useState(initial.abandoned_cart_delay_minutes !== null);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const set = <K extends keyof StoreSettings>(key: K) => (value: StoreSettings[K]) => setS((x) => ({ ...x, [key]: value }));
-  const text = (key: "legal_name" | "gstin" | "address" | "state_code" | "storefront_title" | "document_prefix") => ({
-    value: s[key] ?? "", disabled: !canEdit, onChange: (e: { target: { value: string } }) => set(key)(e.target.value),
-  });
-  const num = (key: "reservation_minutes" | "low_stock_default" | "return_window_days") => ({
-    type: "number", value: String(s[key]), disabled: !canEdit, onChange: (e: { target: { value: string } }) => set(key)(Number(e.target.value)),
-  });
-  const bps = percentToBps(tax);
-  const templateKey = s.checkout_template_name ? `${s.checkout_template_name}|${s.checkout_template_language ?? ""}` : "";
-
-  // The COD fee is typed as a decimal in the store currency; empty means no fee.
-  const codFeeMinor = (() => {
-    if (!codFee.trim()) return 0;
-    try {
-      return s.currency ? parseMoney(codFee.trim(), s.currency.toUpperCase()) : NaN;
-    } catch {
-      return NaN;
-    }
-  })();
-
-  const abandonedDelay = abandonedOn ? Number(abandonedMinutes) : null;
-  const abandonedInvalid = abandonedDelay !== null && (!Number.isInteger(abandonedDelay) || abandonedDelay < 30 || abandonedDelay > 2880);
-
-  async function save() {
-    if (Number.isNaN(bps) || Number.isNaN(codFeeMinor) || abandonedInvalid) return setError(t("errors.invalid"));
-    setSaving(true);
-    setError(null);
-    const input: StoreSettingsInput = {
-      currency: (s.currency ?? "").toUpperCase(), prices_include_tax: s.prices_include_tax, default_tax_rate_bps: bps,
-      reservation_minutes: s.reservation_minutes, checkout_enabled: s.checkout_enabled, low_stock_default: s.low_stock_default,
-      legal_name: s.legal_name, gstin: s.gstin, address: s.address, state_code: s.state_code, document_prefix: s.document_prefix,
-      storefront_title: s.storefront_title, return_window_days: s.return_window_days,
-      checkout_template_name: s.checkout_template_name, checkout_template_language: s.checkout_template_language,
-      cod_enabled: s.cod_enabled, cod_fee_minor: codFeeMinor,
-      cod_confirm_enabled: s.cod_confirm_enabled, abandoned_cart_delay_minutes: abandonedDelay,
-      review_requests_enabled: s.review_requests_enabled,
-    };
-    try {
-      const r = await storeApi.saveSettings(input);
-      if (r.ok) {
-        onSaved(r.value);
-        setS(r.value);
-        toast.success(t("saved"));
-      } else setError(errorText(r));
-    } catch {
-      setError(t("errors.invalid"));
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{t("generalTitle")}</CardTitle>
-        <CardDescription>{t("generalHelp")}</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-6">
-        <label className="flex items-center gap-3 text-sm font-medium">
-          <Switch checked={s.checkout_enabled} disabled={!canEdit} onCheckedChange={(v) => set("checkout_enabled")(v)} aria-label={t("checkoutEnabled")} />
-          {t("checkoutEnabled")}
-        </label>
-        {s.checkout_enabled && !initial.online_payment_ready && (
-          <p className="rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-700 dark:text-amber-300" role="status">{t("razorpayMissing")}</p>
-        )}
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Field id="ss-currency" label={t("currency")} help={s.currency_locked ? t("currencyLocked") : t("currencyHelp")}>
-            <Input id="ss-currency" maxLength={3} value={s.currency ?? ""} disabled={!canEdit || s.currency_locked}
-              onChange={(e) => set("currency")(e.target.value.toUpperCase())} />
-          </Field>
-          <Field id="ss-tax" label={t("defaultTax")} help={t("defaultTaxHelp")}>
-            <Input id="ss-tax" inputMode="decimal" value={tax} disabled={!canEdit} onChange={(e) => setTax(e.target.value)} aria-invalid={Number.isNaN(bps)} />
-          </Field>
-          <label className="flex items-center gap-3 text-sm sm:col-span-2">
-            <Switch checked={s.prices_include_tax} disabled={!canEdit} onCheckedChange={(v) => set("prices_include_tax")(v)} aria-label={t("pricesIncludeTax")} />
-            {t("pricesIncludeTax")}
-          </label>
-          <Field id="ss-hold" label={t("reservationMinutes")} help={t("reservationHelp")}><Input id="ss-hold" min={15} max={60} {...num("reservation_minutes")} /></Field>
-          <Field id="ss-low" label={t("lowStockDefault")}><Input id="ss-low" min={0} {...num("low_stock_default")} /></Field>
-          <Field id="ss-return" label={t("returnWindowDays")}><Input id="ss-return" min={0} max={90} {...num("return_window_days")} /></Field>
-          <Field id="ss-title" label={t("storefrontTitle")}><Input id="ss-title" maxLength={120} {...text("storefront_title")} /></Field>
-        </div>
-        <div className="space-y-3">
-          <h3 className="text-sm font-semibold">{t("cod.title")}</h3>
-          <label className="flex items-start gap-3 text-sm">
-            <Switch checked={s.cod_enabled} disabled={!canEdit} onCheckedChange={(v) => set("cod_enabled")(v)} aria-label={t("cod.enabled")} />
-            <span>
-              <span className="block font-medium">{t("cod.enabled")}</span>
-              <span className="block text-xs text-muted-foreground">{t("cod.help")}</span>
-            </span>
-          </label>
-          <Field id="ss-cod-fee" label={t("cod.fee", { currency: s.currency ?? "" })} help={t("cod.feeHelp")}>
-            <Input id="ss-cod-fee" inputMode="decimal" value={codFee} disabled={!canEdit || !s.currency} placeholder="0"
-              onChange={(e) => setCodFee(e.target.value)} aria-invalid={Number.isNaN(codFeeMinor)} />
-          </Field>
-          <label className="flex items-start gap-3 text-sm">
-            <Switch checked={s.cod_confirm_enabled} disabled={!canEdit} onCheckedChange={(v) => set("cod_confirm_enabled")(v)} aria-label={t("cod.confirmEnabled")} />
-            <span>
-              <span className="block font-medium">{t("cod.confirmEnabled")}</span>
-              <span className="block text-xs text-muted-foreground">{t("cod.confirmHelp")}</span>
-            </span>
-          </label>
-        </div>
-        <div className="space-y-3">
-          <h3 className="text-sm font-semibold">{t("abandoned.title")}</h3>
-          <label className="flex items-start gap-3 text-sm">
-            <Switch checked={abandonedOn} disabled={!canEdit} onCheckedChange={(v) => { setAbandonedOn(v); if (v && !abandonedMinutes) setAbandonedMinutes("60"); }}
-              aria-label={t("abandoned.enabled")} />
-            <span>
-              <span className="block font-medium">{t("abandoned.enabled")}</span>
-              <span className="block text-xs text-muted-foreground">{t("abandoned.help")}</span>
-            </span>
-          </label>
-          {abandonedOn && (
-            <Field id="ss-abandoned" label={t("abandoned.delay")} help={t("abandoned.delayHelp")}>
-              <Input id="ss-abandoned" inputMode="numeric" min={30} max={2880} value={abandonedMinutes} disabled={!canEdit}
-                onChange={(e) => setAbandonedMinutes(e.target.value)} aria-invalid={abandonedInvalid} />
-            </Field>
+        <section aria-labelledby="store-section-title" className={cn("min-w-0 space-y-5", !selected && "hidden md:block")}>
+          <div>
+            <button type="button" onClick={() => go(null)} className="-ml-1 flex min-h-11 items-center gap-1 text-sm text-primary md:hidden">
+              <ChevronLeft className="size-4" aria-hidden /> {t("title")}
+            </button>
+            <h2 id="store-section-title" className="text-[22px] font-bold tracking-tight md:text-lg md:font-semibold">{ts(`${shown}.title`)}</h2>
+            <p className="text-sm text-muted-foreground">{ts(`${shown}.help`)}</p>
+          </div>
+          {loadError ? (
+            <div role="alert" className="space-y-2">
+              <p className="text-sm text-destructive">{t("loadError")}</p>
+              <Button variant="outline" size="sm" onClick={onRetry}>{ts("retry")}</Button>
+            </div>
+          ) : !settings ? (
+            <SectionSkeleton />
+          ) : (
+            <DirtyScope report={report}>
+              <div key={shown} className="space-y-5">
+                <SectionBody section={shown} settings={settings} canEdit={canEdit} savedVersion={savedVersion} onSaved={onSaved}
+                  onOpenGeneral={() => go("general")} />
+              </div>
+            </DirtyScope>
           )}
-        </div>
-        <div className="space-y-3">
-          <h3 className="text-sm font-semibold">{t("reviewRequests.title")}</h3>
-          <label className="flex items-start gap-3 text-sm">
-            <Switch checked={s.review_requests_enabled} disabled={!canEdit} onCheckedChange={(v) => set("review_requests_enabled")(v)}
-              aria-label={t("reviewRequests.enabled")} />
-            <span>
-              <span className="block font-medium">{t("reviewRequests.enabled")}</span>
-              <span className="block text-xs text-muted-foreground">{t("reviewRequests.help")}</span>
-            </span>
-          </label>
-        </div>
-        <div className="space-y-4">
-          <h3 className="text-sm font-semibold">{t("sellerTitle")}</h3>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Field id="ss-legal" label={t("legalName")}><Input id="ss-legal" maxLength={200} {...text("legal_name")} /></Field>
-            <Field id="ss-gstin" label={t("gstin")}><Input id="ss-gstin" maxLength={15} {...text("gstin")} /></Field>
-            <Field id="ss-state" label={t("stateCode")} help={t("stateCodeHelp")}><Input id="ss-state" maxLength={2} {...text("state_code")} /></Field>
-            <Field id="ss-prefix" label={t("documentPrefix")}><Input id="ss-prefix" maxLength={8} {...text("document_prefix")} /></Field>
-            <div className="space-y-1 sm:col-span-2">
-              <Label htmlFor="ss-address">{t("sellerAddress")}</Label>
-              <Textarea id="ss-address" maxLength={500} value={s.address ?? ""} disabled={!canEdit} onChange={(e) => set("address")(e.target.value)} />
-            </div>
-          </div>
-        </div>
-        <Field id="ss-template" label={t("checkoutTemplate")} help={t("checkoutTemplateHelp")}>
-          <select id="ss-template" className="h-9 w-full rounded-md border bg-background px-2 text-sm" disabled={!canEdit} value={templateKey}
-            onChange={(e) => {
-              const chosen = templates.find((x) => `${x.name}|${x.language ?? ""}` === e.target.value);
-              setS((x) => ({ ...x, checkout_template_name: chosen?.name ?? null, checkout_template_language: chosen?.language ?? null }));
-            }}>
-            <option value="">{t("noTemplate")}</option>
-            {templates.map((x) => <option key={x.id} value={`${x.name}|${x.language ?? ""}`}>{x.name}{x.language ? ` (${x.language})` : ""}</option>)}
-          </select>
-        </Field>
-        {error && <p className="text-sm text-destructive" role="alert">{error}</p>}
-        {canEdit && (
-          <Button onClick={save} disabled={saving || !/^[A-Z]{3}$/.test(s.currency ?? "")}>
-            {saving && <Loader2 className="size-4 animate-spin" aria-hidden />} {t("save")}
-          </Button>
-        )}
-      </CardContent>
-    </Card>
-  );
-}
+        </section>
+      </div>
 
-function Field({ id, label, help, children }: { id: string; label: string; help?: string; children: React.ReactNode }) {
-  return (
-    <div className="space-y-1">
-      <Label htmlFor={id}>{label}</Label>
-      {children}
-      {help && <p className="text-xs text-muted-foreground">{help}</p>}
+      <Dialog open={pending !== null} onOpenChange={(open) => { if (!open) setPending(null); }}>
+        <DialogContent showCloseButton={false}>
+          <DialogHeader>
+            <DialogTitle>{ts("leave.title")}</DialogTitle>
+            <DialogDescription>{ts("leave.body")}</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPending(null)}>{ts("leave.stay")}</Button>
+            <Button variant="destructive" onClick={() => { const to = pending?.to ?? null; setPending(null); navigate(to); }}>
+              {ts("leave.discard")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
 
-const minorText = (minor: number | null, currency: string) => (minor === null ? "" : minorToDecimalString(minor, currency));
-function toMinor(value: string, currency: string): number | null {
-  if (!value.trim()) return null;
-  try {
-    return parseMoney(value, currency);
-  } catch {
-    return NaN;
+function SectionBody({ section, settings, canEdit, savedVersion, onSaved, onOpenGeneral }: {
+  section: StoreSection; settings: StoreSettings; canEdit: boolean; savedVersion: number;
+  onSaved: (s: StoreSettings) => void; onOpenGeneral: () => void;
+}) {
+  const ts = useTranslations("Commerce.settings.sections");
+  // Keyed by the save count, so after a save the form starts again from the saved row.
+  const core = (part: CorePart) => <CoreSettingsForm key={`${part}-${savedVersion}`} part={part} initial={settings} canEdit={canEdit} onSaved={onSaved} />;
+  if (section === "general") return core("general");
+  const currency = settings.configured ? settings.currency : null;
+  if (!currency) {
+    return (
+      <div className="flex flex-col items-start gap-3 rounded-xl border bg-card p-5">
+        <Store className="size-5 text-muted-foreground" aria-hidden />
+        <p className="text-sm">{ts("needsSetup")}</p>
+        <Button size="sm" onClick={onOpenGeneral}>{ts("openGeneral")}</Button>
+      </div>
+    );
+  }
+  switch (section) {
+    case "taxes": return core("taxes");
+    case "checkout": return core("checkout");
+    case "shipping":
+      return (
+        <>
+          <ShippingRates currency={currency} canEdit={canEdit} />
+          <DeliveryOptionsCard currency={currency} canEdit={canEdit} />
+        </>
+      );
+    case "discounts":
+      return (
+        <>
+          <Coupons currency={currency} canEdit={canEdit} />
+          <AutoDiscounts currency={currency} canEdit={canEdit} />
+          <PriceRulesPanel currency={currency} canEdit={canEdit} />
+        </>
+      );
+    case "buyers": return <BuyerSettingsPanel canEdit={canEdit} />;
+    case "notifications":
+      return (
+        <>
+          {core("notifications")}
+          <NoticeTemplates canEdit={canEdit} />
+        </>
+      );
+    case "marketing": return <MarketingPanel canEdit={canEdit} currency={currency} />;
+    case "advanced": return core("advanced");
   }
 }
 
-// ---------------------------------------------------------------------------
-
-type RateDraft = { id: string | null; name: string; country: string; prefixes: string; min: string; max: string; fee: string; tax: string; active: boolean;
-  states: string; baseWeight: string; step: string; extraStep: string; maxWeight: string; freeOver: string; cod: boolean };
-const blankRate: RateDraft = { id: null, name: "", country: "IN", prefixes: "", min: "", max: "", fee: "", tax: "", active: true,
-  states: "", baseWeight: "", step: "", extraStep: "", maxWeight: "", freeOver: "", cod: true };
-/** Whole grams, or null for empty; NaN for anything else (the save check refuses it). */
-const gramsOrNull = (v: string) => (v.trim() ? (/^\d{1,9}$/.test(v.trim()) ? Number(v.trim()) : NaN) : null);
-
-function ShippingRates({ currency, canEdit }: { currency: string; canEdit: boolean }) {
-  const t = useTranslations("Commerce.settings");
-  const errorText = useErrorText();
-  const [rates, setRates] = useState<ShippingRateView[]>([]);
-  const [draft, setDraft] = useState<RateDraft | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-  const reload = useCallback(() => storeApi.rates().then((r) => r.ok && setRates(r.value)).catch(() => undefined), []);
-  useEffect(() => { void reload(); }, [reload]);
-
-  async function save() {
-    if (!draft) return;
-    const input = {
-      name: draft.name.trim(), country: draft.country.trim().toUpperCase(),
-      postal_prefixes: draft.prefixes.split(/[\s,]+/).map((p) => p.trim()).filter(Boolean),
-      min_subtotal_minor: toMinor(draft.min, currency) ?? 0, max_subtotal_minor: toMinor(draft.max, currency),
-      fee_minor: toMinor(draft.fee, currency) ?? NaN, tax_rate_bps: percentToBps(draft.tax), active: draft.active, position: 0,
-      states: draft.states.split(",").map((p) => p.trim()).filter(Boolean),
-      base_weight_grams: gramsOrNull(draft.baseWeight), step_grams: gramsOrNull(draft.step), extra_per_step_minor: toMinor(draft.extraStep, currency),
-      max_weight_grams: gramsOrNull(draft.maxWeight), free_over_minor: toMinor(draft.freeOver, currency), cod_allowed: draft.cod,
-    };
-    if ([input.min_subtotal_minor, input.max_subtotal_minor, input.fee_minor, input.tax_rate_bps, input.base_weight_grams, input.step_grams,
-      input.extra_per_step_minor, input.max_weight_grams, input.free_over_minor].some((v) => typeof v === "number" && Number.isNaN(v)))
-      return setError(t("errors.invalid"));
-    setBusy(true);
-    setError(null);
-    try {
-      const r = draft.id ? await storeApi.updateRate(draft.id, input) : await storeApi.createRate(input);
-      if (!r.ok) return setError(errorText(r));
-      setDraft(null);
-      await reload();
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function remove(id: string) {
-    const r = await storeApi.deleteRate(id);
-    if (!r.ok) toast.error(errorText(r));
-    await reload();
-  }
-
+/** A placeholder shaped like a section's form while it loads. */
+function SectionSkeleton() {
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{t("shippingTitle")}</CardTitle>
-        <CardDescription>{t("shippingHelp")}</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        {rates.length === 0 && <p className="text-sm text-muted-foreground">{t("noShipping")}</p>}
-        <ul className="divide-y text-sm">
-          {rates.map((r) => (
-            <li key={r.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
-              <span className="min-w-0">
-                <span className="font-medium">{r.name}</span> · {r.country}{r.postal_prefixes.length ? ` · ${r.postal_prefixes.join(", ")}` : ""}{r.states.length ? ` · ${r.states.join(", ")}` : ""} ·{" "}
-                {formatMoney(r.fee_minor, currency)}{r.active ? "" : ` · ${t("inactive")}`}
-              </span>
-              {canEdit && (
-                <span className="flex gap-1">
-                  <Button size="sm" variant="ghost" onClick={() => setDraft({
-                    id: r.id, name: r.name, country: r.country, prefixes: r.postal_prefixes.join(", "), min: minorText(r.min_subtotal_minor, currency),
-                    max: minorText(r.max_subtotal_minor, currency), fee: minorText(r.fee_minor, currency), tax: bpsToPercent(r.tax_rate_bps), active: r.active,
-                    states: r.states.join(", "), baseWeight: r.base_weight_grams === null ? "" : String(r.base_weight_grams),
-                    step: r.step_grams === null ? "" : String(r.step_grams), extraStep: minorText(r.extra_per_step_minor, currency),
-                    maxWeight: r.max_weight_grams === null ? "" : String(r.max_weight_grams), freeOver: minorText(r.free_over_minor, currency), cod: r.cod_allowed,
-                  })}>{t("edit")}</Button>
-                  <Button size="icon" variant="ghost" aria-label={t("delete")} onClick={() => remove(r.id)}><Trash2 className="size-4" aria-hidden /></Button>
-                </span>
-              )}
-            </li>
-          ))}
-        </ul>
-        {canEdit && !draft && <Button variant="outline" size="sm" onClick={() => setDraft(blankRate)}><Plus className="size-4" aria-hidden /> {t("addShipping")}</Button>}
-        {draft && (
-          <div className="grid gap-3 rounded-md border p-3 sm:grid-cols-2">
-            <Field id="sr-name" label={t("rateName")}><Input id="sr-name" maxLength={80} value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} /></Field>
-            <Field id="sr-country" label={t("country")}><Input id="sr-country" maxLength={2} value={draft.country} onChange={(e) => setDraft({ ...draft, country: e.target.value.toUpperCase() })} /></Field>
-            <Field id="sr-prefixes" label={t("postalPrefixes")} help={t("postalPrefixesHelp")}>
-              <Input id="sr-prefixes" value={draft.prefixes} onChange={(e) => setDraft({ ...draft, prefixes: e.target.value })} />
-            </Field>
-            <Field id="sr-states" label={t("states")} help={t("statesHelp")}>
-              <Input id="sr-states" value={draft.states} onChange={(e) => setDraft({ ...draft, states: e.target.value })} />
-            </Field>
-            <Field id="sr-fee" label={t("fee", { currency })}><Input id="sr-fee" inputMode="decimal" value={draft.fee} onChange={(e) => setDraft({ ...draft, fee: e.target.value })} /></Field>
-            <Field id="sr-min" label={t("minSubtotal", { currency })}><Input id="sr-min" inputMode="decimal" value={draft.min} onChange={(e) => setDraft({ ...draft, min: e.target.value })} /></Field>
-            <Field id="sr-max" label={t("maxSubtotal", { currency })}><Input id="sr-max" inputMode="decimal" value={draft.max} onChange={(e) => setDraft({ ...draft, max: e.target.value })} /></Field>
-            <Field id="sr-base-weight" label={t("baseWeight")} help={t("weightHelp")}><Input id="sr-base-weight" inputMode="numeric" value={draft.baseWeight} onChange={(e) => setDraft({ ...draft, baseWeight: e.target.value })} /></Field>
-            <Field id="sr-step" label={t("stepGrams")}><Input id="sr-step" inputMode="numeric" value={draft.step} onChange={(e) => setDraft({ ...draft, step: e.target.value })} /></Field>
-            <Field id="sr-extra" label={t("extraPerStep", { currency })}><Input id="sr-extra" inputMode="decimal" value={draft.extraStep} onChange={(e) => setDraft({ ...draft, extraStep: e.target.value })} /></Field>
-            <Field id="sr-max-weight" label={t("maxWeight")}><Input id="sr-max-weight" inputMode="numeric" value={draft.maxWeight} onChange={(e) => setDraft({ ...draft, maxWeight: e.target.value })} /></Field>
-            <Field id="sr-free" label={t("freeOver", { currency })} help={t("freeOverHelp")}><Input id="sr-free" inputMode="decimal" value={draft.freeOver} onChange={(e) => setDraft({ ...draft, freeOver: e.target.value })} /></Field>
-            <Field id="sr-tax" label={t("shippingTax")} help={t("shippingTaxHelp")}><Input id="sr-tax" inputMode="decimal" value={draft.tax} onChange={(e) => setDraft({ ...draft, tax: e.target.value })} /></Field>
-            <label className="flex items-center gap-3 self-end text-sm">
-              <Switch checked={draft.active} onCheckedChange={(v) => setDraft({ ...draft, active: v })} aria-label={t("active")} /> {t("active")}
-            </label>
-            <label className="flex items-center gap-3 self-end text-sm">
-              <Switch checked={draft.cod} onCheckedChange={(v) => setDraft({ ...draft, cod: v })} aria-label={t("codAllowed")} /> {t("codAllowed")}
-            </label>
-            {error && <p className="text-sm text-destructive sm:col-span-2" role="alert">{error}</p>}
-            <div className="flex gap-2 sm:col-span-2">
-              <Button size="sm" onClick={save} disabled={busy}>{busy && <Loader2 className="size-4 animate-spin" aria-hidden />} {t("save")}</Button>
-              <Button size="sm" variant="ghost" onClick={() => { setDraft(null); setError(null); }}>{t("cancel")}</Button>
-            </div>
-          </div>
-        )}
-      </CardContent>
-    </Card>
-  );
-}
-
-// ---------------------------------------------------------------------------
-
-type CouponDraft = { code: string; kind: "percent" | "fixed"; value: string; min: string; maxDiscount: string; startsAt: string; endsAt: string;
-  maxRedemptions: string; perContact: string };
-const blankCoupon: CouponDraft = { code: "", kind: "percent", value: "", min: "", maxDiscount: "", startsAt: "", endsAt: "", maxRedemptions: "", perContact: "" };
-const optInt = (v: string) => (v.trim() ? Number(v) : null);
-const optDate = (v: string) => (v ? new Date(v).toISOString() : null);
-
-function Coupons({ currency, canEdit }: { currency: string; canEdit: boolean }) {
-  const t = useTranslations("Commerce.settings");
-  const errorText = useErrorText();
-  const [coupons, setCoupons] = useState<CouponView[]>([]);
-  const [draft, setDraft] = useState<CouponDraft | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-  const reload = useCallback(() => storeApi.coupons().then((r) => r.ok && setCoupons(r.value)).catch(() => undefined), []);
-  useEffect(() => { void reload(); }, [reload]);
-
-  const limits = (c: CouponView) => ({
-    min_subtotal_minor: c.min_subtotal_minor, max_discount_minor: c.max_discount_minor, starts_at: c.starts_at, ends_at: c.ends_at,
-    max_redemptions: c.max_redemptions, per_contact_limit: c.per_contact_limit,
-  });
-
-  async function create() {
-    if (!draft) return;
-    const value = draft.kind === "percent" ? percentToBps(draft.value) : toMinor(draft.value, currency);
-    const input = {
-      code: draft.code.trim().toUpperCase(), kind: draft.kind, value, min_subtotal_minor: toMinor(draft.min, currency) ?? 0,
-      max_discount_minor: toMinor(draft.maxDiscount, currency), starts_at: optDate(draft.startsAt), ends_at: optDate(draft.endsAt),
-      max_redemptions: optInt(draft.maxRedemptions), per_contact_limit: optInt(draft.perContact), active: true,
-    };
-    if ([value, input.min_subtotal_minor, input.max_discount_minor].some((v) => v === null ? false : Number.isNaN(v)) || value === null)
-      return setError(t("errors.invalid"));
-    setBusy(true);
-    setError(null);
-    try {
-      const r = await storeApi.createCoupon(input);
-      if (!r.ok) return setError(errorText(r));
-      setDraft(null);
-      await reload();
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function toggle(c: CouponView) {
-    const r = await storeApi.updateCoupon(c.id, { ...limits(c), active: !c.active });
-    if (!r.ok) toast.error(errorText(r));
-    await reload();
-  }
-
-  const describe = (c: CouponView) => (c.kind === "percent" ? `${c.value / 100}%` : formatMoney(c.value, currency));
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{t("couponsTitle")}</CardTitle>
-        <CardDescription>{t("couponsHelp")}</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        {coupons.length === 0 && <p className="text-sm text-muted-foreground">{t("noCoupons")}</p>}
-        <ul className="divide-y text-sm">
-          {coupons.map((c) => (
-            <li key={c.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
-              <span>
-                <span className="font-mono font-medium">{c.code}</span> · {describe(c)} ·{" "}
-                {t("redeemed", { count: c.redemptions, max: c.max_redemptions ?? "∞" })}
-              </span>
-              <label className="flex items-center gap-2">
-                <Switch checked={c.active} disabled={!canEdit} onCheckedChange={() => toggle(c)} aria-label={t("active")} /> {t("active")}
-              </label>
-            </li>
-          ))}
-        </ul>
-        {canEdit && !draft && <Button variant="outline" size="sm" onClick={() => setDraft(blankCoupon)}><Plus className="size-4" aria-hidden /> {t("addCoupon")}</Button>}
-        {draft && (
-          <div className="grid gap-3 rounded-md border p-3 sm:grid-cols-2">
-            <Field id="cp-code" label={t("couponCode")}><Input id="cp-code" maxLength={32} value={draft.code} onChange={(e) => setDraft({ ...draft, code: e.target.value.toUpperCase() })} /></Field>
-            <Field id="cp-kind" label={t("couponKind")}>
-              <select id="cp-kind" className="h-9 w-full rounded-md border bg-background px-2 text-sm" value={draft.kind}
-                onChange={(e) => setDraft({ ...draft, kind: e.target.value as "percent" | "fixed" })}>
-                <option value="percent">{t("kindPercent")}</option>
-                <option value="fixed">{t("kindFixed", { currency })}</option>
-              </select>
-            </Field>
-            <Field id="cp-value" label={t("couponValue")}><Input id="cp-value" inputMode="decimal" value={draft.value} onChange={(e) => setDraft({ ...draft, value: e.target.value })} /></Field>
-            <Field id="cp-min" label={t("minSubtotal", { currency })}><Input id="cp-min" inputMode="decimal" value={draft.min} onChange={(e) => setDraft({ ...draft, min: e.target.value })} /></Field>
-            <Field id="cp-maxd" label={t("maxDiscount", { currency })}><Input id="cp-maxd" inputMode="decimal" value={draft.maxDiscount} onChange={(e) => setDraft({ ...draft, maxDiscount: e.target.value })} /></Field>
-            <Field id="cp-maxr" label={t("maxRedemptions")}><Input id="cp-maxr" type="number" min={1} value={draft.maxRedemptions} onChange={(e) => setDraft({ ...draft, maxRedemptions: e.target.value })} /></Field>
-            <Field id="cp-per" label={t("perContactLimit")}><Input id="cp-per" type="number" min={1} value={draft.perContact} onChange={(e) => setDraft({ ...draft, perContact: e.target.value })} /></Field>
-            <Field id="cp-start" label={t("startsAt")}><Input id="cp-start" type="datetime-local" value={draft.startsAt} onChange={(e) => setDraft({ ...draft, startsAt: e.target.value })} /></Field>
-            <Field id="cp-end" label={t("endsAt")}><Input id="cp-end" type="datetime-local" value={draft.endsAt} onChange={(e) => setDraft({ ...draft, endsAt: e.target.value })} /></Field>
-            {error && <p className="text-sm text-destructive sm:col-span-2" role="alert">{error}</p>}
-            <div className="flex gap-2 sm:col-span-2">
-              <Button size="sm" onClick={create} disabled={busy}>{busy && <Loader2 className="size-4 animate-spin" aria-hidden />} {t("save")}</Button>
-              <Button size="sm" variant="ghost" onClick={() => { setDraft(null); setError(null); }}>{t("cancel")}</Button>
-            </div>
-          </div>
-        )}
-      </CardContent>
-    </Card>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Automatic discounts (store plan Phase 3): applied by the server at checkout with no code.
-
-type AutoKind = AutoDiscountView["kind"];
-const AUTO_KINDS: AutoKind[] = ["amount_off_over", "percent_off_over", "free_shipping_over", "buy_x_get_y", "prepaid"];
-type AutoDraft = {
-  id: string | null; version: number; name: string; kind: AutoKind; min: string; amount: string; percent: string; buy: string; get: string;
-  products: string[]; active: boolean; startsAt: string; endsAt: string;
-};
-const blankAuto: AutoDraft = {
-  id: null, version: 1, name: "", kind: "percent_off_over", min: "", amount: "", percent: "", buy: "2", get: "1", products: [], active: true,
-  startsAt: "", endsAt: "",
-};
-/** An ISO time as the local value a datetime-local input takes. */
-function localInput(iso: string | null): string {
-  if (!iso) return "";
-  const d = new Date(iso);
-  return new Date(d.getTime() - d.getTimezoneOffset() * 60_000).toISOString().slice(0, 16);
-}
-
-/** The API body for a draft, or null when a field is not valid. Each kind sends only its own fields. */
-export function autoDiscountBody(draft: AutoDraft, currency: string): Record<string, unknown> | null {
-  const min = toMinor(draft.min, currency) ?? 0;
-  const amount = toMinor(draft.amount, currency), percent = percentToBps(draft.percent);
-  const wantsAmount = draft.kind === "amount_off_over" || (draft.kind === "prepaid" && amount !== null);
-  const wantsPercent = draft.kind === "percent_off_over" || (draft.kind === "prepaid" && !wantsAmount);
-  const buy = Number(draft.buy), get = Number(draft.get);
-  if (!draft.name.trim() || Number.isNaN(min)) return null;
-  if (wantsAmount && (amount === null || Number.isNaN(amount) || amount < 1)) return null;
-  if (wantsPercent && (percent === null || Number.isNaN(percent) || percent < 1)) return null;
-  if (draft.kind === "prepaid" && amount !== null && percent !== null) return null;
-  if (draft.kind === "buy_x_get_y" && ![buy, get].every((n) => Number.isInteger(n) && n >= 1 && n <= 20)) return null;
-  return {
-    name: draft.name.trim(), kind: draft.kind, min_subtotal_minor: min, active: draft.active,
-    starts_at: optDate(draft.startsAt), ends_at: optDate(draft.endsAt),
-    ...(wantsAmount ? { amount_minor: amount } : {}), ...(wantsPercent ? { percent_bps: percent } : {}),
-    ...(draft.kind === "buy_x_get_y" ? { buy_qty: buy, get_qty: get, product_ids: draft.products } : {}),
-  };
-}
-
-function AutoDiscounts({ currency, canEdit }: { currency: string; canEdit: boolean }) {
-  const t = useTranslations("Commerce.settings");
-  const errorText = useErrorText();
-  const [rules, setRules] = useState<AutoDiscountView[]>([]);
-  const [products, setProducts] = useState<{ id: string; name: string }[]>([]);
-  const [draft, setDraft] = useState<AutoDraft | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-  const reload = useCallback(() => storeApi.autoDiscounts().then((r) => r.ok && setRules(r.value)).catch(() => undefined), []);
-  useEffect(() => { void reload(); }, [reload]);
-  useEffect(() => {
-    if (canEdit) storeApi.productNames().then((r) => r.ok && setProducts(r.value)).catch(() => undefined);
-  }, [canEdit]);
-
-  const body = (r: AutoDiscountView, active: boolean) => ({
-    expected_version: r.version, name: r.name, kind: r.kind, min_subtotal_minor: r.min_subtotal_minor, active, starts_at: r.starts_at, ends_at: r.ends_at,
-    ...(r.amount_minor !== null ? { amount_minor: r.amount_minor } : {}), ...(r.percent_bps !== null ? { percent_bps: r.percent_bps } : {}),
-    ...(r.kind === "buy_x_get_y" ? { buy_qty: r.buy_qty, get_qty: r.get_qty, product_ids: r.product_ids } : {}),
-  });
-
-  async function save() {
-    if (!draft) return;
-    const input = autoDiscountBody(draft, currency);
-    if (!input) return setError(t("errors.invalid"));
-    setBusy(true);
-    setError(null);
-    try {
-      const r = draft.id ? await storeApi.updateAutoDiscount(draft.id, { ...input, expected_version: draft.version }) : await storeApi.createAutoDiscount(input);
-      if (!r.ok) {
-        setError(errorText(r));
-        if (r.code === "conflict") await reload();
-        return;
-      }
-      setDraft(null);
-      await reload();
-    } finally {
-      setBusy(false);
-    }
-  }
-  async function toggle(r: AutoDiscountView) {
-    const res = await storeApi.updateAutoDiscount(r.id, body(r, !r.active));
-    if (!res.ok) toast.error(errorText(res));
-    await reload();
-  }
-  async function remove(id: string) {
-    const res = await storeApi.deleteAutoDiscount(id);
-    if (!res.ok) toast.error(errorText(res));
-    await reload();
-  }
-
-  const describe = (r: AutoDiscountView) => {
-    const what = r.kind === "buy_x_get_y" ? `${r.buy_qty} + ${r.get_qty}`
-      : r.percent_bps !== null ? `${r.percent_bps / 100}%` : r.amount_minor !== null ? formatMoney(r.amount_minor, currency) : "";
-    const over = r.min_subtotal_minor > 0 ? t("autoOver", { amount: formatMoney(r.min_subtotal_minor, currency) }) : "";
-    return [t(`autoKinds.${r.kind}`), what, over].filter(Boolean).join(" · ");
-  };
-  const set = (patch: Partial<AutoDraft>) => setDraft((d) => (d ? { ...d, ...patch } : d));
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{t("autoTitle")}</CardTitle>
-        <CardDescription>{t("autoHelp")}</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        {rules.length === 0 && <p className="text-sm text-muted-foreground">{t("noAuto")}</p>}
-        <ul className="divide-y text-sm">
-          {rules.map((r) => (
-            <li key={r.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
-              <span className="min-w-0"><span className="font-medium">{r.name}</span> · {describe(r)}</span>
-              <span className="flex items-center gap-2">
-                <label className="flex items-center gap-2">
-                  <Switch checked={r.active} disabled={!canEdit} onCheckedChange={() => toggle(r)} aria-label={t("active")} /> {t("active")}
-                </label>
-                {canEdit && (
-                  <>
-                    <Button size="sm" variant="ghost" onClick={() => { setError(null); setDraft({
-                      id: r.id, version: r.version, name: r.name, kind: r.kind, min: r.min_subtotal_minor ? minorText(r.min_subtotal_minor, currency) : "",
-                      amount: minorText(r.amount_minor, currency), percent: bpsToPercent(r.percent_bps), buy: String(r.buy_qty ?? 2), get: String(r.get_qty ?? 1),
-                      products: r.product_ids, active: r.active, startsAt: localInput(r.starts_at), endsAt: localInput(r.ends_at),
-                    }); }}>{t("edit")}</Button>
-                    <Button size="icon" variant="ghost" aria-label={t("delete")} onClick={() => remove(r.id)}><Trash2 className="size-4" aria-hidden /></Button>
-                  </>
-                )}
-              </span>
-            </li>
-          ))}
-        </ul>
-        {canEdit && !draft && rules.length < 20 && (
-          <Button variant="outline" size="sm" onClick={() => { setError(null); setDraft(blankAuto); }}><Plus className="size-4" aria-hidden /> {t("addAuto")}</Button>
-        )}
-        {draft && (
-          <div className="grid gap-3 rounded-md border p-3 sm:grid-cols-2">
-            <Field id="ad-name" label={t("autoName")}><Input id="ad-name" maxLength={80} value={draft.name} onChange={(e) => set({ name: e.target.value })} /></Field>
-            <Field id="ad-kind" label={t("autoKind")}>
-              <select id="ad-kind" className="h-9 w-full rounded-md border bg-background px-2 text-sm" value={draft.kind}
-                onChange={(e) => set({ kind: e.target.value as AutoKind })}>
-                {AUTO_KINDS.map((k) => <option key={k} value={k}>{t(`autoKinds.${k}`)}</option>)}
-              </select>
-            </Field>
-            {(draft.kind === "amount_off_over" || draft.kind === "prepaid") && (
-              <Field id="ad-amount" label={t("autoAmount", { currency })} help={draft.kind === "prepaid" ? t("autoPrepaidHelp") : undefined}>
-                <Input id="ad-amount" inputMode="decimal" value={draft.amount} onChange={(e) => set({ amount: e.target.value })} />
-              </Field>
-            )}
-            {(draft.kind === "percent_off_over" || draft.kind === "prepaid") && (
-              <Field id="ad-percent" label={t("autoPercent")}>
-                <Input id="ad-percent" inputMode="decimal" value={draft.percent} onChange={(e) => set({ percent: e.target.value })} />
-              </Field>
-            )}
-            {draft.kind === "buy_x_get_y" && (
-              <>
-                <Field id="ad-buy" label={t("buyQty")}><Input id="ad-buy" type="number" min={1} max={20} value={draft.buy} onChange={(e) => set({ buy: e.target.value })} /></Field>
-                <Field id="ad-get" label={t("getQty")}><Input id="ad-get" type="number" min={1} max={20} value={draft.get} onChange={(e) => set({ get: e.target.value })} /></Field>
-              </>
-            )}
-            <Field id="ad-min" label={t("minSubtotal", { currency })}><Input id="ad-min" inputMode="decimal" value={draft.min} onChange={(e) => set({ min: e.target.value })} /></Field>
-            <Field id="ad-start" label={t("startsAt")}><Input id="ad-start" type="datetime-local" value={draft.startsAt} onChange={(e) => set({ startsAt: e.target.value })} /></Field>
-            <Field id="ad-end" label={t("endsAt")}><Input id="ad-end" type="datetime-local" value={draft.endsAt} onChange={(e) => set({ endsAt: e.target.value })} /></Field>
-            {draft.kind === "buy_x_get_y" && (
-              <fieldset className="space-y-1 sm:col-span-2">
-                <legend className="text-sm font-medium">{t("autoProducts")}</legend>
-                <div className="max-h-40 space-y-1 overflow-y-auto rounded-md border p-2">
-                  {products.map((p) => (
-                    <label key={p.id} className="flex items-center gap-2 text-sm">
-                      <input type="checkbox" className="size-4" checked={draft.products.includes(p.id)}
-                        onChange={(e) => set({ products: e.target.checked ? [...draft.products, p.id].slice(0, 50) : draft.products.filter((id) => id !== p.id) })} />
-                      {p.name}
-                    </label>
-                  ))}
-                </div>
-              </fieldset>
-            )}
-            {error && <p className="text-sm text-destructive sm:col-span-2" role="alert">{error}</p>}
-            <div className="flex gap-2 sm:col-span-2">
-              <Button size="sm" onClick={save} disabled={busy}>{busy && <Loader2 className="size-4 animate-spin" aria-hidden />} {t("save")}</Button>
-              <Button size="sm" variant="ghost" onClick={() => { setDraft(null); setError(null); }}>{t("cancel")}</Button>
-            </div>
-          </div>
-        )}
-      </CardContent>
-    </Card>
+    <div className="space-y-4 rounded-xl border bg-card p-6" aria-hidden>
+      {[0, 1, 2].map((i) => (
+        <div key={i} className="space-y-2">
+          <div className="h-3 w-32 animate-pulse rounded bg-muted" />
+          <div className="h-9 w-full animate-pulse rounded-md bg-muted" />
+        </div>
+      ))}
+      <div className="h-9 w-20 animate-pulse rounded-full bg-muted" />
+    </div>
   );
 }
