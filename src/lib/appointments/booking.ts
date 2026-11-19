@@ -43,7 +43,8 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-
 
 export const APPOINTMENT_COLUMNS = `id, contact_id, service_id, staff_id, location_id, start_at, end_at, timezone, local_date::text AS local_date,
   status, version, source, source_ref, booking_page_id, hold_expires_at, hold_code, confirmed_at, price_minor, currency,
-  meeting_url, service_name, token_epoch, cancel_reason, outcome_note, feedback_score, payment_status, created_by, created_at, updated_at`;
+  meeting_url, service_name, token_epoch, cancel_reason, outcome_note, feedback_score, payment_status, created_by, created_at, updated_at,
+  deal_id, broadcast_id, ad_referral_id, conversation_id, attendance_confirmed_at`;
 
 export async function getAppointment(tx: TenantTransaction, accountId: string, id: string, forUpdate = false): Promise<AppointmentRow | null> {
   if (!UUID.test(id)) return null;

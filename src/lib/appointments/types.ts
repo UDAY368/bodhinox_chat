@@ -19,6 +19,8 @@ export const APPOINTMENT_EVENT_KINDS = [
   'payment_pending', 'payment_captured', 'late_payment',
   // Phase 9 Zoom meetings: history only (see HISTORY_ONLY_EVENT_KINDS).
   'meeting_created', 'meeting_updated', 'meeting_deleted', 'meeting_sync_failed', 'meeting_joined_provider',
+  // Batch 3: the customer confirmed attendance from a reminder; a deal was linked or unlinked; a refund was asked for.
+  'attendance_confirmed', 'deal_linked', 'deal_unlinked', 'refund_requested',
 ] as const;
 export type AppointmentEventKind = (typeof APPOINTMENT_EVENT_KINDS)[number];
 
@@ -38,7 +40,7 @@ export const APPOINTMENT_ACTORS = ['staff', 'customer', 'system'] as const;
 export type AppointmentActor = (typeof APPOINTMENT_ACTORS)[number];
 
 export const APPOINTMENT_MESSAGE_KINDS = [
-  'confirmation', 'reminder_24h', 'reminder_2h', 'cancelled', 'rescheduled', 'feedback', 'rebook', 'payment_link',
+  'confirmation', 'reminder_24h', 'reminder_2h', 'cancelled', 'rescheduled', 'feedback', 'rebook', 'payment_link', 'intake_form',
 ] as const;
 export type AppointmentMessageKind = (typeof APPOINTMENT_MESSAGE_KINDS)[number];
 
@@ -252,6 +254,12 @@ export interface AppointmentRow {
   created_by: string | null;
   created_at: Date;
   updated_at: Date;
+  /** Batch 3 links (optional for rows built before them). */
+  deal_id?: string | null;
+  broadcast_id?: string | null;
+  ad_referral_id?: string | null;
+  conversation_id?: string | null;
+  attendance_confirmed_at?: Date | null;
 }
 
 /** Public intake on a hold (J2 registration); nulled on confirm or expiry. */
