@@ -26,7 +26,8 @@ import { createClient } from "@/lib/data/client";
 import { formatMoney } from "@/lib/commerce/money";
 import { createManualOrder, createQuote, listSellableVariants, type OrderDetail, type SellableVariant } from "./order-api";
 import { sendOrderPaymentLink } from "./order-actions";
-import { orderRef, withChosenOption } from "./order-state";
+import { orderRef } from "@/lib/commerce/order-state";
+import { withChosenOption } from "./customer-options";
 
 const selectClass = "h-9 w-full min-w-0 rounded-lg border border-border bg-card px-2.5 text-sm text-foreground outline-none transition-[border-color,box-shadow] duration-150 focus:border-primary focus:ring-3 focus:ring-ring/30 disabled:opacity-60";
 const MAX_QTY = 99;
