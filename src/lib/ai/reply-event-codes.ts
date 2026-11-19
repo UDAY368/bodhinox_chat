@@ -10,11 +10,12 @@ export const REPLY_EVENT_REASONS = {
   replied: ['answered', 'answered_low_confidence'],
   handed_off: [
     'handoff_keyword', 'max_turns', 'sensitive_topic', 'guard_blocked',
-    'low_confidence', 'model_handoff', 'no_answer', 'empty_reply',
+    'low_confidence', 'model_handoff', 'no_answer', 'empty_reply', 'no_knowledge',
   ],
   skipped: [
     'automation_active', 'number_disconnected', 'reply_cap', 'no_messages', 'rate_limited',
     'plan_ai_limit', 'slot_lost', 'claim_failed', 'stale', 'rate_limited_retry', 'media_only', 'no_agent',
+    'workspace_ai_cap',
   ],
   error: ['dispatch_failed'],
 } as const satisfies Record<ReplyEventOutcome, readonly string[]>

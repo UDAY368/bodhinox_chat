@@ -93,6 +93,13 @@ describe('handoff rules', () => {
       .toEqual({ ...DEFAULT_HANDOFF_RULES, keywords: ['refund', 'talk to human'], max_turns_before_handoff: 3 })
   })
 
+  it('keeps the no-knowledge switch off unless it is stored on, and rejects a non-boolean', () => {
+    expect(DEFAULT_HANDOFF_RULES.on_no_knowledge).toBe(false)
+    expect(parseHandoffRules({ keywords: [] }).on_no_knowledge).toBe(false)
+    expect(parseHandoffRules({ on_no_knowledge: true }).on_no_knowledge).toBe(true)
+    expect(parseHandoffRules({ on_no_knowledge: 'yes' })).toEqual(DEFAULT_HANDOFF_RULES)
+  })
+
   it('matches whole keywords and phrases case-insensitively', () => {
     const rules = { keywords: ['refund', 'talk to human'] }
     expect(matchHandoffKeyword('I want a REFUND!', rules)).toBe('refund')

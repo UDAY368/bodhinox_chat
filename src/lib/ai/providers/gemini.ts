@@ -1,6 +1,6 @@
 import { AiError, type ProviderResult } from '../types'
 import { MAX_OUTPUT_TOKENS } from '../defaults'
-import { mergeConsecutive, normalizeUsage, toNetworkError, type ProviderArgs } from './shared'
+import { fetchWithRetry, mergeConsecutive, normalizeUsage, toNetworkError, type ProviderArgs } from './shared'
 
 const GEMINI_API = 'https://generativelanguage.googleapis.com/v1beta/models'
 
@@ -77,7 +77,7 @@ export async function generateGemini(args: ProviderArgs): Promise<ProviderResult
 
   let res: Response
   try {
-    res = await fetch(`${GEMINI_API}/${model}:generateContent`, {
+    res = await fetchWithRetry(`${GEMINI_API}/${model}:generateContent`, {
       method: 'POST',
       headers: { 'x-goog-api-key': apiKey, 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -88,9 +88,8 @@ export async function generateGemini(args: ProviderArgs): Promise<ProviderResult
         })),
         generationConfig: { maxOutputTokens: args.maxOutputTokens ?? MAX_OUTPUT_TOKENS },
       }),
-      signal: AbortSignal.timeout(timeoutMs),
       redirect: 'manual',
-    })
+    }, timeoutMs)
   } catch (err) {
     throw toNetworkError(err)
   }

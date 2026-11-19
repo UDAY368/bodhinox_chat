@@ -5,14 +5,14 @@ import { retrieveKnowledgeScored } from './knowledge'
 import { generateReply } from './generate'
 import { buildAgentSystemPrompt, loadAgentProfileTx, matchHandoffKeyword, type AgentProfile } from './agent-profile'
 import { agentProfileFor, pickAgent } from './agents'
-import { assessConfidence, type RetrievalScores } from './confidence'
+import { assessConfidence, noKnowledgeHandoff, type RetrievalScores } from './confidence'
 import { recordUnanswered } from './unanswered'
 import { buildHandoffSummary, pauseConversationForStaff, type HandoffGuardReason } from './handoff'
 import { logAiEvent } from './log'
 import { classifySensitive, hasUncoveredScript } from './safety/sensitive'
 import { guardCustomerText, isHealthWorkspace, redactChat, urlAllowlist } from './assist/guards'
 import { promptCharsOf, usageLog } from './usage'
-import { chatTokenEstimate, failAi, releaseAi, reserveAi, settleAi, type AiReservation } from './budget'
+import { AiWorkspaceCapError, chatTokenEstimate, failAi, releaseAi, reserveAi, settleAi, type AiReservation } from './budget'
 import { latestUserMessage, recentCustomerText } from './query'
 import { recordReplyEvent, type ReplyEventInput } from './reply-events'
 import type { ConfidenceReason } from './confidence'
@@ -129,8 +129,8 @@ export async function dispatchInboundToAiReply(
       observedCustomerAt: current.last_customer_message_at,
     })
   }
-  const unavailable = async () => {
-    if (requireHandoffOnUnavailable) await pauseForHuman('AI agent handed off: AI assistance is unavailable. A human should review the latest customer message.')
+  const unavailable = async (summary = 'AI agent handed off: AI assistance is unavailable. A human should review the latest customer message.') => {
+    if (requireHandoffOnUnavailable) await pauseForHuman(summary)
   }
 
   // The AI activity log: exactly one row per dispatch that passed the first
@@ -286,19 +286,22 @@ export async function dispatchInboundToAiReply(
       return
     }
 
-    // The plan's monthly AI messages and tokens, held for this inbound message
+    // The plan's monthly AI messages and tokens, and the workspace's own
+    // monthly token cap (when it pauses the AI), held for this inbound message
     // (one meter per message, however often it is replayed): when used up, the
-    // inbound waits for a human. The token hold is the conversation plus the
-    // output cap; it settles to the provider's actual usage.
+    // provider is not called and the inbound waits for a human. The token hold
+    // is the conversation plus the output cap; it settles to the actual usage.
     let reservation: AiReservation
     try {
       reservation = await reserveAi(accountId, inboundMessageId ? `inbound:${inboundMessageId}` : newRequestKey(),
-        { message: true, tokens: chatTokenEstimate(config.systemPrompt ?? '', messages) }, getWorkerPrisma())
+        { message: true, tokens: chatTokenEstimate(config.systemPrompt ?? '', messages), workspaceCap: true }, getWorkerPrisma())
     } catch (error) {
       if (!(error instanceof PlanLimitError)) throw error
-      console.info('[ai auto-reply] skipped', { reason: 'plan_ai_limit' })
-      await unavailable()
-      await record('skipped', 'plan_ai_limit')
+      const workspaceCap = error instanceof AiWorkspaceCapError
+      const reason = workspaceCap ? 'workspace_ai_cap' : 'plan_ai_limit'
+      console.info('[ai auto-reply] skipped', { reason })
+      await unavailable(workspaceCap ? WORKSPACE_CAP_SUMMARY : undefined)
+      await record('skipped', reason)
       return
     }
 
@@ -345,6 +348,14 @@ export async function dispatchInboundToAiReply(
       'customer',
     )
     const knowledge = chunks.map((c) => c.content)
+    // "Hand off when nothing in knowledge matched": no model call, so the hold is released.
+    if (noKnowledgeHandoff(rules, chunks.length)) {
+      await releaseAi(reservation)
+      await noteUnanswered(accountId, question, conversationId, contactId)
+      await handOff()
+      await record('handed_off', 'no_knowledge')
+      return
+    }
 
     // Platform rules first, then the operator's profile, then knowledge
     // quoted as untrusted reference material (see agent-profile.ts).
@@ -623,6 +634,9 @@ export async function handleAutoReplyRetryJob(accountId: string, payload: Record
     retryAttempt: attempt,
   }), assertLease)
 }
+
+/** The internal note staff see when the workspace's monthly AI token cap stopped a reply. */
+export const WORKSPACE_CAP_SUMMARY = "AI agent handed off: this workspace's monthly AI token cap is reached. A human should review the latest customer message."
 
 /** The activity-log reason for a handoff decided by assessConfidence. */
 const CONFIDENCE_HANDOFF_REASON: Record<ConfidenceReason, ReplyEventReason> = {

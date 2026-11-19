@@ -52,7 +52,11 @@ vi.mock('./generate', () => ({ generateReply: h.generateReply }))
 // No ai_agents rows: the legacy single agent answers (auto-reply-agent.test.ts covers agent selection).
 vi.mock('./agents', async (importOriginal) => ({ ...(await importOriginal<typeof import('./agents')>()), pickAgent: async () => ({ kind: 'legacy' as const }) }))
 vi.mock('./reply-events', () => ({ recordReplyEvent: h.recordReplyEvent }))
-vi.mock('./budget', () => ({ reserveAi: h.reserveAi, settleAi: h.settleAi, failAi: h.failAi, chatTokenEstimate: () => 100 }))
+vi.mock('./budget', async () => {
+  const { PlanLimitError } = await import('@/lib/billing/entitlements')
+  class AiWorkspaceCapError extends PlanLimitError { constructor() { super('cap reached') } }
+  return { reserveAi: h.reserveAi, settleAi: h.settleAi, failAi: h.failAi, chatTokenEstimate: () => 100, AiWorkspaceCapError }
+})
 vi.mock('@/lib/db/prisma', () => ({ getWorkerPrisma: () => ({ worker: true }) }))
 vi.mock('@/lib/jobs/queue', () => ({ enqueueJob: h.enqueueJob }))
 vi.mock('@/lib/whatsapp/ingest', () => ({
@@ -212,7 +216,7 @@ describe('dispatchInboundToAiReply — eligibility gates', () => {
 
   it('meters one AI message per inbound message (its id is the source key) and settles once', async () => {
     await dispatchInboundToAiReply(ARGS)
-    expect(h.reserveAi).toHaveBeenCalledWith('acct-1', `inbound:${ARGS.inboundMessageId}`, { message: true, tokens: 100 }, { worker: true })
+    expect(h.reserveAi).toHaveBeenCalledWith('acct-1', `inbound:${ARGS.inboundMessageId}`, { message: true, tokens: 100, workspaceCap: true }, { worker: true })
     expect(h.settleAi).toHaveBeenCalledTimes(1)
     expect(h.settleAi).toHaveBeenCalledWith(RESERVATION, expect.objectContaining({ log: expect.objectContaining({ mode: 'auto_reply', conversationId: 'conv-1' }) }))
   })
@@ -233,6 +237,24 @@ describe('dispatchInboundToAiReply — eligibility gates', () => {
     expect(h.settleAi).not.toHaveBeenCalled()
     expect(h.engineSendText).not.toHaveBeenCalled()
     expect(h.state.updatePayload).toMatchObject({ bot_paused: true })
+  })
+
+  it("over the workspace's monthly token cap: no model call, handed to staff with the reason", async () => {
+    const { AiWorkspaceCapError } = await import('./budget')
+    h.reserveAi.mockRejectedValueOnce(new AiWorkspaceCapError())
+    await dispatchInboundToAiReply({ ...ARGS, requireHandoffOnUnavailable: true })
+    expect(h.generateReply).not.toHaveBeenCalled()
+    expect(h.settleAi).not.toHaveBeenCalled()
+    expect(h.engineSendText).not.toHaveBeenCalled()
+    expect(h.state.updatePayload).toMatchObject({ bot_paused: true, ai_handoff_summary: expect.stringContaining('monthly AI token cap') })
+    expect(h.recordReplyEvent).toHaveBeenCalledWith(expect.objectContaining({ outcome: 'skipped', reason: 'workspace_ai_cap' }))
+  })
+
+  it('under the cap the reply goes out as usual', async () => {
+    await dispatchInboundToAiReply(ARGS)
+    expect(h.reserveAi).toHaveBeenCalledWith('acct-1', expect.any(String), expect.objectContaining({ workspaceCap: true }), { worker: true })
+    expect(h.generateReply).toHaveBeenCalledTimes(1)
+    expect(h.engineSendText).toHaveBeenCalledTimes(1)
   })
 
   it('grounds the reply in retrieved knowledge', async () => {

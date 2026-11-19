@@ -4,6 +4,7 @@ import {
   mergeConsecutive,
   normalizeUsage,
   providerHttpError,
+  fetchWithRetry,
   toNetworkError,
   type ProviderArgs,
 } from './shared'
@@ -47,7 +48,7 @@ export async function generateAnthropic(args: ProviderArgs): Promise<ProviderRes
 
   let res: Response
   try {
-    res = await fetch(ANTHROPIC_URL, {
+    res = await fetchWithRetry(ANTHROPIC_URL, {
       method: 'POST',
       headers: {
         'x-api-key': apiKey,
@@ -60,8 +61,7 @@ export async function generateAnthropic(args: ProviderArgs): Promise<ProviderRes
         max_tokens: args.maxOutputTokens ?? MAX_OUTPUT_TOKENS,
         messages: normalizeForAnthropic(messages),
       }),
-      signal: AbortSignal.timeout(timeoutMs),
-    })
+    }, timeoutMs)
   } catch (err) {
     throw toNetworkError(err)
   }

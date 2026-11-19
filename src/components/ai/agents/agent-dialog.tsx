@@ -143,6 +143,13 @@ export function AgentDialog({ open, agent, takenNames, onOpenChange, onSaved }: 
               </span>
               <Switch checked={form.unsure} aria-labelledby="agent-unsure-label" onCheckedChange={(v: boolean) => set('unsure', v)} />
             </div>
+            <div className="flex items-start justify-between gap-3 border-t border-border pt-3">
+              <span className="min-w-0 text-sm">
+                <span className="block font-medium" id="agent-no-knowledge-label">{t('editor.noKnowledge')}</span>
+                <span className="block text-xs text-muted-foreground">{t('editor.noKnowledgeHint')}</span>
+              </span>
+              <Switch checked={form.noKnowledge} aria-labelledby="agent-no-knowledge-label" onCheckedChange={(v: boolean) => set('noKnowledge', v)} />
+            </div>
           </fieldset>
 
           <fieldset className="min-w-0 space-y-3 rounded-xl border border-border p-3.5">

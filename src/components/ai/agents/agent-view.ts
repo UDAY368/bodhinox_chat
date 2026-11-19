@@ -16,7 +16,7 @@ export interface AgentView {
   tone: AgentTone | null
   channels: AgentChannel[]
   hours: { mode: HoursMode; from: string | null; to: string | null }
-  handoff_rules: { keywords: string[]; on_low_confidence: boolean; confidence_threshold: number; max_turns_before_handoff: number }
+  handoff_rules: { keywords: string[]; on_low_confidence: boolean; confidence_threshold: number; on_no_knowledge?: boolean; max_turns_before_handoff: number }
   enabled: boolean
   is_default: boolean
   position: number
@@ -49,6 +49,8 @@ export interface AgentForm {
   keywords: string
   maxTurns: string
   unsure: boolean
+  /** Hand off when nothing in knowledge matched. */
+  noKnowledge: boolean
   mode: HoursMode
   from: string
   to: string
@@ -66,6 +68,7 @@ export function formFrom(agent: AgentView | null): AgentForm {
     keywords: (agent?.handoff_rules.keywords ?? []).join(', '),
     maxTurns: String(agent?.handoff_rules.max_turns_before_handoff ?? 6),
     unsure: agent?.handoff_rules.on_low_confidence ?? true,
+    noKnowledge: agent?.handoff_rules.on_no_knowledge ?? false,
     mode: agent?.hours.mode ?? 'always',
     from: agent?.hours.from ?? '09:00',
     to: agent?.hours.to ?? '19:00',
@@ -100,6 +103,7 @@ export function formToBody(form: AgentForm, opts: { isDefault: boolean; takenNam
         keywords: form.keywords.split(',').map((k) => k.trim()).filter(Boolean).slice(0, 50),
         max_turns_before_handoff: turns,
         on_low_confidence: form.unsure,
+        on_no_knowledge: form.noKnowledge,
       },
     },
   }

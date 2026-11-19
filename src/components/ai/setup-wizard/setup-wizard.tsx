@@ -276,6 +276,14 @@ export function AgentSetupWizard({ canEdit, knowledgeSlot, onOpenKnowledge, onOp
                   onChange={(e) => update('confidence_threshold', Number(e.target.value))} />
               </Field>
             )}
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <Label htmlFor="wiz-no-knowledge">{t('handoff.noKnowledge')}</Label>
+                <p className="mt-0.5 text-xs text-muted-foreground">{t('handoff.noKnowledgeHint')}</p>
+              </div>
+              <Switch id="wiz-no-knowledge" checked={draft.on_no_knowledge} disabled={disabled}
+                onCheckedChange={(checked) => update('on_no_knowledge', checked === true)} />
+            </div>
             <Field id="wiz-turns" label={t('handoff.maxTurns')} hint={t('handoff.maxTurnsHint')}>
               <Input id="wiz-turns" type="number" min={0} max={50} className="w-28" disabled={disabled}
                 value={draft.max_turns_before_handoff}
