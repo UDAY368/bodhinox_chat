@@ -124,7 +124,16 @@
     "shopReports": "쇼핑몰 리포트",
     "people": "사람",
     "segments": "세그먼트",
-    "customFields": "사용자 지정 필드"
+    "customFields": "사용자 지정 필드",
+    "whatsappSync": "WhatsApp 동기화",
+    "analyticsOverview": "개요",
+    "campaignResults": "캠페인 결과",
+    "productsSection": "상품",
+    "store": "스토어",
+    "groupGrow": "성장",
+    "groupSell": "판매",
+    "groupInsights": "인사이트",
+    "breadcrumb": "이동 경로"
   },
   "Header": {
     "notificationsUnread": "알림, 읽지 않음 {count}개",
@@ -419,7 +428,7 @@
       "unknown": "알 수 없음",
       "studioEyebrow": "01 / 대화 스튜디오",
       "studioTitle": "모든 대화를 세심하게.",
-      "filterWaiting": "답장 대기 중",
+      "filterWaiting": "대기 중",
       "filterUnassigned": "미할당",
       "filterExpiringSoon": "곧 만료",
       "chats": "채팅",
@@ -1781,7 +1790,7 @@
         "conversations": "대화",
         "noConversations": "아직 대화가 없습니다.",
         "startConversation": "대화 시작",
-        "open": "진행 중",
+        "open": "열림",
         "pending": "대기 중",
         "closed": "해결됨",
         "orders": "주문",
@@ -2145,7 +2154,7 @@
       "sending": "전송 중",
       "sent": "전송됨",
       "failed": "실패",
-      "pending": "대기 중",
+      "pending": "아직 발송 안 됨",
       "delivered": "전달됨",
       "read": "읽음",
       "replied": "응답함",
@@ -4750,7 +4759,7 @@
       "tabs": {
         "all": "전체",
         "approved": "승인됨",
-        "pending": "대기 중",
+        "pending": "검토 중",
         "rejected": "거부됨",
         "drafts": "초안",
         "paused": "일시 중지 또는 비활성화"
@@ -5777,13 +5786,13 @@
       "status": {
         "pending": "확인 중",
         "active": "활성",
-        "cancelled": "중지됨",
+        "cancelled": "취소됨",
         "failed": "거절됨"
       },
       "until": "{date}까지",
       "cancel": "중지",
       "cancelConfirm": "지금 이 추가 기능을 중지할까요? 다음 청구서에 이미 추가된 요금은 환불되지 않습니다.",
-      "cancelled": "추가 기능이 중지되었습니다",
+      "cancelled": "추가 기능이 취소되었습니다",
       "cancelFailed": "추가 기능을 중지하지 못했습니다",
       "purchased": "추가 기능이 활성화되었습니다",
       "purchasePending": "구매 요청을 보냈습니다. 결제 제공업체가 확인하면 활성화됩니다.",
@@ -6724,7 +6733,7 @@
   },
   "TemplateStatus": {
     "DRAFT": "초안",
-    "PENDING": "대기 중",
+    "PENDING": "검토 중",
     "APPROVED": "승인됨",
     "REJECTED": "거부됨",
     "PAUSED": "일시 중지됨",
@@ -8784,12 +8793,31 @@
     }
   },
   "PageSearch": {
-    "title": "원하는 페이지 찾기",
-    "description": "워크스페이스의 페이지로 이동하세요.",
-    "placeholder": "페이지 검색…",
-    "trigger": "페이지 검색",
-    "empty": "페이지를 찾을 수 없습니다.",
-    "results": "페이지"
+    "title": "검색",
+    "description": "페이지, 연락처, 주문, 상품, 예약을 찾습니다.",
+    "placeholder": "페이지, 연락처, 주문 검색…",
+    "trigger": "검색",
+    "empty": "결과가 없습니다.",
+    "results": "검색 결과",
+    "searching": "검색 중…",
+    "error": "검색 결과를 불러오지 못했습니다.",
+    "retry": "다시 시도",
+    "noName": "이름 없음",
+    "groups": {
+      "pages": "페이지",
+      "contacts": "연락처",
+      "orders": "주문",
+      "products": "상품",
+      "bookings": "예약",
+      "create": "새로 만들기"
+    },
+    "create": {
+      "contact": "새 연락처",
+      "order": "새 주문",
+      "product": "새 상품",
+      "booking": "새 예약",
+      "broadcast": "새 브로드캐스트"
+    }
   },
   "inboxSettings": {
     "title": "받은 편지함",
@@ -10467,8 +10495,8 @@
         "empty": "아직 컬렉션이 없습니다.",
         "edit": "수정",
         "view": "보기",
-        "published": "게시됨",
-        "draft": "초안",
+        "published": "공개",
+        "draft": "숨김",
         "products": "{count, plural, other {상품 #개}}",
         "kinds": {
           "manual": "직접 선택",
@@ -10569,7 +10597,7 @@
           "queued": "시작 대기 중",
           "running": "가져오는 중",
           "done": "완료",
-          "failed": "중단됨"
+          "failed": "실패"
         },
         "jobErrors": {
           "not_allowed": "이 가져오기를 시작한 사람이 더 이상 관리자가 아니어서 더 이상 적용하지 않았습니다.",
@@ -10641,7 +10669,7 @@
           "queued": "시작 대기 중",
           "running": "가져오는 중",
           "done": "완료",
-          "failed": "중단됨",
+          "failed": "실패",
           "canceled": "취소됨"
         },
         "stats": {
@@ -10871,7 +10899,7 @@
       "edit": "편집",
       "delete": "삭제",
       "active": "사용",
-      "inactive": "사용 안 함",
+      "inactive": "꺼짐",
       "shippingTitle": "배송비",
       "shippingHelp": "활성 배송비가 적용되지 않는 주소는 결제할 수 없습니다. 가장 길게 일치하는 우편번호 접두사가 우선합니다.",
       "noShipping": "아직 배송비가 없습니다.",
@@ -11689,13 +11717,13 @@
       "filter": "상태별 필터",
       "filters": {
         "all": "전체",
-        "pending": "대기 중",
-        "published": "게시됨",
+        "pending": "승인 대기",
+        "published": "공개",
         "hidden": "숨김"
       },
       "status": {
-        "pending": "대기 중",
-        "published": "게시됨",
+        "pending": "승인 대기",
+        "published": "공개",
         "hidden": "숨김"
       },
       "loadError": "리뷰를 불러오지 못했습니다.",
@@ -14838,8 +14866,8 @@
     "status": {
       "held": "WhatsApp 대기 중",
       "confirmed": "확정",
-      "cancelled": "취소",
-      "completed": "완료",
+      "cancelled": "취소됨",
+      "completed": "완료됨",
       "no_show": "노쇼",
       "expired": "만료"
     },
@@ -14915,9 +14943,9 @@
       "confirmed": "확정",
       "rescheduled": "{from}에서 {to}(으)로 변경",
       "reassigned": "담당자 변경",
-      "cancelled": "취소",
+      "cancelled": "취소됨",
       "expired": "임시 예약 만료",
-      "completed": "완료",
+      "completed": "완료됨",
       "no_show": "노쇼로 표시",
       "feedback": "평가 기록",
       "reminder_skipped": "알림 건너뜀",
@@ -15091,7 +15119,7 @@
       "copyLink": "링크 복사",
       "copied": "링크를 복사했습니다",
       "empty": "아직 예약 페이지가 없습니다.",
-      "inactive": "비활성"
+      "inactive": "숨김"
     },
     "tasks": {
       "title": "할 일",
@@ -15112,7 +15140,7 @@
       "statuses": {
         "open": "열림",
         "done": "완료",
-        "cancelled": "취소"
+        "cancelled": "취소됨"
       },
       "cancel": "작업 취소"
     },
@@ -16092,7 +16120,7 @@
       "supportTitle": "지원팀 접근",
       "supportHelp": "워크스페이스에 진단 접근을 요청합니다. 소유자와 관리자가 결정하며, 상태, 개수, 오류 코드만 볼 수 있습니다.",
       "grantStatus": {
-        "requested": "대기 중",
+        "requested": "승인 대기",
         "approved": "활성",
         "denied": "거부됨",
         "revoked": "취소됨",
@@ -16119,7 +16147,7 @@
       "loadFailed": "요청을 불러오지 못했습니다.",
       "empty": "요청이 없습니다.",
       "status": {
-        "requested": "대기 중",
+        "requested": "승인 대기",
         "approved": "활성",
         "denied": "거부됨",
         "revoked": "취소됨",
@@ -17382,7 +17410,7 @@
       "colFulfilment": "배송",
       "pay": {
         "paid": "결제 완료",
-        "pending": "결제 대기",
+        "pending": "미결제",
         "refunded": "환불됨",
         "partlyRefunded": "부분 환불",
         "cod": "착불 결제"
@@ -17548,7 +17576,7 @@
       "sentAgain": "새 링크를 만들어 보냈습니다",
       "madeAgain": "새 링크를 만들었습니다",
       "all": "전체",
-      "pending": "대기",
+      "pending": "결제 대기",
       "moreStatuses": "다른 상태",
       "search": "결제 링크 검색",
       "noMatches": "일치하는 결제 링크가 없습니다.",
@@ -17785,7 +17813,7 @@
         "learning": "학습한 답변"
       },
       "status": {
-        "queued": "대기 중",
+        "queued": "대기열",
         "crawling": "동기화 중",
         "ready": "동기화됨",
         "failed": "실패",
@@ -18584,5 +18612,23 @@
       "cod": "배송 시 현금으로 결제합니다.",
       "thanks": "{shop}을(를) 이용해 주셔서 감사합니다."
     }
+  },
+  "UiKit": {
+    "more": "더 보기",
+    "cancel": "취소",
+    "confirm": "확인",
+    "working": "처리 중…"
+  },
+  "ContactPicker": {
+    "label": "연락처",
+    "placeholder": "이름 또는 번호로 검색…",
+    "results": "연락처",
+    "clear": "연락처 지우기",
+    "noName": "이름 없음",
+    "loading": "검색 중…",
+    "empty": "연락처를 찾을 수 없습니다.",
+    "error": "연락처를 불러오지 못했습니다.",
+    "retry": "다시 시도",
+    "loadMore": "더 보기"
   }
 }

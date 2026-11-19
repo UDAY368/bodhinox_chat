@@ -124,7 +124,16 @@
     "shopReports": "Shop reports",
     "people": "People",
     "segments": "Segments",
-    "customFields": "Custom fields"
+    "customFields": "Custom fields",
+    "whatsappSync": "WhatsApp sync",
+    "analyticsOverview": "Overview",
+    "campaignResults": "Campaign results",
+    "productsSection": "Products",
+    "store": "Store",
+    "groupGrow": "Grow",
+    "groupSell": "Sell",
+    "groupInsights": "Insights",
+    "breadcrumb": "Breadcrumb"
   },
   "Header": {
     "notificationsUnread": "{count, plural, =1 {Notifications, 1 unread} other {Notifications, # unread}}",
@@ -336,7 +345,7 @@
       "broadcastEmpty": "No broadcasts yet.",
       "setup": "Workspace setup",
       "setupHint": "WhatsApp indicates saved configuration. Check WhatsApp settings for connection health.",
-      "done": "Complete",
+      "done": "Done",
       "pending": "To do",
       "setupItems": {
         "whatsapp": "Configure WhatsApp",
@@ -419,7 +428,7 @@
       "unknown": "Unknown",
       "studioEyebrow": "01 / Conversation studio",
       "studioTitle": "Every conversation, considered.",
-      "filterWaiting": "Waiting for reply",
+      "filterWaiting": "Waiting",
       "filterUnassigned": "Unassigned",
       "filterExpiringSoon": "Expiring soon",
       "chats": "Chats",
@@ -2145,7 +2154,7 @@
       "sending": "Sending",
       "sent": "Sent",
       "failed": "Failed",
-      "pending": "Pending",
+      "pending": "Not sent yet",
       "delivered": "Delivered",
       "read": "Read",
       "replied": "Replied",
@@ -4750,7 +4759,7 @@
       "tabs": {
         "all": "All",
         "approved": "Approved",
-        "pending": "Pending",
+        "pending": "In review",
         "rejected": "Rejected",
         "drafts": "Drafts",
         "paused": "Paused or disabled"
@@ -5777,13 +5786,13 @@
       "status": {
         "pending": "Confirming",
         "active": "Active",
-        "cancelled": "Stopped",
+        "cancelled": "Cancelled",
         "failed": "Declined"
       },
       "until": "Until {date}",
       "cancel": "Stop",
       "cancelConfirm": "Stop this add-on now? The charge already added to your next invoice is not refunded.",
-      "cancelled": "Add-on stopped",
+      "cancelled": "Add-on cancelled",
       "cancelFailed": "Could not stop the add-on",
       "purchased": "Add-on active",
       "purchasePending": "Purchase sent. It becomes active once the payment provider confirms it.",
@@ -6724,7 +6733,7 @@
   },
   "TemplateStatus": {
     "DRAFT": "Draft",
-    "PENDING": "Pending",
+    "PENDING": "In review",
     "APPROVED": "Approved",
     "REJECTED": "Rejected",
     "PAUSED": "Paused",
@@ -8784,12 +8793,31 @@
     }
   },
   "PageSearch": {
-    "title": "Find your way",
-    "description": "Jump to a page in your workspace.",
-    "placeholder": "Search pages…",
-    "trigger": "Search pages",
-    "empty": "No pages found.",
-    "results": "Pages"
+    "title": "Search",
+    "description": "Find pages, contacts, orders, products and bookings.",
+    "placeholder": "Search pages, contacts, orders…",
+    "trigger": "Search",
+    "empty": "No results.",
+    "results": "Search results",
+    "searching": "Searching…",
+    "error": "Search didn't load.",
+    "retry": "Retry",
+    "noName": "No name",
+    "groups": {
+      "pages": "Pages",
+      "contacts": "Contacts",
+      "orders": "Orders",
+      "products": "Products",
+      "bookings": "Bookings",
+      "create": "Create new"
+    },
+    "create": {
+      "contact": "New contact",
+      "order": "New order",
+      "product": "New product",
+      "booking": "New booking",
+      "broadcast": "New broadcast"
+    }
   },
   "inboxSettings": {
     "title": "Inbox",
@@ -10467,8 +10495,8 @@
         "empty": "No collections yet.",
         "edit": "Edit",
         "view": "View",
-        "published": "Published",
-        "draft": "Draft",
+        "published": "Live",
+        "draft": "Hidden",
         "products": "{count, plural, one {# product} other {# products}}",
         "kinds": {
           "manual": "Hand-picked",
@@ -10568,8 +10596,8 @@
         "job": {
           "queued": "Waiting to start",
           "running": "Importing",
-          "done": "Finished",
-          "failed": "Stopped"
+          "done": "Done",
+          "failed": "Failed"
         },
         "jobErrors": {
           "not_allowed": "The person who started this import is no longer an admin, so nothing more was applied.",
@@ -10640,8 +10668,8 @@
         "job": {
           "queued": "Waiting to start",
           "running": "Importing",
-          "done": "Finished",
-          "failed": "Stopped",
+          "done": "Done",
+          "failed": "Failed",
           "canceled": "Cancelled"
         },
         "stats": {
@@ -10871,7 +10899,7 @@
       "edit": "Edit",
       "delete": "Delete",
       "active": "Active",
-      "inactive": "inactive",
+      "inactive": "off",
       "shippingTitle": "Shipping rates",
       "shippingHelp": "Checkout refuses an address no active rate covers. The longest matching postal prefix wins.",
       "noShipping": "No shipping rates yet.",
@@ -11689,13 +11717,13 @@
       "filter": "Filter by status",
       "filters": {
         "all": "All",
-        "pending": "Pending",
-        "published": "Published",
+        "pending": "Awaiting approval",
+        "published": "Live",
         "hidden": "Hidden"
       },
       "status": {
-        "pending": "Pending",
-        "published": "Published",
+        "pending": "Awaiting approval",
+        "published": "Live",
         "hidden": "Hidden"
       },
       "loadError": "Could not load reviews.",
@@ -15091,7 +15119,7 @@
       "copyLink": "Copy link",
       "copied": "Link copied",
       "empty": "No booking pages yet.",
-      "inactive": "Inactive"
+      "inactive": "Hidden"
     },
     "tasks": {
       "title": "Tasks",
@@ -16092,7 +16120,7 @@
       "supportTitle": "Support access",
       "supportHelp": "Ask the workspace for diagnostics access. Its owners and admins decide; you see statuses, counts and error codes only.",
       "grantStatus": {
-        "requested": "Waiting",
+        "requested": "Awaiting approval",
         "approved": "Active",
         "denied": "Denied",
         "revoked": "Revoked",
@@ -16119,7 +16147,7 @@
       "loadFailed": "Could not load your requests.",
       "empty": "You have no requests.",
       "status": {
-        "requested": "Waiting",
+        "requested": "Awaiting approval",
         "approved": "Active",
         "denied": "Denied",
         "revoked": "Revoked",
@@ -17382,7 +17410,7 @@
       "colFulfilment": "Fulfilment",
       "pay": {
         "paid": "Paid",
-        "pending": "Pending",
+        "pending": "Not paid",
         "refunded": "Refunded",
         "partlyRefunded": "Partly refunded",
         "cod": "Cash on delivery"
@@ -17548,7 +17576,7 @@
       "sentAgain": "A new link was made and sent",
       "madeAgain": "A new link was made",
       "all": "All",
-      "pending": "Pending",
+      "pending": "Awaiting payment",
       "moreStatuses": "More statuses",
       "search": "Search payment links",
       "noMatches": "No payment links match.",
@@ -17785,7 +17813,7 @@
         "learning": "Learned answers"
       },
       "status": {
-        "queued": "Waiting",
+        "queued": "Queued",
         "crawling": "Syncing",
         "ready": "Synced",
         "failed": "Failed",
@@ -18584,5 +18612,23 @@
       "cod": "You pay cash on delivery.",
       "thanks": "Thank you for shopping with {shop}."
     }
+  },
+  "UiKit": {
+    "more": "More",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "working": "Working…"
+  },
+  "ContactPicker": {
+    "label": "Contact",
+    "placeholder": "Search by name or number…",
+    "results": "Contacts",
+    "clear": "Clear contact",
+    "noName": "No name",
+    "loading": "Searching…",
+    "empty": "No contacts found.",
+    "error": "Contacts didn't load.",
+    "retry": "Retry",
+    "loadMore": "Load more"
   }
 }
