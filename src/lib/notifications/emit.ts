@@ -165,7 +165,7 @@ export async function notifyTemplateRejected(row: {
         event: 'template_rejected',
         title: `Template "${name}" was rejected`,
         body: reason ? `Meta's reason: ${reason}` : 'Review the template and resubmit it.',
-        link: '/settings?tab=templates',
+        link: '/templates',
         dedupeKey: `template-rejected:${templateId}:${run[0]?.id ?? 'unrecorded'}`,
       });
     }, getWorkerPrisma());

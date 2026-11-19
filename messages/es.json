@@ -2136,7 +2136,8 @@
       "showing": "Mostrando {start}–{end} de {total}",
       "previousPage": "Página anterior",
       "nextPage": "Página siguiente",
-      "newApiCampaign": "Nueva campaña por API"
+      "newApiCampaign": "Nueva campaña por API",
+      "moreStatuses": "Más estados"
     },
     "status": {
       "draft": "Borrador",
@@ -2394,7 +2395,7 @@
         "whenNow": "Enviar ahora",
         "whenLater": "Programar para más tarde",
         "scheduleAt": "Enviar el",
-        "scheduleHint": "Tu zona horaria: {zone}. Hasta 90 días de antelación.",
+        "scheduleHint": "En la zona horaria del espacio de trabajo. Hasta 90 días de antelación.",
         "scheduleTooSoon": "Elige una hora al menos un minuto en el futuro.",
         "scheduleBroadcast": "Programar difusión",
         "confirmScheduled": "Comenzará el {when}. Puedes reprogramarla o cancelarla hasta entonces.",
@@ -2406,7 +2407,8 @@
         "testFailed": "No se pudo enviar la prueba",
         "testSent": "Prueba enviada a {phone}",
         "testNotSent": "No se envió a {phone}: {error}",
-        "confirmSendFrom": "Se enviará desde {number}."
+        "confirmSendFrom": "Se enviará desde {number}.",
+        "reachFailed": "No se pudo contar"
       }
     },
     "sending": {
@@ -4784,7 +4786,11 @@
       "flowFormLoading": "Cargando el formulario…",
       "flowFormHelp": "El botón abre este formulario. Cada envío tiene su propio vínculo con las respuestas.",
       "flowFormNone": "Aún no hay formularios publicados. Crea y publica uno en Formularios.",
-      "flowFormUnavailable": "Este formulario aún no está publicado en WhatsApp."
+      "flowFormUnavailable": "Este formulario aún no está publicado en WhatsApp.",
+      "discardTitle": "¿Descartar cambios?",
+      "discardBody": "Esta plantilla tiene cambios sin guardar. Si la cierras, se perderán.",
+      "keepEditing": "Seguir editando",
+      "discardChanges": "Descartar"
     },
     "roles": {
       "admin": "Administrador",
@@ -17201,12 +17207,12 @@
     },
     "wizard": {
       "steps": {
-        "details": "Detalles",
+        "details": "Canal",
         "message": "Mensaje",
         "review": "Revisión"
       },
-      "detailsTitle": "Nombre y canal",
-      "detailsSubtitle": "Pon nombre a la difusión y elige por dónde se envía.",
+      "detailsTitle": "Canal",
+      "detailsSubtitle": "Elige a dónde va la difusión.",
       "nameLabel": "Nombre",
       "namePlaceholder": "p. ej., Oferta de Diwali",
       "nameHint": "Solo tu equipo ve este nombre.",
@@ -17240,7 +17246,7 @@
       "willGetIt": "{count, plural, one {persona lo recibirá} other {personas lo recibirán}}",
       "leftOutWindow": "{count, plural, one {# persona excluida} other {# personas excluidas}}: escribieron hace más de 24 horas",
       "leftOutRule": "Instagram solo permite mensajes a quienes te escribieron en las últimas 24 horas. Los contactos dados de baja o bloqueados siempre se excluyen.",
-      "countFailed": "No se pudo contar la audiencia. Vuelve atrás e inténtalo de nuevo.",
+      "countFailed": "No se pudo contar la audiencia.",
       "counting": "Contando quién lo recibe…",
       "instagramNoSchedule": "Las difusiones de Instagram se envían al momento: la ventana de 24 horas se cerraría antes de una hora posterior.",
       "sendNow": "Enviar ahora",

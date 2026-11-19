@@ -2136,7 +2136,8 @@
       "showing": "Mostrando {start}–{end} de {total}",
       "previousPage": "Página anterior",
       "nextPage": "Próxima página",
-      "newApiCampaign": "Nova campanha via API"
+      "newApiCampaign": "Nova campanha via API",
+      "moreStatuses": "Mais status"
     },
     "status": {
       "draft": "Rascunho",
@@ -2394,7 +2395,7 @@
         "whenNow": "Enviar agora",
         "whenLater": "Agendar para depois",
         "scheduleAt": "Enviar em",
-        "scheduleHint": "Seu fuso horário: {zone}. Até 90 dias à frente.",
+        "scheduleHint": "No fuso horário do espaço de trabalho. Até 90 dias à frente.",
         "scheduleTooSoon": "Escolha um horário pelo menos um minuto à frente.",
         "scheduleBroadcast": "Agendar transmissão",
         "confirmScheduled": "Começará em {when}. Você pode reagendar ou cancelar até lá.",
@@ -2406,7 +2407,8 @@
         "testFailed": "Não foi possível enviar o teste",
         "testSent": "Teste enviado para {phone}",
         "testNotSent": "Não enviado para {phone}: {error}",
-        "confirmSendFrom": "Será enviada de {number}."
+        "confirmSendFrom": "Será enviada de {number}.",
+        "reachFailed": "Não foi possível contar"
       }
     },
     "sending": {
@@ -4784,7 +4786,11 @@
       "flowFormLoading": "Carregando o formulário…",
       "flowFormHelp": "O botão abre este formulário. Cada envio tem seu próprio vínculo com as respostas.",
       "flowFormNone": "Ainda não há formulários publicados. Crie e publique um em Formulários.",
-      "flowFormUnavailable": "Este formulário ainda não está publicado no WhatsApp."
+      "flowFormUnavailable": "Este formulário ainda não está publicado no WhatsApp.",
+      "discardTitle": "Descartar alterações?",
+      "discardBody": "Este modelo tem alterações não salvas. Ao fechar, elas serão perdidas.",
+      "keepEditing": "Continuar editando",
+      "discardChanges": "Descartar"
     },
     "roles": {
       "admin": "Administrador",
@@ -17201,12 +17207,12 @@
     },
     "wizard": {
       "steps": {
-        "details": "Detalhes",
+        "details": "Canal",
         "message": "Mensagem",
         "review": "Revisão"
       },
-      "detailsTitle": "Nome e canal",
-      "detailsSubtitle": "Dê um nome à transmissão e escolha para onde ela vai.",
+      "detailsTitle": "Canal",
+      "detailsSubtitle": "Escolha para onde a transmissão vai.",
       "nameLabel": "Nome",
       "namePlaceholder": "ex.: Oferta de Diwali",
       "nameHint": "Só a sua equipe vê este nome.",
@@ -17240,7 +17246,7 @@
       "willGetIt": "{count, plural, one {pessoa vai receber} other {pessoas vão receber}}",
       "leftOutWindow": "{count, plural, one {# pessoa ficou de fora} other {# pessoas ficaram de fora}}: escreveram há mais de 24 horas",
       "leftOutRule": "O Instagram só permite mensagens para quem escreveu para você nas últimas 24 horas. Contatos descadastrados ou bloqueados sempre ficam de fora.",
-      "countFailed": "Não foi possível contar o público. Volte e tente de novo.",
+      "countFailed": "Não foi possível contar o público.",
       "counting": "Contando quem vai receber…",
       "instagramNoSchedule": "Transmissões do Instagram são enviadas na hora: a janela de 24 horas fecharia antes de um horário posterior.",
       "sendNow": "Enviar agora",

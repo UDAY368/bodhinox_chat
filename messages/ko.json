@@ -2136,7 +2136,8 @@
       "showing": "{total}개 중 {start}–{end}",
       "previousPage": "이전 페이지",
       "nextPage": "다음 페이지",
-      "newApiCampaign": "새 API 캠페인"
+      "newApiCampaign": "새 API 캠페인",
+      "moreStatuses": "기타 상태"
     },
     "status": {
       "draft": "초안",
@@ -2394,7 +2395,7 @@
         "whenNow": "지금 보내기",
         "whenLater": "나중에 예약",
         "scheduleAt": "보낼 시간",
-        "scheduleHint": "시간대: {zone}. 최대 90일 후까지.",
+        "scheduleHint": "워크스페이스 시간대 기준입니다. 최대 90일 후까지.",
         "scheduleTooSoon": "지금부터 최소 1분 이후 시간을 선택하세요.",
         "scheduleBroadcast": "브로드캐스트 예약",
         "confirmScheduled": "{when}에 시작됩니다. 그 전까지 일정 변경이나 취소가 가능합니다.",
@@ -2406,7 +2407,8 @@
         "testFailed": "테스트를 보낼 수 없습니다",
         "testSent": "{phone}에 테스트를 보냈습니다",
         "testNotSent": "{phone}에 보내지 못함: {error}",
-        "confirmSendFrom": "{number}에서 발송됩니다."
+        "confirmSendFrom": "{number}에서 발송됩니다.",
+        "reachFailed": "집계할 수 없음"
       }
     },
     "sending": {
@@ -4784,7 +4786,11 @@
       "flowFormLoading": "양식을 불러오는 중…",
       "flowFormHelp": "버튼을 누르면 이 양식이 열립니다. 보낼 때마다 답변과 연결되는 고유 링크가 만들어집니다.",
       "flowFormNone": "아직 게시된 양식이 없습니다. 양식 메뉴에서 만들고 게시하세요.",
-      "flowFormUnavailable": "이 양식은 아직 WhatsApp에 게시되지 않았습니다."
+      "flowFormUnavailable": "이 양식은 아직 WhatsApp에 게시되지 않았습니다.",
+      "discardTitle": "변경 사항을 버릴까요?",
+      "discardBody": "이 템플릿에 저장하지 않은 변경 사항이 있습니다. 닫으면 사라집니다.",
+      "keepEditing": "계속 편집",
+      "discardChanges": "버리기"
     },
     "roles": {
       "admin": "관리자",
@@ -17201,12 +17207,12 @@
     },
     "wizard": {
       "steps": {
-        "details": "세부 정보",
+        "details": "채널",
         "message": "메시지",
         "review": "검토"
       },
-      "detailsTitle": "이름과 채널",
-      "detailsSubtitle": "브로드캐스트 이름을 정하고 보낼 채널을 선택하세요.",
+      "detailsTitle": "채널",
+      "detailsSubtitle": "브로드캐스트를 보낼 곳을 선택하세요.",
       "nameLabel": "이름",
       "namePlaceholder": "예: 디왈리 할인",
       "nameHint": "이 이름은 팀원만 볼 수 있습니다.",
@@ -17240,7 +17246,7 @@
       "willGetIt": "{count, plural, other {명이 받게 됩니다}}",
       "leftOutWindow": "{count}명 제외: 마지막 메시지가 24시간보다 오래되었습니다",
       "leftOutRule": "Instagram은 지난 24시간 안에 메시지를 보낸 사람에게만 메시지를 허용합니다. 수신 거부했거나 차단된 연락처는 항상 제외됩니다.",
-      "countFailed": "대상 수를 계산하지 못했습니다. 뒤로 가서 다시 시도하세요.",
+      "countFailed": "대상 인원을 집계할 수 없습니다.",
       "counting": "받는 사람을 계산하는 중…",
       "instagramNoSchedule": "Instagram 브로드캐스트는 바로 발송됩니다. 나중 시간에는 24시간 창이 닫힐 수 있습니다.",
       "sendNow": "지금 발송",

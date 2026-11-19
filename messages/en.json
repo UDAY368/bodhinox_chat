@@ -2136,7 +2136,8 @@
       "showing": "Showing {start}–{end} of {total}",
       "previousPage": "Previous page",
       "nextPage": "Next page",
-      "newApiCampaign": "New API campaign"
+      "newApiCampaign": "New API campaign",
+      "moreStatuses": "More statuses"
     },
     "status": {
       "draft": "Draft",
@@ -2394,7 +2395,7 @@
         "whenNow": "Send now",
         "whenLater": "Schedule for later",
         "scheduleAt": "Send at",
-        "scheduleHint": "Your time zone: {zone}. Up to 90 days ahead.",
+        "scheduleHint": "In the workspace time zone. Up to 90 days ahead.",
         "scheduleTooSoon": "Pick a time at least one minute from now.",
         "scheduleBroadcast": "Schedule Broadcast",
         "confirmScheduled": "It will start at {when}. You can reschedule or cancel it until then.",
@@ -2406,7 +2407,8 @@
         "testFailed": "Could not send the test",
         "testSent": "Test sent to {phone}",
         "testNotSent": "Not sent to {phone}: {error}",
-        "confirmSendFrom": "It will be sent from {number}."
+        "confirmSendFrom": "It will be sent from {number}.",
+        "reachFailed": "Couldn't count"
       }
     },
     "sending": {
@@ -4784,7 +4786,11 @@
       "flowFormLoading": "Loading the form…",
       "flowFormHelp": "The button opens this form. Each send gets its own link to the answers.",
       "flowFormNone": "No published forms yet. Create and publish one under Forms.",
-      "flowFormUnavailable": "This form isn't published on WhatsApp yet."
+      "flowFormUnavailable": "This form isn't published on WhatsApp yet.",
+      "discardTitle": "Discard changes?",
+      "discardBody": "This template has changes you haven't saved. Closing it loses them.",
+      "keepEditing": "Keep editing",
+      "discardChanges": "Discard"
     },
     "roles": {
       "admin": "Admin",
@@ -17201,12 +17207,12 @@
     },
     "wizard": {
       "steps": {
-        "details": "Details",
+        "details": "Channel",
         "message": "Message",
         "review": "Review"
       },
-      "detailsTitle": "Name and channel",
-      "detailsSubtitle": "Name the broadcast and choose where it goes.",
+      "detailsTitle": "Channel",
+      "detailsSubtitle": "Choose where the broadcast goes.",
       "nameLabel": "Name",
       "namePlaceholder": "e.g. Diwali offer",
       "nameHint": "Only your team sees this name.",
@@ -17240,7 +17246,7 @@
       "willGetIt": "{count, plural, one {person will get this} other {people will get this}}",
       "leftOutWindow": "{count, plural, one {# person} other {# people}} left out: last wrote more than 24 hours ago",
       "leftOutRule": "Instagram only allows messages to people who wrote to you in the last 24 hours. Opted-out and blocked contacts are always left out.",
-      "countFailed": "Could not count the audience. Go back and try again.",
+      "countFailed": "Couldn't count the audience.",
       "counting": "Counting who gets it…",
       "instagramNoSchedule": "Instagram broadcasts send right away: the 24-hour window would close before a later time.",
       "sendNow": "Send now",

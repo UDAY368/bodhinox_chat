@@ -280,7 +280,7 @@ export function OperationsContent({ data, whatsapp = true }: {
   const setupLinks = {
     whatsapp: '/settings?tab=whatsapp',
     contacts: '/contacts',
-    template: '/settings?tab=templates',
+    template: '/templates',
     teammate: '/settings?tab=members',
     conversation: '/inbox',
   };
