@@ -9,6 +9,13 @@ it('submits campaign intent once to the server without client counters or recipi
   expect(JSON.parse((send.mock.calls[0] as unknown as [string, RequestInit])[1].body as string)).toEqual({ name: 'Welcome', templateId: 'template', audience: { type: 'all' }, variables: {} });
 });
 
+it('sends the wizard session request id so a retry returns the same campaign', async () => {
+  const send = vi.fn(async (_url: RequestInfo | URL, _init?: RequestInit) => { void _url; void _init; return Response.json({ id: 'campaign' }, { status: 200 }); });
+  const clientRequestId = '6f1c1a5e-3b8e-4c56-9d41-0a3b1f2e7c90';
+  expect(await requestBroadcastCreation({ name: 'Welcome', templateId: 'template', audience: { type: 'all' }, variables: {}, clientRequestId }, send)).toBe('campaign');
+  expect(JSON.parse(send.mock.calls[0][1]!.body as string)).toMatchObject({ clientRequestId });
+});
+
 it('surfaces rejected campaign creation without reporting it queued', async () => {
   await expect(requestBroadcastCreation({ name: 'Welcome', templateId: 'template', audience: { type: 'all' }, variables: {} }, async () => Response.json({ error: 'Template is not approved' }, { status: 400 }))).rejects.toThrow('Template is not approved');
 });
