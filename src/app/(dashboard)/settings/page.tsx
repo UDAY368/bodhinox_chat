@@ -13,7 +13,6 @@ import { SettingsOverview } from '@/components/settings/settings-overview';
 import { ProfileForm } from '@/components/settings/profile-form';
 import { SecurityPanel } from '@/components/settings/security-panel';
 import { AppearancePanel } from '@/components/settings/appearance-panel';
-import { TemplateManager } from '@/components/settings/template-manager';
 import { QuickRepliesManager } from '@/components/settings/quick-replies-manager';
 import { FieldsAndTagsPanel } from '@/components/settings/fields-and-tags-panel';
 import { DealsSettings } from '@/components/settings/deals-settings';
@@ -46,6 +45,7 @@ import {
   hiddenSections,
   railSection,
   resolveSection,
+  SECTION_META,
   visibleSection,
   type SettingsSection,
 } from '@/components/settings/settings-sections';
@@ -111,6 +111,9 @@ function SettingsPageInner() {
     // Leaving a section with unsaved changes drops them; ask first.
     const current = showAi ? AI_SECTION : section;
     if (next !== current && unsaved.size > 0 && !window.confirm(tLeave('leaveConfirm'))) return;
+    // A section that lives on its own page (Templates) opens that page.
+    const href = next === AI_SECTION ? undefined : SECTION_META[next].href;
+    if (href) { router.push(href); return; }
     const params = new URLSearchParams(searchParams.toString());
     params.set('tab', next);
     router.replace(`/settings?${params.toString()}`, { scroll: false });
@@ -144,7 +147,8 @@ function SettingsPageInner() {
     channels: <ChannelsSection active="channels" hidden={hidden} onSelect={go} />,
     whatsapp: <ChannelsSection active="whatsapp" hidden={hidden} onSelect={go} />,
     instagram: <ChannelsSection active="instagram" hidden={hidden} onSelect={go} />,
-    templates: <TemplateManager />,
+    // Campaigns > Templates is the one templates screen (next.config.ts redirects ?tab=templates).
+    templates: null,
     'quick-replies': <QuickRepliesManager />,
     fields: <FieldsAndTagsPanel />,
     deals: <DealsSettings />,
