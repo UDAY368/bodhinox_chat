@@ -25,13 +25,13 @@ import type { OrderListItem } from "./order-api";
 import {
   BULK_DISPATCH_MAX, DATE_PRESETS, dateRangeFor, exportOrders, listOrders, PAYMENT_FILTERS, type DatePreset, type OrderQuery, type PaymentFilter,
 } from "./orders-list-api";
-import { OrderDrawer, type OrderIntent } from "./order-drawer";
+import { OrderSheet, type OrderIntent } from "./order-view";
 import { NewOrderDialog } from "./new-order-dialog";
 import { OrderRiskBadge } from "./order-risk-badge";
 import { OrderSettingsDialog } from "./order-settings-dialog";
 import {
   canCancelUnpaid, canTakeLinkPayment, COD_CONFIRM_TONE, FULFILMENT_TONE, fulfilmentState, orderRef, PAYMENT_TONE, paymentState,
-} from "./order-state";
+} from "@/lib/commerce/order-state";
 import { StateBadge } from "./state-badge";
 import { BulkDispatchSheet, type BulkOrder } from "./bulk-dispatch-sheet";
 import { ListError, RowPlaceholders } from "./list-states";
@@ -40,6 +40,7 @@ import { ReturnsQueue } from "./returns-queue";
 
 const ALL = "all";
 const CASH_DUE = "cash_due";
+const EMPTY: ReadonlySet<string> = new Set();
 type Tab = "orders" | "returns" | "quotes";
 
 /** The step a list row can offer without the order's detail (the drawer re-checks it with the full order). */
@@ -140,7 +141,7 @@ export function OrdersList() {
         <NewOrderDialog open={creating !== null} mode={creating ?? "order"} onOpenChange={(v) => !v && setCreating(null)}
           onCreated={(order) => { refresh(); openOrder(order.id); }} />
       )}
-      <OrderDrawer orderId={open?.id ?? null} intent={open?.intent ?? null} onClose={() => setOpen(null)} onChanged={refresh} />
+      <OrderSheet orderId={open?.id ?? null} open={open !== null} intent={open?.intent ?? null} onOpenChange={(v) => { if (!v) setOpen(null); }} onChanged={refresh} />
     </div>
   );
 }
@@ -175,11 +176,12 @@ function OrdersTab({ reloadKey, onOpenOrder, onNewOrder, onQueryChange }: {
   const [orders, setOrders] = useState<OrderListItem[]>([]);
   const [total, setTotal] = useState<number | null>(null);
   const [cursor, setCursor] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [failed, setFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
+  // Which request the shown rows (or the failure) answer: an older answer reads as still loading.
+  const [answered, setAnswered] = useState<{ key: string; failed: boolean } | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [selected, setSelected] = useState<Set<string>>(new Set());
+  // The selection belongs to one list: a new filter or reload starts empty.
+  const [selection, setSelection] = useState<{ key: string; ids: ReadonlySet<string> } | null>(null);
   const [bulk, setBulk] = useState<{ action: "create" | "labels"; orders: BulkOrder[] } | null>(null);
 
   const range = useMemo(() => dateRangeFor(datePreset, { from: customFrom, to: customTo }), [datePreset, customFrom, customTo]);
@@ -190,24 +192,28 @@ function OrdersTab({ reloadKey, onOpenOrder, onNewOrder, onQueryChange }: {
 
   useEffect(() => { onQueryChange(query); }, [query, onQueryChange]);
 
+  const key = `${JSON.stringify(query)}|${reloadKey}|${attempt}`;
+  const loading = answered?.key !== key;
+  const failed = !loading && answered?.failed === true;
+  const selected = selection?.key === key ? selection.ids : EMPTY;
+  const setSelected = (ids: ReadonlySet<string> | ((prev: ReadonlySet<string>) => ReadonlySet<string>)) =>
+    setSelection((prev) => ({ key, ids: typeof ids === "function" ? ids(prev?.key === key ? prev.ids : EMPTY) : ids }));
+
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
-    setFailed(false);
-    setSelected(new Set());
     listOrders(query)
       .then((page) => {
         if (cancelled) return;
         setOrders(page.orders);
         setTotal(page.total);
         setCursor(page.next_cursor);
+        setAnswered({ key, failed: false });
       })
-      .catch(() => !cancelled && setFailed(true))
-      .finally(() => !cancelled && setLoading(false));
+      .catch(() => !cancelled && setAnswered({ key, failed: true }));
     return () => {
       cancelled = true;
     };
-  }, [query, reloadKey, attempt]);
+  }, [query, key]);
 
   const loadMore = useCallback(async () => {
     if (!cursor) return;

@@ -12,7 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { listQuotes, revokeQuote, type QuoteListItem } from "./orders-list-api";
 import { ListError, RowPlaceholders } from "./list-states";
 import { StateBadge } from "./state-badge";
-import type { Tone } from "./order-state";
+import type { Tone } from "@/lib/commerce/order-state";
 
 const TONE: Record<QuoteListItem["state"], Tone> = { open: "accent", ordered: "ok", expired: "neutral", revoked: "bad" };
 
@@ -21,21 +21,24 @@ export function QuotesList({ reloadKey, onNewQuote }: { reloadKey: number; onNew
   const t = useTranslations("Commerce.orders.listing");
   const format = useFormatter();
   const canAct = useCan("send-messages");
-  const [quotes, setQuotes] = useState<QuoteListItem[] | null>(null);
-  const [failed, setFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
   const [revoking, setRevoking] = useState<QuoteListItem | null>(null);
   const [busy, setBusy] = useState(false);
+  // The answer is kept with the request it belongs to: anything older reads as still loading.
+  const key = `${attempt}|${reloadKey}`;
+  const [result, setResult] = useState<{ key: string; quotes: QuoteListItem[] | null } | null>(null);
+  const quotes = result?.key === key ? result.quotes : null;
+  const failed = result?.key === key && result.quotes === null;
+  const setQuotes = (update: (prev: QuoteListItem[] | null) => QuoteListItem[] | null) =>
+    setResult((prev) => (prev ? { ...prev, quotes: update(prev.quotes) } : prev));
 
   useEffect(() => {
     let cancelled = false;
-    setQuotes(null);
-    setFailed(false);
     listQuotes()
-      .then((next) => !cancelled && setQuotes(next))
-      .catch(() => !cancelled && setFailed(true));
+      .then((next) => !cancelled && setResult({ key, quotes: next }))
+      .catch(() => !cancelled && setResult({ key, quotes: null }));
     return () => { cancelled = true; };
-  }, [attempt, reloadKey]);
+  }, [key]);
 
   const confirmRevoke = async () => {
     if (!revoking) return;

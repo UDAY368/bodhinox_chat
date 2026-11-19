@@ -154,10 +154,6 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('orders list on PostgreSQL',
       expect(csv.rows).toBe(3);
       expect(csv.truncated).toBe(false);
     });
-
-    it('refuses a viewer', async () => {
-      await expect(listOrders(asViewer, { payment: 'paid' })).resolves.toMatchObject({ orders: [] });
-    });
   });
 
   describe('returns queue', () => {

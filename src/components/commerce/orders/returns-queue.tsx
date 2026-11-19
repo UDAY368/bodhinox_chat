@@ -10,7 +10,7 @@ import { TablePagination } from "@/components/ui/table-pagination";
 import { listReturnQueue, RETURN_QUEUE_PAGE, type ReturnQueueFilter, type ReturnQueueItem } from "./orders-list-api";
 import { ListError, RowPlaceholders } from "./list-states";
 import { StateBadge } from "./state-badge";
-import type { Tone } from "./order-state";
+import type { Tone } from "@/lib/commerce/order-state";
 
 const FILTERS: ReturnQueueFilter[] = ["open", "requested", "received", "inspected", "closed", "rejected"];
 const ALL = "all";
@@ -23,19 +23,20 @@ export function ReturnsQueue({ onOpenOrder, reloadKey }: { onOpenOrder: (orderId
   const format = useFormatter();
   const [status, setStatus] = useState<ReturnQueueFilter | "">("open");
   const [page, setPage] = useState(0);
-  const [data, setData] = useState<{ returns: ReturnQueueItem[]; total: number } | null>(null);
-  const [failed, setFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
+  // The answer is kept with the request it belongs to: anything older reads as still loading.
+  const key = `${status}|${page}|${attempt}|${reloadKey}`;
+  const [result, setResult] = useState<{ key: string; data: { returns: ReturnQueueItem[]; total: number } | null } | null>(null);
+  const data = result?.key === key ? result.data : null;
+  const failed = result?.key === key && result.data === null;
 
   useEffect(() => {
     let cancelled = false;
-    setData(null);
-    setFailed(false);
     listReturnQueue(status, page)
-      .then((next) => !cancelled && setData(next))
-      .catch(() => !cancelled && setFailed(true));
+      .then((next) => !cancelled && setResult({ key, data: next }))
+      .catch(() => !cancelled && setResult({ key, data: null }));
     return () => { cancelled = true; };
-  }, [status, page, attempt, reloadKey]);
+  }, [status, page, key]);
 
   const totalPages = data ? Math.max(1, Math.ceil(data.total / RETURN_QUEUE_PAGE)) : 1;
 
