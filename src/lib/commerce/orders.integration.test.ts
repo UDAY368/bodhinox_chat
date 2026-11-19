@@ -134,6 +134,13 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('orders on PostgreSQL', { ti
     expect((await listOrders(asAgentA, { status: 'paid' })).orders).toHaveLength(0);
     expect((await listOrders(asViewerA)).orders).toHaveLength(0);
     expect((await listOrders(asB)).orders).toHaveLength(0);
+    // The reference shown on screen (first 8 characters of the id, upper case) finds the order, only in its workspace.
+    const ref = orderId.slice(0, 8).toUpperCase();
+    expect((await listOrders(asAgentA, { q: ref })).orders.map((o) => o.id)).toEqual([orderId]);
+    expect((await listOrders(asAgentA, { q: `#${ref}` })).orders.map((o) => o.id)).toEqual([orderId]);
+    expect((await listOrders(asB, { q: ref })).orders).toHaveLength(0);
+    const otherRef = (ref[0] === 'F' ? '0' : 'F') + ref.slice(1);
+    expect((await listOrders(asAgentA, { q: otherRef })).orders).toHaveLength(0);
     await expect(getOrder(asB, orderId)).rejects.toMatchObject({ status: 404 });
     const detail = await getOrder(asAgentA, orderId);
     expect(detail.items.map((i) => i.unit_price_minor).sort()).toEqual([10000, 49950]);

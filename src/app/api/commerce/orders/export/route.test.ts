@@ -43,7 +43,7 @@ describe('GET /api/commerce/orders/export', () => {
 
   it.each(['admin', 'owner'])('gives a %s a private CSV download for their workspace and the filters', async (role) => {
     h.role = role;
-    const res = await get('?status=paid&tag=vip&from=2026-11-01&to=2026-11-30');
+    const res = await get('?status=paid&source=storefront&tag=vip&q=3F2A9C1B&cod_confirmation=pending&from=2026-11-01&to=2026-11-30');
     expect(res.status).toBe(200);
     expect(res.headers.get('content-type')).toContain('text/csv');
     expect(res.headers.get('content-disposition')).toContain('attachment');
@@ -51,7 +51,7 @@ describe('GET /api/commerce/orders/export', () => {
     expect(await res.text()).toBe('"order"\r\n');
     const [ctx, filters] = h.exportOrdersCsv.mock.calls[0];
     expect(ctx).toMatchObject({ accountId: ACCOUNT, userId: USER, role });
-    expect(filters).toMatchObject({ status: 'paid', tag: 'vip' });
+    expect(filters).toMatchObject({ status: 'paid', source: 'storefront', tag: 'vip', q: '3F2A9C1B', codConfirmation: 'pending' });
     expect(filters.from).toBeInstanceOf(Date);
   });
 

@@ -22,7 +22,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { createClient } from "@/lib/data/client";
+import { searchContacts, type ContactOption } from "@/lib/contacts/contact-search";
 import { formatMoney } from "@/lib/commerce/money";
 import { createManualOrder, createQuote, listSellableVariants, type OrderDetail, type SellableVariant } from "./order-api";
 import { sendOrderPaymentLink } from "./order-actions";
@@ -32,7 +32,6 @@ const selectClass = "h-9 w-full min-w-0 rounded-lg border border-border bg-card 
 const MAX_QTY = 99;
 
 interface Line { key: number; variantId: string; qty: string }
-interface ContactOption { id: string; name: string | null; phone: string | null }
 
 export function NewOrderDialog({ open, mode = "order", onOpenChange, onCreated }: {
   open: boolean;
@@ -110,12 +109,10 @@ export function NewOrderDialog({ open, mode = "order", onOpenChange, onCreated }
   useEffect(() => {
     if (!open) return;
     let live = true;
-    const term = search.trim().replace(/[%_,()]/g, "");
+    // Name or phone; waits 300ms after typing.
     const timer = setTimeout(() => {
-      let q = createClient().from("contacts").select("id,name,phone").order("name").limit(25);
-      if (term) q = q.ilike("name", `%${term}%`);
-      void q.then(({ data }) => { if (live) setContacts((data ?? []) as ContactOption[]); });
-    }, 250);
+      searchContacts(search, 25).then((rows) => { if (live) setContacts(rows); }).catch(() => { if (live) setContacts([]); });
+    }, 300);
     return () => { live = false; clearTimeout(timer); };
   }, [open, search]);
 

@@ -10,6 +10,7 @@ import { useCan } from "@/hooks/use-can";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { OfflinePaymentDialog } from "@/components/commerce/payments/offline-payment-dialog";
+import { OrderPaymentsPanel } from "@/components/commerce/payments/customer-payments-table";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -268,6 +269,12 @@ export function OrderDetailView({ id }: { id: string }) {
               )}
             </div>
           )}
+          <div>
+            <h2 className="mb-2 text-sm font-semibold text-foreground">{t("detail.payments")}</h2>
+            {/* Remounts (and reloads) whenever the order changes, e.g. after a payment is recorded. */}
+            <OrderPaymentsPanel key={`${order.id}:${order.updated_at}`} orderId={order.id}
+              dispatched={order.status === "dispatched" || order.status === "fulfilled"} />
+          </div>
           {priced && <OrderEditPanel key={`${order.id}:${order.updated_at}`} orderId={order.id} canEdit={canAct} onChanged={() => void reload()} />}
           {order.customer_note && (
             <div className="rounded-xl border border-border bg-card p-4">

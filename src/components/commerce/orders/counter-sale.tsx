@@ -20,14 +20,13 @@ import { useCan } from "@/hooks/use-can";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { createClient } from "@/lib/data/client";
+import { searchContacts, type ContactOption } from "@/lib/contacts/contact-search";
 import { formatMoney } from "@/lib/commerce/money";
 import { createCounterSale, documentUrl, getOrderTimeline, listSellableVariants, type CounterSaleResult, type SellableVariant } from "./order-api";
 import { orderRef } from "./order-state";
 
 const MAX_QTY = 99;
 type Method = "cash" | "upi";
-interface ContactOption { id: string; name: string | null; phone: string | null }
 
 export function CounterSale() {
   const t = useTranslations("Commerce.counter");
@@ -68,12 +67,10 @@ export function CounterSale() {
   useEffect(() => {
     if (walkIn) return;
     let live = true;
-    const term = search.trim().replace(/[%_,()]/g, "");
+    // Name or phone; waits 300ms after typing.
     const timer = setTimeout(() => {
-      let q = createClient().from("contacts").select("id,name,phone").order("name").limit(10);
-      if (term) q = q.ilike("name", `%${term}%`);
-      void q.then(({ data }) => { if (live) setContacts((data ?? []) as ContactOption[]); });
-    }, 250);
+      searchContacts(search, 10).then((rows) => { if (live) setContacts(rows); }).catch(() => { if (live) setContacts([]); });
+    }, 300);
     return () => { live = false; clearTimeout(timer); };
   }, [walkIn, search]);
 
