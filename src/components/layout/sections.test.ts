@@ -48,5 +48,11 @@ describe('sections', () => {
     expect(tab('/whatsapp/flows/abc')).toBe('/automation');
     expect(tab('/commerce/products/9')).toBe('/commerce/products');
     expect(tab('/dashboard')).toBe('/dashboard');
+    // Contacts: People, Segments, Custom fields in the shared tab bar.
+    expect(both.find((s) => s.id === 'contacts')!.tabs.map((t) => t.labelKey)).toEqual(['people', 'segments', 'customFields']);
+    expect(tab('/contacts')).toBe('/contacts');
+    expect(tab('/contacts/123')).toBe('/contacts');
+    expect(tab('/contacts/segments')).toBe('/contacts/segments');
+    expect(tab('/contacts/fields')).toBe('/contacts/fields');
   });
 });
