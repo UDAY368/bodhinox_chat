@@ -6497,7 +6497,8 @@
       "payment_exception": "Pagamento para revisar",
       "instagram_account_health": "Conta do Instagram",
       "automation_notice": "Aviso de automação",
-      "webhook_disabled": "Webhook desativado"
+      "webhook_disabled": "Webhook desativado",
+      "appointment_no_show": "No-show"
     },
     "loadFailed": "Não foi possível carregar as notificações."
   },
@@ -12592,6 +12593,10 @@
     "webhook_disabled": {
       "label": "Webhooks desativados",
       "description": "As entregas para um webhook falharam durante um dia, então ele foi desativado."
+    },
+    "appointment_no_show": {
+      "label": "No-shows",
+      "description": "A customer did not come to a confirmed appointment."
     }
   },
   "Weekdays": {
@@ -15447,7 +15452,8 @@
     "actionTooLate": "It is too late to change your {service} appointment online. Please reply here and our team will help.",
     "actionStale": "This reminder is out of date. You can see your booking here: {link}",
     "intakeBody": "Please fill in this short form before your {service} appointment on {time}.",
-    "intakeCta": "Fill in form"
+    "intakeCta": "Fill in form",
+    "staffNoShow": "No-show: {service} at {time}"
   },
   "Storefront": {
     "metaTitle": "Seu pedido",

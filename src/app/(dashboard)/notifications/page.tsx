@@ -12,6 +12,7 @@ import {
   CalendarCheck,
   CalendarClock,
   CalendarX,
+  CalendarOff,
   CheckCheck,
   CreditCard,
   FileX,
@@ -46,6 +47,7 @@ const TYPE_ICON: Record<Notification["type"], typeof Bell> = {
   appointment_booked: CalendarCheck,
   appointment_cancelled: CalendarX,
   appointment_rescheduled: CalendarClock,
+  appointment_no_show: CalendarOff,
   automation_notice: Zap,
   webhook_disabled: Webhook,
 };

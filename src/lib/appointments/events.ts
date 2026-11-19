@@ -35,13 +35,14 @@ export const EVENT_FANOUT: Partial<Record<AppointmentEventKind, Fanout>> = {
   rescheduled: { trigger: 'appointment_rescheduled', webhook: 'appointment.rescheduled', notification: 'appointment_rescheduled' },
   cancelled: { trigger: 'appointment_cancelled', webhook: 'appointment.cancelled', notification: 'appointment_cancelled' },
   completed: { trigger: 'appointment_completed', webhook: 'appointment.completed', notification: null },
-  no_show: { trigger: 'appointment_no_show', webhook: 'appointment.no_show', notification: null },
+  no_show: { trigger: 'appointment_no_show', webhook: 'appointment.no_show', notification: 'appointment_no_show' },
 };
 
 const STAFF_TITLE: Partial<Record<NotificationEvent, string>> = {
   appointment_booked: 'staffBooked',
   appointment_rescheduled: 'staffRescheduled',
   appointment_cancelled: 'staffCancelled',
+  appointment_no_show: 'staffNoShow',
 };
 
 /** Pending reminder jobs of older versions become done/superseded. Returns how many. */

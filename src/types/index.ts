@@ -490,6 +490,7 @@ export const NOTIFICATION_TYPES = [
   'appointment_booked',
   'appointment_cancelled',
   'appointment_rescheduled',
+  'appointment_no_show',
   'automation_notice',
   'webhook_disabled',
 ] as const;
