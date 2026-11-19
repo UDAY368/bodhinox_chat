@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  normaliseHandle, parseThemeSettings, readableOn, readThemeSettings, resolveTheme, safeHttpsUrl, SHOP_TEMPLATE_IDS, SHOP_TEMPLATES,
+  contrastRatio, normaliseHandle, parseThemeSettings, readableOn, readThemeSettings, resolveTheme, safeHttpsUrl, SHOP_TEMPLATE_IDS, SHOP_TEMPLATES,
   ShopThemeError, suggestHandle, themeCssVars,
 } from './shop-templates';
 
@@ -67,5 +67,23 @@ describe('shop templates', () => {
     for (const bad of ['ab', '-shop', 'shop-', 'my--shop', 'admin', 'api', 'a_b', 'x'.repeat(41), 7]) expect(normaliseHandle(bad)).toBeNull();
     expect(suggestHandle("Kumar's Ayurveda & Co.")).toBe('kumar-s-ayurveda-co');
     expect(suggestHandle('')).toBe('my-shop');
+  });
+});
+
+describe('theme preset accessibility', () => {
+  it('keeps body text, prices and button text readable (WCAG AA, 4.5:1) in every template', () => {
+    for (const id of SHOP_TEMPLATE_IDS) {
+      const { colors } = SHOP_TEMPLATES[id];
+      for (const [name, a, b] of [
+        ['text on background', colors.text, colors.background], ['text on surface', colors.text, colors.surface],
+        ['primary (prices) on background', colors.primary, colors.background], ['primary (prices) on surface', colors.primary, colors.surface],
+        ['button text on primary', readableOn(colors.primary), colors.primary], ['button text on accent', readableOn(colors.accent), colors.accent],
+      ] as const) expect(contrastRatio(a, b), `${id}: ${name}`).toBeGreaterThanOrEqual(4.5);
+    }
+  });
+
+  it('measures contrast the WCAG way', () => {
+    expect(contrastRatio('#000000', '#ffffff')).toBeCloseTo(21, 5);
+    expect(contrastRatio('#777777', '#777777')).toBe(1);
   });
 });

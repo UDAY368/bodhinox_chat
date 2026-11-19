@@ -20,7 +20,7 @@ export async function GET(request: Request, { params }: Params) {
     const found = await withPublicShop(handle, async (tx, accountId) => {
       const [row] = await tx.$queryRaw<{ url: string | null; media_id: string | null }[]>`
         SELECT i.url, i.media_id::text AS media_id FROM shop_product_images i
-        JOIN shop_products p ON p.account_id=i.account_id AND p.id=i.product_id AND p.status='published'
+        JOIN shop_products p ON p.account_id=i.account_id AND p.id=i.product_id AND shop_product_live(p.status, p.publish_at, p.hide_at)
         WHERE i.account_id=${accountId}::uuid AND i.id=${imageId}::uuid`;
       return row ? { accountId, ...row } : null;
     });

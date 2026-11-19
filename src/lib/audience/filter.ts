@@ -59,7 +59,16 @@ const condition = z.discriminatedUnion('field', [
   // Stage 5: the Instagram subscription. subscribed: an Instagram identity and no Instagram opt-out;
   // unsubscribed: opted out on Instagram (contacts.instagram_opted_out_at).
   z.object({ field: z.literal('instagram_subscription'), op: z.enum(['subscribed', 'unsubscribed']) }).strict(),
+  // Store plan Phase 8, batch 6: what the contact bought from the shop. Counted orders are paid and not cancelled or expired.
+  // shop_orders: how many; shop_spend: net of refunds, in the store currency's minor units; shop_order_date: the first or last order's day.
+  z.object({ field: z.literal('shop_orders'), op: z.enum(['at_least', 'at_most']), value: z.number().int().min(0).max(1_000_000) }).strict(),
+  z.object({ field: z.literal('shop_spend'), op: z.enum(['at_least', 'at_most']), value: z.number().int().min(0).max(100_000_000_000) }).strict(),
+  z.object({ field: z.literal('shop_order_date'), which: z.enum(['first', 'last']), op: z.enum(['before', 'after']), value: z.string().date() }).strict(),
+  // A product or a category (exactly one of the two; a free gift does not count as bought).
+  z.object({ field: z.literal('shop_bought'), op: z.enum(['bought', 'not_bought']), productId: uuid.optional(), categoryId: uuid.optional() }).strict(),
 ]).superRefine((c, ctx) => {
+  if (c.field === 'shop_bought' && (c.productId === undefined) === (c.categoryId === undefined))
+    ctx.addIssue({ code: 'custom', message: 'Pick a product or a category' });
   const needsValue = ['is', 'is_not', 'contains'].includes(c.op) && c.field !== 'opted_out' && c.field !== 'blocked';
   if (needsValue && !('value' in c && typeof c.value === 'string' && c.value.length > 0))
     ctx.addIssue({ code: 'custom', message: 'This condition needs a value' });
@@ -84,6 +93,10 @@ const textIds = (values: string[]) =>
   Prisma.sql`SELECT value FROM jsonb_array_elements_text(${JSON.stringify(values)}::jsonb)`;
 const like = (value: string) => `%${value.replace(/[\\%_]/g, (m) => `\\${m}`)}%`;
 const COLUMNS = { name: Prisma.sql`c.name`, email: Prisma.sql`c.email`, company: Prisma.sql`c.company`, phone: Prisma.sql`c.phone` };
+
+/** The shop orders a contact's figures count: paid and still standing. */
+const countedOrders = (accountId: string) =>
+  Prisma.sql`o.account_id=${accountId}::uuid AND o.contact_id=c.id AND o.paid_at IS NOT NULL AND o.status NOT IN ('cancelled','expired')`;
 
 function compileCondition(accountId: string, c: AudienceCondition): Prisma.Sql {
   switch (c.field) {
@@ -160,6 +173,23 @@ function compileCondition(accountId: string, c: AudienceCondition): Prisma.Sql {
     }
     case 'whatsapp':
       return c.op === 'has_number' ? Prisma.sql`COALESCE(c.phone,'') <> ''` : Prisma.sql`COALESCE(c.phone,'') = ''`;
+    case 'shop_orders':
+      return Prisma.sql`(SELECT count(*) FROM orders o WHERE ${countedOrders(accountId)}) ${c.op === 'at_least' ? Prisma.sql`>=` : Prisma.sql`<=`} ${c.value}`;
+    case 'shop_spend':
+      return Prisma.sql`COALESCE((SELECT sum(GREATEST(COALESCE(o.total_minor, o.subtotal_minor) - o.amount_refunded_minor, 0)) FROM orders o
+        WHERE ${countedOrders(accountId)}), 0) ${c.op === 'at_least' ? Prisma.sql`>=` : Prisma.sql`<=`} ${c.value}`;
+    case 'shop_order_date': {
+      const edge = Prisma.sql`(SELECT ${c.which === 'first' ? Prisma.sql`min(o.created_at)` : Prisma.sql`max(o.created_at)`} FROM orders o WHERE ${countedOrders(accountId)})`;
+      return c.op === 'before' ? Prisma.sql`${edge} < ${c.value}::date` : Prisma.sql`${edge} >= (${c.value}::date + 1)`;
+    }
+    case 'shop_bought': {
+      const target = c.productId ? Prisma.sql`p.id=${c.productId}::uuid` : Prisma.sql`p.category_id=${c.categoryId}::uuid`;
+      const bought = Prisma.sql`EXISTS(SELECT 1 FROM orders o JOIN order_items i ON i.account_id=o.account_id AND i.order_id=o.id AND NOT i.is_gift
+        JOIN shop_variants v ON v.account_id=i.account_id AND v.id=i.variant_id
+        JOIN shop_products p ON p.account_id=v.account_id AND p.id=v.product_id
+        WHERE ${countedOrders(accountId)} AND ${target})`;
+      return c.op === 'bought' ? bought : Prisma.sql`NOT ${bought}`;
+    }
     case 'instagram_subscription': {
       if (c.op === 'unsubscribed') return Prisma.sql`c.instagram_opted_out_at IS NOT NULL`;
       return Prisma.sql`(c.instagram_opted_out_at IS NULL AND EXISTS(SELECT 1 FROM contact_channel_identities i
@@ -193,6 +223,16 @@ export async function assertFilterReferences(tx: TenantTransaction, accountId: s
   if (broadcastIds.length) {
     const found = await tx.$queryRaw<{ id: string }[]>(Prisma.sql`SELECT id FROM broadcasts WHERE account_id=${accountId}::uuid AND id IN (${ids(broadcastIds)})`);
     if (found.length !== broadcastIds.length) throw new AudienceFilterError('Some campaigns in this filter are unavailable in this workspace');
+  }
+  const productIds = [...new Set(filter.conditions.flatMap((c) => (c.field === 'shop_bought' && c.productId ? [c.productId] : [])))];
+  const categoryIds = [...new Set(filter.conditions.flatMap((c) => (c.field === 'shop_bought' && c.categoryId ? [c.categoryId] : [])))];
+  if (productIds.length) {
+    const found = await tx.$queryRaw<{ id: string }[]>(Prisma.sql`SELECT id FROM shop_products WHERE account_id=${accountId}::uuid AND id IN (${ids(productIds)})`);
+    if (found.length !== productIds.length) throw new AudienceFilterError('Some products in this filter are unavailable in this workspace');
+  }
+  if (categoryIds.length) {
+    const found = await tx.$queryRaw<{ id: string }[]>(Prisma.sql`SELECT id FROM shop_categories WHERE account_id=${accountId}::uuid AND id IN (${ids(categoryIds)})`);
+    if (found.length !== categoryIds.length) throw new AudienceFilterError('Some categories in this filter are unavailable in this workspace');
   }
   if (listIds.length) {
     const found = await tx.$queryRaw<{ id: string }[]>(Prisma.sql`SELECT id FROM contact_lists WHERE account_id=${accountId}::uuid AND id IN (${ids(listIds)})`);

@@ -17,6 +17,9 @@ import { parseDiscountDetails, type StoredDiscountDetail } from './auto-discount
 import { minorFromDb } from './money';
 import { classifyMaskedPhoneSearch, loadPhoneMask } from '@/lib/inbox/masking-apply';
 import { transitionOrder } from './order-lifecycle';
+import { loadOrderRisks, type OrderRisk } from './order-risk';
+import { readBuyerExtras, type BuyerExtras } from './checkout-extras';
+import { parseTags } from './order-tags';
 import {
   canTransition,
   isOrderSource,
@@ -124,6 +127,12 @@ export interface OrderListItem {
   refund_state: RefundState;
   contact: { id: string; name: string | null; phone: string | null } | null;
   conversation_id: string | null;
+  /** Staff labels (internal; never in a public API). */
+  tags: string[];
+  /** Rule-based risk hint, computed when read. */
+  risk: OrderRisk;
+  /** What the buyer asked for at checkout (note, gift message, delivery date and slot, custom answers); null when nothing. */
+  extras: BuyerExtras | null;
   created_at: string;
   updated_at: string;
 }
@@ -147,9 +156,17 @@ export interface OrderDetail extends OrderListItem {
   tax_inclusive: boolean | null;
   coupon_code: string | null;
   shipping_address: Record<string, unknown> | null;
+  /** How the order reaches the customer: a courier or own shipping, store pickup, or the store's local delivery. */
+  delivery_method: 'ship' | 'pickup' | 'local';
+  /** Pre-order (Phase 8): the date the order ships by (YYYY-MM-DD); null for an ordinary order. */
+  preorder_ship_date: string | null;
   reservation_expires_at: string | null;
   paid_at: string | null;
   amount_paid_minor: number;
+  /** Store credit and loyalty points the order was placed with (Phase 8). They are payments, counted in amount_paid_minor while they hold. */
+  store_credit_minor: number;
+  points_redeemed: number;
+  points_value_minor: number;
   amount_refunded_minor: number;
   refund_state: RefundState;
   dispatched_at: string | null;
@@ -162,6 +179,8 @@ export interface OrderDetail extends OrderListItem {
     /** The price the customer's WhatsApp cart showed, kept for reference only. */
     submitted_unit_price_minor: number | null;
     tax_rate_bps: number | null; tax_minor: number | null; discount_minor: number | null; line_total_minor: number | null;
+    /** A free gift line added by a gift rule. */
+    is_gift: boolean;
   }>;
 }
 
@@ -174,6 +193,8 @@ export interface OrderFilters {
   codConfirmation?: 'pending' | 'declined';
   /** Matches the contact's name or phone, or the store's order number. */
   q?: string;
+  /** Only orders carrying this tag. */
+  tag?: string;
   from?: Date;
   to?: Date;
   limit?: number;
@@ -205,6 +226,9 @@ export function parseOrderFilters(params: URLSearchParams): OrderFilters {
   if (codConfirmation && codConfirmation !== 'pending' && codConfirmation !== 'declined') throw new OrderError(400, 'invalid', 'Invalid cod_confirmation');
   if (limit && !/^\d{1,3}$/.test(limit)) throw new OrderError(400, 'invalid', 'Invalid limit');
   const q = params.get('q')?.trim().slice(0, 100) || undefined;
+  const tagParam = params.get('tag');
+  const tag = tagParam ? parseTags([tagParam])?.[0] : undefined;
+  if (tagParam && !tag) throw new OrderError(400, 'invalid', 'Invalid tag');
   return {
     ...(status ? { status: status as OrderStatus } : {}),
     ...(source ? { source: source as OrderSource } : {}),
@@ -212,6 +236,7 @@ export function parseOrderFilters(params: URLSearchParams): OrderFilters {
     ...(conversationId ? { conversationId } : {}),
     ...(codConfirmation ? { codConfirmation: codConfirmation as 'pending' | 'declined' } : {}),
     ...(q ? { q } : {}),
+    ...(tag ? { tag } : {}),
     from: dateParam(params.get('from'), 'from'),
     to: dateParam(params.get('to'), 'to'),
     ...(limit ? { limit: Math.min(Math.max(Number(limit), 1), 100) } : {}),
@@ -237,7 +262,7 @@ const EPOCH_MICROS = Prisma.sql`(extract(epoch from date_trunc('second', created
 const listSelect = {
   id: true, source: true, external_id: true, status: true, currency: true, subtotal_minor: true, total_minor: true,
   contact_id: true, conversation_id: true, created_at: true, updated_at: true, payment_method: true, paid_at: true, refund_state: true,
-  cod_confirmation: true,
+  cod_confirmation: true, tags: true, shipping_address: true, buyer_extras: true,
 } as const;
 type ListRow = Prisma.ordersGetPayload<{ select: typeof listSelect }>;
 
@@ -248,11 +273,13 @@ async function decorate(tx: TenantTransaction, accountId: string, rows: ListRow[
     ids.length ? tx.order_items.groupBy({ by: ['order_id'], where: { account_id: accountId, order_id: { in: ids } }, _sum: { quantity: true } }) : [],
     contactIds.length ? tx.contacts.findMany({ where: { account_id: accountId, id: { in: contactIds } }, select: { id: true, name: true, phone: true } }) : [],
   ]);
+  const risks = await loadOrderRisks(tx, accountId, rows);
   const countOf = new Map(counts.map((c) => [c.order_id, c._sum.quantity ?? 0]));
   const contactOf = new Map(contacts.map((c) => [c.id, c]));
   return rows.map((r) => {
     const contact = r.contact_id ? contactOf.get(r.contact_id) : undefined;
     return {
+      tags: r.tags, risk: risks.get(r.id)!, extras: readBuyerExtras(r.buyer_extras),
       id: r.id, source: r.source as OrderSource, external_id: r.external_id, status: r.status as OrderStatus,
       currency: r.currency, subtotal_minor: minorFromDb(r.subtotal_minor)!, total_minor: minorFromDb(r.total_minor),
       payment_method: r.payment_method === 'cod' ? 'cod' : 'online',
@@ -277,6 +304,7 @@ export async function listOrders(ctx: TenantContext, filters: OrderFilters = {})
     if (filters.codConfirmation) and.push({ cod_confirmation: filters.codConfirmation });
     if (filters.from) and.push({ created_at: { gte: filters.from } });
     if (filters.to) and.push({ created_at: { lte: filters.to } });
+    if (filters.tag) and.push({ tags: { has: filters.tag } });
     if (filters.q) {
       // A member whose numbers are masked may search a number only by its last digits.
       const phoneSearch = /\d/.test(filters.q) && (await loadPhoneMask(tx, ctx)) ? classifyMaskedPhoneSearch(filters.q) : null;
@@ -320,8 +348,9 @@ async function readOrder(tx: TenantTransaction, accountId: string, id: string): 
     select: {
       ...listSelect, catalog_id: true, whatsapp_config_id: true, note: true, customer_note: true,
       priced_at: true, discount_minor: true, shipping_minor: true, cod_fee_minor: true, auto_discount_minor: true, discount_details: true, tax_minor: true, tax_inclusive: true, coupon_code: true,
-      shipping_address: true, reservation_expires_at: true, amount_paid_minor: true, amount_refunded_minor: true,
+      delivery_method: true, preorder_ship_date: true, reservation_expires_at: true, amount_paid_minor: true, amount_refunded_minor: true,
       dispatched_at: true, delivered_at: true, tracking_note: true, feedback_score: true,
+      store_credit_minor: true, points_redeemed: true, points_value_minor: true,
     },
   });
   if (!row) throw new OrderError(404, 'not_found', 'Order not found');
@@ -331,6 +360,7 @@ async function readOrder(tx: TenantTransaction, accountId: string, id: string): 
     select: {
       id: true, retailer_id: true, name: true, quantity: true, unit_price_minor: true, currency: true, variant_id: true, sku: true,
       hsn_code: true, submitted_unit_price_minor: true, tax_rate_bps: true, tax_minor: true, discount_minor: true, line_total_minor: true,
+      is_gift: true,
     },
   });
   const iso = (d: Date | null) => (d ? d.toISOString() : null);
@@ -341,8 +371,12 @@ async function readOrder(tx: TenantTransaction, accountId: string, id: string): 
     cod_fee_minor: minorFromDb(row.cod_fee_minor) ?? 0, auto_discount_minor: minorFromDb(row.auto_discount_minor) ?? 0,
     discount_details: parseDiscountDetails(row.discount_details), tax_minor: minorFromDb(row.tax_minor)!, tax_inclusive: row.tax_inclusive, coupon_code: row.coupon_code,
     shipping_address: address && typeof address === 'object' && !Array.isArray(address) ? (address as Record<string, unknown>) : null,
+    delivery_method: row.delivery_method === 'pickup' || row.delivery_method === 'local' ? row.delivery_method : 'ship',
+    preorder_ship_date: row.preorder_ship_date ? row.preorder_ship_date.toISOString().slice(0, 10) : null,
     reservation_expires_at: iso(row.reservation_expires_at), paid_at: iso(row.paid_at),
     amount_paid_minor: minorFromDb(row.amount_paid_minor)!, amount_refunded_minor: minorFromDb(row.amount_refunded_minor)!,
+    store_credit_minor: minorFromDb(row.store_credit_minor) ?? 0, points_redeemed: row.points_redeemed,
+    points_value_minor: minorFromDb(row.points_value_minor) ?? 0,
     refund_state: row.refund_state as RefundState, dispatched_at: iso(row.dispatched_at), delivered_at: iso(row.delivered_at),
     tracking_note: row.tracking_note, feedback_score: row.feedback_score,
     items: items.map((i) => ({
@@ -356,13 +390,13 @@ export async function getOrder(ctx: TenantContext, id: string): Promise<OrderDet
   return withTenant(ctx, (tx) => readOrder(tx, ctx.accountId, id));
 }
 
-export interface OrderPatch { status?: OrderStatus; note?: string | null }
+export interface OrderPatch { status?: OrderStatus; note?: string | null; tags?: string[] }
 
 export function parseOrderPatch(body: unknown): OrderPatch {
   if (!body || typeof body !== 'object' || Array.isArray(body)) throw new OrderError(400, 'invalid', 'Invalid request body');
   const input = body as Record<string, unknown>;
-  const unknown = Object.keys(input).filter((k) => k !== 'status' && k !== 'note');
-  if (unknown.length) throw new OrderError(400, 'invalid', 'Only status and note can be changed');
+  const unknown = Object.keys(input).filter((k) => k !== 'status' && k !== 'note' && k !== 'tags');
+  if (unknown.length) throw new OrderError(400, 'invalid', 'Only status, note and tags can be changed');
   const patch: OrderPatch = {};
   if (input.status !== undefined) {
     if (!isOrderStatus(input.status)) throw new OrderError(400, 'invalid', 'Invalid status');
@@ -374,7 +408,12 @@ export function parseOrderPatch(body: unknown): OrderPatch {
     if (note.length > ORDER_LIMITS.noteMaxLength) throw new OrderError(400, 'invalid', 'Note is too long');
     patch.note = note || null;
   }
-  if (patch.status === undefined && patch.note === undefined) throw new OrderError(400, 'invalid', 'Nothing to change');
+  if (input.tags !== undefined) {
+    const tags = parseTags(input.tags);
+    if (!tags) throw new OrderError(400, 'invalid', 'Invalid tags');
+    patch.tags = tags;
+  }
+  if (patch.status === undefined && patch.note === undefined && patch.tags === undefined) throw new OrderError(400, 'invalid', 'Nothing to change');
   return patch;
 }
 
@@ -400,6 +439,10 @@ export async function updateOrder(ctx: TenantContext, id: string, patch: OrderPa
   return withTenant(ctx, async (tx) => {
     if (patch.note !== undefined) {
       const { count } = await tx.orders.updateMany({ where: { account_id: ctx.accountId, id }, data: { note: patch.note } });
+      if (count !== 1) throw new OrderError(404, 'not_found', 'Order not found');
+    }
+    if (patch.tags !== undefined) {
+      const { count } = await tx.orders.updateMany({ where: { account_id: ctx.accountId, id }, data: { tags: patch.tags } });
       if (count !== 1) throw new OrderError(404, 'not_found', 'Order not found');
     }
     return readOrder(tx, ctx.accountId, id);

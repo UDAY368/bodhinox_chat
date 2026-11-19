@@ -4,10 +4,10 @@
 
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { notFound } from 'next/navigation';
 import { getLocale, getTranslations } from 'next-intl/server';
 import { ProductCard, ProductGrid } from '@/components/shop-public/product-card';
 import { CATEGORY_SORTS, loadShopCategory } from '@/lib/commerce/public-shop';
+import { notFoundOrRedirect } from '@/lib/commerce/shop-not-found';
 
 export const dynamic = 'force-dynamic';
 
@@ -25,7 +25,7 @@ export default async function ShopCategoryPage({ params, searchParams }: Props) 
   const { handle, categoryId } = await params;
   const query = await searchParams;
   const page = await loadShopCategory(handle, categoryId, query);
-  if (!page) notFound();
+  if (!page) return notFoundOrRedirect(handle, `/c/${categoryId}`);
   const t = await getTranslations('ShopPublic');
   const locale = await getLocale();
   const base = `/s/${handle}/c/${categoryId}`;

@@ -1,6 +1,6 @@
 // GET  /api/commerce/returns/[id] — one return (agents and above). 200 { return }.
 // POST /api/commerce/returns/[id] — move a return along its lifecycle (agents and above):
-//   { action: 'receive' } | { action: 'reject' } | { action: 'inspect', disposition: { <order_item_id>: 'restock'|'discard' } }
+//   { action: 'approve' } (a buyer's request; an exchange also makes its replacement order) | { action: 'receive' } | { action: 'reject' } | { action: 'inspect', disposition: { <order_item_id>: 'restock'|'discard' } }
 //   | { action: 'close', restock?: boolean } (admins) | { action: 'refund', amount_minor, note?, refunded_outside? } (commerce.refunds).
 //   refunded_outside: true confirms money Razorpay does not hold (cash on delivery, a staff-recorded payment) was handed
 //   back outside the app; it is then recorded as refunded at once (409 offline_payment without it).
@@ -9,7 +9,7 @@
 import { NextResponse } from 'next/server';
 
 import { OrderError } from '@/lib/commerce/orders';
-import { closeReturn, getReturn, inspectReturn, receiveReturn, refundReturn, rejectReturn } from '@/lib/commerce/returns';
+import { approveReturn, closeReturn, getReturn, inspectReturn, receiveReturn, refundReturn, rejectReturn } from '@/lib/commerce/returns';
 import { jsonBody, lifecycleErrorResponse, NO_STORE, staffContext, writeLimit } from '../../orders/_lib/http';
 
 type Context = { params: Promise<{ id: string }> };
@@ -32,6 +32,8 @@ export async function POST(request: Request, context: Context) {
     if (limited) return limited;
     const body = await jsonBody(request);
     switch (body.action) {
+      case 'approve':
+        return NextResponse.json({ return: await approveReturn(ctx, id) }, { headers: NO_STORE });
       case 'receive':
         return NextResponse.json({ return: await receiveReturn(ctx, id) }, { headers: NO_STORE });
       case 'reject':

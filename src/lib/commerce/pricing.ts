@@ -5,7 +5,10 @@
  * of the store currency; nothing here ever touches a float.
  *
  * Order of operations (E4):
- *  1. line_gross = unit × qty, subtotal = Σ line_gross
+ *  1. unit = the catalogue price, or the buyer's wholesale price-list price (price-rules.ts);
+ *     line_gross = unit × qty, subtotal = Σ line_gross
+ *  1b. discount rules on the line (product, category or customer group; price-rules.ts). A rule that does not
+ *     combine is used only when the whole cart is cheaper that way; its line then takes nothing from steps 2-3
  *  2. automatic discounts (auto-discounts.ts): the best order-level rule, then
  *     the prepaid rule when paying online; each sits on its lines
  *  2b. coupon discount on the merchandise left after them (percent:
@@ -19,7 +22,19 @@
  *     the fee to 0; its minimum reads the subtotal after the order-level
  *     automatic rule, before the prepaid discount and the coupon); a cash-on-delivery (COD)
  *     fee is taxed like shipping at the store's default rate
+ *  5b. store pickup and local delivery (Phase 8) take the place of the shipping
+ *     rate: pickup is free, local delivery charges the store's own fee (taxed
+ *     at the store's default rate, waived by a free-shipping rule) and only
+ *     reaches the postal prefixes the store listed
+ *  5c. a cart of only digital products (Phase 8) needs no address and no shipping: shipping is 0, whatever
+ *     delivery method was chosen, and the order records 'ship'; cash on delivery is refused for it (the product
+ *     is not collectable). A bundle is an ordinary line at the bundle's own price (its parts only matter to stock);
+ *     a pre-order line carries its ship date through to the order.
+ *  5d. a free gift (Phase 8): a gift rule that holds on the merchandise after discounts adds its variant as a
+ *     line at 0, when one unit is available. It is an ordinary line for stock, shipping and cash on delivery.
  *  6. total = subtotal − discount + shipping + cod_fee + (inclusive ? 0 : tax_total)
+ *  7. loyalty points, then store credit, pay part of the total (Phase 8). They are payments, not discounts:
+ *     the total and the tax do not change; payable = total − points value − store credit.
  *
  * The COD fee is never discounted and never counts toward a coupon minimum or
  * a shipping band: those read the merchandise amount only.
@@ -30,6 +45,10 @@
  */
 import { applyAutoDiscounts, type AppliedAutoDiscount, type PricingAutoDiscount } from './auto-discounts';
 import { allocateLargestRemainder, MAX_MINOR, mulDivHalfUp, roundHalfUp } from './money';
+import {
+  giftsFor, lineRuleOutcome, tenderFor, tierUnitPrice, type PricingGiftRule, type PricingLineRule, type PricingPriceTier, type PricingTender,
+  type RuleSaving,
+} from './price-rules';
 
 export const CART_LIMITS = { maxLines: 50, maxQty: 99 } as const;
 
@@ -46,11 +65,26 @@ export type PricingRefusal =
   | 'coupon_expired'
   | 'coupon_min_subtotal'
   | 'amount_out_of_range'
-  | 'cod_unavailable';
+  | 'cod_unavailable'
+  | 'delivery_unavailable';
 
 export type PaymentMethod = 'online' | 'cod';
 export const PAYMENT_METHODS: readonly PaymentMethod[] = ['online', 'cod'];
 export const isPaymentMethod = (value: unknown): value is PaymentMethod => value === 'online' || value === 'cod';
+
+/** How the order reaches the customer: a shipping rate, collection at the store, or the store's own local delivery. */
+export type DeliveryMethod = 'ship' | 'pickup' | 'local';
+export const DELIVERY_METHODS: readonly DeliveryMethod[] = ['ship', 'pickup', 'local'];
+export const isDeliveryMethod = (value: unknown): value is DeliveryMethod => value === 'ship' || value === 'pickup' || value === 'local';
+
+/** The store's pickup and local delivery settings as pricing reads them. */
+export interface PricingDeliveryOptions {
+  pickupEnabled: boolean;
+  localEnabled: boolean;
+  localFeeMinor: number;
+  /** Postal code prefixes local delivery reaches (upper case, no spaces). None listed = nowhere. */
+  localPostalPrefixes: readonly string[];
+}
 
 export interface PricingVariant {
   id: string;
@@ -68,6 +102,14 @@ export interface PricingVariant {
   codAvailable?: boolean;
   /** Shipping weight of one unit in grams (absent or null counts as 0). */
   weightGrams?: number | null;
+  /** A digital product: no shipping (absent = physical). */
+  digital?: boolean;
+  /** The variant is on pre-order and ships by this date, YYYY-MM-DD (absent = in the usual stock). */
+  preorderShipDate?: string | null;
+  /** The product's category, for category discount rules (absent = none). */
+  categoryId?: string | null;
+  /** Units that can be bought now (null or absent = no limit). Read only to decide whether a free gift can be added. */
+  available?: number | null;
 }
 
 export interface PricingSettings {
@@ -138,14 +180,25 @@ export interface QuoteLine {
   trackInventory: boolean;
   /** This line's product allows cash on delivery. */
   codAvailable: boolean;
+  /** A digital product. */
+  digital: boolean;
+  /** Pre-order: the date this line ships by (YYYY-MM-DD), else null. */
+  preorderShipDate: string | null;
   qty: number;
+  /** The unit price charged: the catalogue price, or the buyer's price-list price. */
   unitPriceMinor: number;
+  /** The catalogue unit price (above unitPriceMinor when a price list applied). */
+  catalogPriceMinor: number;
   grossMinor: number;
   discountMinor: number;
   taxRateBps: number;
   taxMinor: number;
   /** What the line costs the customer: taxable, plus tax when prices exclude it. */
   lineTotalMinor: number;
+  /** A free gift added by a gift rule (unit price 0). */
+  gift: boolean;
+  /** The gift rule's name, for a gift line. */
+  giftName: string | null;
 }
 
 export interface Quote {
@@ -155,14 +208,25 @@ export interface Quote {
   subtotalMinor: number;
   /** Every discount on the merchandise: automatic discounts plus the coupon. The line discounts sum to it. */
   discountMinor: number;
-  /** The automatic part of discountMinor (the coupon's part is the rest). */
+  /** The automatic part of discountMinor (the coupon's part is the rest): discount rules plus automatic discounts. */
   autoDiscountMinor: number;
-  /** The automatic discounts applied, in order. A free-shipping entry carries the fee waived and is not part of autoDiscountMinor. */
+  /** The part of autoDiscountMinor that came from discount rules on lines. */
+  ruleDiscountMinor: number;
+  /** The discount rules (kind 'price_rule'), then the automatic discounts applied, in order. A free-shipping entry carries the fee waived and is not part of autoDiscountMinor. */
   autoDiscounts: AppliedAutoDiscount[];
   /** Paying by COD: what paying online would save through the prepaid rule (0 when there is none). */
   prepaidSavingMinor: number;
   couponCode: string | null;
-  /** null until an address is known (a quote without shipping cannot be placed). */
+  /** How the order reaches the customer. */
+  deliveryMethod: DeliveryMethod;
+  /** Every line is a digital product: no address or shipping is needed. */
+  digitalOnly: boolean;
+  /** The latest ship date among the pre-order lines (the date the whole order is promised by), else null. */
+  preorderShipDate: string | null;
+  /**
+   * null until an address is known (a quote without shipping cannot be placed). For pickup and local
+   * delivery rateId is the method name and name is empty: the page words them itself.
+   */
   shipping: { rateId: string; name: string; feeMinor: number; taxRateBps: number; taxMinor: number } | null;
   shippingMinor: number;
   /** How the customer pays: online (payment link) or cash on delivery. */
@@ -175,6 +239,13 @@ export interface Quote {
   /** Line tax plus shipping tax plus COD fee tax. */
   taxMinor: number;
   totalMinor: number;
+  /** Loyalty points spent on this order and what they pay. */
+  pointsRedeemed: number;
+  pointsValueMinor: number;
+  /** Store credit spent on this order. */
+  storeCreditMinor: number;
+  /** What is left to pay with money: totalMinor − pointsValueMinor − storeCreditMinor. */
+  payableMinor: number;
 }
 
 export type PricingResult =
@@ -191,8 +262,20 @@ export interface PriceCartInput {
   address: PricingAddress | null;
   /** The customer's choice (absent = online). COD is refused unless the store and every product allow it. */
   paymentMethod?: PaymentMethod;
+  /** The customer's delivery choice (absent = a shipping rate). Pickup and local delivery are refused unless the store offers them. */
+  deliveryMethod?: DeliveryMethod;
+  /** The store's pickup and local delivery settings (absent = neither is offered). */
+  deliveryOptions?: PricingDeliveryOptions | null;
   /** The workspace's automatic discount rules (absent = none). Applied before the coupon. */
   autoDiscounts?: readonly PricingAutoDiscount[];
+  /** The buyer's wholesale price-list entries (absent = catalogue prices). */
+  priceTiers?: readonly PricingPriceTier[];
+  /** The discount rules that reach this buyer (absent = none). */
+  lineRules?: readonly PricingLineRule[];
+  /** The workspace's gift rules (absent = none). A gift's variant must be in `variants`. */
+  giftRules?: readonly PricingGiftRule[];
+  /** Points and store credit the buyer chose to pay with (absent = none). */
+  tender?: PricingTender | null;
   now?: Date;
 }
 
@@ -238,6 +321,24 @@ export function shippingFeeMinor(rate: PricingShippingRate, weightGrams: number,
   const steps = Math.ceil(over / rate.stepGrams);
   const fee = BigInt(rate.feeMinor) + BigInt(steps) * BigInt(rate.extraPerStepMinor);
   return fee > BigInt(MAX_MINOR) ? MAX_MINOR : Number(fee);
+}
+
+/** Local delivery reaches this postal code: the store offers it and one of its prefixes matches. */
+export function localDeliveryReaches(options: PricingDeliveryOptions | null | undefined, postalCode: string): boolean {
+  if (!options?.localEnabled) return false;
+  const code = postal(postalCode);
+  return code.length > 0 && options.localPostalPrefixes.some((prefix) => prefix.length > 0 && code.startsWith(postal(prefix)));
+}
+
+/**
+ * The delivery methods a buyer can pick. Without an address local delivery is listed when the store
+ * offers it (the address decides later, and the quote refuses delivery_unavailable if it is out of reach).
+ */
+export function availableDeliveryMethods(options: PricingDeliveryOptions | null | undefined, address: PricingAddress | null): DeliveryMethod[] {
+  const methods: DeliveryMethod[] = ['ship'];
+  if (options?.pickupEnabled) methods.push('pickup');
+  if (options?.localEnabled && (!address || localDeliveryReaches(options, address.postalCode))) methods.push('local');
+  return methods;
 }
 
 /**
@@ -304,8 +405,27 @@ function safeAdd(...values: number[]): number | null {
   return sum > BigInt(MAX_MINOR) || sum < BigInt(0) ? null : Number(sum);
 }
 
-/** Price a cart (E2-E4). Never throws for bad business input: refusals come back as codes. */
+/**
+ * Price a cart (E2-E4). Never throws for bad business input: refusals come back as codes.
+ * Priced without the rules that do not combine, and again with them when a line has one: the lower total wins
+ * (a tie, or a refusal of the second pricing, keeps the first).
+ */
 export function priceCart(input: PriceCartInput): PricingResult {
+  const base = priceWith(input, false);
+  if (!base.result.ok || !base.exclusive) return base.result;
+  const alt = priceWith(input, true).result;
+  return alt.ok && alt.quote.totalMinor < base.result.quote.totalMinor ? alt : base.result;
+}
+
+type Priced = { variant: PricingVariant; qty: number; unit: number; gross: number; bps: number; ruleMinor: number; closed: boolean; parts: RuleSaving[] };
+
+function priceWith(input: PriceCartInput, useExclusive: boolean): { result: PricingResult; exclusive: boolean } {
+  let exclusive = false;
+  const result = price(input, useExclusive, () => { exclusive = true; });
+  return { result, exclusive };
+}
+
+function price(input: PriceCartInput, useExclusive: boolean, sawExclusive: () => void): PricingResult {
   const now = input.now ?? new Date();
   const lines = normaliseCart(input.lines);
   if (!lines) return { ok: false, code: 'invalid_cart' };
@@ -314,27 +434,48 @@ export function priceCart(input: PriceCartInput): PricingResult {
   const { settings } = input;
   const inclusive = settings.pricesIncludeTax;
 
-  const priced: Array<{ variant: PricingVariant; qty: number; unit: number; gross: number; bps: number }> = [];
+  const priced: Priced[] = [];
   for (const line of lines) {
     const variant = variants.get(line.variantId);
     if (!variant || !variant.sellable) return { ok: false, code: 'variant_unavailable', variantId: line.variantId };
     if (variant.priceMinor === null) return { ok: false, code: 'price_not_configured', variantId: line.variantId };
     const bps = variant.taxRateBps ?? settings.defaultTaxRateBps;
     if (bps === null) return { ok: false, code: 'tax_not_configured', variantId: line.variantId };
-    const gross = BigInt(variant.priceMinor) * BigInt(line.qty);
-    if (gross > BigInt(MAX_MINOR)) return { ok: false, code: 'amount_out_of_range' };
-    priced.push({ variant, qty: line.qty, unit: variant.priceMinor, gross: Number(gross), bps });
+    const unit = tierUnitPrice(input.priceTiers ?? [], variant.id, line.qty, variant.priceMinor);
+    const big = BigInt(unit) * BigInt(line.qty);
+    if (big > BigInt(MAX_MINOR)) return { ok: false, code: 'amount_out_of_range' };
+    const gross = Number(big);
+    const rules = lineRuleOutcome(input.lineRules ?? [],
+      { productId: variant.productId, categoryId: variant.categoryId ?? null, unitMinor: unit, qty: line.qty, grossMinor: gross }, now);
+    if (rules.exclusive) sawExclusive();
+    // A rule that does not combine takes the line alone, and only when it beats the combinable rules on it.
+    const closed = useExclusive && rules.exclusive !== null && rules.exclusive.savingMinor > rules.combinableMinor;
+    const parts = closed ? [rules.exclusive!] : rules.combinable;
+    priced.push({ variant, qty: line.qty, unit, gross, bps, ruleMinor: parts.reduce((n, r) => n + r.savingMinor, 0), closed, parts });
   }
   const subtotal = safeAdd(...priced.map((p) => p.gross));
   if (subtotal === null) return { ok: false, code: 'amount_out_of_range' };
 
   const paymentMethod: PaymentMethod = input.paymentMethod ?? 'online';
+  // Automatic discounts and the coupon read the open lines only, at what the discount rules left of them.
+  const open = priced.map((_, i) => i).filter((i) => !priced[i].closed);
   const auto = applyAutoDiscounts(input.autoDiscounts ?? [],
-    priced.map((p) => ({ productId: p.variant.productId, unitMinor: p.unit, qty: p.qty, grossMinor: p.gross })), paymentMethod, now);
-  const autoDiscounts = [...auto.applied];
-  // What is left of each line after the automatic discounts: the coupon works on this.
-  const remaining = priced.map((p, i) => p.gross - auto.lineDiscounts[i]);
-  const reduced = subtotal - auto.discountMinor;
+    open.map((i) => ({ productId: priced[i].variant.productId, unitMinor: priced[i].unit, qty: priced[i].qty, grossMinor: priced[i].gross - priced[i].ruleMinor })),
+    paymentMethod, now);
+  const autoLine = priced.map(() => 0);
+  open.forEach((i, k) => { autoLine[i] = auto.lineDiscounts[k]; });
+  const ruleDiscountMinor = priced.reduce((n, p) => n + p.ruleMinor, 0);
+  // One entry per discount rule (its saving over every line), then the automatic discounts.
+  const ruleEntries = new Map<string, AppliedAutoDiscount>();
+  for (const p of priced) for (const part of p.parts) {
+    const entry = ruleEntries.get(part.id);
+    if (entry) entry.savingMinor += part.savingMinor;
+    else ruleEntries.set(part.id, { id: part.id, name: part.name, kind: 'price_rule', savingMinor: part.savingMinor });
+  }
+  const autoDiscounts = [...ruleEntries.values(), ...auto.applied];
+  // What is left of each line after the rules and the automatic discounts: the coupon works on the open ones.
+  const remaining = priced.map((p, i) => p.gross - p.ruleMinor - autoLine[i]);
+  const reduced = open.reduce((n, i) => n + remaining[i], 0);
 
   let couponMinor = 0;
   let couponCode: string | null = null;
@@ -345,9 +486,10 @@ export function priceCart(input: PriceCartInput): PricingResult {
     couponMinor = applied.discount;
     couponCode = input.coupon.code;
   }
-  const couponShares = couponMinor > 0 ? allocateLargestRemainder(couponMinor, remaining) : priced.map(() => 0);
-  const shares = priced.map((_, i) => auto.lineDiscounts[i] + couponShares[i]);
-  const discount = auto.discountMinor + couponMinor;
+  const couponShares = priced.map(() => 0);
+  if (couponMinor > 0) allocateLargestRemainder(couponMinor, open.map((i) => remaining[i])).forEach((share, k) => { couponShares[open[k]] = share; });
+  const shares = priced.map((p, i) => p.ruleMinor + autoLine[i] + couponShares[i]);
+  const discount = ruleDiscountMinor + auto.discountMinor + couponMinor;
 
   const quoteLines: QuoteLine[] = priced.map((p, i) => {
     const taxable = p.gross - shares[i];
@@ -355,18 +497,57 @@ export function priceCart(input: PriceCartInput): PricingResult {
     return {
       variantId: p.variant.id, productId: p.variant.productId, productName: p.variant.productName, sku: p.variant.sku,
       optionValues: p.variant.optionValues, hsnCode: p.variant.hsnCode, trackInventory: p.variant.trackInventory,
-      codAvailable: p.variant.codAvailable !== false, qty: p.qty, unitPriceMinor: p.unit, grossMinor: p.gross, discountMinor: shares[i], taxRateBps: p.bps, taxMinor: tax,
-      lineTotalMinor: inclusive ? taxable : taxable + tax,
+      codAvailable: p.variant.codAvailable !== false && !p.variant.digital, digital: p.variant.digital === true,
+      preorderShipDate: p.variant.preorderShipDate ?? null, qty: p.qty, unitPriceMinor: p.unit, catalogPriceMinor: p.variant.priceMinor ?? p.unit,
+      grossMinor: p.gross, discountMinor: shares[i], taxRateBps: p.bps, taxMinor: tax,
+      lineTotalMinor: inclusive ? taxable : taxable + tax, gift: false, giftName: null,
     };
   });
+  // Free gifts: the rule holds on the merchandise after discounts, and one more unit of the gift can be had.
+  for (const rule of giftsFor(input.giftRules ?? [], subtotal - discount, new Set(priced.map((p) => p.variant.productId)), now)) {
+    const v = variants.get(rule.giftVariantId);
+    if (!v || !v.sellable) continue;
+    const inCart = lines.find((l) => l.variantId === v.id)?.qty ?? 0;
+    if (v.available !== null && v.available !== undefined && v.available < inCart + 1) continue;
+    quoteLines.push({
+      variantId: v.id, productId: v.productId, productName: v.productName, sku: v.sku, optionValues: v.optionValues, hsnCode: v.hsnCode,
+      trackInventory: v.trackInventory, codAvailable: v.codAvailable !== false && !v.digital, digital: v.digital === true,
+      preorderShipDate: v.preorderShipDate ?? null, qty: 1, unitPriceMinor: 0, catalogPriceMinor: v.priceMinor ?? 0, grossMinor: 0, discountMinor: 0,
+      taxRateBps: v.taxRateBps ?? settings.defaultTaxRateBps ?? 0, taxMinor: 0, lineTotalMinor: 0, gift: true, giftName: rule.name,
+    });
+  }
   const lineTax = safeAdd(...quoteLines.map((l) => l.taxMinor));
   if (lineTax === null) return { ok: false, code: 'amount_out_of_range' };
 
+  const digitalOnly = quoteLines.every((l) => l.digital);
+  const deliveryMethod: DeliveryMethod = digitalOnly ? 'ship' : input.deliveryMethod ?? 'ship';
+  const delivery = input.deliveryOptions ?? null;
+  if (deliveryMethod === 'pickup' && !delivery?.pickupEnabled) return { ok: false, code: 'delivery_unavailable' };
+  if (deliveryMethod === 'local' && !delivery?.localEnabled) return { ok: false, code: 'delivery_unavailable' };
   let shipping: Quote['shipping'] = null;
+  // A zone rate can refuse cash on delivery; pickup, local delivery and digital carts have no zone rate.
   let zoneCod = true;
-  if (input.address) {
-    // Cart weight from the server's own variant rows; a variant with no weight counts as 0.
-    const weightGrams = priced.reduce((sum, p) => sum + (p.variant.weightGrams ?? 0) * p.qty, 0);
+  if (digitalOnly) {
+    // Nothing to ship: no address, no rate, no fee.
+    shipping = { rateId: 'digital', name: '', feeMinor: 0, taxRateBps: 0, taxMinor: 0 };
+  } else if (input.address && deliveryMethod === 'pickup') {
+    // Collected at the store: nothing to ship, nothing to charge.
+    shipping = { rateId: 'pickup', name: '', feeMinor: 0, taxRateBps: 0, taxMinor: 0 };
+  } else if (input.address && deliveryMethod === 'local') {
+    if (!localDeliveryReaches(delivery, input.address.postalCode)) return { ok: false, code: 'delivery_unavailable' };
+    const fee = delivery!.localFeeMinor;
+    if (!Number.isSafeInteger(fee) || fee < 0 || fee > MAX_MINOR) return { ok: false, code: 'amount_out_of_range' };
+    let bps = settings.defaultTaxRateBps;
+    if (bps === null) {
+      if (fee > 0 && !auto.freeShipping) return { ok: false, code: 'tax_not_configured' };
+      bps = 0;
+    }
+    const feeMinor = auto.freeShipping ? 0 : fee;
+    if (auto.freeShipping && fee > 0) autoDiscounts.push({ ...auto.freeShipping, kind: 'free_shipping_over', savingMinor: fee });
+    shipping = { rateId: 'local', name: '', feeMinor, taxRateBps: bps, taxMinor: taxOn(feeMinor, bps, inclusive) };
+  } else if (input.address) {
+    // Cart weight from the server's own variant rows; a variant with no weight counts as 0, and a digital one weighs nothing.
+    const weightGrams = priced.reduce((sum, p) => sum + (p.variant.digital ? 0 : (p.variant.weightGrams ?? 0) * p.qty), 0);
     const merchandise = subtotal - discount;
     const rate = pickShippingRate(input.shippingRates, input.address, merchandise, { weightGrams });
     if (!rate) return { ok: false, code: 'shipping_unavailable' };
@@ -404,11 +585,14 @@ export function priceCart(input: PriceCartInput): PricingResult {
   if (taxMinor === null) return { ok: false, code: 'amount_out_of_range' };
   const total = safeAdd(subtotal - discount, shippingMinor, codFeeMinor, inclusive ? 0 : taxMinor);
   if (total === null) return { ok: false, code: 'amount_out_of_range' };
+  const tender = tenderFor(total, input.tender);
   return {
     ok: true,
     quote: {
       currency: settings.currency, taxInclusive: inclusive, lines: quoteLines, subtotalMinor: subtotal, discountMinor: discount,
-      autoDiscountMinor: auto.discountMinor, autoDiscounts, prepaidSavingMinor: auto.prepaidOffer?.savingMinor ?? 0, couponCode, shipping, shippingMinor, paymentMethod, codAvailable, codFee, codFeeMinor, taxMinor, totalMinor: total,
+      autoDiscountMinor: ruleDiscountMinor + auto.discountMinor, ruleDiscountMinor, autoDiscounts, prepaidSavingMinor: auto.prepaidOffer?.savingMinor ?? 0, couponCode, deliveryMethod, digitalOnly,
+      preorderShipDate: quoteLines.reduce<string | null>((latest, l) => (l.preorderShipDate && (!latest || l.preorderShipDate > latest) ? l.preorderShipDate : latest), null),
+      shipping, shippingMinor, paymentMethod, codAvailable, codFee, codFeeMinor, taxMinor, totalMinor: total, ...tender,
     },
   };
 }

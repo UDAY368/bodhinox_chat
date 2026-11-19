@@ -14,6 +14,12 @@ describe('followupApplies', () => {
     expect(followupApplies(order(), 'delivered')).toBeNull();
     expect(followupApplies(order(), 'product_follow_up')).toBeNull();
   });
+  it('sends the download link once the order is paid, never for an unpaid, cancelled or fully refunded one', () => {
+    for (const status of ['paid', 'dispatched', 'fulfilled']) expect(followupApplies(order({ status }), 'digital_delivery')).toBeNull();
+    for (const status of ['awaiting_payment', 'cancelled', 'expired', 'payment_review']) expect(followupApplies(order({ status }), 'digital_delivery')).toBe('stale_status');
+    expect(followupApplies(order({ status: 'paid', refund_state: 'full' }), 'digital_delivery')).toBe('refunded');
+    expect(followupApplies(order({ status: 'paid', refund_state: 'partial' }), 'digital_delivery')).toBeNull();
+  });
   it('skips a fully refunded order and an answered feedback request', () => {
     expect(followupApplies(order({ refund_state: 'full' }), 'feedback')).toBe('refunded');
     expect(followupApplies(order({ refund_state: 'full' }), 'product_follow_up')).toBe('refunded');
@@ -88,8 +94,10 @@ describe('repeat purchase (Phase 9 D13)', () => {
   });
   it('maps each notice kind to its template category', () => {
     expect(NOTICE_TEMPLATE_CATEGORY).toEqual({ dispatched: 'UTILITY', delivered: 'UTILITY', feedback: 'UTILITY', repeat_purchase: 'MARKETING',
-      abandoned_cart: 'MARKETING', cod_confirm: 'UTILITY', back_in_stock: 'MARKETING', review_request: 'MARKETING' });
+      abandoned_cart: 'MARKETING', cod_confirm: 'UTILITY', back_in_stock: 'MARKETING', review_request: 'MARKETING',
+      digital_delivery: 'UTILITY', price_drop: 'MARKETING' });
     expect(ORDER_FOLLOWUP_KINDS).toContain('repeat_purchase');
+    expect(ORDER_FOLLOWUP_KINDS).toContain('digital_delivery');
   });
 });
 

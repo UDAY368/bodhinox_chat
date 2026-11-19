@@ -40,6 +40,7 @@ export function RefundDialog({ payment, open, onOpenChange, onRequested, default
   const [reason, setReason] = useState<RefundReason>("customer_request");
   const [note, setNote] = useState("");
   const [restockChoice, setRestockChoice] = useState<boolean | null>(null);
+  const [toStoreCredit, setToStoreCredit] = useState(false);
   const [requestId, setRequestId] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -50,6 +51,7 @@ export function RefundDialog({ payment, open, onOpenChange, onRequested, default
     setReason("customer_request");
     setNote("");
     setRestockChoice(null);
+    setToStoreCredit(false);
   }, [open, payment]);
 
   if (!payment) return null;
@@ -63,8 +65,11 @@ export function RefundDialog({ payment, open, onOpenChange, onRequested, default
   const submit = async () => {
     setBusy(true);
     try {
-      const refundId = await requestRefund(payment.id, { amount: amount.trim(), reason, note: note.trim() || undefined, restock, client_request_id: requestId }, t("failed"));
-      toast.success(t("requested"));
+      const refundId = await requestRefund(payment.id, {
+        amount: amount.trim(), reason, note: note.trim() || undefined, restock, client_request_id: requestId,
+        ...(toStoreCredit ? { to_store_credit: true } : {}),
+      }, t("failed"));
+      toast.success(t(toStoreCredit ? "creditedToStore" : "requested"));
       onRequested?.(refundId);
       onOpenChange(false);
     } catch (err) {
@@ -102,6 +107,15 @@ export function RefundDialog({ payment, open, onOpenChange, onRequested, default
             <Label htmlFor="refund-note" className="mb-1 block text-xs text-muted-foreground">{t("note")}</Label>
             <Textarea id="refund-note" value={note} maxLength={500} rows={2} onChange={(e) => setNote(e.target.value)} />
           </div>
+          {payment.order_id && (
+            <label className="flex items-start gap-2 text-sm">
+              <Checkbox checked={toStoreCredit} onCheckedChange={(v) => setToStoreCredit(v === true)} />
+              <span>
+                {t("toStoreCredit")}
+                <span className="block text-xs text-muted-foreground">{t("toStoreCreditHelp")}</span>
+              </span>
+            </label>
+          )}
           {payment.order_id && (
             <label className="flex items-start gap-2 text-sm">
               <Checkbox checked={restock} onCheckedChange={(v) => setRestockChoice(v === true)} />

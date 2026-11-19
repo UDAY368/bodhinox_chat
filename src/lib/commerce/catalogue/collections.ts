@@ -54,8 +54,8 @@ const MIN_PRICE = Prisma.sql`(SELECT min(v.price_minor) FROM shop_variants v WHE
   AND v.archived_at IS NULL AND v.price_minor IS NOT NULL)`;
 const ON_SALE = Prisma.sql`EXISTS (SELECT 1 FROM shop_variants v WHERE v.account_id=p.account_id AND v.product_id=p.id
   AND v.archived_at IS NULL AND v.price_minor IS NOT NULL AND v.compare_at_minor > v.price_minor)`;
-/** A product that can be sold now: published, with a priced active variant. */
-export const SELLABLE = Prisma.sql`p.status='published' AND EXISTS (SELECT 1 FROM shop_variants v WHERE v.account_id=p.account_id
+/** A product that can be sold now: published and inside its publish/hide window (Phase 8), with a priced active variant. */
+export const SELLABLE = Prisma.sql`shop_product_live(p.status, p.publish_at, p.hide_at) AND EXISTS (SELECT 1 FROM shop_variants v WHERE v.account_id=p.account_id
   AND v.product_id=p.id AND v.archived_at IS NULL AND v.price_minor IS NOT NULL)`;
 
 /** One validated rule as a SQL condition on `shop_products p`. Values are parameters; the text below is fixed. */

@@ -66,9 +66,13 @@ export async function runDataRetentionSweep(): Promise<RetentionResult> {
   const accounts = await db.$queryRaw<{ account_id: string }[]>`SELECT account_id::text AS account_id FROM crm_accounts_for_retention()`;
   for (const { account_id: accountId } of accounts) {
     if (!UUID.test(accountId)) continue;
-    outboxEvents += await inBatches(() => withTenant({ accountId, role: 'owner' }, (tx) => tx.$executeRaw`DELETE FROM outbox_events WHERE id IN (
-      SELECT id FROM outbox_events WHERE account_id=${accountId}::uuid
-        AND created_at < now() - make_interval(days => ${DATA_RETENTION.outboxEventDays}::int) LIMIT ${batchSize})`, db));
+    outboxEvents += await inBatches(() => withTenant({ accountId, role: 'owner' }, async (tx) => {
+      // The shop's live-view counters (aggregate page hits per minute, no visitor data) are kept for two hours.
+      await tx.$executeRaw`DELETE FROM shop_live_hits WHERE account_id=${accountId}::uuid AND minute < now() - interval '2 hours'`;
+      return tx.$executeRaw`DELETE FROM outbox_events WHERE id IN (
+        SELECT id FROM outbox_events WHERE account_id=${accountId}::uuid
+          AND created_at < now() - make_interval(days => ${DATA_RETENTION.outboxEventDays}::int) LIMIT ${batchSize})`;
+    }, db));
   }
   const result = { doneJobs, failedJobs, webhookReceipts, outboxEvents };
   console.info('[data-retention] sweep', JSON.stringify(result));

@@ -108,6 +108,8 @@ interface OrderRow {
   unpaid_cod: boolean;
   /** Refunded in full (orders.refund_state='full'): never shipped, the money (and possibly the units) went back. */
   refunded_full: boolean;
+  /** The customer collects it at the store (orders.delivery_method='pickup'): no courier shipment is ever made. */
+  pickup: boolean;
 }
 
 /** Locks the order row first (D16), with what a shipment needs. */
@@ -115,7 +117,7 @@ async function lockOrderRow(tx: TenantTransaction, accountId: string, orderId: s
   const [row] = await tx.$queryRaw<OrderRow[]>`SELECT o.id::text AS id, o.status, o.source, o.currency, o.shipping_address,
       c.email AS contact_email, o.created_at, o.total_minor, o.shipping_minor, o.discount_minor,
       (o.payment_method='cod' AND o.paid_at IS NULL AND o.priced_at IS NOT NULL) AS unpaid_cod,
-      COALESCE(o.refund_state = 'full', false) AS refunded_full
+      COALESCE(o.refund_state = 'full', false) AS refunded_full, (o.delivery_method = 'pickup') AS pickup
     FROM orders o LEFT JOIN contacts c ON c.account_id=o.account_id AND c.id=o.contact_id
     WHERE o.account_id=${accountId}::uuid AND o.id=${orderId}::uuid FOR UPDATE OF o`;
   return row ?? null;
@@ -399,6 +401,8 @@ export async function requestShipment(
       if (!order) throw new ShipmentError('not_found');
       // Shopify and WooCommerce orders are fulfilled by their own stores (design §11).
       if (order.source === 'shopify' || order.source === 'woocommerce') throw new ShipmentError('invalid');
+      // Store pickup: the customer collects the order, so there is nothing for a courier to carry.
+      if (order.pickup) throw new ShipmentError('pickup_order');
       if (!readyToShip(order)) throw new ShipmentError('order_not_paid');
       if (order.refunded_full) throw new ShipmentError('order_refunded');
       // Under the order lock: what every live shipment already carries, then what this one may take.

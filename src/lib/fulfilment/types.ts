@@ -64,7 +64,7 @@ export interface ShipmentDims {
 export const SHIPMENT_ERROR_CODES = [
   'not_connected', 'not_configured', 'auth', 'provider_unreachable', 'order_not_paid', 'shipment_exists',
   'refund_in_flight', 'order_refunded', 'shipment_live', 'address_incomplete', 'wrong_category', 'not_found', 'conflict', 'invalid',
-  'throttled', 'feature_unavailable', 'not_implemented', 'over_shipped',
+  'throttled', 'feature_unavailable', 'not_implemented', 'over_shipped', 'pickup_order',
 ] as const;
 export type ShipmentErrorCode = (typeof SHIPMENT_ERROR_CODES)[number];
 
@@ -87,6 +87,7 @@ const STATUS: Record<ShipmentErrorCode, number> = {
   feature_unavailable: 402,
   not_implemented: 501,
   over_shipped: 409,
+  pickup_order: 409,
 };
 
 export class ShipmentError extends Error {

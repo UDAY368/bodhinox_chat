@@ -234,6 +234,40 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('order edits and split shipm
     expect(await itemsOf(orderId)).toEqual([{ variant: V1, quantity: 1, total: 100000 }]);
   });
 
+  it('keeps the delivery method, store credit and points frozen even inside an edit, and refuses an order the edit cannot reprice', async () => {
+    const orderId = await newOrder([[V1, 1]]);
+    const worker = getWorkerPrisma();
+    const inEdit = (change: (tx: Parameters<Parameters<typeof withTenant>[1]>[0]) => Promise<unknown>) => withTenant({ accountId: A, role: 'owner' }, async (tx) => {
+      await tx.$queryRaw`SELECT set_config('app.order_edit', ${orderId}, true)`;
+      await change(tx);
+    }, worker);
+    await expect(inEdit((tx) => tx.$executeRaw`UPDATE orders SET delivery_method='pickup' WHERE id=${orderId}::uuid`)).rejects.toThrow();
+    await expect(inEdit((tx) => tx.$executeRaw`UPDATE orders SET store_credit_minor=1 WHERE id=${orderId}::uuid`)).rejects.toThrow();
+    await expect(inEdit((tx) => tx.$executeRaw`UPDATE orders SET points_redeemed=1, points_value_minor=1 WHERE id=${orderId}::uuid`)).rejects.toThrow();
+    // The amounts do move inside an edit, and only there (the edit tests above and below go through this).
+    await inEdit((tx) => tx.$executeRaw`UPDATE orders SET edit_version=edit_version+1 WHERE id=${orderId}::uuid`);
+    await expect(withTenant({ accountId: A, role: 'owner' }, (tx) => tx.$executeRaw`UPDATE orders SET edit_version=edit_version+1 WHERE id=${orderId}::uuid`, worker)).rejects.toThrow();
+
+    // Priced by checkout with what an edit does not reprice: pickup, store credit, a free gift.
+    const placed = async (orderColumns: string, orderValues: string, gift = false) => {
+      const id = randomUUID();
+      await db.query(`INSERT INTO orders(id,account_id,source,contact_id,currency,subtotal_minor,shipping_minor,tax_minor,tax_inclusive,total_minor,
+          status,priced_at,shipping_address${orderColumns}) VALUES($1,$2,'storefront',$3,'INR',100000,0,0,true,100000,'confirmed',now(),$4${orderValues})`,
+      [id, A, contactA, JSON.stringify(ADDRESS)]);
+      await db.query(`INSERT INTO order_items(account_id,order_id,name,sku,quantity,unit_price_minor,currency,variant_id,tax_rate_bps,line_total_minor,is_gift)
+        VALUES($1,$2,'Face oil','OIL-15',1,100000,'INR',$3,1800,100000,$4)`, [A, id, V1, gift]);
+      return id;
+    };
+    const plain = await placed('', '');
+    expect((await edits.getOrderEditState(agent, plain)).blocked).toBeNull();
+    for (const id of [await placed(',delivery_method', ",'pickup'"), await placed(',store_credit_minor', ',5000'), await placed('', '', true)]) {
+      expect(await code(edits.previewOrderEdit(agent, id, input(0, [[V1, 2]])))).toBe('not_editable');
+      expect(await code(edits.editOrder(agent, id, input(0, [[V1, 2]])))).toBe('not_editable');
+      expect((await edits.getOrderEditState(agent, id)).blocked).toBe('not_editable');
+      expect(await itemsOf(id)).toEqual([{ variant: V1, quantity: 1, total: 100000 }]);
+    }
+  });
+
   it('refunds the difference of a paid order through the gateway exactly once, and restocks the units', async () => {
     const orderId = await newOrder([[V1, 2]]);
     await pay(orderId, true);

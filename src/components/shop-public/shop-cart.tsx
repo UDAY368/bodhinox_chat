@@ -15,10 +15,12 @@ import Link from 'next/link';
 import { useLocale, useTranslations } from 'next-intl';
 import { Loader2, MessageCircle, Minus, Plus, Trash2 } from 'lucide-react';
 import { formatMoney } from '@/lib/commerce/money';
+import { formatShipDate } from '@/lib/commerce/selling-rules';
 import type { CartPreview } from '@/lib/commerce/public-shop';
 import { accountApiPath } from '@/lib/commerce/shop-customer-cookie';
 import { addToCart, CART_EVENT, readCart, setLineQty, writeCart, type BrowserCartLine } from './cart-store';
 import { shopErrorKey, shopPostJson as post } from './shop-post';
+import { readRef } from './referral-store';
 
 export interface CartShopInfo {
   handle: string;
@@ -71,7 +73,7 @@ export function ShopCart({ shop, buyer = null }: { shop: CartShopInfo; buyer?: C
 
   const sendCode = async () => {
     setBusy('otp'); setError(null);
-    const result = await post<{ challengeId: string }>(`${api}/otp`, { phone, cart });
+    const result = await post<{ challengeId: string }>(`${api}/otp`, { phone, cart, ref: readRef(shop.handle) });
     setBusy(null);
     if (!result.ok) { setError(result.code); return; }
     setChallenge(result.data.challengeId);
@@ -98,7 +100,7 @@ export function ShopCart({ shop, buyer = null }: { shop: CartShopInfo; buyer?: C
   };
   const orderOnWhatsApp = async () => {
     setBusy('whatsapp'); setError(null);
-    const result = await post<{ whatsappUrl: string }>(`${api}/whatsapp`, { cart });
+    const result = await post<{ whatsappUrl: string }>(`${api}/whatsapp`, { cart, ref: readRef(shop.handle) });
     setBusy(null);
     if (!result.ok) { setError(result.code); return; }
     window.location.assign(result.data.whatsappUrl);
@@ -127,6 +129,8 @@ export function ShopCart({ shop, buyer = null }: { shop: CartShopInfo; buyer?: C
                 <Link href={`/s/${shop.handle}/p/${line.productId}`} className="font-medium hover:underline">{line.name}</Link>
                 {Object.keys(line.options).length > 0 && <p className="text-xs opacity-70">{Object.values(line.options).join(' · ')}</p>}
                 <p className="text-sm">{money(line.unitPriceMinor)}</p>
+                {line.shipsBy && <p className="text-xs font-medium">{t('shipsBy', { date: formatShipDate(line.shipsBy, locale) })}</p>}
+                {line.digital && <p className="text-xs opacity-70">{t('digitalNote')}</p>}
                 {line.available !== null && line.available < line.qty && <p className="text-xs text-red-700">{t('onlyLeft', { count: Math.max(0, line.available) })}</p>}
               </div>
               <div className="flex flex-col items-end justify-between gap-2">
@@ -216,7 +220,7 @@ export function ShopCart({ shop, buyer = null }: { shop: CartShopInfo; buyer?: C
                       className="h-11 rounded-[var(--shop-radius)] border border-black/15 bg-white px-3 text-base text-black" />
                     <button type="button" onClick={sendCode} disabled={busy !== null || !preview?.lines.length}
                       className="h-11 rounded-[var(--shop-radius)] bg-[var(--shop-primary)] font-semibold text-[var(--shop-on-primary)] disabled:opacity-40">
-                      {busy === 'otp' ? <Loader2 className="mx-auto size-5 animate-spin" aria-label={t('loading')} /> : t('sendCode')}
+                      {busy === 'otp' ? <Loader2 className="mx-auto size-5 animate-spin" role="img" aria-label={t('loading')} /> : t('sendCode')}
                     </button>
                   </>
                 ) : (
@@ -227,7 +231,7 @@ export function ShopCart({ shop, buyer = null }: { shop: CartShopInfo; buyer?: C
                       className="h-11 rounded-[var(--shop-radius)] border border-black/15 bg-white px-3 text-center text-lg tracking-[0.4em] text-black" />
                     <button type="button" onClick={verify} disabled={busy !== null || code.length !== 6}
                       className="h-11 rounded-[var(--shop-radius)] bg-[var(--shop-primary)] font-semibold text-[var(--shop-on-primary)] disabled:opacity-40">
-                      {busy === 'verify' ? <Loader2 className="mx-auto size-5 animate-spin" aria-label={t('loading')} /> : t('verifyAndCheckout')}
+                      {busy === 'verify' ? <Loader2 className="mx-auto size-5 animate-spin" role="img" aria-label={t('loading')} /> : t('verifyAndCheckout')}
                     </button>
                     <button type="button" className="text-sm underline" onClick={() => { setChallenge(null); setCode(''); }}>{t('changeNumber')}</button>
                   </>
@@ -238,7 +242,7 @@ export function ShopCart({ shop, buyer = null }: { shop: CartShopInfo; buyer?: C
             {shop.ordering.whatsapp && (
               <button type="button" onClick={orderOnWhatsApp} disabled={busy !== null || !preview?.lines.length}
                 className="flex h-11 items-center justify-center gap-2 rounded-[var(--shop-radius)] bg-[#25d366] font-semibold text-black disabled:opacity-40">
-                {busy === 'whatsapp' ? <Loader2 className="size-5 animate-spin" aria-label={t('loading')} /> : <><MessageCircle className="size-5" aria-hidden />{t('orderOnWhatsApp')}</>}
+                {busy === 'whatsapp' ? <Loader2 className="size-5 animate-spin" role="img" aria-label={t('loading')} /> : <><MessageCircle className="size-5" aria-hidden />{t('orderOnWhatsApp')}</>}
               </button>
             )}
             <p className="text-xs opacity-70">{t('checkoutNote')}</p>

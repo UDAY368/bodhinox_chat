@@ -23,12 +23,14 @@ import { MediaPicker } from "@/components/inbox/media-library/media-picker";
 import { useCan } from "@/hooks/use-can";
 import { formatMoney } from "@/lib/commerce/money";
 import {
-  archiveShopProduct, fetchCategories, fetchShopProduct, publishShopProduct, saveVariant, unpublishShopProduct, updateShopProduct,
+  archiveShopProduct, fetchCategories, fetchShopProduct, publishShopProduct, saveBundleParts, saveVariant, unpublishShopProduct, updateShopProduct,
   type ApiResult, type ShopCategory, type ShopProduct, type VariantBody,
 } from "./catalogue-api";
 import { selectClass, StatusBadge, useCatalogueError } from "./catalogue-admin";
+import { ProductWriter } from "./product-writer";
 import { bpsToPercent, moneyInput, moneyText, parseOptionsText, percentToBps } from "./catalogue-format";
 import { AdjustStockDialog, MovementsList, type AdjustTarget } from "./inventory-panel";
+import { SellingOptionsForm } from "./selling-options-form";
 
 type Variant = ShopProduct["variants"][number];
 
@@ -99,6 +101,14 @@ export function ProductEditor({ id }: { id: string }) {
       <DetailsForm key={`d${product.version}`} product={product} categories={categories} canManage={canManage} busy={busy}
         onSave={(body) => apply(updateShopProduct(product.id, { ...body, version: product.version }), t("saved"))} />
 
+      <SellingOptionsForm key={`s${product.version}`} product={product} canManage={canManage} busy={busy}
+        onSave={async (body, parts) => {
+          // The flags first (a bundle must be marked before it can take parts), then the parts.
+          const saved = await apply(updateShopProduct(product.id, { ...body, version: product.version }), t("saved"));
+          if (!saved || parts === null) return saved;
+          return apply(saveBundleParts(product.id, parts), t("saved"));
+        }} />
+
       <ImagesForm key={`i${product.version}`} product={product} canManage={canManage} busy={busy}
         onSave={(images) => apply(updateShopProduct(product.id, { images, version: product.version }), t("saved"))} />
 
@@ -108,11 +118,13 @@ export function ProductEditor({ id }: { id: string }) {
         <div className="space-y-3">
           {product.variants.map((v) => (
             <VariantForm key={`${v.id}:${product.version}`} variant={v} currency={product.currency} images={product.images} canManage={canManage} busy={busy}
+              physical={!product.is_bundle && !product.is_digital}
               onSave={(body) => apply(saveVariant(product.id, v.id, body), t("variantSaved"))}
               onAdjust={() => setAdjusting({ variantId: v.id, label: `${product.name} · ${v.sku}`, onHand: v.on_hand, reserved: v.reserved })} />
           ))}
           {canManage && (
             <VariantForm key={`new:${product.version}`} variant={null} currency={product.currency} images={product.images} canManage busy={busy}
+              physical={!product.is_bundle && !product.is_digital}
               onSave={(body) => apply(saveVariant(product.id, null, body), t("variantSaved"))} />
           )}
         </div>
@@ -186,6 +198,7 @@ function DetailsForm({ product, categories, canManage, busy, onSave }: {
       <div className="space-y-1">
         <Label htmlFor="p-desc">{t("description")}</Label>
         <Textarea id="p-desc" rows={4} maxLength={5000} value={form.description} readOnly={ro} onChange={set("description")} />
+        {!ro && <ProductWriter name={form.name} onUse={(text) => setForm((f) => ({ ...f, description: text }))} />}
       </div>
       <div className="space-y-1">
         <Label htmlFor="p-disc">{t("disclosure")}</Label>
@@ -324,8 +337,10 @@ function ImagesForm({ product, canManage, busy, onSave }: {
   );
 }
 
-function VariantForm({ variant, currency, images, canManage, busy, onSave, onAdjust }: {
+function VariantForm({ variant, currency, images, canManage, busy, physical, onSave, onAdjust }: {
   variant: Variant | null; currency: string | null; images: ShopProduct["images"]; canManage: boolean; busy: boolean;
+  /** Not a bundle or a download: pre-order can be set. */
+  physical: boolean;
   onSave: (body: VariantBody) => Promise<boolean>; onAdjust?: () => void;
 }) {
   const t = useTranslations("Commerce.catalogue.editor");
@@ -341,10 +356,15 @@ function VariantForm({ variant, currency, images, canManage, busy, onSave, onAdj
     track: variant?.track_inventory ?? true,
     weight: variant?.weight_grams?.toString() ?? "",
     imageId: variant?.image_id ?? "",
+    preorder: variant?.preorder ?? false,
+    shipDate: variant?.preorder_ship_date ?? "",
+    cap: variant?.preorder_cap?.toString() ?? "",
   });
-  const set = (k: keyof typeof form) => (e: { target: { value: string } }) => setForm((f) => ({ ...f, [k]: e.target.value }));
+  const set = (k: "sku" | "options" | "price" | "compareAt" | "tax" | "hsn" | "weight" | "shipDate" | "cap") =>
+    (e: { target: { value: string } }) => setForm((f) => ({ ...f, [k]: e.target.value }));
 
   const options = parseOptionsText(form.options);
+  const cap = form.cap.trim() ? Number(form.cap) : null;
   const price = moneyInput(form.price, currency);
   const compareAt = moneyInput(form.compareAt, currency);
   const tax = percentToBps(form.tax);
@@ -357,6 +377,8 @@ function VariantForm({ variant, currency, images, canManage, busy, onSave, onAdj
     tax: tax === undefined,
     hsn: form.hsn.trim() !== "" && !/^[0-9]{4,8}$/.test(form.hsn.trim()),
     weight: weight !== null && !(Number.isInteger(weight) && weight >= 0 && weight <= 1_000_000),
+    preorderShipDate: form.preorder && !/^\d{4}-\d{2}-\d{2}$/.test(form.shipDate),
+    preorderCap: cap !== null && !(Number.isInteger(cap) && cap >= 1 && cap <= 1_000_000),
   };
   const valid = !Object.values(errors).some(Boolean);
   const submit = async () => {
@@ -365,8 +387,9 @@ function VariantForm({ variant, currency, images, canManage, busy, onSave, onAdj
       sku: form.sku.trim(), option_values: options ?? {}, price_minor: price ?? null, compare_at_minor: compareAt ?? null,
       tax_rate_bps: tax ?? null, hsn_code: form.hsn.trim() || null, track_inventory: form.track, weight_grams: weight,
       image_id: form.imageId || null,
+      ...(physical || variant?.preorder ? { preorder: form.preorder, preorder_ship_date: form.preorder ? form.shipDate : null, preorder_cap: form.preorder ? cap : null } : {}),
     });
-    if (ok && !variant) setForm({ sku: "", options: "", price: "", compareAt: "", tax: "", hsn: "", track: true, weight: "", imageId: "" });
+    if (ok && !variant) setForm({ sku: "", options: "", price: "", compareAt: "", tax: "", hsn: "", track: true, weight: "", imageId: "", preorder: false, shipDate: "", cap: "" });
   };
   const ro = !canManage;
   const field = (key: keyof typeof errors, label: string, input: React.ReactNode) => (
@@ -412,6 +435,23 @@ function VariantForm({ variant, currency, images, canManage, busy, onSave, onAdj
           <input type="checkbox" checked={form.track} disabled={ro} onChange={(e) => setForm((f) => ({ ...f, track: e.target.checked }))} />
           {t("trackInventory")}
         </label>
+        {(physical || variant?.preorder) && (
+          <div className="space-y-2 sm:col-span-4">
+            <label className="flex items-start gap-2 text-sm text-foreground">
+              <input type="checkbox" className="mt-0.5 size-4" checked={form.preorder} disabled={ro} onChange={(e) => setForm((f) => ({ ...f, preorder: e.target.checked }))} />
+              <span>
+                <span className="block font-medium">{t("preorder")}</span>
+                <span className="block text-xs text-muted-foreground">{t("preorderHint")}</span>
+              </span>
+            </label>
+            {form.preorder && (
+              <div className="grid gap-3 sm:grid-cols-2">
+                {field("preorderShipDate", t("preorderShipDate"), <Input type="date" value={form.shipDate} readOnly={ro} onChange={set("shipDate")} />)}
+                {field("preorderCap", t("preorderCap"), <Input inputMode="numeric" value={form.cap} readOnly={ro} onChange={set("cap")} placeholder={t("preorderNoCap")} />)}
+              </div>
+            )}
+          </div>
+        )}
       </div>
       {images.length > 0 && (
         <fieldset className="space-y-1">

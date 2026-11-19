@@ -6,9 +6,10 @@
 import { authFetch } from "@/lib/auth/client";
 import type { AutoDiscountView } from "@/lib/commerce/auto-discount-rules";
 import type { CouponView } from "@/lib/commerce/coupons";
+import type { DeliveryOptions } from "@/lib/commerce/delivery-options";
 import type { ShippingRateView, StoreSettings, StoreSettingsInput } from "@/lib/commerce/store-settings";
 
-export type { AutoDiscountView, CouponView, ShippingRateView, StoreSettings, StoreSettingsInput };
+export type { AutoDiscountView, CouponView, DeliveryOptions, ShippingRateView, StoreSettings, StoreSettingsInput };
 
 export type ApiResult<T> = { ok: true; value: T } | { ok: false; status: number; code?: string; error?: string; field?: string };
 
@@ -30,6 +31,8 @@ const send = (url: string, method: string, body?: unknown) => authFetch(url, {
 export const storeApi = {
   settings: async () => result<StoreSettings>(await authFetch("/api/commerce/settings", { cache: "no-store" }), "settings"),
   saveSettings: async (input: StoreSettingsInput) => result<StoreSettings>(await send("/api/commerce/settings", "PUT", input), "settings"),
+  deliveryOptions: async () => result<DeliveryOptions>(await authFetch("/api/commerce/delivery-options", { cache: "no-store" }), "options"),
+  saveDeliveryOptions: async (input: DeliveryOptions) => result<DeliveryOptions>(await send("/api/commerce/delivery-options", "PUT", input), "options"),
   rates: async () => result<ShippingRateView[]>(await authFetch("/api/commerce/shipping-rates", { cache: "no-store" }), "rates"),
   createRate: async (input: Omit<ShippingRateView, "id">) => result<ShippingRateView>(await send("/api/commerce/shipping-rates", "POST", input), "rate"),
   updateRate: async (id: string, input: Omit<ShippingRateView, "id">) =>

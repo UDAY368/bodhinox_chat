@@ -28,7 +28,8 @@ export const SHOP_ERROR_CODES = [
   'out_of_stock', 'checkout_disabled', 'store_not_configured', 'cart_empty', 'invalid_cart', 'variant_unavailable', 'price_not_configured',
   'tax_not_configured', 'shipping_unavailable', 'coupon_not_found', 'coupon_inactive', 'coupon_not_started', 'coupon_expired',
   'coupon_min_subtotal', 'coupon_exhausted', 'coupon_limit_reached', 'order_not_open', 'amount_out_of_range', 'too_many_open_orders',
-  'cod_unavailable', 'online_unavailable', 'error',
+  'cod_unavailable', 'online_unavailable', 'delivery_unavailable', 'extras_invalid', 'returns_unavailable', 'return_window_closed',
+  'return_line_open', 'return_quantity', 'exchange_unavailable', 'wishlist_full', 'repeat_unavailable', 'error',
 ] as const;
 export type ShopErrorCode = (typeof SHOP_ERROR_CODES)[number];
 
@@ -46,6 +47,14 @@ async function call<T>(url: string, method: 'GET' | 'PUT' | 'POST', body?: unkno
   return data;
 }
 
+export interface ExtrasValues { note?: string | null; gift_message?: string | null; delivery_date?: string | null; slot_id?: string | null; custom?: Record<string, string | boolean> }
+export interface ReturnRequestBody {
+  clientRequestId: string;
+  reason: string;
+  note?: string | null;
+  lines: Array<{ order_item_id: string; qty: number; exchange_variant_id?: string | null }>;
+}
+
 const base = (token: string) => `/api/public/shop/${encodeURIComponent(token)}`;
 
 export const shopApi = {
@@ -59,7 +68,23 @@ export const shopApi = {
   /** How to pay: 'online' (a payment link) or 'cod' (cash on delivery). */
   payment: (token: string, expectedVersion: number, paymentMethod: 'online' | 'cod') =>
     call<StorefrontView>(`${base(token)}/payment`, 'PUT', { expectedVersion, paymentMethod }),
-  place: (token: string, body: { expectedVersion: number; expectedTotalMinor: number; clientRequestId: string; marketingOptIn: boolean;
+  /** How the order reaches the customer: 'ship' (a shipping rate), 'pickup' (collect at the store) or 'local' (the store's own delivery). */
+  delivery: (token: string, expectedVersion: number, deliveryMethod: 'ship' | 'pickup' | 'local') =>
+    call<StorefrontView>(`${base(token)}/delivery`, 'PUT', { expectedVersion, deliveryMethod }),
+  /** Pay with store credit and with loyalty points: two switches; the server works out how much each pays. */
+  tender: (token: string, expectedVersion: number, useStoreCredit: boolean, usePoints: boolean) =>
+    call<StorefrontView>(`${base(token)}/tender`, 'PUT', { expectedVersion, useStoreCredit, usePoints }),
+  /** What the buyer asks for at checkout (note, gift message, delivery date and slot, custom answers); checked on the server. */
+  extras: (token: string, expectedVersion: number, extras: ExtrasValues) => call<StorefrontView>(`${base(token)}/extras`, 'PUT', { expectedVersion, extras }),
+  /** One tap for a repeat buyer: use the last order's address and delivery choice (copied on the server). */
+  repeat: (token: string, expectedVersion: number) => call<StorefrontView>(`${base(token)}/repeat`, 'PUT', { expectedVersion }),
+  /** A return or exchange request for the order this page shows. A replay of the same clientRequestId answers created: false. */
+  requestReturn: (token: string, body: ReturnRequestBody) => call<{ created: boolean; order: StorefrontOrderView | null }>(`${base(token)}/returns`, 'POST', body),
+  /** The wishlist: add or remove one variant, or save a browser's own list once. Every answer is the list. */
+  wishlist: (token: string, body: { action: 'add' | 'remove'; variantId: string } | { action: 'sync'; variantIds: string[] }) =>
+    call<{ currency: string | null; items: Array<{ variantId: string; productId: string; name: string; options: string; priceMinor: number | null; available: boolean }> }>(
+      `${base(token)}/wishlist`, 'POST', body),
+  place: (token: string, body: { expectedVersion: number; expectedTotalMinor: number; expectedPayableMinor: number; clientRequestId: string; marketingOptIn: boolean; email?: string; emailOffers?: boolean;
     buyerGstin?: string; buyerLegalName?: string }) =>
     call<{ created: boolean; view: StorefrontView | null }>(`${base(token)}/place`, 'POST', body),
   status: (token: string) => call<{ order: StorefrontOrderView | null }>(`${base(token)}/status`, 'GET'),

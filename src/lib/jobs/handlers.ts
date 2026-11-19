@@ -475,7 +475,9 @@ export async function handleJob(job: Job, assertLease: () => void = () => {}) {
       await (await import('@/lib/commerce/checkout')).expireReservation(accountId,
         { orderId: uuid(job.payload.orderId), attempt: counter(job.payload.attempt) });
     else if (job.type === 'commerce.issue_receipt')
-      await (await import('@/lib/commerce/documents')).handleIssueReceiptJob(accountId, { paymentId: uuid(job.payload.paymentId) });
+      // A payment's receipt, or (orderId) the receipt of an order paid in full with store credit and points.
+      await (await import('@/lib/commerce/documents')).handleIssueReceiptJob(accountId,
+        job.payload.orderId !== undefined ? { orderId: uuid(job.payload.orderId) } : { paymentId: uuid(job.payload.paymentId) });
     else if (job.type === 'commerce.issue_credit_note')
       await (await import('@/lib/commerce/documents')).handleIssueCreditNoteJob(accountId, { refundId: uuid(job.payload.refundId) });
     else if (job.type === 'commerce.order_followup') {
@@ -499,6 +501,25 @@ export async function handleJob(job: Job, assertLease: () => void = () => {}) {
       // A variant came back in stock: message the buyers who asked and claimed it on WhatsApp (once each, 200 per run).
       await (await import('@/lib/commerce/stock-alert-jobs')).handleBackInStockJob(accountId,
         { variantId: uuid(job.payload.variantId), ...(job.payload.afterId ? { afterId: uuid(job.payload.afterId) } : {}) });
+    else if (job.type === 'commerce.price_drop') {
+      // A wishlisted variant's price fell: nudge the contacts who saved it (consent, window and template rules inside; once per drop).
+      const { fromMinor, toMinor, key } = job.payload;
+      if (!Number.isSafeInteger(fromMinor) || !Number.isSafeInteger(toMinor) || typeof key !== 'string' || key.length > 250)
+        throw new Error('Invalid price drop');
+      await (await import('@/lib/commerce/price-drop-jobs')).handlePriceDropJob(accountId, {
+        variantId: uuid(job.payload.variantId), fromMinor: fromMinor as number, toMinor: toMinor as number, key,
+        ...(job.payload.afterId ? { afterId: uuid(job.payload.afterId) } : {}),
+      });
+    }
+    else if (job.type === 'shop.email_send')
+      // One recipient of a shop email campaign: consent re-checked, sent once through an outbound intent; an uncertain send is shown, never repeated.
+      await (await import('@/lib/commerce/email-jobs')).handleEmailSendJob(accountId, { campaignId: uuid(job.payload.campaignId), contactId: uuid(job.payload.contactId) });
+    else if (job.type === 'shop.order_email')
+      // The one confirmation email of a shop order (only when the shop turned it on and the buyer has an address).
+      await (await import('@/lib/commerce/email-jobs')).handleOrderEmailJob(accountId, { orderId: uuid(job.payload.orderId) });
+    else if (job.type === 'shop.referral_reward')
+      // Settle a referral once the order is paid and the hold has passed: store credit for a customer's code, a commission figure for an affiliate's.
+      await (await import('@/lib/commerce/referrals')).handleReferralRewardJob(accountId, { orderId: uuid(job.payload.orderId) });
     else if (job.type === 'commerce.review_request')
       // Ask the buyer to rate the order's main product three days after delivery; an uncertain send is recorded for staff, never repeated.
       await (await import('@/lib/commerce/review-jobs')).handleReviewRequestJob(accountId,

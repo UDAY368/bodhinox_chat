@@ -62,12 +62,12 @@ const pathsCalled = (path: string) => calls.filter((c) => c.path === path || c.p
 let db: pg.Client;
 const one = async (sql: string, values: unknown[] = []) => (await db.query(sql, values)).rows[0];
 
-async function paidOrder(account = accountA, overrides: { status?: string; currency?: string; address?: unknown } = {}) {
+async function paidOrder(account = accountA, overrides: { status?: string; currency?: string; address?: unknown; delivery?: string } = {}) {
   const id = randomUUID();
   await db.query(`INSERT INTO orders(id,account_id,source,contact_id,currency,subtotal_minor,shipping_minor,tax_minor,tax_inclusive,total_minor,
-      status,priced_at,paid_at,amount_paid_minor,shipping_address) VALUES($1,$2,'storefront',$3,$4,49800,5000,0,true,54800,$5,now(),now(),54800,$6)`,
+      status,priced_at,paid_at,amount_paid_minor,shipping_address,delivery_method) VALUES($1,$2,'storefront',$3,$4,49800,5000,0,true,54800,$5,now(),now(),54800,$6,$7)`,
   [id, account, account === accountA ? contactA : null, overrides.currency ?? 'INR', overrides.status ?? 'paid',
-    JSON.stringify(overrides.address === undefined ? ADDRESS : overrides.address)]);
+    JSON.stringify(overrides.address === undefined ? ADDRESS : overrides.address), overrides.delivery ?? 'ship']);
   await db.query(`INSERT INTO order_items(account_id,order_id,name,sku,hsn_code,quantity,unit_price_minor,currency,tax_rate_bps)
     VALUES($1,$2,'Triphala churna','TRI-100','3004',2,24900,$3,1200)`, [account, id, overrides.currency ?? 'INR']);
   return id;
@@ -572,5 +572,16 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('Shiprocket shipments on Pos
     await mod.handleCreateShipmentJob(accountA, { shipmentId }, META);
     expect(calls).toEqual([]);
     expect(await shipmentOf(later)).toMatchObject({ create_state: 'failed', last_error_code: 'order_refunded' });
+  });
+
+  it('never books a courier for a store pickup order (store plan Phase 8)', async () => {
+    const pickup = await paidOrder(accountA, { delivery: 'pickup' });
+    calls.length = 0;
+    await expect(mod.requestShipment(asAdmin, pickup, DIMS)).rejects.toMatchObject({ code: 'pickup_order', status: 409 });
+    expect(calls).toEqual([]);
+    expect(await one('SELECT count(*)::int AS n FROM order_shipments WHERE order_id=$1', [pickup])).toEqual({ n: 0 });
+    // Local delivery is the store's own run; a courier can still be booked for it if the store wants one.
+    const local = await paidOrder(accountA, { delivery: 'local' });
+    await expect(mod.requestShipment(asAdmin, local, DIMS)).resolves.toMatchObject({ shipmentId: expect.any(String) });
   });
 });

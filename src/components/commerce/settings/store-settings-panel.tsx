@@ -2,8 +2,8 @@
 
 /**
  * Commerce → Store settings (design §6): currency, tax, reservation minutes,
- * checkout toggle, review requests, seller details, shipping rates, coupons, automatic discounts and the order
- * notice templates (Phase 9). Admins edit;
+ * checkout toggle, review requests, seller details, shipping rates, coupons, automatic discounts, price rules
+ * (price lists, discount rules, gifts, loyalty points and customer balances) and the order notice templates (Phase 9). Admins edit;
  * agents read (the APIs and RLS enforce the same rule). Money is typed as a
  * decimal and stored in integer minor units; tax rates are typed as percent
  * and stored in basis points.
@@ -21,7 +21,11 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { useApprovedTemplates } from "@/components/flows/forms/use-pickers";
 import { formatMoney, minorToDecimalString, parseMoney } from "@/lib/commerce/money";
+import { DeliveryOptionsCard } from "./delivery-options";
 import { NoticeTemplates } from "./notice-templates";
+import { BuyerSettingsPanel } from "./buyer-settings-panel";
+import { MarketingPanel } from "./marketing-panel";
+import { PriceRulesPanel } from "./price-rules-panel";
 import { storeApi, type ApiResult, type AutoDiscountView, type CouponView, type ShippingRateView, type StoreSettings, type StoreSettingsInput } from "./settings-api";
 
 /** "18" or "12.5" percent -> basis points; null for empty; NaN when invalid. */
@@ -60,8 +64,12 @@ export function StoreSettingsPanel() {
       {!settings && !loadError && <Loader2 className="size-5 animate-spin text-muted-foreground" aria-label={t("loading")} />}
       {settings && <GeneralForm initial={settings} canEdit={canEdit} onSaved={setSettings} />}
       {settings?.configured && settings.currency && <ShippingRates currency={settings.currency} canEdit={canEdit} />}
+      {settings?.configured && settings.currency && <DeliveryOptionsCard currency={settings.currency} canEdit={canEdit} />}
       {settings?.configured && settings.currency && <Coupons currency={settings.currency} canEdit={canEdit} />}
       {settings?.configured && settings.currency && <AutoDiscounts currency={settings.currency} canEdit={canEdit} />}
+      {settings?.configured && settings.currency && <PriceRulesPanel currency={settings.currency} canEdit={canEdit} />}
+      {settings?.configured && <BuyerSettingsPanel canEdit={canEdit} />}
+      {settings?.configured && settings.currency && <MarketingPanel canEdit={canEdit} currency={settings.currency} />}
       {settings?.configured && <NoticeTemplates canEdit={canEdit} />}
     </div>
   );

@@ -31,6 +31,7 @@ import { createAdminClient } from '@/lib/data/admin';
 import { getWorkerPrisma } from '@/lib/db/prisma';
 import { withTenant, type TenantTransaction } from '@/lib/db/tenant';
 import { dispatchOnce, UncertainDispatchError } from '@/lib/jobs/dispatch';
+import { digitalDownloadUrl, orderDigitalItemsTx } from './digital-delivery';
 import { engineSendTemplate, engineSendText } from '@/lib/automations/meta-send';
 import { resolveAuditUserId } from '@/lib/api/v1/contacts';
 import { appointmentTemplateRefusal } from '@/lib/appointments/template-check';
@@ -46,11 +47,11 @@ import { extractVariableIndices } from '@/lib/whatsapp/template-validators';
 import { resolveContactSendTarget } from '@/lib/whatsapp/wa-identity';
 import type { MessageTemplate } from '@/types';
 
-export const ORDER_FOLLOWUP_KINDS = ['dispatched', 'delivered', 'feedback', 'product_follow_up', 'repeat_purchase'] as const;
+export const ORDER_FOLLOWUP_KINDS = ['dispatched', 'delivered', 'feedback', 'product_follow_up', 'repeat_purchase', 'digital_delivery'] as const;
 export type OrderFollowupKind = (typeof ORDER_FOLLOWUP_KINDS)[number];
 
 /** Kinds with a workspace template setting (order_notice_templates.kind). */
-export const NOTICE_TEMPLATE_KINDS = ['dispatched', 'delivered', 'feedback', 'repeat_purchase', 'abandoned_cart', 'cod_confirm', 'back_in_stock', 'review_request'] as const;
+export const NOTICE_TEMPLATE_KINDS = ['dispatched', 'delivered', 'feedback', 'repeat_purchase', 'abandoned_cart', 'cod_confirm', 'back_in_stock', 'review_request', 'digital_delivery', 'price_drop'] as const;
 export type NoticeTemplateKind = (typeof NOTICE_TEMPLATE_KINDS)[number];
 
 /** The template category each notice kind needs (D13: the reorder reminder is marketing). */
@@ -62,6 +63,10 @@ export const NOTICE_TEMPLATE_CATEGORY: Record<NoticeTemplateKind, 'UTILITY' | 'M
   back_in_stock: 'MARKETING',
   // Store plan Phase 3: the review request is marketing (it asks for a rating; the template only asks for a reply of 1 to 5).
   review_request: 'MARKETING',
+  // Store plan Phase 8: the download link of a digital product the customer already paid for (a utility message).
+  digital_delivery: 'UTILITY',
+  // Store plan Phase 8: the wishlist price-drop nudge is marketing (sent only to a contact who saved the product and has not opted out).
+  price_drop: 'MARKETING',
 };
 
 /** The tracking page for an AWB; defined once in fulfilment/types. */
@@ -87,6 +92,11 @@ export interface FollowupOrderRow {
 
 /** Why this kind no longer applies to the order (a skip code), or null. */
 export function followupApplies(order: FollowupOrderRow, kind: OrderFollowupKind): string | null {
+  if (kind === 'digital_delivery') {
+    // Sent once the order is paid; a fully refunded order gets no download.
+    if (!['paid', 'partially_shipped', 'dispatched', 'fulfilled'].includes(order.status)) return 'stale_status';
+    return order.refund_state === 'full' ? 'refunded' : null;
+  }
   if (kind === 'dispatched') return order.status === 'dispatched' || order.status === 'partially_shipped' ? null : 'stale_status';
   if (order.status !== 'fulfilled') return 'stale_status';
   if (order.refund_state === 'full' && kind !== 'delivered') return 'refunded';
@@ -106,8 +116,8 @@ export function consentRefusal(contact: { blocked_at: Date | null; opted_out_at:
  * the chat (conversations.bot_paused) holds it back: blocked/bot_paused. The
  * order notices are service messages and still go.
  */
-export function agentHoldRefusal(kind: OrderFollowupKind | 'review_request', botPaused: boolean): string | null {
-  return (kind === 'repeat_purchase' || kind === 'review_request') && botPaused ? 'bot_paused' : null;
+export function agentHoldRefusal(kind: OrderFollowupKind | 'review_request' | 'price_drop', botPaused: boolean): string | null {
+  return (kind === 'repeat_purchase' || kind === 'review_request' || kind === 'price_drop') && botPaused ? 'bot_paused' : null;
 }
 
 type CheckedTemplate = Pick<MessageTemplate,
@@ -160,9 +170,11 @@ export function orderReference(order: { id: string; external_id: string | null }
 }
 
 /** Free-form text inside the window (customer-facing, in the workspace's app locale). */
-export function followupText(kind: 'dispatched' | 'delivered' | 'feedback',
+export function followupText(kind: 'dispatched' | 'delivered' | 'feedback' | 'digital_delivery',
   values: { ref: string; tracking: string | null; trackingUrl?: string | null }): string {
   const t = getT('OrderNotices');
+  // The download link travels in trackingUrl (one signed link per order).
+  if (kind === 'digital_delivery') return t('digitalDelivery', { ref: values.ref, url: values.trackingUrl ?? '' });
   if (kind === 'dispatched') {
     if (values.trackingUrl) return t('dispatchedWithLink', { ref: values.ref, url: values.trackingUrl });
     return values.tracking ? t('dispatchedWithTracking', { ref: values.ref, tracking: values.tracking }) : t('dispatched', { ref: values.ref });
@@ -296,6 +308,7 @@ async function plan(accountId: string, orderId: string, kind: OrderFollowupKind,
     if (kind !== 'product_follow_up') {
       const marketing = kind === 'repeat_purchase';
       let trackingUrl: string | null = null;
+      if (kind === 'digital_delivery') trackingUrl = digitalDownloadUrl(accountId, orderId);
       if (kind === 'dispatched') {
         // A live courier shipment's AWB (Phase 9); a cancelled or failed shipment has no link.
         const [shipment] = await tx.$queryRaw<{ awb: string | null }[]>`
@@ -313,9 +326,11 @@ async function plan(accountId: string, orderId: string, kind: OrderFollowupKind,
       const refusal = orderTemplateOutcome(template, config, NOTICE_TEMPLATE_CATEGORY[kind]);
       if (refusal) return { kind: 'settle', outcome: refusal };
       // {{1}} customer, {{2}} product, {{3}} order reference, {{4}} tracking link or note (dispatched only).
-      const product = marketing ? await repeatProduct(tx, accountId, orderId) : await firstItemName(tx, accountId, orderId);
+      const product = marketing ? await repeatProduct(tx, accountId, orderId)
+        : kind === 'digital_delivery' ? (await orderDigitalItemsTx(tx, accountId, orderId))[0]?.name ?? null : await firstItemName(tx, accountId, orderId);
       return { kind: 'send', contactId: contact.id, conversationId: conversation.id, template, text: null, marketing,
-        values: [contact.name || '-', product ?? '-', ref, ...(kind === 'dispatched' ? [trackingUrl ?? order.tracking_note ?? '-'] : [])] };
+        values: [contact.name || '-', product ?? '-', ref,
+          ...(kind === 'dispatched' ? [trackingUrl ?? order.tracking_note ?? '-'] : kind === 'digital_delivery' ? [trackingUrl ?? '-'] : [])] };
     }
     const [product] = await tx.$queryRaw<{ name: string; template: string; language: string | null }[]>`
       SELECT p.name, p.follow_up_template AS template, p.follow_up_template_language AS language FROM order_items i

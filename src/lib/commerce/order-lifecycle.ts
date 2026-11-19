@@ -34,9 +34,10 @@ import { hasMinRole } from '@/lib/auth/roles';
 import { getWorkerPrisma } from '@/lib/db/prisma';
 import { withTenant, type TenantContext, type TenantTransaction } from '@/lib/db/tenant';
 import { orderEventTx } from '@/lib/payments/ledger';
-import { applyRefundStateTx, RefundError, requestRefund } from '@/lib/payments/refunds';
+import { applyRefundStateTx, RefundError, requestRefund, restockSoldUnitsTx } from '@/lib/payments/refunds';
 import { listOrderShipments, orderShipmentCoverage } from '@/lib/fulfilment/shipments';
 import { ShipmentError, type OrderShipmentView } from '@/lib/fulfilment/types';
+import { reverseEarnTx, reverseOrderTenderTx } from './customer-ledger';
 import { minorFromDb } from './money';
 import { canTransition, fulfilmentEvidence, type FulfilmentEvidence, type OrderStatus } from './order-format';
 import { repeatPurchaseDueAt, type OrderFollowupKind } from './order-followup';
@@ -125,6 +126,10 @@ async function closeOrderTx(tx: TenantTransaction, accountId: string, order: Loc
     await tx.$executeRaw`UPDATE coupon_redemptions SET status='released'
       WHERE account_id=${accountId}::uuid AND order_id=${order.id}::uuid AND status='reserved'`;
   }
+  // Store credit and points the order was placed with go back to the customer (a no-op when it used none,
+  // or when they already went back), and loyalty points it earned are taken back.
+  await reverseOrderTenderTx(tx, accountId, order.id);
+  await reverseEarnTx(tx, accountId, order.id, null);
   await tx.$executeRaw`INSERT INTO jobs(type, tenant_id, payload, dedupe_key)
     SELECT 'payments.cancel_link', l.account_id, jsonb_build_object('linkId', l.id::text), 'payment-link-cancel:' || l.id::text
     FROM payment_links l WHERE l.account_id=${accountId}::uuid AND l.order_id=${order.id}::uuid AND l.status='created'
@@ -380,6 +385,14 @@ export function lockSettledPayments(tx: TenantTransaction, accountId: string, or
     ORDER BY p.id FOR UPDATE OF p`;
 }
 
+/** The order was paid in full with store credit and loyalty points alone (no money was taken). */
+async function paidByTenderOnly(tx: TenantTransaction, accountId: string, orderId: string): Promise<boolean> {
+  const [row] = await tx.$queryRaw<{ only: boolean }[]>`SELECT (store_credit_minor + points_value_minor > 0
+      AND store_credit_minor + points_value_minor >= COALESCE(total_minor, subtotal_minor)) AS only
+    FROM orders WHERE account_id=${accountId}::uuid AND id=${orderId}::uuid`;
+  return row?.only === true;
+}
+
 export const viaGateway = (p: Pick<SettledPayment, 'source' | 'provider_payment_id'>) => p.source === 'razorpay' && Boolean(p.provider_payment_id);
 
 /**
@@ -413,7 +426,9 @@ export async function cancelAndRefund(
     if (order.status !== 'paid') throw new OrderError(409, 'bad_transition', 'Only a paid order that is not dispatched can be cancelled and refunded');
     // Goods could leave after the refund: the courier shipment is cancelled first (or Returns used after pickup).
     if (await liveShipmentExists(tx, ctx.accountId, orderId)) throw new ShipmentError('shipment_live');
-    const outside = !settled.length || settled.some((p) => !viaGateway(p) && (minorFromDb(p.refundable) ?? 0) > 0);
+    // An order paid only with store credit and points has no payment to refund: the credit and points go back below.
+    const tenderOnly = !settled.length && (await paidByTenderOnly(tx, ctx.accountId, orderId));
+    const outside = (!settled.length && !tenderOnly) || settled.some((p) => !viaGateway(p) && (minorFromDb(p.refundable) ?? 0) > 0);
     if (outside && input.refundedOutside !== true) throw new RefundError('offline_payment');
     return settled;
   });
@@ -448,6 +463,8 @@ export async function cancelAndRefund(
       await applyRefundStateTx(tx, ctx.accountId, payment, row.id, 'processed', null);
       outside += 1;
     }
+    // No refund row will restock an order paid only with credit and points: put its units back here, once.
+    if (!settled.length && (await paidByTenderOnly(tx, ctx.accountId, orderId))) await restockSoldUnitsTx(tx, ctx.accountId, orderId);
     await closeOrderTx(tx, ctx.accountId, order);
     await setStatus(tx, ctx.accountId, order, 'cancelled');
     await auditOrder(tx, ctx, 'order.cancelled_refunded', orderId, {

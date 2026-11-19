@@ -19,6 +19,7 @@
 import { getT } from '@/lib/i18n/translate';
 import type { TenantTransaction } from '@/lib/db/tenant';
 import { queueBackInStockTx } from './stock-alerts';
+import { expandBundleLines, reserveFromStock, withinPreorderCap, type StockNeed } from './selling-rules';
 
 export type StockMovementKind =
   | 'adjustment' | 'receipt' | 'reserve' | 'release' | 'sale' | 'return_restock' | 'write_off' | 'refund_restock';
@@ -59,13 +60,65 @@ function mergeLines(lines: readonly StockLine[]): StockLine[] {
   return [...merged].map(([variantId, quantity]) => ({ variantId, quantity })).sort((a, b) => (a.variantId < b.variantId ? -1 : 1));
 }
 
-/** The tracked variants among `ids` (untracked ones are made to order and never counted). */
-async function trackedIds(tx: TenantTransaction, accountId: string, ids: string[]): Promise<Set<string>> {
-  if (!ids.length) return new Set();
-  const rows = await tx.$queryRaw<{ id: string }[]>`
-    SELECT id::text AS id FROM shop_variants
-    WHERE account_id=${accountId}::uuid AND id = ANY(${ids}::uuid[]) AND track_inventory`;
-  return new Set(rows.map((r) => r.id));
+/** What stock needs to know about a variant: tracked or made to order, and its pre-order cap. */
+interface VariantMeta { track: boolean; preorder: boolean; cap: number | null }
+
+/**
+ * A cart's stock needs by variant (ascending id, the lock order) with each variant's meta. A bundle line (a variant
+ * of a bundle product) is replaced by its parts times the quantity, so the bundle reserves, and a return restocks,
+ * every part and nothing of its own. A bundle with no parts, or with an archived part, cannot be taken
+ * (StockError out_of_stock for the bundle variant).
+ */
+async function needsTx(tx: TenantTransaction, accountId: string, merged: readonly StockLine[], orderId: string | null = null): Promise<{ needs: StockNeed[]; meta: Map<string, VariantMeta> }> {
+  const ids = merged.map((l) => l.variantId.toLowerCase());
+  const bundleRows = ids.length ? await tx.$queryRaw<{ variant_id: string; part_id: string | null; quantity: number | null; part_archived: boolean | null }[]>`
+    SELECT v.id::text AS variant_id, b.part_variant_id::text AS part_id, b.quantity, pv.archived_at IS NOT NULL AS part_archived
+    FROM shop_variants v JOIN shop_products p ON p.account_id=v.account_id AND p.id=v.product_id AND p.is_bundle
+    LEFT JOIN shop_bundle_parts b ON b.account_id=v.account_id AND b.product_id=p.id
+    LEFT JOIN shop_variants pv ON pv.account_id=b.account_id AND pv.id=b.part_variant_id
+    WHERE v.account_id=${accountId}::uuid AND v.id = ANY(${ids}::uuid[])
+    ORDER BY b.position, b.part_variant_id` : [];
+  const parts = new Map<string, { variantId: string; quantity: number }[]>();
+  for (const row of bundleRows) {
+    const list = parts.get(row.variant_id) ?? [];
+    if (!row.part_id || row.part_archived || !row.quantity) throw new StockError('out_of_stock', 'out_of_stock', row.variant_id);
+    list.push({ variantId: row.part_id, quantity: row.quantity });
+    parts.set(row.variant_id, list);
+  }
+  // An order's own snapshot wins over the bundle as it is now (a restock puts back what was sold).
+  if (orderId && ids.length) {
+    const sold = await tx.$queryRaw<{ variant_id: string; bundle_parts: { variant_id: string; quantity: number }[] }[]>`
+      SELECT DISTINCT ON (variant_id) variant_id::text AS variant_id, bundle_parts FROM order_items
+      WHERE account_id=${accountId}::uuid AND order_id=${orderId}::uuid AND variant_id = ANY(${ids}::uuid[]) AND bundle_parts IS NOT NULL
+      ORDER BY variant_id, id`;
+    for (const row of sold) parts.set(row.variant_id, row.bundle_parts.map((p) => ({ variantId: p.variant_id, quantity: p.quantity })));
+  }
+  const needs = expandBundleLines(merged, (variantId) => parts.get(variantId) ?? null);
+  const needIds = needs.map((n) => n.variantId);
+  const rows = needIds.length ? await tx.$queryRaw<{ id: string; track: boolean; preorder: boolean; cap: number | null }[]>`
+    SELECT id::text AS id, track_inventory AS track, preorder, preorder_cap AS cap FROM shop_variants
+    WHERE account_id=${accountId}::uuid AND id = ANY(${needIds}::uuid[])` : [];
+  return { needs, meta: new Map(rows.map((r) => [r.id, { track: r.track, preorder: r.preorder, cap: r.cap }])) };
+}
+
+/**
+ * Pre-order caps: for every pre-order variant with a cap, lock its row (ascending, before the inventory rows)
+ * and refuse when the open pre-order units, this order's own lines included (they are written before the
+ * reservation), pass the cap. The lock makes two buyers of the last units take turns.
+ */
+async function assertPreorderCapsTx(tx: TenantTransaction, accountId: string, needs: readonly StockNeed[], meta: ReadonlyMap<string, VariantMeta>): Promise<void> {
+  for (const need of needs) {
+    const m = meta.get(need.variantId);
+    if (!m?.preorder || m.cap === null || need.viaBundle >= need.quantity) continue;
+    // NO KEY UPDATE: the order's own line rows hold a key-share lock on the variant (foreign key), which FOR UPDATE would deadlock on.
+    await tx.$queryRaw`SELECT 1 FROM shop_variants WHERE account_id=${accountId}::uuid AND id=${need.variantId}::uuid FOR NO KEY UPDATE`;
+    const [open] = await tx.$queryRaw<{ units: bigint }[]>`
+      SELECT COALESCE(sum(i.quantity),0)::bigint AS units FROM order_items i
+      JOIN orders o ON o.account_id=i.account_id AND o.id=i.order_id
+      WHERE i.account_id=${accountId}::uuid AND i.variant_id=${need.variantId}::uuid AND i.preorder_ship_date IS NOT NULL
+        AND o.status NOT IN ('expired','cancelled') AND o.refund_state <> 'full'`;
+    if (!withinPreorderCap(m.cap, Number(open?.units ?? 0))) throw new StockError('out_of_stock', 'out_of_stock', need.variantId);
+  }
 }
 
 async function movement(tx: TenantTransaction, accountId: string, m: {
@@ -89,7 +142,7 @@ async function wakeAlertsTx(tx: TenantTransaction, accountId: string, variantId:
 }
 
 /**
- * Reserve every tracked line for the order (ascending variant_id), held until
+ * Reserve every tracked line for the order (ascending variant_id; a bundle line reserves its parts), held until
  * `expiresAt`, or with no expiry (null) for a cash-on-delivery order, which is
  * committed when the cash is recorded or released when it is cancelled.
  * Throws StockError('out_of_stock', ..., variantId) when any line cannot be
@@ -98,19 +151,31 @@ async function wakeAlertsTx(tx: TenantTransaction, accountId: string, variantId:
 export async function reserveTx(
   tx: TenantTransaction, accountId: string, orderId: string, lines: StockLine[], expiresAt: Date | null,
 ): Promise<void> {
-  const merged = mergeLines(lines);
-  const tracked = await trackedIds(tx, accountId, merged.map((l) => l.variantId));
-  for (const line of merged) {
-    if (!tracked.has(line.variantId)) continue;
+  const { needs, meta } = await needsTx(tx, accountId, mergeLines(lines));
+  await assertPreorderCapsTx(tx, accountId, needs, meta);
+  for (const need of needs) {
+    const m = meta.get(need.variantId);
+    if (!m?.track) continue;
+    let quantity = need.quantity;
+    if (m.preorder) {
+      // A pre-order variant sells past zero stock: reserve what is on the shelf, the rest is promised for the ship date.
+      const [have] = await tx.$queryRaw<{ available: number }[]>`
+        SELECT on_hand - reserved AS available FROM inventory_levels
+        WHERE account_id=${accountId}::uuid AND variant_id=${need.variantId}::uuid FOR UPDATE`;
+      const reserve = reserveFromStock(need, have?.available ?? 0, true);
+      if (reserve === null) throw new StockError('out_of_stock', 'out_of_stock', need.variantId);
+      if (reserve === 0) continue;
+      quantity = reserve;
+    }
     const [level] = await tx.$queryRaw<LevelRow[]>`
-      UPDATE inventory_levels SET reserved = reserved + ${line.quantity}
-      WHERE account_id=${accountId}::uuid AND variant_id=${line.variantId}::uuid AND on_hand - reserved >= ${line.quantity}
+      UPDATE inventory_levels SET reserved = reserved + ${quantity}
+      WHERE account_id=${accountId}::uuid AND variant_id=${need.variantId}::uuid AND on_hand - reserved >= ${quantity}
       RETURNING variant_id::text AS variant_id, on_hand, reserved`;
-    if (!level) throw new StockError('out_of_stock', 'out_of_stock', line.variantId);
+    if (!level) throw new StockError('out_of_stock', 'out_of_stock', need.variantId);
     await tx.$executeRaw`INSERT INTO stock_reservations(account_id,order_id,variant_id,quantity,status,expires_at)
-      VALUES(${accountId}::uuid,${orderId}::uuid,${line.variantId}::uuid,${line.quantity},'held',${expiresAt})
+      VALUES(${accountId}::uuid,${orderId}::uuid,${need.variantId}::uuid,${quantity},'held',${expiresAt})
       ON CONFLICT (account_id,order_id,variant_id) DO UPDATE SET quantity=EXCLUDED.quantity,status='held',expires_at=EXCLUDED.expires_at`;
-    await movement(tx, accountId, { variantId: line.variantId, kind: 'reserve', quantity: line.quantity, level, orderId });
+    await movement(tx, accountId, { variantId: need.variantId, kind: 'reserve', quantity, level, orderId });
   }
 }
 
@@ -178,8 +243,17 @@ export async function rereserveTx(tx: TenantTransaction, accountId: string, orde
   return true;
 }
 
+/** The tracked variants among `ids` (untracked ones are made to order and never counted). */
+async function trackedIds(tx: TenantTransaction, accountId: string, ids: string[]): Promise<Set<string>> {
+  if (!ids.length) return new Set();
+  const rows = await tx.$queryRaw<{ id: string }[]>`
+    SELECT id::text AS id FROM shop_variants
+    WHERE account_id=${accountId}::uuid AND id = ANY(${ids}::uuid[]) AND track_inventory`;
+  return new Set(rows.map((r) => r.id));
+}
+
 /**
- * Order edit: move what one order holds (an unpaid order: reserved) or sold (a paid order: on hand)
+ * Order edit (never a bundle, pre-order or digital line: order-edits.ts refuses those): move what one order holds (an unpaid order: reserved) or sold (a paid order: on hand)
  * by `delta` units per variant, in ascending variant order. A positive delta needs that many units
  * available (StockError out_of_stock otherwise, and the caller's transaction rolls back); a negative
  * one gives units back. The order's reservation row follows, so a later commit, release or
@@ -297,21 +371,21 @@ export async function restockTx(tx: TenantTransaction, accountId: string, input:
   returnId?: string | null;
   actorUserId?: string | null;
 }): Promise<void> {
-  const merged = mergeLines(input.lines);
-  const tracked = await trackedIds(tx, accountId, merged.map((l) => l.variantId));
-  for (const line of merged) {
-    if (!tracked.has(line.variantId)) continue;
-    await upsertLevel(tx, accountId, line.variantId);
+  // A bundle line puts its parts back; any other line puts back what it returns.
+  const { needs, meta } = await needsTx(tx, accountId, mergeLines(input.lines), input.orderId);
+  for (const need of needs) {
+    if (!meta.get(need.variantId)?.track) continue;
+    await upsertLevel(tx, accountId, need.variantId);
     const [level] = await tx.$queryRaw<LevelRow[]>`
-      UPDATE inventory_levels SET on_hand = on_hand + ${line.quantity}
-      WHERE account_id=${accountId}::uuid AND variant_id=${line.variantId}::uuid
+      UPDATE inventory_levels SET on_hand = on_hand + ${need.quantity}
+      WHERE account_id=${accountId}::uuid AND variant_id=${need.variantId}::uuid
       RETURNING variant_id::text AS variant_id, on_hand, reserved`;
     const movementId = await movement(tx, accountId, {
-      variantId: line.variantId, kind: input.kind, quantity: line.quantity, level: level!,
+      variantId: need.variantId, kind: input.kind, quantity: need.quantity, level: level!,
       orderId: input.orderId, returnId: input.returnId ?? null, actorUserId: input.actorUserId ?? null,
     });
-    await wakeAlertsTx(tx, accountId, line.variantId, movementId, level!.on_hand - line.quantity - level!.reserved, level!);
-    await maybeNotifyLowStockTx(tx, accountId, line.variantId);
+    await wakeAlertsTx(tx, accountId, need.variantId, movementId, level!.on_hand - need.quantity - level!.reserved, level!);
+    await maybeNotifyLowStockTx(tx, accountId, need.variantId);
   }
 }
 

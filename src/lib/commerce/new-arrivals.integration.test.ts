@@ -103,7 +103,7 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('often bought together and n
     // Only the public product shape: no counts or order ids.
     const json = JSON.stringify(page?.boughtTogether);
     expect(json).not.toMatch(/count|order/i);
-    expect(Object.keys(page!.boughtTogether[0]).sort()).toEqual(['categoryId', 'categoryName', 'description', 'details', 'disclosure', 'id', 'images', 'name', 'rating', 'variants']);
+    expect(Object.keys(page!.boughtTogether[0]).sort()).toEqual(['categoryId', 'categoryName', 'description', 'details', 'digital', 'disclosure', 'id', 'images', 'name', 'rating', 'variants']);
   });
 
   it('falls back to the same-category products when fewer than two products share sales', async () => {

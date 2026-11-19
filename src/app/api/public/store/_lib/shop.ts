@@ -12,6 +12,11 @@ import { assertOrigin } from '@/lib/auth/csrf';
 import { isShopHandleFormat } from '@/lib/commerce/public-shop';
 import { burstAllowed, clientIp, json, notFound, publicError, readBody, tooMany } from '../../shop/_lib/public';
 
+/** A reply that also sets one httpOnly cookie (the shop password unlock). */
+export class ShopReply {
+  constructor(readonly body: unknown, readonly cookie: { name: string; value: string; maxAgeSeconds: number }) {}
+}
+
 export type HandleParams = { params: Promise<{ handle: string }> };
 
 /** One anonymous POST: Origin, burst, handle format, body, then `work` (null answer = 404). */
@@ -27,6 +32,13 @@ export async function shopPost(
     const body = await readBody(request);
     if (!body) return json({ code: 'invalid' }, 400);
     const result = await work(handle, body, clientIp(request));
+    if (result instanceof ShopReply) {
+      const response = json(result.body);
+      response.cookies.set(result.cookie.name, result.cookie.value, {
+        httpOnly: true, sameSite: 'lax', path: '/', secure: process.env.NODE_ENV === 'production', maxAge: result.cookie.maxAgeSeconds,
+      });
+      return response;
+    }
     return result === null ? notFound() : json(result);
   } catch (error) {
     return publicError(error, `store:${scope}`);

@@ -4,8 +4,9 @@
  * sha256 is stored. Issuing a new shop link for a contact revokes the
  * previous live one. The page sees only what was entered in this session:
  * this session's cart, address and coupon, published products, and the one
- * order the session placed or is bound to. Never another order, never the
- * contact's profile, never a saved address.
+ * order the session placed or is bound to. Never another order and never the
+ * contact's profile. The one exception is the repeat buyer's one-tap summary
+ * (loadRepeatTx): name, town and postcode of the session's own contact's last order.
  *
  * Every public mutation is version-checked (expectedVersion) and runs in the
  * worker role inside the session's tenant (the public routes resolve the
@@ -32,13 +33,21 @@ import { assertWhatsAppConversation, getNumberConfig, isNumberDisconnected, NoNu
 import { isRecipientNotAllowedError, phoneVariants } from '@/lib/whatsapp/phone-utils';
 import { resolveContactSendTarget } from '@/lib/whatsapp/wa-identity';
 import { loadAutoDiscountsTx } from './auto-discount-rules';
-import { parseDiscountDetails, type AutoDiscountKind } from './auto-discounts';
+import { loadBuyerSettingsTx } from './buyer-settings';
+import { loadReturnsViewTx, type StorefrontReturns } from './buyer-returns-view';
+import { checkExtras, deliveryDateBounds, hasExtras, readBuyerExtras, type BuyerExtras, type CustomField, type DeliverySlot, type ExtrasInput } from './checkout-extras';
+import { buyerBalancesTx, tenderOf } from './customer-ledger';
+import { loadBuyerPricingTx } from './price-rules-store';
+import { parseDiscountDetails, type DiscountDetailKind } from './auto-discounts';
 import { findCouponTx, normaliseCouponCode, toPricingCoupon, type CouponRow } from './coupons';
 import { queueAbandonedCartTx } from './cart-followups';
+import { loadDeliveryOptionsTx, pricingDelivery } from './delivery-options';
+import { digitalDownloadUrl, orderDigitalItemsTx } from './digital-delivery';
 import { minorFromDb } from './money';
 import type { OrderStatus } from './order-format';
 import {
-  CART_LIMITS, isPaymentMethod, normaliseCart, priceCart, type CartLine, type PaymentMethod, type PricingResult, type PricingVariant, type Quote,
+  availableDeliveryMethods, CART_LIMITS, isDeliveryMethod, isPaymentMethod, normaliseCart, priceCart, type CartLine, type DeliveryMethod,
+  type PaymentMethod, type PricingResult, type PricingVariant, type Quote,
 } from './pricing';
 import { orderTrackingPathTx } from './order-tracking-link';
 import { deriveStorefrontToken, storefrontTokenHash, storefrontUrl } from './storefront-token';
@@ -71,12 +80,19 @@ export interface SessionRow {
   coupon_code: string | null;
   /** The customer's payment choice; the quote and the place reprice both read it. */
   payment_method: PaymentMethod;
+  /** The customer's delivery choice: a shipping rate, store pickup or local delivery. Priced by the quote and the place reprice. */
+  delivery_method: DeliveryMethod;
+  /** The buyer chose to pay with store credit / with loyalty points. Priced by the quote and the place reprice. */
+  use_store_credit: boolean;
+  use_points: boolean;
+  /** What the buyer typed for the checkout extras (note, gift message, delivery date and slot, custom answers); checked again at place. */
+  extras: unknown;
   version: number;
 }
 
 const SESSION_COLUMNS = `id::text AS id, token_epoch, contact_id::text AS contact_id, conversation_id::text AS conversation_id,
   whatsapp_config_id::text AS whatsapp_config_id, purpose, expires_at, revoked_at, order_id::text AS order_id, cart, address,
-  coupon_code, payment_method, version`;
+  coupon_code, payment_method, delivery_method, use_store_credit, use_points, extras, version`;
 
 export async function loadSession(tx: TenantTransaction, accountId: string, sessionId: string, lock = false): Promise<SessionRow | null> {
   const rows = await tx.$queryRawUnsafe<SessionRow[]>(
@@ -435,11 +451,14 @@ interface OrderRow {
   shipping_minor: bigint; tax_minor: bigint; total_minor: bigint | null; tax_inclusive: boolean | null; amount_paid_minor: bigint;
   reservation_expires_at: Date | null; paid_at: Date | null; checkout_attempt: number; created_at: Date;
   payment_method: PaymentMethod; cod_fee_minor: bigint; auto_discount_minor: bigint; discount_details: unknown;
+  delivery_method: DeliveryMethod; preorder_ship_date: string | null;
+  store_credit_minor: bigint; points_redeemed: number; points_value_minor: bigint; buyer_extras: unknown;
 }
 const ORDER_COLUMNS = `id::text AS id, source, status, currency, priced_at, contact_id::text AS contact_id,
   conversation_id::text AS conversation_id, whatsapp_config_id::text AS whatsapp_config_id, subtotal_minor, discount_minor, shipping_minor,
   tax_minor, total_minor, tax_inclusive, amount_paid_minor, reservation_expires_at, paid_at, checkout_attempt, created_at,
-  payment_method, cod_fee_minor, auto_discount_minor, discount_details`;
+  payment_method, cod_fee_minor, auto_discount_minor, discount_details, delivery_method,
+  to_char(preorder_ship_date, 'YYYY-MM-DD') AS preorder_ship_date, store_credit_minor, points_redeemed, points_value_minor, buyer_extras`;
 
 export async function loadOrder(tx: TenantTransaction, accountId: string, orderId: string, lock = false): Promise<OrderRow | null> {
   const rows = await tx.$queryRawUnsafe<OrderRow[]>(
@@ -466,7 +485,7 @@ export async function sessionLines(tx: TenantTransaction, accountId: string, ses
 interface VariantRow {
   id: string; product_id: string; product_name: string; sku: string; option_values: Record<string, string>; price_minor: bigint | null;
   compare_at_minor: bigint | null; tax_rate_bps: number | null; hsn_code: string | null; track_inventory: boolean; sellable: boolean;
-  available: number | null; cod_available: boolean; weight_grams: number | null;
+  available: number | null; cod_available: boolean; weight_grams: number | null; is_digital: boolean; ship_date: string | null; category_id: string | null;
 }
 
 /** Variants by id (any status; `sellable` says whether it can be bought now). */
@@ -474,16 +493,17 @@ export async function loadVariants(tx: TenantTransaction, accountId: string, ids
   if (!ids.length) return new Map();
   const rows = await tx.$queryRaw<VariantRow[]>`
     SELECT v.id::text AS id, v.product_id::text AS product_id, p.name AS product_name, v.sku, v.option_values, v.price_minor,
-      v.compare_at_minor, v.tax_rate_bps, v.hsn_code, v.track_inventory, p.cod_available, v.weight_grams,
-      (p.status='published' AND v.archived_at IS NULL) AS sellable,
-      CASE WHEN v.track_inventory THEN COALESCE(l.on_hand - l.reserved, 0) END AS available
+      v.compare_at_minor, v.tax_rate_bps, v.hsn_code, v.track_inventory, p.cod_available, v.weight_grams, p.is_digital, p.category_id::text AS category_id,
+      CASE WHEN v.preorder AND NOT p.is_bundle THEN to_char(v.preorder_ship_date, 'YYYY-MM-DD') END AS ship_date,
+      (shop_product_live(p.status, p.publish_at, p.hide_at) AND v.archived_at IS NULL) AS sellable,
+      shop_variant_availability(v.account_id, v.id) AS available
     FROM shop_variants v JOIN shop_products p ON p.account_id=v.account_id AND p.id=v.product_id
-    LEFT JOIN inventory_levels l ON l.account_id=v.account_id AND l.variant_id=v.id
     WHERE v.account_id=${accountId}::uuid AND v.id = ANY(${ids}::uuid[])`;
   return new Map(rows.map((r) => [r.id, {
     id: r.id, productId: r.product_id, productName: r.product_name, sku: r.sku, optionValues: r.option_values ?? {},
     priceMinor: minorFromDb(r.price_minor), taxRateBps: r.tax_rate_bps, hsnCode: r.hsn_code, trackInventory: r.track_inventory,
-    sellable: r.sellable, available: r.available, codAvailable: r.cod_available, weightGrams: r.weight_grams,
+    sellable: r.sellable, available: r.available, codAvailable: r.cod_available, weightGrams: r.weight_grams, digital: r.is_digital, preorderShipDate: r.ship_date,
+    categoryId: r.category_id,
   }]));
 }
 
@@ -506,22 +526,34 @@ export async function quoteSessionTx(tx: TenantTransaction, accountId: string, s
   if (unmatched) return { result: { ok: false, code: 'price_not_configured' }, coupon: null, lines };
   const coupon = options.lockedCoupon !== undefined ? options.lockedCoupon
     : session.coupon_code ? await findCouponTx(tx, accountId, session.coupon_code) : null;
-  const variants = await loadVariants(tx, accountId, lines.map((l) => l.variantId));
+  // The buyer's price lists, the discount rules that reach them and the gift rules: the workspace's own rows only.
+  const buyer = await loadBuyerPricingTx(tx, accountId, session.contact_id, lines.map((l) => l.variantId));
+  const variants = await loadVariants(tx, accountId, [...lines.map((l) => l.variantId), ...buyer.giftRules.map((g) => g.giftVariantId)]);
+  // Store credit and points only when the buyer switched them on, at the balances read now (the place checks them again under a lock).
+  const tender = session.use_store_credit || session.use_points
+    ? tenderOf(await buyerBalancesTx(tx, accountId, session.contact_id, settings.currency), { useCredit: session.use_store_credit, usePoints: session.use_points })
+    : null;
   const address = asAddress(session.address);
   const rates = address ? (await selectRates(tx, accountId, true)).map(pricingRate) : [];
   // The workspace's own rules only (account-scoped query under RLS); the quote and the place reprice both read them here.
   const autoDiscounts = await loadAutoDiscountsTx(tx, accountId);
+  // Pickup and local delivery are priced here too, from the workspace's own settings (never from the browser).
+  const deliveryOptions = session.delivery_method === 'ship' ? null : pricingDelivery(await loadDeliveryOptionsTx(tx, accountId));
   const result = priceCart({
     lines, variants, settings, shippingRates: rates,
     coupon: session.coupon_code ? (coupon ? toPricingCoupon(coupon) : 'missing') : null,
     address: address ? { country: address.country, postalCode: address.postal_code, state: address.state, stateCode: address.state_code } : null,
-    paymentMethod: session.payment_method, autoDiscounts, now: options.now,
+    paymentMethod: session.payment_method, deliveryMethod: session.delivery_method, deliveryOptions, autoDiscounts,
+    priceTiers: buyer.priceTiers, lineRules: buyer.lineRules, giftRules: buyer.giftRules, tender, now: options.now,
   });
   return { result, coupon, lines };
 }
 
 async function bump(tx: TenantTransaction, accountId: string, sessionId: string,
-  set: { cart?: CartLine[]; address?: StorefrontAddress | null; coupon?: string | null; paymentMethod?: PaymentMethod }) {
+  set: { cart?: CartLine[]; address?: StorefrontAddress | null; coupon?: string | null; paymentMethod?: PaymentMethod; deliveryMethod?: DeliveryMethod }) {
+  if (set.deliveryMethod !== undefined)
+    await tx.$executeRaw`UPDATE storefront_sessions SET delivery_method=${set.deliveryMethod}, version=version+1
+      WHERE account_id=${accountId}::uuid AND id=${sessionId}::uuid`;
   if (set.paymentMethod !== undefined)
     await tx.$executeRaw`UPDATE storefront_sessions SET payment_method=${set.paymentMethod}, version=version+1
       WHERE account_id=${accountId}::uuid AND id=${sessionId}::uuid`;
@@ -597,6 +629,114 @@ export async function setPaymentMethodTx(tx: TenantTransaction, accountId: strin
   if (session.payment_method !== input.paymentMethod) await bump(tx, accountId, sessionId, { paymentMethod: input.paymentMethod });
 }
 
+/**
+ * Choose how the order reaches the customer: 'ship' (a shipping rate), 'pickup' (collect at the store) or
+ * 'local' (the store's own delivery). Pickup and local delivery are refused (delivery_unavailable) unless
+ * the store offers them, and local delivery also when the saved address is outside its postal prefixes.
+ * The quote checks again, since the address or the settings can change afterwards.
+ */
+export async function setDeliveryMethodTx(tx: TenantTransaction, accountId: string, sessionId: string,
+  input: { expectedVersion: number; deliveryMethod: unknown }): Promise<void> {
+  if (!isDeliveryMethod(input.deliveryMethod)) throw new StoreError('invalid', { field: 'delivery_method' });
+  const session = await lockForChange(tx, accountId, sessionId, input.expectedVersion);
+  if (input.deliveryMethod !== 'ship') {
+    const address = asAddress(session.address);
+    const methods = availableDeliveryMethods(pricingDelivery(await loadDeliveryOptionsTx(tx, accountId)),
+      address ? { country: address.country, postalCode: address.postal_code } : null);
+    if (!methods.includes(input.deliveryMethod)) throw new StoreError('delivery_unavailable');
+  }
+  if (session.delivery_method !== input.deliveryMethod) await bump(tx, accountId, sessionId, { deliveryMethod: input.deliveryMethod });
+}
+
+/**
+ * Choose whether to pay with store credit and with loyalty points. Both are plain switches: the quote
+ * spends as much as the balance and the rules allow, and placing checks the balances again under a lock.
+ */
+export async function setTenderTx(tx: TenantTransaction, accountId: string, sessionId: string,
+  input: { expectedVersion: number; useStoreCredit: unknown; usePoints: unknown }): Promise<void> {
+  if (typeof input.useStoreCredit !== 'boolean' || typeof input.usePoints !== 'boolean') throw new StoreError('invalid', { field: 'tender' });
+  const session = await lockForChange(tx, accountId, sessionId, input.expectedVersion);
+  if (session.use_store_credit === input.useStoreCredit && session.use_points === input.usePoints) return;
+  await tx.$executeRaw`UPDATE storefront_sessions SET use_store_credit=${input.useStoreCredit}, use_points=${input.usePoints}, version=version+1
+    WHERE account_id=${accountId}::uuid AND id=${sessionId}::uuid`;
+}
+
+/**
+ * Save what the buyer typed for the checkout extras (note, gift message, delivery date and slot, custom answers) on the
+ * session. Checked against the shop's offer now for shape and range (nothing is required yet); placing checks again with the
+ * required fields enforced. Not part of pricing, so the quote does not change; the version still moves so a stale page notices.
+ */
+export async function setExtrasTx(tx: TenantTransaction, accountId: string, sessionId: string, input: { expectedVersion: number; extras: unknown }): Promise<void> {
+  const session = await lockForChange(tx, accountId, sessionId, input.expectedVersion);
+  const settings = await loadBuyerSettingsTx(tx, accountId);
+  const { input: stored } = checkExtras(settings, input.extras, new Date(), { complete: false });
+  await tx.$executeRaw`UPDATE storefront_sessions SET extras=${Object.keys(stored).length ? JSON.stringify(stored) : null}::jsonb, version=version+1
+    WHERE account_id=${accountId}::uuid AND id=${session.id}::uuid`;
+}
+
+/** What the page offers for the extras: the shop's fields, the date range and the values typed so far; null when the shop offers none. */
+export interface StorefrontExtras {
+  note: boolean;
+  giftMessage: boolean;
+  deliveryDate: boolean;
+  minDate: string;
+  maxDate: string;
+  slots: DeliverySlot[];
+  fields: CustomField[];
+  values: ExtrasInput;
+}
+
+// ---------------------------------------------------------------------------
+// One-tap checkout for a repeat buyer (the contact-based version; there are no customer accounts)
+
+/**
+ * What the buyer's last order was sent to, as a short summary the page can ask them to confirm (name, town, postcode, how it
+ * travelled). The session is bound to one contact that proved it holds the WhatsApp number (the code, or a link sent to it),
+ * and the lookup is by that contact only: another contact's order, and a visitor with no session, never reach it. The full
+ * address never leaves the server; applyRepeatTx copies it onto the session.
+ */
+export interface StorefrontRepeat { name: string; city: string; postalCode: string; deliveryMethod: DeliveryMethod }
+
+async function lastPlacedTx(tx: TenantTransaction, accountId: string, contactId: string): Promise<{ address: unknown; delivery_method: DeliveryMethod } | null> {
+  const [row] = await tx.$queryRaw<{ shipping_address: unknown; delivery_method: DeliveryMethod }[]>`
+    SELECT shipping_address, delivery_method FROM orders
+    WHERE account_id=${accountId}::uuid AND contact_id=${contactId}::uuid AND source='storefront' AND priced_at IS NOT NULL
+      AND shipping_address IS NOT NULL AND status NOT IN ('cancelled','expired')
+    ORDER BY created_at DESC LIMIT 1`;
+  return row ? { address: row.shipping_address, delivery_method: row.delivery_method } : null;
+}
+
+export async function loadRepeatTx(tx: TenantTransaction, accountId: string, contactId: string): Promise<StorefrontRepeat | null> {
+  const last = await lastPlacedTx(tx, accountId, contactId);
+  if (!last) return null;
+  try {
+    const a = parseAddress(last.address);
+    return { name: a.name, city: a.city, postalCode: a.postal_code, deliveryMethod: last.delivery_method };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Use the last order's address and delivery choice for this cart (one tap). Only the session's own contact's last order is read.
+ * The delivery choice falls back to shipping when pickup or local delivery is not on offer for that address any more.
+ */
+export async function applyRepeatTx(tx: TenantTransaction, accountId: string, sessionId: string, input: { expectedVersion: number }): Promise<void> {
+  const session = await lockForChange(tx, accountId, sessionId, input.expectedVersion);
+  if (cartLocked(session)) throw new StoreError('cart_locked');
+  const last = await lastPlacedTx(tx, accountId, session.contact_id);
+  let address: StorefrontAddress;
+  try {
+    address = parseAddress(last?.address);
+  } catch {
+    throw new StoreError('repeat_unavailable');
+  }
+  const methods = availableDeliveryMethods(pricingDelivery(await loadDeliveryOptionsTx(tx, accountId)), { country: address.country, postalCode: address.postal_code });
+  const method: DeliveryMethod = last && methods.includes(last.delivery_method) ? last.delivery_method : 'ship';
+  await tx.$executeRaw`UPDATE storefront_sessions SET address=${JSON.stringify(address)}::jsonb, delivery_method=${method}, version=version+1
+    WHERE account_id=${accountId}::uuid AND id=${sessionId}::uuid`;
+}
+
 export { onlinePaymentReady };
 
 /** Apply (or with null remove) a coupon code. An unknown code is refused here; validity is checked by the quote. */
@@ -621,7 +761,11 @@ export interface StorefrontProduct {
   disclosure: string | null;
   categoryName: string | null;
   images: string[];
-  variants: Array<{ id: string; sku: string; options: Record<string, string>; priceMinor: number; compareAtMinor: number | null; inStock: boolean }>;
+  variants: Array<{ id: string; sku: string; options: Record<string, string>; priceMinor: number; compareAtMinor: number | null; inStock: boolean;
+    /** Pre-order: ships by this date (YYYY-MM-DD). */
+    shipsBy: string | null }>;
+  /** A digital download: nothing is shipped. */
+  digital: boolean;
 }
 
 export interface StorefrontOrderView {
@@ -633,17 +777,33 @@ export interface StorefrontOrderView {
   /** The automatic part of discountMinor (the rest is the coupon). */
   autoDiscountMinor: number;
   /** The automatic discounts the order was placed with: names and savings (a free-shipping entry carries the fee waived). */
-  autoDiscounts: Array<{ name: string; kind: AutoDiscountKind; savingMinor: number }>;
+  autoDiscounts: Array<{ name: string; kind: DiscountDetailKind; savingMinor: number }>;
+  /** Store credit and loyalty points the order was placed with (payments, not discounts). */
+  storeCreditMinor: number;
+  pointsRedeemed: number;
+  pointsValueMinor: number;
   shippingMinor: number;
   /** 'cod': the customer pays in cash on delivery (no payment link). */
   paymentMethod: PaymentMethod;
+  /** How the order reaches the customer. */
+  deliveryMethod: DeliveryMethod;
+  /** Where and how to collect a pickup order (the store's current pickup details); null for other methods. */
+  pickup: { address: string | null; instructions: string | null } | null;
   codFeeMinor: number;
   taxMinor: number;
   totalMinor: number | null;
   taxInclusive: boolean | null;
   amountPaidMinor: number;
   priced: boolean;
-  lines: Array<{ name: string | null; sku: string | null; qty: number; unitPriceMinor: number; lineTotalMinor: number | null }>;
+  lines: Array<{ name: string | null; sku: string | null; qty: number; unitPriceMinor: number; lineTotalMinor: number | null;
+    /** Pre-order: this line ships by this date (YYYY-MM-DD). */
+    shipsBy: string | null;
+    /** A free gift line. */
+    gift: boolean }>;
+  /** Pre-order: the date the order as a whole ships by (YYYY-MM-DD), else null. */
+  preorderShipDate: string | null;
+  /** A signed link to the order's digital products, once it is paid; null otherwise. */
+  digitalDownloadUrl: string | null;
   /** A live payment link to open, when there is one. */
   paymentUrl: string | null;
   /** Awaiting payment while the link is being prepared. */
@@ -652,6 +812,10 @@ export interface StorefrontOrderView {
   paymentFailed: boolean;
   /** The store's return window in days after delivery (0 = none), shown once the order has left; null before that. */
   returnWindowDays: number | null;
+  /** What the buyer asked for at checkout (note, gift message, delivery date and slot, custom answers); null when nothing. */
+  extras: BuyerExtras | null;
+  /** Return and exchange requests (Phase 8): what can be asked for now and the requests made; null when the shop offers none. */
+  returns: StorefrontReturns | null;
   reservationExpiresAt: string | null;
   paidAt: string | null;
   documentNumber: string | null;
@@ -668,6 +832,11 @@ export interface StorefrontView {
   };
   purpose: StorefrontPurpose;
   paymentMethod: PaymentMethod;
+  /** The delivery choice and what the store offers. `methods` always holds 'ship'; local delivery is listed only when the saved address is in reach (or none is saved yet). */
+  delivery: {
+    method: DeliveryMethod; methods: DeliveryMethod[];
+    pickupAddress: string | null; pickupInstructions: string | null; localFeeMinor: number;
+  };
   version: number;
   expiresAt: string;
   open: boolean;
@@ -675,6 +844,17 @@ export interface StorefrontView {
   cart: CartLine[];
   address: StorefrontAddress | null;
   couponCode: string | null;
+  /**
+   * What this buyer can pay with: the store credit balance, the points balance (0 while loyalty is off) and what one
+   * point pays; `useStoreCredit` / `usePoints` are the buyer's switches. null when the session is no longer open.
+   */
+  wallet: { storeCreditMinor: number; points: number; pointValueMinor: number | null; useStoreCredit: boolean; usePoints: boolean } | null;
+  /** The checkout extras the shop offers and what the buyer has typed so far; null when none are offered or the cart is closed. */
+  extras: StorefrontExtras | null;
+  /** The last order's destination, for a one-tap repeat (contact-based, never the full address); null for a first order or once an address is set. */
+  repeat: StorefrontRepeat | null;
+  /** Variant ids this buyer saved (their wishlist; shop sessions only). */
+  wishlist: string[];
   /** The first catalogue page; later pages and searches come from GET …/products (loadCatalogue). */
   products: StorefrontProduct[];
   /** Cursor of the next catalogue page, or null when the first page holds every product. */
@@ -692,8 +872,8 @@ export async function loadOrderView(tx: TenantTransaction, accountId: string, or
   const order = await loadOrder(tx, accountId, orderId);
   if (!order) return null;
   const items = await tx.$queryRaw<{ name: string | null; sku: string | null; retailer_id: string | null; quantity: number;
-    unit_price_minor: bigint; line_total_minor: bigint | null }[]>`
-    SELECT name, sku, retailer_id, quantity, unit_price_minor, line_total_minor FROM order_items
+    unit_price_minor: bigint; line_total_minor: bigint | null; ship_date: string | null; is_gift: boolean }[]>`
+    SELECT name, sku, retailer_id, quantity, unit_price_minor, line_total_minor, to_char(preorder_ship_date, 'YYYY-MM-DD') AS ship_date, is_gift FROM order_items
     WHERE account_id=${accountId}::uuid AND order_id=${orderId}::uuid ORDER BY id LIMIT 100`;
   const [link] = await tx.$queryRaw<{ short_url: string | null; status: string }[]>`
     SELECT short_url, status FROM payment_links WHERE account_id=${accountId}::uuid AND order_id=${orderId}::uuid
@@ -705,6 +885,9 @@ export async function loadOrderView(tx: TenantTransaction, accountId: string, or
   const [failed] = order.status === 'expired' ? await tx.$queryRaw<{ n: number }[]>`SELECT count(*)::int AS n FROM order_events
     WHERE account_id=${accountId}::uuid AND order_id=${orderId}::uuid AND kind='payment_link_failed'` : [];
   const shipped = order.status === 'dispatched' || order.status === 'fulfilled';
+  const downloadable = ['paid', 'partially_shipped', 'dispatched', 'fulfilled'].includes(order.status) && order.paid_at !== null
+    && (await orderDigitalItemsTx(tx, accountId, orderId)).length > 0;
+  const pickup = order.delivery_method === 'pickup' ? await loadDeliveryOptionsTx(tx, accountId) : null;
   const [window] = shipped ? await tx.$queryRaw<{ days: number }[]>`SELECT return_window_days AS days FROM commerce_settings
     WHERE account_id=${accountId}::uuid` : [];
   return {
@@ -712,17 +895,23 @@ export async function loadOrderView(tx: TenantTransaction, accountId: string, or
     subtotalMinor: minorFromDb(order.subtotal_minor) ?? 0, discountMinor: minorFromDb(order.discount_minor) ?? 0,
     autoDiscountMinor: minorFromDb(order.auto_discount_minor) ?? 0,
     autoDiscounts: parseDiscountDetails(order.discount_details).map((d) => ({ name: d.name, kind: d.kind, savingMinor: d.saving_minor })),
+    storeCreditMinor: minorFromDb(order.store_credit_minor) ?? 0, pointsRedeemed: order.points_redeemed,
+    pointsValueMinor: minorFromDb(order.points_value_minor) ?? 0,
     shippingMinor: minorFromDb(order.shipping_minor) ?? 0, paymentMethod: order.payment_method,
+    deliveryMethod: order.delivery_method,
+    pickup: pickup ? { address: pickup.pickup_address, instructions: pickup.pickup_instructions } : null,
     codFeeMinor: minorFromDb(order.cod_fee_minor) ?? 0, taxMinor: minorFromDb(order.tax_minor) ?? 0,
     totalMinor: minorFromDb(order.total_minor), taxInclusive: order.tax_inclusive, amountPaidMinor: minorFromDb(order.amount_paid_minor) ?? 0,
     priced: order.priced_at !== null,
     lines: items.map((i) => ({ name: i.name, sku: i.sku ?? i.retailer_id, qty: i.quantity, unitPriceMinor: minorFromDb(i.unit_price_minor) ?? 0,
-      lineTotalMinor: minorFromDb(i.line_total_minor) })),
+      lineTotalMinor: minorFromDb(i.line_total_minor), shipsBy: i.ship_date, gift: i.is_gift })),
+    preorderShipDate: order.preorder_ship_date, digitalDownloadUrl: downloadable ? digitalDownloadUrl(accountId, orderId) : null,
     paymentUrl: awaiting && link?.short_url && (link.status === 'created' || link.status === 'partially_paid') ? link.short_url : null,
     paymentPending: awaiting && !(link?.short_url && (link.status === 'created' || link.status === 'partially_paid')),
     paymentFailed: (failed?.n ?? 0) > 0,
     // As createReturn: 7 days when the store never saved its settings.
     returnWindowDays: shipped ? (window?.days ?? 7) : null,
+    extras: readBuyerExtras(order.buyer_extras), returns: await loadReturnsViewTx(tx, accountId, orderId),
     reservationExpiresAt: order.reservation_expires_at?.toISOString() ?? null, paidAt: order.paid_at?.toISOString() ?? null,
     documentNumber: doc?.number ?? null,
     trackingPath: await orderTrackingPathTx(tx, accountId, orderId),
@@ -776,11 +965,11 @@ export async function loadCatalogue(tx: TenantTransaction, accountId: string, fi
   const categoryId = typeof filter.categoryId === 'string' && isUuid(filter.categoryId) ? filter.categoryId : null;
   const after = decodeCatalogueCursor(filter.cursor);
   const rows = await tx.$queryRaw<{ id: string; name: string; description: string | null; disclosure: string | null; category: string | null;
-    position: number }[]>`
-    SELECT p.id::text AS id, p.name, p.description, p.disclosure, c.name AS category,
+    position: number; is_digital: boolean }[]>`
+    SELECT p.id::text AS id, p.name, p.description, p.disclosure, c.name AS category, p.is_digital,
       COALESCE(c.position, ${LAST_POSITION}::int) AS position FROM shop_products p
     LEFT JOIN shop_categories c ON c.account_id=p.account_id AND c.id=p.category_id AND c.archived_at IS NULL
-    WHERE p.account_id=${accountId}::uuid AND p.status='published'
+    WHERE p.account_id=${accountId}::uuid AND shop_product_live(p.status, p.publish_at, p.hide_at)
       AND EXISTS (SELECT 1 FROM shop_variants v WHERE v.account_id=p.account_id AND v.product_id=p.id AND v.archived_at IS NULL AND v.price_minor IS NOT NULL)
       AND (${pattern}::text IS NULL OR p.name ILIKE ${pattern}::text OR p.description ILIKE ${pattern}::text)
       AND (${categoryId}::uuid IS NULL OR c.id=${categoryId}::uuid)
@@ -792,10 +981,11 @@ export async function loadCatalogue(tx: TenantTransaction, accountId: string, fi
   if (!products.length) return { products: [], nextCursor: null };
   const ids = products.map((p) => p.id);
   const variants = await tx.$queryRaw<{ id: string; product_id: string; sku: string; option_values: Record<string, string>; price_minor: bigint;
-    compare_at_minor: bigint | null; in_stock: boolean }[]>`
+    compare_at_minor: bigint | null; in_stock: boolean; ship_date: string | null }[]>`
     SELECT v.id::text AS id, v.product_id::text AS product_id, v.sku, v.option_values, v.price_minor, v.compare_at_minor,
-      (NOT v.track_inventory OR COALESCE(l.on_hand - l.reserved, 0) > 0) AS in_stock
-    FROM shop_variants v LEFT JOIN inventory_levels l ON l.account_id=v.account_id AND l.variant_id=v.id
+      COALESCE(shop_variant_availability(v.account_id, v.id), 1) > 0 AS in_stock,
+      CASE WHEN v.preorder THEN to_char(v.preorder_ship_date, 'YYYY-MM-DD') END AS ship_date
+    FROM shop_variants v
     WHERE v.account_id=${accountId}::uuid AND v.product_id = ANY(${ids}::uuid[]) AND v.archived_at IS NULL AND v.price_minor IS NOT NULL
     ORDER BY v.position, v.sku`;
   const images = await tx.$queryRaw<{ id: string; product_id: string }[]>`
@@ -804,11 +994,11 @@ export async function loadCatalogue(tx: TenantTransaction, accountId: string, fi
   const last = products[products.length - 1];
   return {
     products: products.map((p) => ({
-      id: p.id, name: p.name, description: p.description, disclosure: p.disclosure, categoryName: p.category,
+      id: p.id, name: p.name, description: p.description, disclosure: p.disclosure, categoryName: p.category, digital: p.is_digital,
       images: images.filter((i) => i.product_id === p.id).map((i) => i.id),
       variants: variants.filter((v) => v.product_id === p.id).map((v) => ({
         id: v.id, sku: v.sku, options: v.option_values ?? {}, priceMinor: minorFromDb(v.price_minor) ?? 0,
-        compareAtMinor: minorFromDb(v.compare_at_minor), inStock: v.in_stock,
+        compareAtMinor: minorFromDb(v.compare_at_minor), inStock: v.in_stock, shipsBy: v.ship_date,
       })),
     })),
     nextCursor: more ? encodeCatalogueCursor({ position: last.position, name: last.name, id: last.id }) : null,
@@ -820,8 +1010,8 @@ export async function loadCatalogueCategories(tx: TenantTransaction, accountId: 
   return tx.$queryRaw<{ id: string; name: string }[]>`
     SELECT c.id::text AS id, c.name FROM shop_categories c
     WHERE c.account_id=${accountId}::uuid AND c.archived_at IS NULL
-      AND EXISTS (SELECT 1 FROM shop_products p WHERE p.account_id=c.account_id AND p.category_id=c.id AND p.status='published'
-        AND EXISTS (SELECT 1 FROM shop_variants v WHERE v.account_id=p.account_id AND v.product_id=p.id AND v.archived_at IS NULL AND v.price_minor IS NOT NULL))
+      AND EXISTS (SELECT 1 FROM shop_products p WHERE p.account_id=c.account_id AND p.category_id=c.id
+        AND shop_product_live(p.status, p.publish_at, p.hide_at) AND EXISTS (SELECT 1 FROM shop_variants v WHERE v.account_id=p.account_id AND v.product_id=p.id AND v.archived_at IS NULL AND v.price_minor IS NOT NULL))
     ORDER BY c.position, c.name, c.id LIMIT 100`;
 }
 
@@ -847,14 +1037,40 @@ export async function loadStorefrontView(tx: TenantTransaction, accountId: strin
   const open = !placed && session.expires_at.getTime() > now.getTime();
   const showCatalogue = open && session.purpose === 'shop' && options.catalogue !== false;
   const lines = placed ? [] : (await sessionLines(tx, accountId, session)).lines;
+  const delivery = await loadDeliveryOptionsTx(tx, accountId);
+  const savedAddress = asAddress(session.address);
+  const balances = open && settings ? await buyerBalancesTx(tx, accountId, session.contact_id, settings.currency) : null;
+  const buyer = open ? await loadBuyerSettingsTx(tx, accountId) : null;
+  const stored = session.extras && typeof session.extras === 'object' && !Array.isArray(session.extras) ? session.extras as ExtrasInput : {};
+  const bounds = buyer ? deliveryDateBounds(now, buyer.lead_days, buyer.window_days, buyer.timezone) : null;
+  const saved = open && session.purpose === 'shop' ? await tx.$queryRaw<{ variant_id: string }[]>`SELECT variant_id::text AS variant_id FROM shop_wishlist_items
+    WHERE account_id=${accountId}::uuid AND contact_id=${session.contact_id}::uuid ORDER BY created_at DESC LIMIT 50` : [];
   return {
+    extras: buyer && bounds && hasExtras(buyer) ? {
+      note: buyer.note_enabled, giftMessage: buyer.gift_message_enabled, deliveryDate: buyer.delivery_date_enabled, minDate: bounds.min, maxDate: bounds.max,
+      slots: buyer.slots, fields: buyer.custom_fields, values: stored,
+    } : null,
+    repeat: open && session.purpose === 'shop' && !session.order_id && !savedAddress ? await loadRepeatTx(tx, accountId, session.contact_id) : null,
+    wishlist: saved.map((r) => r.variant_id),
+    wallet: balances ? {
+      storeCreditMinor: balances.storeCreditMinor, points: balances.points, pointValueMinor: balances.redeem?.valueMinor ?? null,
+      useStoreCredit: session.use_store_credit, usePoints: session.use_points,
+    } : null,
     store: {
       title: settings?.storefront_title ?? null, businessName: account?.name ?? '', currency: settings?.currency ?? null,
       pricesIncludeTax: settings?.prices_include_tax ?? true, checkoutEnabled: !!settings?.checkout_enabled,
       codEnabled: !!settings?.cod_enabled, codFeeMinor: settings?.cod_fee_minor ?? 0,
       onlineAvailable: await onlinePaymentReady(tx, accountId),
     },
-    purpose: session.purpose, paymentMethod: session.payment_method, version: session.version, expiresAt: session.expires_at.toISOString(), open,
+    purpose: session.purpose, paymentMethod: session.payment_method,
+    delivery: {
+      method: session.delivery_method,
+      methods: availableDeliveryMethods(pricingDelivery(delivery), savedAddress ? { country: savedAddress.country, postalCode: savedAddress.postal_code } : null),
+      pickupAddress: delivery.pickup_enabled ? delivery.pickup_address : null,
+      pickupInstructions: delivery.pickup_enabled ? delivery.pickup_instructions : null,
+      localFeeMinor: delivery.local_enabled ? delivery.local_fee_minor : 0,
+    },
+    version: session.version, expiresAt: session.expires_at.toISOString(), open,
     cartLocked: session.purpose !== 'shop' || placed,
     cart: lines, address: placed ? null : asAddress(session.address), couponCode: placed ? null : session.coupon_code,
     ...(showCatalogue ? await firstCataloguePage(tx, accountId) : { products: [], productsNext: null, categories: [] }),

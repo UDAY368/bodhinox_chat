@@ -14,9 +14,13 @@ import { withTenant, type TenantContext, type TenantTransaction } from '@/lib/db
 import { formatMoney, minorFromDb, mulDivHalfUp } from './money';
 import { lineTaxableMinor, placeOfSupply as placeOfSupplyOf, taxInvoiceSplit } from './tax-invoice';
 
-/** commerce.issue_receipt — dedupe receipt:<paymentId>, queued by settlement. */
+/**
+ * commerce.issue_receipt — dedupe receipt:<paymentId>, queued by settlement. `orderId` instead (dedupe
+ * receipt:order:<orderId>): an order paid in full with store credit and loyalty points, which has no payment row.
+ */
 export interface IssueReceiptJobPayload {
-  paymentId: string;
+  paymentId?: string;
+  orderId?: string;
 }
 
 /** commerce.issue_credit_note — dedupe credit:<refundId>, queued when a refund is processed. */
@@ -440,8 +444,37 @@ async function quietly(fn: () => Promise<unknown>): Promise<void> {
   }
 }
 
+/**
+ * Issue (or return the existing) receipt for an order that was paid in full with store credit and loyalty
+ * points: the same document as a payment's receipt, with no payment attached. The order row lock serialises
+ * two issuers. Throws DocumentError('not_applicable') unless the order is paid, priced and has no settled payment
+ * (an order with one gets its receipt from that payment).
+ */
+export async function issueOrderReceiptTx(tx: TenantTransaction, accountId: string, orderId: string): Promise<string> {
+  const [order] = await tx.$queryRaw<{ paid: boolean; settled: number }[]>`
+    SELECT (o.paid_at IS NOT NULL AND o.priced_at IS NOT NULL AND o.store_credit_minor + o.points_value_minor >= o.total_minor) AS paid,
+      (SELECT count(*)::int FROM customer_payments p WHERE p.account_id=o.account_id AND p.order_id=o.id AND p.settlement='settled') AS settled
+    FROM orders o WHERE o.account_id=${accountId}::uuid AND o.id=${orderId}::uuid FOR UPDATE OF o`;
+  if (!order) throw new DocumentError('not_found', 'Order not found');
+  const [existing] = await tx.$queryRaw<{ id: string }[]>`SELECT id::text AS id FROM commerce_documents
+    WHERE account_id=${accountId}::uuid AND order_id=${orderId}::uuid AND kind='receipt' AND payment_id IS NULL`;
+  if (existing) return existing.id;
+  if (!order.paid || order.settled > 0) throw new DocumentError('not_applicable');
+  const snap = await orderSnapshot(tx, accountId, orderId);
+  if (!snap) throw new DocumentError('not_applicable');
+  return insertDocument(tx, accountId, {
+    kind: 'receipt', currency: snap.order.currency, orderId, appointmentId: null, paymentId: null, refundId: null,
+    buyer: await buyerName(tx, accountId, snap.order.contact_id), address: documentAddress(snap.order.shipping_address),
+    lines: snap.lines, subtotal: snap.subtotal_minor, discount: snap.discount_minor, shipping: snap.shipping_minor,
+    codFee: snap.cod_fee_minor, tax: snap.tax_minor, total: snap.total_minor,
+  });
+}
+
 export async function handleIssueReceiptJob(accountId: string, payload: IssueReceiptJobPayload): Promise<void> {
-  await quietly(() => worker(accountId, (tx) => issueReceiptTx(tx, accountId, payload.paymentId)));
+  const { paymentId, orderId } = payload;
+  if (paymentId) await quietly(() => worker(accountId, (tx) => issueReceiptTx(tx, accountId, paymentId)));
+  else if (orderId) await quietly(() => worker(accountId, (tx) => issueOrderReceiptTx(tx, accountId, orderId)));
+  else throw new Error('Invalid issue receipt job contract');
 }
 
 export async function handleIssueCreditNoteJob(accountId: string, payload: IssueCreditNoteJobPayload): Promise<void> {

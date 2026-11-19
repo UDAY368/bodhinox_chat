@@ -17,6 +17,9 @@ import type { PublicShop } from '@/lib/commerce/public-shop';
 import { POLICY_SLUGS, type ShopFooter, type ShopMenuLink } from '@/lib/commerce/shop-sections';
 import { themeCssVars, type ResolvedShopTheme } from '@/lib/commerce/shop-templates';
 import { CartButton } from './cart-button';
+import { LiveBeacon } from './live-beacon';
+import { ReferralCapture } from './referral-capture';
+import { ShopSearch } from './shop-search';
 import { ShopLink, type ShopT } from './shop-link';
 
 export interface FrameShop {
@@ -44,7 +47,8 @@ export function ShopFrameView({ shop, t, children, preview = false }: { shop: Fr
   const contact = shop.footer.contact;
   const navLink = 'rounded-[var(--shop-radius)] px-3 py-2 hover:bg-black/5';
   return (
-    <div style={style} className="@container min-h-screen bg-[var(--shop-bg)] text-[var(--shop-text)]" data-template={shop.theme.template}>
+    <div style={style} className="shop-a11y @container min-h-screen bg-[var(--shop-bg)] text-[var(--shop-text)]" data-template={shop.theme.template}>
+      <a href="#shop-main" className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-50 focus:rounded-[var(--shop-radius)] focus:bg-[var(--shop-surface)] focus:px-4 focus:py-3 focus:text-sm focus:font-medium">{t('skipToContent')}</a>
       {shop.theme.announcement && (
         <p className="bg-[var(--shop-primary)] px-4 py-2 text-center text-xs font-medium text-[var(--shop-on-primary)] @2xl:text-sm">
           {shop.theme.announcement}
@@ -77,7 +81,11 @@ export function ShopFrameView({ shop, t, children, preview = false }: { shop: Fr
           </nav>
         </div>
       </header>
-      <main className="mx-auto max-w-6xl px-4 pb-24 pt-4 @2xl:pt-6">{children}</main>
+      <div className="mx-auto max-w-6xl px-4 pt-3">
+        <ShopSearch handle={shop.handle} preview={preview}
+          labels={{ label: t('search.label'), placeholder: t('search.placeholder'), submit: t('search.submit'), suggestions: t('search.suggestions'), noMatches: t('search.noMatches') }} />
+      </div>
+      <main id="shop-main" tabIndex={-1} className="mx-auto max-w-6xl px-4 pb-24 pt-4 outline-none @2xl:pt-6">{children}</main>
       <footer className="border-t border-black/5 bg-[var(--shop-surface)]">
         <div className="mx-auto grid max-w-6xl gap-6 px-4 py-8 text-sm @2xl:grid-cols-2 @5xl:grid-cols-4">
           <div>
@@ -129,5 +137,6 @@ export function ShopFrameView({ shop, t, children, preview = false }: { shop: Fr
 
 export async function ShopFrame({ shop, children }: { shop: PublicShop; children: ReactNode }) {
   const t = await getTranslations('ShopPublic');
-  return <ShopFrameView shop={shop} t={t as unknown as ShopT}>{children}</ShopFrameView>;
+  const consent = { title: t('consent.title'), text: t('consent.text'), accept: t('consent.accept'), decline: t('consent.decline') };
+  return <ShopFrameView shop={shop} t={t as unknown as ShopT}><ReferralCapture handle={shop.handle} labels={consent} /><LiveBeacon handle={shop.handle} />{children}</ShopFrameView>;
 }

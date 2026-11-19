@@ -58,7 +58,7 @@ export function CheckoutDone({ token }: { token: string }) {
     return (
       <Card className="w-full max-w-md self-start">
         <CardHeader><CardTitle>{state === 'not_found' ? t('notFoundTitle') : t('errors.error')}</CardTitle></CardHeader>
-        <CardContent className="text-sm text-muted-foreground">{state === 'not_found' ? t('notFoundBody') : null}</CardContent>
+        <CardContent className="text-sm text-muted-foreground">{state === 'not_found' ? <><p>{t('notFoundBody')}</p><p className="mt-2">{t('notFoundReturnHint')}</p></> : null}</CardContent>
       </Card>
     );
   }
@@ -75,7 +75,7 @@ export function CheckoutDone({ token }: { token: string }) {
           <Button type="button" size="sm" variant="outline" onClick={() => { setStopped(false); setRound((r) => r + 1); }}>{t('checkAgain')}</Button>
         </div>
       )}
-      <OrderSummary order={order} locale={locale} />
+      <OrderSummary order={order} locale={locale} token={token} onOrder={setOrder} />
       <a href={`/shop/${encodeURIComponent(token)}`} className={buttonVariants({ variant: 'outline', className: 'w-full' })}>{t('backToOrder')}</a>
     </div>
   );

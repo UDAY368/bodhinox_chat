@@ -30,7 +30,7 @@ import { CAMPAIGN_OUTCOMES } from '@/lib/audience/outcomes';
 import type { CustomField, Tag } from '@/types';
 
 type Field = AudienceCondition['field'];
-const FIELDS: Field[] = ['tags', 'list', 'campaign', 'ad', 'lead_form', 'custom_field', 'name', 'phone', 'email', 'company', 'created_at', 'opted_out', 'blocked', 'instagram', 'instagram_profile', 'instagram_followers', 'instagram_window', 'whatsapp', 'instagram_subscription'];
+const FIELDS: Field[] = ['tags', 'list', 'campaign', 'ad', 'lead_form', 'custom_field', 'name', 'phone', 'email', 'company', 'created_at', 'opted_out', 'blocked', 'instagram', 'instagram_profile', 'instagram_followers', 'instagram_window', 'whatsapp', 'instagram_subscription', 'shop_orders', 'shop_spend', 'shop_order_date', 'shop_bought'];
 /** Stage 5 fields, labelled from the Contacts.filters namespace. */
 const STAGE5_FIELD_LABELS: Partial<Record<Field, string>> = { whatsapp: 'whatsappField', instagram_subscription: 'instagramSubscriptionField' };
 /** Same list as IG_SEGMENT_FACTS in lib/audience/filter (a server module, so not imported here). */
@@ -54,6 +54,10 @@ function blank(field: Field): AudienceCondition {
     case 'instagram_window': return { field, op: 'open' };
     case 'whatsapp': return { field, op: 'has_number' };
     case 'instagram_subscription': return { field, op: 'subscribed' };
+    case 'shop_orders': return { field, op: 'at_least', value: 1 };
+    case 'shop_spend': return { field, op: 'at_least', value: 100000 };
+    case 'shop_order_date': return { field, which: 'last', op: 'before', value: new Date().toISOString().slice(0, 10) };
+    case 'shop_bought': return { field, op: 'bought', productId: '' };
     default: return { field, op: 'contains', value: '' };
   }
 }
@@ -79,6 +83,7 @@ function complete(c: AudienceCondition): boolean {
   if (c.field === 'list') return c.listIds.length > 0;
   if (c.field === 'campaign') return c.broadcastId !== '';
   if (c.field === 'custom_field' && !c.fieldId) return false;
+  if (c.field === 'shop_bought') return Boolean(c.productId || c.categoryId);
   if ('value' in c && typeof c.value === 'string' && ['is', 'is_not', 'contains'].includes(c.op)) return c.value.trim().length > 0;
   return true;
 }
@@ -115,6 +120,16 @@ export function SegmentBuilderDialog({
   const [match, setMatch] = useState<AudienceMatch>('all');
   const [count, setCount] = useState<{ total: number; sendable: number } | null>(null);
   const [saving, setSaving] = useState(false);
+  // Shop products and categories for "bought" conditions, read once when one is first added.
+  const [shopItems, setShopItems] = useState<{ products: { id: string; name: string }[]; categories: { id: string; name: string }[] } | null>(null);
+  const needsShopItems = open && conditions.some((c) => c.field === 'shop_bought');
+  useEffect(() => {
+    if (!needsShopItems || shopItems) return;
+    Promise.all([
+      authFetch('/api/commerce/shop/products?status=all&limit=100', { cache: 'no-store' }).then((r) => (r.ok ? r.json() : { products: [] })),
+      authFetch('/api/commerce/shop/categories', { cache: 'no-store' }).then((r) => (r.ok ? r.json() : { categories: [] })),
+    ]).then(([p, c]) => setShopItems({ products: p.products ?? [], categories: c.categories ?? [] })).catch(() => setShopItems({ products: [], categories: [] }));
+  }, [needsShopItems, shopItems]);
 
   // By value, so a parent passing a fresh array each render does not reset the editor.
   const initialKey = JSON.stringify(initialConditions ?? null);
@@ -401,6 +416,61 @@ export function SegmentBuilderDialog({
                     <option value="subscribed">{ts('subscribed')}</option>
                     <option value="unsubscribed">{ts('unsubscribed')}</option>
                   </select>
+                )}
+
+                {(c.field === 'shop_orders' || c.field === 'shop_spend') && (
+                  <>
+                    <select aria-label={t('operatorLabel')} className={selectClass} value={c.op}
+                      onChange={(e) => update(index, { ...c, op: e.target.value as typeof c.op })}>
+                      <option value="at_least">{t('ops.at_least')}</option>
+                      <option value="at_most">{t('ops.at_most')}</option>
+                    </select>
+                    <Input aria-label={c.field === 'shop_orders' ? t('shopOrdersLabel') : t('shopSpendLabel')} type="number" min={0} className="h-8 w-32" value={c.value}
+                      onChange={(e) => update(index, { ...c, value: Math.max(0, Math.floor(Number(e.target.value) || 0)) })} />
+                    <span className="text-xs text-muted-foreground">{c.field === 'shop_spend' ? t('shopSpendHint') : t('shopCounted')}</span>
+                  </>
+                )}
+
+                {c.field === 'shop_order_date' && (
+                  <>
+                    <select aria-label={t('shopWhichLabel')} className={selectClass} value={c.which}
+                      onChange={(e) => update(index, { ...c, which: e.target.value as 'first' | 'last' })}>
+                      <option value="first">{t('shopFirstOrder')}</option>
+                      <option value="last">{t('shopLastOrder')}</option>
+                    </select>
+                    <select aria-label={t('operatorLabel')} className={selectClass} value={c.op}
+                      onChange={(e) => update(index, { ...c, op: e.target.value as 'before' | 'after' })}>
+                      <option value="after">{t('ops.after')}</option>
+                      <option value="before">{t('ops.before')}</option>
+                    </select>
+                    <Input aria-label={t('valueLabel')} type="date" className="h-8 w-40" value={c.value}
+                      onChange={(e) => update(index, { ...c, value: e.target.value })} />
+                  </>
+                )}
+
+                {c.field === 'shop_bought' && (
+                  <>
+                    <select aria-label={t('operatorLabel')} className={selectClass} value={c.op}
+                      onChange={(e) => update(index, { ...c, op: e.target.value as 'bought' | 'not_bought' })}>
+                      <option value="bought">{t('ops.bought')}</option>
+                      <option value="not_bought">{t('ops.not_bought')}</option>
+                    </select>
+                    <select aria-label={t('shopTargetLabel')} className={selectClass} value={c.categoryId ? `c:${c.categoryId}` : `p:${c.productId ?? ''}`}
+                      onChange={(e) => {
+                        const [kind, id] = [e.target.value.slice(0, 1), e.target.value.slice(2)];
+                        update(index, { field: 'shop_bought', op: c.op, ...(kind === 'c' ? { categoryId: id } : { productId: id }) });
+                      }}>
+                      <option value="p:">{t('chooseShopTarget')}</option>
+                      <optgroup label={t('shopProducts')}>
+                        {(shopItems?.products ?? []).map((p) => <option key={p.id} value={`p:${p.id}`}>{p.name}</option>)}
+                        {c.productId && !(shopItems?.products ?? []).some((p) => p.id === c.productId) && <option value={`p:${c.productId}`}>{t('olderProduct')}</option>}
+                      </optgroup>
+                      <optgroup label={t('shopCategories')}>
+                        {(shopItems?.categories ?? []).map((cat) => <option key={cat.id} value={`c:${cat.id}`}>{cat.name}</option>)}
+                        {c.categoryId && !(shopItems?.categories ?? []).some((cat) => cat.id === c.categoryId) && <option value={`c:${c.categoryId}`}>{t('olderCategory')}</option>}
+                      </optgroup>
+                    </select>
+                  </>
                 )}
 
                 {(c.field === 'opted_out' || c.field === 'blocked') && (

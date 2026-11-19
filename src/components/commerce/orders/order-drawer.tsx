@@ -28,7 +28,7 @@ import { OfflinePaymentDialog } from "@/components/commerce/payments/offline-pay
 import { formatMoney } from "@/lib/commerce/money";
 import { canRecordPayment } from "./order-detail";
 import {
-  deliverOrder, discountRows, dispatchOrder, getOrder, getOrderTimeline, updateOrder, type ApiResult, type OrderDetail, type OrderTimeline,
+  deliverOrder, discountRows, dispatchOrder, getOrder, getOrderTimeline, tenderRows, updateOrder, type ApiResult, type OrderDetail, type OrderTimeline,
 } from "./order-api";
 import { sendOrderPaymentLink, sendOrderUpdate } from "./order-actions";
 import { OrderFulfilmentPanel } from "./order-fulfilment-panel";
@@ -277,6 +277,12 @@ export function OrderDrawer({ orderId, intent, onClose, onChanged }: {
                       <span>{tOrders("detail.total")}</span>
                       <span className="tabular-nums">{money(total, order.currency)}</span>
                     </div>
+                    {tenderRows(order, tLife).map(([label, minor]) => (
+                      <div key={label} className="flex justify-between gap-3 text-muted-foreground">
+                        <span>{label}</span>
+                        <span className="tabular-nums">−{money(-minor, order.currency)}</span>
+                      </div>
+                    ))}
                     {order.amount_paid_minor > 0 && (
                       <p className="text-xs text-muted-foreground">{tLife("paid", { amount: money(order.amount_paid_minor, order.currency) })}</p>
                     )}

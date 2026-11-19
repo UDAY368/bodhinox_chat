@@ -1,11 +1,11 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { notFound } from 'next/navigation';
 import { getLocale, getTranslations } from 'next-intl/server';
 import { ProductBuy } from '@/components/shop-public/product-buy';
 import { ProductCard, ProductGrid } from '@/components/shop-public/product-card';
 import { ProductReviewsSection } from '@/components/shop-public/product-reviews';
 import { loadShopProduct } from '@/lib/commerce/public-shop';
+import { notFoundOrRedirect } from '@/lib/commerce/shop-not-found';
 
 export const dynamic = 'force-dynamic';
 
@@ -26,7 +26,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function ShopProductPage({ params }: Props) {
   const { handle, productId } = await params;
   const page = await loadShopProduct(handle, productId);
-  if (!page) notFound();
+  if (!page) return notFoundOrRedirect(handle, `/p/${productId}`);
   const t = await getTranslations('ShopPublic');
   const locale = await getLocale();
   const { product, reviews } = page;

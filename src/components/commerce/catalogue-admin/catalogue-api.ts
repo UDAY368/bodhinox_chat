@@ -19,6 +19,9 @@ export type { MetaSyncView, MetaSyncProblem } from "@/lib/commerce/catalogue/met
 export type { ImportPreview, ImportJobView } from "@/lib/commerce/catalogue/product-csv-import";
 export type { RowError } from "@/lib/commerce/catalogue/product-csv";
 export type { PlatformImportView, PlatformStatus } from "@/lib/commerce/catalogue/platform-import-job";
+import type { PurchaseOrder, PurchaseOrderSummary } from "@/lib/commerce/purchase-orders";
+import type { LocationQuantity, StockLocation, StockTransfer } from "@/lib/commerce/stock-locations";
+import type { PoAction } from "@/lib/commerce/stock-rules";
 
 export type { ShopCollection, ShopCollectionDetail, CollectionRule };
 export type { MetaLinkReport, ProductStatus, ShopCategory, ShopProduct, ShopProductSummary, StockFilter, AdjustKind, InventoryFilter, InventoryRow, MovementRow };
@@ -68,7 +71,8 @@ export async function fetchShopProduct(id: string): Promise<ApiResult<ShopProduc
 }
 
 export type ProductBody = Partial<Pick<ShopProduct, "name" | "description" | "disclosure" | "category_id" | "follow_up_template"
-  | "follow_up_template_language" | "follow_up_after_days" | "repurchase_after_days" | "cod_available" | "tags" | "brand" | "product_type" | "details">> & { version?: number; images?: ({ url: string } | { media_id: string })[] };
+  | "follow_up_template_language" | "follow_up_after_days" | "repurchase_after_days" | "cod_available" | "tags" | "brand" | "product_type" | "details"
+  | "publish_at" | "hide_at" | "is_digital" | "digital_media_id" | "digital_url" | "is_bundle">> & { version?: number; images?: ({ url: string } | { media_id: string })[] };
 
 export async function createShopProduct(body: ProductBody): Promise<ApiResult<ShopProduct>> {
   return result(await send("/api/commerce/shop/products", "POST", body), asProduct);
@@ -108,6 +112,14 @@ export interface VariantBody {
   archived?: boolean;
   /** One of the product's own images, or null for none. */
   image_id?: string | null;
+  preorder?: boolean;
+  preorder_ship_date?: string | null;
+  preorder_cap?: number | null;
+}
+
+/** Replace a bundle product's parts (admins). */
+export async function saveBundleParts(productId: string, parts: Array<{ variant_id: string; quantity: number }>): Promise<ApiResult<ShopProduct>> {
+  return result(await send(`${productUrl(productId)}/bundle`, "PUT", { parts }), asProduct);
 }
 
 export async function saveVariant(productId: string, variantId: string | null, body: VariantBody): Promise<ApiResult<ShopProduct>> {
@@ -187,6 +199,49 @@ export async function adjustInventory(variantId: string, body: { kind: AdjustKin
   Promise<ApiResult<{ variantId: string; onHand: number; reserved: number }>> {
   return result(await send(`/api/commerce/inventory/${encodeURIComponent(variantId)}/adjust`, "POST", body),
     (j) => j.level as { variantId: string; onHand: number; reserved: number });
+}
+
+export type { LocationQuantity, PoAction, PurchaseOrder, PurchaseOrderSummary, StockLocation, StockTransfer };
+
+// Stock locations, transfers and purchase orders (store plan Phase 8).
+export async function fetchLocations(): Promise<ApiResult<StockLocation[]>> {
+  return result(await get("/api/commerce/stock-locations"), (j) => (j.locations as StockLocation[]) ?? []);
+}
+export async function fetchVariantLocations(variantId: string): Promise<ApiResult<LocationQuantity[]>> {
+  return result(await get(`/api/commerce/stock-locations${qs({ variant_id: variantId })}`), (j) => (j.quantities as LocationQuantity[]) ?? []);
+}
+export async function createLocation(name: string): Promise<ApiResult<StockLocation>> {
+  return result(await send("/api/commerce/stock-locations", "POST", { name }), (j) => j.location as StockLocation);
+}
+export async function updateLocation(id: string, body: { name?: string; active?: boolean }): Promise<ApiResult<StockLocation>> {
+  return result(await send(`/api/commerce/stock-locations/${encodeURIComponent(id)}`, "PATCH", body), (j) => j.location as StockLocation);
+}
+export async function fetchTransfers(): Promise<ApiResult<StockTransfer[]>> {
+  return result(await get("/api/commerce/stock-transfers"), (j) => (j.transfers as StockTransfer[]) ?? []);
+}
+export async function transferStock(body: { client_key: string; from_location_id: string; to_location_id: string; variant_id: string; quantity: number }):
+  Promise<ApiResult<{ transferId: string; replayed: boolean }>> {
+  return result(await send("/api/commerce/stock-transfers", "POST", body), (j) => j as { transferId: string; replayed: boolean });
+}
+const poUrl = (id: string) => `/api/commerce/purchase-orders/${encodeURIComponent(id)}`;
+const asPo = (json: Record<string, unknown>) => json.order as PurchaseOrder;
+export async function fetchPurchaseOrders(): Promise<ApiResult<PurchaseOrderSummary[]>> {
+  return result(await get("/api/commerce/purchase-orders"), (j) => (j.orders as PurchaseOrderSummary[]) ?? []);
+}
+export async function fetchPurchaseOrder(id: string): Promise<ApiResult<PurchaseOrder>> {
+  return result(await get(poUrl(id)), asPo);
+}
+export async function createPurchaseOrder(body: {
+  supplier_name: string; reference: string | null; note: string | null; lines: Array<{ variant_id: string; qty_ordered: number; unit_cost_minor: number }>;
+}): Promise<ApiResult<PurchaseOrder>> {
+  return result(await send("/api/commerce/purchase-orders", "POST", body), asPo);
+}
+export async function changePurchaseOrderStatus(id: string, action: PoAction): Promise<ApiResult<PurchaseOrder>> {
+  return result(await send(`${poUrl(id)}/status`, "POST", { action }), asPo);
+}
+export async function receivePurchaseOrder(id: string, body: { request_key: string; location_id: string | null; lines: Array<{ line_id: string; quantity: number }> }):
+  Promise<ApiResult<PurchaseOrder>> {
+  return result(await send(`${poUrl(id)}/receive`, "POST", body), asPo);
 }
 
 /** Start a "new arrivals" carousel campaign from the chosen products (POST /api/commerce/new-arrivals). */

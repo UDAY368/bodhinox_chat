@@ -7,6 +7,8 @@
  * and answers with the stored order. With "Send a payment link" ticked, the
  * order's link is then made and sent into the customer's chat through the
  * payment links API (its durable send path and the 24-hour window rule).
+ * In quote mode the same form pre-fills a shop cart instead: the server sends its link with the storefront
+ * link sender, and the customer's checkout works the prices out again.
  */
 
 import { useEffect, useState } from "react";
@@ -22,7 +24,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { createClient } from "@/lib/data/client";
 import { formatMoney } from "@/lib/commerce/money";
-import { createManualOrder, listSellableVariants, type OrderDetail, type SellableVariant } from "./order-api";
+import { createManualOrder, createQuote, listSellableVariants, type OrderDetail, type SellableVariant } from "./order-api";
 import { sendOrderPaymentLink } from "./order-actions";
 import { orderRef, withChosenOption } from "./order-state";
 
@@ -32,13 +34,17 @@ const MAX_QTY = 99;
 interface Line { key: number; variantId: string; qty: string }
 interface ContactOption { id: string; name: string | null; phone: string | null }
 
-export function NewOrderDialog({ open, onOpenChange, onCreated }: {
+export function NewOrderDialog({ open, mode = "order", onOpenChange, onCreated }: {
   open: boolean;
+  mode?: "order" | "quote";
   onOpenChange: (open: boolean) => void;
   onCreated: (order: OrderDetail) => void;
 }) {
   const t = useTranslations("Sales.orders.new");
   const tOrders = useTranslations("Sales.orders");
+  const tQuote = useTranslations("Commerce.orders.quote");
+  const quote = mode === "quote";
+  const [hours, setHours] = useState("24");
   const locale = useLocale();
   const [search, setSearch] = useState("");
   const [contacts, setContacts] = useState<ContactOption[]>([]);
@@ -64,6 +70,7 @@ export function NewOrderDialog({ open, onOpenChange, onCreated }: {
     setChosenContact(null);
     setSearch("");
     setNote("");
+    setHours("24");
     setSendLink(true);
     setErrors({});
     setCatalogue(null);
@@ -140,6 +147,22 @@ export function NewOrderDialog({ open, onOpenChange, onCreated }: {
     if (next.contact || next.lines) return;
     setBusy(true);
     try {
+      if (quote) {
+        const q = await createQuote({
+          contact_id: contactId, client_request_id: requestId, note: note.trim() || null, expires_in_hours: Number(hours),
+          lines: [...merged].map(([variant_id, qty]) => ({ variant_id, qty })),
+        });
+        if (!q.ok) {
+          toast.error(q.code && tQuote.has(`errors.${q.code}`) ? tQuote(`errors.${q.code}`)
+            : q.code && t.has(`errors.${q.code}`) ? t(`errors.${q.code}`) : tQuote("errors.generic"));
+          // A definite refusal sent nothing; a new click may try again with a fresh id. An uncertain send keeps its id.
+          if (q.status >= 400 && q.status < 500 && q.status !== 429) setRequestId(crypto.randomUUID());
+          return;
+        }
+        toast.success(tQuote("sent"));
+        onOpenChange(false);
+        return;
+      }
       const r = await createManualOrder({
         contact_id: contactId, client_request_id: requestId, note: note.trim() || null,
         lines: [...merged].map(([variant_id, qty]) => ({ variant_id, qty })),
@@ -179,8 +202,8 @@ export function NewOrderDialog({ open, onOpenChange, onCreated }: {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>{t("title")}</DialogTitle>
-          <DialogDescription>{t("totalHelp")}</DialogDescription>
+          <DialogTitle>{quote ? tQuote("title") : t("title")}</DialogTitle>
+          <DialogDescription>{quote ? tQuote("description") : t("totalHelp")}</DialogDescription>
         </DialogHeader>
         <div className="space-y-4 text-sm">
           <div className="space-y-1.5">
@@ -244,19 +267,28 @@ export function NewOrderDialog({ open, onOpenChange, onCreated }: {
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="new-order-note">{t("note")}</Label>
+            <Label htmlFor="new-order-note">{quote ? tQuote("note") : t("note")}</Label>
             <Textarea id="new-order-note" rows={2} maxLength={2000} value={note} onChange={(e) => setNote(e.target.value)} />
           </div>
 
-          <label className="flex items-center gap-2">
-            <Checkbox checked={sendLink} onCheckedChange={(v) => setSendLink(v === true)} />
-            <span>{t("sendLink")}</span>
-          </label>
+          {quote ? (
+            <div className="space-y-1.5">
+              <Label htmlFor="new-quote-hours">{tQuote("expires")}</Label>
+              <select id="new-quote-hours" className={selectClass} value={hours} onChange={(e) => setHours(e.target.value)}>
+                {["24", "48", "72", "168"].map((h) => <option key={h} value={h}>{tQuote(`h${h}`)}</option>)}
+              </select>
+            </div>
+          ) : (
+            <label className="flex items-center gap-2">
+              <Checkbox checked={sendLink} onCheckedChange={(v) => setSendLink(v === true)} />
+              <span>{t("sendLink")}</span>
+            </label>
+          )}
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>{tOrders("cancel")}</Button>
           <Button disabled={busy || noProducts || catalogue === null || !requestId} onClick={() => void submit()}>
-            {busy && <Loader2 className="h-4 w-4 animate-spin" />} {t("create")}
+            {busy && <Loader2 className="h-4 w-4 animate-spin" />} {quote ? tQuote("send") : t("create")}
           </Button>
         </DialogFooter>
       </DialogContent>

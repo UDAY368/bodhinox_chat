@@ -26,6 +26,12 @@ export interface OrderListItem {
   refund_state?: RefundState;
   contact: { id: string; name: string | null; phone: string | null } | null;
   conversation_id: string | null;
+  /** Staff labels (internal); absent from older responses. */
+  tags?: string[];
+  /** Rule-based risk hint; absent from older responses. */
+  risk?: { level: "low" | "medium" | "high"; reasons: Array<"cod_history" | "cod_declined" | "order_burst" | "pincode_missing" | "pincode_invalid" | "high_first_order"> };
+  /** What the buyer asked for at checkout (note, gift message, delivery date and slot, custom answers); absent or null when nothing. */
+  extras?: { note: string | null; gift_message: string | null; delivery_date: string | null; delivery_slot: string | null; custom: Array<{ label: string; value: string }> } | null;
   created_at: string;
   updated_at: string;
 }
@@ -40,10 +46,18 @@ export interface OrderDetail extends OrderListItem {
   shipping_minor: number;
   /** The cash-on-delivery fee inside the total; absent from older responses. */
   cod_fee_minor?: number;
+  /** How the order reaches the customer; absent from older responses (then it ships). */
+  delivery_method?: "ship" | "pickup" | "local";
+  /** Pre-order: ships by this date (YYYY-MM-DD). */
+  preorder_ship_date?: string | null;
   /** The automatic part of discount_minor; absent from older responses. */
   auto_discount_minor?: number;
   /** The automatic discounts the order was placed with (names and savings); absent from older responses. */
   discount_details?: Array<{ name: string; kind: string; saving_minor: number }>;
+  /** Store credit and loyalty points the order was placed with (payments, not discounts); absent from older responses. */
+  store_credit_minor?: number;
+  points_redeemed?: number;
+  points_value_minor?: number;
   tax_minor: number;
   tax_inclusive: boolean | null;
   coupon_code: string | null;
@@ -65,6 +79,8 @@ export interface OrderDetail extends OrderListItem {
     id: string; retailer_id: string | null; name: string | null; quantity: number; unit_price_minor: number; currency: string;
     variant_id?: string | null; sku?: string | null; tax_minor?: number | null; discount_minor?: number | null;
     line_total_minor?: number | null;
+    /** A free gift line added by a gift rule; absent from older responses. */
+    is_gift?: boolean;
   }>;
 }
 
@@ -84,6 +100,13 @@ export interface OrderReturn {
   refund_id: string | null;
   note: string | null;
   restocked_at: string | null;
+  /** 'buyer': asked for from the order page; it needs staff approval before it can be received. Absent from older responses (staff). */
+  source?: "staff" | "buyer";
+  reason?: string | null;
+  pending_approval?: boolean;
+  /** An exchange: { order_item_id: wanted replacement variant id }. */
+  exchange?: Record<string, string> | null;
+  exchange_order_id?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -100,6 +123,7 @@ export interface OrderQuery {
   status?: OrderStatus | "";
   source?: OrderSource | "";
   q?: string;
+  tag?: string;
   /** Only COD orders waiting for the customer's answer, or that declined. */
   codConfirmation?: "pending" | "declined" | "";
   cursor?: string | null;
@@ -123,6 +147,7 @@ export async function listOrders(query: OrderQuery): Promise<{ orders: OrderList
   if (query.source) params.set("source", query.source);
   if (query.codConfirmation) params.set("cod_confirmation", query.codConfirmation);
   if (query.q?.trim()) params.set("q", query.q.trim());
+  if (query.tag?.trim()) params.set("tag", query.tag.trim());
   if (query.cursor) params.set("cursor", query.cursor);
   const res = await authFetch(`/api/commerce/orders?${params}`, { cache: "no-store" });
   if (!res.ok) throw new Error(`orders ${res.status}`);
@@ -133,7 +158,7 @@ export async function getOrder(id: string): Promise<ApiResult<OrderDetail>> {
   return result(await authFetch(`/api/commerce/orders/${encodeURIComponent(id)}`, { cache: "no-store" }), "order");
 }
 
-export async function updateOrder(id: string, patch: { status?: OrderStatus; note?: string | null }): Promise<ApiResult<OrderDetail>> {
+export async function updateOrder(id: string, patch: { status?: OrderStatus; note?: string | null; tags?: string[] }): Promise<ApiResult<OrderDetail>> {
   return result(await authFetch(`/api/commerce/orders/${encodeURIComponent(id)}`, {
     method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(patch),
   }), "order");
@@ -195,7 +220,7 @@ export async function createOrderReturn(id: string, input: { items: Array<{ orde
 }
 
 export type ReturnAction =
-  | { action: "receive" } | { action: "reject" }
+  | { action: "approve" } | { action: "receive" } | { action: "reject" }
   | { action: "inspect"; disposition: Record<string, "restock" | "discard"> }
   | { action: "close"; restock: boolean };
 
@@ -255,6 +280,38 @@ export async function createManualOrder(input: {
   contact_id: string; lines: Array<{ variant_id: string; qty: number }>; note?: string | null; client_request_id: string;
 }): Promise<ApiResult<OrderDetail>> {
   return result(await post("/api/commerce/orders", input), "order");
+}
+
+export interface CounterSaleResult { order: OrderDetail; paid: boolean; paymentError: string | null }
+
+/** Counter sale: a manual order priced on the server, then the cash or UPI payment. Repeat the same request id to retry an unpaid result. */
+export async function createCounterSale(input: {
+  contact_id: string | null; lines: Array<{ variant_id: string; qty: number }>; method: "cash" | "upi"; reference?: string | null; client_request_id: string;
+}): Promise<ApiResult<CounterSaleResult>> {
+  const res = await post("/api/commerce/orders/counter", input);
+  const json = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+  if (res.ok && json.order) {
+    return { ok: true, value: { order: json.order as OrderDetail, paid: json.paid === true, paymentError: typeof json.payment_error === "string" ? json.payment_error : null } };
+  }
+  return { ok: false, status: res.status, code: typeof json.code === "string" ? json.code : undefined, error: typeof json.error === "string" ? json.error : undefined };
+}
+
+/** Pre-fill a cart for a customer and send its link on WhatsApp; ids and quantities only, prices are worked out again at checkout. */
+export async function createQuote(input: {
+  contact_id: string; lines: Array<{ variant_id: string; qty: number }>; note?: string | null; expires_in_hours: number; client_request_id: string;
+}): Promise<ApiResult<{ id: string; expires_at: string }>> {
+  return result(await post("/api/commerce/quotes", input), "quote");
+}
+
+/** What store credit and loyalty points paid of an order's total, as rows shown under the total. */
+export function tenderRows(
+  order: Pick<OrderDetail, "store_credit_minor" | "points_redeemed" | "points_value_minor">,
+  tLife: (key: "storeCreditPaid" | "pointsPaid", values?: Record<string, string | number>) => string,
+): Array<[string, number]> {
+  const rows: Array<[string, number]> = [];
+  if ((order.points_value_minor ?? 0) > 0) rows.push([tLife("pointsPaid", { points: order.points_redeemed ?? 0 }), -(order.points_value_minor ?? 0)]);
+  if ((order.store_credit_minor ?? 0) > 0) rows.push([tLife("storeCreditPaid"), -(order.store_credit_minor ?? 0)]);
+  return rows;
 }
 
 /**

@@ -135,6 +135,28 @@ describe('zones, weight slabs and the free threshold', () => {
       shippingRates: [rate({ feeMinor: 4000, baseWeightGrams: 0, stepGrams: 100, extraPerStepMinor: 1000 })], coupon: null, address });
     expect(r.ok && r.quote.shippingMinor).toBe(4000);
   });
+  it('pickup and local delivery never use the zone rate; shipping still weighs the cart, without its digital lines', () => {
+    // A zone rate that would charge by weight, refuse COD, and not reach a heavy cart at all.
+    const rs = [rate({ feeMinor: 4000, baseWeightGrams: 500, stepGrams: 500, extraPerStepMinor: 1500, maxWeightGrams: 1000, taxRateBps: 0, codAllowed: false })];
+    const deliveryOptions = { pickupEnabled: true, localEnabled: true, localFeeMinor: 2500, localPostalPrefixes: ['5600'] };
+    const run = (extra: Record<string, unknown> = {}) => priceCart({
+      lines: [{ variantId: 'a', qty: 3 }], variants: [variant('a', 10000, { weightGrams: 400 })], settings: inr({ codEnabled: true }),
+      shippingRates: rs, coupon: null, address, deliveryOptions, ...extra,
+    });
+    expect(run()).toEqual({ ok: false, code: 'shipping_unavailable' }); // 1200 g is past the rate's limit
+    const pickup = run({ deliveryMethod: 'pickup' });
+    expect(pickup.ok && [pickup.quote.shippingMinor, pickup.quote.shipping?.rateId, pickup.quote.codAvailable]).toEqual([0, 'pickup', true]);
+    const local = run({ deliveryMethod: 'local' });
+    expect(local.ok && [local.quote.shippingMinor, local.quote.shipping?.rateId, local.quote.codAvailable]).toEqual([2500, 'local', true]);
+    expect(run({ deliveryMethod: 'local', address: { country: 'IN', postalCode: '110001' } })).toEqual({ ok: false, code: 'delivery_unavailable' });
+    // A digital line weighs nothing: 2 x 400 g ships on one extra step.
+    const mixed = priceCart({
+      lines: [{ variantId: 'a', qty: 2 }, { variantId: 'd', qty: 5 }],
+      variants: [variant('a', 10000, { weightGrams: 400 }), variant('d', 100, { weightGrams: 400, digital: true })],
+      settings: inr(), shippingRates: rs, coupon: null, address,
+    });
+    expect(mixed.ok && mixed.quote.shippingMinor).toBe(5500);
+  });
 });
 
 describe('normaliseCart', () => {

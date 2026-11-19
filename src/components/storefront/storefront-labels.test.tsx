@@ -14,10 +14,10 @@ const at = (tree: Tree, path: string): unknown => path.split('.').reduce<unknown
 const en = load('en');
 
 const order = (extra: Partial<StorefrontOrderView>): StorefrontOrderView => ({
-  reference: 'AB12CD34', status: 'expired', currency: 'INR', subtotalMinor: 10000, discountMinor: 0, autoDiscountMinor: 0, autoDiscounts: [], shippingMinor: 0, paymentMethod: 'online',
-  codFeeMinor: 0, taxMinor: 0, totalMinor: 10000, taxInclusive: true, amountPaidMinor: 0, priced: true,
-  lines: [{ name: 'Tulsi', sku: 'TUL-1', qty: 1, unitPriceMinor: 10000, lineTotalMinor: 10000 }],
-  paymentUrl: null, paymentPending: false, paymentFailed: false, returnWindowDays: null, reservationExpiresAt: null, paidAt: null, documentNumber: null, trackingPath: null, ...extra,
+  reference: 'AB12CD34', status: 'expired', currency: 'INR', subtotalMinor: 10000, discountMinor: 0, autoDiscountMinor: 0, autoDiscounts: [], storeCreditMinor: 0, pointsRedeemed: 0, pointsValueMinor: 0, shippingMinor: 0, paymentMethod: 'online',
+  deliveryMethod: 'ship', pickup: null, codFeeMinor: 0, taxMinor: 0, totalMinor: 10000, taxInclusive: true, amountPaidMinor: 0, priced: true,
+  lines: [{ name: 'Tulsi', sku: 'TUL-1', qty: 1, unitPriceMinor: 10000, lineTotalMinor: 10000, shipsBy: null, gift: false }], preorderShipDate: null, digitalDownloadUrl: null,
+  paymentUrl: null, paymentPending: false, paymentFailed: false, returnWindowDays: null, extras: null, returns: null, reservationExpiresAt: null, paidAt: null, documentNumber: null, trackingPath: null, ...extra,
 });
 const render = (view: StorefrontOrderView) => renderToStaticMarkup(
   <NextIntlClientProvider locale="en" timeZone="UTC" messages={{ Storefront: en.Storefront as Tree }} onError={() => {}}>

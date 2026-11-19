@@ -16,6 +16,7 @@ import { mediaObjectUrl } from '@/lib/storage/client';
 import { likePattern } from '../catalog';
 import { minorFromDb, MAX_MINOR } from '../money';
 import { normaliseTag } from './collection-rules';
+import { bundleAvailability, parseScheduleTime, parseShipDate, preorderProblem, scheduleProblem } from '../selling-rules';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export const SKU = /^[A-Za-z0-9._-]{1,64}$/;
@@ -39,7 +40,9 @@ export type CatalogueErrorCode =
   | 'slug_taken' | 'needs_priced_variant' | 'category_depth' | 'category_has_children' | 'not_tracked' | 'stock_changed' | 'below_reserved'
   | 'import_running' | 'csv_empty' | 'csv_too_large' | 'csv_too_many_rows' | 'csv_too_many_columns' | 'csv_cell_too_long'
   | 'csv_unterminated_quote' | 'csv_missing_sku_column' | 'platform_not_connected' | 'shopify_scope_missing' | 'woo_https_required'
-  | 'meta_not_connected' | 'meta_sync_off' | 'meta_unavailable' | 'reconcile_too_soon';
+  | 'meta_not_connected' | 'meta_sync_off' | 'meta_unavailable' | 'reconcile_too_soon'
+  // Stock locations, transfers and purchase orders (store plan Phase 8)
+  | 'insufficient_stock' | 'location_in_use' | 'location_inactive' | 'name_taken' | 'key_reused' | 'po_state' | 'over_receive';
 
 const STATUS: Record<CatalogueErrorCode, number> = {
   invalid: 400, not_found: 404, conflict: 409, sku_taken: 409, slug_taken: 409, store_not_configured: 409,
@@ -47,6 +50,7 @@ const STATUS: Record<CatalogueErrorCode, number> = {
   import_running: 409, csv_empty: 400, csv_too_large: 413, csv_too_many_rows: 413, csv_too_many_columns: 400, csv_cell_too_long: 400,
   csv_unterminated_quote: 400, csv_missing_sku_column: 400, platform_not_connected: 409, shopify_scope_missing: 409, woo_https_required: 409,
   meta_not_connected: 409, meta_sync_off: 409, meta_unavailable: 502, reconcile_too_soon: 409,
+  insufficient_stock: 409, location_in_use: 409, location_inactive: 409, name_taken: 409, key_reused: 409, po_state: 409, over_receive: 409,
 };
 
 /** A refusal with a stable code (Commerce.catalogue.errors.<code>); `field`/`detail` name the input, never echo it. */
@@ -90,6 +94,27 @@ function optInt(b: Body, k: string, min: number, max: number): number | null {
 function bool(b: Body, k: string): boolean {
   if (typeof b[k] !== 'boolean') throw new CatalogueError('invalid', k);
   return b[k] as boolean;
+}
+/** An optional ISO date-time (null clears it); an unreadable value is invalid. */
+function scheduleTime(b: Body, k: string): Date | null {
+  const t = parseScheduleTime(b[k]);
+  if (t === undefined) throw new CatalogueError('invalid', k);
+  return t;
+}
+function shipDate(b: Body, k: string): string | null {
+  if (b[k] === null || b[k] === '') return null;
+  const d = parseShipDate(b[k]);
+  if (!d) throw new CatalogueError('invalid', k);
+  return d;
+}
+/** An optional https URL without credentials (null clears it). */
+function optHttpsUrl(b: Body, k: string): string | null {
+  const v = optText(b, k, 2048);
+  if (v === null) return null;
+  let parsed: URL;
+  try { parsed = new URL(v); } catch { throw new CatalogueError('invalid', k); }
+  if (parsed.protocol !== 'https:' || parsed.username || parsed.password) throw new CatalogueError('invalid', k);
+  return v;
 }
 function optId(b: Body, k: string): string | null {
   const v = b[k];
@@ -368,6 +393,22 @@ export interface ShopVariant {
   waiting: number;
   /** A mirrored Meta product with retailer_id = sku exists. */
   meta_linked: boolean;
+  /** Pre-order (Phase 8): sells past zero stock, shown as "Ships by <date>". */
+  preorder: boolean;
+  /** YYYY-MM-DD; set whenever `preorder` is on. */
+  preorder_ship_date: string | null;
+  /** The most open pre-order units; null = no limit. */
+  preorder_cap: number | null;
+}
+
+export interface BundlePartView {
+  variant_id: string;
+  quantity: number;
+  sku: string;
+  name: string;
+  /** Units on hand minus reserved; null when the part is made to order. */
+  available: number | null;
+  archived: boolean;
 }
 
 export interface ShopImage {
@@ -400,6 +441,18 @@ export interface ShopProduct {
   product_type: string | null;
   /** Label and value rows shown on the product page (plain text). */
   details: ProductDetail[];
+  /** Scheduled publish and hide (ISO date-times, Phase 8); a published product shows only inside this window. */
+  publish_at: string | null;
+  hide_at: string | null;
+  /** A digital product: no shipping; a file from the media library or an https URL, sent after payment. */
+  is_digital: boolean;
+  digital_media_id: string | null;
+  digital_url: string | null;
+  /** A bundle: its variants are sold at the bundle's own price and take their parts from stock. */
+  is_bundle: boolean;
+  bundle_parts: BundlePartView[];
+  /** How many bundles the parts allow now (null = no limit). */
+  bundle_available: number | null;
   version: number;
   created_at: string;
   updated_at: string;
@@ -408,8 +461,9 @@ export interface ShopProduct {
   images: ShopImage[];
 }
 
-type ProductRow = Omit<ShopProduct, 'content_reviewed_at' | 'created_at' | 'updated_at' | 'variants' | 'images' | 'currency'> & {
-  content_reviewed_at: Date | null; created_at: Date; updated_at: Date; currency: string | null;
+type ProductRow = Omit<ShopProduct, 'content_reviewed_at' | 'created_at' | 'updated_at' | 'variants' | 'images' | 'currency' | 'publish_at' | 'hide_at'
+  | 'bundle_parts' | 'bundle_available'> & {
+  content_reviewed_at: Date | null; created_at: Date; updated_at: Date; currency: string | null; publish_at: Date | null; hide_at: Date | null;
 };
 type VariantRow = Omit<ShopVariant, 'price_minor' | 'compare_at_minor' | 'archived' | 'available'> & {
   price_minor: bigint | null; compare_at_minor: bigint | null; archived_at: Date | null;
@@ -421,7 +475,8 @@ export async function getShopProduct(tx: TenantTransaction, accountId: string, i
     SELECT p.id::text AS id, p.name, p.description, p.disclosure, p.category_id::text AS category_id, p.status,
       p.content_reviewed_by::text AS content_reviewed_by, p.content_reviewed_at, p.follow_up_template, p.follow_up_template_language,
       p.follow_up_after_days, p.repurchase_after_days, p.cod_available, p.tags, p.brand, p.product_type, p.details,
-      p.version, p.created_at, p.updated_at, st.currency
+      p.version, p.created_at, p.updated_at, st.currency,
+      p.publish_at, p.hide_at, p.is_digital, p.digital_media_id::text AS digital_media_id, p.digital_url, p.is_bundle
     FROM shop_products p LEFT JOIN commerce_settings st ON st.account_id=p.account_id
     WHERE p.account_id=${accountId}::uuid AND p.id=${id}::uuid`;
   const p = rows[0];
@@ -432,7 +487,8 @@ export async function getShopProduct(tx: TenantTransaction, accountId: string, i
       COALESCE(l.low_stock_threshold, st.low_stock_default, 5) AS low_stock_threshold,
       (SELECT count(*) FROM shop_stock_alerts a WHERE a.account_id=v.account_id AND a.variant_id=v.id
         AND a.claimed_at IS NOT NULL AND a.closed_at IS NULL)::int AS waiting,
-      EXISTS (SELECT 1 FROM products m WHERE m.account_id=v.account_id AND m.retailer_id=v.sku) AS meta_linked
+      EXISTS (SELECT 1 FROM products m WHERE m.account_id=v.account_id AND m.retailer_id=v.sku) AS meta_linked,
+      v.preorder, to_char(v.preorder_ship_date, 'YYYY-MM-DD') AS preorder_ship_date, v.preorder_cap
     FROM shop_variants v
     LEFT JOIN inventory_levels l ON l.account_id=v.account_id AND l.variant_id=v.id
     LEFT JOIN commerce_settings st ON st.account_id=v.account_id
@@ -442,9 +498,26 @@ export async function getShopProduct(tx: TenantTransaction, accountId: string, i
     SELECT i.id::text AS id, i.media_id::text AS media_id, i.url, m.bucket, m.object_key, i.position
     FROM shop_product_images i LEFT JOIN media_objects m ON m.account_id=i.account_id AND m.id=i.media_id AND m.deleted_at IS NULL
     WHERE i.account_id=${accountId}::uuid AND i.product_id=${id}::uuid ORDER BY i.position`;
+  const parts = p.is_bundle ? await tx.$queryRaw<{ variant_id: string; quantity: number; sku: string; name: string; option_values: Record<string, string> | null;
+    track: boolean; available: number | null; archived_at: Date | null }[]>`
+    SELECT b.part_variant_id::text AS variant_id, b.quantity, pv.sku, pp.name, pv.option_values, pv.track_inventory AS track, pv.archived_at,
+      COALESCE(l.on_hand - l.reserved, 0) AS available
+    FROM shop_bundle_parts b
+    JOIN shop_variants pv ON pv.account_id=b.account_id AND pv.id=b.part_variant_id
+    JOIN shop_products pp ON pp.account_id=pv.account_id AND pp.id=pv.product_id
+    LEFT JOIN inventory_levels l ON l.account_id=pv.account_id AND l.variant_id=pv.id
+    WHERE b.account_id=${accountId}::uuid AND b.product_id=${id}::uuid ORDER BY b.position, pp.name, pv.sku` : [];
+  const bundleParts: BundlePartView[] = parts.map((r) => {
+    const options = Object.values(r.option_values ?? {}).filter(Boolean).join(' / ');
+    return { variant_id: r.variant_id, quantity: r.quantity, sku: r.sku, name: options ? `${r.name} (${options})` : r.name,
+      available: r.track ? Math.max(Number(r.available ?? 0), 0) : null, archived: !!r.archived_at };
+  });
   return {
     ...p,
     details: (Array.isArray(p.details) ? p.details : []) as ProductDetail[],
+    publish_at: iso(p.publish_at), hide_at: iso(p.hide_at),
+    bundle_parts: bundleParts,
+    bundle_available: p.is_bundle ? bundleAvailability(bundleParts.map((b) => ({ quantity: b.quantity, available: b.available, archived: b.archived }))) : null,
     content_reviewed_at: iso(p.content_reviewed_at),
     created_at: p.created_at.toISOString(),
     updated_at: p.updated_at.toISOString(),
@@ -495,7 +568,26 @@ export async function upsertProduct(tx: TenantTransaction, accountId: string, us
     brand: has(b, 'brand') ? optPlainLine(b, 'brand', 80) : current?.brand ?? null,
     product_type: has(b, 'product_type') ? optPlainLine(b, 'product_type', 80) : current?.product_type ?? null,
     details: has(b, 'details') ? parseDetails(b.details) : current?.details ?? [],
+    publish_at: has(b, 'publish_at') ? scheduleTime(b, 'publish_at') : current ? (current.publish_at ? new Date(current.publish_at) : null) : null,
+    hide_at: has(b, 'hide_at') ? scheduleTime(b, 'hide_at') : current ? (current.hide_at ? new Date(current.hide_at) : null) : null,
+    is_digital: has(b, 'is_digital') ? bool(b, 'is_digital') : current?.is_digital ?? false,
+    digital_media_id: has(b, 'digital_media_id') ? optId(b, 'digital_media_id') : current?.digital_media_id ?? null,
+    digital_url: has(b, 'digital_url') ? optHttpsUrl(b, 'digital_url') : current?.digital_url ?? null,
+    is_bundle: has(b, 'is_bundle') ? bool(b, 'is_bundle') : current?.is_bundle ?? false,
   };
+  if (scheduleProblem(next.publish_at, next.hide_at)) throw new CatalogueError('invalid', 'hide_at');
+  if (next.is_digital && next.is_bundle) throw new CatalogueError('invalid', 'is_bundle');
+  if (!next.is_digital) { next.digital_media_id = null; next.digital_url = null; }
+  else {
+    // Exactly one source: a library file or an https URL.
+    if ((next.digital_media_id === null) === (next.digital_url === null)) throw new CatalogueError('invalid', 'digital_url');
+    if (next.digital_media_id && next.digital_media_id !== current?.digital_media_id) {
+      const media = await tx.$queryRaw<{ id: string }[]>`SELECT id::text AS id FROM media_objects
+        WHERE account_id=${accountId}::uuid AND id=${next.digital_media_id}::uuid AND deleted_at IS NULL`;
+      if (!media[0]) throw new CatalogueError('invalid', 'digital_media_id');
+    }
+  }
+  if (next.is_digital && current && !current.is_digital && current.variants.some((v) => v.preorder)) throw new CatalogueError('invalid', 'is_digital');
   if (next.follow_up_template && !next.follow_up_template_language) throw new CatalogueError('invalid', 'follow_up_template_language');
   if (!next.follow_up_template) { next.follow_up_template_language = null; next.follow_up_after_days = null; }
   if (next.category_id && next.category_id !== current?.category_id) {
@@ -507,10 +599,12 @@ export async function upsertProduct(tx: TenantTransaction, accountId: string, us
   if (!current) {
     const rows = await tx.$queryRaw<{ id: string }[]>`
       INSERT INTO shop_products(account_id,name,description,disclosure,category_id,follow_up_template,follow_up_template_language,
-        follow_up_after_days,repurchase_after_days,cod_available,tags,brand,product_type,details,created_by)
+        follow_up_after_days,repurchase_after_days,cod_available,tags,brand,product_type,details,created_by,
+        publish_at,hide_at,is_digital,digital_media_id,digital_url,is_bundle)
       VALUES(${accountId}::uuid,${next.name},${next.description},${next.disclosure},${next.category_id}::uuid,${next.follow_up_template},
         ${next.follow_up_template_language},${next.follow_up_after_days},${next.repurchase_after_days},${next.cod_available},
-        ${next.tags}::text[],${next.brand},${next.product_type},${JSON.stringify(next.details)}::jsonb,${userId}::uuid)
+        ${next.tags}::text[],${next.brand},${next.product_type},${JSON.stringify(next.details)}::jsonb,${userId}::uuid,
+        ${next.publish_at}::timestamptz,${next.hide_at}::timestamptz,${next.is_digital},${next.digital_media_id}::uuid,${next.digital_url},${next.is_bundle})
       RETURNING id::text AS id`.catch((e) => mapDbError(e, 'name'));
     productId = rows[0].id;
     await auditCatalogue(tx, accountId, userId, 'commerce.product_created', productId);
@@ -523,6 +617,8 @@ export async function upsertProduct(tx: TenantTransaction, accountId: string, us
         follow_up_template_language=${next.follow_up_template_language}, follow_up_after_days=${next.follow_up_after_days},
         repurchase_after_days=${next.repurchase_after_days}, cod_available=${next.cod_available},
         tags=${next.tags}::text[], brand=${next.brand}, product_type=${next.product_type}, details=${JSON.stringify(next.details)}::jsonb,
+        publish_at=${next.publish_at}::timestamptz, hide_at=${next.hide_at}::timestamptz, is_digital=${next.is_digital},
+        digital_media_id=${next.digital_media_id}::uuid, digital_url=${next.digital_url}, is_bundle=${next.is_bundle},
         content_reviewed_by=CASE WHEN ${rereview} THEN ${userId}::uuid ELSE content_reviewed_by END,
         content_reviewed_at=CASE WHEN ${rereview} THEN now() ELSE content_reviewed_at END,
         version=version+1
@@ -596,6 +692,11 @@ export async function publishProduct(tx: TenantTransaction, accountId: string, u
   const expected = optVersion(b);
   if (expected !== null && expected !== current.version) throw new CatalogueError('conflict', 'version');
   if ((await pricedVariantCount(tx, accountId, id)) === 0) throw new CatalogueError('needs_priced_variant');
+  // A bundle with no parts would sell nothing it can take from stock.
+  const [bundle] = await tx.$queryRaw<{ is_bundle: boolean; parts: number }[]>`SELECT p.is_bundle,
+    (SELECT count(*)::int FROM shop_bundle_parts b WHERE b.account_id=p.account_id AND b.product_id=p.id) AS parts
+    FROM shop_products p WHERE p.account_id=${accountId}::uuid AND p.id=${id}::uuid`;
+  if (bundle?.is_bundle && bundle.parts === 0) throw new CatalogueError('invalid', 'parts');
   await tx.$executeRaw`UPDATE shop_products SET status='published', content_reviewed_by=${userId}::uuid, content_reviewed_at=now(),
       version=version+1 WHERE account_id=${accountId}::uuid AND id=${id}::uuid`;
   await auditCatalogue(tx, accountId, userId, 'commerce.product_published', id);
@@ -646,12 +747,18 @@ export async function duplicateProduct(tx: TenantTransaction, accountId: string,
     WHERE account_id=${accountId}::uuid AND id=${source.category_id}::uuid AND archived_at IS NULL`)[0]?.id ?? null : null;
   const rows = await tx.$queryRaw<{ id: string }[]>`
     INSERT INTO shop_products(account_id,name,description,disclosure,category_id,follow_up_template,follow_up_template_language,
-      follow_up_after_days,repurchase_after_days,cod_available,tags,brand,product_type,details,created_by)
+      follow_up_after_days,repurchase_after_days,cod_available,tags,brand,product_type,details,created_by,
+      is_digital,digital_media_id,digital_url,is_bundle)
     VALUES(${accountId}::uuid,${name ?? copyName(source.name)},${source.description},${source.disclosure},${category}::uuid,
       ${source.follow_up_template},${source.follow_up_template_language},${source.follow_up_after_days},${source.repurchase_after_days},
-      ${source.cod_available},${source.tags}::text[],${source.brand},${source.product_type},${JSON.stringify(source.details)}::jsonb,${userId}::uuid)
+      ${source.cod_available},${source.tags}::text[],${source.brand},${source.product_type},${JSON.stringify(source.details)}::jsonb,${userId}::uuid,
+      ${source.is_digital},${source.digital_media_id}::uuid,${source.digital_url},${source.is_bundle})
     RETURNING id::text AS id`.catch((e) => mapDbError(e, 'name'));
   const copyId = rows[0].id;
+  // The copy is a draft with no schedule; a bundle keeps its parts.
+  await tx.$executeRaw`INSERT INTO shop_bundle_parts(account_id,product_id,part_variant_id,quantity,position)
+    SELECT account_id, ${copyId}::uuid, part_variant_id, quantity, position FROM shop_bundle_parts
+    WHERE account_id=${accountId}::uuid AND product_id=${source.id}::uuid`;
   await tx.$executeRaw`INSERT INTO shop_product_images(account_id,product_id,media_id,url,position)
     SELECT account_id, ${copyId}::uuid, media_id, url, position FROM shop_product_images
     WHERE account_id=${accountId}::uuid AND product_id=${source.id}::uuid ORDER BY position`;
@@ -666,11 +773,12 @@ export async function duplicateProduct(tx: TenantTransaction, accountId: string,
     if (!sku) throw new CatalogueError('sku_taken', 'sku');
     await tx.$executeRaw`
       INSERT INTO shop_variants(account_id,product_id,sku,option_values,price_minor,compare_at_minor,tax_rate_bps,hsn_code,track_inventory,
-        weight_grams,position,image_id)
+        weight_grams,position,image_id,preorder,preorder_ship_date,preorder_cap)
       VALUES(${accountId}::uuid,${copyId}::uuid,${sku},${JSON.stringify(v.option_values)}::jsonb,${v.price_minor}::bigint,
         ${v.compare_at_minor}::bigint,${v.tax_rate_bps},${v.hsn_code},${v.track_inventory},${v.weight_grams},${v.position},
         (SELECT n.id FROM shop_product_images o JOIN shop_product_images n ON n.account_id=o.account_id AND n.position=o.position
-          WHERE o.account_id=${accountId}::uuid AND o.id=${v.image_id}::uuid AND n.product_id=${copyId}::uuid))`
+          WHERE o.account_id=${accountId}::uuid AND o.id=${v.image_id}::uuid AND n.product_id=${copyId}::uuid),
+        ${v.preorder},${v.preorder_ship_date}::date,${v.preorder_cap})`
       .catch((e) => mapDbError(e, 'sku'));
   }
   await auditCatalogue(tx, accountId, userId, 'commerce.product_duplicated', copyId, { source_id: source.id });
@@ -691,12 +799,13 @@ export async function upsertVariant(tx: TenantTransaction, accountId: string, us
   const product = await lockProduct(tx, accountId, productId);
   let current: { sku: string; option_values: unknown; price_minor: bigint | null; compare_at_minor: bigint | null; tax_rate_bps: number | null;
     hsn_code: string | null; track_inventory: boolean; weight_grams: number | null; position: number; image_id: string | null;
-    archived_at: Date | null } | undefined;
+    archived_at: Date | null; preorder: boolean; preorder_ship_date: string | null; preorder_cap: number | null } | undefined;
   if (variantId) {
     if (!isId(variantId)) throw new CatalogueError('not_found');
     current = (await tx.$queryRaw<NonNullable<typeof current>[]>`
       SELECT sku, option_values, price_minor, compare_at_minor, tax_rate_bps, hsn_code, track_inventory, weight_grams, position,
-        image_id::text AS image_id, archived_at
+        image_id::text AS image_id, archived_at,
+        preorder, to_char(preorder_ship_date, 'YYYY-MM-DD') AS preorder_ship_date, preorder_cap
       FROM shop_variants WHERE account_id=${accountId}::uuid AND id=${variantId}::uuid AND product_id=${productId}::uuid FOR UPDATE`)[0];
     if (!current) throw new CatalogueError('not_found');
   }
@@ -714,6 +823,9 @@ export async function upsertVariant(tx: TenantTransaction, accountId: string, us
     position: has(b, 'position') ? int(b, 'position', 0, 10000) : current?.position ?? 0,
     archived: has(b, 'archived') ? bool(b, 'archived') : !!current?.archived_at,
     image_id: has(b, 'image_id') ? optId(b, 'image_id') : current?.image_id ?? null,
+    preorder: has(b, 'preorder') ? bool(b, 'preorder') : current?.preorder ?? false,
+    preorder_ship_date: has(b, 'preorder_ship_date') ? shipDate(b, 'preorder_ship_date') : current?.preorder_ship_date ?? null,
+    preorder_cap: has(b, 'preorder_cap') ? optInt(b, 'preorder_cap', 1, 1_000_000) : current?.preorder_cap ?? null,
   };
   // Only an image of this product (the composite foreign key says the same underneath).
   if (next.image_id && next.image_id !== current?.image_id) {
@@ -722,6 +834,14 @@ export async function upsertVariant(tx: TenantTransaction, accountId: string, us
     if (!own[0]) throw new CatalogueError('invalid', 'image_id');
   }
   if (next.hsn_code && !HSN.test(next.hsn_code)) throw new CatalogueError('invalid', 'hsn_code');
+  const pre = preorderProblem({ preorder: next.preorder, shipDate: next.preorder_ship_date, cap: next.preorder_cap });
+  if (pre) throw new CatalogueError('invalid', pre === 'ship_date' ? 'preorder_ship_date' : 'preorder_cap');
+  if (next.preorder) {
+    // A pre-order sells a physical product that is not a bundle or a download.
+    const kind = await tx.$queryRaw<{ is_bundle: boolean; is_digital: boolean }[]>`SELECT is_bundle, is_digital FROM shop_products
+      WHERE account_id=${accountId}::uuid AND id=${productId}::uuid`;
+    if (kind[0]?.is_bundle || kind[0]?.is_digital) throw new CatalogueError('invalid', 'preorder');
+  }
   if (next.price_minor !== null || next.compare_at_minor !== null) {
     // Shared lock: a concurrent currency change (FOR UPDATE, then currencyInUse) commits first or sees this price.
     const settings = await tx.$queryRaw<{ currency: string }[]>`SELECT currency FROM commerce_settings WHERE account_id=${accountId}::uuid FOR SHARE`;
@@ -734,10 +854,10 @@ export async function upsertVariant(tx: TenantTransaction, accountId: string, us
   if (!current) {
     const rows = await tx.$queryRaw<{ id: string }[]>`
       INSERT INTO shop_variants(account_id,product_id,sku,option_values,price_minor,compare_at_minor,tax_rate_bps,hsn_code,track_inventory,
-        weight_grams,position,image_id,archived_at)
+        weight_grams,position,image_id,archived_at,preorder,preorder_ship_date,preorder_cap)
       VALUES(${accountId}::uuid,${productId}::uuid,${next.sku},${options}::jsonb,${next.price_minor}::bigint,${next.compare_at_minor}::bigint,
         ${next.tax_rate_bps},${next.hsn_code},${next.track_inventory},${next.weight_grams},${next.position},${next.image_id}::uuid,
-        CASE WHEN ${next.archived} THEN now() END)
+        CASE WHEN ${next.archived} THEN now() END,${next.preorder},${next.preorder_ship_date}::date,${next.preorder_cap})
       RETURNING id::text AS id`.catch((e) => mapDbError(e, 'sku'));
     await auditCatalogue(tx, accountId, userId, 'commerce.variant_created', rows[0].id, { product_id: productId });
   } else {
@@ -745,6 +865,7 @@ export async function upsertVariant(tx: TenantTransaction, accountId: string, us
       UPDATE shop_variants SET sku=${next.sku}, option_values=${options}::jsonb, price_minor=${next.price_minor}::bigint,
         compare_at_minor=${next.compare_at_minor}::bigint, tax_rate_bps=${next.tax_rate_bps}, hsn_code=${next.hsn_code},
         track_inventory=${next.track_inventory}, weight_grams=${next.weight_grams}, position=${next.position}, image_id=${next.image_id}::uuid,
+        preorder=${next.preorder}, preorder_ship_date=${next.preorder_ship_date}::date, preorder_cap=${next.preorder_cap},
         archived_at=CASE WHEN ${next.archived} THEN COALESCE(archived_at, now()) ELSE NULL END
       WHERE account_id=${accountId}::uuid AND id=${variantId}::uuid`.catch((e) => mapDbError(e, 'sku'));
     const priceChanged = minorFromDb(current.price_minor) !== next.price_minor;
@@ -756,6 +877,42 @@ export async function upsertVariant(tx: TenantTransaction, accountId: string, us
   }
   await tx.$executeRaw`UPDATE shop_products SET version=version+1 WHERE account_id=${accountId}::uuid AND id=${productId}::uuid`;
   return getShopProduct(tx, accountId, productId);
+}
+
+// ------------------------------------------------------------ bundle parts
+
+export const MAX_BUNDLE_PARTS = 20;
+
+/**
+ * Replace a bundle product's parts (admins): at most 20 distinct variants of other, physical products, each with
+ * a whole quantity of 1 to 99. The product must be marked as a bundle. The database refuses a part that is
+ * itself a bundle or a download (no nesting). The bundle is sold at its own variants' prices; the parts only
+ * decide stock (stock.ts reserves them on checkout and puts them back on a return).
+ */
+export async function setBundleParts(tx: TenantTransaction, accountId: string, userId: string, id: string, raw: unknown): Promise<ShopProduct> {
+  const b = asBody(raw);
+  const product = await getShopProduct(tx, accountId, id);
+  if (!product.is_bundle) throw new CatalogueError('invalid', 'is_bundle');
+  const list = b.parts;
+  if (!Array.isArray(list) || list.length > MAX_BUNDLE_PARTS) throw new CatalogueError('invalid', 'parts');
+  const parts = list.map((item) => {
+    const p = asBody(item);
+    return { variantId: has(p, 'variant_id') && isId(p.variant_id) ? p.variant_id.toLowerCase() : null, quantity: int(p, 'quantity', 1, 99) };
+  });
+  if (parts.some((p) => p.variantId === null) || new Set(parts.map((p) => p.variantId)).size !== parts.length) throw new CatalogueError('invalid', 'parts');
+  const ids = parts.map((p) => p.variantId as string);
+  if (ids.length) {
+    const found = await tx.$queryRaw<{ id: string }[]>`SELECT id::text AS id FROM shop_variants
+      WHERE account_id=${accountId}::uuid AND id = ANY(${ids}::uuid[]) AND archived_at IS NULL`;
+    if (found.length !== ids.length) throw new CatalogueError('invalid', 'parts');
+  }
+  await tx.$executeRaw`DELETE FROM shop_bundle_parts WHERE account_id=${accountId}::uuid AND product_id=${id}::uuid`;
+  for (const [position, part] of parts.entries())
+    await tx.$executeRaw`INSERT INTO shop_bundle_parts(account_id,product_id,part_variant_id,quantity,position)
+      VALUES(${accountId}::uuid,${id}::uuid,${part.variantId}::uuid,${part.quantity},${position})`.catch((e) => mapDbError(e, 'parts'));
+  await tx.$executeRaw`UPDATE shop_products SET version=version+1 WHERE account_id=${accountId}::uuid AND id=${id}::uuid`;
+  await auditCatalogue(tx, accountId, userId, 'commerce.bundle_parts_set', id, { count: parts.length });
+  return getShopProduct(tx, accountId, id);
 }
 
 // ------------------------------------------------------------ Meta mirror
