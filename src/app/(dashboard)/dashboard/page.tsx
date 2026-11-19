@@ -40,6 +40,8 @@ import { OperationsPanel } from '@/components/dashboard/operations-panel';
 import { OnboardingChecklist } from '@/components/dashboard/onboarding-checklist';
 import { ChannelPickerCard } from '@/components/dashboard/channel-picker-card';
 import { buttonVariants } from '@/components/ui/button';
+import { InlineError } from '@/components/ui/inline-error';
+import { cn } from '@/lib/utils';
 
 import { useTranslations } from 'next-intl';
 
@@ -76,6 +78,10 @@ export default function DashboardPage() {
   const [activity, setActivity] = useState<ActivityItem[] | null>(null);
   const [activityLoading, setActivityLoading] = useState(true);
 
+  // A widget whose request failed shows what happened and Retry, never a skeleton forever.
+  const [failed, setFailed] = useState<Record<Widget, boolean>>(NONE_FAILED);
+  const fail = useCallback((widget: Widget) => setFailed((prev) => ({ ...prev, [widget]: true })), []);
+
   const loadAll = useCallback(() => {
     const db = createClient();
 
@@ -88,7 +94,10 @@ export default function DashboardPage() {
 
     void loadMetrics(db, charts)
       .then((m) => setMetrics(m))
-      .catch((err) => console.error('[dashboard] metrics failed:', err))
+      .catch((err) => {
+        console.error('[dashboard] metrics failed:', err);
+        fail('metrics');
+      })
       .finally(() => setMetricsLoading(false));
 
     void charts
@@ -96,7 +105,10 @@ export default function DashboardPage() {
         setSeries((prev) => ({ ...prev, 30: c.series }));
         setResponseTime(c.responseTime);
       })
-      .catch((err) => console.error('[dashboard] charts failed:', err))
+      .catch((err) => {
+        console.error('[dashboard] charts failed:', err);
+        fail('charts');
+      })
       .finally(() => {
         setSeriesLoading(false);
         setResponseTimeLoading(false);
@@ -104,7 +116,10 @@ export default function DashboardPage() {
 
     void loadPipelineDonut(db, charts)
       .then((p) => setPipeline(p))
-      .catch((err) => console.error('[dashboard] pipeline failed:', err))
+      .catch((err) => {
+        console.error('[dashboard] pipeline failed:', err);
+        fail('pipeline');
+      })
       .finally(() => setPipelineLoading(false));
 
     // Fetch up to 50 so the biggest page-size option in the feed
@@ -112,9 +127,25 @@ export default function DashboardPage() {
     // a pure client-side slice with no extra round trip.
     void loadActivity(db, 50)
       .then((a) => setActivity(a))
-      .catch((err) => console.error('[dashboard] activity failed:', err))
+      .catch((err) => {
+        console.error('[dashboard] activity failed:', err);
+        fail('activity');
+      })
       .finally(() => setActivityLoading(false));
-  }, []);
+  }, [fail]);
+
+  // Retry reloads every widget (one request feeds most of them).
+  const retry = useCallback(() => {
+    setFailed(NONE_FAILED);
+    setMetricsLoading(true);
+    setSeriesLoading(true);
+    setResponseTimeLoading(true);
+    setPipelineLoading(true);
+    setActivityLoading(true);
+    setSeries({ 7: null, 30: null, 90: null });
+    setRange(30);
+    loadAll();
+  }, [loadAll]);
 
   useEffect(() => {
     loadAll();
@@ -131,10 +162,13 @@ export default function DashboardPage() {
       setSeriesLoading(true);
       fetchDashboardCharts(r)
         .then((c) => setSeries((prev) => ({ ...prev, [r]: c.series })))
-        .catch((err) => console.error('[dashboard] series failed:', err))
+        .catch((err) => {
+          console.error('[dashboard] series failed:', err);
+          fail('charts');
+        })
         .finally(() => setSeriesLoading(false));
     },
-    [series]
+    [series, fail]
   );
 
   return (
@@ -159,7 +193,9 @@ export default function DashboardPage() {
 
       {/* Metric cards */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        {metricsLoading || !metrics ? (
+        {failed.metrics ? (
+          <WidgetError className="col-span-2 lg:col-span-4" onRetry={retry} />
+        ) : metricsLoading || !metrics ? (
           Array.from({ length: 4 }).map((_, i) => <SkeletonCard key={i} />)
         ) : (
           <>
@@ -248,33 +284,49 @@ export default function DashboardPage() {
           height while the line chart drove the row height. */}
       <div className="grid grid-cols-1 gap-3.5 lg:grid-cols-12">
         <div className="h-full min-w-0 lg:col-span-7">
-          <ConversationsChart
-            series={series}
-            loading={seriesLoading}
-            range={range}
-            onRangeChange={handleRangeChange}
-          />
+          {failed.charts ? (
+            <WidgetError onRetry={retry} />
+          ) : (
+            <ConversationsChart
+              series={series}
+              loading={seriesLoading}
+              range={range}
+              onRangeChange={handleRangeChange}
+            />
+          )}
         </div>
         <div className="h-full min-w-0 lg:col-span-5">
-          <PipelineDonut
-            data={pipeline}
-            loading={pipelineLoading}
-            currency={defaultCurrency}
-          />
+          {failed.pipeline ? (
+            <WidgetError onRetry={retry} />
+          ) : (
+            <PipelineDonut
+              data={pipeline}
+              loading={pipelineLoading}
+              currency={defaultCurrency}
+            />
+          )}
         </div>
       </div>
 
       {/* Response time beside the most recent activity */}
       <div className="grid grid-cols-1 gap-3.5 lg:grid-cols-12">
         <div className="min-w-0 lg:col-span-7">
-          <ResponseTimeChart
-            data={responseTime}
-            loading={responseTimeLoading}
-            thresholdMinutes={replyTargetMinutes}
-          />
+          {failed.charts ? (
+            <WidgetError onRetry={retry} />
+          ) : (
+            <ResponseTimeChart
+              data={responseTime}
+              loading={responseTimeLoading}
+              thresholdMinutes={replyTargetMinutes}
+            />
+          )}
         </div>
         <div className="min-w-0 lg:col-span-5">
-          <ActivityFeed items={activity} loading={activityLoading} />
+          {failed.activity ? (
+            <WidgetError onRetry={retry} />
+          ) : (
+            <ActivityFeed items={activity} loading={activityLoading} />
+          )}
         </div>
       </div>
     </div>
@@ -282,6 +334,18 @@ export default function DashboardPage() {
 }
 
 // ------------------------------------------------------------
+
+type Widget = 'metrics' | 'charts' | 'pipeline' | 'activity';
+const NONE_FAILED: Record<Widget, boolean> = { metrics: false, charts: false, pipeline: false, activity: false };
+
+/** A dashboard card whose request failed: what happened, then Retry. */
+function WidgetError({ onRetry, className }: { onRetry: () => void; className?: string }) {
+  return (
+    <section className={cn('border-border bg-card flex h-full items-center justify-center rounded-xl border', className)}>
+      <InlineError onRetry={onRetry} />
+    </section>
+  );
+}
 
 function deltaLabel(
   delta: number,
