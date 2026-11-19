@@ -56,8 +56,8 @@ vi.mock('@/lib/billing/entitlements', async () => {
 });
 vi.mock('@/lib/appointments/listing', async (original) => ({
   ...(await original<typeof import('@/lib/appointments/listing')>()),
-  listSchedule: async () => [h.row],
-  getAppointmentDetail: async () => ({ appointment: h.row, events: [], messages: [], tasks: [] }),
+  listSchedule: async () => ({ rows: [h.row], nextCursor: 'next', truncated: true }),
+  getAppointmentDetail: async () => ({ appointment: h.row, events: [], messages: [], tasks: [], links: { deal: null, broadcast: null, ad: null } }),
 }));
 vi.mock('@/lib/appointments/booking', async (original) => ({
   ...(await original<typeof import('@/lib/appointments/booking')>()),
@@ -95,6 +95,7 @@ describe('GET /api/appointments', () => {
     expect(body.appointments[0]).not.toHaveProperty('hold_code');
     expect(body.appointments[0]).not.toHaveProperty('outcome_note');
     expect(body.appointments[0].price_minor).toBe(50000);
+    expect(body).toMatchObject({ next_cursor: 'next', truncated: true });
     h.canManage = true;
     expect((await (await list()).json()).appointments[0].outcome_note).toBe('staff only');
     const one = await (await GET_ONE(new Request(`http://x/api/appointments/${APPT}`), { params: Promise.resolve({ id: APPT }) })).json();
