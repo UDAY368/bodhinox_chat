@@ -55,6 +55,8 @@ describe('steps per channel set (Stage 1)', () => {
     expect(STEP_HREF.instagramConnect).toBe('/settings?tab=instagram');
     expect(STEP_HREF.instagramCommentAutomation).toBe('/instagram/comments');
     expect(STEP_HREF.whatsapp).toBe('/settings?tab=whatsapp');
+    // The automation step opens the one Automation list, not the old /flows address.
+    expect(STEP_HREF.automation).toBe('/automation');
   });
 });
 
