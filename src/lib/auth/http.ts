@@ -60,6 +60,29 @@ function json(data: unknown, status = 200): NextResponse {
     headers: { 'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer' },
   });
 }
+/**
+ * Per-client-IP caps on top of the per-email ones, so one address cycling through many emails is
+ * slowed too. Same durable limiter and same generic 429 as the per-email limits (no enumeration).
+ */
+export const AUTH_IP_LIMITS: Record<string, { action: string; maximum: number; windowSeconds: number }> = {
+  login: { action: 'login-ip', maximum: 30, windowSeconds: 900 },
+  'token-login': { action: 'login-ip', maximum: 30, windowSeconds: 900 },
+  signup: { action: 'signup-ip', maximum: 10, windowSeconds: 3600 },
+  'reset-request': { action: 'email-request-ip', maximum: 10, windowSeconds: 3600 },
+  'verify-request': { action: 'email-request-ip', maximum: 10, windowSeconds: 3600 },
+};
+/**
+ * Rightmost x-forwarded-for hop (appended by the edge; client-sent hops to its left are ignored),
+ * the same rule as the public booking and shop APIs' clientIp.
+ */
+function clientIp(request: Request): string {
+  const forwarded = request.headers.get('x-forwarded-for')?.split(',').map((hop) => hop.trim()).filter(Boolean).at(-1);
+  return (forwarded || request.headers.get('x-real-ip')?.trim() || 'unknown').slice(0, 64);
+}
+async function enforceIpLimit(request: Request, action: string): Promise<void> {
+  const limit = AUTH_IP_LIMITS[action];
+  if (limit) await enforceAuthRateLimit(limit.action, clientIp(request), limit.maximum, limit.windowSeconds);
+}
 export function authError(error: unknown): NextResponse {
   if (error instanceof AuthError)
     return json(
@@ -211,6 +234,7 @@ export async function handleAuthPost(
     if (action === 'token-login' || action === 'token-refresh') {
       assertTokenClient(request);
       await enforceAuthRateLimit(`global-${action}`, 'application', 1000, 900);
+      await enforceIpLimit(request, action);
       const input = await body(request);
       if (action === 'token-login') {
         const parsed = z
@@ -264,6 +288,7 @@ export async function handleAuthPost(
           action === 'signup' ? 100 : 1000,
           900
         );
+      await enforceIpLimit(request, action);
       if (action === 'refresh') {
         const token = readCookie(request, cookieNames().refresh);
         if (!token) throw new UnauthorizedError();
