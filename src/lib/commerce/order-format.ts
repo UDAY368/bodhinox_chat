@@ -10,7 +10,7 @@
 import { formatMoney, isCurrencyCode, MAX_MINOR, MoneyError, parseMoney } from './money';
 
 export const ORDER_STATUSES = [
-  'new', 'confirmed', 'awaiting_payment', 'payment_review', 'paid', 'dispatched', 'fulfilled', 'expired', 'cancelled',
+  'new', 'confirmed', 'awaiting_payment', 'payment_review', 'paid', 'partially_shipped', 'dispatched', 'fulfilled', 'expired', 'cancelled',
 ] as const;
 export type OrderStatus = (typeof ORDER_STATUSES)[number];
 export const ORDER_SOURCES = ['whatsapp', 'shopify', 'woocommerce', 'manual', 'storefront'] as const;
@@ -24,7 +24,7 @@ export type RefundState = (typeof REFUND_STATES)[number];
  * for a browser session). Staff never mark an order paid by hand: a payment
  * taken outside a link is recorded through "Record offline payment".
  */
-export const WORKER_ONLY_STATUSES: readonly OrderStatus[] = ['paid', 'payment_review', 'expired'];
+export const WORKER_ONLY_STATUSES: readonly OrderStatus[] = ['paid', 'payment_review', 'expired', 'partially_shipped'];
 
 /**
  * Status changes staff may make. `fulfilled` is shown as "Delivered" (the
@@ -38,6 +38,8 @@ export const ORDER_TRANSITIONS: Record<OrderStatus, readonly OrderStatus[]> = {
   awaiting_payment: ['cancelled'],
   payment_review: [],
   paid: ['dispatched', 'cancelled'],
+  // Some parcels left (set from the courier shipments, never by hand): staff may record that the rest left too.
+  partially_shipped: ['dispatched'],
   dispatched: ['fulfilled', 'cancelled'],
   fulfilled: [],
   expired: [],
@@ -230,7 +232,7 @@ export function asOrderMessagePayload(value: unknown): OrderMessagePayload | nul
 }
 
 /** Placeholders an order confirmation text may use, written {{name}}. */
-export const ORDER_CONFIRMATION_FIELDS = ['customer_name', 'order_id', 'order_total', 'order_currency', 'order_items_count', 'order_items'] as const;
+export const ORDER_CONFIRMATION_FIELDS = ['customer_name', 'order_id', 'order_total', 'order_currency', 'order_items_count', 'order_items', 'tracking_link'] as const;
 
 /** Fill {{field}} placeholders; unknown ones are left as typed. */
 export function fillOrderPlaceholders(text: string, values: Record<string, string>): string {

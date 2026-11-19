@@ -19,7 +19,9 @@ import { nextStatuses, ORDER_LIMITS, type OrderStatus } from "@/lib/commerce/ord
 import {
   discountRows, getOrder, getOrderTimeline, listOrderReturns, updateOrder, type OrderDetail, type OrderReturn, type OrderTimeline,
 } from "./order-api";
+import { OrderEditPanel } from "./order-edit-panel";
 import { OrderFulfilmentPanel } from "./order-fulfilment-panel";
+import { OrderTaxInvoicePanel } from "./order-tax-invoice-panel";
 import { OrderReturnsPanel } from "./order-returns-panel";
 import { COD_CONFIRM_TONE } from "./order-state";
 import { OrderStatusBadge } from "./order-status-badge";
@@ -251,6 +253,7 @@ export function OrderDetailView({ id }: { id: string }) {
               )}
             </div>
           )}
+          {priced && <OrderEditPanel key={`${order.id}:${order.updated_at}`} orderId={order.id} canEdit={canAct} onChanged={() => void reload()} />}
           {order.customer_note && (
             <div className="rounded-xl border border-border bg-card p-4">
               <h2 className="text-sm font-medium text-foreground">{t("detail.customerNote")}</h2>
@@ -292,6 +295,7 @@ export function OrderDetailView({ id }: { id: string }) {
           </div>
 
           <OrderFulfilmentPanel order={order} canAct={canAct} canRefund={canAdmin} onChanged={reload} />
+          <OrderTaxInvoicePanel order={order} canAct={canAct} onChanged={reload} />
           <OrderReturnsPanel order={order} returns={returns} canAct={canAct} canAdmin={canAdmin} onChanged={reload} />
 
           <div className="space-y-2 rounded-xl border border-border bg-card p-4">

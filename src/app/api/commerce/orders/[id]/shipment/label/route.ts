@@ -13,7 +13,7 @@ export const runtime = 'nodejs';
 type Context = { params: Promise<{ id: string }> };
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-export async function GET(_request: Request, context: Context) {
+export async function GET(request: Request, context: Context) {
   try {
     const { id } = await context.params;
     if (!UUID.test(id)) return shipmentErrorResponse('not_found', 404);
@@ -21,7 +21,10 @@ export async function GET(_request: Request, context: Context) {
     // A provider call per request: the write limit applies.
     const limited = writeLimit('shipments', ctx.userId);
     if (limited) return limited;
-    const url = await labelUrl(actorOf(ctx), id);
+    // Split shipments: ?shipment_id= names one of the order's shipments (default: the newest live one).
+    const shipmentId = new URL(request.url).searchParams.get('shipment_id');
+    if (shipmentId !== null && !UUID.test(shipmentId)) return shipmentErrorResponse('not_found', 404);
+    const url = await labelUrl(actorOf(ctx), id, shipmentId);
     return NextResponse.json({ url }, { headers: NO_STORE });
   } catch (error) {
     return errorResponse(error);

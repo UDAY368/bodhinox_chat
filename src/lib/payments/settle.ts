@@ -17,6 +17,7 @@ import { minorFromDb } from '@/lib/commerce/money';
 import { capiValue, queueConversionEventTx } from '@/lib/meta-ads/capi';
 import { orderWebhookData } from '@/lib/webhooks/commerce-events';
 import { commitTx, rereserveTx } from '@/lib/commerce/stock';
+import { editBalanceReferences } from '@/lib/commerce/order-edit-reference';
 import { confirmPaidHoldTx } from '@/lib/appointments/paid';
 import { applyProviderState, notifyPaid, queuePaidWebhooksTx, queuePurchase, queueWebhookTx, selectLink, type LinkRow, type PaidOrderRow } from './links';
 import { loadRazorpaySecrets, PaymentProviderError } from './providers';
@@ -161,9 +162,9 @@ export function orderDue(order: Pick<OrderLockRow, 'total_minor' | 'subtotal_min
 
 /** Order statuses a payment can be credited to directly. 'expired' needs its stock back first. */
 const PAYABLE = new Set(['new', 'confirmed', 'awaiting_payment']);
-const ALREADY_PAID = new Set(['paid', 'dispatched', 'fulfilled', 'payment_review']);
+const ALREADY_PAID = new Set(['paid', 'partially_shipped', 'dispatched', 'fulfilled', 'payment_review']);
 /** A cash-on-delivery order ships before its cash arrives, so it stays payable once dispatched or delivered. */
-const COD_SHIPPED = new Set(['dispatched', 'fulfilled']);
+const COD_SHIPPED = new Set(['partially_shipped', 'dispatched', 'fulfilled']);
 
 /**
  * How a payment for this order would settle, before any write (design E9).
@@ -211,7 +212,7 @@ export async function creditOrderTx(tx: TenantTransaction, input: {
     WHERE r.id=p.id RETURNING r.coupon_id::text AS coupon_id, p.was`;
   // A cash-on-delivery order paid once dispatched or delivered keeps that status (it never goes back to paid).
   const paid = await tx.$queryRaw<PaidOrderRow[]>`UPDATE orders o
-    SET status=CASE WHEN o.status IN ('dispatched','fulfilled') THEN o.status ELSE 'paid' END, paid_at=COALESCE(o.paid_at, now()),
+    SET status=CASE WHEN o.status IN ('partially_shipped','dispatched','fulfilled') THEN o.status ELSE 'paid' END, paid_at=COALESCE(o.paid_at, now()),
       amount_paid_minor=o.amount_paid_minor + ${BigInt(input.amountMinor)}
     WHERE o.account_id=${accountId}::uuid AND o.id=${order.id}::uuid
     RETURNING o.id::text AS id,o.source,o.external_id,o.status,o.total_minor,o.subtotal_minor,o.currency,
@@ -248,6 +249,37 @@ export async function creditOrderTx(tx: TenantTransaction, input: {
       contactId: paidOrder.contact_id, conversationId: paidOrder.conversation_id,
     }));
   }
+  return true;
+}
+
+/** Statuses of an order that was paid and may still owe the difference of an edit. */
+const BALANCE_PAYABLE = new Set(['paid', 'partially_shipped', 'dispatched', 'fulfilled']);
+
+/**
+ * Credits the balance link of an order edit: the link's reference must be one
+ * derived from the order's latest edit, that edit must ask to collect exactly
+ * this amount in the order's currency and not be paid yet. The amount is added
+ * to what the order has been paid, the receipt and the paid alert are queued,
+ * and the edit is marked paid. Anything else returns false and the ordinary
+ * plan decides (a payment on a paid order is then surfaced as an exception).
+ */
+async function creditEditBalanceTx(tx: TenantTransaction, accountId: string, order: OrderLockRow, link: LinkRow, paymentId: string,
+  verified: Pick<VerifiedPayment, 'amountMinor' | 'currency'>): Promise<boolean> {
+  if (!BALANCE_PAYABLE.has(order.status) || !order.paid_at || verified.currency !== order.currency) return false;
+  const [edit] = await tx.$queryRaw<{ id: string; payment_action: string; payment_state: string; difference_minor: bigint | number }[]>`
+    SELECT id::text AS id, payment_action, payment_state, difference_minor FROM order_edits
+    WHERE account_id=${accountId}::uuid AND order_id=${order.id}::uuid ORDER BY version_after DESC LIMIT 1`;
+  if (!edit || edit.payment_action !== 'collect' || edit.payment_state === 'link_paid') return false;
+  if (!editBalanceReferences(edit.id).includes(link.reference_id) || minorFromDb(edit.difference_minor) !== verified.amountMinor) return false;
+  await tx.$executeRaw`UPDATE orders SET amount_paid_minor=amount_paid_minor + ${BigInt(verified.amountMinor)}
+    WHERE account_id=${accountId}::uuid AND id=${order.id}::uuid`;
+  await tx.$executeRaw`UPDATE customer_payments SET settlement='settled', order_id=${order.id}::uuid
+    WHERE account_id=${accountId}::uuid AND id=${paymentId}::uuid`;
+  await tx.$executeRaw`UPDATE order_edits SET payment_state='link_paid', payment_link_id=${link.id}::uuid, failure_code=NULL
+    WHERE account_id=${accountId}::uuid AND id=${edit.id}::uuid`;
+  await orderEventTx(tx, accountId, order.id, 'payment_captured', { detail: 'edit_balance' });
+  await enqueueJobTx(tx, accountId, ISSUE_RECEIPT_JOB, { paymentId }, `receipt:${paymentId}`);
+  await notifyPaid(tx, link);
   return true;
 }
 
@@ -302,6 +334,8 @@ export async function settlePaymentTx(tx: TenantTransaction, verified: VerifiedP
   if (link.order_id) {
     const order = await lockOrderTx(tx, accountId, link.order_id);
     if (!order) return markException(tx, accountId, payment.id, 'payment_on_closed_order', { ...subject, orderId: null }, 'order_missing');
+    // The balance link of an order edit (a paid order whose total went up): credited as the difference, nothing else moves.
+    if (await creditEditBalanceTx(tx, accountId, order, link, payment.id, verified)) return { kind: 'settled', paymentId: payment.id };
     const plan = orderSettlementPlan(order, verified);
     if (plan !== 'credit' && plan !== 'late') return markException(tx, accountId, payment.id, plan, subject);
     const credited = await creditOrderTx(tx, { accountId, order, paymentId: payment.id, amountMinor: verified.amountMinor, link, late: plan === 'late', actorUserId: null });

@@ -89,7 +89,7 @@ export async function commerceStats(tx: TenantTransaction, accountId: string, ra
         o.amount_refunded_minor AS refunded
       FROM orders o
       WHERE o.account_id=${accountId}::uuid AND o.paid_at >= ${from(range)} AND o.paid_at < ${to(range)}
-        AND o.status IN ('paid','dispatched','fulfilled','cancelled')
+        AND o.status IN ('paid','partially_shipped','dispatched','fulfilled','cancelled')
     )
     SELECT currency, count(*)::int AS orders, sum(subtotal_minor)::bigint AS gross, sum(discount_minor)::bigint AS discounts,
       sum(tax_minor)::bigint AS tax, sum(shipping_minor)::bigint AS shipping, sum(LEAST(refunded, merch))::bigint AS refunds,

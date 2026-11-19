@@ -45,7 +45,8 @@ describe.skipIf(!ownerUrl || !appUrl)('store currency lock on PostgreSQL', { tim
     await saveStoreSettings(ctx, settings('INR'));
     expect((await getStoreSettings(ctx)).currency_locked).toBe(false);
     const rate = await createShippingRate(ctx, { name: 'Standard', country: 'IN', postal_prefixes: [], min_subtotal_minor: 0,
-      max_subtotal_minor: null, fee_minor: 4900, tax_rate_bps: null, active: true, position: 0 });
+      max_subtotal_minor: null, fee_minor: 4900, tax_rate_bps: null, active: true, position: 0,
+      states: [], base_weight_grams: null, step_grams: null, extra_per_step_minor: null, max_weight_grams: null, free_over_minor: null, cod_allowed: true });
     expect((await getStoreSettings(ctx)).currency_locked).toBe(true);
     await expect(saveStoreSettings(ctx, settings('JPY'))).rejects.toMatchObject({ code: 'currency_locked' });
     await deleteShippingRate(ctx, rate.id);

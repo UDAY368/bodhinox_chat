@@ -17,7 +17,7 @@ const order = (extra: Partial<StorefrontOrderView>): StorefrontOrderView => ({
   reference: 'AB12CD34', status: 'expired', currency: 'INR', subtotalMinor: 10000, discountMinor: 0, autoDiscountMinor: 0, autoDiscounts: [], shippingMinor: 0, paymentMethod: 'online',
   codFeeMinor: 0, taxMinor: 0, totalMinor: 10000, taxInclusive: true, amountPaidMinor: 0, priced: true,
   lines: [{ name: 'Tulsi', sku: 'TUL-1', qty: 1, unitPriceMinor: 10000, lineTotalMinor: 10000 }],
-  paymentUrl: null, paymentPending: false, paymentFailed: false, returnWindowDays: null, reservationExpiresAt: null, paidAt: null, documentNumber: null, ...extra,
+  paymentUrl: null, paymentPending: false, paymentFailed: false, returnWindowDays: null, reservationExpiresAt: null, paidAt: null, documentNumber: null, trackingPath: null, ...extra,
 });
 const render = (view: StorefrontOrderView) => renderToStaticMarkup(
   <NextIntlClientProvider locale="en" timeZone="UTC" messages={{ Storefront: en.Storefront as Tree }} onError={() => {}}>

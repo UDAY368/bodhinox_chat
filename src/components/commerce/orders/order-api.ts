@@ -71,7 +71,7 @@ export interface OrderDetail extends OrderListItem {
 export interface OrderTimeline {
   events: Array<{ id: string; kind: string; from_status: string | null; to_status: string | null; actor: string;
     actor_name: string | null; detail: string | null; created_at: string }>;
-  documents: Array<{ id: string; kind: "receipt" | "credit_note"; number: string; total_minor: number; currency: string; issued_at: string }>;
+  documents: Array<{ id: string; kind: "receipt" | "credit_note" | "tax_invoice"; number: string; total_minor: number; currency: string; issued_at: string }>;
   messages: Array<{ kind: string; status: string; reason: string | null; resolved_at: string | null; updated_at: string }>;
 }
 
@@ -272,4 +272,98 @@ export function discountRows(
   const rest = order.discount_minor - (rows.length ? auto : 0);
   if (rest > 0) rows.push([order.coupon_code ? tLife("discountCode", { code: order.coupon_code }) : tLife("discount"), -rest]);
   return rows;
+}
+
+// ---------------------------------------------------------------------------
+// GST tax invoice (Store Phase 5)
+
+export interface OrderTaxInvoiceState {
+  buyer_gstin: string | null;
+  buyer_legal_name: string | null;
+  seller_gstin_configured: boolean;
+  document_id: string | null;
+}
+
+export async function getOrderTaxInvoice(id: string): Promise<ApiResult<OrderTaxInvoiceState>> {
+  return result(await authFetch(orderUrl(id, "tax-invoice"), { cache: "no-store" }), "tax_invoice");
+}
+
+/** Set the buyer GSTIN and legal name; an empty GSTIN clears them. */
+export async function saveOrderBuyerTax(id: string, input: { gstin: string | null; legal_name: string | null }): Promise<ApiResult<OrderTaxInvoiceState>> {
+  return result(await authFetch(orderUrl(id, "tax-invoice"), {
+    method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(input),
+  }), "tax_invoice");
+}
+
+export async function issueOrderTaxInvoice(id: string): Promise<ApiResult<string>> {
+  return result(await post(orderUrl(id, "tax-invoice"), {}), "document_id");
+}
+
+// ---------------------------------------------------------------------------
+// Edit an order before dispatch (Store Phase 5)
+
+export type EditPaymentAction = "none" | "collect" | "refund";
+export type EditPaymentState = "none" | "link_pending" | "link_created" | "link_failed" | "link_unknown" | "link_paid" | "refund_requested" | "refund_outside";
+
+export interface EditTotals {
+  subtotal_minor: number; discount_minor: number; shipping_minor: number; cod_fee_minor: number; tax_minor: number; total_minor: number;
+}
+
+export interface OrderEditRecord {
+  id: string;
+  reason: string;
+  actor_name: string | null;
+  total_before_minor: number;
+  total_after_minor: number;
+  payment_action: EditPaymentAction;
+  difference_minor: number;
+  payment_state: EditPaymentState;
+  failure_code: string | null;
+  payment_link_url: string | null;
+  created_at: string;
+}
+
+export interface OrderEditState {
+  version: number;
+  blocked: "not_editable" | "payment_link_open" | "refund_in_flight" | null;
+  currency: string;
+  lines: Array<{ id: string; variant_id: string | null; name: string | null; sku: string | null; quantity: number; shipped: number; unit_price_minor: number }>;
+  balance_due_minor: number;
+  edits: OrderEditRecord[];
+}
+
+export interface OrderEditPreview {
+  version: number;
+  currency: string;
+  before: EditTotals;
+  after: EditTotals;
+  lines: Array<{ variant_id: string | null; sku: string | null; name: string | null; quantity: number; unit_price_minor: number; line_total_minor: number | null }>;
+  payment: { action: EditPaymentAction; difference_minor: number; needs_outside_confirmation: boolean };
+}
+
+export interface OrderEditBody {
+  expected_version: number;
+  /** The full new set of lines: ids and quantities only; the server prices them. */
+  lines: Array<{ variant_id: string; qty: number }>;
+  reason: string;
+  client_request_id: string;
+  refunded_outside?: boolean;
+}
+
+export async function getOrderEditState(id: string): Promise<ApiResult<OrderEditState>> {
+  return result(await authFetch(orderUrl(id, "edit"), { cache: "no-store" }), "edit");
+}
+
+/** The new totals and the payment difference of an edit; nothing is saved. */
+export async function previewOrderEdit(id: string, body: OrderEditBody): Promise<ApiResult<OrderEditPreview>> {
+  return result(await post(orderUrl(id, "edit"), { ...body, preview: true }), "preview");
+}
+
+export async function saveOrderEdit(id: string, body: OrderEditBody): Promise<ApiResult<EditPaymentAction>> {
+  return result(await post(orderUrl(id, "edit"), body), "payment_action");
+}
+
+/** Create (or find) the payment link for the balance an edit left due. Safe to repeat. */
+export async function createEditBalanceLink(id: string, editId: string): Promise<ApiResult<EditPaymentState>> {
+  return result(await post(orderUrl(id, `edit/${encodeURIComponent(editId)}/balance-link`), {}), "payment_state");
 }

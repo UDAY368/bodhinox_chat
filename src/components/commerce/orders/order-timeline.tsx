@@ -17,7 +17,9 @@ const KNOWN_EVENTS = new Set([
   // The customer answered the COD confirmation buttons on WhatsApp (a "no" does not cancel the order).
   "cod_customer_confirmed", "cod_customer_declined",
   // A team member created the order by hand (Sales → Orders → New order).
-  "manual_created",
+  "manual_created", "buyer_tax_updated",
+  // A team member edited the order's lines before dispatch (Store Phase 5).
+  "order_edited",
 ]);
 
 /** The order's history, its documents and how each customer notice went. */

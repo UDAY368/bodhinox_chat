@@ -34,7 +34,9 @@ export type StoreErrorCode =
   // Automatic discounts (store plan Phase 3)
   | 'auto_discount_limit'
   // Back-in-stock alerts (store plan Phase 3)
-  | 'in_stock';
+  | 'in_stock'
+  // Customer accounts on the public shop (store plan Phase 5)
+  | 'signed_out' | 'address_limit';
 
 const STATUS: Partial<Record<StoreErrorCode, number>> = {
   not_found: 404, no_order: 404, contact_not_found: 404, conflict: 409, currency_locked: 409, coupon_code_taken: 409,
@@ -42,7 +44,7 @@ const STATUS: Partial<Record<StoreErrorCode, number>> = {
   checkout_disabled: 409, store_not_configured: 409, feature_unavailable: 403, contact_blocked: 409, outside_window: 409,
   number_unavailable: 409, too_many_open_orders: 409, cod_unavailable: 409, online_unavailable: 409, send_failed: 502, send_uncertain: 502, session_expired: 410,
   handle_taken: 409, otp_unavailable: 409, otp_expired: 410, otp_locked: 429, whatsapp_order_unavailable: 409,
-  shop_not_set_up: 409, no_draft: 409, auto_discount_limit: 409, in_stock: 409,
+  shop_not_set_up: 409, no_draft: 409, auto_discount_limit: 409, in_stock: 409, signed_out: 401, address_limit: 409,
 };
 
 export class StoreError extends Error {
@@ -290,22 +292,39 @@ export interface ShippingRateView {
   tax_rate_bps: number | null;
   active: boolean;
   position: number;
+  /** Zone: states (names or codes) this rate covers. With no prefixes and no states the rate covers the whole country. */
+  states: string[];
+  /** Weight slab: fee_minor covers up to base_weight_grams, then extra_per_step_minor per started step_grams (both or neither). */
+  base_weight_grams: number | null;
+  step_grams: number | null;
+  extra_per_step_minor: number | null;
+  /** Carts heavier than this are not shipped by this rate. */
+  max_weight_grams: number | null;
+  /** The fee is waived once merchandise after discounts reaches this. */
+  free_over_minor: number | null;
+  /** Cash on delivery is allowed in this zone. */
+  cod_allowed: boolean;
 }
 
 interface RateRow {
   id: string; name: string; country: string; postal_prefixes: string[]; min_subtotal_minor: bigint; max_subtotal_minor: bigint | null;
   fee_minor: bigint; tax_rate_bps: number | null; active: boolean; position: number;
+  states: string[]; base_weight_grams: number | null; step_grams: number | null; extra_per_step_minor: bigint | null;
+  max_weight_grams: number | null; free_over_minor: bigint | null; cod_allowed: boolean;
 }
 
 const toRate = (r: RateRow): ShippingRateView => ({
   id: r.id, name: r.name, country: r.country, postal_prefixes: r.postal_prefixes, min_subtotal_minor: minorFromDb(r.min_subtotal_minor) ?? 0,
   max_subtotal_minor: minorFromDb(r.max_subtotal_minor), fee_minor: minorFromDb(r.fee_minor) ?? 0, tax_rate_bps: r.tax_rate_bps,
-  active: r.active, position: r.position,
+  active: r.active, position: r.position, states: r.states, base_weight_grams: r.base_weight_grams, step_grams: r.step_grams,
+  extra_per_step_minor: minorFromDb(r.extra_per_step_minor), max_weight_grams: r.max_weight_grams, free_over_minor: minorFromDb(r.free_over_minor),
+  cod_allowed: r.cod_allowed,
 });
 
 export async function selectRates(tx: TenantTransaction, accountId: string, activeOnly: boolean): Promise<ShippingRateView[]> {
   const rows = await tx.$queryRaw<RateRow[]>`SELECT id::text AS id, name, country, postal_prefixes, min_subtotal_minor, max_subtotal_minor,
-      fee_minor, tax_rate_bps, active, position FROM shipping_rates
+      fee_minor, tax_rate_bps, active, position, states, base_weight_grams, step_grams, extra_per_step_minor, max_weight_grams,
+      free_over_minor, cod_allowed FROM shipping_rates
     WHERE account_id=${accountId}::uuid AND (${!activeOnly} OR active) ORDER BY position, name LIMIT 500`;
   return rows.map(toRate);
 }
@@ -313,6 +332,8 @@ export async function selectRates(tx: TenantTransaction, accountId: string, acti
 export const pricingRate = (r: ShippingRateView): PricingShippingRate => ({
   id: r.id, name: r.name, country: r.country, postalPrefixes: r.postal_prefixes, minSubtotalMinor: r.min_subtotal_minor,
   maxSubtotalMinor: r.max_subtotal_minor, feeMinor: r.fee_minor, taxRateBps: r.tax_rate_bps, position: r.position,
+  states: r.states, baseWeightGrams: r.base_weight_grams, stepGrams: r.step_grams, extraPerStepMinor: r.extra_per_step_minor,
+  maxWeightGrams: r.max_weight_grams, freeOverMinor: r.free_over_minor, codAllowed: r.cod_allowed,
 });
 
 export async function listShippingRates(ctx: TenantContext): Promise<ShippingRateView[]> {
@@ -341,7 +362,20 @@ export function parseShippingRate(body: unknown): ShippingRateInput {
   const max = b.max_subtotal_minor === null || b.max_subtotal_minor === undefined ? null : money(b.max_subtotal_minor, 'max_subtotal_minor');
   if (max !== null && max < min) throw new StoreError('invalid', { field: 'max_subtotal_minor' });
   if (typeof b.active !== 'boolean') throw new StoreError('invalid', { field: 'active' });
+  const rawStates = b.states === undefined ? [] : b.states;
+  if (!Array.isArray(rawStates) || rawStates.length > 100) throw new StoreError('invalid', { field: 'states' });
+  const states = [...new Set(rawStates.map((v) => (typeof v === 'string' ? v.trim().toUpperCase().replace(/\s+/g, ' ') : '')))];
+  if (states.some((v) => !/^[0-9A-Z][0-9A-Z ]{1,39}$/.test(v))) throw new StoreError('invalid', { field: 'states' });
+  const optInt = (value: unknown, min: number, max: number, field: string) => (value === null || value === undefined ? null : int(value, min, max, field));
+  const optMoney = (value: unknown, field: string) => (value === null || value === undefined ? null : money(value, field));
+  const stepGrams = optInt(b.step_grams, 1, 1_000_000, 'step_grams');
+  const extraPerStep = optMoney(b.extra_per_step_minor, 'extra_per_step_minor');
+  if ((stepGrams === null) !== (extraPerStep === null)) throw new StoreError('invalid', { field: 'step_grams' });
+  if (b.cod_allowed !== undefined && typeof b.cod_allowed !== 'boolean') throw new StoreError('invalid', { field: 'cod_allowed' });
   return {
+    states, base_weight_grams: optInt(b.base_weight_grams, 0, 1_000_000, 'base_weight_grams'), step_grams: stepGrams,
+    extra_per_step_minor: extraPerStep, max_weight_grams: optInt(b.max_weight_grams, 1, 100_000_000, 'max_weight_grams'),
+    free_over_minor: optMoney(b.free_over_minor, 'free_over_minor'), cod_allowed: b.cod_allowed ?? true,
     name, country, postal_prefixes: postal, min_subtotal_minor: min, max_subtotal_minor: max, fee_minor: money(b.fee_minor, 'fee_minor'),
     tax_rate_bps: b.tax_rate_bps === null || b.tax_rate_bps === undefined ? null : int(b.tax_rate_bps, 0, 10000, 'tax_rate_bps'),
     active: b.active, position: b.position === undefined ? 0 : int(b.position, 0, 10000, 'position'),
@@ -358,10 +392,14 @@ export async function createShippingRate(ctx: TenantContext & { userId: string }
   return withTenant(ctx, async (tx) => {
     await lockStoreCurrencyShared(tx, ctx.accountId);
     const [row] = await tx.$queryRaw<RateRow[]>`INSERT INTO shipping_rates(account_id,name,country,postal_prefixes,min_subtotal_minor,
-        max_subtotal_minor,fee_minor,tax_rate_bps,active,position)
+        max_subtotal_minor,fee_minor,tax_rate_bps,active,position,states,base_weight_grams,step_grams,extra_per_step_minor,
+        max_weight_grams,free_over_minor,cod_allowed)
       VALUES(${ctx.accountId}::uuid,${input.name},${input.country},${input.postal_prefixes}::text[],${input.min_subtotal_minor},
-        ${input.max_subtotal_minor},${input.fee_minor},${input.tax_rate_bps},${input.active},${input.position})
-      RETURNING id::text AS id, name, country, postal_prefixes, min_subtotal_minor, max_subtotal_minor, fee_minor, tax_rate_bps, active, position`;
+        ${input.max_subtotal_minor},${input.fee_minor},${input.tax_rate_bps},${input.active},${input.position},${input.states}::text[],
+        ${input.base_weight_grams},${input.step_grams},${input.extra_per_step_minor},${input.max_weight_grams},${input.free_over_minor},
+        ${input.cod_allowed})
+      RETURNING id::text AS id, name, country, postal_prefixes, min_subtotal_minor, max_subtotal_minor, fee_minor, tax_rate_bps, active, position,
+        states, base_weight_grams, step_grams, extra_per_step_minor, max_weight_grams, free_over_minor, cod_allowed`;
     await audit(tx, ctx, 'commerce.shipping_rate_created', row.id);
     return toRate(row);
   });
@@ -372,9 +410,13 @@ export async function updateShippingRate(ctx: TenantContext & { userId: string }
   return withTenant(ctx, async (tx) => {
     const [row] = await tx.$queryRaw<RateRow[]>`UPDATE shipping_rates SET name=${input.name},country=${input.country},
         postal_prefixes=${input.postal_prefixes}::text[],min_subtotal_minor=${input.min_subtotal_minor},max_subtotal_minor=${input.max_subtotal_minor},
-        fee_minor=${input.fee_minor},tax_rate_bps=${input.tax_rate_bps},active=${input.active},position=${input.position}
+        fee_minor=${input.fee_minor},tax_rate_bps=${input.tax_rate_bps},active=${input.active},position=${input.position},
+        states=${input.states}::text[],base_weight_grams=${input.base_weight_grams},step_grams=${input.step_grams},
+        extra_per_step_minor=${input.extra_per_step_minor},max_weight_grams=${input.max_weight_grams},
+        free_over_minor=${input.free_over_minor},cod_allowed=${input.cod_allowed}
       WHERE account_id=${ctx.accountId}::uuid AND id=${id}::uuid
-      RETURNING id::text AS id, name, country, postal_prefixes, min_subtotal_minor, max_subtotal_minor, fee_minor, tax_rate_bps, active, position`;
+      RETURNING id::text AS id, name, country, postal_prefixes, min_subtotal_minor, max_subtotal_minor, fee_minor, tax_rate_bps, active, position,
+        states, base_weight_grams, step_grams, extra_per_step_minor, max_weight_grams, free_over_minor, cod_allowed`;
     if (!row) throw new StoreError('not_found');
     await audit(tx, ctx, 'commerce.shipping_rate_updated', id);
     return toRate(row);

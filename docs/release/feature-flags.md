@@ -8,6 +8,8 @@ Every `*_ENABLED`, `*_DISABLED` and `*_DRY_RUN` variable the application reads m
 | `ZOOM_ENABLED` | `src/lib/meetings/config.ts` | off | `true` enables Zoom meetings (also needs Zoom app keys). | owner to confirm (expected unset) | owner | APT-05 |
 | `META_ADS_ENABLED` | `src/lib/meta-ads/config.ts` | off | `true` enables Meta Ads insights/leads (needs app review). | owner to confirm (expected unset) | owner | ADS-01..04, ADS-06 |
 | `SHIPROCKET_DISABLED` | `src/lib/fulfilment/shiprocket-client.ts` | Shiprocket allowed where a tenant connects it | `true` is a kill switch for all Shiprocket calls. | owner to confirm | owner | FUL-02 |
+| `DELHIVERY_DISABLED` | `src/lib/fulfilment/providers/delhivery.ts` | Delhivery allowed where a tenant connects it (not tested against the live API yet) | `true` is a kill switch for all Delhivery calls. | owner to confirm | owner | FUL-02 |
+| `SHIPWAY_DISABLED` | `src/lib/fulfilment/providers/shipway.ts` | Shipway allowed where a tenant connects it (not tested against the live API yet) | `true` is a kill switch for all Shipway calls. | owner to confirm | owner | FUL-02 |
 | `WHATSAPP_TEMPLATES_DRY_RUN` | `src/app/api/whatsapp/templates/submit/route.ts`, `.../templates/[id]/route.ts` | off (real submission to Meta) | `true`/`1` stores templates without submitting to Meta. Must be unset in production. | owner to confirm (expected unset) | owner | WA templates |
 | `INSTAGRAM_ENABLED` | `src/lib/instagram/config.ts` | off | `true` enables Instagram messaging (needs Meta app review). | owner to confirm (expected unset) | owner | IG-* |
 | `INSTAGRAM_HUMAN_AGENT_ENABLED` | `src/lib/instagram/config.ts` | off | `true` only after Meta approves Human Agent. | owner to confirm (expected unset) | owner | IG-* |

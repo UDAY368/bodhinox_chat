@@ -49,7 +49,7 @@ export async function productStats(tx: TenantTransaction, accountId: string, ran
       FROM orders o
       WHERE o.account_id=${accountId}::uuid AND o.paid_at >= ${range.from.toISOString()}::timestamptz
         AND o.paid_at < ${range.to.toISOString()}::timestamptz
-        AND o.status IN ('paid','dispatched','fulfilled','cancelled')
+        AND o.status IN ('paid','partially_shipped','dispatched','fulfilled','cancelled')
     ), lines AS (
       SELECT c.id AS order_id, c.currency, c.discount_minor, c.tax_inclusive, c.amount_refunded_minor,
         COALESCE(NULLIF(i.retailer_id, ''), NULLIF(i.sku, ''), i.variant_id::text, NULLIF(i.name, ''), '?') AS key,

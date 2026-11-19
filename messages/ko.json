@@ -6242,7 +6242,51 @@
       "recent": "최근 30일",
       "loadFailed": "전환 이벤트를 불러오지 못했어요."
     },
-    "unsavedChanges": "저장하지 않은 변경 사항"
+    "unsavedChanges": "저장하지 않은 변경 사항",
+    "couriers": {
+      "loading": "불러오는 중…",
+      "loadFailed": "연결 정보를 불러오지 못했습니다.",
+      "unavailable": "이 배포 환경에서는 {name}이(가) 꺼져 있습니다.",
+      "notConnected": "연결되지 않았습니다. 주문을 발송하려면 본인의 {name} 계정을 연결하세요.",
+      "connectedAs": "{label}(으)로 연결됨.",
+      "reconnectNeeded": "{name}이(가) 저장된 정보를 거부했습니다. 다시 연결하려면 정보를 다시 입력하세요.",
+      "connectedBadge": "연결됨",
+      "reconnectBadge": "재연결 필요",
+      "notTestedBadge": "실서비스 미검증",
+      "notTested": "{name}은(는) 아직 실제 API로 검증되지 않았습니다. 실제 주문 한 건으로 시험해 보고 {name} 자체 패널에서 확인한 뒤 사용하세요.",
+      "delhivery": {
+        "name": "Delhivery",
+        "help": "본인의 Delhivery API 토큰을 사용하세요. 창고 이름은 Delhivery에 등록된 창고와 정확히 같아야 합니다.",
+        "labelField": "클라이언트 이름",
+        "secretField": "API 토큰"
+      },
+      "shipway": {
+        "name": "Shipway",
+        "help": "본인의 Shipway 사용자 이름과 라이선스 키를 사용하세요. 주문을 보낸 뒤 Shipway가 택배사를 정하며, 취소와 라벨은 Shipway에서 처리합니다.",
+        "labelField": "사용자 이름",
+        "secretField": "라이선스 키"
+      },
+      "secretKeep": "비워 두면 {hint}을(를) 유지합니다",
+      "warehouse": "창고(수거 위치)",
+      "warehouseHelp": "Delhivery에 등록된 그대로 입력하세요.",
+      "defaults": "기본 포장",
+      "length": "길이(cm)",
+      "breadth": "너비(cm)",
+      "height": "높이(cm)",
+      "weight": "무게(g)",
+      "connect": "연결",
+      "save": "저장",
+      "saved": "저장했습니다.",
+      "saveFailed": "저장하지 못했습니다.",
+      "test": "연결 테스트",
+      "testOk": "택배사가 정보를 승인했습니다.",
+      "testFailed": "택배사가 정보를 승인하지 않았습니다.",
+      "disconnect": "연결 해제",
+      "disconnectConfirm": "{name} 연결을 해제할까요? 저장된 자격 증명이 삭제됩니다. 기존 배송 기록은 유지됩니다.",
+      "disconnected": "연결을 해제했습니다.",
+      "disconnectFailed": "연결을 해제하지 못했습니다.",
+      "adminOnly": "관리자만 택배사 연결을 변경할 수 있습니다."
+    }
   },
   "SignupPage": {
     "passwordsMismatch": "비밀번호가 일치하지 않습니다",
@@ -8248,7 +8292,8 @@
       "throttled": "Shiprocket이 혼잡합니다. 1분 후 다시 시도하세요.",
       "feature_unavailable": "택배 배송은 현재 요금제에 포함되어 있지 않습니다.",
       "not_implemented": "이 작업은 아직 사용할 수 없습니다.",
-      "order_refunded": "이 주문은 전액 환불되어 배송할 수 없습니다."
+      "order_refunded": "이 주문은 전액 환불되어 배송할 수 없습니다.",
+      "over_shipped": "이 상품의 남은 배송 수량보다 많습니다."
     }
   },
   "Api": {
@@ -9631,7 +9676,8 @@
         "cancelled": "취소됨",
         "payment_review": "결제 검토 중",
         "dispatched": "발송됨",
-        "expired": "만료됨"
+        "expired": "만료됨",
+        "partially_shipped": "부분 배송"
       },
       "sources": {
         "whatsapp": "WhatsApp",
@@ -9694,7 +9740,8 @@
           "order_total": "주문 합계",
           "order_currency": "통화",
           "order_items_count": "상품 수",
-          "order_items": "상품 목록"
+          "order_items": "상품 목록",
+          "tracking_link": "추적 링크"
         }
       },
       "bubble": {
@@ -9778,12 +9825,15 @@
           "return_refunded_outside": "Bodhinox 외부에서 반품 환불함",
           "manual_created": "팀원이 만든 주문",
           "cod_customer_confirmed": "고객이 착불 주문을 확인함",
-          "cod_customer_declined": "고객이 착불 주문을 거절함(주문은 취소되지 않음)"
+          "cod_customer_declined": "고객이 착불 주문을 거절함(주문은 취소되지 않음)",
+          "buyer_tax_updated": "구매자 GST 정보가 변경됨",
+          "order_edited": "주문 수정됨"
         },
         "documents": "문서",
         "documentKinds": {
           "receipt": "영수증",
-          "credit_note": "대변 전표"
+          "credit_note": "대변 전표",
+          "tax_invoice": "세금계산서"
         },
         "messages": "고객 알림",
         "messageKinds": {
@@ -9818,7 +9868,124 @@
         }
       },
       "filterCodConfirmation": "착불 확인 상태로 필터",
-      "allCodConfirmations": "모든 착불 확인"
+      "allCodConfirmations": "모든 착불 확인",
+      "taxInvoice": {
+        "title": "GST 세금계산서",
+        "gstin": "구매자 GSTIN",
+        "legalName": "구매자 법인명",
+        "invalid": "유효하지 않은 GSTIN입니다.",
+        "locked": "세금계산서가 이미 발행되어 구매자 정보를 변경할 수 없습니다.",
+        "sellerMissing": "세금계산서를 발행하려면 스토어 설정에 GSTIN을 추가하세요.",
+        "buyerMissing": "먼저 구매자 GSTIN을 추가하세요.",
+        "notYet": "이 주문의 세금계산서는 아직 발행할 수 없습니다.",
+        "forbidden": "이 작업을 할 권한이 없습니다.",
+        "error": "문제가 발생했습니다. 다시 시도하세요.",
+        "save": "구매자 정보 저장",
+        "saved": "구매자 정보를 저장했습니다.",
+        "issue": "세금계산서 발행",
+        "issued": "세금계산서를 발행했습니다.",
+        "open": "세금계산서 열기"
+      },
+      "edit": {
+        "title": "주문 변경",
+        "open": "주문 수정",
+        "blocked": {
+          "payment_link_open": "이 주문의 결제 링크가 아직 열려 있습니다. 주문을 수정하기 전에 링크를 취소하세요.",
+          "refund_in_flight": "이 주문의 환불이 아직 진행 중입니다. 환불이 끝난 뒤에 수정하세요.",
+          "not_editable": "이 주문은 더 이상 수정할 수 없습니다."
+        },
+        "balance": {
+          "due": "미결제 잔액: {amount}",
+          "linkHelp": "이 결제 링크를 복사해 고객에게 보내세요. 자동으로 전송되지 않습니다.",
+          "copy": "링크 복사",
+          "copied": "링크를 복사했습니다",
+          "copyFailed": "링크를 복사하지 못했습니다",
+          "noLink": "결제 링크를 만들지 못했습니다.",
+          "notConnected": "Razorpay가 연결되어 있지 않아 결제 링크를 만들지 못했습니다.",
+          "linkUnknown": "결제 링크를 Razorpay에서 아직 확인하는 중입니다. 잠시 후 다시 시도하세요.",
+          "createLink": "결제 링크 만들기",
+          "linkReady": "결제 링크가 준비되었습니다",
+          "linkFailed": "결제 링크를 만들지 못했습니다"
+        },
+        "history": {
+          "line": "합계가 {before}에서 {after}(으)로 변경됨",
+          "someone": "팀원",
+          "payment": {
+            "link_pending": "{amount} 수금 예정",
+            "link_created": "{amount} 수금 예정, 링크 생성됨",
+            "link_failed": "{amount} 수금 예정, 링크 없음",
+            "link_unknown": "{amount} 수금 예정, 링크 확인 중",
+            "link_paid": "잔액 {amount} 결제됨",
+            "refund_requested": "{amount} 환불 요청됨",
+            "refund_outside": "{amount} 앱 밖에서 반환됨"
+          }
+        },
+        "dialogTitle": "주문 수정",
+        "dialogHelp": "수량을 바꾸거나 상품을 추가하고 삭제하세요. 가격은 서버가 정합니다. 확인하기 전에는 아무것도 저장되지 않습니다.",
+        "items": "상품",
+        "shipped": "{count}개 이미 배송됨",
+        "added": "신규",
+        "less": "{name} 한 개 줄이기",
+        "more": "{name} 한 개 늘리기",
+        "qty": "{name} 수량",
+        "remove": "{name} 삭제",
+        "addItem": "상품 추가",
+        "searchProducts": "상품명 또는 SKU로 검색",
+        "noProducts": "추가할 상품이 더 없습니다.",
+        "madeToOrder": "주문 제작",
+        "stock": "재고 {count}개",
+        "add": "추가",
+        "preview": {
+          "none": "변경하면 새 합계를 볼 수 있습니다.",
+          "checking": "새 합계를 계산하는 중…",
+          "row": "금액",
+          "before": "현재",
+          "after": "변경 후",
+          "collect": "고객이 {amount}을(를) 더 내야 합니다. 확인하면 해당 금액의 결제 링크가 만들어집니다.",
+          "refund": "고객에게 {amount}이(가) 환불됩니다.",
+          "noPayment": "아직 결제된 금액이 없습니다. 새로 받을 금액은 {amount}입니다."
+        },
+        "totals": {
+          "subtotal": "소계",
+          "discount": "할인",
+          "shipping": "배송비",
+          "codFee": "착불 수수료",
+          "tax": "세금",
+          "total": "합계"
+        },
+        "refundedOutside": "앱 밖에서(현금 또는 계좌 이체) 고객에게 {amount}을(를) 돌려주었습니다.",
+        "reason": "변경 사유",
+        "reasonPlaceholder": "예: 고객이 전화로 요청함",
+        "cancel": "취소",
+        "confirm": "변경 확인",
+        "saved": "주문이 수정되었습니다",
+        "savedCollect": "주문이 수정되었습니다. 잔액 결제 링크를 복사하세요.",
+        "savedRefund": "주문이 수정되었습니다. 환불을 요청했습니다.",
+        "errors": {
+          "generic": "주문을 변경하지 못했습니다. 다시 시도하세요.",
+          "conflict": "수정하는 동안 주문이 변경되었습니다. 다시 불러왔습니다.",
+          "not_editable": "이 주문은 더 이상 수정할 수 없습니다.",
+          "no_change": "변경된 내용이 없습니다.",
+          "cart_empty": "주문에는 상품이 하나 이상 있어야 합니다. 대신 주문을 취소하세요.",
+          "below_shipped": "이미 배송된 수량보다 적게 줄일 수 없습니다.",
+          "out_of_stock": "이 변경에 필요한 재고가 부족합니다.",
+          "payment_link_open": "이 주문의 결제 링크가 아직 열려 있습니다. 먼저 취소하세요.",
+          "refund_in_flight": "이 주문의 환불이 아직 진행 중입니다.",
+          "invoice_issued": "이 주문의 세금계산서가 이미 발행되었습니다. 고객에게 환불하는 감액만 가능합니다.",
+          "offline_payment": "앱 밖에서 돈을 돌려주었음을 확인하세요.",
+          "amount_exceeds": "환불 금액이 환불 가능한 금액보다 많습니다.",
+          "cod_shipment_live": "착불 소포가 이미 택배사에 있습니다. 배송비나 수수료를 바꾸려면 먼저 그 배송을 취소하세요.",
+          "store_not_configured": "먼저 스토어 설정을 완료하세요.",
+          "store_changed": "주문 이후 스토어의 통화 또는 세금 설정이 바뀌어 다시 계산할 수 없습니다.",
+          "variant_unavailable": "상품 중 하나를 판매할 수 없습니다.",
+          "price_not_configured": "상품 중 하나에 가격이 없습니다.",
+          "tax_not_configured": "상품 중 하나에 세금이 설정되어 있지 않습니다.",
+          "shipping_unavailable": "변경 후 이 주문에 맞는 배송 요금이 없습니다.",
+          "cod_unavailable": "상품 중 하나는 착불로 결제할 수 없습니다.",
+          "coupon_min_subtotal": "주문 금액이 쿠폰의 최소 금액보다 낮아집니다.",
+          "forbidden": "이 변경을 할 권한이 없습니다. 환불이 포함된 변경은 관리자가 해야 합니다."
+        }
+      }
     },
     "attention": {
       "title": "{count, plural, other {확인이 필요한 스토어 메시지 #개}}",
@@ -10446,7 +10613,9 @@
         "shop_not_set_up": "먼저 온라인 스토어에서 스토어 주소를 저장하세요.",
         "no_draft": "게시할 변경 사항이 없습니다.",
         "auto_discount_limit": "자동 할인은 최대 20개까지 만들 수 있습니다.",
-        "in_stock": "이 상품은 이미 재고가 있어 기다릴 필요가 없습니다."
+        "in_stock": "이 상품은 이미 재고가 있어 기다릴 필요가 없습니다.",
+        "signed_out": "다시 로그인해 주세요.",
+        "address_limit": "주소는 5개까지 저장할 수 있습니다. 하나를 삭제한 뒤 추가하세요."
       },
       "title": "스토어 설정",
       "subtitle": "온라인 스토어의 통화, 세금, 결제, 판매자 정보, 배송, 쿠폰입니다.",
@@ -10552,7 +10721,17 @@
         "title": "상품 리뷰",
         "enabled": "배송 후 리뷰 요청",
         "help": "주문이 배송 완료되고 3일 후, 고객에게 대표 상품을 평가해 달라는 WhatsApp 메시지가 한 번 전송됩니다. 24시간 이내에는 목록에서 별점을 고르고, 그 이후에는 승인된 마케팅 템플릿이 필요합니다(아래). 평점은 커머스의 리뷰에서 승인을 기다립니다. 수신을 거부한 고객에게는 요청하지 않습니다."
-      }
+      },
+      "states": "주",
+      "statesHelp": "쉼표로 구분: 이름 또는 코드(예: MH, Karnataka). 비워 두면 모든 주에 적용됩니다.",
+      "baseWeight": "요금에 포함되는 무게(g)",
+      "stepGrams": "추가 단위(g)",
+      "extraPerStep": "추가 단위당 요금({currency})",
+      "weightHelp": "선택 사항입니다. 세 칸을 모두 비우면 고정 요금입니다. 추가 단위와 그 요금은 함께 입력하세요.",
+      "maxWeight": "배송 가능한 최대 주문 무게(g)",
+      "freeOver": "무료 배송 기준 금액({currency})",
+      "freeOverHelp": "할인 후 주문 금액입니다. 비우면 무료 배송이 없습니다.",
+      "codAllowed": "이 지역에서 착불 결제 허용"
     },
     "storefrontLink": {
       "title": "스토어 링크 보내기",
@@ -10639,7 +10818,10 @@
         "igst": "IGST",
         "total": "합계",
         "taxIncluded": "가격에 세금이 포함되어 있습니다.",
-        "codFee": "착불 수수료"
+        "codFee": "착불 수수료",
+        "placeOfSupply": "공급 장소",
+        "taxable": "과세 표준",
+        "rate": "세율"
       }
     },
     "shipments": {
@@ -10695,7 +10877,18 @@
         "cancelled": "취소됨"
       },
       "pickupAgain": "픽업 다시 요청",
-      "pickupRequested": "Shiprocket에 픽업을 요청했습니다."
+      "pickupRequested": "Shiprocket에 픽업을 요청했습니다.",
+      "chooseCourier": "택배사",
+      "confirmCourier": "{name}(으)로 이 배송을 만들까요?",
+      "notTested": "{name}은(는) 아직 실제 API로 검증되지 않았습니다. 첫 배송은 {name} 자체 패널에서 확인하세요.",
+      "bookedWith": "예약 택배사",
+      "parcels": "소포 {count}개",
+      "parcel": "소포 {number}",
+      "unknownItem": "상품",
+      "createAnother": "배송 추가 생성",
+      "pickLines": "이 소포에 담을 상품",
+      "lineLeft": "({count}개 남음)",
+      "weightFromItems": "무게를 비워 두면 카탈로그에 있는 이 상품들의 무게를 사용합니다."
     },
     "evidence": {
       "provider": "택배사 확인",
@@ -11087,6 +11280,9 @@
       "hidden": "리뷰를 숨겼습니다.",
       "saveError": "리뷰를 변경하지 못했습니다.",
       "loadMore": "더 보기"
+    },
+    "orderEdit": {
+      "balanceLinkDescription": "주문 {reference} 잔액"
     }
   },
   "Payments": {
@@ -14414,7 +14610,8 @@
       "dispatched": "발송됨",
       "fulfilled": "배송 완료",
       "expired": "만료됨: 기한 내 미결제",
-      "cancelled": "취소됨"
+      "cancelled": "취소됨",
+      "partially_shipped": "일부 배송됨"
     },
     "errors": {
       "not_found": "찾을 수 없습니다.",
@@ -14474,7 +14671,14 @@
     "noMatchingProducts": "검색과 일치하는 상품이 없습니다.",
     "showMore": "상품 더 보기",
     "freeShipping": "무료",
-    "payOnlineSave": "온라인으로 결제하고 {amount} 절약하세요"
+    "payOnlineSave": "온라인으로 결제하고 {amount} 절약하세요",
+    "trackOrder": "주문 추적",
+    "gstInvoice": {
+      "toggle": "GST 세금계산서가 필요합니다 (사업자 구매)",
+      "gstin": "사업자 GSTIN",
+      "legalName": "사업자 법인명 (선택)",
+      "invalid": "GSTIN을 확인하세요. 15자의 유효한 번호여야 합니다."
+    }
   },
   "OrderNotices": {
     "dispatched": "주문 {ref}이(가) 발송되었습니다.",
@@ -16340,7 +16544,8 @@
         "delivered": "배송 완료",
         "cancelled": "취소됨",
         "expired": "만료됨",
-        "review": "검토 중"
+        "review": "검토 중",
+        "partlyShipped": "부분 배송"
       },
       "stepFailed": "주문을 업데이트하지 못했습니다",
       "stepDone": "주문을 확정했습니다",
@@ -17291,7 +17496,9 @@
       "invalid_phone": "+와 국가 번호를 포함해 입력하세요. 예: +82 10 1234 5678",
       "network": "연결되어 있지 않습니다. 다시 시도하세요.",
       "generic": "문제가 발생했습니다. 다시 시도하세요.",
-      "in_stock": "이 상품은 지금 재고가 있습니다. 페이지를 새로고침해 주세요."
+      "in_stock": "이 상품은 지금 재고가 있습니다. 페이지를 새로고침해 주세요.",
+      "signed_out": "다시 로그인해 주세요.",
+      "address_limit": "주소는 5개까지 저장할 수 있습니다. 하나를 삭제한 뒤 추가하세요."
     },
     "whatsapp": {
       "intro": "안녕하세요 {shop}, 주문하고 싶어요:",
@@ -17382,6 +17589,76 @@
     },
     "boughtTogether": "함께 자주 구매하는 상품",
     "addOne": "추가",
-    "productDetails": "세부 정보"
+    "productDetails": "세부 정보",
+    "track": {
+      "title": "주문 추적",
+      "order": "주문 {code}",
+      "placedOn": "주문일 {date}",
+      "timeline": "주문 진행 상황",
+      "steps": {
+        "placed": "주문 접수",
+        "confirmed": "주문 확인",
+        "shipped": "포장 및 발송",
+        "out_for_delivery": "배송 중",
+        "delivered": "배송 완료",
+        "cancelled": "취소됨"
+      },
+      "courier": "택배사",
+      "awb": "운송장 번호: {awb}",
+      "courierLink": "택배사에서 추적",
+      "items": "상품",
+      "subtotal": "소계",
+      "discount": "할인",
+      "shipping": "배송비",
+      "codFee": "착불 수수료",
+      "total": "합계",
+      "codNote": "상품 도착 시 현금으로 결제해 주세요.",
+      "deliveringTo": "배송지: {place}"
+    },
+    "pincode": {
+      "label": "배송 가능 여부 확인",
+      "placeholder": "우편번호",
+      "button": "확인",
+      "checking": "확인 중…",
+      "invalid": "6자리 우편번호를 입력하세요.",
+      "delivers": "{pincode} 지역에 배송합니다",
+      "shipping": "배송비 {amount}",
+      "freeShipping": "무료 배송",
+      "codYes": "착불 결제 가능",
+      "codNo": "착불 결제 불가",
+      "no": "죄송합니다. 이 지역에는 배송하지 않습니다.",
+      "atCheckout": "배송 가능 여부와 배송비는 결제 시 입력한 주소로 확인됩니다."
+    },
+    "account": {
+      "link": "내 계정",
+      "title": "내 계정",
+      "signIn": "로그인",
+      "signInIntro": "WhatsApp 번호를 입력하세요. 로그인 코드를 보내 드립니다.",
+      "signInUnavailable": "지금은 이 상점에서 로그인을 사용할 수 없습니다.",
+      "signedInAs": "{phone}(으)로 로그인됨",
+      "signOut": "로그아웃",
+      "orders": "내 주문",
+      "noOrders": "아직 주문이 없습니다.",
+      "items": "상품 {count}개",
+      "back": "내 계정으로 돌아가기",
+      "track": "이 주문 배송 조회",
+      "tax": "세금",
+      "reorder": "다시 주문",
+      "reorderAdded": "상품을 장바구니에 담았습니다.",
+      "reorderNone": "지금은 구매할 수 있는 상품이 없습니다.",
+      "reorderSkipped": "상품 {count}개는 더 이상 판매하지 않아 제외했습니다.",
+      "addresses": "저장된 주소",
+      "addressesIntro": "주소를 {max}개까지 저장하면 더 빨리 결제할 수 있습니다.",
+      "noAddresses": "저장된 주소가 없습니다.",
+      "addAddress": "주소 추가",
+      "editAddress": "수정",
+      "deleteAddress": "삭제",
+      "saveAddress": "주소 저장",
+      "cancel": "취소",
+      "checkoutAs": "{phone}(으)로 결제",
+      "deliverTo": "배송지",
+      "enterAtCheckout": "결제할 때 다른 주소 입력",
+      "otherNumber": "다른 번호 사용"
+    }
   }
 }

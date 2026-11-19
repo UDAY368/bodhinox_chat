@@ -16,7 +16,9 @@ import { useLocale, useTranslations } from 'next-intl';
 import { Loader2, MessageCircle, Minus, Plus, Trash2 } from 'lucide-react';
 import { formatMoney } from '@/lib/commerce/money';
 import type { CartPreview } from '@/lib/commerce/public-shop';
+import { accountApiPath } from '@/lib/commerce/shop-customer-cookie';
 import { addToCart, CART_EVENT, readCart, setLineQty, writeCart, type BrowserCartLine } from './cart-store';
+import { shopErrorKey, shopPostJson as post } from './shop-post';
 
 export interface CartShopInfo {
   handle: string;
@@ -26,23 +28,10 @@ export interface CartShopInfo {
   pricesIncludeTax: boolean;
 }
 
-const KNOWN_ERRORS = new Set(['invalid', 'invalid_cart', 'variant_unavailable', 'otp_unavailable', 'otp_invalid', 'otp_expired',
-  'otp_locked', 'too_many', 'send_failed', 'send_uncertain', 'checkout_disabled', 'store_not_configured', 'contact_blocked',
-  'whatsapp_order_unavailable', 'not_found']);
+/** The signed-in buyer (store plan Phase 5): a masked number and their saved addresses as one-line labels. */
+export interface CartBuyer { phoneMasked: string; addresses: Array<{ id: string; label: string }> }
 
-async function post<T>(url: string, body: unknown): Promise<{ ok: true; data: T } | { ok: false; code: string }> {
-  try {
-    const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-    const data = await res.json().catch(() => ({}));
-    if (res.ok) return { ok: true, data: data as T };
-    const code = typeof data?.code === 'string' ? data.code : 'error';
-    return { ok: false, code: data?.field === 'phone' ? 'invalid_phone' : code };
-  } catch {
-    return { ok: false, code: 'network' };
-  }
-}
-
-export function ShopCart({ shop }: { shop: CartShopInfo }) {
+export function ShopCart({ shop, buyer = null }: { shop: CartShopInfo; buyer?: CartBuyer | null }) {
   const t = useTranslations('ShopPublic');
   const locale = useLocale();
   const api = `/api/public/store/${shop.handle}`;
@@ -53,7 +42,10 @@ export function ShopCart({ shop }: { shop: CartShopInfo }) {
   const [phone, setPhone] = useState('+91');
   const [challenge, setChallenge] = useState<string | null>(null);
   const [code, setCode] = useState('');
-  const [busy, setBusy] = useState<null | 'otp' | 'verify' | 'whatsapp'>(null);
+  const [busy, setBusy] = useState<null | 'otp' | 'verify' | 'whatsapp' | 'account'>(null);
+  // Signed in: "Check out as <number>" replaces the code form until the buyer asks for another number.
+  const [asBuyer, setAsBuyer] = useState(buyer !== null);
+  const [addressId, setAddressId] = useState(buyer?.addresses[0]?.id ?? '');
 
   const refresh = useCallback(async (current: BrowserCartLine[]) => {
     if (!current.length) { setPreview(null); setLoading(false); return; }
@@ -74,7 +66,7 @@ export function ShopCart({ shop }: { shop: CartShopInfo }) {
   }, [refresh, shop.handle]);
 
   const money = (minor: number) => (preview?.currency ? formatMoney(minor, preview.currency, locale) : '');
-  const message = (c: string) => t(`errors.${KNOWN_ERRORS.has(c) || c === 'invalid_phone' || c === 'network' ? c : 'generic'}`);
+  const message = (c: string) => t(shopErrorKey(c));
   const cart = (lines ?? []).map((l) => ({ variantId: l.variantId, qty: l.qty }));
 
   const sendCode = async () => {
@@ -89,6 +81,18 @@ export function ShopCart({ shop }: { shop: CartShopInfo }) {
     setBusy('verify'); setError(null);
     const result = await post<{ url: string }>(`${api}/otp/verify`, { challengeId: challenge, code: code.trim() });
     if (!result.ok) { setBusy(null); setError(result.code); return; }
+    writeCart(shop.handle, []);
+    window.location.assign(result.data.url);
+  };
+  const checkoutAsBuyer = async () => {
+    setBusy('account'); setError(null);
+    const result = await post<{ url: string }>(`${accountApiPath(shop.handle)}/checkout`, { cart, addressId: addressId || undefined });
+    if (!result.ok) {
+      setBusy(null); setError(result.code);
+      // The session ended (expired, signed out elsewhere): fall back to the code.
+      if (result.code === 'signed_out') setAsBuyer(false);
+      return;
+    }
     writeCart(shop.handle, []);
     window.location.assign(result.data.url);
   };
@@ -179,11 +183,30 @@ export function ShopCart({ shop }: { shop: CartShopInfo }) {
         <p className="text-xs opacity-70">{shop.pricesIncludeTax ? t('taxIncludedNote') : t('taxExtraNote')}</p>
         {error && <p role="alert" className="rounded-[var(--shop-radius)] bg-red-50 p-3 text-sm text-red-800">{message(error)}</p>}
 
-        {!shop.checkoutOpen || (!shop.ordering.otp && !shop.ordering.whatsapp) ? (
+        {!shop.checkoutOpen || (!shop.ordering.otp && !shop.ordering.whatsapp && !buyer) ? (
           <p className="text-sm">{t('orderingClosed')}</p>
         ) : (
           <>
-            {shop.ordering.otp && (
+            {buyer && asBuyer && (
+              <div className="flex flex-col gap-2">
+                {buyer.addresses.length > 0 && (
+                  <>
+                    <label htmlFor="shop-address" className="text-xs opacity-70">{t('account.deliverTo')}</label>
+                    <select id="shop-address" value={addressId} onChange={(e) => setAddressId(e.target.value)}
+                      className="h-11 w-full rounded-[var(--shop-radius)] border border-black/15 bg-white px-3 text-base text-black">
+                      {buyer.addresses.map((a) => <option key={a.id} value={a.id}>{a.label}</option>)}
+                      <option value="">{t('account.enterAtCheckout')}</option>
+                    </select>
+                  </>
+                )}
+                <button type="button" onClick={checkoutAsBuyer} disabled={busy !== null || !preview?.lines.length}
+                  className="min-h-11 rounded-[var(--shop-radius)] bg-[var(--shop-primary)] px-3 py-2 font-semibold text-[var(--shop-on-primary)] disabled:opacity-40">
+                  {busy === 'account' ? <Loader2 className="mx-auto size-5 animate-spin" aria-label={t('loading')} /> : t('account.checkoutAs', { phone: buyer.phoneMasked })}
+                </button>
+                {shop.ordering.otp && <button type="button" className="min-h-11 text-sm underline" onClick={() => setAsBuyer(false)}>{t('account.otherNumber')}</button>}
+              </div>
+            )}
+            {shop.ordering.otp && !(buyer && asBuyer) && (
               <div className="flex flex-col gap-2">
                 <p className="text-sm font-medium">{t('otpHeading')}</p>
                 {!challenge ? (
@@ -211,7 +234,7 @@ export function ShopCart({ shop }: { shop: CartShopInfo }) {
                 )}
               </div>
             )}
-            {shop.ordering.otp && shop.ordering.whatsapp && <p className="text-center text-xs opacity-60">{t('or')}</p>}
+            {(shop.ordering.otp || (buyer && asBuyer)) && shop.ordering.whatsapp && <p className="text-center text-xs opacity-60">{t('or')}</p>}
             {shop.ordering.whatsapp && (
               <button type="button" onClick={orderOnWhatsApp} disabled={busy !== null || !preview?.lines.length}
                 className="flex h-11 items-center justify-center gap-2 rounded-[var(--shop-radius)] bg-[#25d366] font-semibold text-black disabled:opacity-40">

@@ -25,13 +25,15 @@ import { randomBytes, randomUUID } from 'node:crypto';
 import { Prisma } from '@prisma/client';
 import { requirePermission } from '@/lib/auth/permissions';
 import { requireFeature } from '@/lib/billing/entitlements';
+import { planShipmentItems, shipmentCoverage, type ShipmentItemInput } from '@/lib/commerce/order-edit-plan';
 import { isUniqueViolation } from '@/lib/commerce/returns';
 import { getWorkerPrisma } from '@/lib/db/prisma';
 import { withTenant, type TenantTransaction } from '@/lib/db/tenant';
 import { auditTx, orderEventTx } from '@/lib/payments/ledger';
 import { openShipmentException } from './exceptions';
 import { loadCourierSecrets, validDims } from './connection';
-import { shiprocketCall, shiprocketDisabled, ShiprocketError } from './shiprocket-client';
+import { allCourierProviders, getCourierProvider } from './providers';
+import { CourierError, isCourierProviderId, type AwbOutcome, type CourierOrderInput, type CourierProviderId, type FoundOrder, type ShipmentRef } from './providers/types';
 import { TRACKING_RANK } from './status-map';
 import {
   CREATE_SHIPMENT_JOB, ShipmentError, type FulfilmentActor, type FulfilmentJobMeta, type OrderShipmentView, type ShipmentAwbState,
@@ -41,8 +43,6 @@ import {
 /** Longer than the 15 s HTTP timeout plus margin; an expired claim means the outcome is unknown. */
 export const SHIPMENT_CLAIM_MS = 60_000;
 const ALPHABET = 'abcdefghijklmnopqrstuvwxyz0123456789';
-const SR_ID = /^[0-9]{1,20}$/;
-const AWB = /^[A-Za-z0-9-]{4,40}$/;
 
 /** A shipment reference: `bx` + 12 random lower-case letters and digits (fits the CHECK). */
 export function newShipmentReference(): string {
@@ -67,6 +67,7 @@ interface ShipmentRow {
   id: string;
   order_id: string;
   connection_id: string;
+  provider: CourierProviderId;
   reference: string;
   create_state: ShipmentCreateState;
   awb_state: ShipmentAwbState;
@@ -82,7 +83,7 @@ interface ShipmentRow {
   weight_grams: number;
 }
 
-const SHIPMENT_COLUMNS = Prisma.sql`id::text AS id, order_id::text AS order_id, connection_id::text AS connection_id, reference,
+const SHIPMENT_COLUMNS = Prisma.sql`id::text AS id, order_id::text AS order_id, connection_id::text AS connection_id, provider, reference,
   create_state, awb_state, claim_token::text AS claim_token, COALESCE(claimed_until > now(), false) AS claimed, sr_order_id,
   sr_shipment_id, awb, tracking_rank, length_cm, breadth_cm, height_cm, weight_grams`;
 
@@ -120,9 +121,62 @@ async function lockOrderRow(tx: TenantTransaction, accountId: string, orderId: s
   return row ?? null;
 }
 
-/** Ready to hand to the courier: paid, or an unpaid cash-on-delivery order still confirmed. */
+/**
+ * Ready to hand to the courier: paid, or an unpaid cash-on-delivery order still confirmed, or either
+ * of them with some parcels already gone (partially shipped).
+ */
 const readyToShip = (order: Pick<OrderRow, 'status' | 'unpaid_cod'>): boolean =>
-  order.status === 'paid' || (order.status === 'confirmed' && order.unpaid_cod);
+  order.status === 'paid' || order.status === 'partially_shipped' || (order.status === 'confirmed' && order.unpaid_cod);
+
+const LIVE = Prisma.sql`create_state NOT IN ('failed','cancelled')`;
+
+export interface OrderLineShipped {
+  id: string;
+  variant_id: string | null;
+  name: string | null;
+  sku: string | null;
+  hsn_code: string | null;
+  quantity: number;
+  unit_price_minor: bigint | number;
+  tax_rate_bps: number | null;
+  line_total_minor: bigint | number | null;
+  /** Units of this line in shipments that are not cancelled or failed. A shipment with no item rows carries the whole order. */
+  shipped: number;
+}
+
+/** The order's lines with how many units live shipments already carry. Call under the order's row lock when deciding. */
+export async function orderLinesShipped(tx: TenantTransaction, accountId: string, orderId: string): Promise<OrderLineShipped[]> {
+  return tx.$queryRaw<OrderLineShipped[]>`
+    SELECT i.id::text AS id, i.variant_id::text AS variant_id, i.name, i.sku, i.hsn_code, i.quantity, i.unit_price_minor, i.tax_rate_bps,
+      i.line_total_minor,
+      LEAST(i.quantity, COALESCE((
+        SELECT sum(CASE WHEN NOT EXISTS (SELECT 1 FROM shipment_items x WHERE x.account_id=s.account_id AND x.shipment_id=s.id) THEN i.quantity
+          ELSE COALESCE((SELECT x.quantity FROM shipment_items x
+            WHERE x.account_id=s.account_id AND x.shipment_id=s.id AND x.order_item_id=i.id), 0) END)
+        FROM order_shipments s WHERE s.account_id=i.account_id AND s.order_id=i.order_id AND s.create_state NOT IN ('failed','cancelled')
+      ), 0))::int AS shipped
+    FROM order_items i WHERE i.account_id=${accountId}::uuid AND i.order_id=${orderId}::uuid ORDER BY i.id`;
+}
+
+/**
+ * Where the order stands from its live shipments (shipmentCoverage): a shipment counts as dispatched
+ * once the courier's own tracking showed a pickup, and as delivered once it showed the delivery.
+ */
+export async function orderShipmentCoverage(tx: TenantTransaction, accountId: string, orderId: string): Promise<'none' | 'partial' | 'dispatched' | 'delivered'> {
+  const lines = await tx.$queryRaw<{ id: string; quantity: number }[]>`SELECT id::text AS id, quantity FROM order_items
+    WHERE account_id=${accountId}::uuid AND order_id=${orderId}::uuid`;
+  const shipments = await tx.$queryRaw<{ id: string; dispatched: boolean; delivered: boolean }[]>`
+    SELECT id::text AS id, provider_dispatched_at IS NOT NULL AS dispatched, COALESCE(tracking_status = 'delivered', false) AS delivered
+    FROM order_shipments WHERE account_id=${accountId}::uuid AND order_id=${orderId}::uuid AND ${LIVE}`;
+  const items = await tx.$queryRaw<{ shipment_id: string; order_item_id: string; quantity: number }[]>`
+    SELECT x.shipment_id::text AS shipment_id, x.order_item_id::text AS order_item_id, x.quantity FROM shipment_items x
+    JOIN order_shipments s ON s.account_id=x.account_id AND s.id=x.shipment_id
+    WHERE x.account_id=${accountId}::uuid AND s.order_id=${orderId}::uuid`;
+  return shipmentCoverage(lines, shipments.map((s) => {
+    const own = items.filter((i) => i.shipment_id === s.id).map((i) => ({ orderItemId: i.order_item_id, quantity: i.quantity }));
+    return { dispatched: s.dispatched, delivered: s.delivered, items: own.length ? own : null };
+  }));
+}
 
 /** Refunds that will restock the whole order when processed (not a return's), still in flight (as order-lifecycle). */
 async function restockRefundInFlight(tx: TenantTransaction, accountId: string, orderId: string): Promise<boolean> {
@@ -196,129 +250,93 @@ interface ItemRow {
   discount_minor: bigint | number | null;
 }
 
-async function adhocPayload(tx: TenantTransaction, accountId: string, order: OrderRow, shipment: ShipmentRow, pickup: string, apiEmail: string) {
+async function orderInput(tx: TenantTransaction, accountId: string, order: OrderRow, shipment: ShipmentRow, pickup: string, apiEmail: string): Promise<CourierOrderInput | null> {
   const address = shippableAddress(order.shipping_address);
   if (!address || order.currency !== 'INR') return null;
-  const items = await tx.$queryRaw<ItemRow[]>`SELECT id::text AS id, name, sku, hsn_code, quantity, unit_price_minor, tax_rate_bps, discount_minor
+  const all = await tx.$queryRaw<(ItemRow & { line_total_minor: bigint | number | null })[]>`SELECT id::text AS id, name, sku, hsn_code, quantity,
+      unit_price_minor, tax_rate_bps, discount_minor, line_total_minor
     FROM order_items WHERE account_id=${accountId}::uuid AND order_id=${order.id}::uuid ORDER BY id`;
+  if (!all.length) return null;
+  // Split shipments: the parcel's own lines, with how many units of each line earlier live shipments carry.
+  const own = await tx.$queryRaw<{ id: string; quantity: number; before: number }[]>`
+    SELECT x.order_item_id::text AS id, x.quantity, COALESCE((
+      SELECT sum(y.quantity) FROM shipment_items y JOIN order_shipments e ON e.account_id=y.account_id AND e.id=y.shipment_id
+      WHERE y.account_id=x.account_id AND y.order_item_id=x.order_item_id AND e.order_id=s.order_id AND e.id<>s.id
+        AND e.create_state NOT IN ('failed','cancelled') AND (e.created_at, e.id) < (s.created_at, s.id)), 0)::int AS before
+    FROM shipment_items x JOIN order_shipments s ON s.account_id=x.account_id AND s.id=x.shipment_id
+    WHERE x.account_id=${accountId}::uuid AND x.shipment_id=${shipment.id}::uuid`;
+  const part = new Map(own.map((o) => [o.id, o]));
+  const partial = own.length > 0 && !all.every((i) => part.get(i.id)?.quantity === i.quantity);
+  const items = partial ? all.filter((i) => part.has(i.id)).map((i) => ({ ...i, quantity: part.get(i.id)!.quantity })) : all;
   if (!items.length) return null;
   const [first, ...rest] = address.name.split(/\s+/);
   const email = order.contact_email && /^[^\s@]{1,64}@[^\s@]{1,190}$/.test(order.contact_email) ? order.contact_email : apiEmail;
-  const total = order.total_minor ?? 0;
+  let total = BigInt(order.total_minor ?? 0);
+  let shippingMinor = BigInt(order.shipping_minor ?? 0);
+  let discountMinor = BigInt(order.discount_minor ?? 0);
+  if (partial) {
+    // A part of the order: its goods at their share of each line total (cumulative rounding, so the parcels of a
+    // line add up to the line exactly), its share of each line's discount, and, on the order's first live parcel
+    // only, everything that is not goods (shipping, the COD fee and their tax). A COD courier collects that total.
+    const [earlier] = await tx.$queryRaw<{ n: number }[]>`SELECT count(*)::int AS n FROM order_shipments e
+      WHERE e.account_id=${accountId}::uuid AND e.order_id=${order.id}::uuid AND e.id<>${shipment.id}::uuid
+        AND e.create_state NOT IN ('failed','cancelled')
+        AND (e.created_at, e.id) < (SELECT s.created_at, s.id FROM order_shipments s WHERE s.account_id=e.account_id AND s.id=${shipment.id}::uuid)`;
+    const first = (earlier?.n ?? 0) === 0;
+    const share = (amount: bigint, units: number, of: number): bigint =>
+      (of > 0 ? (amount * BigInt(units) * BigInt(2) + BigInt(of)) / (BigInt(of) * BigInt(2)) : BigInt(0));
+    let goods = BigInt(0);
+    let discount = BigInt(0);
+    let lineTotals = BigInt(0);
+    for (const line of all) {
+      const lineTotal = BigInt(line.line_total_minor ?? BigInt(line.unit_price_minor) * BigInt(line.quantity));
+      lineTotals += lineTotal;
+      const mine = part.get(line.id);
+      if (!mine) continue;
+      goods += share(lineTotal, mine.before + mine.quantity, line.quantity) - share(lineTotal, mine.before, line.quantity);
+      discount += share(BigInt(line.discount_minor ?? 0), mine.quantity, line.quantity);
+    }
+    const extras = total - lineTotals;
+    shippingMinor = first ? shippingMinor : BigInt(0);
+    total = goods + (first && extras > BigInt(0) ? extras : BigInt(0));
+    discountMinor = discount;
+  }
   return {
-    order_id: shipment.reference,
-    order_date: istDate(order.created_at),
-    pickup_location: pickup,
-    billing_customer_name: first.slice(0, 50),
-    billing_last_name: rest.join(' ').slice(0, 50),
-    billing_address: address.line1,
-    billing_address_2: address.line2 ?? '',
-    billing_city: address.city,
-    billing_pincode: address.postal_code,
-    billing_state: address.state,
-    billing_country: 'India',
-    billing_email: email,
-    billing_phone: address.phone,
-    shipping_is_billing: true,
-    order_items: items.map((i) => ({
+    reference: shipment.reference,
+    orderDate: istDate(order.created_at),
+    pickup,
+    customer: {
+      name: address.name, firstName: first.slice(0, 50), lastName: rest.join(' ').slice(0, 50), line1: address.line1, line2: address.line2,
+      city: address.city, state: address.state, postalCode: address.postal_code, phone: address.phone, email,
+    },
+    items: items.map((i) => ({
       name: (i.name ?? 'Item').slice(0, 200),
       sku: (i.sku ?? `bx-${i.id.slice(0, 8)}`).slice(0, 50),
       units: i.quantity,
-      selling_price: rupees(i.unit_price_minor),
+      sellingPrice: rupees(i.unit_price_minor),
       discount: rupees(i.discount_minor),
       tax: i.tax_rate_bps ? i.tax_rate_bps / 100 : 0,
-      ...(i.hsn_code && /^[0-9]{4,8}$/.test(i.hsn_code) ? { hsn: i.hsn_code } : {}),
+      hsn: i.hsn_code && /^[0-9]{4,8}$/.test(i.hsn_code) ? i.hsn_code : null,
     })),
     // The courier collects the order total (COD fee included in sub_total) for an unpaid COD order.
-    payment_method: order.unpaid_cod ? 'COD' : 'Prepaid',
-    shipping_charges: rupees(order.shipping_minor),
-    total_discount: rupees(order.discount_minor),
+    cod: order.unpaid_cod,
+    total: rupees(total),
+    shippingCharges: rupees(shippingMinor),
+    totalDiscount: rupees(discountMinor),
     // Shiprocket takes total = sub_total + shipping_charges - total_discount, so sub_total is before the discount
     // (total_minor is after it); for COD that total is what the courier collects.
-    sub_total: rupees(BigInt(total) - BigInt(order.shipping_minor ?? 0) + BigInt(order.discount_minor ?? 0)),
-    length: Number(shipment.length_cm),
-    breadth: Number(shipment.breadth_cm),
-    height: Number(shipment.height_cm),
-    weight: shipment.weight_grams / 1000,
+    subTotal: rupees(total - shippingMinor + discountMinor),
+    lengthCm: Number(shipment.length_cm),
+    breadthCm: Number(shipment.breadth_cm),
+    heightCm: Number(shipment.height_cm),
+    weightKg: shipment.weight_grams / 1000,
   };
 }
 
-// ---------------------------------------------------------------- response parsers (defensive)
-
-const srId = (v: unknown): string | null => {
-  const s = typeof v === 'number' && Number.isSafeInteger(v) && v > 0 ? String(v) : typeof v === 'string' ? v.trim() : null;
-  return s && SR_ID.test(s) ? s : null;
-};
-const awbOf = (v: unknown): string | null => {
-  const s = typeof v === 'number' && Number.isSafeInteger(v) ? String(v) : typeof v === 'string' ? v.trim() : null;
-  return s && AWB.test(s) ? s : null;
-};
-const courierOf = (v: unknown): string | null => (typeof v === 'string' && v.trim() ? v.trim().slice(0, 80) : null);
-/** Shiprocket ids are sent as numbers when they fit, else as the digit string. */
-const idValue = (id: string): number | string => (Number.isSafeInteger(Number(id)) ? Number(id) : id);
-
-export function parseAdhocCreate(body: unknown): { srOrderId: string; srShipmentId: string } | null {
-  const b = (body ?? {}) as Record<string, unknown>;
-  const srOrderId = srId(b.order_id);
-  const srShipmentId = srId(b.shipment_id);
-  return srOrderId && srShipmentId ? { srOrderId, srShipmentId } : null;
-}
-
-/** assigned: AWB and courier; refused: Shiprocket answered 2xx with awb_assign_status 0; null: unclear. */
-export function parseAwbAssign(body: unknown): { kind: 'assigned'; awb: string; courier: string | null } | { kind: 'refused' } | null {
-  const b = (body ?? {}) as Record<string, unknown>;
-  const data = ((b.response as Record<string, unknown> | undefined)?.data ?? b.data ?? b) as Record<string, unknown>;
-  const awb = awbOf(data?.awb_code) ?? awbOf(b.awb_code);
-  if (awb) return { kind: 'assigned', awb, courier: courierOf(data?.courier_name) ?? courierOf(b.courier_name) };
-  if (b.awb_assign_status === 0 || b.awb_assign_status === '0') return { kind: 'refused' };
-  return null;
-}
-
-export interface FoundOrder {
-  srOrderId: string;
-  srShipmentId: string | null;
-  awb: string | null;
-  courier: string | null;
-}
-
-function shipmentsOf(entry: Record<string, unknown>): Record<string, unknown>[] {
-  const s = entry.shipments;
-  if (Array.isArray(s)) return s.filter((x): x is Record<string, unknown> => !!x && typeof x === 'object');
-  return s && typeof s === 'object' ? [s as Record<string, unknown>] : [];
-}
-
-function toFound(entry: Record<string, unknown>): FoundOrder | null {
-  const srOrderId = srId(entry.id) ?? srId(entry.order_id);
-  if (!srOrderId) return null;
-  const ship = shipmentsOf(entry)[0] ?? {};
-  const awbData = (entry.awb_data ?? {}) as Record<string, unknown>;
-  return {
-    srOrderId,
-    srShipmentId: srId(ship.id) ?? srId(entry.shipment_id),
-    awb: awbOf(ship.awb) ?? awbOf(ship.awb_code) ?? awbOf(awbData.awb) ?? awbOf(entry.awb_code),
-    courier: courierOf(ship.courier) ?? courierOf(ship.courier_name) ?? courierOf(entry.courier_name),
-  };
-}
-
-/** The order with our reference as channel_order_id in a GET /orders?search= result (exact match only). */
-export function findByReference(body: unknown, reference: string): FoundOrder | null {
-  const data = (body as { data?: unknown } | null)?.data;
-  const list = Array.isArray(data) ? data : [];
-  for (const entry of list) {
-    if (!entry || typeof entry !== 'object') continue;
-    const e = entry as Record<string, unknown>;
-    if (e.channel_order_id === reference) return toFound(e);
-  }
-  return null;
-}
-
-/** The order detail of GET /orders/show/<id>, only when it is the expected order. */
-export function parseOrderShow(body: unknown, srOrderId: string): FoundOrder | null {
-  const data = (body as { data?: unknown } | null)?.data;
-  if (!data || typeof data !== 'object' || Array.isArray(data)) return null;
-  const found = toFound(data as Record<string, unknown>);
-  return found && found.srOrderId === srOrderId ? found : null;
-}
+// ---------------------------------------------------------------- response parsers
+// The Shiprocket response parsers live in providers/shiprocket.ts; re-exported so existing imports keep working.
+export { findByReference, parseAdhocCreate, parseAwbAssign, parseOrderShow } from './providers/shiprocket';
+export type { FoundOrder } from './providers/types';
 
 // ---------------------------------------------------------------- staff actions
 
@@ -326,58 +344,106 @@ async function requireShipper(ctx: FulfilmentActor): Promise<void> {
   await requirePermission(ctx, 'commerce.shipments');
 }
 
-async function requireAvailable(ctx: FulfilmentActor): Promise<void> {
-  if (shiprocketDisabled()) throw new ShipmentError('not_configured');
+/** The plan allows courier shipping (and, when a provider is named, the deployment has not switched it off). */
+async function requireAvailable(ctx: FulfilmentActor, provider?: CourierProviderId): Promise<void> {
+  if (provider && getCourierProvider(provider).disabled()) throw new ShipmentError('not_configured');
   await withTenant(ctx, (tx) => requireFeature(tx, ctx.accountId, 'courier_shipping'));
 }
 
-const LIVE = Prisma.sql`create_state NOT IN ('failed','cancelled')`;
+/** Every courier switched off on this deployment: nothing can be called, so refuse before touching the database. */
+const allDisabled = (): boolean => allCourierProviders().every((p) => p.disabled());
 
-/** Locks the order; refuses unless paid, no live shipment, no refund in flight, INR / IN / state present. Queues the create job. */
-export async function requestShipment(ctx: FulfilmentActor, orderId: string, dims: ShipmentDims): Promise<{ shipmentId: string }> {
+const refOf = (row: Pick<ShipmentRow, 'reference' | 'sr_order_id' | 'sr_shipment_id' | 'awb'>): ShipmentRef => ({
+  reference: row.reference, srOrderId: row.sr_order_id, srShipmentId: row.sr_shipment_id, awb: row.awb,
+});
+
+/** One live shipment of the order: the one named, else the newest. */
+const pick = (shipmentId?: string | null) => Prisma.sql`${LIVE} AND (${shipmentId ?? null}::uuid IS NULL OR id=${shipmentId ?? null}::uuid)
+  ORDER BY created_at DESC, id DESC LIMIT 1`;
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const namedShipment = (shipmentId?: string | null): string | null => {
+  if (shipmentId === undefined || shipmentId === null) return null;
+  if (typeof shipmentId !== 'string' || !UUID.test(shipmentId)) throw new ShipmentError('not_found');
+  return shipmentId;
+};
+
+/**
+ * Locks the order; refuses unless paid (or partially shipped), no refund in flight, INR / IN / state
+ * present. `items` names the lines and quantities this parcel carries (split shipments); without it
+ * the parcel takes everything not yet in a live shipment, and 'shipment_exists' when nothing is left.
+ * A quantity above what remains of its line is refused ('over_shipped'): the shipped quantity of a
+ * line never exceeds the ordered quantity. `dims.weight_grams` null = the weight of the parcel's own
+ * items from the catalogue ('invalid' when none of them has a weight). Queues the create job.
+ */
+export async function requestShipment(
+  ctx: FulfilmentActor, orderId: string, dims: Omit<ShipmentDims, 'weight_grams'> & { weight_grams: number | null }, requested?: CourierProviderId | null,
+  items?: ShipmentItemInput[] | null,
+): Promise<{ shipmentId: string }> {
   await requireShipper(ctx);
-  const valid = validDims(dims ?? ({} as ShipmentDims), true) as ShipmentDims;
-  await requireAvailable(ctx);
+  const fromItems = dims?.weight_grams === null || dims?.weight_grams === undefined;
+  const valid = validDims({ ...(dims ?? {}), weight_grams: fromItems ? 1 : dims.weight_grams } as ShipmentDims, true) as ShipmentDims;
+  if (requested !== undefined && requested !== null && !isCourierProviderId(requested)) throw new ShipmentError('invalid');
+  await requireAvailable(ctx, requested ?? undefined);
   try {
     return await asWorker(ctx.accountId, async (tx) => {
-      const [connection] = await tx.$queryRaw<{ id: string; status: string; pickup: string | null }[]>`
-        SELECT id::text AS id, status, pickup_location AS pickup FROM courier_connections
-        WHERE account_id=${ctx.accountId}::uuid AND status<>'disconnected' LIMIT 1`;
-      if (!connection || connection.status !== 'active' || !connection.pickup) throw new ShipmentError('not_connected');
+      // The workspace's live connections: the named courier, else Shiprocket, else the first one connected.
+      const conns = await tx.$queryRaw<{ id: string; provider: CourierProviderId; status: string; pickup: string | null }[]>`
+        SELECT id::text AS id, provider, status, pickup_location AS pickup FROM courier_connections
+        WHERE account_id=${ctx.accountId}::uuid AND status='active' ORDER BY (provider='shiprocket') DESC, connected_at`;
+      const usable = conns.filter((c) => !getCourierProvider(c.provider).disabled());
+      const connection = requested ? conns.find((c) => c.provider === requested) : usable[0];
+      if (!connection && conns.length && !requested) throw new ShipmentError('not_configured');
+      if (!connection || (getCourierProvider(connection.provider).requiresPickup && !connection.pickup)) throw new ShipmentError('not_connected');
       const order = await lockOrderRow(tx, ctx.accountId, orderId);
       if (!order) throw new ShipmentError('not_found');
       // Shopify and WooCommerce orders are fulfilled by their own stores (design §11).
       if (order.source === 'shopify' || order.source === 'woocommerce') throw new ShipmentError('invalid');
       if (!readyToShip(order)) throw new ShipmentError('order_not_paid');
       if (order.refunded_full) throw new ShipmentError('order_refunded');
-      const [live] = await tx.$queryRaw<{ id: string }[]>`SELECT id::text AS id FROM order_shipments
-        WHERE account_id=${ctx.accountId}::uuid AND order_id=${orderId}::uuid AND ${LIVE} LIMIT 1`;
-      if (live) throw new ShipmentError('shipment_exists');
+      // Under the order lock: what every live shipment already carries, then what this one may take.
+      const lines = await orderLinesShipped(tx, ctx.accountId, orderId);
+      const plan = planShipmentItems(lines, items);
+      if (!plan.ok) throw new ShipmentError(plan.code === 'nothing_to_ship' ? 'shipment_exists' : plan.code);
       if (await restockRefundInFlight(tx, ctx.accountId, orderId)) throw new ShipmentError('refund_in_flight');
       if (order.currency !== 'INR' || !shippableAddress(order.shipping_address)) throw new ShipmentError('address_incomplete');
+      if (fromItems) {
+        const byLine = new Map(lines.map((l) => [l.id, l.variant_id]));
+        const weights = await tx.$queryRaw<{ id: string; weight_grams: number | null }[]>`SELECT id::text AS id, weight_grams FROM shop_variants
+          WHERE account_id=${ctx.accountId}::uuid AND id = ANY(${lines.flatMap((l) => (l.variant_id ? [l.variant_id] : []))}::uuid[])`;
+        const weightOf = new Map(weights.map((w) => [w.id, w.weight_grams ?? 0]));
+        const grams = plan.items.reduce((n, i) => n + (weightOf.get(byLine.get(i.orderItemId) ?? '') ?? 0) * i.quantity, 0);
+        if (grams < 1) throw new ShipmentError('invalid');
+        valid.weight_grams = validDims({ weight_grams: grams }, false).weight_grams!;
+      }
 
       const shipmentId = randomUUID();
       const reference = newShipmentReference();
-      await tx.$executeRaw`INSERT INTO order_shipments(id, account_id, order_id, connection_id, reference, length_cm, breadth_cm,
+      await tx.$executeRaw`INSERT INTO order_shipments(id, account_id, order_id, connection_id, provider, reference, length_cm, breadth_cm,
           height_cm, weight_grams, created_by)
-        VALUES(${shipmentId}::uuid, ${ctx.accountId}::uuid, ${orderId}::uuid, ${connection.id}::uuid, ${reference}, ${valid.length_cm},
+        VALUES(${shipmentId}::uuid, ${ctx.accountId}::uuid, ${orderId}::uuid, ${connection.id}::uuid, ${connection.provider}, ${reference}, ${valid.length_cm},
           ${valid.breadth_cm}, ${valid.height_cm}, ${valid.weight_grams}, ${ctx.userId}::uuid)`;
+      for (const item of plan.items)
+        await tx.$executeRaw`INSERT INTO shipment_items(account_id, shipment_id, order_item_id, quantity)
+          VALUES(${ctx.accountId}::uuid, ${shipmentId}::uuid, ${item.orderItemId}::uuid, ${item.quantity})`;
       await enqueueCreateJob(tx, ctx.accountId, shipmentId);
-      await orderEventTx(tx, ctx.accountId, orderId, 'shipment_created', { actorUserId: ctx.userId });
-      await auditTx(tx, ctx.accountId, ctx.userId, 'commerce.shipment_create', shipmentId, { orderId });
+      await orderEventTx(tx, ctx.accountId, orderId, 'shipment_created', { actorUserId: ctx.userId, detail: plan.complete ? null : 'partial' });
+      await auditTx(tx, ctx.accountId, ctx.userId, 'commerce.shipment_create', shipmentId, { orderId, provider: connection.provider });
       return { shipmentId };
     }, ctx.userId);
   } catch (error) {
-    // The partial unique index is the race backstop for the live-shipment check.
-    if (isUniqueViolation(error)) throw new ShipmentError('shipment_exists');
+    // A reference collision (12 random characters): ask again.
+    if (isUniqueViolation(error)) throw new ShipmentError('conflict');
     throw error;
   }
 }
 
 /** Staff "Assign courier again" after a definite AWB refusal (never after an ambiguous one). */
-export async function reassignAwb(ctx: FulfilmentActor, orderId: string): Promise<void> {
+export async function reassignAwb(ctx: FulfilmentActor, orderId: string, shipmentId?: string | null): Promise<void> {
   await requireShipper(ctx);
+  const named = namedShipment(shipmentId);
   await requireAvailable(ctx);
+  if (allDisabled()) throw new ShipmentError('not_configured');
   await asWorker(ctx.accountId, async (tx) => {
     const order = await lockOrderRow(tx, ctx.accountId, orderId);
     if (!order) throw new ShipmentError('not_found');
@@ -385,8 +451,9 @@ export async function reassignAwb(ctx: FulfilmentActor, orderId: string): Promis
     if (order.refunded_full) throw new ShipmentError('order_refunded');
     if (await restockRefundInFlight(tx, ctx.accountId, orderId)) throw new ShipmentError('refund_in_flight');
     const [row] = await tx.$queryRaw<ShipmentRow[]>`SELECT ${SHIPMENT_COLUMNS} FROM order_shipments
-      WHERE account_id=${ctx.accountId}::uuid AND order_id=${orderId}::uuid AND ${LIVE} LIMIT 1 FOR UPDATE`;
+      WHERE account_id=${ctx.accountId}::uuid AND order_id=${orderId}::uuid AND ${pick(named)} FOR UPDATE`;
     if (!row) throw new ShipmentError('not_found');
+    if (getCourierProvider(row.provider).disabled()) throw new ShipmentError('not_configured');
     // Only a definite refusal ('failed') may be repeated: 'unknown' could already have charged the wallet.
     if (row.create_state !== 'created' || row.awb_state !== 'failed' || row.claimed) throw new ShipmentError('conflict');
     await tx.$executeRaw`UPDATE order_shipments SET awb_state='none', last_error_code=NULL, claim_token=NULL, claimed_until=NULL
@@ -397,7 +464,7 @@ export async function reassignAwb(ctx: FulfilmentActor, orderId: string): Promis
 }
 
 function staffProviderFailure(error: unknown): never {
-  if (error instanceof ShiprocketError) {
+  if (error instanceof CourierError) {
     if (error.kind === 'auth') throw new ShipmentError('auth');
     if (error.kind === 'throttled') throw new ShipmentError('throttled');
     if (error.kind === 'rejected') throw new ShipmentError('conflict');
@@ -406,18 +473,20 @@ function staffProviderFailure(error: unknown): never {
   throw error;
 }
 
-/** Staff cancel, only before pickup; the order stays paid. */
-export async function cancelShipment(ctx: FulfilmentActor, orderId: string): Promise<void> {
+/** Staff cancel, only before pickup; the order stays as it is, and the parcel's quantities are free for a new shipment. */
+export async function cancelShipment(ctx: FulfilmentActor, orderId: string, shipmentId?: string | null): Promise<void> {
   await requireShipper(ctx);
-  if (shiprocketDisabled()) throw new ShipmentError('not_configured');
+  const named = namedShipment(shipmentId);
+  if (allDisabled()) throw new ShipmentError('not_configured');
   const token = randomUUID();
   // Claim the row so the create job cannot assign an AWB while Shiprocket cancels the order.
   const claimed = await asWorker(ctx.accountId, async (tx) => {
     const order = await lockOrderRow(tx, ctx.accountId, orderId);
     if (!order) throw new ShipmentError('not_found');
     const [row] = await tx.$queryRaw<ShipmentRow[]>`SELECT ${SHIPMENT_COLUMNS} FROM order_shipments
-      WHERE account_id=${ctx.accountId}::uuid AND order_id=${orderId}::uuid AND ${LIVE} LIMIT 1 FOR UPDATE`;
+      WHERE account_id=${ctx.accountId}::uuid AND order_id=${orderId}::uuid AND ${pick(named)} FOR UPDATE`;
     if (!row) throw new ShipmentError('not_found');
+    if (getCourierProvider(row.provider).disabled()) throw new ShipmentError('not_configured');
     if (row.create_state !== 'created' || !row.sr_order_id || row.claimed || row.awb_state === 'assigning' || row.awb_state === 'unknown'
       || (row.tracking_rank ?? 0) >= TRACKING_RANK.picked_up) throw new ShipmentError('conflict');
     await tx.$executeRaw`UPDATE order_shipments SET claim_token=${token}::uuid,
@@ -427,7 +496,7 @@ export async function cancelShipment(ctx: FulfilmentActor, orderId: string): Pro
   }, ctx.userId);
 
   try {
-    await shiprocketCall(ctx.accountId, 'POST', '/orders/cancel', { ids: [idValue(claimed.sr_order_id!)] });
+    await getCourierProvider(claimed.provider).cancel(ctx.accountId, refOf(claimed));
   } catch (error) {
     await asWorker(ctx.accountId, (tx) => tx.$executeRaw`UPDATE order_shipments SET claim_token=NULL, claimed_until=NULL
       WHERE account_id=${ctx.accountId}::uuid AND id=${claimed.id}::uuid AND claim_token=${token}::uuid`);
@@ -447,21 +516,23 @@ export async function cancelShipment(ctx: FulfilmentActor, orderId: string): Pro
 }
 
 /** A short-lived label URL for the browser (never stored). */
-export async function labelUrl(ctx: FulfilmentActor, orderId: string): Promise<string> {
+export async function labelUrl(ctx: FulfilmentActor, orderId: string, shipmentId?: string | null): Promise<string> {
   await requireShipper(ctx);
-  if (shiprocketDisabled()) throw new ShipmentError('not_configured');
+  const named = namedShipment(shipmentId);
+  if (allDisabled()) throw new ShipmentError('not_configured');
   const row = await asWorker(ctx.accountId, async (tx) => (await tx.$queryRaw<ShipmentRow[]>`SELECT ${SHIPMENT_COLUMNS} FROM order_shipments
-    WHERE account_id=${ctx.accountId}::uuid AND order_id=${orderId}::uuid AND ${LIVE} LIMIT 1`)[0] ?? null);
+    WHERE account_id=${ctx.accountId}::uuid AND order_id=${orderId}::uuid AND ${pick(named)}`)[0] ?? null);
   if (!row) throw new ShipmentError('not_found');
+  const provider = getCourierProvider(row.provider);
+  if (provider.disabled()) throw new ShipmentError('not_configured');
   if (row.awb_state !== 'assigned' || !row.sr_shipment_id) throw new ShipmentError('conflict');
-  let body: unknown;
+  let url: string | null;
   try {
-    body = await shiprocketCall(ctx.accountId, 'POST', '/courier/generate/label', { shipment_id: [idValue(row.sr_shipment_id)] });
+    url = await provider.labelUrl(ctx.accountId, refOf(row));
   } catch (error) {
     if (error instanceof ShipmentError) throw error;
     return staffProviderFailure(error);
   }
-  const url = (body as { label_url?: unknown } | null)?.label_url;
   if (typeof url !== 'string' || url.length > 2048 || !/^https:\/\//.test(url)) throw new ShipmentError('provider_unreachable');
   try { new URL(url); } catch { throw new ShipmentError('provider_unreachable'); }
   return url;
@@ -473,8 +544,8 @@ type Step =
   | { kind: 'done' }
   | { kind: 'busy' }
   | { kind: 'reconcile' }
-  | { kind: 'create'; token: string; payload: NonNullable<Awaited<ReturnType<typeof adhocPayload>>> }
-  | { kind: 'awb'; token: string; srShipmentId: string };
+  | { kind: 'create'; token: string; payload: CourierOrderInput; provider: CourierProviderId }
+  | { kind: 'awb'; token: string; ref: ShipmentRef; provider: CourierProviderId };
 
 async function claimStep(accountId: string, shipmentId: string): Promise<Step> {
   return asWorker(accountId, async (tx) => {
@@ -505,7 +576,7 @@ async function claimStep(accountId: string, shipmentId: string): Promise<Step> {
     const expired = row.claim_token !== null && !row.claimed;
     const [conn] = await tx.$queryRaw<{ id: string; status: string; pickup: string | null; email: string }[]>`
       SELECT id::text AS id, status, pickup_location AS pickup, api_email AS email FROM courier_connections
-      WHERE account_id=${accountId}::uuid AND status<>'disconnected' LIMIT 1`;
+      WHERE account_id=${accountId}::uuid AND status<>'disconnected' AND provider=${row.provider} LIMIT 1`;
     const connected = !!conn && conn.id === row.connection_id && conn.status === 'active';
     // The row's connection is gone for good (disconnected, or replaced by a reconnect): reconcile can never run for it
     // and the sweep only looks at the live connection, so an ambiguous outcome needs staff now.
@@ -526,9 +597,10 @@ async function claimStep(accountId: string, shipmentId: string): Promise<Step> {
       if (!readyToShip(order)) return fail('create_state', 'order_not_paid');
       if (order.refunded_full) return fail('create_state', 'order_refunded');
       if (await restockRefundInFlight(tx, accountId, order.id)) return fail('create_state', 'refund_in_flight');
-      const payload = await adhocPayload(tx, accountId, order, row, conn!.pickup ?? '', conn!.email);
-      if (!payload || !conn!.pickup) return fail('create_state', 'address_incomplete');
-      return { kind: 'create', token: await claim(false), payload };
+      const adapter = getCourierProvider(row.provider);
+      const payload = await orderInput(tx, accountId, order, row, conn!.pickup ?? '', adapter.id === 'shiprocket' ? conn!.email : '');
+      if (!payload || (adapter.requiresPickup && !conn!.pickup)) return fail('create_state', 'address_incomplete');
+      return { kind: 'create', token: await claim(false), payload, provider: row.provider };
     }
     // created
     if (row.awb_state === 'assigned' || row.awb_state === 'failed') return { kind: 'done' };
@@ -548,7 +620,7 @@ async function claimStep(accountId: string, shipmentId: string): Promise<Step> {
     if (order.refunded_full) return fail('awb_state', 'order_refunded');
     if (await restockRefundInFlight(tx, accountId, order.id)) return fail('awb_state', 'refund_in_flight');
     if (!row.sr_shipment_id) return { kind: 'done' };
-    return { kind: 'awb', token: await claim(true), srShipmentId: row.sr_shipment_id };
+    return { kind: 'awb', token: await claim(true), ref: refOf(row), provider: row.provider };
   });
 }
 
@@ -590,11 +662,11 @@ async function recordAwb(tx: TenantTransaction, accountId: string, shipmentId: s
  * and the admins and not only the order page; never fatal. Staff ask again
  * with retryPickup. A pickup request does not charge the wallet.
  */
-async function requestPickup(accountId: string, shipmentId: string, srShipmentId: string): Promise<void> {
+async function requestPickup(accountId: string, shipmentId: string, provider: CourierProviderId, ref: ShipmentRef): Promise<void> {
   try {
-    await shiprocketCall(accountId, 'POST', '/courier/generate/pickup', { shipment_id: [idValue(srShipmentId)] });
+    await getCourierProvider(provider).requestPickup(accountId, ref);
   } catch (error) {
-    console.error('[shipments] pickup request failed', { shipmentId, kind: error instanceof ShiprocketError ? error.kind : 'error' });
+    console.error('[shipments] pickup request failed', { shipmentId, kind: error instanceof CourierError ? error.kind : 'error' });
     await asWorker(accountId, async (tx) => {
       const count = await tx.$executeRaw`UPDATE order_shipments SET last_error_code='pickup_failed'
         WHERE account_id=${accountId}::uuid AND id=${shipmentId}::uuid AND awb_state='assigned'`;
@@ -611,23 +683,26 @@ async function requestPickup(accountId: string, shipmentId: string, srShipmentId
  * Two clicks at once may both ask Shiprocket: a pickup request charges
  * nothing, so that is harmless.
  */
-export async function retryPickup(ctx: FulfilmentActor, orderId: string): Promise<void> {
+export async function retryPickup(ctx: FulfilmentActor, orderId: string, shipmentId?: string | null): Promise<void> {
   await requireShipper(ctx);
+  const named = namedShipment(shipmentId);
   await requireAvailable(ctx);
+  if (allDisabled()) throw new ShipmentError('not_configured');
   const target = await asWorker(ctx.accountId, async (tx) => {
     const order = await lockOrderRow(tx, ctx.accountId, orderId);
     if (!order) throw new ShipmentError('not_found');
     if (order.refunded_full) throw new ShipmentError('order_refunded');
     const [row] = await tx.$queryRaw<(ShipmentRow & { pickup_failed: boolean })[]>`SELECT ${SHIPMENT_COLUMNS},
         COALESCE(last_error_code = 'pickup_failed', false) AS pickup_failed
-      FROM order_shipments WHERE account_id=${ctx.accountId}::uuid AND order_id=${orderId}::uuid AND ${LIVE} LIMIT 1 FOR UPDATE`;
+      FROM order_shipments WHERE account_id=${ctx.accountId}::uuid AND order_id=${orderId}::uuid AND ${pick(named)} FOR UPDATE`;
     if (!row) throw new ShipmentError('not_found');
     if (!row.pickup_failed || row.awb_state !== 'assigned' || !row.sr_shipment_id
       || (row.tracking_rank ?? 0) >= TRACKING_RANK.picked_up) throw new ShipmentError('conflict');
-    return { id: row.id, srShipmentId: row.sr_shipment_id };
+    if (getCourierProvider(row.provider).disabled()) throw new ShipmentError('not_configured');
+    return { id: row.id, provider: row.provider, ref: refOf(row) };
   }, ctx.userId);
   try {
-    await shiprocketCall(ctx.accountId, 'POST', '/courier/generate/pickup', { shipment_id: [idValue(target.srShipmentId)] });
+    await getCourierProvider(target.provider).requestPickup(ctx.accountId, target.ref);
   } catch (error) {
     if (error instanceof ShipmentError) throw error;
     return staffProviderFailure(error);
@@ -651,13 +726,15 @@ async function release(accountId: string, shipmentId: string, token: string, awb
     : tx.$executeRaw`UPDATE order_shipments SET claim_token=NULL, claimed_until=NULL WHERE ${where(accountId, shipmentId, token)}`);
 }
 
-async function runCreate(accountId: string, shipmentId: string, token: string, payload: object): Promise<'next' | 'stop' | 'reconcile'> {
-  let body: unknown;
+async function runCreate(
+  accountId: string, shipmentId: string, token: string, provider: CourierProviderId, payload: CourierOrderInput,
+): Promise<'next' | 'stop' | 'reconcile'> {
+  let created: { srOrderId: string; srShipmentId: string } | null;
   try {
-    body = await shiprocketCall(accountId, 'POST', '/orders/create/adhoc', payload);
+    created = await getCourierProvider(provider).create(accountId, payload);
   } catch (error) {
     if (error instanceof ShipmentError) { await release(accountId, shipmentId, token, false); return 'stop'; }
-    if (!(error instanceof ShiprocketError)) throw error;
+    if (!(error instanceof CourierError)) throw error;
     // Throttled, or the login failed so the create was never sent: release and let the job retry with backoff.
     if (error.kind === 'throttled' || error.kind === 'unavailable') { await release(accountId, shipmentId, token, false); throw error; }
     if ((error.kind === 'rejected' && error.code !== 'duplicate_order') || error.kind === 'auth') {
@@ -671,7 +748,6 @@ async function runCreate(accountId: string, shipmentId: string, token: string, p
         last_error_code=NULL, claim_token=NULL, claimed_until=NULL WHERE ${where(accountId, shipmentId, token)}`);
     return 'reconcile';
   }
-  const created = parseAdhocCreate(body);
   if (!created) {
     await settle(accountId, shipmentId, token, (tx) => tx.$executeRaw`UPDATE order_shipments SET create_state='unknown',
         claim_token=NULL, claimed_until=NULL WHERE ${where(accountId, shipmentId, token)}`);
@@ -684,13 +760,15 @@ async function runCreate(accountId: string, shipmentId: string, token: string, p
   return ok ? 'next' : 'stop';
 }
 
-async function runAwb(accountId: string, shipmentId: string, token: string, srShipmentId: string): Promise<'stop' | 'reconcile'> {
-  let body: unknown;
+async function runAwb(
+  accountId: string, shipmentId: string, token: string, provider: CourierProviderId, ref: ShipmentRef,
+): Promise<'stop' | 'reconcile'> {
+  let result: AwbOutcome | null;
   try {
-    body = await shiprocketCall(accountId, 'POST', '/courier/assign/awb', { shipment_id: idValue(srShipmentId) });
+    result = await getCourierProvider(provider).assignAwb(accountId, ref);
   } catch (error) {
     if (error instanceof ShipmentError) { await release(accountId, shipmentId, token, true); return 'stop'; }
-    if (!(error instanceof ShiprocketError)) throw error;
+    if (!(error instanceof CourierError)) throw error;
     if (error.kind === 'throttled' || error.kind === 'unavailable') { await release(accountId, shipmentId, token, true); throw error; }
     if (error.kind === 'rejected' || error.kind === 'auth') {
       // A definite refusal charged nothing: staff may "Assign courier again".
@@ -703,7 +781,6 @@ async function runAwb(accountId: string, shipmentId: string, token: string, srSh
         claim_token=NULL, claimed_until=NULL WHERE ${where(accountId, shipmentId, token)}`);
     return 'reconcile';
   }
-  const result = parseAwbAssign(body);
   if (result?.kind === 'assigned') {
     let ok: boolean;
     try {
@@ -720,7 +797,7 @@ async function runAwb(accountId: string, shipmentId: string, token: string, srSh
       });
       return 'stop';
     }
-    if (ok) await requestPickup(accountId, shipmentId, srShipmentId);
+    if (ok) await requestPickup(accountId, shipmentId, provider, ref);
     return 'stop';
   }
   if (result?.kind === 'refused') {
@@ -733,9 +810,15 @@ async function runAwb(accountId: string, shipmentId: string, token: string, srSh
   return 'reconcile';
 }
 
-/** commerce.create_shipment job: adhoc order, then AWB and pickup. */
+async function providerOfShipment(accountId: string, shipmentId: string): Promise<CourierProviderId | null> {
+  return asWorker(accountId, async (tx) => (await tx.$queryRaw<{ provider: CourierProviderId }[]>`SELECT provider FROM order_shipments
+    WHERE account_id=${accountId}::uuid AND id=${shipmentId}::uuid`)[0]?.provider ?? null);
+}
+
+/** commerce.create_shipment job: create the order at the courier, then AWB and pickup. */
 export async function handleCreateShipmentJob(accountId: string, payload: ShipmentJobPayload, meta: FulfilmentJobMeta): Promise<void> {
-  if (shiprocketDisabled()) return;
+  const providerId = await providerOfShipment(accountId, payload.shipmentId);
+  if (!providerId || getCourierProvider(providerId).disabled()) return;
   const final = meta.attempts >= meta.maxAttempts;
   // At most: create, AWB (plus a reconcile in between).
   for (let round = 0; round < 4; round += 1) {
@@ -749,11 +832,11 @@ export async function handleCreateShipmentJob(accountId: string, payload: Shipme
       return;
     }
     if (step.kind === 'create') {
-      const next = await runCreate(accountId, payload.shipmentId, step.token, step.payload);
+      const next = await runCreate(accountId, payload.shipmentId, step.token, step.provider, step.payload);
       if (next === 'stop') return;
       continue;
     }
-    if ((await runAwb(accountId, payload.shipmentId, step.token, step.srShipmentId)) === 'stop') return;
+    if ((await runAwb(accountId, payload.shipmentId, step.token, step.provider, step.ref)) === 'stop') return;
   }
 }
 
@@ -767,11 +850,12 @@ export async function handleCreateShipmentJob(accountId: string, payload: Shipme
 export async function reconcileShipment(
   accountId: string, shipmentId: string, opts: { openException?: boolean } = { openException: true },
 ): Promise<'adopted' | 'unknown' | 'skipped'> {
-  if (shiprocketDisabled()) return 'skipped';
   const row = await asWorker(accountId, async (tx) => (await tx.$queryRaw<ShipmentRow[]>`SELECT ${SHIPMENT_COLUMNS} FROM order_shipments
     WHERE account_id=${accountId}::uuid AND id=${shipmentId}::uuid`)[0] ?? null);
   if (!row || row.claimed) return 'skipped';
-  const secrets = await loadCourierSecrets(accountId);
+  const adapter = getCourierProvider(row.provider);
+  if (adapter.disabled()) return 'skipped';
+  const secrets = await loadCourierSecrets(accountId, row.provider);
   if (!secrets || secrets.status !== 'active' || secrets.connectionId !== row.connection_id) return 'skipped';
   const createAmbiguous = row.create_state === 'unknown' || (row.create_state === 'creating' && row.claim_token !== null);
   const awbAmbiguous = row.create_state === 'created' && (row.awb_state === 'unknown' || (row.awb_state === 'assigning' && row.claim_token !== null));
@@ -780,12 +864,12 @@ export async function reconcileShipment(
   let found: FoundOrder | null;
   try {
     found = createAmbiguous
-      ? findByReference(await shiprocketCall(accountId, 'GET', `/orders?search=${encodeURIComponent(row.reference)}`), row.reference)
-      : row.sr_order_id ? parseOrderShow(await shiprocketCall(accountId, 'GET', `/orders/show/${row.sr_order_id}`), row.sr_order_id) : null;
+      ? await adapter.findByReference(accountId, row.reference)
+      : row.sr_order_id ? await adapter.showOrder(accountId, refOf(row)) : null;
   } catch (error) {
     // No HTTP happened (switched off or disconnected meanwhile).
     if (error instanceof ShipmentError) return 'skipped';
-    if (error instanceof ShiprocketError) {
+    if (error instanceof CourierError) {
       console.error('[shipments] reconcile lookup failed', { shipmentId, kind: error.kind });
       return 'unknown';
     }
@@ -793,7 +877,7 @@ export async function reconcileShipment(
   }
 
   const unclaimed = Prisma.sql`account_id=${accountId}::uuid AND id=${shipmentId}::uuid AND (claimed_until IS NULL OR claimed_until <= now())`;
-  let adoptedAwb: string | null = null;
+  let adopted: ShipmentRef | null = null;
   const outcome = await asWorker(accountId, async (tx) => {
     await lockOrderRow(tx, accountId, row.order_id);
     const current = await lockShipment(tx, accountId, shipmentId);
@@ -809,14 +893,14 @@ export async function reconcileShipment(
           sr_shipment_id=${found.srShipmentId}, claim_token=NULL, claimed_until=NULL, last_error_code=NULL WHERE ${unclaimed}`;
       if (found.awb) {
         await recordAwb(tx, accountId, shipmentId, found.awb, found.courier, unclaimed);
-        adoptedAwb = found.srShipmentId;
+        adopted = { ...refOf(row), srOrderId: found.srOrderId, srShipmentId: found.srShipmentId, awb: found.awb };
       }
       return 'adopted' as const;
     }
     if (current.awb_state !== 'unknown' && current.awb_state !== 'assigning') return 'skipped' as const;
     if (found?.awb) {
       await recordAwb(tx, accountId, shipmentId, found.awb, found.courier, unclaimed);
-      adoptedAwb = current.sr_shipment_id;
+      adopted = refOf(row);
       return 'adopted' as const;
     }
     // Never assign again: the first assignment may have charged the wallet. Staff resolve the exception.
@@ -824,7 +908,7 @@ export async function reconcileShipment(
     if (opts.openException) await openShipmentException(tx, accountId, shipmentId, 'awb_unknown');
     return 'unknown' as const;
   });
-  if (adoptedAwb) await requestPickup(accountId, shipmentId, adoptedAwb);
+  if (adopted) await requestPickup(accountId, shipmentId, row.provider, adopted);
   return outcome;
 }
 
@@ -834,6 +918,7 @@ interface ViewRow {
   id: string;
   order_id: string;
   reference: string;
+  provider: CourierProviderId;
   create_state: ShipmentCreateState;
   awb_state: ShipmentAwbState;
   awb: string | null;
@@ -853,21 +938,33 @@ interface ViewRow {
 
 const iso = (d: Date | null): string | null => (d ? new Date(d).toISOString() : null);
 
-/** The order's live shipment, else its latest one, as the app may see it (null when none or for a viewer). */
+/** The order's live shipment (the newest when it has several), else its latest one, as the app may see it (null when none or for a viewer). */
 export async function getOrderShipment(tx: TenantTransaction, accountId: string, orderId: string): Promise<OrderShipmentView | null> {
-  const [row] = await tx.$queryRaw<ViewRow[]>`SELECT id::text AS id, order_id::text AS order_id, reference, create_state, awb_state, awb,
+  return (await listOrderShipments(tx, accountId, orderId))[0] ?? null;
+}
+
+/** Every shipment of the order with the lines it carries: live ones first, newest first (empty for a viewer). */
+export async function listOrderShipments(tx: TenantTransaction, accountId: string, orderId: string): Promise<OrderShipmentView[]> {
+  const rows = await tx.$queryRaw<ViewRow[]>`SELECT id::text AS id, order_id::text AS order_id, reference, provider, create_state, awb_state, awb,
       courier_name, tracking_status, tracking_rank, tracking_event_at, provider_dispatched_at, provider_delivered_at, last_error_code,
       length_cm, breadth_cm, height_cm, weight_grams, created_at
     FROM order_shipments WHERE account_id=${accountId}::uuid AND order_id=${orderId}::uuid
-    ORDER BY (create_state NOT IN ('failed','cancelled')) DESC, created_at DESC LIMIT 1`;
-  if (!row) return null;
+    ORDER BY (create_state NOT IN ('failed','cancelled')) DESC, created_at DESC, id DESC LIMIT 50`;
+  if (!rows.length) return [];
+  const items = await tx.$queryRaw<{ shipment_id: string; order_item_id: string; quantity: number }[]>`
+    SELECT shipment_id::text AS shipment_id, order_item_id::text AS order_item_id, quantity FROM shipment_items
+    WHERE account_id=${accountId}::uuid AND shipment_id = ANY(${rows.map((r) => r.id)}::uuid[])`;
+  return rows.map((row) => toView(row, items.filter((i) => i.shipment_id === row.id).map((i) => ({ order_item_id: i.order_item_id, quantity: i.quantity }))));
+}
+
+function toView(row: ViewRow, items: Array<{ order_item_id: string; quantity: number }>): OrderShipmentView {
   return {
-    id: row.id, order_id: row.order_id, reference: row.reference, create_state: row.create_state, awb_state: row.awb_state,
+    id: row.id, order_id: row.order_id, reference: row.reference, provider: row.provider, create_state: row.create_state, awb_state: row.awb_state,
     awb: row.awb, courier_name: row.courier_name, tracking_status: row.tracking_status, tracking_rank: row.tracking_rank,
     tracking_event_at: iso(row.tracking_event_at), provider_dispatched_at: iso(row.provider_dispatched_at),
     provider_delivered_at: iso(row.provider_delivered_at), last_error_code: row.last_error_code,
     length_cm: Number(row.length_cm), breadth_cm: Number(row.breadth_cm), height_cm: Number(row.height_cm),
-    weight_grams: row.weight_grams, created_at: new Date(row.created_at).toISOString(),
+    weight_grams: row.weight_grams, created_at: new Date(row.created_at).toISOString(), items,
   };
 }
 

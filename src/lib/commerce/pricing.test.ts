@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  couponDiscount, normaliseCart, pickShippingRate, priceCart, taxOn,
+  couponDiscount, normaliseCart, pickShippingRate, priceCart, quoteShippingForPincode, shippingFeeMinor, taxOn,
   type PricingCoupon, type PricingSettings, type PricingShippingRate, type PricingVariant,
 } from './pricing';
 
@@ -60,6 +60,80 @@ describe('pickShippingRate', () => {
     expect(pickShippingRate([rate({ country: 'US' })], address, 0)).toBeNull();
     expect(pickShippingRate([rate({ minSubtotalMinor: 500 })], address, 499)).toBeNull();
     expect(pickShippingRate([rate({ maxSubtotalMinor: 500 })], address, 501)).toBeNull();
+  });
+});
+
+describe('zones, weight slabs and the free threshold', () => {
+  const mh = { country: 'IN', postalCode: '411001', state: 'Maharashtra', stateCode: 'MH' };
+  const zones = [
+    rate({ id: 'all', name: 'Rest of India', feeMinor: 9000 }),
+    rate({ id: 'state', name: 'Maharashtra', states: ['MH'], feeMinor: 6000 }),
+    rate({ id: 'metro', name: 'Pune', postalPrefixes: ['4110'], feeMinor: 3000 }),
+    rate({ id: 'city', name: 'Pune 1', postalPrefixes: ['41100'], feeMinor: 2000 }),
+  ];
+  it('longest prefix beats a shorter prefix, a state and the catch-all', () => {
+    expect(pickShippingRate(zones, mh, 100)?.id).toBe('city');
+    expect(pickShippingRate(zones, { ...mh, postalCode: '411045' }, 100)?.id).toBe('metro');
+    expect(pickShippingRate(zones, { ...mh, postalCode: '400001' }, 100)?.id).toBe('state');
+    expect(pickShippingRate(zones, { country: 'IN', postalCode: '560001', state: 'Karnataka', stateCode: 'KA' }, 100)?.id).toBe('all');
+  });
+  it('matches a state by name or code, ignoring case and spacing', () => {
+    const r = [rate({ id: 'tn', states: ['TAMIL NADU'] })];
+    expect(pickShippingRate(r, { country: 'IN', postalCode: '600001', state: 'tamil  nadu' }, 0)?.id).toBe('tn');
+    expect(pickShippingRate(r, { country: 'IN', postalCode: '600001', state: 'Kerala', stateCode: 'KL' }, 0)).toBeNull();
+    expect(pickShippingRate(r, { country: 'IN', postalCode: '600001' }, 0)).toBeNull();
+  });
+  it('with only zone rates and no catch-all, an uncovered address is not deliverable', () => {
+    const only = zones.filter((z) => z.id !== 'all');
+    expect(quoteShippingForPincode(only, { pincode: '560001', state: 'Karnataka' })).toEqual({ deliverable: false, priceMinor: 0, cod: false, rateName: null });
+    expect(quoteShippingForPincode(only, { pincode: '411001' })).toMatchObject({ deliverable: true, priceMinor: 2000, rateName: 'Pune 1' });
+  });
+  it('charges the slab: base covers the first grams, then each started step', () => {
+    const slab = rate({ feeMinor: 4000, baseWeightGrams: 500, stepGrams: 500, extraPerStepMinor: 1500 });
+    expect(shippingFeeMinor(slab, 0, 0)).toBe(4000);
+    expect(shippingFeeMinor(slab, 500, 0)).toBe(4000);
+    expect(shippingFeeMinor(slab, 501, 0)).toBe(5500);
+    expect(shippingFeeMinor(slab, 1500, 0)).toBe(7000);
+    expect(shippingFeeMinor(slab, 1501, 0)).toBe(8500);
+  });
+  it('skips a rate whose weight limit the cart exceeds', () => {
+    const rs = [rate({ id: 'light', maxWeightGrams: 1000, feeMinor: 1000 }), rate({ id: 'heavy', feeMinor: 8000, position: 1 })];
+    expect(pickShippingRate(rs, address, 0, { weightGrams: 1000 })?.id).toBe('light');
+    expect(pickShippingRate(rs, address, 0, { weightGrams: 1001 })?.id).toBe('heavy');
+    expect(pickShippingRate([rs[0]], address, 0, { weightGrams: 1001 })).toBeNull();
+  });
+  it('is free once the merchandise reaches the threshold, and not before', () => {
+    const r = rate({ freeOverMinor: 100000 });
+    expect(shippingFeeMinor(r, 0, 99999)).toBe(5000);
+    expect(shippingFeeMinor(r, 0, 100000)).toBe(0);
+    expect(quoteShippingForPincode([r], { pincode: '560001', subtotalMinor: 100000 })).toMatchObject({ priceMinor: 0 });
+  });
+  it('reports the zone COD flag; rows without the new fields behave as before', () => {
+    expect(quoteShippingForPincode([rate({ codAllowed: false })], { pincode: '560001' }).cod).toBe(false);
+    expect(quoteShippingForPincode([rate()], { pincode: '560001' })).toEqual({ deliverable: true, priceMinor: 5000, cod: true, rateName: 'India' });
+    expect(shippingFeeMinor(rate(), 99999, 0)).toBe(5000);
+  });
+  it('priceCart weighs the cart on the server, applies the slab after discounts, and honours the zone COD switch', () => {
+    const rs = [rate({ feeMinor: 4000, baseWeightGrams: 500, stepGrams: 500, extraPerStepMinor: 1500, freeOverMinor: 50000, taxRateBps: 0, codAllowed: false })];
+    const run = (qty: number, extra: Record<string, unknown> = {}) => priceCart({
+      lines: [{ variantId: 'a', qty }], variants: [variant('a', 10000, { weightGrams: 400 })], settings: inr({ codEnabled: true }),
+      shippingRates: rs, coupon: null, address, ...extra,
+    });
+    const two = run(2); // 800 g -> one extra step
+    expect(two.ok && two.quote.shippingMinor).toBe(5500);
+    expect(two.ok && two.quote.codAvailable).toBe(false);
+    const heavy = run(4); // 1600 g, but 40000 is below the 50000 threshold: 3 extra steps
+    expect(heavy.ok && heavy.quote.shippingMinor).toBe(8500);
+    const free = run(5); // 2000 g, 50000 reaches the threshold
+    expect(free.ok && free.quote.shippingMinor).toBe(0);
+    const afterCoupon = run(5, { coupon: coupon({ kind: 'fixed', value: 1000 }) }); // 49000 after the coupon: not free
+    expect(afterCoupon.ok && afterCoupon.quote.shippingMinor).toBe(4000 + 1500 * 3);
+    expect(run(2, { paymentMethod: 'cod' })).toEqual({ ok: false, code: 'cod_unavailable' });
+  });
+  it('a variant with no weight counts as 0', () => {
+    const r = priceCart({ lines: [{ variantId: 'a', qty: 3 }], variants: [variant('a', 100)], settings: inr(),
+      shippingRates: [rate({ feeMinor: 4000, baseWeightGrams: 0, stepGrams: 100, extraPerStepMinor: 1000 })], coupon: null, address });
+    expect(r.ok && r.quote.shippingMinor).toBe(4000);
   });
 });
 

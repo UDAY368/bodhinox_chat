@@ -40,6 +40,7 @@ import type { OrderStatus } from './order-format';
 import {
   CART_LIMITS, isPaymentMethod, normaliseCart, priceCart, type CartLine, type PaymentMethod, type PricingResult, type PricingVariant, type Quote,
 } from './pricing';
+import { orderTrackingPathTx } from './order-tracking-link';
 import { deriveStorefrontToken, storefrontTokenHash, storefrontUrl } from './storefront-token';
 import { isUuid, loadPricingSettings, onlinePaymentReady, pricingRate, selectRates, StoreError } from './store-settings';
 
@@ -465,7 +466,7 @@ export async function sessionLines(tx: TenantTransaction, accountId: string, ses
 interface VariantRow {
   id: string; product_id: string; product_name: string; sku: string; option_values: Record<string, string>; price_minor: bigint | null;
   compare_at_minor: bigint | null; tax_rate_bps: number | null; hsn_code: string | null; track_inventory: boolean; sellable: boolean;
-  available: number | null; cod_available: boolean;
+  available: number | null; cod_available: boolean; weight_grams: number | null;
 }
 
 /** Variants by id (any status; `sellable` says whether it can be bought now). */
@@ -473,7 +474,7 @@ export async function loadVariants(tx: TenantTransaction, accountId: string, ids
   if (!ids.length) return new Map();
   const rows = await tx.$queryRaw<VariantRow[]>`
     SELECT v.id::text AS id, v.product_id::text AS product_id, p.name AS product_name, v.sku, v.option_values, v.price_minor,
-      v.compare_at_minor, v.tax_rate_bps, v.hsn_code, v.track_inventory, p.cod_available,
+      v.compare_at_minor, v.tax_rate_bps, v.hsn_code, v.track_inventory, p.cod_available, v.weight_grams,
       (p.status='published' AND v.archived_at IS NULL) AS sellable,
       CASE WHEN v.track_inventory THEN COALESCE(l.on_hand - l.reserved, 0) END AS available
     FROM shop_variants v JOIN shop_products p ON p.account_id=v.account_id AND p.id=v.product_id
@@ -482,7 +483,7 @@ export async function loadVariants(tx: TenantTransaction, accountId: string, ids
   return new Map(rows.map((r) => [r.id, {
     id: r.id, productId: r.product_id, productName: r.product_name, sku: r.sku, optionValues: r.option_values ?? {},
     priceMinor: minorFromDb(r.price_minor), taxRateBps: r.tax_rate_bps, hsnCode: r.hsn_code, trackInventory: r.track_inventory,
-    sellable: r.sellable, available: r.available, codAvailable: r.cod_available,
+    sellable: r.sellable, available: r.available, codAvailable: r.cod_available, weightGrams: r.weight_grams,
   }]));
 }
 
@@ -513,7 +514,7 @@ export async function quoteSessionTx(tx: TenantTransaction, accountId: string, s
   const result = priceCart({
     lines, variants, settings, shippingRates: rates,
     coupon: session.coupon_code ? (coupon ? toPricingCoupon(coupon) : 'missing') : null,
-    address: address ? { country: address.country, postalCode: address.postal_code } : null,
+    address: address ? { country: address.country, postalCode: address.postal_code, state: address.state, stateCode: address.state_code } : null,
     paymentMethod: session.payment_method, autoDiscounts, now: options.now,
   });
   return { result, coupon, lines };
@@ -654,6 +655,8 @@ export interface StorefrontOrderView {
   reservationExpiresAt: string | null;
   paidAt: string | null;
   documentNumber: string | null;
+  /** The public tracking page ('/s/<handle>/track/<token>'); null when the workspace has no published shop. */
+  trackingPath: string | null;
 }
 
 export interface StorefrontView {
@@ -696,7 +699,7 @@ export async function loadOrderView(tx: TenantTransaction, accountId: string, or
     SELECT short_url, status FROM payment_links WHERE account_id=${accountId}::uuid AND order_id=${orderId}::uuid
       AND status IN ('creating','created','partially_paid','unknown') ORDER BY created_at DESC LIMIT 1`;
   const [doc] = await tx.$queryRaw<{ number: string }[]>`
-    SELECT number FROM commerce_documents WHERE account_id=${accountId}::uuid AND order_id=${orderId}::uuid AND kind='receipt'
+    SELECT number FROM commerce_documents WHERE account_id=${accountId}::uuid AND order_id=${orderId}::uuid AND kind IN ('receipt','tax_invoice')
     ORDER BY issued_at DESC LIMIT 1`;
   const awaiting = order.status === 'awaiting_payment';
   const [failed] = order.status === 'expired' ? await tx.$queryRaw<{ n: number }[]>`SELECT count(*)::int AS n FROM order_events
@@ -722,6 +725,7 @@ export async function loadOrderView(tx: TenantTransaction, accountId: string, or
     returnWindowDays: shipped ? (window?.days ?? 7) : null,
     reservationExpiresAt: order.reservation_expires_at?.toISOString() ?? null, paidAt: order.paid_at?.toISOString() ?? null,
     documentNumber: doc?.number ?? null,
+    trackingPath: await orderTrackingPathTx(tx, accountId, orderId),
   };
 }
 

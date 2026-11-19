@@ -21,7 +21,8 @@ import { getWorkerPrisma } from '@/lib/db/prisma';
 import { withTenant, type TenantTransaction } from '@/lib/db/tenant';
 import { auditTx } from '@/lib/payments/ledger';
 import { decrypt, encrypt } from '@/lib/whatsapp/encryption';
-import { shiprocketDisabled, ShiprocketError, shiprocketLogin, shiprocketRequest } from './shiprocket-client';
+import { CourierError, type CourierProviderId } from './providers/types';
+import { shiprocketDisabled, shiprocketLogin, shiprocketRequest } from './shiprocket-client';
 import {
   ShipmentError, type CourierConnectionDto, type CourierConnectionStatus, type FulfilmentActor, type ShipmentDims,
 } from './types';
@@ -86,13 +87,13 @@ const PUBLIC_SELECT = Prisma.sql`id::text AS id, status, api_email, pickup_locat
   default_height_cm, default_weight_grams, last_error_code, connected_at`;
 
 /** Worker transaction in the actor's workspace (app.user_id = the member, for audit). */
-const asWorker = <T>(ctx: { accountId: string; userId?: string }, work: (tx: TenantTransaction) => Promise<T>) =>
+export const asWorker = <T>(ctx: { accountId: string; userId?: string }, work: (tx: TenantTransaction) => Promise<T>) =>
   withTenant({ accountId: ctx.accountId, userId: ctx.userId, role: 'owner' }, work, getWorkerPrisma());
 
 async function webhookTokenSet(accountId: string): Promise<boolean> {
   const rows = await asWorker({ accountId }, (tx) => tx.$queryRaw<{ set: boolean }[]>`
     SELECT webhook_token_hash IS NOT NULL AS set FROM courier_connections
-    WHERE account_id=${accountId}::uuid AND status<>'disconnected' LIMIT 1`);
+    WHERE account_id=${accountId}::uuid AND status<>'disconnected' AND provider='shiprocket' LIMIT 1`);
   return rows[0]?.set === true;
 }
 
@@ -102,13 +103,13 @@ async function webhookTokenSet(accountId: string): Promise<boolean> {
  */
 export async function getCourierConnection(tx: TenantTransaction, accountId: string): Promise<CourierConnectionDto> {
   const rows = await tx.$queryRaw<ConnectionRow[]>`SELECT ${PUBLIC_SELECT} FROM courier_connections
-    WHERE account_id=${accountId}::uuid AND status<>'disconnected' LIMIT 1`;
+    WHERE account_id=${accountId}::uuid AND status<>'disconnected' AND provider='shiprocket' LIMIT 1`;
   if (!rows[0]) return EMPTY;
   return toDto(accountId, rows[0], await webhookTokenSet(accountId));
 }
 
 /** Admin with commerce.shipments, on a plan with courier shipping, on a deployment with Shiprocket on. */
-async function requireManager(ctx: FulfilmentActor): Promise<void> {
+export async function requireManager(ctx: FulfilmentActor): Promise<void> {
   if (!ctx.role || !hasMinRole(ctx.role, 'admin')) throw new ForbiddenError('Insufficient workspace role');
   await requirePermission(ctx, 'commerce.shipments');
 }
@@ -137,7 +138,7 @@ export function validDims(input: Partial<ShipmentDims>, required: boolean): Part
 
 /** Maps a provider failure during a member's action to a code the UI translates. */
 function providerFailure(error: unknown): never {
-  if (error instanceof ShiprocketError) {
+  if (error instanceof CourierError) {
     if (error.kind === 'auth') throw new ShipmentError('auth');
     if (error.kind === 'throttled') throw new ShipmentError('throttled');
     throw new ShipmentError('provider_unreachable');
@@ -199,7 +200,7 @@ export async function saveCourierConnection(ctx: FulfilmentActor, input: Courier
         status='active', api_email=${email}, api_password_enc=${passwordEnc}, token_enc=${tokenEnc}, token_expires_at=${expiresAt},
         pickup_location=${pickup}, default_length_cm=${defaults.length_cm ?? null}, default_breadth_cm=${defaults.breadth_cm ?? null},
         default_height_cm=${defaults.height_cm ?? null}, default_weight_grams=${defaults.weight_grams ?? null}, last_error_code=NULL
-      WHERE account_id=${ctx.accountId}::uuid AND status<>'disconnected'
+      WHERE account_id=${ctx.accountId}::uuid AND status<>'disconnected' AND provider='shiprocket'
       RETURNING ${PUBLIC_SELECT}`;
     let saved = updated[0];
     if (!saved) {
@@ -209,7 +210,7 @@ export async function saveCourierConnection(ctx: FulfilmentActor, input: Courier
           token_enc, token_expires_at, pickup_location, default_length_cm, default_breadth_cm, default_height_cm, default_weight_grams, connected_by)
         VALUES(${ctx.accountId}::uuid, ${email}, ${passwordEnc}, ${tokenEnc}, ${expiresAt}, ${pickup}, ${defaults.length_cm ?? null},
           ${defaults.breadth_cm ?? null}, ${defaults.height_cm ?? null}, ${defaults.weight_grams ?? null}, ${ctx.userId}::uuid)
-        ON CONFLICT (account_id) WHERE status <> 'disconnected' DO NOTHING
+        ON CONFLICT (account_id, provider) WHERE status <> 'disconnected' DO NOTHING
         RETURNING ${PUBLIC_SELECT}`;
       if (!inserted[0]) throw new ShipmentError('conflict');
       saved = inserted[0];
@@ -250,7 +251,7 @@ export async function rotateWebhookToken(ctx: FulfilmentActor): Promise<{ token:
   const hash = digest(token);
   const id = await asWorker(ctx, async (tx) => {
     const [row] = await tx.$queryRaw<{ id: string; had: boolean }[]>`SELECT id::text AS id, webhook_token_hash IS NOT NULL AS had
-      FROM courier_connections WHERE account_id=${ctx.accountId}::uuid AND status<>'disconnected' LIMIT 1 FOR UPDATE`;
+      FROM courier_connections WHERE account_id=${ctx.accountId}::uuid AND status<>'disconnected' AND provider='shiprocket' LIMIT 1 FOR UPDATE`;
     if (!row) return null;
     await tx.$executeRaw`UPDATE courier_connections SET webhook_token_hash=${hash}
       WHERE account_id=${ctx.accountId}::uuid AND id=${row.id}::uuid`;
@@ -273,7 +274,7 @@ export async function disconnectCourier(ctx: FulfilmentActor): Promise<void> {
   await asWorker(ctx, async (tx) => {
     const [row] = await tx.$queryRaw<{ id: string; status: string }[]>`UPDATE courier_connections SET status='disconnected',
         api_password_enc=NULL, token_enc=NULL, token_expires_at=NULL, webhook_token_hash=NULL, disconnected_at=now()
-      WHERE account_id=${ctx.accountId}::uuid AND status<>'disconnected'
+      WHERE account_id=${ctx.accountId}::uuid AND status<>'disconnected' AND provider='shiprocket'
       RETURNING id::text AS id, status`;
     if (row) await auditTx(tx, ctx.accountId, ctx.userId, 'integrations.shiprocket_disconnect', row.id);
   });
@@ -292,11 +293,11 @@ export interface CourierSecrets {
 }
 
 /** Never return or log the result. */
-export async function loadCourierSecrets(accountId: string): Promise<CourierSecrets | null> {
+export async function loadCourierSecrets(accountId: string, provider: CourierProviderId = 'shiprocket'): Promise<CourierSecrets | null> {
   const rows = await asWorker({ accountId }, (tx) => tx.$queryRaw<(ConnectionRow & {
     api_password_enc: string | null; token_enc: string | null; token_expires_at: Date | null;
   })[]>`SELECT ${PUBLIC_SELECT}, api_password_enc, token_enc, token_expires_at FROM courier_connections
-    WHERE account_id=${accountId}::uuid AND status<>'disconnected' LIMIT 1`);
+    WHERE account_id=${accountId}::uuid AND status<>'disconnected' AND provider=${provider} LIMIT 1`);
   const row = rows[0];
   if (!row) return null;
   const dec = (v: string | null): string | null => {
@@ -342,7 +343,7 @@ export async function courierWebhookTokenMatches(accountId: string, token: strin
   if (typeof token !== 'string' || token.length < 16 || token.length > TOKEN_MAX) return false;
   const rows = await asWorker({ accountId }, (tx) => tx.$queryRaw<{ hash: string | null }[]>`
     SELECT webhook_token_hash AS hash FROM courier_connections
-    WHERE account_id=${accountId}::uuid AND status<>'disconnected' LIMIT 1`);
+    WHERE account_id=${accountId}::uuid AND status<>'disconnected' AND provider='shiprocket' LIMIT 1`);
   const stored = rows[0]?.hash;
   if (!stored) return false;
   return timingSafeEqual(Buffer.from(digest(token), 'hex'), Buffer.from(stored, 'hex'));

@@ -82,7 +82,7 @@ describe('renderCommerceDocumentHtml', () => {
     id: 'd', kind: 'receipt', number: 'VH/2026-27/1', fy: '2026-27', currency: 'INR', order_id: 'o', appointment_id: null,
     payment_id: 'p', refund_id: null,
     seller: { legal_name: 'Veda & Co', gstin: '29ABCDE1234F1Z5', address: null, state_code: '29' },
-    buyer: { name: '<script>alert(1)</script>' },
+    buyer: { name: '<script>alert(1)</script>', gstin: null, legal_name: null, place_of_supply: null },
     address: { line1: '"><img src=x onerror=alert(1)>' },
     line_items: [{ name: '<b>Tea</b>', sku: 'T-1', hsn_code: '0902', quantity: 2, unit_price_minor: 10000, discount_minor: 0,
       tax_rate_bps: 500, tax_minor: 952, line_total_minor: 20000 }],
@@ -113,6 +113,21 @@ describe('renderCommerceDocumentHtml', () => {
     expect(html).toContain('taxIncluded');
     expect(renderCommerceDocumentHtml({ ...doc, seller: { ...doc.seller, gstin: null } }, labels)).toContain('<h1>receipt</h1>');
     expect(renderCommerceDocumentHtml({ ...doc, kind: 'credit_note' }, labels)).toContain('<h1>creditNote</h1>');
+  });
+
+  it('prints a tax invoice with the buyer GSTIN, place of supply, taxable value and rate, escaped', () => {
+    const invoice: CommerceDocument = { ...doc, kind: 'tax_invoice', buyer: { name: 'Asha', gstin: '27AAPFU0939F1ZV', legal_name: 'Rao <Traders>', place_of_supply: '27' },
+      line_items: [{ ...doc.line_items[0], taxable_minor: 19048 }] };
+    const html = renderCommerceDocumentHtml(invoice, labels);
+    expect(html).toContain('<h1>taxInvoice</h1>');
+    expect(html).toContain('gstin: 27AAPFU0939F1ZV');
+    expect(html).toContain('placeOfSupply: 27');
+    expect(html).toContain('Rao &lt;Traders&gt;');
+    expect(html).toContain('<th class="num">taxable</th><th class="num">rate</th>');
+    expect(html).toContain('5%');
+    expect(html).toContain('190.48');
+    // A plain receipt keeps its columns.
+    expect(renderCommerceDocumentHtml(doc, labels)).not.toContain('taxable');
   });
 
   it('escapes quotes', () => {

@@ -59,7 +59,8 @@ export const shopApi = {
   /** How to pay: 'online' (a payment link) or 'cod' (cash on delivery). */
   payment: (token: string, expectedVersion: number, paymentMethod: 'online' | 'cod') =>
     call<StorefrontView>(`${base(token)}/payment`, 'PUT', { expectedVersion, paymentMethod }),
-  place: (token: string, body: { expectedVersion: number; expectedTotalMinor: number; clientRequestId: string; marketingOptIn: boolean }) =>
+  place: (token: string, body: { expectedVersion: number; expectedTotalMinor: number; clientRequestId: string; marketingOptIn: boolean;
+    buyerGstin?: string; buyerLegalName?: string }) =>
     call<{ created: boolean; view: StorefrontView | null }>(`${base(token)}/place`, 'POST', body),
   status: (token: string) => call<{ order: StorefrontOrderView | null }>(`${base(token)}/status`, 'GET'),
   /** One catalogue page: a name/description search, one category, and the cursor of the page before. */

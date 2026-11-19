@@ -13,14 +13,17 @@ export const runtime = 'nodejs';
 type Context = { params: Promise<{ id: string }> };
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-export async function POST(_request: Request, context: Context) {
+export async function POST(request: Request, context: Context) {
   try {
     const { id } = await context.params;
     if (!UUID.test(id)) return shipmentErrorResponse('not_found', 404);
     const ctx = await requireRole('agent');
     const limited = writeLimit('shipments', ctx.userId);
     if (limited) return limited;
-    await reassignAwb(actorOf(ctx), id);
+    // Split shipments: ?shipment_id= names one of the order's shipments (default: the newest live one).
+    const shipmentId = new URL(request.url).searchParams.get('shipment_id');
+    if (shipmentId !== null && !UUID.test(shipmentId)) return shipmentErrorResponse('not_found', 404);
+    await reassignAwb(actorOf(ctx), id, shipmentId);
     return NextResponse.json({ ok: true }, { status: 202, headers: NO_STORE });
   } catch (error) {
     return errorResponse(error);

@@ -1,4 +1,4 @@
-// POST /api/public/shop/<token>/place  { clientRequestId, expectedVersion, expectedTotalMinor, marketingOptIn? }
+// POST /api/public/shop/<token>/place  { clientRequestId, expectedVersion, expectedTotalMinor, marketingOptIn?, buyerGstin?, buyerLegalName? }
 // Places the session's order (design E6): reprices, checks the total the
 // customer saw, reserves stock and queues the payment link. A replay returns
 // the same order. Nothing here can mark an order paid.
@@ -26,7 +26,8 @@ export async function POST(request: Request, { params }: TokenParams) {
     const total = body?.expectedTotalMinor;
     const optIn = body?.marketingOptIn;
     if (!body || expectedVersion === null || !isUuid(body.clientRequestId) || typeof total !== 'number' || !Number.isSafeInteger(total) || total < 0
-      || (optIn !== undefined && typeof optIn !== 'boolean'))
+      || (optIn !== undefined && typeof optIn !== 'boolean')
+      || (body.buyerGstin !== undefined && typeof body.buyerGstin !== 'string') || (body.buyerLegalName !== undefined && typeof body.buyerLegalName !== 'string'))
       return json({ code: 'invalid' }, 400);
     const ref = await resolveToken(token, request);
     if (!ref) return notFound();
@@ -36,6 +37,8 @@ export async function POST(request: Request, { params }: TokenParams) {
       expectedVersion, expectedTotalMinor: total, clientRequestId: body.clientRequestId,
       // Repeat-purchase consent (D13): only an explicit tick counts.
       ...(optIn === undefined ? {} : { marketingOptIn: optIn }),
+      // Business buyer (optional): the server validates the GSTIN; an invalid one is a 400.
+      buyerGstin: body.buyerGstin, buyerLegalName: body.buyerLegalName,
     });
     const view = await inPublicTenant(ref.accountId, (tx) => loadStorefrontView(tx, ref.accountId, ref.sessionId));
     return json({ created: placed.created, view }, placed.created ? 201 : 200);

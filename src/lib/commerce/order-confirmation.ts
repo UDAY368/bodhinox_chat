@@ -22,6 +22,7 @@ import { resolveTemplateRow } from '@/lib/whatsapp/template-body';
 import { templateSendRefusal } from '@/lib/whatsapp/template-send-params';
 import { resolveTemplateVariables } from './event-rules';
 import { fillOrderPlaceholders, orderFlowVars, type OrderMessagePayload } from './order-format';
+import { orderTrackingLink } from './order-tracking';
 import { loadOrderSettingsForWorker } from './orders';
 
 export type OrderConfirmationOutcome =
@@ -61,7 +62,9 @@ export async function sendOrderConfirmation(input: OrderConfirmationInput): Prom
   const contact = await withTenant({ accountId, role: 'owner' }, (tx) => tx.contacts.findFirst({
     where: { account_id: accountId, id: input.contactId }, select: { name: true },
   }), getWorkerPrisma());
-  const values = { ...orderFlowVars(input.order), customer_name: contact?.name?.trim() || '' };
+  // The order tracking page link; '' when the shop is not published (the placeholder then reads empty). A lookup failure never blocks the confirmation.
+  const trackingLink = await orderTrackingLink(accountId, input.order.order_id).catch(() => '');
+  const values = { ...orderFlowVars(input.order), customer_name: contact?.name?.trim() || '', tracking_link: trackingLink };
   const common = { accountId, userId: input.userId, conversationId, contactId: input.contactId };
 
   let send: () => Promise<{ whatsapp_message_id: string }>;

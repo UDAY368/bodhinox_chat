@@ -35,7 +35,7 @@ import { getWorkerPrisma } from '@/lib/db/prisma';
 import { withTenant, type TenantContext, type TenantTransaction } from '@/lib/db/tenant';
 import { orderEventTx } from '@/lib/payments/ledger';
 import { applyRefundStateTx, RefundError, requestRefund } from '@/lib/payments/refunds';
-import { getOrderShipment } from '@/lib/fulfilment/shipments';
+import { listOrderShipments, orderShipmentCoverage } from '@/lib/fulfilment/shipments';
 import { ShipmentError, type OrderShipmentView } from '@/lib/fulfilment/types';
 import { minorFromDb } from './money';
 import { canTransition, fulfilmentEvidence, type FulfilmentEvidence, type OrderStatus } from './order-format';
@@ -64,7 +64,7 @@ interface LockedOrder {
   unpaidCod: boolean;
 }
 
-function assertStaff(ctx: StaffContext): void {
+export function assertStaff(ctx: StaffContext): void {
   if (!ctx.role || !hasMinRole(ctx.role, 'agent')) throw new ForbiddenError('Insufficient workspace role');
 }
 
@@ -254,8 +254,12 @@ async function fullyRefunded(tx: TenantTransaction, accountId: string, orderId: 
   return row?.full === true;
 }
 
-/** A paid order, or an unpaid cash-on-delivery order still confirmed, is ready to leave with the courier. */
-const shippable = (order: LockedOrder): boolean => order.status === 'paid' || (order.status === 'confirmed' && order.unpaidCod);
+/**
+ * A paid order, or an unpaid cash-on-delivery order still confirmed, is ready to leave with the
+ * courier; so is either of them once some of its parcels left (partially shipped).
+ */
+const shippable = (order: LockedOrder): boolean =>
+  order.status === 'paid' || order.status === 'partially_shipped' || (order.status === 'confirmed' && order.unpaidCod);
 
 /**
  * The courier picked the parcel up (or later) for a paid order, or an unpaid cash-on-delivery
@@ -266,7 +270,10 @@ export async function systemDispatch(tx: TenantTransaction, accountId: string, o
   if (order.status === 'dispatched' || order.status === 'fulfilled') return 'already';
   if (!shippable(order)) return 'conflict';
   if ((await fullyRefunded(tx, accountId, orderId)) || (await restockRefundInFlight(tx, accountId, orderId))) return 'conflict';
-  await setStatus(tx, accountId, order, 'dispatched');
+  // Split shipments: dispatched only when every unit of the order is in a parcel the courier picked up.
+  const to: OrderStatus = (await orderShipmentCoverage(tx, accountId, orderId)) === 'partial' ? 'partially_shipped' : 'dispatched';
+  if (order.status === to) return 'already';
+  await setStatus(tx, accountId, order, to);
   await queueNotice(tx, accountId, orderId, 'dispatched');
   return 'applied';
 }
@@ -283,6 +290,17 @@ export async function systemDeliver(tx: TenantTransaction, accountId: string, or
   if (order.status === 'fulfilled') return 'already';
   if (!shippable(order) && order.status !== 'dispatched') return 'conflict';
   if (await fullyRefunded(tx, accountId, orderId)) return 'conflict';
+  // Split shipments: delivered only when every unit of the order is in a delivered parcel. Until then this
+  // delivery is a dispatch of its own parcel (partially shipped, or dispatched once every unit has left).
+  const coverage = await orderShipmentCoverage(tx, accountId, orderId);
+  if (coverage === 'partial' || coverage === 'dispatched') {
+    const to: OrderStatus = coverage === 'partial' ? 'partially_shipped' : 'dispatched';
+    if (order.status === to || order.status === 'dispatched') return 'already';
+    if (await restockRefundInFlight(tx, accountId, orderId)) return 'conflict';
+    await setStatus(tx, accountId, order, to);
+    await queueNotice(tx, accountId, orderId, 'dispatched');
+    return 'applied';
+  }
   if (order.status !== 'dispatched') {
     if (await restockRefundInFlight(tx, accountId, orderId)) return 'conflict';
     await setStatus(tx, accountId, order, 'dispatched');
@@ -310,15 +328,16 @@ export async function liveShipmentExists(tx: TenantTransaction, accountId: strin
 /** The order's shipment and how its dispatch or delivery is known (order detail). Caller's session (app role). */
 export async function getOrderFulfilment(
   ctx: TenantContext, orderId: string,
-): Promise<{ shipment: OrderShipmentView | null; evidence: FulfilmentEvidence | null }> {
+): Promise<{ shipment: OrderShipmentView | null; shipments: OrderShipmentView[]; evidence: FulfilmentEvidence | null }> {
   if (!UUID.test(orderId)) throw new OrderError(404, 'not_found', 'Order not found');
   return withTenant(ctx, async (tx) => {
     const [order] = await tx.$queryRaw<{ status: OrderStatus; recorded: boolean }[]>`
       SELECT status, fulfilment_recorded_by IS NOT NULL AS recorded FROM orders
       WHERE account_id=${ctx.accountId}::uuid AND id=${orderId}::uuid`;
     if (!order) throw new OrderError(404, 'not_found', 'Order not found');
-    const shipment = await getOrderShipment(tx, ctx.accountId, orderId);
-    return { shipment, evidence: fulfilmentEvidence({ status: order.status, fulfilment_recorded: order.recorded }, shipment) };
+    const shipments = await listOrderShipments(tx, ctx.accountId, orderId);
+    const shipment = shipments[0] ?? null;
+    return { shipment, shipments, evidence: fulfilmentEvidence({ status: order.status, fulfilment_recorded: order.recorded }, shipment) };
   });
 }
 
@@ -461,7 +480,7 @@ async function withdrawUnsentTx(tx: TenantTransaction, ctx: StaffContext, orderI
 export interface OrderTimeline {
   events: Array<{ id: string; kind: string; from_status: string | null; to_status: string | null; actor: string;
     actor_name: string | null; detail: string | null; created_at: string }>;
-  documents: Array<{ id: string; kind: 'receipt' | 'credit_note'; number: string; total_minor: number; currency: string; issued_at: string }>;
+  documents: Array<{ id: string; kind: 'receipt' | 'credit_note' | 'tax_invoice'; number: string; total_minor: number; currency: string; issued_at: string }>;
   messages: Array<{ kind: string; status: string; reason: string | null; resolved_at: string | null; updated_at: string }>;
 }
 
@@ -480,7 +499,7 @@ export async function getOrderTimeline(ctx: TenantContext, orderId: string): Pro
           (SELECT p.full_name FROM profiles p WHERE p.user_id=e.actor_user_id LIMIT 1) AS actor_name, e.detail, e.created_at
         FROM order_events e
         WHERE e.account_id=${ctx.accountId}::uuid AND e.order_id=${orderId}::uuid ORDER BY e.created_at, e.id LIMIT 500`,
-      tx.$queryRaw<{ id: string; kind: 'receipt' | 'credit_note'; number: string; total_minor: bigint; currency: string; issued_at: Date }[]>`
+      tx.$queryRaw<{ id: string; kind: 'receipt' | 'credit_note' | 'tax_invoice'; number: string; total_minor: bigint; currency: string; issued_at: Date }[]>`
         SELECT id::text AS id, kind, number, total_minor, currency, issued_at FROM commerce_documents
         WHERE account_id=${ctx.accountId}::uuid AND order_id=${orderId}::uuid ORDER BY issued_at`,
       tx.$queryRaw<{ kind: string; status: string; reason: string | null; resolved_at: Date | null; updated_at: Date }[]>`
