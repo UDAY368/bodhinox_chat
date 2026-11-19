@@ -593,6 +593,9 @@ export async function handleJob(job: Job, assertLease: () => void = () => {}) {
     else if (job.type === 'sequences.due')
       // Due sequence messages (Stage 5): claimed per subscription, 24-hour window re-checked before each send.
       await (await import('@/lib/sequences/jobs')).handleSequenceJob(accountId);
+    else if (job.type === 'events.dispatch')
+      // One domain event fanned out once to rules, flows and webhooks (src/lib/events/dispatch.ts).
+      await (await import('@/lib/events/dispatch')).handleEventDispatchJob(accountId, job.payload);
     else if (job.type.startsWith('instagram.'))
       // Token sweep, profile fetch and comment private replies; each returns early while Instagram is off.
       await (await import('@/lib/instagram/jobs')).handleInstagramJob(accountId, job.type, job.payload, { attempts: job.attempts, maxAttempts: job.max_attempts });

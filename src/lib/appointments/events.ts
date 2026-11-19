@@ -6,6 +6,8 @@
  *  2. staff notification (deduped per appointment, version and kind);
  *  3. automation trigger appointment_*;
  *  4. outbound webhook appointment.*.
+ * Steps 3 and 4 now run from the shared event feed (domain-event.ts, src/lib/events/dispatch.ts);
+ * they run here only for a job queued before the feed existed (no domain event for its key).
  * Steps 3 and 4 run once each through an outbound intent, so a retried job
  * never fires an automation or webhook twice; an interrupted attempt is left
  * for reconciliation instead.
@@ -138,14 +140,20 @@ export async function handleAppointmentEventJob(accountId: string, payload: Even
       SELECT id::text AS id FROM conversations WHERE account_id=${accountId}::uuid AND contact_id=${row.contact_id}::uuid
         AND channel='whatsapp'
       ORDER BY updated_at DESC LIMIT 1` : [];
+    // Recorded in the shared event feed with the change (domain-event.ts): its events.dispatch job
+    // runs the rules and webhook. Only a job queued before the feed existed fans out here.
+    const [feed] = await tx.$queryRaw<{ found: boolean }[]>`
+      SELECT EXISTS (SELECT 1 FROM domain_events WHERE account_id=${accountId}::uuid
+        AND dedupe_key=${appointmentKeys.event(appointmentId, version, kind)}) AS found`;
     return { row, actorUserId: event?.actor_user_id ?? null, previousStartAt: event?.old_start_at ?? null,
-      newStartAt: event?.new_start_at ?? null, conversationId: conversation?.id ?? null };
+      newStartAt: event?.new_start_at ?? null, conversationId: conversation?.id ?? null, inFeed: feed?.found === true };
   }, getWorkerPrisma());
   if (!context || !fanout) return;
   // The event describes its own version even when the row has moved on since.
   const row = eventSnapshot(context.row, version, kind, context.newStartAt);
   const eventKey = appointmentKeys.event(row.id, version, kind);
   if (fanout.notification) await notifyStaff(accountId, row, version, kind, fanout.notification, context.actorUserId);
+  if (context.inFeed) return;
 
   if (row.contact_id) {
     const contactId = row.contact_id;

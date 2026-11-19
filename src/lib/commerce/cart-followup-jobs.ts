@@ -12,6 +12,7 @@
  * (abandoned_cart: MARKETING, cod_confirm: UTILITY); none set -> not sent.
  * Logs carry ids and codes only: no phone numbers, message text or carts.
  */
+import { emitDomainEvent } from '@/lib/events/emit';
 import { createAdminClient } from '@/lib/data/admin';
 import { resolveAuditUserId } from '@/lib/api/v1/contacts';
 import { isSuspended } from '@/lib/billing/suspension';
@@ -89,6 +90,13 @@ async function planAbandonedCart(accountId: string, sessionId: string, now: Date
     });
     if (skip === 'already_reminded') return { kind: 'done' };
     if (skip) return { kind: 'skip', reason: skip };
+    // Still a filled cart with no order after the store's delay: the feed's cart.abandoned
+    // (rules, flows, webhooks), once per session whatever happens to the reminder below.
+    await emitDomainEvent(tx, {
+      accountId, type: 'cart.abandoned', subject: { kind: 'cart', id: session.id }, contactId: session.contact_id,
+      data: { session_id: session.id, item_count: session.lines, conversation_id: session.conversation_id },
+      dedupeKey: `cart:${session.id}:abandoned`,
+    });
 
     // An earlier attempt already claimed the send: its intent decides, never a fresh plan.
     const [intent] = await tx.$queryRaw<{ status: string }[]>`
