@@ -112,7 +112,7 @@ export function CustomerPaymentsTable({ orderId, restockByDefault = false }: { o
                   {!orderId && (
                     <TableCell className="text-xs">
                       {p.order_id ? <Link href={`/commerce/orders/${p.order_id}`} className="text-primary hover:underline">{t("order")}</Link>
-                        : p.appointment_id ? <span>{t("appointment")}</span> : <span className="text-muted-foreground">{t("link")}</span>}
+                        : p.appointment_id ? <Link href={`/appointments?id=${p.appointment_id}`} className="text-primary hover:underline">{t("appointment")}</Link> : <span className="text-muted-foreground">{t("link")}</span>}
                     </TableCell>
                   )}
                   <TableCell className="text-right">
