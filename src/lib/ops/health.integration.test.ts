@@ -86,7 +86,31 @@ describe.skipIf(!ownerUrl || !appUrl || !authUrl || !platformUrl)('[OPS-01] deep
     expect(JSON.stringify(health)).not.toMatch(new RegExp(`${prefix}|[0-9a-f]{8}-[0-9a-f]{4}-`));
   });
 
-  it('only the platform and worker roles can execute crm_ops_health', async () => {
+  it('counts sends stuck in dispatching for more than 10 minutes, and only those', async () => {
+    await beatAgo(1);
+    const user = randomUUID();
+    const account = randomUUID();
+    await owner.query("INSERT INTO auth_users(id,email,full_name,password_hash) VALUES($1,$1::text || '@example.invalid','Ops health test','test-only-hash')", [user]);
+    await owner.query("INSERT INTO accounts(id,name,owner_user_id) VALUES($1,'Ops health',$2)", [account, user]);
+    try {
+      const before = await readOpsHealth(getPlatformPrisma());
+      await owner.query(`INSERT INTO outbound_intents(account_id,idempotency_key,status,updated_at) VALUES
+        ($1,$2,'dispatching',NOW()-INTERVAL '11 minutes'),($1,$3,'dispatching',NOW()-INTERVAL '2 minutes'),($1,$4,'accepted',NOW()-INTERVAL '1 hour')`,
+        [account, `${prefix}-stuck`, `${prefix}-fresh`, `${prefix}-done`]);
+      const health = await deepHealth();
+      expect(health.checks.intents!.stuckDispatching10m).toBe(before.stuckDispatching10m + 1);
+      expect(health.status).toBe('degraded');
+      expect(JSON.stringify(health)).not.toContain(account);
+    } finally {
+      await owner.query('DELETE FROM outbound_intents WHERE account_id = $1', [account]);
+      await owner.query('DELETE FROM accounts WHERE id = $1', [account]);
+      await owner.query('DELETE FROM auth_users WHERE id = $1', [user]);
+    }
+  });
+
+  it('only the platform and worker roles can execute crm_ops_health and crm_ops_stuck_dispatching', async () => {
+    await expect(getPrisma().$queryRaw`SELECT crm_ops_stuck_dispatching()`).rejects.toThrow();
+    await expect(getAuthPrisma().$queryRaw`SELECT crm_ops_stuck_dispatching()`).rejects.toThrow();
     await expect(getPrisma().$queryRaw`SELECT * FROM crm_ops_health()`).rejects.toThrow();
     await expect(getAuthPrisma().$queryRaw`SELECT * FROM crm_ops_health()`).rejects.toThrow();
     await expect(readOpsHealth(getPrisma())).rejects.toThrow();
