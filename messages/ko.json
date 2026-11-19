@@ -121,7 +121,10 @@
     "analyticsCampaigns": "캠페인",
     "onlineStore": "온라인 스토어",
     "reviews": "리뷰",
-    "shopReports": "쇼핑몰 리포트"
+    "shopReports": "쇼핑몰 리포트",
+    "people": "사람",
+    "segments": "세그먼트",
+    "customFields": "사용자 지정 필드"
   },
   "Header": {
     "notificationsUnread": "알림, 읽지 않음 {count}개",
@@ -402,7 +405,7 @@
       "filterUnread": "읽지 않음",
       "filterOpen": "열림",
       "filterPending": "대기 중",
-      "filterClosed": "닫힘",
+      "filterClosed": "해결됨",
       "tags": "태그",
       "company": "회사",
       "allCompanies": "전체 회사",
@@ -441,7 +444,8 @@
       "windowStripNext": "더 보기",
       "tabActive": "활성",
       "tabRequesting": "요청 중",
-      "tabIntervened": "개입됨"
+      "tabIntervened": "개입됨",
+      "loadFailed": "대화를 불러오지 못했습니다."
     },
     "messageThread": {
       "backToConversations": "대화 목록으로 돌아가기",
@@ -454,7 +458,7 @@
       "status": "상태",
       "statusOpen": "열림",
       "statusPending": "대기 중",
-      "statusClosed": "닫힘",
+      "statusClosed": "해결됨",
       "assign": "담당자 지정",
       "assigned": "담당자 지정됨",
       "unassign": "담당자 해제",
@@ -511,9 +515,10 @@
       "automationPausedBanner": "이 채팅의 자동화가 일시 중지되었습니다.",
       "automationPausedHint": "플로우와 AI 답장이 실행되지 않습니다.",
       "blockTitle": "{name}님을 차단할까요?",
-      "blockBody": "자동 메시지, 플로우, AI 답장이 더 이상 전송되지 않고 이 대화는 종료됩니다. 언제든지 차단을 해제할 수 있습니다.",
+      "blockBody": "자동 메시지, 플로우, AI 답장이 더 이상 전송되지 않고 이 대화는 해결됨으로 표시됩니다. 언제든지 차단을 해제할 수 있습니다.",
       "cancel": "취소",
-      "blockConfirm": "차단"
+      "blockConfirm": "차단",
+      "loadFailed": "메시지를 불러오지 못했습니다."
     },
     "sessionTimer": {
       "expired": "만료됨",
@@ -914,7 +919,7 @@
       },
       "reason": {
         "window_closed": "메시지 창이 닫혀 있었습니다.",
-        "conversation_closed": "대화가 종료되어 있었습니다.",
+        "conversation_closed": "대화가 해결됨 상태였습니다.",
         "channel_off": "채널이 꺼져 있었습니다.",
         "human_agent_off": "24시간이 지난 답장은 사용할 수 없습니다.",
         "send_failed": "메시지를 보내지 못했습니다."
@@ -1133,12 +1138,12 @@
       "markRead": "읽음으로 표시",
       "markUnread": "읽지 않음으로 표시",
       "assignToMe": "나에게 배정",
-      "close": "종료",
+      "close": "해결",
       "reopen": "다시 열기",
       "markedUnread": "읽지 않음으로 표시했습니다",
       "markedRead": "읽음으로 표시했습니다",
       "assignedToYou": "나에게 배정했습니다",
-      "closed": "대화를 종료했습니다",
+      "closed": "대화를 해결됨으로 표시했습니다",
       "reopened": "대화를 다시 열었습니다",
       "failed": "처리하지 못했습니다. 다시 시도하세요."
     },
@@ -1778,7 +1783,7 @@
         "startConversation": "대화 시작",
         "open": "진행 중",
         "pending": "대기 중",
-        "closed": "종료됨",
+        "closed": "해결됨",
         "orders": "주문",
         "noOrders": "아직 주문이 없습니다.",
         "orderName": "주문 {ref}",
@@ -2522,7 +2527,7 @@
         "wait": "대기",
         "condition": "조건 (If/Else)",
         "send_webhook": "웹훅 보내기",
-        "close_conversation": "대화 닫기",
+        "close_conversation": "대화 해결",
         "notify_team": "팀에 알림",
         "start_flow": "플로 시작"
       },
@@ -2705,7 +2710,7 @@
         "matchExact": "정확히 일치",
         "waitForReply": "계속하기 전에 답장 기다리기",
         "waitForReplyHint": "고객이 버튼을 누르거나 답장할 때까지 여기서 멈춥니다(최대 24시간). 이후 단계(메시지 내용 조건 포함)는 그 답장을 사용합니다.",
-        "closeConversationHint": "대화 상태를 \"닫힘\"으로 설정합니다. 추가 설정이 필요 없습니다.",
+        "closeConversationHint": "대화를 해결됨으로 표시합니다. 추가 설정이 필요 없습니다.",
         "conditionTimezoneLabel": "시간대",
         "conditionTimezoneHint": "이 시간 범위를 판단할 때 사용하는 비즈니스 시간대입니다.",
         "notifyAudienceLabel": "알림 대상",
@@ -4077,13 +4082,13 @@
           "pause_automations": "자동화 일시 중지",
           "resume_automations": "자동화 다시 시작",
           "log_conversion": "전환 이벤트 기록",
-          "set_conversation_status": "대화를 열림 또는 닫힘으로 표시",
+          "set_conversation_status": "대화를 열림 또는 해결됨으로 표시",
           "notify_team": "팀에 알림"
         },
         "increment": "숫자에 더하기",
         "set": "다음으로 설정",
         "opened": "열림",
-        "closed": "닫힘",
+        "closed": "해결됨",
         "optIn": "구독",
         "optOut": "구독 취소",
         "assignee": "배정된 상담원",
@@ -6476,7 +6481,8 @@
       "instagram_account_health": "Instagram 계정",
       "automation_notice": "자동화 알림",
       "webhook_disabled": "웹훅 꺼짐"
-    }
+    },
+    "loadFailed": "알림을 불러오지 못했습니다."
   },
   "Agents": {
     "title": "AI 에이전트",
@@ -12588,7 +12594,7 @@
     "anyStatus": "모든 상태",
     "statusOpen": "열림",
     "statusPending": "대기 중",
-    "statusClosed": "종료됨",
+    "statusClosed": "해결됨",
     "assignee": "담당자",
     "anyAssignee": "모든 담당자",
     "assignedToMe": "나에게 배정됨",

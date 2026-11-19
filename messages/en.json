@@ -121,7 +121,10 @@
     "analyticsCampaigns": "Campaigns",
     "onlineStore": "Online store",
     "reviews": "Reviews",
-    "shopReports": "Shop reports"
+    "shopReports": "Shop reports",
+    "people": "People",
+    "segments": "Segments",
+    "customFields": "Custom fields"
   },
   "Header": {
     "notificationsUnread": "{count, plural, =1 {Notifications, 1 unread} other {Notifications, # unread}}",
@@ -402,7 +405,7 @@
       "filterUnread": "Unread",
       "filterOpen": "Open",
       "filterPending": "Pending",
-      "filterClosed": "Closed",
+      "filterClosed": "Resolved",
       "tags": "Tags",
       "company": "Company",
       "allCompanies": "All companies",
@@ -441,7 +444,8 @@
       "windowStripNext": "More",
       "tabActive": "Active",
       "tabRequesting": "Requesting",
-      "tabIntervened": "Intervened"
+      "tabIntervened": "Intervened",
+      "loadFailed": "Couldn't load conversations."
     },
     "messageThread": {
       "backToConversations": "Back to conversations",
@@ -454,7 +458,7 @@
       "status": "Status",
       "statusOpen": "Open",
       "statusPending": "Pending",
-      "statusClosed": "Closed",
+      "statusClosed": "Resolved",
       "assign": "Assign",
       "assigned": "Assigned",
       "unassign": "Unassign",
@@ -511,9 +515,10 @@
       "automationPausedBanner": "Automation paused for this chat.",
       "automationPausedHint": "Flows and AI replies will not run.",
       "blockTitle": "Block {name}?",
-      "blockBody": "No automated messages, flows or AI replies will reach them and this conversation will close. You can unblock them at any time.",
+      "blockBody": "No automated messages, flows or AI replies will reach them and this conversation will be resolved. You can unblock them at any time.",
       "cancel": "Cancel",
-      "blockConfirm": "Block"
+      "blockConfirm": "Block",
+      "loadFailed": "Couldn't load these messages."
     },
     "sessionTimer": {
       "expired": "Expired",
@@ -914,7 +919,7 @@
       },
       "reason": {
         "window_closed": "The messaging window had closed.",
-        "conversation_closed": "The conversation was closed.",
+        "conversation_closed": "The conversation was resolved.",
         "channel_off": "The channel was turned off.",
         "human_agent_off": "Replies after 24 hours are not available.",
         "send_failed": "The message could not be sent."
@@ -1133,12 +1138,12 @@
       "markRead": "Mark as read",
       "markUnread": "Mark as unread",
       "assignToMe": "Assign to me",
-      "close": "Close",
+      "close": "Resolve",
       "reopen": "Reopen",
       "markedUnread": "Marked as unread",
       "markedRead": "Marked as read",
       "assignedToYou": "Assigned to you",
-      "closed": "Conversation closed",
+      "closed": "Conversation resolved",
       "reopened": "Conversation reopened",
       "failed": "That did not work. Try again."
     },
@@ -1778,7 +1783,7 @@
         "startConversation": "Start a conversation",
         "open": "Open",
         "pending": "Pending",
-        "closed": "Closed",
+        "closed": "Resolved",
         "orders": "Orders",
         "noOrders": "No orders yet.",
         "orderName": "Order {ref}",
@@ -2522,7 +2527,7 @@
         "wait": "Wait",
         "condition": "Condition (If/Else)",
         "send_webhook": "Send Webhook",
-        "close_conversation": "Close Conversation",
+        "close_conversation": "Resolve conversation",
         "notify_team": "Notify Team",
         "start_flow": "Start a Flow"
       },
@@ -2705,7 +2710,7 @@
         "matchExact": "Exact",
         "waitForReply": "Wait for reply before continuing",
         "waitForReplyHint": "Pauses here until the customer taps a button or replies (up to 24h). The steps after this one, including If/Else on message content, then use their reply.",
-        "closeConversationHint": "Sets the conversation status to \"closed\". No configuration needed.",
+        "closeConversationHint": "Marks the conversation Resolved. No settings needed.",
         "conditionTimezoneLabel": "Timezone",
         "conditionTimezoneHint": "Business timezone used to evaluate this time window.",
         "notifyAudienceLabel": "Notify",
@@ -4077,13 +4082,13 @@
           "pause_automations": "Pause automations",
           "resume_automations": "Resume automations",
           "log_conversion": "Log conversion event",
-          "set_conversation_status": "Mark conversation open or closed",
+          "set_conversation_status": "Mark conversation open or resolved",
           "notify_team": "Notify the team"
         },
         "increment": "Add to the number",
         "set": "Set to",
         "opened": "Open",
-        "closed": "Closed",
+        "closed": "Resolved",
         "optIn": "Subscribe",
         "optOut": "Unsubscribe",
         "assignee": "The assigned agent",
@@ -6476,7 +6481,8 @@
       "instagram_account_health": "Instagram account",
       "automation_notice": "Automation notice",
       "webhook_disabled": "Webhook switched off"
-    }
+    },
+    "loadFailed": "Couldn't load notifications."
   },
   "Agents": {
     "title": "AI Agents",
@@ -12588,7 +12594,7 @@
     "anyStatus": "Any status",
     "statusOpen": "Open",
     "statusPending": "Pending",
-    "statusClosed": "Closed",
+    "statusClosed": "Resolved",
     "assignee": "Assignee",
     "anyAssignee": "Anyone",
     "assignedToMe": "Assigned to me",

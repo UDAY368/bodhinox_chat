@@ -121,7 +121,10 @@
     "analyticsCampaigns": "Campanhas",
     "onlineStore": "Loja online",
     "reviews": "Avaliações",
-    "shopReports": "Relatórios da loja"
+    "shopReports": "Relatórios da loja",
+    "people": "Pessoas",
+    "segments": "Segmentos",
+    "customFields": "Campos personalizados"
   },
   "Header": {
     "notificationsUnread": "{count, plural, =1 {Notificações, 1 não lida} other {Notificações, # não lidas}}",
@@ -402,7 +405,7 @@
       "filterUnread": "Não lidas",
       "filterOpen": "Abertas",
       "filterPending": "Pendentes",
-      "filterClosed": "Fechadas",
+      "filterClosed": "Resolvidas",
       "tags": "Tags",
       "company": "Empresa",
       "allCompanies": "Todas as empresas",
@@ -441,7 +444,8 @@
       "windowStripNext": "Mais",
       "tabActive": "Ativos",
       "tabRequesting": "Solicitando",
-      "tabIntervened": "Intervindos"
+      "tabIntervened": "Intervindos",
+      "loadFailed": "Não foi possível carregar as conversas."
     },
     "messageThread": {
       "backToConversations": "Voltar às conversas",
@@ -454,7 +458,7 @@
       "status": "Status",
       "statusOpen": "Aberta",
       "statusPending": "Pendente",
-      "statusClosed": "Fechada",
+      "statusClosed": "Resolvida",
       "assign": "Atribuir",
       "assigned": "Atribuída",
       "unassign": "Remover atribuição",
@@ -511,9 +515,10 @@
       "automationPausedBanner": "Automação pausada nesta conversa.",
       "automationPausedHint": "Fluxos e respostas de IA não serão executados.",
       "blockTitle": "Bloquear {name}?",
-      "blockBody": "Nenhuma mensagem automática, fluxo ou resposta de IA chegará até ele e esta conversa será fechada. Você pode desbloquear quando quiser.",
+      "blockBody": "Nenhuma mensagem automática, fluxo ou resposta de IA chegará até ele e esta conversa será marcada como resolvida. Você pode desbloquear quando quiser.",
       "cancel": "Cancelar",
-      "blockConfirm": "Bloquear"
+      "blockConfirm": "Bloquear",
+      "loadFailed": "Não foi possível carregar estas mensagens."
     },
     "sessionTimer": {
       "expired": "Expirada",
@@ -914,7 +919,7 @@
       },
       "reason": {
         "window_closed": "A janela de mensagens estava fechada.",
-        "conversation_closed": "A conversa estava encerrada.",
+        "conversation_closed": "A conversa estava resolvida.",
         "channel_off": "O canal estava desativado.",
         "human_agent_off": "Respostas após 24 horas não estão disponíveis.",
         "send_failed": "Não foi possível enviar a mensagem."
@@ -1133,12 +1138,12 @@
       "markRead": "Marcar como lida",
       "markUnread": "Marcar como não lida",
       "assignToMe": "Atribuir a mim",
-      "close": "Fechar",
+      "close": "Resolver",
       "reopen": "Reabrir",
       "markedUnread": "Marcada como não lida",
       "markedRead": "Marcada como lida",
       "assignedToYou": "Atribuída a você",
-      "closed": "Conversa fechada",
+      "closed": "Conversa resolvida",
       "reopened": "Conversa reaberta",
       "failed": "Não deu certo. Tente novamente."
     },
@@ -1778,7 +1783,7 @@
         "startConversation": "Iniciar uma conversa",
         "open": "Aberta",
         "pending": "Pendente",
-        "closed": "Encerrada",
+        "closed": "Resolvida",
         "orders": "Pedidos",
         "noOrders": "Ainda não há pedidos.",
         "orderName": "Pedido {ref}",
@@ -2522,7 +2527,7 @@
         "wait": "Aguardar",
         "condition": "Condição (Se/Senão)",
         "send_webhook": "Enviar webhook",
-        "close_conversation": "Fechar conversa",
+        "close_conversation": "Resolver conversa",
         "notify_team": "Avisar a equipe",
         "start_flow": "Iniciar um fluxo"
       },
@@ -2705,7 +2710,7 @@
         "matchExact": "Exata",
         "waitForReply": "Aguardar resposta antes de continuar",
         "waitForReplyHint": "Pausa aqui até o cliente tocar em um botão ou responder (até 24h). As etapas seguintes, incluindo Se/Senão no conteúdo da mensagem, usam essa resposta.",
-        "closeConversationHint": "Define o status da conversa como \"fechada\". Nenhuma configuração necessária.",
+        "closeConversationHint": "Marca a conversa como Resolvida. Nenhuma configuração necessária.",
         "conditionTimezoneLabel": "Timezone",
         "conditionTimezoneHint": "Fuso horário da empresa usado para avaliar esta janela de horário.",
         "notifyAudienceLabel": "Avisar",
@@ -4077,13 +4082,13 @@
           "pause_automations": "Pausar automações",
           "resume_automations": "Retomar automações",
           "log_conversion": "Registrar evento de conversão",
-          "set_conversation_status": "Marcar conversa como aberta ou fechada",
+          "set_conversation_status": "Marcar conversa como aberta ou resolvida",
           "notify_team": "Avisar a equipe"
         },
         "increment": "Somar ao número",
         "set": "Definir como",
         "opened": "Aberta",
-        "closed": "Fechada",
+        "closed": "Resolvida",
         "optIn": "Inscrever",
         "optOut": "Cancelar inscrição",
         "assignee": "O agente atribuído",
@@ -6476,7 +6481,8 @@
       "instagram_account_health": "Conta do Instagram",
       "automation_notice": "Aviso de automação",
       "webhook_disabled": "Webhook desativado"
-    }
+    },
+    "loadFailed": "Não foi possível carregar as notificações."
   },
   "Agents": {
     "title": "Agentes de IA",
@@ -12588,7 +12594,7 @@
     "anyStatus": "Qualquer status",
     "statusOpen": "Aberta",
     "statusPending": "Pendente",
-    "statusClosed": "Fechada",
+    "statusClosed": "Resolvida",
     "assignee": "Responsável",
     "anyAssignee": "Qualquer pessoa",
     "assignedToMe": "Atribuídas a mim",
