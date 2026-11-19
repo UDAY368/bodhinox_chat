@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useRef, useState, type Dispatch, type SetStateAction } from 'react';
+import { useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from 'react';
 import { toast } from 'sonner';
 import { useTranslations } from 'next-intl';
 import { Loader2, Plus, Upload, X } from 'lucide-react';
@@ -58,6 +58,7 @@ import {
   patchButton,
   previewFromForm,
   removeCard,
+  templateFormChanged,
   removeCardButton,
   resizeSamples,
   setCardButtonType,
@@ -106,6 +107,10 @@ export function TemplateEditorDialog({
     t.has(`categoryLabels.${category}`) ? t(`categoryLabels.${category}`) : category;
 
   const [form, setForm] = useState<TemplateFormData>(initial);
+  // What was last saved (or opened); closing with anything else asks first.
+  const [savedForm, setSavedForm] = useState<TemplateFormData>(initial);
+  const [confirmClose, setConfirmClose] = useState(false);
+  const dirty = templateFormChanged(savedForm, form);
   const [draftId, setDraftId] = useState<string | null>(initialDraftId);
   const [busy, setBusy] = useState<'submit' | 'draft' | null>(null);
   // Which media slot is uploading: 'header' or a card index.
@@ -125,6 +130,23 @@ export function TemplateEditorDialog({
   const bodySamples = resizeSamples(form.body_samples, bodyVarCount);
 
   const preview = useMemo(() => previewFromForm(form), [form]);
+
+  // Leaving the page (reload, closing the tab) with unsaved changes asks the browser's own question.
+  useEffect(() => {
+    if (!open || !dirty) return;
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [open, dirty]);
+
+  /** Close, or ask first when something would be lost. */
+  function requestClose() {
+    if (dirty && busy === null) setConfirmClose(true);
+    else if (busy === null) onOpenChange(false);
+  }
 
   function patch(p: Partial<TemplateFormData>) {
     setForm((prev) => ({ ...prev, ...p }));
@@ -209,6 +231,7 @@ export function TemplateEditorDialog({
         throw new Error(data?.error || t('draftSaveFailedHttp', { status: res.status }));
       }
       if (data?.template?.id) setDraftId(data.template.id);
+      setSavedForm(form);
       toast.success(t('toastDraftSaved'));
       await onRefresh();
     } catch (err) {
@@ -298,7 +321,8 @@ export function TemplateEditorDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <>
+    <Dialog open={open} onOpenChange={(next) => (next ? onOpenChange(true) : requestClose())}>
       <DialogContent className="bg-popover border-border sm:max-w-5xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-popover-foreground">
@@ -640,7 +664,7 @@ export function TemplateEditorDialog({
         <DialogFooter className="bg-popover border-border">
           <Button
             variant="outline"
-            onClick={() => onOpenChange(false)}
+            onClick={requestClose}
             className="border-border text-muted-foreground hover:bg-muted"
           >
             {t('cancel')}
@@ -674,6 +698,31 @@ export function TemplateEditorDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+
+    {/* Closing with unsaved changes: the risky choice is red; Keep editing is the default. */}
+    <Dialog open={confirmClose} onOpenChange={setConfirmClose}>
+      <DialogContent className="bg-popover border-border sm:max-w-sm">
+        <DialogHeader>
+          <DialogTitle className="text-popover-foreground">{t('discardTitle')}</DialogTitle>
+          <DialogDescription className="text-muted-foreground">{t('discardBody')}</DialogDescription>
+        </DialogHeader>
+        <DialogFooter className="bg-popover border-border">
+          <Button variant="outline" autoFocus onClick={() => setConfirmClose(false)}>
+            {t('keepEditing')}
+          </Button>
+          <Button
+            variant="destructive"
+            onClick={() => {
+              setConfirmClose(false);
+              onOpenChange(false);
+            }}
+          >
+            {t('discardChanges')}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }
 

@@ -11,6 +11,7 @@ import {
   countTemplateTabs,
   emptyTemplateForm,
   filterTemplates,
+  templateFormChanged,
   formFromTemplate,
   hasLibraryPlaceholder,
   isLocalDraft,
@@ -408,5 +409,14 @@ describe('review fixes R9-R11 and limited-time offer buttons', () => {
       hasLibraryPlaceholder({ type: 'PHONE_NUMBER', text: 'a', phone_number: '+14155550100' }),
     ).toBe(false);
     expect(hasLibraryPlaceholder({ type: 'QUICK_REPLY', text: 'a' })).toBe(false);
+  });
+});
+
+describe('templateFormChanged', () => {
+  it('is false for the form as opened and true after any edit, including a nested one', () => {
+    const opened = emptyTemplateForm('en_US');
+    expect(templateFormChanged(opened, { ...opened })).toBe(false);
+    expect(templateFormChanged(opened, { ...opened, body_text: 'Hi' })).toBe(true);
+    expect(templateFormChanged(opened, { ...opened, buttons: [{ type: 'QUICK_REPLY', text: 'Yes' }] })).toBe(true);
   });
 });
