@@ -33,7 +33,7 @@ const appUrl = process.env.TEST_APP_DATABASE_URL || configured?.DATABASE_URL;
 const workerUrl = process.env.TEST_WORKER_DATABASE_URL || configured?.WORKER_DATABASE_URL;
 if (appUrl) process.env.DATABASE_URL = appUrl;
 if (workerUrl) process.env.WORKER_DATABASE_URL = workerUrl;
-process.env.APP_URL ??= 'https://app.example.test';
+process.env.APP_URL = 'https://app.example.test';
 process.env.ENCRYPTION_KEY ??= 'a'.repeat(64);
 
 const accountA = randomUUID(), accountB = randomUUID();

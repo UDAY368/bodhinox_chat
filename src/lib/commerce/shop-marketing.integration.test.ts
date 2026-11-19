@@ -43,7 +43,7 @@ const authUrl = process.env.TEST_AUTH_DATABASE_URL || configured?.AUTH_DATABASE_
 if (appUrl) process.env.DATABASE_URL = appUrl;
 if (workerUrl) process.env.WORKER_DATABASE_URL = workerUrl;
 if (authUrl) process.env.AUTH_DATABASE_URL = authUrl;
-process.env.APP_URL ??= 'https://app.example.test';
+process.env.APP_URL = 'https://app.example.test';
 process.env.ENCRYPTION_KEY ??= 'a'.repeat(64);
 const ORIGIN = new URL(process.env.APP_URL).origin;
 
