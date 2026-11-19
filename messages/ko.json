@@ -2064,10 +2064,10 @@
     "settings": {
       "managePipeline": "파이프라인 관리",
       "deletePipeline": "파이프라인 삭제",
-      "deletePipelineDesc": "이 파이프라인의 모든 딜이 보관 처리됩니다. 되돌릴 수 없습니다.",
+      "deletePipelineDesc": "이 파이프라인과 성사된 딜을 포함한 모든 딜이 영구적으로 삭제됩니다. 되돌릴 수 없습니다.",
       "cancel": "취소",
       "deleting": "삭제 중...",
-      "deletePipelineBtn": "파이프라인 삭제",
+      "deletePipelineBtn": "영구 삭제",
       "pipelineName": "파이프라인 이름",
       "stages": "단계",
       "newStageNamePlaceholder": "새 단계 이름",
@@ -6576,7 +6576,9 @@
         "claim_failed": "응답 슬롯을 예약하지 못함",
         "stale": "전송 전에 대화가 변경됨",
         "dispatch_failed": "문제가 발생함",
-        "no_agent": "이 채널과 시간에 켜진 에이전트가 없습니다"
+        "no_agent": "이 채널과 시간에 켜진 에이전트가 없습니다",
+        "no_knowledge": "지식에서 맞는 내용을 찾지 못함",
+        "workspace_ai_cap": "월간 AI 토큰 한도 도달"
       },
       "unknownReason": "기타({code})",
       "detailTitle": "활동 세부 정보",
@@ -9683,7 +9685,7 @@
       "description": "WhatsApp 카탈로그에서 보낸 장바구니와 연결된 스토어의 주문입니다.",
       "loading": "주문을 불러오는 중",
       "loadError": "주문을 불러오지 못했습니다",
-      "searchPlaceholder": "고객 또는 주문 번호로 검색",
+      "searchPlaceholder": "고객, 전화번호 또는 주문으로 검색",
       "filterStatus": "상태로 필터",
       "filterSource": "출처로 필터",
       "allStatuses": "모든 상태",
@@ -9748,7 +9750,8 @@
           "deliveryDate": "배송 날짜",
           "note": "메모",
           "giftMessage": "선물 메시지"
-        }
+        },
+        "payments": "결제"
       },
       "settings": {
         "open": "확인 메시지",
@@ -10087,7 +10090,9 @@
           "coupon_min_subtotal": "주문 금액이 쿠폰의 최소 금액보다 낮아집니다.",
           "forbidden": "이 변경을 할 권한이 없습니다. 환불이 포함된 변경은 관리자가 해야 합니다."
         }
-      }
+      },
+      "exportTruncated": "내보내기가 주문 5,000건에서 멈췄습니다. 나머지를 받으려면 필터를 좁히세요.",
+      "exportFailed": "주문을 내보낼 수 없습니다"
     },
     "attention": {
       "title": "{count, plural, other {확인이 필요한 스토어 메시지 #개}}",
@@ -10120,9 +10125,10 @@
         "purchaseOrders": "발주서"
       },
       "statuses": {
-        "draft": "초안",
-        "published": "게시됨",
-        "archived": "보관됨"
+        "draft": "숨김",
+        "published": "공개",
+        "archived": "보관됨",
+        "visibility": "공개 상태"
       },
       "errors": {
         "invalid": "표시된 값을 확인한 뒤 다시 시도하세요.",
@@ -10168,7 +10174,7 @@
         "create": "상품 추가",
         "search": "이름 또는 SKU로 검색",
         "statusFilter": "상태",
-        "activeStatuses": "초안 및 게시됨",
+        "activeStatuses": "공개 및 숨김",
         "allStatuses": "보관 포함 전체",
         "stockFilter": "재고",
         "allStock": "모든 재고",
@@ -10272,10 +10278,10 @@
         "reviewed": "{date, date, medium} 콘텐츠 검토됨",
         "notReviewed": "콘텐츠가 아직 검토되지 않음",
         "publish": "검토 후 게시",
-        "publishHint": "게시하면 이름, 설명, 고지 사항의 검토자로 기록됩니다. 가격이 있는 옵션이 하나 이상 필요합니다.",
-        "publishedToast": "상품을 게시했습니다",
+        "publishHint": "상품을 공개하면 이름, 설명, 고지 사항의 검토자로 기록됩니다. 가격이 있는 변형이 하나 이상 필요합니다.",
+        "publishedToast": "상품이 공개되었습니다",
         "unpublish": "게시 취소",
-        "unpublished": "상품을 초안으로 되돌렸습니다",
+        "unpublished": "상품이 스토어에서 숨겨졌습니다",
         "archive": "보관",
         "archivedToast": "상품을 보관했습니다",
         "restore": "복원",
@@ -10293,7 +10299,7 @@
         "followUpLanguage": "템플릿 언어",
         "followUpDays": "배송 후 일수",
         "followUpHint": "선택 사항. 주문 배송 후 한 번 보내는 승인된 유틸리티 템플릿입니다.",
-        "rereviewHint": "게시된 상품의 문구를 변경해 저장하면 검토자로 기록됩니다.",
+        "rereviewHint": "공개된 상품의 텍스트를 변경해 저장하면 검토자로 기록됩니다.",
         "save": "상세 정보 저장",
         "images": "이미지",
         "noImages": "이미지가 없습니다.",
@@ -11970,7 +11976,7 @@
       "customer": "고객",
       "walkIn": "비회원 방문 고객",
       "namedCustomer": "등록 고객",
-      "customerSearch": "이름으로 고객 검색",
+      "customerSearch": "이름 또는 전화번호로 고객 검색",
       "chosen": "{name} 님에게 판매 중",
       "products": "상품",
       "productSearch": "이름으로 검색하거나 SKU를 스캔하세요",
@@ -13007,7 +13013,9 @@
       "threshold": "답변에 필요한 신뢰도: {value}%",
       "thresholdHint": "50%에서는 에이전트 자체 판단으로 결정합니다. 값이 높을수록 지식 베이스에서 가까운 일치 항목도 필요하며 더 자주 상담원에게 연결합니다. 지식 베이스에 일치하는 항목이 없으면 에이전트 자체 판단으로만 결정합니다.",
       "maxTurns": "AI 답변이 이 횟수에 도달하면 상담원에게 연결",
-      "maxTurnsHint": "0은 제한 없음을 뜻합니다."
+      "maxTurnsHint": "0은 제한 없음을 뜻합니다.",
+      "noKnowledge": "지식에 맞는 내용이 없으면 인계",
+      "noKnowledgeHint": "질문에 대한 내용이 지식에 없으면 AI 대신 사람이 답합니다."
     },
     "knowledge": {
       "title": "지식 추가",
@@ -15543,7 +15551,7 @@
       "ready": "준비됨"
     },
     "monthlyTokenCap": "월간 AI 토큰 한도",
-    "monthlyTokenCapHint": "요약, 추천 답장, 평가, 인사이트에 적용됩니다. 비워 두면 요금제 한도만 적용됩니다.",
+    "monthlyTokenCapHint": "자동 답장, 플로우 답장, 요약, 추천 답장, 평가, 인사이트에 적용됩니다. 비워 두면 요금제 한도만 적용됩니다.",
     "staffReviewNote": "이 기능들이 작성한 내용은 팀원이 검토하고 보내기를 누르기 전까지 고객에게 전송되지 않습니다.",
     "autonomousNote": "자동 답장과 플로우의 AI 답장 단계는 사람의 검토 없이 전송됩니다.",
     "instagramGoals": {
@@ -17335,7 +17343,9 @@
       "noteDeleted": "메모를 삭제했습니다",
       "delete": "삭제",
       "markLost": "실패로 표시",
-      "markWon": "성사로 표시"
+      "markWon": "성사로 표시",
+      "contactSearchPlaceholder": "이름 또는 전화번호로 검색",
+      "contactSearchFailed": "연락처를 검색할 수 없습니다"
     },
     "paymentLink": {
       "sendNow": "지금 고객에게 보내기",
@@ -17450,7 +17460,7 @@
         "title": "새 주문",
         "totalHelp": "가격은 카탈로그에서 가져옵니다. 세금은 주문을 만들 때 더해집니다.",
         "customer": "고객",
-        "customerSearch": "이름으로 고객 검색",
+        "customerSearch": "이름 또는 전화번호로 고객 검색",
         "chooseCustomer": "고객을 선택하세요",
         "items": "상품",
         "product": "상품",
@@ -17485,7 +17495,7 @@
     },
     "products": {
       "copyName": "{name}(사본)",
-      "shown": "{name}이(가) 스토어에 표시됩니다",
+      "shown": "{name}이(가) 스토어에 공개되었습니다",
       "hiddenToast": "{name}이(가) 스토어에서 숨겨졌습니다",
       "duplicated": "사본을 초안으로 추가했습니다",
       "archived": "상품을 보관했습니다",
@@ -17497,7 +17507,7 @@
       "show": "스토어에 표시",
       "restore": "복원",
       "archive": "보관",
-      "activeFor": "{name} 스토어 표시",
+      "activeFor": "{name} 스토어에 공개",
       "all": "전체",
       "categories": "카테고리",
       "viewLabel": "보기",
@@ -17679,7 +17689,9 @@
         "maxTurns": "0에서 50 사이의 숫자를 입력하세요.",
         "hours": "시작 시간은 종료 시간보다 빨라야 합니다."
       },
-      "overnightHint": "시작 시간은 종료 시간보다 빨라야 합니다. 야간 운영(예: 22:00~06:00)은 \"이 시간 외에만\"을 선택하고 06:00~22:00을 입력하세요."
+      "overnightHint": "시작 시간은 종료 시간보다 빨라야 합니다. 야간 운영(예: 22:00~06:00)은 \"이 시간 외에만\"을 선택하고 06:00~22:00을 입력하세요.",
+      "noKnowledge": "지식에 답이 없을 때",
+      "noKnowledgeHint": "지식 없이 답하는 대신 인계합니다."
     },
     "test": {
       "panelLabel": "{name} 테스트",
@@ -17925,7 +17937,7 @@
       "barLabel": "사용한 예산",
       "pct": "{n}% 사용",
       "resets": "{date}에 초기화",
-      "overNote": "한도를 넘었습니다. 일시 중지가 꺼져 있어 어시스턴트 기능은 계속 작동합니다.",
+      "overNote": "한도를 넘었습니다. 일시 중지가 꺼져 있어 AI는 계속 작동합니다.",
       "pausedNote": "예산이 초기화되거나 한도를 올릴 때까지 AI가 일시 중지됩니다.",
       "planLimit": "요금제에서 매월 {n} 토큰을 사용할 수 있습니다.",
       "limitLabel": "월간 한도(토큰)",
@@ -17935,7 +17947,7 @@
       "setLimit": "한도 설정",
       "change": "한도 변경",
       "pause": "예산을 다 쓰면 AI 일시 중지",
-      "pauseHint": "한도에 도달하면 어시스턴트 기능이 멈춥니다. 팀은 계속 직접 답할 수 있습니다. 요금제 한도는 항상 적용됩니다.",
+      "pauseHint": "한도에 도달하면 자동 답장, 플로우 답장, 어시스턴트 기능이 멈추고 대화는 팀에게 넘어갑니다. 요금제 한도는 항상 적용됩니다.",
       "pauseOn": "예산을 다 쓰면 AI가 일시 중지됩니다",
       "pauseOff": "한도를 넘어도 AI가 계속 작동합니다",
       "tokensNote": "토큰은 AI가 읽고 쓰는 텍스트의 양입니다. 영어 약 750단어가 1,000토큰입니다.",

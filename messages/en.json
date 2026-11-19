@@ -2064,10 +2064,10 @@
     "settings": {
       "managePipeline": "Manage Pipeline",
       "deletePipeline": "Delete Pipeline",
-      "deletePipelineDesc": "This will archive all deals in this pipeline. This cannot be undone.",
+      "deletePipelineDesc": "This permanently deletes the pipeline and all its deals, including won deals. This can’t be undone.",
       "cancel": "Cancel",
       "deleting": "Deleting...",
-      "deletePipelineBtn": "Delete Pipeline",
+      "deletePipelineBtn": "Delete permanently",
       "pipelineName": "Pipeline Name",
       "stages": "Stages",
       "newStageNamePlaceholder": "New stage name",
@@ -6576,7 +6576,9 @@
         "claim_failed": "Could not reserve a reply slot",
         "stale": "Conversation changed before sending",
         "dispatch_failed": "Something went wrong",
-        "no_agent": "No agent is on for this channel at this hour"
+        "no_agent": "No agent is on for this channel at this hour",
+        "no_knowledge": "Nothing in knowledge matched",
+        "workspace_ai_cap": "Monthly AI token cap reached"
       },
       "unknownReason": "Other ({code})",
       "detailTitle": "Activity details",
@@ -9683,7 +9685,7 @@
       "description": "Carts sent from your WhatsApp catalogue and orders from connected stores.",
       "loading": "Loading orders",
       "loadError": "Couldn’t load orders",
-      "searchPlaceholder": "Search by customer or order number",
+      "searchPlaceholder": "Search by customer, phone or order",
       "filterStatus": "Filter by status",
       "filterSource": "Filter by source",
       "allStatuses": "All statuses",
@@ -9748,7 +9750,8 @@
           "deliveryDate": "Delivery date",
           "note": "Note",
           "giftMessage": "Gift message"
-        }
+        },
+        "payments": "Payments"
       },
       "settings": {
         "open": "Confirmation message",
@@ -10087,7 +10090,9 @@
           "coupon_min_subtotal": "The order would fall below the minimum for its coupon.",
           "forbidden": "You do not have permission for this change. A change that refunds money needs an admin."
         }
-      }
+      },
+      "exportTruncated": "Export stopped at 5,000 orders. Narrow the filters to get the rest.",
+      "exportFailed": "Couldn’t export orders"
     },
     "attention": {
       "title": "{count, plural, one {# store message needs attention} other {# store messages need attention}}",
@@ -10120,9 +10125,10 @@
         "purchaseOrders": "Purchase orders"
       },
       "statuses": {
-        "draft": "Draft",
-        "published": "Published",
-        "archived": "Archived"
+        "draft": "Hidden",
+        "published": "Live",
+        "archived": "Archived",
+        "visibility": "Visibility"
       },
       "errors": {
         "invalid": "Check the highlighted value and try again.",
@@ -10168,7 +10174,7 @@
         "create": "Add product",
         "search": "Search by name or SKU",
         "statusFilter": "Status",
-        "activeStatuses": "Draft and published",
+        "activeStatuses": "Live and hidden",
         "allStatuses": "All, including archived",
         "stockFilter": "Stock",
         "allStock": "Any stock",
@@ -10272,10 +10278,10 @@
         "reviewed": "Content reviewed {date, date, medium}",
         "notReviewed": "Content not reviewed yet",
         "publish": "Review and publish",
-        "publishHint": "Publishing records you as the reviewer of the name, description and disclosure. It needs at least one priced variant.",
-        "publishedToast": "Product published",
+        "publishHint": "Making a product live records you as the reviewer of the name, description and disclosure. It needs at least one priced variant.",
+        "publishedToast": "Product is live",
         "unpublish": "Unpublish",
-        "unpublished": "Product moved back to draft",
+        "unpublished": "Product hidden from the shop",
         "archive": "Archive",
         "archivedToast": "Product archived",
         "restore": "Restore",
@@ -10293,7 +10299,7 @@
         "followUpLanguage": "Template language",
         "followUpDays": "Days after delivery",
         "followUpHint": "Optional. An approved utility template sent once after the order is delivered.",
-        "rereviewHint": "Saving changed text on a published product records you as its reviewer.",
+        "rereviewHint": "Saving changed text on a live product records you as its reviewer.",
         "save": "Save details",
         "images": "Images",
         "noImages": "No images.",
@@ -11970,7 +11976,7 @@
       "customer": "Customer",
       "walkIn": "Walk-in",
       "namedCustomer": "Named customer",
-      "customerSearch": "Search customers by name",
+      "customerSearch": "Search customers by name or phone",
       "chosen": "Selling to {name}",
       "products": "Products",
       "productSearch": "Search by name or scan a SKU",
@@ -13007,7 +13013,9 @@
       "threshold": "Confidence needed to reply: {value}%",
       "thresholdHint": "At 50% the agent's own judgement decides. Higher values also need a close match in the knowledge base and hand off more often. When nothing in the knowledge base matches, only the agent's own judgement decides.",
       "maxTurns": "Hand off after this many AI replies",
-      "maxTurnsHint": "0 means no limit."
+      "maxTurnsHint": "0 means no limit.",
+      "noKnowledge": "Hand off when nothing in knowledge matches",
+      "noKnowledgeHint": "If your knowledge has nothing on the question, a person answers instead of the AI."
     },
     "knowledge": {
       "title": "Add knowledge",
@@ -15543,7 +15551,7 @@
       "ready": "Ready"
     },
     "monthlyTokenCap": "Monthly AI token cap",
-    "monthlyTokenCapHint": "Applies to summaries, suggested replies, assessments and insights. Leave empty to use only your plan's limit.",
+    "monthlyTokenCapHint": "Applies to auto-replies, flow replies, summaries, suggested replies, assessments and insights. Leave empty to use only your plan's limit.",
     "staffReviewNote": "Nothing these features write is sent to a customer until a team member reviews it and presses Send.",
     "autonomousNote": "Auto-reply and the flow AI reply step send without human review.",
     "instagramGoals": {
@@ -17335,7 +17343,9 @@
       "noteDeleted": "Note deleted",
       "delete": "Delete",
       "markLost": "Mark lost",
-      "markWon": "Mark won"
+      "markWon": "Mark won",
+      "contactSearchPlaceholder": "Search by name or phone",
+      "contactSearchFailed": "Couldn’t search contacts"
     },
     "paymentLink": {
       "sendNow": "Send it to the customer now",
@@ -17450,7 +17460,7 @@
         "title": "New order",
         "totalHelp": "Prices come from your catalogue. Tax is added when the order is created.",
         "customer": "Customer",
-        "customerSearch": "Search customers by name",
+        "customerSearch": "Search customers by name or phone",
         "chooseCustomer": "Choose a customer",
         "items": "Items",
         "product": "Product",
@@ -17485,7 +17495,7 @@
     },
     "products": {
       "copyName": "{name} (copy)",
-      "shown": "{name} is active in the shop",
+      "shown": "{name} is live in the shop",
       "hiddenToast": "{name} is hidden from the shop",
       "duplicated": "Copy added as a draft",
       "archived": "Product archived",
@@ -17497,7 +17507,7 @@
       "show": "Show in shop",
       "restore": "Restore",
       "archive": "Archive",
-      "activeFor": "{name} active in shop",
+      "activeFor": "{name} live in the shop",
       "all": "All",
       "categories": "Categories",
       "viewLabel": "View",
@@ -17679,7 +17689,9 @@
         "maxTurns": "Enter a number from 0 to 50.",
         "hours": "The start time must be before the end time."
       },
-      "overnightHint": "The start must be before the end. For overnight cover (for example 22:00 to 06:00), choose \"Only outside these hours\" and enter 06:00 to 22:00."
+      "overnightHint": "The start must be before the end. For overnight cover (for example 22:00 to 06:00), choose \"Only outside these hours\" and enter 06:00 to 22:00.",
+      "noKnowledge": "When knowledge has no answer",
+      "noKnowledgeHint": "Hands over instead of replying without your knowledge."
     },
     "test": {
       "panelLabel": "Test {name}",
@@ -17925,7 +17937,7 @@
       "barLabel": "Budget used",
       "pct": "{n}% used",
       "resets": "Resets {date}",
-      "overNote": "You are over your limit. The assistant features keep working because pausing is off.",
+      "overNote": "You are over your limit. The AI keeps working because pausing is off.",
       "pausedNote": "The AI is paused until the budget resets or you raise the limit.",
       "planLimit": "Your plan allows {n} tokens a month.",
       "limitLabel": "Monthly limit, in tokens",
@@ -17935,7 +17947,7 @@
       "setLimit": "Set a limit",
       "change": "Change limit",
       "pause": "Pause the AI when the budget is used up",
-      "pauseHint": "Assistant features stop at your limit; your team can still reply by hand. Your plan's limit always applies.",
+      "pauseHint": "At your limit, auto-replies, flow replies and assistant features stop, and chats go to your team. Your plan's limit always applies.",
       "pauseOn": "The AI will pause when the budget is used up",
       "pauseOff": "The AI will keep working past your limit",
       "tokensNote": "Tokens measure how much text the AI reads and writes. About 750 words is 1,000 tokens.",

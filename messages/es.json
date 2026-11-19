@@ -2064,10 +2064,10 @@
     "settings": {
       "managePipeline": "Administrar pipeline",
       "deletePipeline": "Eliminar pipeline",
-      "deletePipelineDesc": "Esto archivará todos los negocios de este pipeline. No se puede deshacer.",
+      "deletePipelineDesc": "Esto elimina de forma permanente el pipeline y todos sus negocios, incluidos los ganados. No se puede deshacer.",
       "cancel": "Cancelar",
       "deleting": "Eliminando...",
-      "deletePipelineBtn": "Eliminar pipeline",
+      "deletePipelineBtn": "Eliminar definitivamente",
       "pipelineName": "Nombre del pipeline",
       "stages": "Etapas",
       "newStageNamePlaceholder": "Nombre de la nueva etapa",
@@ -6576,7 +6576,9 @@
         "claim_failed": "No se pudo reservar un turno de respuesta",
         "stale": "La conversación cambió antes del envío",
         "dispatch_failed": "Algo salió mal",
-        "no_agent": "Ningún agente está activo para este canal a esta hora"
+        "no_agent": "Ningún agente está activo para este canal a esta hora",
+        "no_knowledge": "Nada del conocimiento coincidió",
+        "workspace_ai_cap": "Límite mensual de tokens de IA alcanzado"
       },
       "unknownReason": "Otro ({code})",
       "detailTitle": "Detalles de la actividad",
@@ -9683,7 +9685,7 @@
       "description": "Carritos enviados desde tu catálogo de WhatsApp y pedidos de tiendas conectadas.",
       "loading": "Cargando pedidos",
       "loadError": "No se pudieron cargar los pedidos",
-      "searchPlaceholder": "Buscar por cliente o número de pedido",
+      "searchPlaceholder": "Buscar por cliente, teléfono o pedido",
       "filterStatus": "Filtrar por estado",
       "filterSource": "Filtrar por origen",
       "allStatuses": "Todos los estados",
@@ -9748,7 +9750,8 @@
           "deliveryDate": "Fecha de entrega",
           "note": "Nota",
           "giftMessage": "Mensaje de regalo"
-        }
+        },
+        "payments": "Pagos"
       },
       "settings": {
         "open": "Mensaje de confirmación",
@@ -10087,7 +10090,9 @@
           "coupon_min_subtotal": "El pedido quedaría por debajo del mínimo de su cupón.",
           "forbidden": "No tienes permiso para este cambio. Un cambio que reembolsa dinero necesita un administrador."
         }
-      }
+      },
+      "exportTruncated": "La exportación se detuvo en 5.000 pedidos. Ajusta los filtros para obtener el resto.",
+      "exportFailed": "No se pudieron exportar los pedidos"
     },
     "attention": {
       "title": "{count, plural, one {# mensaje de la tienda requiere atención} other {# mensajes de la tienda requieren atención}}",
@@ -10120,9 +10125,10 @@
         "purchaseOrders": "Órdenes de compra"
       },
       "statuses": {
-        "draft": "Borrador",
-        "published": "Publicado",
-        "archived": "Archivado"
+        "draft": "Oculto",
+        "published": "Visible",
+        "archived": "Archivado",
+        "visibility": "Visibilidad"
       },
       "errors": {
         "invalid": "Revisa el valor indicado e inténtalo de nuevo.",
@@ -10168,7 +10174,7 @@
         "create": "Añadir producto",
         "search": "Buscar por nombre o SKU",
         "statusFilter": "Estado",
-        "activeStatuses": "Borradores y publicados",
+        "activeStatuses": "Visibles y ocultos",
         "allStatuses": "Todos, también archivados",
         "stockFilter": "Existencias",
         "allStock": "Cualquier existencia",
@@ -10272,10 +10278,10 @@
         "reviewed": "Contenido revisado el {date, date, medium}",
         "notReviewed": "Contenido aún sin revisar",
         "publish": "Revisar y publicar",
-        "publishHint": "Al publicar quedas registrado como revisor del nombre, la descripción y el aviso. Necesita al menos una variante con precio.",
-        "publishedToast": "Producto publicado",
+        "publishHint": "Al hacer visible un producto quedas registrado como revisor del nombre, la descripción y la información legal. Necesita al menos una variante con precio.",
+        "publishedToast": "El producto está visible",
         "unpublish": "Retirar",
-        "unpublished": "Producto devuelto a borrador",
+        "unpublished": "Producto oculto de la tienda",
         "archive": "Archivar",
         "archivedToast": "Producto archivado",
         "restore": "Restaurar",
@@ -10293,7 +10299,7 @@
         "followUpLanguage": "Idioma de la plantilla",
         "followUpDays": "Días tras la entrega",
         "followUpHint": "Opcional. Una plantilla de utilidad aprobada que se envía una vez tras entregar el pedido.",
-        "rereviewHint": "Guardar texto modificado en un producto publicado te registra como su revisor.",
+        "rereviewHint": "Guardar cambios de texto en un producto visible te registra como su revisor.",
         "save": "Guardar detalles",
         "images": "Imágenes",
         "noImages": "Sin imágenes.",
@@ -11970,7 +11976,7 @@
       "customer": "Cliente",
       "walkIn": "Cliente de paso",
       "namedCustomer": "Cliente con nombre",
-      "customerSearch": "Buscar clientes por nombre",
+      "customerSearch": "Buscar clientes por nombre o teléfono",
       "chosen": "Vendiendo a {name}",
       "products": "Productos",
       "productSearch": "Busca por nombre o escanea un SKU",
@@ -13007,7 +13013,9 @@
       "threshold": "Confianza necesaria para responder: {value} %",
       "thresholdHint": "Al 50 % decide el propio criterio del agente. Los valores más altos exigen además una coincidencia cercana en la base de conocimiento y traspasan con más frecuencia. Si nada de la base de conocimiento coincide, decide solo el criterio del agente.",
       "maxTurns": "Traspasar después de esta cantidad de respuestas de la IA",
-      "maxTurnsHint": "0 significa sin límite."
+      "maxTurnsHint": "0 significa sin límite.",
+      "noKnowledge": "Pasar a una persona cuando nada del conocimiento coincide",
+      "noKnowledgeHint": "Si tu conocimiento no dice nada sobre la pregunta, responde una persona en lugar de la IA."
     },
     "knowledge": {
       "title": "Añade conocimiento",
@@ -15543,7 +15551,7 @@
       "ready": "Listo"
     },
     "monthlyTokenCap": "Límite mensual de tokens de IA",
-    "monthlyTokenCapHint": "Se aplica a resúmenes, respuestas sugeridas, evaluaciones e informes. Déjalo vacío para usar solo el límite de tu plan.",
+    "monthlyTokenCapHint": "Se aplica a respuestas automáticas, respuestas de flujos, resúmenes, respuestas sugeridas, evaluaciones e informes. Déjalo vacío para usar solo el límite de tu plan.",
     "staffReviewNote": "Nada de lo que escriben estas funciones se envía a un cliente hasta que un miembro del equipo lo revisa y pulsa Enviar.",
     "autonomousNote": "La respuesta automática y el paso de respuesta con IA de los flujos envían sin revisión humana.",
     "instagramGoals": {
@@ -17335,7 +17343,9 @@
       "noteDeleted": "Nota eliminada",
       "delete": "Eliminar",
       "markLost": "Marcar perdido",
-      "markWon": "Marcar ganado"
+      "markWon": "Marcar ganado",
+      "contactSearchPlaceholder": "Buscar por nombre o teléfono",
+      "contactSearchFailed": "No se pudieron buscar los contactos"
     },
     "paymentLink": {
       "sendNow": "Enviarlo ahora al cliente",
@@ -17450,7 +17460,7 @@
         "title": "Nuevo pedido",
         "totalHelp": "Los precios salen de tu catálogo. Los impuestos se añaden al crear el pedido.",
         "customer": "Cliente",
-        "customerSearch": "Buscar clientes por nombre",
+        "customerSearch": "Buscar clientes por nombre o teléfono",
         "chooseCustomer": "Elige un cliente",
         "items": "Artículos",
         "product": "Producto",
@@ -17485,7 +17495,7 @@
     },
     "products": {
       "copyName": "{name} (copia)",
-      "shown": "{name} está activo en la tienda",
+      "shown": "{name} está visible en la tienda",
       "hiddenToast": "{name} está oculto en la tienda",
       "duplicated": "Copia añadida como borrador",
       "archived": "Producto archivado",
@@ -17497,7 +17507,7 @@
       "show": "Mostrar en la tienda",
       "restore": "Restaurar",
       "archive": "Archivar",
-      "activeFor": "{name} activo en la tienda",
+      "activeFor": "{name} visible en la tienda",
       "all": "Todos",
       "categories": "Categorías",
       "viewLabel": "Vista",
@@ -17679,7 +17689,9 @@
         "maxTurns": "Escribe un número del 0 al 50.",
         "hours": "La hora de inicio debe ser anterior a la hora de fin."
       },
-      "overnightHint": "El inicio debe ser anterior al fin. Para cubrir la noche (por ejemplo, de 22:00 a 06:00), elige \"Solo fuera de este horario\" e introduce de 06:00 a 22:00."
+      "overnightHint": "El inicio debe ser anterior al fin. Para cubrir la noche (por ejemplo, de 22:00 a 06:00), elige \"Solo fuera de este horario\" e introduce de 06:00 a 22:00.",
+      "noKnowledge": "Cuando el conocimiento no tiene respuesta",
+      "noKnowledgeHint": "Pasa la conversación en lugar de responder sin tu conocimiento."
     },
     "test": {
       "panelLabel": "Probar {name}",
@@ -17925,7 +17937,7 @@
       "barLabel": "Presupuesto usado",
       "pct": "{n} % usado",
       "resets": "Se renueva el {date}",
-      "overNote": "Has superado tu límite. Las funciones del asistente siguen funcionando porque la pausa está desactivada.",
+      "overNote": "Has superado tu límite. La IA sigue funcionando porque la pausa está desactivada.",
       "pausedNote": "La IA está en pausa hasta que se renueve el presupuesto o subas el límite.",
       "planLimit": "Tu plan permite {n} tokens al mes.",
       "limitLabel": "Límite mensual, en tokens",
@@ -17935,7 +17947,7 @@
       "setLimit": "Fijar un límite",
       "change": "Cambiar límite",
       "pause": "Pausar la IA cuando se agote el presupuesto",
-      "pauseHint": "Las funciones del asistente se detienen en tu límite; tu equipo puede seguir respondiendo a mano. El límite de tu plan se aplica siempre.",
+      "pauseHint": "Al llegar a tu límite, las respuestas automáticas, las respuestas de flujos y las funciones del asistente se detienen, y los chats pasan a tu equipo. El límite de tu plan se aplica siempre.",
       "pauseOn": "La IA se pausará cuando se agote el presupuesto",
       "pauseOff": "La IA seguirá funcionando después de tu límite",
       "tokensNote": "Los tokens miden cuánto texto lee y escribe la IA. Unas 750 palabras son 1000 tokens.",
