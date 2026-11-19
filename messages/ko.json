@@ -6663,7 +6663,10 @@
   "UiPrimitives": {
     "close": "닫기",
     "scrollLeft": "왼쪽으로 스크롤",
-    "scrollRight": "오른쪽으로 스크롤"
+    "scrollRight": "오른쪽으로 스크롤",
+    "loadFailed": "불러오지 못했습니다. 연결을 확인하고 다시 시도하세요.",
+    "retry": "다시 시도",
+    "loading": "불러오는 중"
   },
   "GatedButton": {
     "readOnly": "읽기 전용 — 현재 역할로는 {action} 수 없습니다",

@@ -6663,7 +6663,10 @@
   "UiPrimitives": {
     "close": "Cerrar",
     "scrollLeft": "Desplazar a la izquierda",
-    "scrollRight": "Desplazar a la derecha"
+    "scrollRight": "Desplazar a la derecha",
+    "loadFailed": "No se pudo cargar. Revisa tu conexión e inténtalo de nuevo.",
+    "retry": "Reintentar",
+    "loading": "Cargando"
   },
   "GatedButton": {
     "readOnly": "Solo lectura: tu rol no puede {action}",

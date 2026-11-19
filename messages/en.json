@@ -6663,7 +6663,10 @@
   "UiPrimitives": {
     "close": "Close",
     "scrollLeft": "Scroll left",
-    "scrollRight": "Scroll right"
+    "scrollRight": "Scroll right",
+    "loadFailed": "Couldn't load this. Check your connection and try again.",
+    "retry": "Retry",
+    "loading": "Loading"
   },
   "GatedButton": {
     "readOnly": "Read-only — your role can't {action}",
