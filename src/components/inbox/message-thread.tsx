@@ -42,6 +42,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { InlineError } from '@/components/ui/inline-error';
 import { ConsentChip, OptedOutBanner } from './consent';
 import { avatarTone, initials } from '@/lib/ui/avatar-tone';
 import { useWhatsAppNumbers } from '@/components/settings/numbers/use-whatsapp-numbers';
@@ -249,8 +250,9 @@ const STATUS_OPTIONS: {
   value: ConversationStatus;
   color: string;
 }[] = [
+  // "Pending" is never shown: a legacy pending chat reads as Open. 'Closed' names the
+  // statusClosed key, whose text is "Resolved".
   { label: 'Open', value: 'open', color: 'text-primary' },
-  { label: 'Pending', value: 'pending', color: 'text-amber-400' },
   { label: 'Closed', value: 'closed', color: 'text-muted-foreground' },
 ];
 
@@ -303,6 +305,9 @@ export function MessageThread({
   const [busyAction, setBusyAction] = useState(false);
   const { getPresence, getRow, now } = usePresence();
   const [loading, setLoading] = useState(false);
+  // The conversation whose first load failed: the thread shows what happened and Retry.
+  const [loadFailedFor, setLoadFailedFor] = useState<string | null>(null);
+  const [retryToken, setRetryToken] = useState(0);
   const [history, setHistory] = useState<ThreadHistory | null>(null);
   const [loadingOlder, setLoadingOlder] = useState(false);
   const historyRequestRef = useRef(0);
@@ -483,7 +488,9 @@ export function MessageThread({
 
         if (error) {
           console.error('Failed to fetch messages:', error);
+          if (!silent) setLoadFailedFor(conversationId);
         } else {
+          setLoadFailedFor(null);
           const page = data ?? [];
           onMessagesLoadedRef.current(page, conversationId);
           setHistory((previous) =>
@@ -497,7 +504,10 @@ export function MessageThread({
           loadedForRef.current = conversationId;
         }
       } catch (error) {
-        if (!cancelled) console.error('Failed to fetch messages:', error);
+        if (!cancelled) {
+          console.error('Failed to fetch messages:', error);
+          if (!silent) setLoadFailedFor(conversationId);
+        }
       } finally {
         if (!cancelled && !silent) setLoading(false);
       }
@@ -510,7 +520,7 @@ export function MessageThread({
     // the realtime channel reconnects or the tab regains focus —
     // realtime is best-effort and any message events sent while the WS
     // was disconnected or throttled are otherwise lost.
-  }, [conversationId, resyncToken]);
+  }, [conversationId, resyncToken, retryToken]);
 
   const loadOlder = async () => {
     if (
@@ -1419,7 +1429,7 @@ export function MessageThread({
     ? [...messages].reverse().find((m) => m.sender_type === 'agent' || m.sender_type === 'bot')?.id
     : undefined;
   const currentStatus = STATUS_OPTIONS.find(
-    (s) => s.value === conversation.status
+    (s) => s.value === (conversation.status === 'pending' ? 'open' : conversation.status)
   );
   const assignedAgentId = conversation.assigned_agent_id ?? null;
   const currentAssignee = profiles.find((p) => p.user_id === assignedAgentId);
@@ -1791,6 +1801,8 @@ export function MessageThread({
           <div className="flex items-center justify-center py-12">
             <div className="border-primary h-5 w-5 animate-spin rounded-full border-2 border-t-transparent" />
           </div>
+        ) : loadFailedFor === conversationId ? (
+          <InlineError message={t('loadFailed')} onRetry={() => setRetryToken((n) => n + 1)} />
         ) : messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12">
             <p className="text-muted-foreground text-sm">

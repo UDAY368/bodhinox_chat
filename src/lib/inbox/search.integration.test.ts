@@ -110,10 +110,23 @@ describe.skipIf(!ownerUrl || !appUrl)('inbox message search on PostgreSQL', { ti
     const ids = async (q: Record<string, string>) => (await search(asAgent, { q: 'refund', ...q })).results.map((r) => r.message_id);
     expect(await ids({ whatsapp_config_id: numberA2 })).toEqual([msg.noname]);
     expect(await ids({ status: 'open' })).toEqual([msg.refund2, msg.refund1]);
-    expect(await ids({ status: 'pending' })).toEqual([]);
+    // "Pending" is never shown: an old link asking for it gets Open.
+    expect(await ids({ status: 'pending' })).toEqual([msg.refund2, msg.refund1]);
+    expect(await ids({ status: 'closed' })).toEqual([msg.noname]);
     expect(await ids({ assignee: 'me' })).toEqual([msg.refund2, msg.refund1]);
     expect(await ids({ assignee: 'unassigned' })).toEqual([msg.noname]);
     expect(await ids({ from: '2026-11-01T09:30:00Z', to: '2026-11-01T12:00:00Z' })).toEqual([msg.refund2]);
+  });
+
+  it('counts legacy pending rows as Open without migrating them', async () => {
+    await owner.query("UPDATE conversations SET status='pending' WHERE id=$1", [convAsha]);
+    try {
+      const ids = async (q: Record<string, string>) => (await search(asAgent, { q: 'refund', ...q })).results.map((r) => r.message_id);
+      expect(await ids({ status: 'open' })).toEqual([msg.refund2, msg.refund1]);
+      expect(await ids({ status: 'closed' })).toEqual([msg.noname]);
+    } finally {
+      await owner.query("UPDATE conversations SET status='open' WHERE id=$1", [convAsha]);
+    }
   });
 
   it('falls back to a substring match for very short queries and escapes LIKE wildcards', async () => {

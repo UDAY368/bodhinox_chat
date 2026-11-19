@@ -22,7 +22,7 @@ export interface InboxSearchProps {
 
 export interface InboxSearchFilterState {
   whatsappConfigId: string | null;
-  status: '' | 'open' | 'pending' | 'closed';
+  status: '' | 'open' | 'closed';
   assignee: '' | 'me' | 'unassigned';
   /** Local calendar dates, YYYY-MM-DD, inclusive. */
   from: string;
@@ -160,7 +160,6 @@ export function InboxSearch({ onOpen }: InboxSearchProps) {
         >
           <option value="">{t('anyStatus')}</option>
           <option value="open">{t('statusOpen')}</option>
-          <option value="pending">{t('statusPending')}</option>
           <option value="closed">{t('statusClosed')}</option>
         </select>
         <select
