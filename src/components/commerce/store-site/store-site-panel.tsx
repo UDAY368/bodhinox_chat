@@ -22,6 +22,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import type { ShopSiteView } from "@/lib/commerce/shop-site";
+import { ShopAccessCard } from "./shop-access-card";
+import { RedirectsCard } from "./redirects-card";
 import { encodeQr, qrSvgPath } from "@/lib/qr/encode";
 
 function QrCode({ url, label }: { url: string; label: string }) {
@@ -220,6 +222,10 @@ export function StoreSitePanel() {
           </div>
         </CardContent>
       </Card>
+
+      <ShopAccessCard canEdit={canEdit} />
+
+      <RedirectsCard canEdit={canEdit} />
 
       {canEdit && (
         <div className="sticky bottom-4 flex justify-end">

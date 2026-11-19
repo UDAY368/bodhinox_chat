@@ -4,13 +4,21 @@
  * write the line snapshots and totals, set priced_at and awaiting_payment, and
  * queue the reservation expiry and the checkout link jobs.
  *
+ * Store credit and loyalty points (Phase 8) are spent in the same transaction,
+ * after the stock is held (customer-ledger.ts): the balances are read again
+ * under the contact's ledger lock, so two checkouts cannot spend the same
+ * credit. What they pay is counted in amount_paid_minor; an order they pay in
+ * full is confirmed paid at once, with no payment link.
+ *
  * Lock order (E5): storefront session -> contact advisory lock -> order ->
- * coupon -> inventory rows (ascending). A storefront order is inserted by this transaction, so no one
+ * coupon -> inventory rows (ascending) -> the contact's ledger lock. A storefront order is inserted by this transaction, so no one
  * else can hold it; a WhatsApp cart's order row is locked before the coupon.
  *
- * Nothing here marks an order paid: payment links are created by a job after
- * commit and only verified settlement (lib/payments/settle.ts) moves the order
- * on. Logs carry ids and codes only.
+ * No money is ever taken or assumed here: payment links are created by a job
+ * after commit and only verified settlement (lib/payments/settle.ts) moves a
+ * money-paying order on. The one order confirmed paid at place is the one the
+ * customer's own store credit and points pay in full, from the server's
+ * ledgers. Logs carry ids and codes only.
  */
 import { createHash, randomUUID } from 'node:crypto';
 import { createAdminClient } from '@/lib/data/admin';
@@ -25,11 +33,18 @@ import { createPaymentLinkRecord, PaymentLinkError } from '@/lib/payments/links'
 import { MetaApiError } from '@/lib/whatsapp/meta-api';
 import { extractVariableIndices } from '@/lib/whatsapp/template-validators';
 import { getT } from '@/lib/i18n/translate';
+import { creditOrderTx, lockOrderTx } from '@/lib/payments/settle';
+import { loadBuyerSettingsTx } from './buyer-settings';
 import { startCodConfirmationTx } from './cart-followups';
+import { queueOrderEmailTx, recordCheckoutEmailTx } from './email-jobs';
+import { isEmailAddress } from './email-rules';
+import { attributeReferralTx } from './referrals';
+import { checkExtras, isEmptyExtras } from './checkout-extras';
+import { applyOrderTenderTx, reverseOrderTenderTx } from './customer-ledger';
 import { lockCouponTx, redeemCouponTx, releaseCouponTx } from './coupons';
 import { MARKETING_OPT_IN_VERSION } from './marketing-consent';
 import { minorFromDb } from './money';
-import { CART_LIMITS } from './pricing';
+import { CART_LIMITS, type QuoteLine } from './pricing';
 import { releaseTx, reserveTx, StockError } from './stock';
 import {
   assertOpen, issueSessionTx, linkMessageText, loadOrder, loadSession, onlinePaymentReady, orderReference, OPEN_WINDOW_MS,
@@ -140,12 +155,28 @@ async function assertVariantHoldsTx(tx: TenantTransaction, accountId: string, co
       throw new StoreError('too_many_open_orders', { variantId: h.variant_id });
 }
 
+/** One priced line of a quote as an order item (the name carries the options; a gift line is marked). */
+async function insertItem(tx: TenantTransaction, accountId: string, orderId: string, currency: string, line: QuoteLine): Promise<void> {
+  const options = Object.values(line.optionValues).filter(Boolean).join(' / ');
+  const name = (options ? `${line.productName} (${options})` : line.productName).slice(0, 500);
+  await tx.$executeRaw`INSERT INTO order_items(account_id,order_id,retailer_id,name,quantity,unit_price_minor,currency,variant_id,
+      tax_rate_bps,tax_minor,discount_minor,line_total_minor,hsn_code,sku,preorder_ship_date,is_gift)
+    VALUES(${accountId}::uuid,${orderId}::uuid,${line.sku},${name},${line.qty},${line.unitPriceMinor},${currency},
+      ${line.variantId}::uuid,${line.taxRateBps},${line.taxMinor},${line.discountMinor},${line.lineTotalMinor},${line.hsnCode},${line.sku},
+      ${line.preorderShipDate}::date,${line.gift})`;
+}
+
 // ---------------------------------------------------------------------------
 // Place
 
 export interface PlaceInput {
   expectedVersion: number;
   expectedTotalMinor: number;
+  /**
+   * What the customer saw as left to pay after store credit and points. Absent means they saw no
+   * credit or points applied, so it must equal the total.
+   */
+  expectedPayableMinor?: number;
   clientRequestId: string;
   /**
    * The repeat-purchase consent checkbox (Phase 9 D13): true only when the
@@ -156,6 +187,10 @@ export interface PlaceInput {
   /** A business buyer's GSTIN and legal name (optional). A GSTIN that fails the format, state or check-character test is refused. */
   buyerGstin?: unknown;
   buyerLegalName?: unknown;
+  /** Optional email typed at checkout (validated); confirmation emails go to it. */
+  email?: string | null;
+  /** "Email me offers": only an explicit tick (and an email) records email-marketing consent, source 'checkout'. */
+  emailOffers?: boolean;
 }
 
 export interface PlaceResult {
@@ -175,9 +210,13 @@ export interface PlaceResult {
 export async function placeOrder(accountId: string, sessionId: string, input: PlaceInput, now = new Date()): Promise<PlaceResult> {
   if (!isUuid(sessionId) || !isUuid(input.clientRequestId) || !Number.isInteger(input.expectedVersion)
     || !Number.isSafeInteger(input.expectedTotalMinor) || input.expectedTotalMinor < 0
+    || (input.expectedPayableMinor !== undefined && (!Number.isSafeInteger(input.expectedPayableMinor) || input.expectedPayableMinor < 0))
     || (input.marketingOptIn !== undefined && typeof input.marketingOptIn !== 'boolean')) throw new StoreError('invalid');
   const buyerTax = parseBuyerTaxIdentity(input.buyerGstin, input.buyerLegalName);
   if (!buyerTax) throw new StoreError('invalid', { field: 'buyer_gstin' });
+  const email = typeof input.email === 'string' && input.email.trim() ? input.email.trim().toLowerCase() : null;
+  if ((email !== null && !isEmailAddress(email)) || (input.emailOffers !== undefined && typeof input.emailOffers !== 'boolean') || (input.emailOffers === true && email === null))
+    throw new StoreError('invalid', { field: 'email' });
   const optIn = input.marketingOptIn ?? null;
   const optInAt = optIn === null ? null : now;
   const optInVersion = optIn === null ? null : MARKETING_OPT_IN_VERSION;
@@ -196,7 +235,6 @@ export async function placeOrder(accountId: string, sessionId: string, input: Pl
     if (!settings) throw new StoreError('store_not_configured');
     if (!settings.checkout_enabled) throw new StoreError('checkout_disabled');
     if (session.version !== input.expectedVersion) throw new StoreError('conflict');
-    if (!session.address) throw new StoreError('address_required');
     // Before the order row (lock order): the contact's holds are counted under its advisory lock.
     await lockContactHoldsTx(tx, accountId, session.contact_id, session.order_id, now);
 
@@ -212,44 +250,48 @@ export async function placeOrder(accountId: string, sessionId: string, input: Pl
     const { result } = await quoteSessionTx(tx, accountId, session, { lockedCoupon: coupon, now });
     if (!result.ok) throw new StoreError(result.code, 'variantId' in result && result.variantId ? { variantId: result.variantId } : undefined);
     const quote = result.quote;
-    if (!quote.shipping) throw new StoreError('address_required');
+    // A cart of only digital products needs no address; everything else does.
+    if (!quote.shipping || (!session.address && !quote.digitalOnly)) throw new StoreError('address_required');
+    // Note, gift message, delivery date and slot, custom answers: checked against the shop's offer now (required fields enforced); not part of pricing.
+    const { extras } = checkExtras(await loadBuyerSettingsTx(tx, accountId), session.extras, now, { complete: true, physical: !quote.digitalOnly });
     if (quote.totalMinor !== input.expectedTotalMinor) throw new StoreError('quote_changed', { quote });
+    // Store credit or points changed since the customer looked (spent elsewhere, or adjusted): show the new amount first.
+    if (quote.payableMinor !== (input.expectedPayableMinor ?? input.expectedTotalMinor)) throw new StoreError('quote_changed', { quote });
+    const tendered = quote.storeCreditMinor + quote.pointsValueMinor;
+    // Credit and points pay the whole order: it is paid now, with no payment link and nothing to collect.
+    const paidByTender = tendered > 0 && quote.payableMinor === 0;
     const stockLines = quote.lines.filter((l) => l.trackInventory).map((l) => ({ variantId: l.variantId, quantity: l.qty }));
     await assertVariantHoldsTx(tx, accountId, session.contact_id, stockLines, now);
 
     const orderId = existing?.id ?? randomUUID();
-    const address = JSON.stringify(session.address);
+    const address = session.address ? JSON.stringify(session.address) : null;
     // The repriced quote already refused cod_unavailable; COD is then confirmed with no payment link.
     const cod = quote.paymentMethod === 'cod';
     // What the customer was shown: names and savings only (no rule ids, no rule settings).
     const discountDetails = quote.autoDiscounts.length
       ? JSON.stringify(quote.autoDiscounts.map((d) => ({ name: d.name, kind: d.kind, saving_minor: d.savingMinor }))) : null;
     // No Razorpay connection, so no payment link can be made: refuse before anything is held.
-    if (!cod && !(await onlinePaymentReady(tx, accountId))) throw new StoreError('online_unavailable');
+    if (!cod && !paidByTender && !(await onlinePaymentReady(tx, accountId))) throw new StoreError('online_unavailable');
     if (!existing) {
       await tx.$executeRaw`INSERT INTO orders(id,account_id,source,contact_id,conversation_id,whatsapp_config_id,currency,subtotal_minor,
           discount_minor,shipping_minor,tax_minor,tax_inclusive,total_minor,coupon_code,shipping_address,storefront_session_id,status,
           marketing_opt_in,marketing_opt_in_at,marketing_opt_in_version,payment_method,cod_fee_minor,auto_discount_minor,discount_details,
-          buyer_gstin,buyer_legal_name)
+          buyer_gstin,buyer_legal_name,delivery_method,preorder_ship_date,store_credit_minor,points_redeemed,points_value_minor)
         VALUES(${orderId}::uuid,${accountId}::uuid,'storefront',${session.contact_id}::uuid,${session.conversation_id}::uuid,
           ${session.whatsapp_config_id}::uuid,${quote.currency},${quote.subtotalMinor},${quote.discountMinor},${quote.shippingMinor},
           ${quote.taxMinor},${quote.taxInclusive},${quote.totalMinor},${quote.couponCode},${address}::jsonb,${session.id}::uuid,'new',
           ${optIn}::boolean,${optInAt}::timestamptz,${optInVersion}::text,${quote.paymentMethod},${quote.codFeeMinor},
-          ${quote.autoDiscountMinor},${discountDetails}::jsonb,${buyerTax.gstin},${buyerTax.legal_name})`;
+          ${quote.autoDiscountMinor},${discountDetails}::jsonb,${buyerTax.gstin},${buyerTax.legal_name},${quote.deliveryMethod},${quote.preorderShipDate}::date,
+          ${quote.storeCreditMinor},${quote.pointsRedeemed},${quote.pointsValueMinor})`;
       for (const line of quote.lines) {
-        const options = Object.values(line.optionValues).filter(Boolean).join(' / ');
-        const name = (options ? `${line.productName} (${options})` : line.productName).slice(0, 500);
-        await tx.$executeRaw`INSERT INTO order_items(account_id,order_id,retailer_id,name,quantity,unit_price_minor,currency,variant_id,
-            tax_rate_bps,tax_minor,discount_minor,line_total_minor,hsn_code,sku)
-          VALUES(${accountId}::uuid,${orderId}::uuid,${line.sku},${name},${line.qty},${line.unitPriceMinor},${quote.currency},
-            ${line.variantId}::uuid,${line.taxRateBps},${line.taxMinor},${line.discountMinor},${line.lineTotalMinor},${line.hsnCode},${line.sku})`;
+        await insertItem(tx, accountId, orderId, quote.currency, line);
       }
     } else {
       // Reprice the cart's own lines by SKU; the Meta price is kept only as what the customer was shown.
       const items = await tx.$queryRaw<{ id: string; key: string | null; unit_price_minor: bigint; quantity: number }[]>`
         SELECT id::text AS id, COALESCE(sku, retailer_id) AS key, unit_price_minor, quantity FROM order_items
         WHERE account_id=${accountId}::uuid AND order_id=${orderId}::uuid ORDER BY id`;
-      const bySku = new Map(quote.lines.map((l) => [l.sku, l]));
+      const bySku = new Map(quote.lines.filter((l) => !l.gift).map((l) => [l.sku, l]));
       if (new Set(items.map((i) => i.key)).size !== items.length) throw new StoreError('invalid_cart');
       for (const item of items) {
         const line = item.key ? bySku.get(item.key) : undefined;
@@ -257,39 +299,68 @@ export async function placeOrder(accountId: string, sessionId: string, input: Pl
         await tx.$executeRaw`UPDATE order_items SET variant_id=${line.variantId}::uuid,sku=${line.sku},
             submitted_unit_price_minor=${minorFromDb(item.unit_price_minor)},unit_price_minor=${line.unitPriceMinor},currency=${quote.currency},
             tax_rate_bps=${line.taxRateBps},tax_minor=${line.taxMinor},discount_minor=${line.discountMinor},
-            line_total_minor=${line.lineTotalMinor},hsn_code=${line.hsnCode}
+            line_total_minor=${line.lineTotalMinor},hsn_code=${line.hsnCode},preorder_ship_date=${line.preorderShipDate}::date
           WHERE account_id=${accountId}::uuid AND id=${item.id}::uuid`;
       }
+      // A free gift is a line of its own, added to the customer's cart lines.
+      for (const line of quote.lines.filter((l) => l.gift)) await insertItem(tx, accountId, orderId, quote.currency, line);
       await tx.$executeRaw`UPDATE orders SET currency=${quote.currency},subtotal_minor=${quote.subtotalMinor},discount_minor=${quote.discountMinor},
           shipping_minor=${quote.shippingMinor},tax_minor=${quote.taxMinor},tax_inclusive=${quote.taxInclusive},total_minor=${quote.totalMinor},
           coupon_code=${quote.couponCode},shipping_address=${address}::jsonb,storefront_session_id=${session.id}::uuid,
           marketing_opt_in=${optIn}::boolean,marketing_opt_in_at=${optInAt}::timestamptz,marketing_opt_in_version=${optInVersion}::text,
           payment_method=${quote.paymentMethod},cod_fee_minor=${quote.codFeeMinor},
           auto_discount_minor=${quote.autoDiscountMinor},discount_details=${discountDetails}::jsonb,
-          buyer_gstin=${buyerTax.gstin},buyer_legal_name=${buyerTax.legal_name}
+          buyer_gstin=${buyerTax.gstin},buyer_legal_name=${buyerTax.legal_name},
+          delivery_method=${quote.deliveryMethod},preorder_ship_date=${quote.preorderShipDate}::date,
+          store_credit_minor=${quote.storeCreditMinor},points_redeemed=${quote.pointsRedeemed},points_value_minor=${quote.pointsValueMinor}
         WHERE account_id=${accountId}::uuid AND id=${orderId}::uuid`;
     }
 
+    if (!isEmptyExtras(extras)) await tx.$executeRaw`UPDATE orders SET buyer_extras=${JSON.stringify(extras)}::jsonb WHERE account_id=${accountId}::uuid AND id=${orderId}::uuid`;
     if (coupon) await redeemCouponTx(tx, accountId, { coupon, orderId, contactId: session.contact_id });
+    // Before the order can be paid (below): the referral row is what the paid hook looks for.
+    await attributeReferralTx(tx, accountId, orderId, session.id, session.contact_id);
+    if (email) await recordCheckoutEmailTx(tx, accountId, { orderId, contactId: session.contact_id, email, offers: input.emailOffers === true, now });
+    // A bundle line keeps the parts it was sold with: a cancel or return restores these, whatever the bundle becomes later.
+    await tx.$executeRaw`UPDATE order_items i SET bundle_parts=(SELECT jsonb_agg(jsonb_build_object('variant_id', b.part_variant_id::text, 'quantity', b.quantity) ORDER BY b.position, b.part_variant_id)
+        FROM shop_variants v JOIN shop_products p ON p.account_id=v.account_id AND p.id=v.product_id AND p.is_bundle
+        JOIN shop_bundle_parts b ON b.account_id=v.account_id AND b.product_id=p.id WHERE v.account_id=i.account_id AND v.id=i.variant_id)
+      WHERE i.account_id=${accountId}::uuid AND i.order_id=${orderId}::uuid AND i.bundle_parts IS NULL`;
     // COD holds stock with no expiry: it is committed when the cash is recorded (creditOrderTx) or released on cancel.
-    const expiresAt = cod ? null : new Date(now.getTime() + settings.reservation_minutes * 60_000);
+    const expiresAt = cod || paidByTender ? null : new Date(now.getTime() + settings.reservation_minutes * 60_000);
     try {
-      await reserveTx(tx, accountId, orderId, stockLines, expiresAt);
+      // Every line goes to stock: it skips made-to-order lines, reserves a bundle's parts and caps pre-orders.
+      await reserveTx(tx, accountId, orderId, quote.lines.map((l) => ({ variantId: l.variantId, quantity: l.qty })), expiresAt);
     } catch (error) {
       if (error instanceof StockError && error.code === 'out_of_stock') throw new StoreError('out_of_stock', { variantId: error.variantId });
       throw error;
     }
+    // After the stock (lock order): spend the store credit and points the quote showed, checked again under the ledger lock.
+    await applyOrderTenderTx(tx, accountId, {
+      orderId, contactId: session.contact_id, currency: quote.currency, creditMinor: quote.storeCreditMinor, points: quote.pointsRedeemed,
+    });
     const attempt = (existing?.checkout_attempt ?? 0) + 1;
-    const status = cod ? 'confirmed' : 'awaiting_payment';
-    await tx.$executeRaw`UPDATE orders SET priced_at=${now},status=${status},reservation_expires_at=${expiresAt},checkout_attempt=${attempt}
+    const status = cod || paidByTender ? 'confirmed' : 'awaiting_payment';
+    // What credit and points paid counts as paid, so what is due is total minus paid everywhere.
+    await tx.$executeRaw`UPDATE orders SET priced_at=${now},status=${status},reservation_expires_at=${expiresAt},checkout_attempt=${attempt},
+        amount_paid_minor=amount_paid_minor + ${BigInt(tendered)}
       WHERE account_id=${accountId}::uuid AND id=${orderId}::uuid`;
     await orderEvent(tx, accountId, orderId, 'priced', 'customer');
     await orderEvent(tx, accountId, orderId, 'reserved', 'system');
-    if (cod) await orderEvent(tx, accountId, orderId, 'cod_confirmed', 'customer');
+    if (tendered > 0) await orderEvent(tx, accountId, orderId, 'tender_applied', 'customer');
+    if (paidByTender) {
+      // Nothing is left to pay: confirm it paid through the one place an order is confirmed (stock and coupon committed,
+      // digital delivery, order.paid, loyalty points), with no payment row.
+      const locked = await lockOrderTx(tx, accountId, orderId);
+      if (!locked) throw new StoreError('conflict');
+      await creditOrderTx(tx, { accountId, order: locked, paymentId: null, amountMinor: 0, link: null, late: false, actorUserId: null });
+    } else if (cod) await orderEvent(tx, accountId, orderId, 'cod_confirmed', 'customer');
     // The store asks COD customers to confirm on WhatsApp: pending now, the buttons go out as a queued job.
-    if (cod && settings.cod_confirm_enabled) await startCodConfirmationTx(tx, accountId, orderId);
+    if (cod && !paidByTender && settings.cod_confirm_enabled) await startCodConfirmationTx(tx, accountId, orderId);
     await tx.$executeRaw`UPDATE storefront_sessions SET order_id=${orderId}::uuid, version=version+1
       WHERE account_id=${accountId}::uuid AND id=${session.id}::uuid`;
+    // The confirmation email, when the shop turned it on and the buyer has an address (one job per order).
+    await queueOrderEmailTx(tx, accountId, orderId);
     if (expiresAt) {
       await enqueue(tx, accountId, CHECKOUT_JOB_TYPES.reservationExpiry, { orderId, attempt }, `resv-exp:${orderId}:${attempt}`,
         new Date(expiresAt.getTime() + 60_000));
@@ -323,6 +394,8 @@ export async function expireReservation(accountId: string, payload: ReservationE
     }
     await releaseTx(tx, accountId, order.id, 'expired');
     await releaseCouponTx(tx, accountId, order.id);
+    // Store credit and points go back to the customer (and out of amount paid): the order was never paid.
+    await reverseOrderTenderTx(tx, accountId, order.id);
     await tx.$executeRaw`UPDATE orders SET status='expired' WHERE account_id=${accountId}::uuid AND id=${order.id}::uuid`;
     await orderEvent(tx, accountId, order.id, 'released', 'system', 'expired');
     await cancelLiveLinksTx(tx, accountId, order.id);
@@ -418,6 +491,7 @@ export async function failCheckoutLink(accountId: string, payload: CheckoutLinkJ
     const reason = /^[a-z0-9_]{1,64}$/.test(code) ? code : 'provider_rejected';
     await releaseTx(tx, accountId, order.id, 'expired');
     await releaseCouponTx(tx, accountId, order.id);
+    await reverseOrderTenderTx(tx, accountId, order.id);
     await tx.$executeRaw`UPDATE orders SET status='expired' WHERE account_id=${accountId}::uuid AND id=${order.id}::uuid`;
     await orderEvent(tx, accountId, order.id, 'payment_link_failed', 'system', reason);
     await orderEvent(tx, accountId, order.id, 'released', 'system', 'payment_link_failed');

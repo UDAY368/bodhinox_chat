@@ -224,6 +224,25 @@ const snapshot = (i: ItemRow): EditLineSnapshot => ({
 /** What the lines cost on top of the goods (shipping, COD fee and their tax): a courier collects it with the first parcel. */
 const extrasOf = (totalMinor: number, lineTotals: Array<number | null>): number => totalMinor - lineTotals.reduce<number>((n, v) => n + (v ?? 0), 0);
 
+/**
+ * An order the edit cannot reprice (store plan Phase 8): the edit prices like a plain shipped cart, so it
+ * would charge a shipping rate on a pickup or local delivery order, lose a discount rule or a free gift,
+ * and measure the balance without the store credit and points already spent. Bundles, pre-orders and
+ * digital products hold stock and ship differently too. Such an order is refused rather than repriced wrongly.
+ */
+async function beyondEditTx(tx: TenantTransaction, accountId: string, orderId: string): Promise<boolean> {
+  const [row] = await tx.$queryRaw<{ blocked: boolean }[]>`
+    SELECT (o.delivery_method <> 'ship' OR o.store_credit_minor > 0 OR o.points_redeemed > 0
+      OR COALESCE(o.discount_details @> '[{"kind":"price_rule"}]'::jsonb, false)
+      OR EXISTS (SELECT 1 FROM order_items i
+          LEFT JOIN shop_variants v ON v.account_id=i.account_id AND v.id=i.variant_id
+          LEFT JOIN shop_products p ON p.account_id=v.account_id AND p.id=v.product_id
+        WHERE i.account_id=o.account_id AND i.order_id=o.id
+          AND (i.is_gift OR i.bundle_parts IS NOT NULL OR i.preorder_ship_date IS NOT NULL OR COALESCE(p.is_digital OR p.is_bundle, false)))) AS blocked
+    FROM orders o WHERE o.account_id=${accountId}::uuid AND o.id=${orderId}::uuid`;
+  return row?.blocked === true;
+}
+
 interface Plan {
   order: OrderRow;
   items: ItemRow[];
@@ -244,6 +263,7 @@ async function planEditTx(tx: TenantTransaction, ctx: StaffContext, orderId: str
   if (order.edit_version !== input.expectedVersion) throw new OrderEditError('conflict');
   if (!order.priced_at || order.source === 'shopify' || order.source === 'woocommerce' || !EDITABLE_STATUSES.includes(order.status)
     || order.refund_state === 'full') throw new OrderEditError('not_editable');
+  if (await beyondEditTx(tx, ctx.accountId, orderId)) throw new OrderEditError('not_editable');
   // Paid before payments were recorded per payment: there is nothing to refund against or to measure a balance from.
   if (order.paid_at && !settled.length) throw new OrderEditError('not_editable');
   const [inFlight] = await tx.$queryRaw<{ n: number }[]>`SELECT count(*)::int AS n FROM customer_refunds
@@ -257,6 +277,15 @@ async function planEditTx(tx: TenantTransaction, ctx: StaffContext, orderId: str
   const items = (await orderLinesShipped(tx, ctx.accountId, orderId)) as ItemRow[];
   const diff = diffOrderLines(items.map((i) => ({ id: i.id, variantId: i.variant_id, quantity: i.quantity, shipped: i.shipped })), input.lines);
   if (!diff.ok) throw new OrderEditError(diff.code, diff.variantId);
+  // A line added by the edit cannot be a bundle, a pre-order or a digital product (see beyondEditTx).
+  const onOrder = new Set(items.map((i) => i.variant_id));
+  const addedIds = diff.lines.map((l) => l.variantId).filter((id) => !onOrder.has(id));
+  if (addedIds.length) {
+    const [special] = await tx.$queryRaw<{ id: string }[]>`SELECT v.id::text AS id FROM shop_variants v
+      JOIN shop_products p ON p.account_id=v.account_id AND p.id=v.product_id
+      WHERE v.account_id=${ctx.accountId}::uuid AND v.id = ANY(${addedIds}::uuid[]) AND (p.is_digital OR p.is_bundle OR v.preorder) LIMIT 1`;
+    if (special) throw new OrderEditError('variant_unavailable', special.id);
+  }
 
   const settings = await loadPricingSettings(tx, ctx.accountId);
   if (!settings) throw new OrderEditError('store_not_configured');
@@ -540,7 +569,8 @@ export async function getOrderEditState(ctx: TenantContext, orderId: string): Pr
       EXISTS (SELECT 1 FROM customer_refunds WHERE account_id=${ctx.accountId}::uuid AND order_id=${orderId}::uuid
         AND status IN ('requested','sending','pending','unknown')) AS refund`;
     const editable = Boolean(order.priced_at) && order.source !== 'shopify' && order.source !== 'woocommerce'
-      && EDITABLE_STATUSES.includes(order.status) && order.refund_state !== 'full' && items.every((i) => i.variant_id);
+      && EDITABLE_STATUSES.includes(order.status) && order.refund_state !== 'full' && items.every((i) => i.variant_id)
+      && !(await beyondEditTx(tx, ctx.accountId, orderId));
     const latest = edits[0];
     const asLines = (v: unknown): EditLineSnapshot[] => (Array.isArray(v) ? v as EditLineSnapshot[] : []);
     return {

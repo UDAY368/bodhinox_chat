@@ -15,13 +15,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { formatMoney } from "@/lib/commerce/money";
+import { formatShipDate } from "@/lib/commerce/selling-rules";
 import { nextStatuses, ORDER_LIMITS, type OrderStatus } from "@/lib/commerce/order-format";
 import {
-  discountRows, getOrder, getOrderTimeline, listOrderReturns, updateOrder, type OrderDetail, type OrderReturn, type OrderTimeline,
+  discountRows, getOrder, getOrderTimeline, listOrderReturns, tenderRows, updateOrder, type OrderDetail, type OrderReturn, type OrderTimeline,
 } from "./order-api";
 import { OrderEditPanel } from "./order-edit-panel";
 import { OrderFulfilmentPanel } from "./order-fulfilment-panel";
 import { OrderTaxInvoicePanel } from "./order-tax-invoice-panel";
+import { OrderRiskBadge } from "./order-risk-badge";
+import { OrderTags } from "./order-tags";
 import { OrderReturnsPanel } from "./order-returns-panel";
 import { COD_CONFIRM_TONE } from "./order-state";
 import { OrderStatusBadge } from "./order-status-badge";
@@ -60,6 +63,7 @@ export function OrderDetailView({ id }: { id: string }) {
   const canAct = useCan("send-messages");
   const canAdmin = useCan("edit-settings");
   const tLife = useTranslations("Commerce.orders.lifecycle");
+  const tRisk = useTranslations("Commerce.orders.risk");
 
   const [order, setOrder] = useState<OrderDetail | null>(null);
   const [state, setState] = useState<"loading" | "ready" | "missing" | "error">("loading");
@@ -182,6 +186,8 @@ export function OrderDetailView({ id }: { id: string }) {
           {order.payment_method === "cod" && (
             <Badge variant="outline" className="gap-1"><Banknote className="h-3.5 w-3.5" aria-hidden="true" />{t("cod.badge")}</Badge>
           )}
+          {(order.delivery_method === "pickup" || order.delivery_method === "local") && <Badge variant="outline">{t(`delivery.${order.delivery_method}`)}</Badge>}
+          {order.preorder_ship_date && <Badge variant="outline">{t("preorder.badge", { date: formatShipDate(order.preorder_ship_date, locale) })}</Badge>}
           {order.cod_confirmation && (
             <StateBadge tone={COD_CONFIRM_TONE[order.cod_confirmation]}>{t(`cod.confirmation.${order.cod_confirmation}`)}</StateBadge>
           )}
@@ -205,7 +211,10 @@ export function OrderDetailView({ id }: { id: string }) {
                 {order.items.map((item) => (
                   <TableRow key={item.id}>
                     <TableCell>
-                      <div className="font-medium text-foreground">{item.name || item.retailer_id || t("detail.unknownProduct")}</div>
+                      <div className="font-medium text-foreground">
+                        {item.name || item.retailer_id || t("detail.unknownProduct")}
+                        {item.is_gift && <span className="ml-2 rounded bg-muted px-1.5 py-0.5 text-xs font-normal text-muted-foreground">{tLife("freeGift")}</span>}
+                      </div>
                       {item.name && item.retailer_id && <div className="font-mono text-xs text-muted-foreground">{item.retailer_id}</div>}
                     </TableCell>
                     <TableCell className="text-right tabular-nums">{item.quantity}</TableCell>
@@ -225,6 +234,12 @@ export function OrderDetailView({ id }: { id: string }) {
                   <TableCell colSpan={3} className="text-right font-medium">{t("detail.total")}</TableCell>
                   <TableCell className="text-right font-semibold tabular-nums">{money(total, order.currency)}</TableCell>
                 </TableRow>
+                {tenderRows(order, tLife).map(([label, minor]) => (
+                  <TableRow key={label}>
+                    <TableCell colSpan={3} className="text-right text-muted-foreground">{label}</TableCell>
+                    <TableCell className="text-right tabular-nums text-muted-foreground">−{money(-minor, order.currency)}</TableCell>
+                  </TableRow>
+                ))}
               </TableBody>
             </Table>
           </div>
@@ -260,6 +275,20 @@ export function OrderDetailView({ id }: { id: string }) {
               <p className="mt-1 text-sm whitespace-pre-wrap break-words text-muted-foreground">{order.customer_note}</p>
             </div>
           )}
+          {order.extras && (
+            <div className="rounded-xl border border-border bg-card p-4">
+              <h2 className="text-sm font-medium text-foreground">{t("detail.buyerExtras.title")}</h2>
+              <dl className="mt-2 space-y-1 text-sm">
+                {order.extras.delivery_date && (
+                  <div><dt className="text-xs text-muted-foreground">{t("detail.buyerExtras.deliveryDate")}</dt>
+                    <dd>{[order.extras.delivery_date, order.extras.delivery_slot].filter(Boolean).join(", ")}</dd></div>
+                )}
+                {order.extras.note && <div><dt className="text-xs text-muted-foreground">{t("detail.buyerExtras.note")}</dt><dd className="whitespace-pre-wrap break-words">{order.extras.note}</dd></div>}
+                {order.extras.gift_message && <div><dt className="text-xs text-muted-foreground">{t("detail.buyerExtras.giftMessage")}</dt><dd className="whitespace-pre-wrap break-words">{order.extras.gift_message}</dd></div>}
+                {order.extras.custom.map((c, i) => <div key={i}><dt className="text-xs text-muted-foreground">{c.label}</dt><dd className="break-words">{c.value}</dd></div>)}
+              </dl>
+            </div>
+          )}
           <OrderTimelinePanel timeline={timeline} />
         </section>
 
@@ -293,6 +322,14 @@ export function OrderDetailView({ id }: { id: string }) {
               </Select>
             )}
           </div>
+
+          {order.risk && (
+            <div className="space-y-2 rounded-xl border border-border bg-card p-4">
+              <h2 className="text-sm font-medium text-foreground">{tRisk("label")}</h2>
+              <OrderRiskBadge risk={order.risk} showReasons />
+            </div>
+          )}
+          <OrderTags orderId={order.id} tags={order.tags ?? []} canEdit={canAct} onSaved={(tags) => setOrder((o) => (o ? { ...o, tags } : o))} />
 
           <OrderFulfilmentPanel order={order} canAct={canAct} canRefund={canAdmin} onChanged={reload} />
           <OrderTaxInvoicePanel order={order} canAct={canAct} onChanged={reload} />

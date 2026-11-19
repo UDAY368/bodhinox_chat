@@ -21,7 +21,9 @@ const databases = fixtureDatabaseUrls();
 
 type Extra = Record<'list' | 'segment' | 'team' | 'paymentLink' | 'media' | 'note' | 'attribute' | 'schedule'
   | 'savedFilter' | 'form' | 'mediaKey' | 'igTemplate' | 'customField' | 'dealNote' | 'shopProduct' | 'aiAgent' | 'aiSource' | 'savedReport' | 'autoDiscount' | 'review' | 'collection'
-  | 'platformImport' | 'metaSyncVariant', string>;
+  | 'platformImport' | 'metaSyncVariant'
+  | 'variant' | 'customerGroup' | 'priceList' | 'discountRule' | 'giftRule' | 'emailCampaign' | 'purchaseOrder' | 'purchaseOrderLine'
+  | 'redirect' | 'referral' | 'stockLocation', string>;
 type Ids = TenantFixture & { extra: Extra };
 
 type Case = {
@@ -123,6 +125,34 @@ export const CASES: Case[] = [
   { route: 'commerce/shop/meta-sync/[id]/reconcile', method: 'POST', params: extra('metaSyncVariant') },
   // Product reviews: another workspace's review cannot be published or hidden.
   { route: 'commerce/reviews/[id]', method: 'PATCH', params: extra('review'), body: () => ({ status: 'hidden' }) },
+  // Store plan Phase 8: another workspace's group, price list, rule, campaign, referral code, redirect, location,
+  // purchase order or bundle is not found and unchanged. Bodies name the caller's own rows, so a refusal is the id lookup.
+  { route: 'commerce/customer-groups/[id]', method: 'DELETE', params: extra('customerGroup') },
+  { route: 'commerce/customer-groups/[id]/members', method: 'POST', params: extra('customerGroup'), body: (a) => ({ contact_id: a.contactId }) },
+  { route: 'commerce/customer-groups/[id]/members', method: 'DELETE', params: extra('customerGroup'), body: (a) => ({ contact_id: a.contactId }) },
+  { route: 'commerce/price-lists/[id]', method: 'PATCH', params: extra('priceList'),
+    body: (a) => ({ expected_version: 1, name: 'p15 changed', group_id: a.extra.customerGroup, active: true, prices: [] }) },
+  { route: 'commerce/price-lists/[id]', method: 'DELETE', params: extra('priceList') },
+  { route: 'commerce/discount-rules/[id]', method: 'PATCH', params: extra('discountRule'),
+    body: (a) => ({ expected_version: 1, name: 'p15 changed', kind: 'percent', value: 500, product_id: a.extra.shopProduct, combinable: true, active: true }) },
+  { route: 'commerce/discount-rules/[id]', method: 'DELETE', params: extra('discountRule') },
+  { route: 'commerce/gift-rules/[id]', method: 'PATCH', params: extra('giftRule'),
+    body: (a) => ({ expected_version: 1, name: 'p15 changed', min_subtotal_minor: 2000, gift_variant_id: a.extra.variant, active: true }) },
+  { route: 'commerce/gift-rules/[id]', method: 'DELETE', params: extra('giftRule') },
+  { route: 'commerce/email-campaigns/[id]', method: 'GET', params: extra('emailCampaign') },
+  { route: 'commerce/email-campaigns/[id]', method: 'PATCH', params: extra('emailCampaign'), body: () => ({ name: 'p15 changed', subject: 'p15 subject', body: 'p15 body' }) },
+  { route: 'commerce/email-campaigns/[id]/send', method: 'POST', params: extra('emailCampaign'), body: () => ({}) },
+  { route: 'commerce/email-campaigns/[id]/cancel', method: 'POST', params: extra('emailCampaign'), body: () => ({}) },
+  { route: 'commerce/referrals/[id]', method: 'PATCH', params: extra('referral'), body: () => ({ active: false }) },
+  { route: 'commerce/redirects/[id]', method: 'DELETE', params: extra('redirect') },
+  { route: 'commerce/stock-locations/[id]', method: 'PATCH', params: extra('stockLocation'), body: () => ({ name: 'p15 renamed' }) },
+  { route: 'commerce/purchase-orders/[id]', method: 'GET', params: extra('purchaseOrder') },
+  { route: 'commerce/purchase-orders/[id]', method: 'PUT', params: extra('purchaseOrder'),
+    body: (a) => ({ supplier_name: 'p15 supplier', lines: [{ variant_id: a.extra.variant, qty_ordered: 5 }] }) },
+  { route: 'commerce/purchase-orders/[id]/status', method: 'POST', params: extra('purchaseOrder'), body: () => ({ action: 'cancel' }) },
+  { route: 'commerce/purchase-orders/[id]/receive', method: 'POST', params: extra('purchaseOrder'),
+    body: (a) => ({ request_key: `p15-${randomUUID()}`, lines: [{ line_id: a.extra.purchaseOrderLine, quantity: 1 }] }) },
+  { route: 'commerce/shop/products/[id]/bundle', method: 'PUT', params: extra('shopProduct'), body: () => ({ parts: [] }) },
   // Appointments
   { route: 'appointments/[id]', method: 'GET', params: id('appointmentId') },
   { route: 'appointments/[id]', method: 'PATCH', params: id('appointmentId'), body: () => ({ action: 'cancel', reason: 'staff', expected_version: 1 }) },
@@ -379,7 +409,9 @@ const TABLES = ['contacts', 'conversations', 'messages', 'tags', 'contact_tags',
   'account_memberships', 'quick_replies', 'message_templates', 'ai_knowledge_documents', 'whatsapp_config', 'accounts',
   'instagram_message_templates', 'custom_fields', 'contact_custom_values', 'contact_activity',
   'deal_notes', 'shop_reviews', 'shop_products', 'shop_variants', 'shop_collections', 'shop_platform_imports', 'shop_meta_sync_items', 'ai_agents',
-  'ai_knowledge_sources', 'shop_auto_discounts'];
+  'ai_knowledge_sources', 'shop_auto_discounts', 'shop_customer_groups', 'shop_customer_group_members', 'shop_price_lists',
+  'shop_price_list_prices', 'shop_discount_rules', 'shop_gift_rules', 'shop_email_campaigns', 'shop_referral_codes', 'shop_redirects',
+  'stock_locations', 'purchase_orders', 'purchase_order_lines', 'shop_bundle_parts'];
 
 async function existingTables(): Promise<string[]> {
   const rows = await fixtureOwnerPool().query<{ t: string }>(
@@ -403,6 +435,8 @@ async function addExtras(t: TenantFixture, tag: string): Promise<Extra> {
   const one = async (sql: string, values: unknown[]) => String((await pool.query<{ id: string }>(`${sql} RETURNING id`, values)).rows[0].id);
   const u = t.users.owner.userId, a = t.accountId;
   const mediaKey = `account-${a}/library/${randomUUID()}.png`;
+  const groupId = await one('INSERT INTO shop_customer_groups(account_id,name,created_by) VALUES($1,$2,$3)', [a, `p15 group ${tag}`, u]);
+  const poId = await one("INSERT INTO purchase_orders(account_id,supplier_name,currency,created_by) VALUES($1,$2,'INR',$3)", [a, `p15 supplier ${tag}`, u]);
   return {
     list: await one('INSERT INTO contact_lists(account_id,user_id,name) VALUES($1,$2,$3)', [a, u, `p15 list ${tag}`]),
     segment: await one('INSERT INTO segments(account_id,user_id,name,filter) VALUES($1,$2,$3,$4::jsonb)', [a, u, `p15 segment ${tag}`,
@@ -441,6 +475,18 @@ async function addExtras(t: TenantFixture, tag: string): Promise<Extra> {
     metaSyncVariant: await uncertainSyncVariant(a, tag),
     autoDiscount: await one("INSERT INTO shop_auto_discounts(account_id,name,kind,percent_bps,created_by) VALUES($1,$2,'percent_off_over',1000,$3)",
       [a, `p15 discount ${tag}`, u]),
+    // Store plan Phase 8 rows (the product and its variant are the workspace's own).
+    variant: await one("INSERT INTO shop_variants(account_id,product_id,sku) SELECT $1, id, 'P15-SKU' FROM shop_products WHERE account_id=$1 ORDER BY created_at LIMIT 1", [a]),
+    customerGroup: groupId,
+    priceList: await one('INSERT INTO shop_price_lists(account_id,name,group_id,created_by) VALUES($1,$2,$3,$4)', [a, `p15 list ${tag}`, groupId, u]),
+    discountRule: await one("INSERT INTO shop_discount_rules(account_id,name,group_id,kind,value,created_by) VALUES($1,$2,$3,'percent',500,$4)", [a, `p15 rule ${tag}`, groupId, u]),
+    giftRule: await one('INSERT INTO shop_gift_rules(account_id,name,min_subtotal_minor,gift_variant_id,created_by) SELECT $1,$2,1000,id,$3 FROM shop_variants WHERE account_id=$1 LIMIT 1', [a, `p15 gift ${tag}`, u]),
+    emailCampaign: await one('INSERT INTO shop_email_campaigns(account_id,name,subject,body,created_by) VALUES($1,$2,$3,$4,$5)', [a, `p15 campaign ${tag}`, 'p15 subject', 'p15 body', u]),
+    purchaseOrder: poId,
+    purchaseOrderLine: await one('INSERT INTO purchase_order_lines(account_id,purchase_order_id,variant_id,qty_ordered) SELECT $1,$2,id,5 FROM shop_variants WHERE account_id=$1 LIMIT 1', [a, poId]),
+    redirect: await one("INSERT INTO shop_redirects(account_id,from_path,to_path,created_by) VALUES($1,'/p15-old','/p15-new',$2)", [a, u]),
+    referral: await one("INSERT INTO shop_referral_codes(account_id,code,kind,name,created_by) VALUES($1,'AAAAAA22','affiliate','p15 affiliate',$2)", [a, u]),
+    stockLocation: await one('INSERT INTO stock_locations(account_id,name,created_by) VALUES($1,$2,$3)', [a, `p15 location ${tag}`, u]),
   };
 }
 

@@ -26,6 +26,7 @@ import { withTenant, type TenantContext, type TenantTransaction } from '@/lib/db
 import { requirePermission } from '@/lib/auth/permissions';
 import { getT } from '@/lib/i18n/translate';
 import { minorFromDb, parseMoney } from '@/lib/commerce/money';
+import { reverseEarnTx } from '@/lib/commerce/customer-ledger';
 import { restockTx, type StockLine } from '@/lib/commerce/stock';
 import { loadRazorpaySecrets, PaymentProviderError } from './providers';
 import { createRefund, listRefunds, type RazorpayRefund, type RazorpayRefundStatus } from './razorpay';
@@ -445,6 +446,8 @@ export async function applyRefundStateTx(tx: TenantTransaction, accountId: strin
           WHERE account_id=${accountId}::uuid AND id=${payment.order_id}::uuid`;
       }
       await orderEventTx(tx, accountId, payment.order_id, 'refund_processed', { detail: refund.source === 'external' ? 'external' : null });
+      // Loyalty points earned on this order go back in the share the money refunded so far is of what earned them.
+      await reverseEarnTx(tx, accountId, payment.order_id, refundId);
       // A late payment that found no stock, refunded in full: the order closes (state machine: payment_review -> cancelled).
       if (fully && order.status === 'payment_review') {
         await tx.$executeRaw`UPDATE orders SET status='cancelled' WHERE account_id=${accountId}::uuid AND id=${payment.order_id}::uuid AND status='payment_review'`;
@@ -489,6 +492,17 @@ async function restockForRefundTx(tx: TenantTransaction, accountId: string, orde
   const orders = await tx.$queryRaw<{ status: string; dispatched_at: Date | null; refund_state: string | null }[]>`SELECT status,dispatched_at,refund_state
     FROM orders WHERE account_id=${accountId}::uuid AND id=${orderId}::uuid`;
   if (!orders[0] || !orderRestockable(orders[0])) return;
+  await restockSoldUnitsTx(tx, accountId, orderId);
+}
+
+/**
+ * The order's committed units back on hand, once (the 'refund_restocked' order event is the marker). The
+ * caller has decided the order is being unwound before dispatch: a processed refund above, or Cancel and
+ * refund of an order paid only with store credit and points, which has no refund row to carry it.
+ */
+export async function restockSoldUnitsTx(tx: TenantTransaction, accountId: string, orderId: string): Promise<void> {
+  const already = await tx.$queryRaw<{ n: number }[]>`SELECT count(*)::int AS n FROM order_events WHERE account_id=${accountId}::uuid AND order_id=${orderId}::uuid AND kind='refund_restocked'`;
+  if ((already[0]?.n ?? 0) > 0) return;
   const sold = await tx.$queryRaw<{ variant_id: string; quantity: number }[]>`SELECT variant_id::text AS variant_id, quantity FROM stock_reservations
     WHERE account_id=${accountId}::uuid AND order_id=${orderId}::uuid AND status='committed'`;
   const lines = mergeLines(sold.map((s) => ({ variantId: s.variant_id, quantity: s.quantity })));

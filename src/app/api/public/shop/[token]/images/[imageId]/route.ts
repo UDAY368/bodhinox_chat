@@ -22,7 +22,7 @@ export async function GET(request: Request, { params }: Params) {
     const image = await inPublicTenant(ref.accountId, async (tx) => {
       const rows = await tx.$queryRaw<{ url: string | null; bucket: string | null; object_key: string | null; content_type: string | null }[]>`
         SELECT i.url, m.bucket, m.object_key, m.content_type FROM shop_product_images i
-        JOIN shop_products p ON p.account_id=i.account_id AND p.id=i.product_id AND p.status='published'
+        JOIN shop_products p ON p.account_id=i.account_id AND p.id=i.product_id AND shop_product_live(p.status, p.publish_at, p.hide_at)
         LEFT JOIN media_objects m ON m.account_id=i.account_id AND m.id=i.media_id AND m.deleted_at IS NULL
         WHERE i.account_id=${ref.accountId}::uuid AND i.id=${imageId}::uuid`;
       return rows[0] ?? null;

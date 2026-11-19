@@ -175,3 +175,28 @@ export async function mutateSession(
     return publicError(error, scope);
   }
 }
+
+/**
+ * One unversioned action by the session's buyer (a return request, a wishlist change): Origin, burst, body, durable per-token
+ * limit, token, then `work` in the tenant. Answers whatever `work` returns (code-only errors as everywhere here).
+ */
+export async function sessionAction(
+  request: Request, { params }: TokenParams, scope: string,
+  work: (tx: TenantTransaction, ref: ShopRef, body: Record<string, unknown>) => Promise<unknown>,
+): Promise<NextResponse> {
+  try {
+    assertOrigin(request);
+    if (!burstAllowed('mutate', request)) return tooMany();
+    const { token } = await params;
+    if (!isStorefrontTokenFormat(token)) return notFound();
+    const body = await readBody(request);
+    if (!body) return json({ code: 'invalid' }, 400);
+    const ref = await resolveToken(token, request);
+    if (!ref) return notFound();
+    await enforceTokenLimit(ref, 'mutate');
+    const result = await inPublicTenant(ref.accountId, (tx) => work(tx, ref, body));
+    return result ? json(result) : notFound();
+  } catch (error) {
+    return publicError(error, scope);
+  }
+}

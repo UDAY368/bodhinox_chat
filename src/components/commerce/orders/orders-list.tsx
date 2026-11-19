@@ -5,31 +5,30 @@ import Link from "next/link";
 import { useFormatter, useLocale, useTranslations } from "next-intl";
 import { toast } from "sonner";
 import {
-  Banknote, Download, Eye, Link2, Loader2, MoreHorizontal, Plus, Search, Send, Settings2, ShoppingBag, Truck, Undo2, X,
+  Banknote, Download, Eye, FileText, Link2, Loader2, MoreHorizontal, Plus, Search, Send, Settings2, ShoppingBag, Truck, Undo2, X,
 } from "lucide-react";
 
 import { useCan } from "@/hooks/use-can";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { formatMoney, minorToDecimalString } from "@/lib/commerce/money";
+import { formatMoney } from "@/lib/commerce/money";
 import { ORDER_SOURCES, ORDER_STATUSES, type OrderSource, type OrderStatus } from "@/lib/commerce/order-format";
 import { listOrders, type OrderListItem } from "./order-api";
 import { OrderDrawer, type OrderIntent } from "./order-drawer";
 import { NewOrderDialog } from "./new-order-dialog";
+import { OrderRiskBadge } from "./order-risk-badge";
 import { OrderSettingsDialog } from "./order-settings-dialog";
 import {
-  canCancelUnpaid, canTakeLinkPayment, COD_CONFIRM_TONE, FULFILMENT_TONE, fulfilmentState, orderRef, PAYMENT_TONE, paymentState, toCsv,
+  canCancelUnpaid, canTakeLinkPayment, COD_CONFIRM_TONE, FULFILMENT_TONE, fulfilmentState, orderRef, PAYMENT_TONE, paymentState,
 } from "./order-state";
 import { StateBadge } from "./state-badge";
 
 const ALL = "all";
-/** The export reads at most this many orders (the current filters). */
-const EXPORT_MAX = 2000;
 
 /** The step a list row can offer without the order's detail (the drawer re-checks it with the full order). */
 function listStep(o: OrderListItem): "ship" | "deliver" | "confirm" | null {
@@ -55,6 +54,7 @@ export function OrdersList() {
   const [status, setStatus] = useState<OrderStatus | "">("");
   const [source, setSource] = useState<OrderSource | "">("");
   const [codConfirmation, setCodConfirmation] = useState<"pending" | "declined" | "">("");
+  const [tag, setTag] = useState("");
   const [draft, setDraft] = useState("");
   const [q, setQ] = useState("");
   const [orders, setOrders] = useState<OrderListItem[]>([]);
@@ -62,8 +62,7 @@ export function OrdersList() {
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [creating, setCreating] = useState(false);
-  const [exporting, setExporting] = useState(false);
+  const [creating, setCreating] = useState<"order" | "quote" | null>(null);
   const [open, setOpen] = useState<{ id: string; intent: OrderIntent | null } | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
 
@@ -71,7 +70,7 @@ export function OrdersList() {
     let cancelled = false;
      
     setLoading(true);
-    listOrders({ status, source, q, codConfirmation })
+    listOrders({ status, source, q, tag, codConfirmation })
       .then((page) => {
         if (cancelled) return;
         setOrders(page.orders);
@@ -82,13 +81,13 @@ export function OrdersList() {
     return () => {
       cancelled = true;
     };
-  }, [status, source, q, codConfirmation, t, reloadKey]);
+  }, [status, source, q, tag, codConfirmation, t, reloadKey]);
 
   const loadMore = useCallback(async () => {
     if (!cursor) return;
     setLoadingMore(true);
     try {
-      const page = await listOrders({ status, source, q, codConfirmation, cursor });
+      const page = await listOrders({ status, source, q, tag, codConfirmation, cursor });
       setOrders((prev) => [...prev, ...page.orders.filter((o) => !prev.some((p) => p.id === o.id))]);
       setCursor(page.next_cursor);
     } catch {
@@ -96,7 +95,7 @@ export function OrdersList() {
     } finally {
       setLoadingMore(false);
     }
-  }, [cursor, status, source, q, codConfirmation, t]);
+  }, [cursor, status, source, q, tag, codConfirmation, t]);
 
   const refresh = useCallback(() => setReloadKey((k) => k + 1), []);
 
@@ -108,41 +107,10 @@ export function OrdersList() {
     }
   };
 
-  async function exportCsv() {
-    setExporting(true);
-    try {
-      const all: OrderListItem[] = [];
-      let next: string | null = null;
-      do {
-        const page = await listOrders({ status, source, q, codConfirmation, cursor: next });
-        all.push(...page.orders);
-        next = page.next_cursor;
-      } while (next && all.length < EXPORT_MAX);
-      const rows = all.slice(0, EXPORT_MAX).map((o) => [
-        orderRef(o), o.created_at.slice(0, 10), o.contact?.name || o.contact?.phone || "", o.item_count,
-        minorToDecimalString(o.total_minor ?? o.subtotal_minor, o.currency), o.currency,
-        ts(`pay.${paymentState(o)}`), ts(`ful.${fulfilmentState(o.status)}`), tSource(o.source),
-      ]);
-      const header = ["order", "date", "customer", "items", "total", "currency", "payment", "fulfilment", "source"].map((k) => ts(`csv.${k}`));
-      const blob = new Blob([`﻿${toCsv([header, ...rows])}`], { type: "text/csv;charset=utf-8" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `orders-${new Date().toISOString().slice(0, 10)}.csv`;
-      document.body.append(a);
-      a.click();
-      a.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
-      toast.success(ts("exported", { count: rows.length }));
-    } catch {
-      toast.error(ts("exportFailed"));
-    } finally {
-      setExporting(false);
-    }
-  }
-
   const openOrder = (id: string, intent: OrderIntent | null = null) => setOpen({ id, intent });
-  const filtered = Boolean(q || status || source || codConfirmation);
+  const filtered = Boolean(q || status || source || tag || codConfirmation);
+  // Admins download the server-built CSV (formula-safe, masking-aware) for the current filters.
+  const exportHref = `/api/commerce/orders/export?${new URLSearchParams(Object.entries({ status, source, q, tag }).filter(([, v]) => v))}`;
 
   return (
     <div className="space-y-5">
@@ -158,12 +126,26 @@ export function OrdersList() {
               {t("settings.open")}
             </Button>
           )}
-          <Button variant="outline" onClick={() => void exportCsv()} disabled={exporting || loading || orders.length === 0}>
-            {exporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-            {ts("export")}
-          </Button>
+          {canAdmin && (
+            <a href={exportHref} download className={buttonVariants({ variant: "outline" })}>
+              <Download className="h-4 w-4" />
+              {t("exportCsv")}
+            </a>
+          )}
           {canAct && (
-            <Button onClick={() => setCreating(true)}>
+            <Button variant="outline" onClick={() => setCreating("quote")}>
+              <FileText className="h-4 w-4" />
+              {t("quote.open")}
+            </Button>
+          )}
+          {canAdmin && (
+            <Link href="/commerce/orders/counter" className={buttonVariants({ variant: "outline" })}>
+              <ShoppingBag className="h-4 w-4" />
+              {t("counter.open")}
+            </Link>
+          )}
+          {canAct && (
+            <Button onClick={() => setCreating("order")}>
               <Plus className="h-4 w-4" />
               {ts("newOrder")}
             </Button>
@@ -197,6 +179,7 @@ export function OrdersList() {
             {ORDER_SOURCES.map((s) => <SelectItem key={s} value={s}>{tSource(s)}</SelectItem>)}
           </SelectContent>
         </Select>
+        <Input value={tag} onChange={(e) => setTag(e.target.value.slice(0, 24))} placeholder={t("tags.filter")} aria-label={t("tags.filter")} className="w-36" maxLength={24} />
         <Select value={codConfirmation || ALL} onValueChange={(v) => setCodConfirmation(v === ALL ? "" : (v as "pending" | "declined"))}>
           <SelectTrigger className="w-48 max-w-full" aria-label={t("filterCodConfirmation")}><SelectValue /></SelectTrigger>
           <SelectContent>
@@ -219,7 +202,7 @@ export function OrdersList() {
           <h2 className="mt-4 text-base font-semibold text-foreground">{filtered ? t("noMatches") : t("emptyTitle")}</h2>
           {!filtered && <p className="mt-1 max-w-md text-sm text-muted-foreground">{t("emptyDesc")}</p>}
           {canAct && !filtered && (
-            <Button className="mt-4" variant="outline" onClick={() => setCreating(true)}><Plus className="h-4 w-4" /> {ts("newOrder")}</Button>
+            <Button className="mt-4" variant="outline" onClick={() => setCreating("order")}><Plus className="h-4 w-4" /> {ts("newOrder")}</Button>
           )}
         </div>
       ) : (
@@ -252,6 +235,7 @@ export function OrdersList() {
                       <div className="text-xs text-muted-foreground">
                         {format.dateTime(new Date(order.created_at), { dateStyle: "medium" })} · {tSource(order.source)}
                       </div>
+                      {order.tags && order.tags.length > 0 && <div className="mt-0.5 text-xs text-muted-foreground">{order.tags.map((x) => `#${x}`).join(" ")}</div>}
                     </TableCell>
                     <TableCell className="max-w-[14rem] truncate">
                       {order.contact?.name || order.contact?.phone || t("unknownCustomer")}
@@ -263,6 +247,7 @@ export function OrdersList() {
                     <TableCell>
                       <div className="flex flex-col items-start gap-1">
                         <StateBadge tone={PAYMENT_TONE[pay]}>{ts(`pay.${pay}`)}</StateBadge>
+                        <OrderRiskBadge risk={order.risk} />
                         {order.cod_confirmation && (
                           <StateBadge tone={COD_CONFIRM_TONE[order.cod_confirmation]}>{t(`cod.confirmation.${order.cod_confirmation}`)}</StateBadge>
                         )}
@@ -323,7 +308,8 @@ export function OrdersList() {
 
       {settingsOpen && <OrderSettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />}
       {canAct && (
-        <NewOrderDialog open={creating} onOpenChange={setCreating} onCreated={(order) => { refresh(); openOrder(order.id); }} />
+        <NewOrderDialog open={creating !== null} mode={creating ?? "order"} onOpenChange={(v) => !v && setCreating(null)}
+          onCreated={(order) => { refresh(); openOrder(order.id); }} />
       )}
       <OrderDrawer orderId={open?.id ?? null} intent={open?.intent ?? null} onClose={() => setOpen(null)} onChanged={refresh} />
     </div>

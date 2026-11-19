@@ -86,6 +86,7 @@ export function NoticeTemplates({ canEdit }: { canEdit: boolean }) {
               <p className="text-xs text-muted-foreground">
                 {t(s.kind === "abandoned_cart" ? "abandonedCartHelp" : s.kind === "cod_confirm" ? "codConfirmHelp"
                   : s.kind === "back_in_stock" ? "backInStockHelp" : s.kind === "review_request" ? "reviewRequestHelp"
+                  : s.kind === "digital_delivery" ? "digitalDeliveryHelp" : s.kind === "price_drop" ? "priceDropHelp"
                   : s.category === "MARKETING" ? "marketingHelp" : "utilityHelp")}
               </p>
               {s.template_name && !s.usable && (

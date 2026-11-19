@@ -1185,11 +1185,20 @@ model orders {
   buyer_gstin String?
   buyer_legal_name String?
   edit_version Int @default(0)
+  tags String[] @default([])
+  delivery_method String @default("ship")
+  preorder_ship_date DateTime? @db.Date
+  store_credit_minor BigInt @default(0)
+  points_redeemed Int @default(0)
+  points_value_minor BigInt @default(0)
   @@unique([account_id, message_id])
   @@unique([account_id, source, external_id])
   @@unique([account_id, id])
   @@index([account_id, created_at(sort: Desc)], map: "orders_account_created_idx")
   @@unique([account_id, storefront_session_id])
+  buyer_extras Json?
+  /// 20261201005000: the email the buyer typed at checkout.
+  buyer_email String?
 }
 
 model order_items {
@@ -1209,6 +1218,9 @@ model order_items {
   line_total_minor BigInt?
   hsn_code String?
   sku String?
+  preorder_ship_date DateTime? @db.Date
+  bundle_parts Json?
+  is_gift Boolean @default(false)
   @@unique([account_id, id])
   @@index([account_id, order_id], map: "order_items_order_idx")
 }
@@ -2303,6 +2315,12 @@ model shop_products {
   brand String?
   product_type String?
   details Json @default("[]")
+  publish_at DateTime? @db.Timestamptz(6)
+  hide_at DateTime? @db.Timestamptz(6)
+  is_digital Boolean @default(false)
+  digital_media_id String? @db.Uuid
+  digital_url String?
+  is_bundle Boolean @default(false)
   @@unique([account_id, id])
 }
 
@@ -2336,6 +2354,9 @@ model shop_variants {
   created_at DateTime @default(now()) @db.Timestamptz(6)
   updated_at DateTime @default(now()) @db.Timestamptz(6)
   image_id String? @db.Uuid
+  preorder Boolean @default(false)
+  preorder_ship_date DateTime? @db.Date
+  preorder_cap Int?
   @@unique([account_id, id])
   @@unique([account_id, sku])
 }
@@ -2440,12 +2461,18 @@ model storefront_sessions {
   revoked_at DateTime? @db.Timestamptz(6)
   order_id String? @db.Uuid
   cart Json @default("[]")
+  is_quote Boolean @default(false)
+  quote_note String?
+  delivery_method String @default("ship")
+  use_store_credit Boolean @default(false)
+  use_points Boolean @default(false)
   address Json?
   coupon_code String?
   version Int @default(1)
   created_by String? @db.Uuid
   created_at DateTime @default(now()) @db.Timestamptz(6)
   updated_at DateTime @default(now()) @db.Timestamptz(6)
+  extras Json?
   @@unique([account_id, id])
 }
 
@@ -2505,6 +2532,7 @@ model customer_refunds {
   superseded_provider_refund_ids String[] @default([])
   requested_by String? @db.Uuid
   restock Boolean @default(false)
+  store_credit Boolean @default(false)
   return_id String? @db.Uuid
   processed_at DateTime? @db.Timestamptz(6)
   created_at DateTime @default(now()) @db.Timestamptz(6)
@@ -2560,6 +2588,14 @@ model order_returns {
   created_by String? @db.Uuid
   created_at DateTime @default(now()) @db.Timestamptz(6)
   updated_at DateTime @default(now()) @db.Timestamptz(6)
+  source String @default("staff")
+  reason String?
+  contact_id String? @db.Uuid
+  client_request_id String? @db.Uuid
+  exchange Json?
+  approved_at DateTime? @db.Timestamptz(6)
+  approved_by String? @db.Uuid
+  exchange_order_id String? @db.Uuid
   @@unique([account_id, id])
 }
 
@@ -3738,6 +3774,8 @@ model shop_storefronts {
   draft Json?
   draft_version Int @default(0)
   published_at DateTime? @db.Timestamptz(6)
+  access_mode String @default("open")
+  coming_soon_message String?
 }
 
 model shop_reviews {
@@ -3826,6 +3864,8 @@ model shop_otp_challenges {
   verified_at DateTime? @db.Timestamptz(6)
   session_id String? @db.Uuid
   purpose String @default("checkout")
+  /// 20261201005000: the referral code the buyer arrived with.
+  referral_code_id String? @db.Uuid
   created_at DateTime @default(now()) @db.Timestamptz(6)
   @@unique([account_id, id])
   @@index([account_id, phone, created_at(sort: Desc)], map: "shop_otp_challenges_phone_idx")
@@ -3873,6 +3913,8 @@ model shop_cart_codes {
   claimed_at DateTime? @db.Timestamptz(6)
   contact_id String? @db.Uuid
   session_id String? @db.Uuid
+  /// 20261201005000: the referral code the buyer arrived with.
+  referral_code_id String? @db.Uuid
   created_at DateTime @default(now()) @db.Timestamptz(6)
   @@unique([account_id, id])
   @@unique([account_id, code])
@@ -4042,4 +4084,425 @@ model shipment_items {
   @@unique([account_id, id])
   @@unique([account_id, shipment_id, order_item_id])
   @@index([account_id, order_item_id], map: "shipment_items_order_item_idx")
+}
+
+// Store plan Phase 8, batch 2 (prisma/migrations/20261201001000_stock_locations_fulfilment).
+// Domain code uses raw SQL inside withTenant; these models document the shape.
+model shop_delivery_options {
+  account_id String @id @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  pickup_enabled Boolean @default(false)
+  pickup_address String?
+  pickup_instructions String?
+  local_enabled Boolean @default(false)
+  local_fee_minor BigInt @default(0)
+  local_postal_prefixes String[] @default([])
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @default(now()) @db.Timestamptz(6)
+}
+
+model stock_locations {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  name String
+  is_default Boolean @default(false)
+  active Boolean @default(true)
+  position Int @default(0)
+  created_by String? @db.Uuid
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @default(now()) @db.Timestamptz(6)
+  @@unique([account_id, id])
+}
+
+model stock_location_levels {
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  location_id String @db.Uuid
+  variant_id String @db.Uuid
+  quantity Int @default(0)
+  updated_at DateTime @default(now()) @db.Timestamptz(6)
+  @@id([account_id, variant_id, location_id])
+  @@index([account_id, location_id], map: "stock_location_levels_location_idx")
+}
+
+model stock_transfers {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  client_key String
+  from_location_id String @db.Uuid
+  to_location_id String @db.Uuid
+  variant_id String @db.Uuid
+  quantity Int
+  note String?
+  created_by String? @db.Uuid
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  @@unique([account_id, id])
+  @@unique([account_id, client_key])
+  @@index([account_id, created_at(sort: Desc)], map: "stock_transfers_created_idx")
+}
+
+model purchase_orders {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  supplier_name String
+  reference String?
+  note String?
+  currency String
+  status String @default("draft")
+  ordered_at DateTime? @db.Timestamptz(6)
+  closed_at DateTime? @db.Timestamptz(6)
+  created_by String? @db.Uuid
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @default(now()) @db.Timestamptz(6)
+  @@unique([account_id, id])
+  @@index([account_id, created_at(sort: Desc)], map: "purchase_orders_created_idx")
+}
+
+model purchase_order_lines {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  purchase_order_id String @db.Uuid
+  variant_id String @db.Uuid
+  qty_ordered Int
+  qty_received Int @default(0)
+  unit_cost_minor BigInt @default(0)
+  @@unique([account_id, id])
+  @@unique([account_id, purchase_order_id, variant_id])
+}
+
+model purchase_order_receipts {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  purchase_order_id String @db.Uuid
+  request_key String
+  location_id String @db.Uuid
+  lines Json
+  received_by String? @db.Uuid
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  @@unique([account_id, id])
+  @@unique([account_id, request_key])
+  @@index([account_id, purchase_order_id, created_at], map: "purchase_order_receipts_po_idx")
+}
+
+// Store plan Phase 8, batch 3 (prisma/migrations/20261201002000_selling_options).
+model shop_bundle_parts {
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  product_id String @db.Uuid
+  part_variant_id String @db.Uuid
+  quantity Int
+  position Int @default(0)
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  @@id([account_id, product_id, part_variant_id])
+  @@index([account_id, part_variant_id], map: "shop_bundle_parts_variant_idx")
+}
+
+model shop_customer_groups {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  name String
+  created_by String? @db.Uuid
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @default(now()) @db.Timestamptz(6)
+  @@unique([account_id, id])
+}
+
+model shop_customer_group_members {
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  group_id String @db.Uuid
+  contact_id String @db.Uuid
+  added_by String? @db.Uuid
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  @@id([account_id, group_id, contact_id])
+  @@index([account_id, contact_id], map: "shop_customer_group_members_contact_idx")
+}
+
+model shop_price_lists {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  name String
+  group_id String @db.Uuid
+  active Boolean @default(true)
+  version Int @default(1)
+  created_by String? @db.Uuid
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @default(now()) @db.Timestamptz(6)
+  @@unique([account_id, id])
+  @@index([account_id, group_id], map: "shop_price_lists_group_idx")
+}
+
+model shop_price_list_prices {
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  price_list_id String @db.Uuid
+  variant_id String @db.Uuid
+  min_qty Int @default(1)
+  price_minor BigInt
+  @@id([account_id, price_list_id, variant_id, min_qty])
+  @@index([account_id, variant_id], map: "shop_price_list_prices_variant_idx")
+}
+
+model shop_discount_rules {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  name String
+  product_id String? @db.Uuid
+  category_id String? @db.Uuid
+  group_id String? @db.Uuid
+  kind String
+  value BigInt
+  combinable Boolean @default(true)
+  active Boolean @default(true)
+  starts_at DateTime? @db.Timestamptz(6)
+  ends_at DateTime? @db.Timestamptz(6)
+  version Int @default(1)
+  created_by String? @db.Uuid
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @default(now()) @db.Timestamptz(6)
+  @@unique([account_id, id])
+}
+
+model shop_gift_rules {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  name String
+  min_subtotal_minor BigInt?
+  trigger_product_id String? @db.Uuid
+  gift_variant_id String @db.Uuid
+  active Boolean @default(true)
+  starts_at DateTime? @db.Timestamptz(6)
+  ends_at DateTime? @db.Timestamptz(6)
+  version Int @default(1)
+  created_by String? @db.Uuid
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @default(now()) @db.Timestamptz(6)
+  @@unique([account_id, id])
+}
+
+model shop_loyalty_settings {
+  account_id String @id @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  enabled Boolean @default(false)
+  earn_points Int @default(1)
+  earn_spend_minor BigInt @default(10000)
+  redeem_value_minor BigInt @default(100)
+  redeem_max_bps Int @default(2000)
+  updated_at DateTime @default(now()) @db.Timestamptz(6)
+}
+
+model shop_credit_ledger {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  contact_id String @db.Uuid
+  amount_minor BigInt
+  currency String
+  kind String
+  order_id String? @db.Uuid
+  refund_id String? @db.Uuid
+  reason String?
+  dedupe_key String
+  created_by String? @db.Uuid
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  @@unique([account_id, dedupe_key])
+  @@index([account_id, contact_id, created_at(sort: Desc)], map: "shop_credit_ledger_contact_idx")
+}
+
+model shop_points_ledger {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  contact_id String @db.Uuid
+  points Int
+  kind String
+  order_id String? @db.Uuid
+  refund_id String? @db.Uuid
+  reason String?
+  dedupe_key String
+  created_by String? @db.Uuid
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  @@unique([account_id, dedupe_key])
+  @@index([account_id, contact_id, created_at(sort: Desc)], map: "shop_points_ledger_contact_idx")
+}
+
+model shop_buyer_settings {
+  account_id String @id @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  buyer_returns_enabled Boolean @default(false)
+  price_drop_nudges_enabled Boolean @default(false)
+  note_enabled Boolean @default(false)
+  gift_message_enabled Boolean @default(false)
+  delivery_date_enabled Boolean @default(false)
+  lead_days Int @default(1)
+  window_days Int @default(14)
+  slots Json @default("[]")
+  custom_fields Json @default("[]")
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @default(now()) @db.Timestamptz(6)
+}
+
+model shop_wishlist_items {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  contact_id String @db.Uuid
+  variant_id String @db.Uuid
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  @@unique([account_id, id])
+  @@unique([account_id, contact_id, variant_id])
+}
+
+model shop_price_drops {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  variant_id String @db.Uuid
+  from_minor BigInt
+  to_minor BigInt
+  source_key String
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  @@unique([account_id, id])
+  @@unique([account_id, source_key])
+}
+
+model shop_price_nudges {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  drop_id String @db.Uuid
+  contact_id String @db.Uuid
+  variant_id String @db.Uuid
+  status String @default("pending")
+  reason String?
+  settled_at DateTime? @db.Timestamptz(6)
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  @@unique([account_id, id])
+  @@unique([account_id, drop_id, contact_id])
+}
+
+// Store plan Phase 8, batch 6 (prisma/migrations/20261201005000_shop_marketing).
+// Domain code uses raw SQL inside withTenant; these models document the shape.
+model shop_marketing_settings {
+  account_id String @id @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  order_emails_enabled Boolean @default(false)
+  sender_name String?
+  sender_address String?
+  reply_to String?
+  referral_enabled Boolean @default(false)
+  referral_reward_minor BigInt @default(0)
+  referral_hold_days Int @default(14)
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @default(now()) @db.Timestamptz(6)
+}
+
+model shop_link_page {
+  account_id String @id @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  enabled Boolean @default(false)
+  bio String?
+  links Json @default("[]")
+  featured_product_ids Json @default("[]")
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @default(now()) @db.Timestamptz(6)
+}
+
+model shop_email_prefs {
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  contact_id String @db.Uuid
+  opted_in_at DateTime? @db.Timestamptz(6)
+  opt_in_source String?
+  opted_in_by String? @db.Uuid
+  unsubscribed_at DateTime? @db.Timestamptz(6)
+  updated_at DateTime @default(now()) @db.Timestamptz(6)
+  @@id([account_id, contact_id])
+}
+
+model shop_email_campaigns {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  name String
+  subject String
+  body String
+  segment_id String? @db.Uuid
+  status String @default("draft")
+  recipient_count Int @default(0)
+  created_by String? @db.Uuid
+  queued_at DateTime? @db.Timestamptz(6)
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @default(now()) @db.Timestamptz(6)
+  @@unique([account_id, id])
+}
+
+model shop_email_recipients {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  campaign_id String @db.Uuid
+  contact_id String @db.Uuid
+  email String
+  status String @default("queued")
+  reason String?
+  settled_at DateTime? @db.Timestamptz(6)
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  @@unique([account_id, campaign_id, contact_id])
+}
+
+model shop_referral_codes {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  code String
+  kind String
+  contact_id String? @db.Uuid
+  name String?
+  commission_bps Int?
+  active Boolean @default(true)
+  created_by String? @db.Uuid
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  @@unique([account_id, id])
+  @@unique([account_id, code])
+}
+
+model shop_referrals {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  order_id String @db.Uuid
+  code_id String? @db.Uuid
+  kind String
+  referrer_contact_id String? @db.Uuid
+  buyer_contact_id String @db.Uuid
+  status String @default("pending")
+  reason String?
+  currency String?
+  net_minor BigInt?
+  reward_minor BigInt?
+  commission_minor BigInt?
+  settled_at DateTime? @db.Timestamptz(6)
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  @@unique([account_id, id])
+  @@unique([account_id, order_id])
+  @@unique([account_id, buyer_contact_id])
+}
+
+model shop_order_emails {
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  order_id String @db.Uuid
+  status String
+  reason String?
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  @@id([account_id, order_id])
+}
+
+// Store plan Phase 8, batch 7 (prisma/migrations/20261201006000_shop_insights).
+model shop_live_hits {
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  minute DateTime @db.Timestamptz(6)
+  page String
+  hits Int @default(1)
+  @@id([account_id, minute, page])
+}
+
+/// Store plan Phase 8 (20261201008000_shop_access_hash_private): the shop password hash, worker role only.
+model shop_access_secrets {
+  account_id String @id @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  password_hash String
+  updated_at DateTime @default(now()) @db.Timestamptz(6)
+}
+
+model shop_redirects {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  from_path String
+  to_path String
+  status_code Int @default(301) @db.SmallInt
+  created_by String? @db.Uuid
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  @@unique([account_id, id])
+  @@unique([account_id, from_path])
 }

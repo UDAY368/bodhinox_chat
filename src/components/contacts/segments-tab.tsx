@@ -182,6 +182,13 @@ export function SegmentsTab() {
         return `${fieldLabel} ${ts(`ops.${c.op}`)}`;
       case 'whatsapp':
         return c.op === 'has_number' ? tf('hasWhatsApp') : tf('hasNoWhatsApp');
+      case 'shop_orders':
+      case 'shop_spend':
+        return `${fieldLabel} ${ts(`ops.${c.op}`)} ${c.value.toLocaleString(locale)}`;
+      case 'shop_order_date':
+        return `${ts(c.which === 'first' ? 'shopFirstOrder' : 'shopLastOrder')} ${ts(`ops.${c.op}`)} ${formatDay(`${c.value}T12:00:00`, locale)}`;
+      case 'shop_bought':
+        return `${ts(`ops.${c.op}`)} ${c.productId ? ts('shopProductOne') : ts('shopCategoryOne')}`;
       case 'instagram_subscription':
         return `${fieldLabel}: ${c.op === 'subscribed' ? t('segmentsTab.subscribed') : t('segmentsTab.unsubscribed')}`;
       default:

@@ -52,10 +52,14 @@ export interface AutoDiscountLine {
   grossMinor: number;
 }
 
+/** What a discount line on a quote or an order can be: an automatic discount, or a discount rule on lines (Phase 8). */
+export type DiscountDetailKind = AutoDiscountKind | 'price_rule';
+const DETAIL_KINDS: readonly DiscountDetailKind[] = [...AUTO_DISCOUNT_KINDS, 'price_rule'];
+
 export interface AppliedAutoDiscount {
   id: string;
   name: string;
-  kind: AutoDiscountKind;
+  kind: DiscountDetailKind;
   /** What the customer saves. For free shipping: the delivery fee waived. */
   savingMinor: number;
 }
@@ -63,7 +67,7 @@ export interface AppliedAutoDiscount {
 /** One entry of orders.discount_details: what the customer was shown. */
 export interface StoredDiscountDetail {
   name: string;
-  kind: AutoDiscountKind;
+  kind: DiscountDetailKind;
   saving_minor: number;
 }
 
@@ -71,10 +75,10 @@ export interface StoredDiscountDetail {
 export function parseDiscountDetails(value: unknown): StoredDiscountDetail[] {
   if (!Array.isArray(value)) return [];
   const out: StoredDiscountDetail[] = [];
-  for (const entry of value.slice(0, 8)) {
+  for (const entry of value.slice(0, 20)) {
     if (!entry || typeof entry !== 'object') continue;
     const e = entry as Record<string, unknown>;
-    const kind = AUTO_DISCOUNT_KINDS.find((k) => k === e.kind);
+    const kind = DETAIL_KINDS.find((k) => k === e.kind);
     if (typeof e.name === 'string' && kind && typeof e.saving_minor === 'number' && Number.isSafeInteger(e.saving_minor) && e.saving_minor >= 0)
       out.push({ name: e.name.slice(0, AUTO_DISCOUNT_LIMITS.maxName), kind, saving_minor: e.saving_minor });
   }

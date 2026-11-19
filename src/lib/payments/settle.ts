@@ -18,6 +18,9 @@ import { capiValue, queueConversionEventTx } from '@/lib/meta-ads/capi';
 import { orderWebhookData } from '@/lib/webhooks/commerce-events';
 import { commitTx, rereserveTx } from '@/lib/commerce/stock';
 import { editBalanceReferences } from '@/lib/commerce/order-edit-reference';
+import { queueDigitalDeliveryTx } from '@/lib/commerce/digital-delivery';
+import { earnForOrderTx } from '@/lib/commerce/customer-ledger';
+import { onOrderPaidTx } from '@/lib/commerce/referrals';
 import { confirmPaidHoldTx } from '@/lib/appointments/paid';
 import { applyProviderState, notifyPaid, queuePaidWebhooksTx, queuePurchase, queueWebhookTx, selectLink, type LinkRow, type PaidOrderRow } from './links';
 import { loadRazorpaySecrets, PaymentProviderError } from './providers';
@@ -191,11 +194,16 @@ export function orderSettlementPlan(
  * queues the receipt, Purchase, order.paid and (for a link) payment_link.paid
  * and the agent alert, all in this transaction. `late` first takes the stock
  * back (rereserve); returns false, writing nothing, when it is gone.
+ *
+ * `paymentId` null (Phase 8): the order was paid in full with store credit and
+ * loyalty points at checkout, so there is no payment row; the receipt is issued
+ * for the order instead, and the rest (stock, coupon, digital delivery, the
+ * paid events) is the same. Loyalty points are earned here, once per order.
  */
 export async function creditOrderTx(tx: TenantTransaction, input: {
   accountId: string;
   order: OrderLockRow;
-  paymentId: string;
+  paymentId: string | null;
   amountMinor: number;
   link: LinkRow | null;
   late: boolean;
@@ -218,9 +226,14 @@ export async function creditOrderTx(tx: TenantTransaction, input: {
     RETURNING o.id::text AS id,o.source,o.external_id,o.status,o.total_minor,o.subtotal_minor,o.currency,
       o.contact_id::text AS contact_id,o.conversation_id::text AS conversation_id,
       (SELECT count(*)::int FROM order_items i WHERE i.account_id=o.account_id AND i.order_id=o.id) AS item_count`;
-  await tx.$executeRaw`UPDATE customer_payments SET settlement='settled', order_id=${order.id}::uuid
+  if (input.paymentId) await tx.$executeRaw`UPDATE customer_payments SET settlement='settled', order_id=${order.id}::uuid
     WHERE account_id=${accountId}::uuid AND id=${input.paymentId}::uuid`;
-  await orderEventTx(tx, accountId, order.id, input.link ? 'payment_captured' : 'payment_recorded', { actorUserId: input.actorUserId });
+  await orderEventTx(tx, accountId, order.id, input.link ? 'payment_captured' : input.paymentId ? 'payment_recorded' : 'paid_with_credit',
+    { actorUserId: input.actorUserId });
+  // Loyalty points for a paid order, once (a replay finds the entry). After the stock work: the ledger lock comes last.
+  await earnForOrderTx(tx, accountId, order.id);
+  // The referral reward, once the hold has passed (a replay finds the queued job).
+  await onOrderPaidTx(tx, accountId, order.id);
   if (input.late) {
     await orderEventTx(tx, accountId, order.id, 'late_payment_restocked');
     for (const c of coupons.filter((x) => x.was === 'released')) {
@@ -231,7 +244,11 @@ export async function creditOrderTx(tx: TenantTransaction, input: {
       if (over[0]?.over) await orderEventTx(tx, accountId, order.id, 'coupon_over_limit');
     }
   }
-  await enqueueJobTx(tx, accountId, ISSUE_RECEIPT_JOB, { paymentId: input.paymentId }, `receipt:${input.paymentId}`);
+  // The receipt: for the payment, or for the order itself when store credit and points paid all of it.
+  if (input.paymentId) await enqueueJobTx(tx, accountId, ISSUE_RECEIPT_JOB, { paymentId: input.paymentId }, `receipt:${input.paymentId}`);
+  else await enqueueJobTx(tx, accountId, ISSUE_RECEIPT_JOB, { orderId: order.id }, `receipt:order:${order.id}`);
+  // A digital product is sent once, when the order is paid (queued with the payment; a replay is a no-op).
+  await queueDigitalDeliveryTx(tx, accountId, order.id);
   const paidOrder = paid[0] ?? null;
   if (input.link) {
     await notifyPaid(tx, input.link);

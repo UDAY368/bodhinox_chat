@@ -120,7 +120,8 @@
     "analyticsTeam": "Equipo",
     "analyticsCampaigns": "Campañas",
     "onlineStore": "Tienda en línea",
-    "reviews": "Reseñas"
+    "reviews": "Reseñas",
+    "shopReports": "Informes de la tienda"
   },
   "Header": {
     "notificationsUnread": "{count, plural, =1 {Notificaciones, 1 sin leer} other {Notificaciones, # sin leer}}",
@@ -1512,7 +1513,11 @@
         "instagram": "Identidad de Instagram",
         "instagram_profile": "Perfil de Instagram",
         "instagram_followers": "Seguidores en Instagram",
-        "instagram_window": "Ventana de 24 horas de Instagram"
+        "instagram_window": "Ventana de 24 horas de Instagram",
+        "shop_orders": "Pedidos de la tienda",
+        "shop_spend": "Gasto en la tienda",
+        "shop_order_date": "Fecha de pedido en la tienda",
+        "shop_bought": "Compra en la tienda"
       },
       "ops": {
         "has_any": "tiene alguna de",
@@ -1538,7 +1543,9 @@
         "at_least": "al menos",
         "at_most": "como máximo",
         "open": "está abierta (escribió en las últimas 24 horas)",
-        "closed": "se ha cerrado"
+        "closed": "se ha cerrado",
+        "bought": "compró",
+        "not_bought": "nunca compró"
       },
       "noLists": "Aún no hay listas",
       "campaignLabel": "Campaña",
@@ -1566,7 +1573,22 @@
         "is_verified": "Está verificado"
       },
       "followersLabel": "Seguidores",
-      "igFreshness": "Los datos de Instagram se actualizan en segundo plano más o menos una vez por semana, así que pueden estar un poco desactualizados."
+      "igFreshness": "Los datos de Instagram se actualizan en segundo plano más o menos una vez por semana, así que pueden estar un poco desactualizados.",
+      "shopOrdersLabel": "Número de pedidos",
+      "shopSpendLabel": "Gasto total en unidades menores",
+      "shopSpendHint": "En la unidad menor de la moneda, después de reembolsos (50000 = 500,00).",
+      "shopCounted": "Pedidos pagados y no cancelados.",
+      "shopWhichLabel": "Qué pedido",
+      "shopFirstOrder": "Primer pedido",
+      "shopLastOrder": "Último pedido",
+      "shopTargetLabel": "Producto o categoría",
+      "chooseShopTarget": "Elige un producto o categoría",
+      "shopProducts": "Productos",
+      "shopCategories": "Categorías",
+      "shopProductOne": "un producto",
+      "shopCategoryOne": "una categoría",
+      "olderProduct": "Otro producto",
+      "olderCategory": "Otra categoría"
     },
     "identity": {
       "title": "Identidades de canal",
@@ -8293,6 +8315,7 @@
       "feature_unavailable": "Los envíos por mensajería no están incluidos en tu plan.",
       "not_implemented": "Esta acción aún no está disponible.",
       "order_refunded": "Este pedido se reembolsó por completo, así que no se puede enviar.",
+      "pickup_order": "Este pedido se recoge en la tienda, así que no tiene envío por mensajería.",
       "over_shipped": "Es más de lo que queda por enviar de este artículo."
     }
   },
@@ -8682,7 +8705,8 @@
       "goalTooLong": "La descripción debe tener menos de {max} caracteres.",
       "invalidOutput": "La IA no pudo generar una sugerencia útil. Prueba a reformular tu objetivo.",
       "loadFailed": "No se pudieron cargar tus plantillas. Inténtalo de nuevo.",
-      "noApprovedTemplates": "Necesitas al menos una plantilla aprobada para que el asistente pueda planificar una campaña."
+      "noApprovedTemplates": "Necesitas al menos una plantilla aprobada para que el asistente pueda planificar una campaña.",
+      "writerInvalid": "Escribe el nombre del producto, hasta 10 datos cortos y elige un tono."
     },
     "metaAds": {
       "notEnabled": "Los anuncios de Meta no están activados",
@@ -9710,7 +9734,13 @@
         "badTransition": "Ese cambio de estado no está permitido.",
         "saveError": "No se pudo guardar el pedido",
         "statusSaved": "Estado actualizado",
-        "noteSaved": "Nota guardada"
+        "noteSaved": "Nota guardada",
+        "buyerExtras": {
+          "title": "Datos de compra del comprador",
+          "deliveryDate": "Fecha de entrega",
+          "note": "Nota",
+          "giftMessage": "Mensaje de regalo"
+        }
       },
       "settings": {
         "open": "Mensaje de confirmación",
@@ -9793,7 +9823,10 @@
         "shipmentLive": "Cancela el envío con el transportista antes de cancelar este pedido, o usa Devoluciones si ya se recogió.",
         "codFee": "Cargo por pago contra entrega",
         "refundedInFull": "Este pedido se reembolsó por completo, así que no se puede enviar. Usa Cancelar y reembolsar para cerrarlo.",
-        "freeShipping": "{name} (envío gratis)"
+        "freeShipping": "{name} (envío gratis)",
+        "storeCreditPaid": "Pagado con crédito de tienda",
+        "pointsPaid": "Pagado con {points} puntos",
+        "freeGift": "Regalo"
       },
       "timeline": {
         "title": "Historial",
@@ -9846,7 +9879,8 @@
           "product_follow_up": "Seguimiento del producto",
           "repeat_purchase": "Recordatorio de nueva compra",
           "cod_confirm": "Confirmación contra reembolso",
-          "review_request": "Solicitud de reseña"
+          "review_request": "Solicitud de reseña",
+          "digital_delivery": "Enlace de descarga"
         },
         "messageStatuses": {
           "sent": "Enviado",
@@ -9854,7 +9888,8 @@
           "blocked": "Bloqueado",
           "failed": "Falló",
           "outcome_unknown": "Requiere revisión"
-        }
+        },
+        "digitalNeedsTemplate": "No enviado: falta una plantilla"
       },
       "cod": {
         "badge": "Contra entrega",
@@ -9869,6 +9904,65 @@
       },
       "filterCodConfirmation": "Filtrar por confirmación contra reembolso",
       "allCodConfirmations": "Todas las confirmaciones",
+      "risk": {
+        "label": "Riesgo",
+        "level": {
+          "low": "Riesgo bajo",
+          "medium": "Riesgo medio",
+          "high": "Riesgo alto"
+        },
+        "help": "Una pista basada en reglas simples, calculada al abrir el pedido. Nunca bloquea nada.",
+        "reasons": {
+          "cod_history": "Este cliente tiene pedidos anteriores contra reembolso cancelados, rechazados o devueltos.",
+          "cod_declined": "El cliente rechazó la confirmación del pago contra reembolso.",
+          "order_burst": "Varios pedidos de este cliente en poco tiempo.",
+          "pincode_missing": "La dirección de entrega no tiene código postal.",
+          "pincode_invalid": "El código postal no parece correcto para la India.",
+          "high_first_order": "Un primer pedido mucho mayor que su pedido habitual."
+        }
+      },
+      "tags": {
+        "label": "Etiquetas",
+        "help": "Etiquetas cortas para tu equipo. Los clientes nunca las ven.",
+        "placeholder": "Añadir etiqueta",
+        "add": "Añadir etiqueta",
+        "remove": "Quitar etiqueta {tag}",
+        "invalid": "Una etiqueta tiene de 1 a 24 letras, números, espacios, - o _, y un pedido puede tener 10.",
+        "filter": "Filtrar por etiqueta",
+        "saveError": "No se pudieron guardar las etiquetas. Inténtalo de nuevo."
+      },
+      "exportCsv": "Exportar CSV",
+      "quote": {
+        "open": "Nueva cotización",
+        "title": "Nueva cotización",
+        "description": "Prepara un carrito y envía su enlace por WhatsApp. El cliente paga en tu tienda y los precios se calculan de nuevo en ese momento.",
+        "expires": "Enlace válido durante",
+        "h24": "1 día",
+        "h48": "2 días",
+        "h72": "3 días",
+        "h168": "7 días",
+        "note": "Mensaje con el enlace (opcional)",
+        "send": "Enviar cotización",
+        "sent": "Cotización enviada",
+        "errors": {
+          "outside_window": "Este cliente no ha escrito en las últimas 24 horas, así que ahora no se puede enviar un enlace.",
+          "checkout_disabled": "Activa primero el pago en los ajustes de la tienda.",
+          "contact_blocked": "Este cliente está bloqueado.",
+          "send_failed": "WhatsApp rechazó el mensaje. No se envió nada.",
+          "send_uncertain": "No es seguro que el mensaje se enviara. Revisa el chat antes de intentarlo de nuevo.",
+          "generic": "No se pudo enviar la cotización. Inténtalo de nuevo."
+        }
+      },
+      "delivery": {
+        "pickup": "Recogida en tienda",
+        "local": "Entrega local"
+      },
+      "preorder": {
+        "badge": "Reserva, se envía antes del {date}"
+      },
+      "counter": {
+        "open": "Venta en mostrador"
+      },
       "taxInvoice": {
         "title": "Factura fiscal GST",
         "gstin": "GSTIN del comprador",
@@ -10013,7 +10107,9 @@
         "categories": "Categorías",
         "inventory": "Inventario",
         "meta": "Vínculo con el catálogo de Meta",
-        "collections": "Colecciones"
+        "collections": "Colecciones",
+        "locations": "Ubicaciones",
+        "purchaseOrders": "Órdenes de compra"
       },
       "statuses": {
         "draft": "Borrador",
@@ -10050,7 +10146,14 @@
         "meta_not_connected": "No hay ningún catálogo de Meta conectado.",
         "meta_sync_off": "Activa primero la sincronización del catálogo de Meta.",
         "meta_unavailable": "No se pudo contactar con Meta. No se cambió nada; inténtalo más tarde.",
-        "reconcile_too_soon": "Esto se envió hace menos de dos minutos. Dale un momento a Meta y vuelve a intentarlo."
+        "reconcile_too_soon": "Esto se envió hace menos de dos minutos. Dale un momento a Meta y vuelve a intentarlo.",
+        "insufficient_stock": "Esa ubicación no tiene suficientes unidades de este artículo.",
+        "location_in_use": "Esta ubicación aún tiene existencias o es la ubicación predeterminada. Mueve primero las existencias.",
+        "location_inactive": "Esta ubicación está desactivada.",
+        "name_taken": "Otra ubicación ya tiene este nombre.",
+        "key_reused": "Esta solicitud ya se usó para otra cosa. Recarga e inténtalo de nuevo.",
+        "po_state": "Esta orden de compra no está en un estado que permita este paso. Se ha recargado.",
+        "over_receive": "No puedes recibir más de lo que se pidió."
       },
       "products": {
         "newName": "Nombre del nuevo producto",
@@ -10217,7 +10320,13 @@
           "compareAt": "Introduce un importe en la moneda de la tienda.",
           "tax": "Un porcentaje de 0 a 100, con hasta dos decimales.",
           "hsn": "De 4 a 8 dígitos.",
-          "weight": "Gramos enteros, hasta 1.000.000."
+          "weight": "Gramos enteros, hasta 1.000.000.",
+          "preorderShipDate": "Elige la fecha de envío.",
+          "preorderCap": "Usa un número entero de 1 a 1.000.000, o déjalo vacío.",
+          "scheduleOrder": "La hora de ocultar debe ser posterior a la de mostrar.",
+          "digitalUrl": "Usa un enlace que empiece por https://.",
+          "digitalSource": "Elige un archivo o escribe un enlace de descarga.",
+          "bundleParts": "Añade al menos una parte, cada una con una cantidad de 1 a 99."
         },
         "repurchaseDays": "Recordatorio de recompra tras (días)",
         "repurchaseHint": "Opcional. Días tras la entrega para recordar a los clientes que aceptaron ofertas al pagar. Usa la plantilla de recordatorio de recompra de la configuración de la tienda.",
@@ -10240,7 +10349,65 @@
         "removeDetail": "Quitar detalle",
         "variantImage": "Imagen de esta variante",
         "noVariantImage": "Ninguna",
-        "variantImageN": "Imagen {n}"
+        "variantImageN": "Imagen {n}",
+        "sellingTitle": "Opciones de venta",
+        "sellingHint": "Programa cuándo se muestra este producto en la tienda, véndelo como descarga o conviértelo en un paquete de otros productos. Las reservas se configuran en cada variante, más abajo.",
+        "scheduleTitle": "Publicación y ocultación programadas",
+        "publishAt": "Mostrar desde",
+        "hideAt": "Ocultar desde",
+        "scheduleHint": "Déjalo vacío si no hay programación. Un producto publicado solo se muestra entre estas horas (en tu zona horaria). No se ejecuta ningún proceso: la tienda comprueba la hora cada vez que alguien la abre.",
+        "digitalTitle": "Producto digital",
+        "isDigital": "Esto es una descarga",
+        "digitalHint": "No se envía nada y no se pide dirección. Tras el pago, el cliente recibe un mensaje de WhatsApp con un enlace que caduca en 14 días.",
+        "digitalFile": "Archivo de la biblioteca multimedia",
+        "digitalFileChosen": "Archivo elegido",
+        "digitalNoFile": "Ningún archivo elegido",
+        "digitalChooseFile": "Elegir un archivo",
+        "digitalRemoveFile": "Quitar archivo",
+        "digitalUrl": "O un enlace de descarga (https)",
+        "bundleTitle": "Paquete",
+        "isBundle": "Esto es un paquete de otros productos",
+        "bundleHint": "El paquete se vende a su propio precio (definido en sus variantes). Cada pedido descuenta las partes del inventario, todas o ninguna, y una devolución las repone.",
+        "bundleUnlimited": "Todas las partes se hacen por encargo, así que no hay límite de existencias.",
+        "bundleAvailable": "Paquetes que puedes vender ahora: {count}",
+        "bundleNoParts": "Añade al menos una parte. Un paquete sin partes no se puede publicar.",
+        "bundleQty": "Cantidad de esta parte en un paquete",
+        "bundleRemove": "Quitar esta parte",
+        "bundleAdd": "Añadir una parte",
+        "bundleSearch": "Buscar por nombre de producto o SKU",
+        "saveSelling": "Guardar opciones de venta",
+        "preorder": "Reserva anticipada",
+        "preorderHint": "Vende esta variante aunque se agoten las existencias. La tienda, el carrito y el pedido muestran \"Se envía antes del\" la fecha de abajo. Las existencias disponibles se reservan como siempre; el resto se promete para esa fecha.",
+        "preorderShipDate": "Se envía antes del",
+        "preorderCap": "Máximo de unidades en reserva abiertas",
+        "preorderNoCap": "Sin límite",
+        "writer": {
+          "open": "Redactar descripción",
+          "facts": "Datos clave (uno por línea)",
+          "factsPlaceholder": "Algodón\nLavable a máquina\nHecho en India",
+          "factsHint": "Hasta {max} líneas. Solo se envían estos datos y el nombre del producto. Ningún dato de clientes.",
+          "tone": "Tono",
+          "tones": {
+            "friendly": "Cercano",
+            "professional": "Profesional",
+            "playful": "Divertido",
+            "luxury": "Lujo",
+            "simple": "Sencillo"
+          },
+          "write": "Redactar borrador",
+          "close": "Cerrar",
+          "privacy": "Esto usa un mensaje de IA de tu plan. El borrador nunca se guarda solo.",
+          "draftLabel": "Borrador (edítalo antes de usarlo)",
+          "use": "Usar este borrador",
+          "discard": "Descartar",
+          "errors": {
+            "ai_not_configured": "Primero conecta un proveedor de IA en los ajustes del agente de IA.",
+            "invalid": "Revisa el nombre y los datos del producto e inténtalo de nuevo.",
+            "ai_disabled": "La IA está desactivada en esta plataforma.",
+            "limit": "Has agotado tu límite de IA por ahora.",
+            "generic": "No se pudo redactar un borrador. Inténtalo de nuevo."
+          }
+        }
       },
       "newArrivals": {
         "action": "Enviar como novedades",
@@ -10614,6 +10781,32 @@
         "no_draft": "No hay cambios para publicar.",
         "auto_discount_limit": "Puedes tener como máximo 20 descuentos automáticos.",
         "in_stock": "Este artículo ya está en stock, así que no hay nada que esperar.",
+        "delivery_unavailable": "Esta opción de entrega no está disponible. Elige otra.",
+        "wrong_password": "Esa contraseña no es correcta.",
+        "password_required": "Define una contraseña antes de activar el modo con contraseña.",
+        "price_rule_limit": "Has alcanzado el límite para este tipo de regla. Elimina una primero.",
+        "store_credit_insufficient": "El cliente no tiene tanto crédito de tienda.",
+        "points_insufficient": "El cliente no tiene tantos puntos.",
+        "extras_invalid": "Revisa los extras de compra: las etiquetas, franjas y campos tienen límites fijos.",
+        "returns_unavailable": "Las devoluciones no están disponibles para este pedido.",
+        "return_window_closed": "El plazo de devolución de este pedido ha terminado.",
+        "return_line_open": "Ya hay una solicitud abierta para este artículo.",
+        "return_quantity": "Más unidades de las que se pueden devolver.",
+        "exchange_unavailable": "Ese reemplazo no está disponible.",
+        "wishlist_full": "La lista de deseos está llena.",
+        "repeat_unavailable": "No hay datos de entrega anteriores para usar.",
+        "email_not_connected": "El correo no está conectado en esta plataforma, así que no se puede enviar nada.",
+        "campaign_locked": "Esta campaña ya está en cola o cancelada y no se puede cambiar.",
+        "no_recipients": "Nadie de esta audiencia puede recibir correo todavía. Necesitan una dirección de correo y un consentimiento registrado.",
+        "too_many_recipients": "Esta audiencia supera las 5.000 personas. Redúcela con un segmento.",
+        "sender_details_required": "Primero añade tu dirección postal en los ajustes de marketing. Todo correo de marketing debe incluirla.",
+        "affiliate_limit": "Puedes tener como máximo 200 afiliados.",
+        "redirect_invalid_from": "La dirección antigua debe ser una ruta dentro de tu tienda, como /aceite-viejo.",
+        "redirect_invalid_to": "La dirección nueva debe ser una ruta dentro de tu tienda, como /all.",
+        "redirect_same": "La dirección antigua y la nueva son iguales.",
+        "redirect_loop": "Esto enviaría a los visitantes en círculo (o por más de cinco redirecciones).",
+        "redirect_duplicate": "Esta dirección antigua ya tiene una redirección.",
+        "redirect_limit": "Puedes tener como máximo 200 redirecciones.",
         "signed_out": "Inicia sesión de nuevo.",
         "address_limit": "Puedes guardar hasta 5 direcciones. Elimina una para añadir otra."
       },
@@ -10722,6 +10915,156 @@
         "enabled": "Pedir una reseña tras la entrega",
         "help": "Tres días después de entregar un pedido, el cliente recibe un mensaje de WhatsApp para valorar el producto principal. Dentro de la ventana de 24 horas elige las estrellas en una lista; fuera de ella necesitas una plantilla de marketing aprobada (abajo). Las valoraciones esperan tu aprobación en Comercio, Reseñas. Nunca se pregunta a quien canceló su suscripción."
       },
+      "delivery": {
+        "title": "Recogida y entrega local",
+        "help": "Permite que los clientes recojan en tu tienda o entrega tú mismo en códigos postales cercanos. Los clientes eligen al pagar. Las tarifas de envío siguen valiendo para los demás.",
+        "pickupEnabled": "Ofrecer recogida en tienda",
+        "pickupAddress": "Dirección de recogida",
+        "pickupInstructions": "Instrucciones de recogida (opcional)",
+        "pickupInstructionsHelp": "Por ejemplo el horario o qué traer.",
+        "localEnabled": "Ofrecer entrega local",
+        "localFee": "Tarifa de entrega local ({currency})",
+        "localFeeHelp": "Lleva el impuesto predeterminado. Déjalo vacío para entrega gratis.",
+        "localPrefixes": "Códigos postales a los que entregas",
+        "localPrefixesHelp": "Códigos completos o sus primeros dígitos, separados por comas. Por ejemplo 560 cubre todos los códigos que empiezan por 560.",
+        "save": "Guardar",
+        "saved": "Opciones de entrega guardadas."
+      },
+      "buyer": {
+        "title": "Autoservicio del comprador",
+        "hint": "Permite que los compradores pidan devoluciones, reciban avisos de bajada de precio de productos guardados y añadan datos al comprar.",
+        "saved": "Autoservicio del comprador guardado",
+        "returns": "Los compradores pueden solicitar devoluciones y cambios desde la página de su pedido",
+        "returnsHint": "Se sigue aplicando tu plazo de devolución. Una solicitud no hace nada hasta que tu equipo la apruebe en el pedido, y no se reembolsa nada automáticamente.",
+        "nudges": "Escribir a los compradores por WhatsApp cuando baje el precio de un producto de su lista de deseos",
+        "nudgesHint": "Solo para bajadas del 5% o más. Nunca a contactos que se dieron de baja o están bloqueados, nunca mientras un agente atiende el chat, y como máximo una vez por bajada. Fuera de las 24 horas necesita una plantilla de marketing aprobada para el mensaje de bajada de precio (abajo).",
+        "extrasTitle": "Extras de compra",
+        "extrasHint": "Datos adicionales que puede añadir el comprador. Aparecen en el pedido, en la exportación de pedidos y en la página del pedido del comprador. Nunca cambian el precio.",
+        "note": "Nota del pedido",
+        "gift": "Mensaje de regalo",
+        "deliveryDate": "Fecha de entrega y franja horaria",
+        "deliveryDateHint": "El comprador elige una fecha y una franja si añades franjas. Las fechas se cuentan en días UTC.",
+        "leadDays": "Primera fecha: días desde hoy",
+        "windowDays": "Días entre los que puede elegir",
+        "slots": "Franjas horarias (hasta 6)",
+        "slotLabel": "Nombre de la franja, por ejemplo 9 a 12",
+        "addSlot": "Añadir franja",
+        "remove": "Quitar",
+        "fieldsTitle": "Campos personalizados",
+        "fieldsHint": "Hasta {max} campos: texto, una opción de una lista o una casilla.",
+        "fieldLabel": "Nombre del campo",
+        "fieldType": "Tipo de campo",
+        "fieldOptions": "Opciones",
+        "fieldOptionsHint": "Opciones separadas por comas (de 2 a 10)",
+        "required": "Obligatorio",
+        "addField": "Añadir campo",
+        "save": "Guardar",
+        "types": {
+          "text": "Texto",
+          "select": "Opción",
+          "checkbox": "Casilla"
+        }
+      },
+      "marketing": {
+        "settings": {
+          "title": "Correo y referidos",
+          "hint": "Correos de confirmación de pedido, los datos del remitente que llevan los correos de marketing y el programa de referidos.",
+          "connected": "El correo está conectado. Los mensajes salen por el servicio de correo de la plataforma.",
+          "notConnected": "El correo no está conectado en esta plataforma, así que no se envía ningún correo. Pide a tu administrador que configure SMTP.",
+          "orderEmails": "Enviar un correo de confirmación de pedido",
+          "orderEmailsHint": "Se envía una vez por pedido cuando el contacto del comprador tiene correo. No es un correo de marketing.",
+          "senderName": "Nombre del remitente",
+          "replyTo": "Dirección de respuesta",
+          "senderAddress": "Dirección postal (se muestra en cada correo de marketing)",
+          "senderAddressHint": "Obligatoria para poder enviar una campaña.",
+          "referralTitle": "Programa de referidos",
+          "referralHint": "Cada cliente que paga recibe un código. Cuando el primer pedido de un cliente nuevo llega con un código, el dueño del código gana la recompensa de abajo como crédito de tienda, cuando el pedido está pagado y pasó la espera. Los afiliados solo reciben una cifra de comisión en el informe.",
+          "referralEnabled": "Activar el programa de referidos",
+          "reward": "Recompensa en crédito de tienda ({currency})",
+          "holdDays": "Espera (días tras el pago)",
+          "holdHint": "Se paga tras estos días, o tras tu plazo de devolución si es más largo.",
+          "save": "Guardar",
+          "saved": "Guardado"
+        },
+        "campaigns": {
+          "title": "Campañas de correo",
+          "hint": "Envía un correo de texto plano a los clientes que aceptaron recibir correos de marketing. Cada correo lleva tu dirección postal y un enlace para darse de baja, y la baja es definitiva.",
+          "notConnected": "El correo no está conectado, así que no se pueden enviar campañas.",
+          "newTitle": "Nueva campaña",
+          "name": "Nombre de la campaña",
+          "audience": "Audiencia",
+          "everyone": "Todos con consentimiento",
+          "subject": "Asunto",
+          "body": "Mensaje",
+          "bodyHint": "Texto plano, hasta 5.000 caracteres.",
+          "audienceCounts": "{audience} en esta audiencia, {withEmail} con correo, {eligible} pueden recibir correo ahora, {unsubscribed} dados de baja.",
+          "saveDraft": "Guardar borrador",
+          "created": "Borrador guardado",
+          "attest": "Confirmo que estos clientes aceptaron recibir correos de marketing de nuestra parte.",
+          "recordConsent": "Registrar consentimiento de esta audiencia",
+          "consentHint": "Se guardan tu nombre y la hora. A quien se dio de baja nunca se le vuelve a dar consentimiento.",
+          "consentRecorded": "Consentimiento registrado para {count} clientes",
+          "none": "Aún no hay campañas.",
+          "status": {
+            "draft": "Borrador",
+            "sending": "Enviando",
+            "cancelled": "Cancelada"
+          },
+          "counts": "{total} destinatarios: {sent} enviados, {waiting} en espera, {skipped} omitidos",
+          "unknown": "No se pudo confirmar {count} envíos. No se repitieron; consulta con los destinatarios si es importante.",
+          "send": "Enviar",
+          "confirmSend": "Sí, enviar",
+          "back": "Volver",
+          "requeue": "Poner en cola lo que falta",
+          "cancel": "Detener",
+          "discard": "Descartar",
+          "queued": "En cola. Los correos salen poco a poco."
+        },
+        "referrals": {
+          "title": "Referidos y afiliados",
+          "hint": "Comparte un enlace que termine en ?ref=CÓDIGO. Los pedidos hechos desde carritos creados con él se acreditan al código.",
+          "off": "Desactivado",
+          "affiliateName": "Nombre del afiliado",
+          "commission": "Comisión (%)",
+          "addAffiliate": "Añadir afiliado",
+          "added": "Afiliado añadido",
+          "none": "Aún no hay códigos. Los clientes reciben uno cuando se paga su primer pedido.",
+          "customer": "Cliente",
+          "kind": {
+            "contact": "Cliente",
+            "affiliate": "Afiliado"
+          },
+          "colWho": "Quién",
+          "colCode": "Código",
+          "colOrders": "Pedidos",
+          "colNet": "Ventas netas",
+          "colEarned": "Ganado",
+          "colActions": "Acciones",
+          "ordersCell": "{orders} ({rewarded} liquidados, {pending} en espera)",
+          "copyLink": "Copiar enlace",
+          "copied": "Enlace copiado",
+          "switchOff": "Desactivar",
+          "switchOn": "Activar",
+          "reportNote": "Las comisiones de afiliados son solo un informe: el sistema no paga nada. Las ventas son netas de reembolsos al momento de la liquidación."
+        },
+        "linkPage": {
+          "title": "Página de enlaces",
+          "hint": "Una página de enlaces para tus perfiles sociales: tu logotipo, una biografía corta, tus enlaces y productos destacados, con el tema de tu tienda.",
+          "enabled": "Activar la página de enlaces",
+          "address": "Dirección:",
+          "bio": "Biografía corta",
+          "links": "Enlaces",
+          "linkLabel": "Etiqueta",
+          "linkUrl": "Dirección (https://...)",
+          "removeLink": "Quitar enlace",
+          "addLink": "Añadir enlace",
+          "linkInvalid": "Cada enlace necesita una etiqueta y una dirección completa http:// o https://.",
+          "featured": "Productos destacados (hasta {max})",
+          "noProducts": "Aún no hay productos publicados.",
+          "save": "Guardar",
+          "saved": "Página de enlaces guardada"
+        }
+      },
       "states": "Estados",
       "statesHelp": "Separados por comas: nombres o códigos, por ejemplo MH, Karnataka. Vacío significa cualquier estado.",
       "baseWeight": "Peso que cubre la tarifa (gramos)",
@@ -10791,7 +11134,24 @@
       "amountExceeds": "Ningún pago de este pedido puede reembolsar tanto por sí solo. Introduce un importe menor.",
       "refundOutsideNeeded": "Este pedido se pagó en efectivo o con un pago que registró tu equipo, así que Razorpay no puede reembolsarlo. Devuelve el dinero por el mismo medio y confirma abajo para registrar el reembolso.",
       "refundOutsideConfirm": "He devuelto este importe fuera de Bodhinox",
-      "refundedOutside": "Reembolso registrado. Se emitirá una nota de crédito."
+      "refundedOutside": "Reembolso registrado. Se emitirá una nota de crédito.",
+      "approve": "Aprobar solicitud",
+      "approved": "Solicitud aprobada",
+      "pendingApproval": "Esperando tu aprobación",
+      "fromBuyer": "Solicitada por el comprador",
+      "fromBuyerExchange": "Cambio solicitado por el comprador",
+      "reasons": {
+        "wrong_item": "Recibió un artículo equivocado",
+        "damaged": "Dañado o defectuoso",
+        "not_as_described": "No es como se describía",
+        "size_fit": "Talla o ajuste",
+        "changed_mind": "Cambió de opinión",
+        "other": "Otro motivo"
+      },
+      "exchangeWillMake": "Al aprobar también se crea el pedido de reemplazo. Después reembolsas tú los artículos devueltos.",
+      "exchangeMade": "Se creó el pedido de reemplazo. Reembolsa los artículos devueltos por separado.",
+      "exchangeNotMade": "Aún no se pudo crear el pedido de reemplazo (por ejemplo, sin existencias). Inténtalo de nuevo.",
+      "retryExchange": "Crear el pedido de reemplazo"
     },
     "documents": {
       "print": {
@@ -10962,7 +11322,9 @@
         "abandoned_cart": "Recordatorio de carrito abandonado",
         "cod_confirm": "Confirmación de pago contra reembolso",
         "back_in_stock": "Mensaje de regreso en stock",
-        "review_request": "Solicitud de reseña"
+        "review_request": "Solicitud de reseña",
+        "digital_delivery": "Enlace de descarga",
+        "price_drop": "Mensaje de bajada de precio"
       },
       "utilityHelp": "Una plantilla de utilidad aprobada. Variables: '{{'1'}}' nombre del cliente, '{{'2'}}' producto, '{{'3'}}' número de pedido, '{{'4'}}' enlace de seguimiento (solo envío).",
       "marketingHelp": "Una plantilla de marketing aprobada, que se usa siempre para este mensaje. Solo se envía a clientes que marcaron la casilla de recompra al pagar y nunca se dieron de baja. Variables: '{{'1'}}' nombre del cliente, '{{'2'}}' producto, '{{'3'}}' número de pedido.",
@@ -10974,7 +11336,9 @@
       "abandonedCartHelp": "Una plantilla de marketing aprobada, que se usa cuando la ventana de 24 horas del cliente se ha cerrado. Variables: '{{'1'}}' nombre del cliente, '{{'2'}}' enlace de pago. Sin plantilla, el recordatorio no se envía fuera de la ventana.",
       "codConfirmHelp": "Una plantilla de utilidad aprobada que pide al cliente confirmar un pedido contra reembolso. Variables: '{{'1'}}' nombre del cliente, '{{'2'}}' número de pedido. Una plantilla no puede llevar los botones Sí y Cancelar, así que el pedido queda en espera y tu equipo hace el seguimiento.",
       "backInStockHelp": "Una plantilla de marketing aprobada, que se usa cuando la ventana de 24 horas del cliente ya se cerró. Solo se envía a quienes pidieron el aviso por WhatsApp. Variables: '{{'1'}}' nombre del cliente, '{{'2'}}' producto, '{{'3'}}' enlace del producto. Sin plantilla, el mensaje no se envía fuera de la ventana y espera a la siguiente reposición.",
-      "reviewRequestHelp": "Una plantilla de marketing aprobada, que se usa cuando la ventana de 24 horas del cliente ya se cerró. Solo puede pedir al cliente que responda con un número del 1 al 5, que se acepta durante 7 días. Variables: '{{'1'}}' nombre del cliente, '{{'2'}}' producto, '{{'3'}}' número de pedido. Sin plantilla, la solicitud no se envía fuera de la ventana."
+      "reviewRequestHelp": "Una plantilla de marketing aprobada, que se usa cuando la ventana de 24 horas del cliente ya se cerró. Solo puede pedir al cliente que responda con un número del 1 al 5, que se acepta durante 7 días. Variables: '{{'1'}}' nombre del cliente, '{{'2'}}' producto, '{{'3'}}' número de pedido. Sin plantilla, la solicitud no se envía fuera de la ventana.",
+      "digitalDeliveryHelp": "Una plantilla de utilidad aprobada, que se usa cuando se cierra la ventana de 24 horas del cliente. Variables: '{{'1'}}' nombre del cliente, '{{'2'}}' producto, '{{'3'}}' número de pedido, '{{'4'}}' enlace de descarga (válido 14 días). Sin plantilla, el enlace no se envía fuera de la ventana y el pedido indica que hace falta una plantilla.",
+      "priceDropHelp": "Una plantilla de marketing aprobada, usada cuando la ventana de 24 horas del cliente ha terminado. Variables: '{{'1'}}' nombre del cliente, '{{'2'}}' producto, '{{'3'}}' nuevo precio, '{{'4'}}' enlace del producto. Sin ella, no se escribe a los compradores fuera de la ventana."
     },
     "checkoutLinkFailed": {
       "title": "Falló el enlace de pago del checkout",
@@ -11110,7 +11474,47 @@
       "editorTitle": "Aspecto y páginas",
       "editorHint": "Plantilla, marca, secciones de la página de inicio, menú, pie de página y páginas de la tienda. Edita un borrador, míralo en móvil y escritorio y publícalo.",
       "openEditor": "Editar tema",
-      "editorNeedsSave": "Primero guarda la dirección de la tienda y luego edita el tema."
+      "editorNeedsSave": "Primero guarda la dirección de la tienda y luego edita el tema.",
+      "access": {
+        "title": "Quién puede ver la tienda",
+        "hint": "Mantén la tienda abierta, protégela con una contraseña o muestra una página de próximamente mientras te preparas.",
+        "needsShop": "Primero guarda la dirección de la tienda, arriba.",
+        "modes": {
+          "open": "Abierta para todos",
+          "password": "Protegida con contraseña",
+          "coming_soon": "Próximamente"
+        },
+        "modeHints": {
+          "open": "Cualquiera con el enlace puede ver y pedir.",
+          "password": "Los visitantes escriben la contraseña una vez para ver y pedir.",
+          "coming_soon": "Los visitantes solo ven el nombre o logotipo de tu tienda y un mensaje. No se puede ver ni pedir nada."
+        },
+        "password": "Contraseña",
+        "newPassword": "Nueva contraseña (opcional)",
+        "passwordHint": "De 6 a 72 caracteres. Compártela con quienes deban ver la tienda.",
+        "passwordKept": "Hay una contraseña definida. Déjalo vacío para conservarla; una nueva cierra la sesión de todos.",
+        "passwordLength": "Usa de 6 a 72 caracteres.",
+        "message": "Mensaje para los visitantes",
+        "messageHint": "Opcional, hasta 500 caracteres. Por ejemplo, cuándo abres.",
+        "previewNote": "Tu vista previa en el editor de temas sigue funcionando en todos los modos. Los enlaces de compra que envías por WhatsApp no se ven afectados.",
+        "save": "Guardar",
+        "saved": "Guardado"
+      },
+      "redirects": {
+        "title": "Redirecciones",
+        "hint": "Envía una dirección antigua de la tienda a una nueva. Solo se aplica cuando la dirección antigua mostraría \"página no encontrada\". Hasta {max}.",
+        "from": "Dirección antigua",
+        "to": "Dirección nueva",
+        "type": "Tipo",
+        "permanent": "Permanente (301)",
+        "temporary": "Temporal (302)",
+        "add": "Añadir redirección",
+        "added": "Redirección añadida.",
+        "none": "Aún no hay redirecciones.",
+        "pathHint": "Usa una ruta dentro de tu tienda, por ejemplo /aceite-viejo. También sirve una dirección completa que empiece por {prefix}. No se permiten otros sitios web.",
+        "goesTo": "va a",
+        "remove": "Quitar la redirección desde {from}"
+      }
     },
     "storeEditor": {
       "loadError": "No se pudo cargar el editor de temas.",
@@ -11280,6 +11684,339 @@
       "hidden": "Reseña oculta.",
       "saveError": "No se pudo cambiar la reseña.",
       "loadMore": "Cargar más"
+    },
+    "locations": {
+      "defaultName": "Ubicación principal",
+      "help": "Guarda existencias en más de un lugar. El total que puedes vender no cambia al mover existencias entre ubicaciones. Las ventas toman primero las existencias de la ubicación predeterminada.",
+      "default": "Predeterminada",
+      "inactive": "Desactivada",
+      "units": "{count} unidades",
+      "turnOff": "Desactivar",
+      "turnOn": "Activar",
+      "newName": "Nombre de la nueva ubicación",
+      "add": "Añadir ubicación",
+      "transferTitle": "Mover existencias",
+      "pickVariant": "Busca un producto o SKU para mover",
+      "change": "Cambiar",
+      "from": "Desde",
+      "to": "Hasta",
+      "quantity": "Cantidad",
+      "transfer": "Mover",
+      "transferred": "Existencias movidas.",
+      "recent": "Movimientos recientes",
+      "noTransfers": "Aún no se han movido existencias.",
+      "moved": "{quantity} de {from} a {to}"
+    },
+    "purchaseOrders": {
+      "help": "Pide existencias a un proveedor y recíbelas en una ubicación cuando lleguen. Al recibirlas se suman a las existencias y se avisa a los clientes que pidieron una alerta de reposición.",
+      "new": "Nueva orden de compra",
+      "needsCurrency": "Configura la moneda de la tienda en Ajustes de la tienda antes de añadir órdenes de compra.",
+      "empty": "Aún no hay órdenes de compra.",
+      "colSupplier": "Proveedor",
+      "colStatus": "Estado",
+      "colReceived": "Recibido",
+      "colCost": "Coste",
+      "colCreated": "Creada",
+      "view": "Ver",
+      "hide": "Ocultar",
+      "colItem": "Artículo",
+      "colOrdered": "Pedido",
+      "colUnitCost": "Coste unitario",
+      "colReceiveNow": "Recibir ahora",
+      "supplier": "Proveedor",
+      "reference": "Referencia (opcional)",
+      "quantity": "Cantidad",
+      "unitCost": "Coste unitario ({currency})",
+      "removeLine": "Quitar línea",
+      "addVariant": "Busca un producto o SKU para añadir",
+      "saveDraft": "Guardar borrador",
+      "cancel": "Cancelar",
+      "created": "Orden de compra guardada como borrador.",
+      "receiveAt": "Recibir en",
+      "receive": "Recibir existencias",
+      "receivedToast": "Existencias recibidas.",
+      "statuses": {
+        "draft": "Borrador",
+        "ordered": "Pedida",
+        "partially_received": "Recibida en parte",
+        "received": "Recibida",
+        "closed": "Cerrada",
+        "cancelled": "Cancelada"
+      },
+      "actions": {
+        "order": "Marcar como pedida",
+        "close": "Cerrar",
+        "cancel": "Cancelar orden"
+      }
+    },
+    "priceRules": {
+      "active": "Activa",
+      "edit": "Editar",
+      "delete": "Eliminar",
+      "save": "Guardar",
+      "cancel": "Cancelar",
+      "saved": "Guardado.",
+      "name": "Nombre",
+      "listsTitle": "Listas de precios mayoristas",
+      "listsHelp": "Precios especiales para un grupo de clientes. Cada contacto del grupo recibe la lista. Un precio puede exigir una cantidad mínima.",
+      "noLists": "Aún no hay listas de precios.",
+      "addList": "Añadir lista de precios",
+      "group": "Grupo de clientes",
+      "groupHelp": "Los grupos se configuran en Grupos de clientes. Solo los administradores cambian quién está en un grupo.",
+      "groupMissing": "Grupo eliminado",
+      "chooseGroup": "Elige un grupo",
+      "priceCount": "{count, plural, one {# precio} other {# precios}}",
+      "prices": "Precios",
+      "pricesHelp": "Variante, cantidad mínima, precio por unidad. Se usa el precio más bajo que alcance la cantidad, y nunca más que el precio normal.",
+      "addPrice": "Añadir precio",
+      "chooseVariant": "Elige una variante",
+      "minQty": "Cantidad mínima",
+      "price": "Precio ({currency})",
+      "rulesTitle": "Reglas de descuento",
+      "rulesHelp": "Descuento en un producto, una categoría o todo, para todos o para un grupo de clientes.",
+      "stackingOrder": "Cómo se calculan los precios, siempre en este orden: 1. la lista de precios del cliente, 2. estas reglas de descuento en cada línea, 3. los descuentos automáticos y luego el cupón, 4. envío e impuestos, 5. los puntos y luego el crédito de tienda pagan parte del total. Una regla que no se combina solo se usa cuando hace el carrito más barato para el cliente, y su línea no recibe ningún otro descuento.",
+      "noRules": "Aún no hay reglas de descuento.",
+      "addRule": "Añadir regla de descuento",
+      "appliesTo": "Se aplica a",
+      "oneProduct": "Un producto",
+      "oneCategory": "Una categoría",
+      "everyProduct": "Todos los productos",
+      "product": "Producto",
+      "chooseProduct": "Elige un producto",
+      "category": "Categoría",
+      "categoryHelp": "Los productos de sus subcategorías también cuentan.",
+      "chooseCategory": "Elige una categoría",
+      "customers": "Clientes",
+      "everyone": "Todos",
+      "customersNeeded": "Una regla para todos los productos necesita un grupo de clientes. Para todos, usa un descuento automático.",
+      "kind": "Descuento",
+      "kindPercent": "Porcentaje de descuento",
+      "kindFixed": "Importe de descuento por unidad ({currency})",
+      "percentOff": "{percent}% de descuento",
+      "amountOffEach": "{amount} menos por unidad",
+      "combines": "se combina",
+      "doesNotCombine": "no se combina",
+      "combinable": "Se combina con otros descuentos",
+      "combinableHelp": "Desactivado: esta regla nunca se suma a otra regla, a un descuento automático ni a un cupón. El cliente recibe la opción que haga el carrito más barato.",
+      "startsAt": "Empieza",
+      "endsAt": "Termina",
+      "giftsTitle": "Regalo con la compra",
+      "giftsHelp": "Añade un artículo gratis al pedido cuando el cliente gasta lo suficiente o compra un producto. El regalo sale del inventario como cualquier artículo y se omite cuando no hay existencias.",
+      "noGifts": "Aún no hay reglas de regalo.",
+      "addGift": "Añadir regla de regalo",
+      "giftNameHelp": "Los clientes ven este nombre junto al regalo.",
+      "condition": "Cuándo",
+      "conditionSpend": "El pedido es de al menos ({currency})",
+      "conditionProduct": "El pedido incluye este producto",
+      "spendAtLeast": "Gasta {amount}",
+      "buyProduct": "Compra {product}",
+      "giftVariant": "Regalo",
+      "giftVariantHelp": "Se añade una unidad sin cargo.",
+      "loyaltyTitle": "Puntos de fidelidad",
+      "loyaltyHelp": "Los clientes ganan puntos cuando se paga un pedido y pueden gastarlos en un pedido posterior. Los puntos se ganan una vez por pedido; un reembolso retira la misma proporción.",
+      "loyaltyEnabled": "Los puntos de fidelidad están activados",
+      "earnPoints": "Puntos ganados",
+      "earnSpend": "por cada ({currency}) pagado",
+      "redeemValue": "Un punto paga ({currency})",
+      "redeemMax": "Máximo de un pedido que los puntos pueden pagar (%)",
+      "balancesTitle": "Crédito de tienda y puntos",
+      "balancesHelp": "Lo que tiene un cliente y los últimos cambios. Los movimientos nunca se editan ni se eliminan; un administrador puede añadir un cambio con un motivo.",
+      "searchCustomer": "Buscar clientes por nombre",
+      "customer": "Cliente",
+      "chooseCustomer": "Elige un cliente",
+      "storeCredit": "Crédito de tienda",
+      "points": "Puntos",
+      "pointsDelta": "{points} puntos",
+      "noEntries": "Aún no hay cambios.",
+      "adjustWhat": "Cambiar",
+      "adjustCredit": "Importe ({currency})",
+      "adjustPoints": "Puntos",
+      "adjustHelp": "Empieza con un signo menos para restar. Un saldo nunca baja de cero.",
+      "reason": "Motivo",
+      "adjust": "Añadir cambio",
+      "adjusted": "Saldo cambiado.",
+      "entryKinds": {
+        "refund": "Reembolso como crédito de tienda",
+        "spend": "Gastado en un pedido",
+        "spend_reversal": "Devuelto de un pedido",
+        "adjust": "Cambiado por un administrador",
+        "earn": "Ganado en un pedido",
+        "earn_reversal": "Retirado tras un reembolso",
+        "redeem": "Gastado en un pedido",
+        "redeem_reversal": "Devuelto de un pedido"
+      },
+      "groupsTitle": "Grupos de clientes",
+      "groupsHelp": "Un grupo es una lista de clientes que recibe una lista de precios mayoristas o sus propias reglas de descuento. Solo los administradores crean grupos y cambian quién está en ellos. Las etiquetas de contacto no cambian los precios.",
+      "noGroups": "Aún no hay grupos de clientes.",
+      "memberCount": "{count, plural, one {# cliente} other {# clientes}}",
+      "showMembers": "Ver clientes",
+      "hideMembers": "Ocultar clientes",
+      "noMembers": "Aún no hay nadie en este grupo.",
+      "removeMember": "Quitar",
+      "addMember": "Añadir al grupo",
+      "groupName": "Nombre del grupo",
+      "addGroup": "Añadir grupo"
+    },
+    "insights": {
+      "title": "Informes de la tienda",
+      "description": "Ventas, GST y valor del inventario de tu tienda en línea. Los importes son netos de reembolsos.",
+      "adminOnly": "Solo los administradores del espacio de trabajo pueden ver los informes de la tienda.",
+      "range": {
+        "label": "Periodo",
+        "7d": "Últimos 7 días",
+        "30d": "Últimos 30 días",
+        "90d": "Últimos 90 días",
+        "this_month": "Este mes",
+        "last_month": "Mes pasado",
+        "custom": "Fechas personalizadas",
+        "from": "Desde",
+        "to": "Hasta",
+        "cap": "Como máximo 366 días.",
+        "pick": "Elige una fecha de inicio y una de fin."
+      },
+      "live": {
+        "title": "Vista en vivo",
+        "description": "Visitantes en tu tienda ahora mismo.",
+        "loading": "Cargando",
+        "failed": "No se pudo cargar la vista en vivo.",
+        "active": "visitantes ahora (aprox.)",
+        "chart": "Visitas de página en cada uno de los últimos {minutes} minutos",
+        "topPages": "Páginas vistas en los últimos {minutes} minutos",
+        "none": "Nadie está en la tienda ahora mismo.",
+        "privacy": "Solo se guardan recuentos de páginas, durante dos horas. No se registran nombres, direcciones ni dispositivos, y no se usan cookies.",
+        "pages": {
+          "home": "Inicio",
+          "all": "Todos los productos",
+          "search": "Búsqueda",
+          "cart": "Carrito",
+          "links": "Página de enlaces",
+          "other": "Otras páginas",
+          "about": "Sobre nosotros",
+          "contact": "Contáctanos",
+          "faq": "Preguntas frecuentes",
+          "shipping": "Política de envíos",
+          "refund": "Devoluciones y reembolsos",
+          "privacy": "Política de privacidad",
+          "terms": "Términos del servicio"
+        },
+        "unknown": {
+          "product": "Un producto",
+          "category": "Una categoría"
+        }
+      },
+      "sales": {
+        "title": "Ventas",
+        "description": "Pedidos pagados en el periodo, sin impuestos, tras descuentos y netos de reembolsos.",
+        "byChannel": "Por canal",
+        "byProduct": "Por producto",
+        "byDay": "Por día",
+        "channel": "Canal",
+        "orders": "Pedidos",
+        "net": "Ventas netas",
+        "product": "Producto",
+        "units": "Unidades",
+        "gross": "Ventas",
+        "refunds": "Reembolsos",
+        "day": "Día",
+        "truncated": "Solo se muestran los 100 productos más vendidos.",
+        "note": "Los reembolsos se reparten entre los productos de un pedido en proporción a su valor. Los totales por día y por canal coinciden con la tarjeta de ingresos de la página de analítica."
+      },
+      "tax": {
+        "title": "Informe de GST",
+        "description": "Impuestos de los recibos y notas de crédito que emitiste en el periodo.",
+        "download": "Descargar CSV",
+        "byRate": "Por mes y tasa de impuesto",
+        "totals": "Totales del mes",
+        "month": "Mes",
+        "rate": "Tasa",
+        "taxable": "Valor imponible",
+        "tax": "Impuesto",
+        "cgst": "CGST",
+        "sgst": "SGST",
+        "igst": "IGST",
+        "noRate": "Sin tasa",
+        "receipts": "Recibos",
+        "creditNotes": "Notas de crédito",
+        "creditTax": "Impuesto acreditado",
+        "note": "Se toma tal como se emitió; no se recalcula nada. El impuesto de envíos y cargos aparece en los totales del mes pero no en las filas por tasa. Las notas de crédito no llevan tasa."
+      },
+      "stock": {
+        "title": "Valor del inventario",
+        "description": "Unidades disponibles por su costo, a día de hoy.",
+        "total": "{units} unidades a costo",
+        "costed": "Inventario con costo",
+        "noCost": "Inventario sin costo",
+        "noCostHint": "Estos artículos tienen existencias pero aún no tienen costo, así que no se valoran. Recíbelos en una orden de compra con un costo unitario.",
+        "product": "Producto",
+        "onHand": "Disponible",
+        "unitCost": "Costo unitario",
+        "value": "Valor",
+        "truncated": "Las listas están recortadas; los totales cubren los primeros 5000 artículos.",
+        "basis": "El costo es el costo unitario de la línea de orden de compra más reciente que recibió este artículo."
+      }
+    },
+    "counter": {
+      "title": "Venta en mostrador",
+      "description": "Vende en el mostrador y cobra en efectivo o por UPI en un solo paso. Los precios salen de tu catálogo.",
+      "adminOnly": "Solo administradores y propietarios pueden hacer ventas en mostrador.",
+      "customer": "Cliente",
+      "walkIn": "Cliente de paso",
+      "namedCustomer": "Cliente con nombre",
+      "customerSearch": "Buscar clientes por nombre",
+      "chosen": "Vendiendo a {name}",
+      "products": "Productos",
+      "productSearch": "Busca por nombre o escanea un SKU",
+      "noProducts": "No hay productos que coincidan.",
+      "madeToOrder": "Bajo pedido",
+      "stock": "{count} en stock",
+      "cart": "Carrito",
+      "emptyCart": "Aún no hay nada.",
+      "less": "Uno menos",
+      "more": "Uno más",
+      "remove": "Quitar",
+      "payment": "Pago",
+      "reference": "Referencia (opcional)",
+      "referenceUpi": "Referencia UPI (opcional)",
+      "estimate": "Total del catálogo",
+      "takePayment": "Cobrar",
+      "paidTitle": "Pagado",
+      "paidBody": "Pedido {ref} por {total} pagado con {method}. El recibo está en camino.",
+      "openReceipt": "Abrir recibo",
+      "openOrder": "Abrir pedido",
+      "receiptPending": "El recibo aparecerá en el pedido en un momento.",
+      "newSale": "Nueva venta",
+      "unpaidTitle": "Pedido creado, pago sin registrar",
+      "unpaidBody": "El pedido {ref} está guardado y su stock reservado, pero el pago no se registró.",
+      "retryPayment": "Reintentar pago",
+      "method": {
+        "cash": "Efectivo",
+        "upi": "UPI"
+      },
+      "paymentErrors": {
+        "not_found": "No se encontró el pedido.",
+        "invalid_amount": "El importe no es válido.",
+        "not_payable": "El pedido ya no admite pagos.",
+        "amount_not_due": "El importe no coincide con lo pendiente.",
+        "currency_mismatch": "La moneda no coincide.",
+        "link_pending": "Un enlace de pago de este pedido sigue pendiente.",
+        "link_paid": "Un enlace de pago de este pedido ya fue pagado.",
+        "shipment_live": "Todavía hay un envío con mensajería activo para este pedido.",
+        "generic": "No se pudo registrar el pago. Inténtalo de nuevo."
+      },
+      "errors": {
+        "invalid": "Revisa los productos y las cantidades e inténtalo de nuevo.",
+        "contact_not_found": "Ese cliente ya no está en este espacio de trabajo.",
+        "store_not_configured": "Primero define la moneda de la tienda en los ajustes de la tienda.",
+        "out_of_stock": "No hay stock suficiente de uno de los productos.",
+        "variant_unavailable": "Uno de los productos ya no está a la venta.",
+        "price_not_configured": "Uno de los productos no tiene precio.",
+        "tax_not_configured": "Primero define un impuesto para el producto o la tienda.",
+        "amount_out_of_range": "El total es demasiado grande.",
+        "cart_empty": "Añade al menos un producto",
+        "invalid_cart": "Revisa los productos y las cantidades e inténtalo de nuevo.",
+        "forbidden": "No tienes permiso para hacer ventas en mostrador.",
+        "generic": "No se pudo completar la venta. Inténtalo de nuevo."
+      }
     },
     "orderEdit": {
       "balanceLinkDescription": "Saldo del pedido {reference}"
@@ -11470,7 +12207,10 @@
         "not_connected": "Razorpay no está conectado.",
         "provider_unreachable": "No se pudo contactar con Razorpay. Inténtalo de nuevo en breve.",
         "shipment_live": "Este pedido tiene un envío con mensajero. Cancela el envío antes de reponer el stock, o reembolsa sin reponer y usa Devoluciones para los productos que vuelvan."
-      }
+      },
+      "toStoreCredit": "Reembolsar como crédito de tienda",
+      "toStoreCreditHelp": "No se devuelve dinero. El importe se añade de inmediato al crédito de tienda del cliente, para usarlo en un pedido posterior.",
+      "creditedToStore": "Reembolsado como crédito de tienda."
     },
     "offline": {
       "title": "Registrar pago fuera de línea",
@@ -14644,7 +15384,16 @@
       "amount_out_of_range": "El importe es demasiado grande.",
       "too_many_open_orders": "Ya tienes el máximo de pedidos abiertos. Paga un pedido pendiente, espera a que caduque o a que se entregue un pedido contra entrega, y vuelve a intentarlo.",
       "cod_unavailable": "El pago contra entrega no está disponible para este carrito. Elige pagar en línea.",
-      "online_unavailable": "El pago en línea no está disponible en esta tienda. Elige pago contra entrega o contacta con la tienda."
+      "online_unavailable": "El pago en línea no está disponible en esta tienda. Elige pago contra entrega o contacta con la tienda.",
+      "delivery_unavailable": "Esta opción de entrega no está disponible para tu dirección. Elige otra.",
+      "extras_invalid": "Revisa la fecha de entrega, la franja horaria y los datos que añadiste, e inténtalo de nuevo.",
+      "returns_unavailable": "No se puede solicitar una devolución para este pedido.",
+      "return_window_closed": "El plazo de devolución de este pedido ha terminado.",
+      "return_line_open": "Ya hay una solicitud abierta para uno de estos artículos.",
+      "return_quantity": "Pediste devolver más unidades de las posibles.",
+      "exchange_unavailable": "Ese reemplazo no está disponible.",
+      "wishlist_full": "Tu lista de deseos está llena. Quita un artículo primero.",
+      "repeat_unavailable": "No hay datos de entrega anteriores para usar."
     },
     "marketingOptIn": {
       "reorder_offers_v1": "Envíame recordatorios para volver a pedir y ofertas por WhatsApp. Puedes detenerlos cuando quieras respondiendo STOP."
@@ -14672,6 +15421,76 @@
     "showMore": "Ver más productos",
     "freeShipping": "Gratis",
     "payOnlineSave": "Paga en línea y ahorra {amount}",
+    "deliveryHeading": "Entrega",
+    "deliveryShip": "Enviar a mi dirección",
+    "deliveryPickup": "Recoger en la tienda",
+    "deliveryLocal": "Entrega local ({fee})",
+    "deliveryLocalLine": "Entrega local",
+    "pickupAt": "Recoge tu pedido en:",
+    "localDeliveryNote": "La tienda entrega este pedido en tu dirección.",
+    "shipsBy": "Se envía antes del {date}",
+    "digitalNote": "Descarga digital. No se envía nada.",
+    "downloadDigital": "Descargar tu compra",
+    "freeGift": "Regalo",
+    "yourPrice": "Tu precio: {price} por unidad (normalmente {was})",
+    "walletHeading": "Crédito y puntos",
+    "useStoreCredit": "Usar mi crédito de tienda ({amount} disponible)",
+    "usePoints": "Usar mis puntos ({points} disponibles)",
+    "pointsApplied": "Puntos usados ({points})",
+    "storeCreditApplied": "Crédito de tienda usado",
+    "toPay": "A pagar",
+    "placeNothingToPay": "Hacer pedido (nada más que pagar)",
+    "save": "Guardar para después",
+    "unsave": "Quitar de guardados",
+    "repeatPrompt": "¿Entregar de nuevo a {name}, {city} {postalCode}?",
+    "repeatUse": "Usar estos datos",
+    "extras": {
+      "heading": "Datos de entrega",
+      "deliveryDate": "Fecha de entrega",
+      "deliverySlot": "Franja horaria",
+      "pickSlot": "Elige una franja horaria",
+      "note": "Nota para la tienda (opcional)",
+      "giftMessage": "Mensaje de regalo (opcional)",
+      "chooseOption": "Elige una opción"
+    },
+    "returns": {
+      "heading": "Devoluciones y cambios",
+      "open": "Devolver o cambiar artículos",
+      "exchange": "Cambio",
+      "status": {
+        "pending": "Esperando que la tienda lo revise",
+        "approved": "Aprobada. La tienda te indicará el siguiente paso",
+        "requested": "Solicitada",
+        "received": "Recibida por la tienda",
+        "inspected": "En revisión",
+        "closed": "Completada",
+        "rejected": "No aceptada"
+      },
+      "sent": "Solicitud enviada. La tienda la revisará y te escribirá.",
+      "windowClosed": "El plazo de devolución de este pedido ha terminado.",
+      "unavailable": "Las devoluciones no están disponibles para este pedido.",
+      "exchangeFor": "Cambiar por",
+      "returnOnly": "Solo devolver",
+      "exchangeTo": "Cambiar por {option}",
+      "reason": "Motivo",
+      "pickReason": "Elige un motivo",
+      "reasons": {
+        "wrong_item": "Recibí un artículo equivocado",
+        "damaged": "Dañado o defectuoso",
+        "not_as_described": "No es como se describía",
+        "size_fit": "Talla o ajuste",
+        "changed_mind": "Cambié de opinión",
+        "other": "Otro motivo"
+      },
+      "note": "Cuéntanos más (opcional)",
+      "afterSend": "Enviar esto no reembolsa nada. La tienda revisa primero tu solicitud.",
+      "send": "Enviar solicitud",
+      "cancel": "Cancelar"
+    },
+    "notFoundReturnHint": "Este enlace ha caducado. Para devolver o cambiar un artículo, escribe a la tienda por WhatsApp.",
+    "emailLabel": "Correo electrónico (opcional)",
+    "emailHint": "Aquí te enviamos la confirmación del pedido.",
+    "emailOffers": "Quiero recibir ofertas por correo",
     "trackOrder": "Seguir tu pedido",
     "gstInvoice": {
       "toggle": "Necesito una factura fiscal GST (compra de empresa)",
@@ -14699,7 +15518,8 @@
     "reviewLabel3": "Regular",
     "reviewLabel2": "Malo",
     "reviewLabel1": "Muy malo",
-    "reviewThanks": "¡Gracias! Añade unas palabras al respecto, o simplemente omite este paso."
+    "reviewThanks": "¡Gracias! Añade unas palabras al respecto, o simplemente omite este paso.",
+    "digitalDelivery": "Gracias por tu pedido {ref}. Tu descarga está lista: {url}"
   },
   "AiSettings": {
     "features": {
@@ -17590,6 +18410,65 @@
     "boughtTogether": "Se compran juntos con frecuencia",
     "addOne": "Añadir",
     "productDetails": "Detalles",
+    "shipsBy": "Se envía antes del {date}",
+    "digitalNote": "Descarga digital. No se envía nada.",
+    "lock": {
+      "comingSoonTitle": "Próximamente",
+      "comingSoonDefault": "Esta tienda aún no está abierta. Vuelve pronto.",
+      "passwordTitle": "Esta tienda es privada",
+      "passwordHelp": "Escribe la contraseña que te dieron para abrir la tienda.",
+      "passwordLabel": "Contraseña",
+      "enter": "Abrir la tienda",
+      "checking": "Comprobando",
+      "errors": {
+        "wrong_password": "Esa contraseña no es correcta.",
+        "too_many": "Demasiados intentos. Espera unos minutos.",
+        "generic": "Algo salió mal. Inténtalo de nuevo.",
+        "network": "Sin conexión. Inténtalo de nuevo."
+      }
+    },
+    "download": {
+      "title": "Tus descargas"
+    },
+    "priceDrop": {
+      "text": "¡Buenas noticias! {product} ahora cuesta {price} (antes {was}). Pídelo aquí:"
+    },
+    "wishlist": {
+      "save": "Guardar para después",
+      "saved": "Guardado",
+      "hint": "Guardado en este dispositivo. Pasa a tu lista de deseos cuando compres con tu número."
+    },
+    "linkPage": {
+      "title": "Enlaces",
+      "visitShop": "Visitar la tienda",
+      "featured": "Destacados"
+    },
+    "unsubscribe": {
+      "title": "Darse de baja de los correos",
+      "help": "Pulsa el botón para dejar de recibir correos de marketing de esta tienda.",
+      "button": "Darme de baja",
+      "done": "Te has dado de baja. No volverás a recibir correos de marketing de esta tienda.",
+      "invalid": "Este enlace no es válido.",
+      "error": "Algo salió mal. Inténtalo de nuevo."
+    },
+    "skipToContent": "Saltar al contenido principal",
+    "search": {
+      "label": "Buscar en la tienda",
+      "placeholder": "Buscar productos",
+      "submit": "Buscar",
+      "suggestions": "Sugerencias",
+      "noMatches": "No hay productos que coincidan.",
+      "title": "Búsqueda",
+      "resultsFor": "Resultados para \"{query}\"",
+      "prompt": "Escribe el nombre de un producto, una categoría o un SKU.",
+      "noResults": "No se encontraron productos. Prueba con otra palabra."
+    },
+    "consent": {
+      "title": "¿Recordar tu enlace de referido?",
+      "text": "Esta tienda puede guardar en este navegador el código de referido de tu enlace para acreditar a la persona correcta. No se usa para nada más.",
+      "accept": "Aceptar",
+      "decline": "No, gracias"
+    },
     "track": {
       "title": "Seguimiento del pedido",
       "order": "Pedido {code}",
@@ -17659,6 +18538,19 @@
       "deliverTo": "Entregar en",
       "enterAtCheckout": "Escribir otra dirección al pagar",
       "otherNumber": "Usar otro número"
+    }
+  },
+  "ShopMarketing": {
+    "email": {
+      "unsubscribeLine": "Darte de baja de estos correos:"
+    },
+    "orderEmail": {
+      "subject": "Tu pedido {reference} en {shop}",
+      "intro": "Gracias por tu pedido en {shop}. Lo hemos recibido.",
+      "reference": "Referencia del pedido",
+      "total": "Total",
+      "cod": "Pagas contra reembolso.",
+      "thanks": "Gracias por comprar en {shop}."
     }
   }
 }

@@ -120,7 +120,8 @@
     "analyticsTeam": "Team",
     "analyticsCampaigns": "Campaigns",
     "onlineStore": "Online store",
-    "reviews": "Reviews"
+    "reviews": "Reviews",
+    "shopReports": "Shop reports"
   },
   "Header": {
     "notificationsUnread": "{count, plural, =1 {Notifications, 1 unread} other {Notifications, # unread}}",
@@ -1512,7 +1513,11 @@
         "instagram": "Instagram identity",
         "instagram_profile": "Instagram profile",
         "instagram_followers": "Instagram followers",
-        "instagram_window": "Instagram 24-hour window"
+        "instagram_window": "Instagram 24-hour window",
+        "shop_orders": "Shop orders",
+        "shop_spend": "Shop spend",
+        "shop_order_date": "Shop order date",
+        "shop_bought": "Shop purchase"
       },
       "ops": {
         "has_any": "has any of",
@@ -1538,7 +1543,9 @@
         "at_least": "at least",
         "at_most": "at most",
         "open": "is open (they wrote in the last 24 hours)",
-        "closed": "has closed"
+        "closed": "has closed",
+        "bought": "bought",
+        "not_bought": "never bought"
       },
       "noLists": "No lists yet",
       "campaignLabel": "Campaign",
@@ -1566,7 +1573,22 @@
         "is_verified": "Is verified"
       },
       "followersLabel": "Followers",
-      "igFreshness": "Instagram details are refreshed in the background about once a week, so they can be a little out of date."
+      "igFreshness": "Instagram details are refreshed in the background about once a week, so they can be a little out of date.",
+      "shopOrdersLabel": "Number of orders",
+      "shopSpendLabel": "Total spend in minor units",
+      "shopSpendHint": "In the smallest currency unit, after refunds (50000 = 500.00).",
+      "shopCounted": "Paid orders that were not cancelled.",
+      "shopWhichLabel": "Which order",
+      "shopFirstOrder": "First order",
+      "shopLastOrder": "Last order",
+      "shopTargetLabel": "Product or category",
+      "chooseShopTarget": "Choose a product or category",
+      "shopProducts": "Products",
+      "shopCategories": "Categories",
+      "shopProductOne": "a product",
+      "shopCategoryOne": "a category",
+      "olderProduct": "Another product",
+      "olderCategory": "Another category"
     },
     "identity": {
       "title": "Channel identities",
@@ -8293,6 +8315,7 @@
       "feature_unavailable": "Courier shipping is not included in your plan.",
       "not_implemented": "This action is not available yet.",
       "order_refunded": "This order was refunded in full, so it cannot be shipped.",
+      "pickup_order": "This order is collected at the store, so it has no courier shipment.",
       "over_shipped": "That is more than is left to ship for this item."
     }
   },
@@ -8682,7 +8705,8 @@
       "goalTooLong": "Keep the description under {max} characters.",
       "invalidOutput": "The AI could not produce a usable suggestion. Try rephrasing your goal.",
       "loadFailed": "Could not load your templates. Try again.",
-      "noApprovedTemplates": "You need at least one approved template before the assistant can plan a campaign."
+      "noApprovedTemplates": "You need at least one approved template before the assistant can plan a campaign.",
+      "writerInvalid": "Enter the product name, up to 10 short facts and pick a tone."
     },
     "metaAds": {
       "notEnabled": "Meta ads are not enabled",
@@ -9710,7 +9734,13 @@
         "badTransition": "That status change isn’t allowed.",
         "saveError": "Couldn’t save the order",
         "statusSaved": "Status updated",
-        "noteSaved": "Note saved"
+        "noteSaved": "Note saved",
+        "buyerExtras": {
+          "title": "Buyer’s checkout details",
+          "deliveryDate": "Delivery date",
+          "note": "Note",
+          "giftMessage": "Gift message"
+        }
       },
       "settings": {
         "open": "Confirmation message",
@@ -9793,7 +9823,10 @@
         "shipmentLive": "Cancel the courier shipment before cancelling this order, or use Returns once it was picked up.",
         "codFee": "Cash on delivery fee",
         "refundedInFull": "This order was refunded in full, so it cannot be shipped. Use Cancel and refund to close it.",
-        "freeShipping": "{name} (free shipping)"
+        "freeShipping": "{name} (free shipping)",
+        "storeCreditPaid": "Paid with store credit",
+        "pointsPaid": "Paid with {points} points",
+        "freeGift": "Free gift"
       },
       "timeline": {
         "title": "History",
@@ -9846,7 +9879,8 @@
           "product_follow_up": "Product follow-up",
           "repeat_purchase": "Reorder reminder",
           "cod_confirm": "COD confirmation",
-          "review_request": "Review request"
+          "review_request": "Review request",
+          "digital_delivery": "Download link"
         },
         "messageStatuses": {
           "sent": "Sent",
@@ -9854,7 +9888,8 @@
           "blocked": "Blocked",
           "failed": "Failed",
           "outcome_unknown": "Needs check"
-        }
+        },
+        "digitalNeedsTemplate": "Not sent - needs a template"
       },
       "cod": {
         "badge": "COD",
@@ -9869,6 +9904,65 @@
       },
       "filterCodConfirmation": "Filter by COD confirmation",
       "allCodConfirmations": "All COD confirmations",
+      "risk": {
+        "label": "Risk",
+        "level": {
+          "low": "Low risk",
+          "medium": "Medium risk",
+          "high": "High risk"
+        },
+        "help": "A hint from simple rules, worked out when you open the order. It never blocks anything.",
+        "reasons": {
+          "cod_history": "This customer has earlier cash-on-delivery orders that were cancelled, refused or returned.",
+          "cod_declined": "The customer declined the cash-on-delivery confirmation.",
+          "order_burst": "Several orders from this customer in a short time.",
+          "pincode_missing": "The delivery address has no postal code.",
+          "pincode_invalid": "The postal code does not look right for India.",
+          "high_first_order": "A first order much larger than your usual order."
+        }
+      },
+      "tags": {
+        "label": "Tags",
+        "help": "Short labels for your team. Customers never see them.",
+        "placeholder": "Add a tag",
+        "add": "Add tag",
+        "remove": "Remove tag {tag}",
+        "invalid": "A tag is 1 to 24 letters, numbers, spaces, - or _, and an order can have 10.",
+        "filter": "Filter by tag",
+        "saveError": "The tags could not be saved. Try again."
+      },
+      "exportCsv": "Export CSV",
+      "quote": {
+        "open": "New quote",
+        "title": "New quote",
+        "description": "Pre-fill a cart and send its link on WhatsApp. The customer checks out in your shop, and prices are worked out again then.",
+        "expires": "Link valid for",
+        "h24": "1 day",
+        "h48": "2 days",
+        "h72": "3 days",
+        "h168": "7 days",
+        "note": "Message with the link (optional)",
+        "send": "Send quote",
+        "sent": "Quote sent",
+        "errors": {
+          "outside_window": "This customer has not written in the last 24 hours, so a link cannot be sent now.",
+          "checkout_disabled": "Turn on checkout in Store settings first.",
+          "contact_blocked": "This customer is blocked.",
+          "send_failed": "WhatsApp refused the message. Nothing was sent.",
+          "send_uncertain": "It is not certain the message was sent. Check the chat before trying again.",
+          "generic": "The quote could not be sent. Try again."
+        }
+      },
+      "delivery": {
+        "pickup": "Store pickup",
+        "local": "Local delivery"
+      },
+      "preorder": {
+        "badge": "Pre-order, ships by {date}"
+      },
+      "counter": {
+        "open": "Counter sale"
+      },
       "taxInvoice": {
         "title": "GST tax invoice",
         "gstin": "Buyer GSTIN",
@@ -10013,7 +10107,9 @@
         "categories": "Categories",
         "inventory": "Inventory",
         "meta": "Meta catalogue link",
-        "collections": "Collections"
+        "collections": "Collections",
+        "locations": "Locations",
+        "purchaseOrders": "Purchase orders"
       },
       "statuses": {
         "draft": "Draft",
@@ -10050,7 +10146,14 @@
         "meta_not_connected": "No Meta catalogue is connected.",
         "meta_sync_off": "Turn on the Meta catalogue sync first.",
         "meta_unavailable": "Meta could not be reached. Nothing was changed; try again later.",
-        "reconcile_too_soon": "This was sent less than two minutes ago. Give Meta a moment, then try again."
+        "reconcile_too_soon": "This was sent less than two minutes ago. Give Meta a moment, then try again.",
+        "insufficient_stock": "That location does not hold enough units of this item.",
+        "location_in_use": "This location still holds stock, or it is the default location. Move the stock out first.",
+        "location_inactive": "This location is turned off.",
+        "name_taken": "Another location already has this name.",
+        "key_reused": "This request was already used for something else. Reload and try again.",
+        "po_state": "This purchase order is not in a state that allows this step. It has been reloaded.",
+        "over_receive": "You cannot receive more than was ordered."
       },
       "products": {
         "newName": "New product name",
@@ -10217,7 +10320,13 @@
           "compareAt": "Enter an amount in the store currency.",
           "tax": "A percentage from 0 to 100, up to two decimals.",
           "hsn": "4 to 8 digits.",
-          "weight": "Whole grams, up to 1,000,000."
+          "weight": "Whole grams, up to 1,000,000.",
+          "preorderShipDate": "Choose the ship date.",
+          "preorderCap": "Use a whole number from 1 to 1,000,000, or leave empty.",
+          "scheduleOrder": "The hide time must be after the show time.",
+          "digitalUrl": "Use a link that starts with https://.",
+          "digitalSource": "Choose a file or enter a download link.",
+          "bundleParts": "Add at least one part, each with a quantity from 1 to 99."
         },
         "repurchaseDays": "Reorder reminder after (days)",
         "repurchaseHint": "Optional. Days after delivery to remind customers who agreed to offers at checkout. Uses the reorder reminder template in Store settings.",
@@ -10240,7 +10349,65 @@
         "removeDetail": "Remove detail",
         "variantImage": "Picture for this variant",
         "noVariantImage": "None",
-        "variantImageN": "Image {n}"
+        "variantImageN": "Image {n}",
+        "sellingTitle": "Selling options",
+        "sellingHint": "Schedule when this product shows in the shop, sell it as a download, or make it a bundle of other products. Pre-orders are set on each variant below.",
+        "scheduleTitle": "Scheduled publish and hide",
+        "publishAt": "Show from",
+        "hideAt": "Hide from",
+        "scheduleHint": "Leave empty for no schedule. A published product shows only between these times (in your time zone). No job runs: the shop checks the time whenever someone opens it.",
+        "digitalTitle": "Digital product",
+        "isDigital": "This is a download",
+        "digitalHint": "Nothing is shipped and no address is asked for. After payment, the customer gets a WhatsApp message with a link that expires in 14 days.",
+        "digitalFile": "File from the media library",
+        "digitalFileChosen": "File chosen",
+        "digitalNoFile": "No file chosen",
+        "digitalChooseFile": "Choose a file",
+        "digitalRemoveFile": "Remove file",
+        "digitalUrl": "Or a download link (https)",
+        "bundleTitle": "Bundle",
+        "isBundle": "This is a bundle of other products",
+        "bundleHint": "The bundle is sold at its own price (set on its variants). Each order takes the parts from stock, all or nothing, and a return puts them back.",
+        "bundleUnlimited": "Every part is made to order, so there is no stock limit.",
+        "bundleAvailable": "Bundles you can sell now: {count}",
+        "bundleNoParts": "Add at least one part. A bundle with no parts cannot be published.",
+        "bundleQty": "Quantity of this part in one bundle",
+        "bundleRemove": "Remove this part",
+        "bundleAdd": "Add a part",
+        "bundleSearch": "Search by product name or SKU",
+        "saveSelling": "Save selling options",
+        "preorder": "Pre-order",
+        "preorderHint": "Sell this variant even when stock runs out. The shop, cart and order show \"Ships by\" the date below. Stock on the shelf is reserved as usual; the rest is promised for the date.",
+        "preorderShipDate": "Ships by",
+        "preorderCap": "Most open pre-order units",
+        "preorderNoCap": "No limit",
+        "writer": {
+          "open": "Write description",
+          "facts": "Key facts (one per line)",
+          "factsPlaceholder": "Cotton\nMachine washable\nMade in India",
+          "factsHint": "Up to {max} lines. Only these facts and the product name are sent. No customer data.",
+          "tone": "Tone",
+          "tones": {
+            "friendly": "Friendly",
+            "professional": "Professional",
+            "playful": "Playful",
+            "luxury": "Luxury",
+            "simple": "Simple"
+          },
+          "write": "Write draft",
+          "close": "Close",
+          "privacy": "This uses one AI message from your plan. The draft is never saved on its own.",
+          "draftLabel": "Draft (edit before using)",
+          "use": "Use this draft",
+          "discard": "Discard",
+          "errors": {
+            "ai_not_configured": "Connect an AI provider first in the AI agent settings.",
+            "invalid": "Check the product name and facts and try again.",
+            "ai_disabled": "AI is switched off on this platform.",
+            "limit": "Your AI limit is used up for now.",
+            "generic": "Could not write a draft. Try again."
+          }
+        }
       },
       "newArrivals": {
         "action": "Send as new arrivals",
@@ -10614,6 +10781,32 @@
         "no_draft": "There are no changes to publish.",
         "auto_discount_limit": "You can have at most 20 automatic discounts.",
         "in_stock": "This item is in stock now, so there is nothing to wait for.",
+        "delivery_unavailable": "This delivery option is not available. Choose another one.",
+        "wrong_password": "That password is not right.",
+        "password_required": "Set a password before turning on password mode.",
+        "price_rule_limit": "You have reached the limit for this kind of rule. Delete one first.",
+        "store_credit_insufficient": "The customer does not have that much store credit.",
+        "points_insufficient": "The customer does not have that many points.",
+        "extras_invalid": "Check the checkout extras: labels, slots and fields have fixed limits.",
+        "returns_unavailable": "Returns are not available for this order.",
+        "return_window_closed": "The return window for this order has closed.",
+        "return_line_open": "There is already an open request for this item.",
+        "return_quantity": "More units than can be returned.",
+        "exchange_unavailable": "That replacement is not available.",
+        "wishlist_full": "The wishlist is full.",
+        "repeat_unavailable": "There are no earlier delivery details to use.",
+        "email_not_connected": "Email is not connected on this platform, so nothing can be sent.",
+        "campaign_locked": "This campaign was already queued or cancelled and can no longer change.",
+        "no_recipients": "Nobody in this audience can be emailed yet. They need an email address and recorded consent.",
+        "too_many_recipients": "This audience is larger than 5,000 people. Narrow it with a segment.",
+        "sender_details_required": "Add your postal address under Marketing settings first. Every marketing email must carry it.",
+        "affiliate_limit": "You can have at most 200 affiliates.",
+        "redirect_invalid_from": "The old address must be a path inside your shop, such as /old-oil.",
+        "redirect_invalid_to": "The new address must be a path inside your shop, such as /all.",
+        "redirect_same": "The old and new address are the same.",
+        "redirect_loop": "This would send visitors round in a circle (or through more than five redirects).",
+        "redirect_duplicate": "This old address already has a redirect.",
+        "redirect_limit": "You can have at most 200 redirects.",
         "signed_out": "Please sign in again.",
         "address_limit": "You can save up to 5 addresses. Delete one to add another."
       },
@@ -10722,6 +10915,156 @@
         "enabled": "Ask for a review after delivery",
         "help": "Three days after an order is delivered, the customer gets one WhatsApp message asking them to rate the main product. Inside the 24-hour window they pick stars from a list; outside it you need an approved marketing template (below). Ratings wait for your approval in Commerce, Reviews. Customers who opted out are never asked."
       },
+      "delivery": {
+        "title": "Pickup and local delivery",
+        "help": "Let customers collect at your store, or deliver yourself to nearby postal codes. Customers choose at checkout. Shipping rates still apply to everyone else.",
+        "pickupEnabled": "Offer store pickup",
+        "pickupAddress": "Pickup address",
+        "pickupInstructions": "Pickup instructions (optional)",
+        "pickupInstructionsHelp": "For example opening hours, or what to bring.",
+        "localEnabled": "Offer local delivery",
+        "localFee": "Local delivery fee ({currency})",
+        "localFeeHelp": "Taxed at the default rate. Leave empty for free delivery.",
+        "localPrefixes": "Postal codes you deliver to",
+        "localPrefixesHelp": "Full codes or their first digits, separated by commas. For example 560 covers every code starting with 560.",
+        "save": "Save",
+        "saved": "Delivery options saved."
+      },
+      "buyer": {
+        "title": "Buyer self-service",
+        "hint": "Let buyers ask for returns, get price-drop alerts for saved products, and add details at checkout.",
+        "saved": "Buyer self-service saved",
+        "returns": "Buyers can request returns and exchanges from their order page",
+        "returnsHint": "Your return window still applies. A request does nothing until your team approves it in the order, and nothing is refunded automatically.",
+        "nudges": "Message buyers on WhatsApp when a product on their wishlist drops in price",
+        "nudgesHint": "Only a drop of 5% or more. Never to contacts who opted out or are blocked, never while an agent has taken over the chat, and at most once per drop. Outside the 24-hour window it needs an approved marketing template for the price drop message (below).",
+        "extrasTitle": "Checkout extras",
+        "extrasHint": "Extra details the buyer can add. They appear on the order, in the order export and on the buyer’s order page. They never change the price.",
+        "note": "Order note",
+        "gift": "Gift message",
+        "deliveryDate": "Delivery date and time slot",
+        "deliveryDateHint": "The buyer picks a date, and a slot if you add slots. Dates are counted in UTC days.",
+        "leadDays": "Earliest date: days from today",
+        "windowDays": "Days the buyer can choose from",
+        "slots": "Time slots (up to 6)",
+        "slotLabel": "Slot name, for example 9am to 12pm",
+        "addSlot": "Add a slot",
+        "remove": "Remove",
+        "fieldsTitle": "Custom fields",
+        "fieldsHint": "Up to {max} fields: text, a choice from a list, or a tick box.",
+        "fieldLabel": "Field name",
+        "fieldType": "Field type",
+        "fieldOptions": "Choices",
+        "fieldOptionsHint": "Choices, separated by commas (2 to 10)",
+        "required": "Required",
+        "addField": "Add a field",
+        "save": "Save",
+        "types": {
+          "text": "Text",
+          "select": "Choice",
+          "checkbox": "Tick box"
+        }
+      },
+      "marketing": {
+        "settings": {
+          "title": "Email and referrals",
+          "hint": "Order confirmation emails, the sender details marketing emails carry, and the referral program.",
+          "connected": "Email is connected. Messages go out through the platform email service.",
+          "notConnected": "Email is not connected on this platform, so no email is sent. Ask your administrator to set up SMTP.",
+          "orderEmails": "Send an order confirmation email",
+          "orderEmailsHint": "Sent once per order when the buyer contact has an email address. It is not a marketing email.",
+          "senderName": "Sender name",
+          "replyTo": "Reply-to address",
+          "senderAddress": "Postal address (shown in every marketing email)",
+          "senderAddressHint": "Required before a campaign can be sent.",
+          "referralTitle": "Referral program",
+          "referralHint": "Every paying customer gets a code. When a new customer first order comes in through a code, the code owner earns the reward below as store credit, once the order is paid and the hold has passed. Affiliates earn a commission figure in the report only.",
+          "referralEnabled": "Turn on the referral program",
+          "reward": "Reward in store credit ({currency})",
+          "holdDays": "Hold (days after payment)",
+          "holdHint": "Paid after this many days, or after your buyer return window if that is longer.",
+          "save": "Save",
+          "saved": "Saved"
+        },
+        "campaigns": {
+          "title": "Email campaigns",
+          "hint": "Send a plain-text email to customers who agreed to marketing email. Each email carries your postal address and an unsubscribe link, and an unsubscribe is final.",
+          "notConnected": "Email is not connected, so campaigns cannot be sent.",
+          "newTitle": "New campaign",
+          "name": "Campaign name",
+          "audience": "Audience",
+          "everyone": "Everyone with consent",
+          "subject": "Subject",
+          "body": "Message",
+          "bodyHint": "Plain text, up to 5,000 characters.",
+          "audienceCounts": "{audience} in this audience, {withEmail} with an email address, {eligible} can be emailed now, {unsubscribed} unsubscribed.",
+          "saveDraft": "Save draft",
+          "created": "Draft saved",
+          "attest": "I confirm these customers agreed to receive marketing email from us.",
+          "recordConsent": "Record consent for this audience",
+          "consentHint": "Your name and the time are kept. Anyone who has unsubscribed is never given consent again.",
+          "consentRecorded": "Consent recorded for {count} customers",
+          "none": "No campaigns yet.",
+          "status": {
+            "draft": "Draft",
+            "sending": "Sending",
+            "cancelled": "Cancelled"
+          },
+          "counts": "{total} recipients: {sent} sent, {waiting} waiting, {skipped} skipped",
+          "unknown": "{count} sends could not be confirmed. They were not repeated, so check with the recipients if it matters.",
+          "send": "Send",
+          "confirmSend": "Yes, send it",
+          "back": "Back",
+          "requeue": "Queue missing",
+          "cancel": "Stop",
+          "discard": "Discard",
+          "queued": "Queued. Emails go out gradually."
+        },
+        "referrals": {
+          "title": "Referrals and affiliates",
+          "hint": "Share a link ending in ?ref=CODE. Orders placed from carts made through it are credited to the code.",
+          "off": "Off",
+          "affiliateName": "Affiliate name",
+          "commission": "Commission (%)",
+          "addAffiliate": "Add affiliate",
+          "added": "Affiliate added",
+          "none": "No codes yet. Customers get one when their first order is paid.",
+          "customer": "Customer",
+          "kind": {
+            "contact": "Customer",
+            "affiliate": "Affiliate"
+          },
+          "colWho": "Who",
+          "colCode": "Code",
+          "colOrders": "Orders",
+          "colNet": "Net sales",
+          "colEarned": "Earned",
+          "colActions": "Actions",
+          "ordersCell": "{orders} ({rewarded} settled, {pending} waiting)",
+          "copyLink": "Copy link",
+          "copied": "Link copied",
+          "switchOff": "Switch off",
+          "switchOn": "Switch on",
+          "reportNote": "Affiliate commissions are a report only: nothing is paid out by the system. Sales are net of refunds at the time of settlement."
+        },
+        "linkPage": {
+          "title": "Link page",
+          "hint": "A link-in-bio page for your social profiles: your logo, a short bio, your links and featured products, in your shop theme.",
+          "enabled": "Turn on the link page",
+          "address": "Address:",
+          "bio": "Short bio",
+          "links": "Links",
+          "linkLabel": "Label",
+          "linkUrl": "Address (https://...)",
+          "removeLink": "Remove link",
+          "addLink": "Add link",
+          "linkInvalid": "Every link needs a label and a full http:// or https:// address.",
+          "featured": "Featured products (up to {max})",
+          "noProducts": "No published products yet.",
+          "save": "Save",
+          "saved": "Link page saved"
+        }
+      },
       "states": "States",
       "statesHelp": "Separated by commas: names or codes, for example MH, Karnataka. Empty means any state.",
       "baseWeight": "Weight the fee covers (grams)",
@@ -10791,7 +11134,24 @@
       "amountExceeds": "No single payment on this order can refund that much. Enter a smaller amount.",
       "refundOutsideNeeded": "This order was paid in cash or by a payment your team recorded, so Razorpay cannot refund it. Give the money back the way it was paid, then confirm below to record the refund.",
       "refundOutsideConfirm": "I have returned this amount outside Bodhinox",
-      "refundedOutside": "Refund recorded. A credit note follows."
+      "refundedOutside": "Refund recorded. A credit note follows.",
+      "approve": "Approve request",
+      "approved": "Request approved",
+      "pendingApproval": "Waiting for your approval",
+      "fromBuyer": "Asked for by the buyer",
+      "fromBuyerExchange": "Exchange asked for by the buyer",
+      "reasons": {
+        "wrong_item": "Wrong item received",
+        "damaged": "Damaged or faulty",
+        "not_as_described": "Not as described",
+        "size_fit": "Size or fit",
+        "changed_mind": "Changed my mind",
+        "other": "Something else"
+      },
+      "exchangeWillMake": "Approving also creates the replacement order. You then refund the returned items yourself.",
+      "exchangeMade": "The replacement order was created. Refund the returned items separately.",
+      "exchangeNotMade": "The replacement order could not be created yet (for example, no stock). Try again.",
+      "retryExchange": "Create the replacement order"
     },
     "documents": {
       "print": {
@@ -10962,7 +11322,9 @@
         "abandoned_cart": "Abandoned cart reminder",
         "cod_confirm": "COD confirmation",
         "back_in_stock": "Back in stock message",
-        "review_request": "Review request"
+        "review_request": "Review request",
+        "digital_delivery": "Download link",
+        "price_drop": "Price drop message"
       },
       "utilityHelp": "An approved utility template. Variables: '{{'1'}}' customer name, '{{'2'}}' product, '{{'3'}}' order number, '{{'4'}}' tracking link (dispatched only).",
       "marketingHelp": "An approved marketing template, always used for this message. Sent only to customers who ticked the reorder checkbox at checkout and never opted out. Variables: '{{'1'}}' customer name, '{{'2'}}' product, '{{'3'}}' order number.",
@@ -10974,7 +11336,9 @@
       "abandonedCartHelp": "An approved marketing template, used when the customer's 24-hour window has closed. Variables: '{{'1'}}' customer name, '{{'2'}}' checkout link. Without one, the reminder is not sent outside the window.",
       "codConfirmHelp": "An approved utility template that asks the customer to confirm a cash on delivery order. Variables: '{{'1'}}' customer name, '{{'2'}}' order number. A template cannot carry the Yes and Cancel buttons, so the order stays waiting and your team follows up.",
       "backInStockHelp": "An approved marketing template, used when the customer's 24-hour window has closed. Sent only to people who asked to be told on WhatsApp. Variables: '{{'1'}}' customer name, '{{'2'}}' product, '{{'3'}}' product link. Without one, the message is not sent outside the window and waits for the next restock.",
-      "reviewRequestHelp": "An approved marketing template, used when the customer's 24-hour window has closed. It can only ask the customer to reply with a number from 1 to 5, which is accepted for 7 days. Variables: '{{'1'}}' customer name, '{{'2'}}' product, '{{'3'}}' order number. Without one, the request is not sent outside the window."
+      "reviewRequestHelp": "An approved marketing template, used when the customer's 24-hour window has closed. It can only ask the customer to reply with a number from 1 to 5, which is accepted for 7 days. Variables: '{{'1'}}' customer name, '{{'2'}}' product, '{{'3'}}' order number. Without one, the request is not sent outside the window.",
+      "digitalDeliveryHelp": "An approved utility template, used when the customer's 24-hour window has closed. Variables: '{{'1'}}' customer name, '{{'2'}}' product, '{{'3'}}' order number, '{{'4'}}' download link (valid for 14 days). Without one, the link is not sent outside the window and the order shows that a template is needed.",
+      "priceDropHelp": "An approved marketing template, used when the customer’s 24-hour window has closed. Variables: '{{'1'}}' customer name, '{{'2'}}' product, '{{'3'}}' new price, '{{'4'}}' product link. Without one, buyers outside the window are not messaged."
     },
     "checkoutLinkFailed": {
       "title": "Checkout payment link failed",
@@ -11110,7 +11474,47 @@
       "editorTitle": "Look and pages",
       "editorHint": "Template, brand, home page sections, menu, footer and store pages. Edit a draft, preview it on phone and desktop, then publish.",
       "openEditor": "Edit theme",
-      "editorNeedsSave": "Save the shop address first, then edit the theme."
+      "editorNeedsSave": "Save the shop address first, then edit the theme.",
+      "access": {
+        "title": "Who can see the shop",
+        "hint": "Keep the shop open, protect it with a password, or show a coming-soon page while you get ready.",
+        "needsShop": "Save the shop address above first.",
+        "modes": {
+          "open": "Open to everyone",
+          "password": "Password protected",
+          "coming_soon": "Coming soon"
+        },
+        "modeHints": {
+          "open": "Anyone with the link can browse and order.",
+          "password": "Visitors enter the password once to browse and order.",
+          "coming_soon": "Visitors see only your shop name or logo and a message. Nothing can be browsed or ordered."
+        },
+        "password": "Password",
+        "newPassword": "New password (optional)",
+        "passwordHint": "6 to 72 characters. Share it with the people who should see the shop.",
+        "passwordKept": "A password is set. Leave this empty to keep it; a new one signs everyone out.",
+        "passwordLength": "Use 6 to 72 characters.",
+        "message": "Message for visitors",
+        "messageHint": "Optional, up to 500 characters. For example when you open.",
+        "previewNote": "Your own preview in the theme editor keeps working in every mode. Checkout links you send on WhatsApp are not affected.",
+        "save": "Save",
+        "saved": "Saved"
+      },
+      "redirects": {
+        "title": "Redirects",
+        "hint": "Send an old shop address to a new one. It only applies when the old address would otherwise show \"page not found\". Up to {max}.",
+        "from": "Old address",
+        "to": "New address",
+        "type": "Type",
+        "permanent": "Permanent (301)",
+        "temporary": "Temporary (302)",
+        "add": "Add redirect",
+        "added": "Redirect added.",
+        "none": "No redirects yet.",
+        "pathHint": "Use a path inside your shop, for example /old-oil. A full address starting with {prefix} also works. Other websites are not allowed.",
+        "goesTo": "goes to",
+        "remove": "Remove the redirect from {from}"
+      }
     },
     "storeEditor": {
       "loadError": "The theme editor could not be loaded.",
@@ -11280,6 +11684,339 @@
       "hidden": "Review hidden.",
       "saveError": "Could not change the review.",
       "loadMore": "Load more"
+    },
+    "locations": {
+      "defaultName": "Main location",
+      "help": "Keep stock in more than one place. The total you can sell does not change when you move stock between locations. Sales take stock from the default location first.",
+      "default": "Default",
+      "inactive": "Off",
+      "units": "{count} units",
+      "turnOff": "Turn off",
+      "turnOn": "Turn on",
+      "newName": "New location name",
+      "add": "Add location",
+      "transferTitle": "Move stock",
+      "pickVariant": "Search a product or SKU to move",
+      "change": "Change",
+      "from": "From",
+      "to": "To",
+      "quantity": "Quantity",
+      "transfer": "Move",
+      "transferred": "Stock moved.",
+      "recent": "Recent moves",
+      "noTransfers": "No stock was moved yet.",
+      "moved": "{quantity} from {from} to {to}"
+    },
+    "purchaseOrders": {
+      "help": "Order stock from a supplier and receive it into a location when it arrives. Receiving adds to stock and tells customers who asked for a back-in-stock alert.",
+      "new": "New purchase order",
+      "needsCurrency": "Set the store currency in Store settings before adding purchase orders.",
+      "empty": "No purchase orders yet.",
+      "colSupplier": "Supplier",
+      "colStatus": "Status",
+      "colReceived": "Received",
+      "colCost": "Cost",
+      "colCreated": "Created",
+      "view": "View",
+      "hide": "Hide",
+      "colItem": "Item",
+      "colOrdered": "Ordered",
+      "colUnitCost": "Unit cost",
+      "colReceiveNow": "Receive now",
+      "supplier": "Supplier",
+      "reference": "Reference (optional)",
+      "quantity": "Quantity",
+      "unitCost": "Unit cost ({currency})",
+      "removeLine": "Remove line",
+      "addVariant": "Search a product or SKU to add",
+      "saveDraft": "Save draft",
+      "cancel": "Cancel",
+      "created": "Purchase order saved as a draft.",
+      "receiveAt": "Receive at",
+      "receive": "Receive stock",
+      "receivedToast": "Stock received.",
+      "statuses": {
+        "draft": "Draft",
+        "ordered": "Ordered",
+        "partially_received": "Partly received",
+        "received": "Received",
+        "closed": "Closed",
+        "cancelled": "Cancelled"
+      },
+      "actions": {
+        "order": "Mark as ordered",
+        "close": "Close",
+        "cancel": "Cancel order"
+      }
+    },
+    "priceRules": {
+      "active": "Active",
+      "edit": "Edit",
+      "delete": "Delete",
+      "save": "Save",
+      "cancel": "Cancel",
+      "saved": "Saved.",
+      "name": "Name",
+      "listsTitle": "Wholesale price lists",
+      "listsHelp": "Special prices for a customer group. Every contact in the group gets the list. A price can need a minimum quantity.",
+      "noLists": "No price lists yet.",
+      "addList": "Add price list",
+      "group": "Customer group",
+      "groupHelp": "Groups are set up under Customer groups. Only admins change who is in a group.",
+      "groupMissing": "Group removed",
+      "chooseGroup": "Choose a group",
+      "priceCount": "{count, plural, one {# price} other {# prices}}",
+      "prices": "Prices",
+      "pricesHelp": "Variant, minimum quantity, price for each unit. The lowest price the quantity reaches is used, and never more than the normal price.",
+      "addPrice": "Add price",
+      "chooseVariant": "Choose a variant",
+      "minQty": "Minimum quantity",
+      "price": "Price ({currency})",
+      "rulesTitle": "Discount rules",
+      "rulesHelp": "Money off a product, a category or everything, for everyone or for one customer group.",
+      "stackingOrder": "How prices are worked out, always in this order: 1. the price list of the customer, 2. these discount rules on each line, 3. automatic discounts, then the coupon, 4. shipping and tax, 5. loyalty points, then store credit, pay part of the total. A rule that does not combine is used only when it makes the cart cheaper for the customer, and its line then gets no other discount.",
+      "noRules": "No discount rules yet.",
+      "addRule": "Add discount rule",
+      "appliesTo": "Applies to",
+      "oneProduct": "One product",
+      "oneCategory": "One category",
+      "everyProduct": "Every product",
+      "product": "Product",
+      "chooseProduct": "Choose a product",
+      "category": "Category",
+      "categoryHelp": "Products in its sub-categories count too.",
+      "chooseCategory": "Choose a category",
+      "customers": "Customers",
+      "everyone": "Everyone",
+      "customersNeeded": "A rule for every product needs a customer group. For everyone, use an automatic discount.",
+      "kind": "Discount",
+      "kindPercent": "Percent off",
+      "kindFixed": "Amount off each unit ({currency})",
+      "percentOff": "{percent}% off",
+      "amountOffEach": "{amount} off each",
+      "combines": "combines",
+      "doesNotCombine": "does not combine",
+      "combinable": "Combines with other discounts",
+      "combinableHelp": "Off: this rule is never added to another rule, an automatic discount or a coupon. The customer gets whichever way makes the cart cheaper.",
+      "startsAt": "Starts",
+      "endsAt": "Ends",
+      "giftsTitle": "Free gift with purchase",
+      "giftsHelp": "Adds one free item to the order when the customer spends enough or buys a product. The gift is taken from stock like any item, and is left out when none is in stock.",
+      "noGifts": "No gift rules yet.",
+      "addGift": "Add gift rule",
+      "giftNameHelp": "Customers see this name next to the gift.",
+      "condition": "When",
+      "conditionSpend": "The order is at least ({currency})",
+      "conditionProduct": "The order has this product",
+      "spendAtLeast": "Spend {amount}",
+      "buyProduct": "Buy {product}",
+      "giftVariant": "Gift",
+      "giftVariantHelp": "One unit is added at no charge.",
+      "loyaltyTitle": "Loyalty points",
+      "loyaltyHelp": "Customers earn points when an order is paid and can spend them on a later order. Points are earned once per order; a refund takes back the same share of them.",
+      "loyaltyEnabled": "Loyalty points are on",
+      "earnPoints": "Points earned",
+      "earnSpend": "for every ({currency}) paid",
+      "redeemValue": "One point pays ({currency})",
+      "redeemMax": "Most of an order that points can pay (%)",
+      "balancesTitle": "Store credit and points",
+      "balancesHelp": "What a customer has, and the latest changes. Entries are never edited or deleted; an admin can add a change with a reason.",
+      "searchCustomer": "Search customers by name",
+      "customer": "Customer",
+      "chooseCustomer": "Choose a customer",
+      "storeCredit": "Store credit",
+      "points": "Points",
+      "pointsDelta": "{points} points",
+      "noEntries": "No changes yet.",
+      "adjustWhat": "Change",
+      "adjustCredit": "Amount ({currency})",
+      "adjustPoints": "Points",
+      "adjustHelp": "Start with a minus sign to take away. A balance never goes below zero.",
+      "reason": "Reason",
+      "adjust": "Add change",
+      "adjusted": "Balance changed.",
+      "entryKinds": {
+        "refund": "Refund to store credit",
+        "spend": "Spent on an order",
+        "spend_reversal": "Returned from an order",
+        "adjust": "Changed by an admin",
+        "earn": "Earned on an order",
+        "earn_reversal": "Taken back after a refund",
+        "redeem": "Spent on an order",
+        "redeem_reversal": "Returned from an order"
+      },
+      "groupsTitle": "Customer groups",
+      "groupsHelp": "A group is a list of customers that gets a wholesale price list or its own discount rules. Only admins create groups and change who is in them. Contact tags do not change prices.",
+      "noGroups": "No customer groups yet.",
+      "memberCount": "{count, plural, one {# customer} other {# customers}}",
+      "showMembers": "Show customers",
+      "hideMembers": "Hide customers",
+      "noMembers": "Nobody is in this group yet.",
+      "removeMember": "Remove",
+      "addMember": "Add to group",
+      "groupName": "Group name",
+      "addGroup": "Add group"
+    },
+    "insights": {
+      "title": "Shop reports",
+      "description": "Sales, GST and stock value for your online store. Amounts are net of refunds.",
+      "adminOnly": "Only workspace admins can see shop reports.",
+      "range": {
+        "label": "Period",
+        "7d": "Last 7 days",
+        "30d": "Last 30 days",
+        "90d": "Last 90 days",
+        "this_month": "This month",
+        "last_month": "Last month",
+        "custom": "Custom dates",
+        "from": "From",
+        "to": "To",
+        "cap": "At most 366 days.",
+        "pick": "Pick a start and an end date."
+      },
+      "live": {
+        "title": "Live view",
+        "description": "Visitors on your shop right now.",
+        "loading": "Loading",
+        "failed": "The live view could not be loaded.",
+        "active": "visitors now (about)",
+        "chart": "Page views in each of the last {minutes} minutes",
+        "topPages": "Pages viewed in the last {minutes} minutes",
+        "none": "Nobody is on the shop right now.",
+        "privacy": "Only page counts are kept, for two hours. No names, addresses or devices are recorded, and no cookies are used.",
+        "pages": {
+          "home": "Home",
+          "all": "All products",
+          "search": "Search",
+          "cart": "Cart",
+          "links": "Link page",
+          "other": "Other pages",
+          "about": "About us",
+          "contact": "Contact us",
+          "faq": "FAQ",
+          "shipping": "Shipping policy",
+          "refund": "Returns and refunds",
+          "privacy": "Privacy policy",
+          "terms": "Terms of service"
+        },
+        "unknown": {
+          "product": "A product",
+          "category": "A category"
+        }
+      },
+      "sales": {
+        "title": "Sales",
+        "description": "Orders paid in the period, without tax, after discounts and net of refunds.",
+        "byChannel": "By channel",
+        "byProduct": "By product",
+        "byDay": "By day",
+        "channel": "Channel",
+        "orders": "Orders",
+        "net": "Net sales",
+        "product": "Product",
+        "units": "Units",
+        "gross": "Sales",
+        "refunds": "Refunds",
+        "day": "Day",
+        "truncated": "Only the 100 best-selling products are shown.",
+        "note": "Refunds are spread over an order's products in proportion to their value. By-day and by-channel totals match the Revenue card on the Analytics page."
+      },
+      "tax": {
+        "title": "GST report",
+        "description": "Tax from the receipts and credit notes you issued in the period.",
+        "download": "Download CSV",
+        "byRate": "By month and tax rate",
+        "totals": "Month totals",
+        "month": "Month",
+        "rate": "Rate",
+        "taxable": "Taxable value",
+        "tax": "Tax",
+        "cgst": "CGST",
+        "sgst": "SGST",
+        "igst": "IGST",
+        "noRate": "No rate",
+        "receipts": "Receipts",
+        "creditNotes": "Credit notes",
+        "creditTax": "Tax credited",
+        "note": "Taken as issued; nothing is recalculated. Tax on shipping and fees appears in the month totals but not in the rate rows. Credit notes carry no rate."
+      },
+      "stock": {
+        "title": "Stock value",
+        "description": "Units on hand multiplied by cost, as of now.",
+        "total": "{units} units at cost",
+        "costed": "Stock with a cost",
+        "noCost": "Stock with no cost",
+        "noCostHint": "These items have stock but no cost yet, so they are not valued. Receive them on a purchase order with a unit cost.",
+        "product": "Product",
+        "onHand": "On hand",
+        "unitCost": "Unit cost",
+        "value": "Value",
+        "truncated": "The lists are cut; the totals cover the first 5,000 items.",
+        "basis": "Cost is the unit cost of the newest purchase order line that received this item."
+      }
+    },
+    "counter": {
+      "title": "Counter sale",
+      "description": "Sell at the counter and take cash or UPI in one step. Prices come from your catalogue.",
+      "adminOnly": "Only admins and owners can take counter sales.",
+      "customer": "Customer",
+      "walkIn": "Walk-in",
+      "namedCustomer": "Named customer",
+      "customerSearch": "Search customers by name",
+      "chosen": "Selling to {name}",
+      "products": "Products",
+      "productSearch": "Search by name or scan a SKU",
+      "noProducts": "No matching products.",
+      "madeToOrder": "Made to order",
+      "stock": "{count} in stock",
+      "cart": "Cart",
+      "emptyCart": "Nothing added yet.",
+      "less": "One less",
+      "more": "One more",
+      "remove": "Remove",
+      "payment": "Payment",
+      "reference": "Reference (optional)",
+      "referenceUpi": "UPI reference (optional)",
+      "estimate": "Catalogue total",
+      "takePayment": "Take payment",
+      "paidTitle": "Paid",
+      "paidBody": "Order {ref} for {total} paid by {method}. The receipt is on its way.",
+      "openReceipt": "Open receipt",
+      "openOrder": "Open order",
+      "receiptPending": "The receipt will appear on the order in a moment.",
+      "newSale": "New sale",
+      "unpaidTitle": "Order made, payment not recorded",
+      "unpaidBody": "Order {ref} is saved and its stock is held, but the payment was not recorded.",
+      "retryPayment": "Retry payment",
+      "method": {
+        "cash": "Cash",
+        "upi": "UPI"
+      },
+      "paymentErrors": {
+        "not_found": "The order could not be found.",
+        "invalid_amount": "The amount is not valid.",
+        "not_payable": "The order can no longer take a payment.",
+        "amount_not_due": "The amount does not match what is due.",
+        "currency_mismatch": "The currency does not match.",
+        "link_pending": "A payment link for this order is still pending.",
+        "link_paid": "A payment link for this order was already paid.",
+        "shipment_live": "A courier shipment is still live for this order.",
+        "generic": "The payment could not be recorded. Try again."
+      },
+      "errors": {
+        "invalid": "Check the products and quantities and try again.",
+        "contact_not_found": "That customer is no longer in this workspace.",
+        "store_not_configured": "Set the store currency in Store settings first.",
+        "out_of_stock": "There is not enough stock for one of the products.",
+        "variant_unavailable": "One of the products is no longer for sale.",
+        "price_not_configured": "One of the products has no price.",
+        "tax_not_configured": "Set a tax rate for the product or the store first.",
+        "amount_out_of_range": "The total is too large.",
+        "cart_empty": "Add at least one product",
+        "invalid_cart": "Check the products and quantities and try again.",
+        "forbidden": "You are not allowed to take counter sales.",
+        "generic": "The sale could not be completed. Try again."
+      }
     },
     "orderEdit": {
       "balanceLinkDescription": "Balance for order {reference}"
@@ -11470,7 +12207,10 @@
         "not_connected": "Razorpay is not connected.",
         "provider_unreachable": "Razorpay could not be reached. Try again shortly.",
         "shipment_live": "This order has a courier shipment. Cancel the shipment before restocking, or refund without restocking and use Returns for goods that come back."
-      }
+      },
+      "toStoreCredit": "Refund to store credit",
+      "toStoreCreditHelp": "No money is sent back. The amount is added to the customer’s store credit at once, to spend on a later order.",
+      "creditedToStore": "Refunded to store credit."
     },
     "offline": {
       "title": "Record offline payment",
@@ -14644,7 +15384,16 @@
       "amount_out_of_range": "The amount is too large.",
       "too_many_open_orders": "You already have the most open orders allowed. Pay for an unpaid order, wait for it to expire, or wait for a cash-on-delivery order to be delivered, then try again.",
       "cod_unavailable": "Cash on delivery is not available for this cart. Choose to pay online.",
-      "online_unavailable": "Online payment is not available for this store. Choose cash on delivery or contact the store."
+      "online_unavailable": "Online payment is not available for this store. Choose cash on delivery or contact the store.",
+      "delivery_unavailable": "This delivery option is not available for your address. Choose another one.",
+      "extras_invalid": "Check the delivery date, time slot and the details you added, then try again.",
+      "returns_unavailable": "A return cannot be requested for this order.",
+      "return_window_closed": "The return window for this order has closed.",
+      "return_line_open": "There is already an open request for one of these items.",
+      "return_quantity": "You asked to return more units than you can.",
+      "exchange_unavailable": "That replacement is not available.",
+      "wishlist_full": "Your wishlist is full. Remove an item first.",
+      "repeat_unavailable": "There are no earlier delivery details to use."
     },
     "marketingOptIn": {
       "reorder_offers_v1": "Send me reorder reminders and offers on WhatsApp. You can stop them at any time by replying STOP."
@@ -14672,6 +15421,76 @@
     "showMore": "Show more products",
     "freeShipping": "Free",
     "payOnlineSave": "Pay online and save {amount}",
+    "deliveryHeading": "Delivery",
+    "deliveryShip": "Ship to my address",
+    "deliveryPickup": "Pick up at the store",
+    "deliveryLocal": "Local delivery ({fee})",
+    "deliveryLocalLine": "Local delivery",
+    "pickupAt": "Collect your order at:",
+    "localDeliveryNote": "The store delivers this order to your address.",
+    "shipsBy": "Ships by {date}",
+    "digitalNote": "Digital download. Nothing is shipped.",
+    "downloadDigital": "Download your purchase",
+    "freeGift": "Free gift",
+    "yourPrice": "Your price {price} each (usually {was})",
+    "walletHeading": "Credit and points",
+    "useStoreCredit": "Use my store credit ({amount} available)",
+    "usePoints": "Use my points ({points} available)",
+    "pointsApplied": "Points used ({points})",
+    "storeCreditApplied": "Store credit used",
+    "toPay": "To pay",
+    "placeNothingToPay": "Place order (nothing more to pay)",
+    "save": "Save for later",
+    "unsave": "Remove from saved",
+    "repeatPrompt": "Deliver to {name}, {city} {postalCode} again?",
+    "repeatUse": "Use these details",
+    "extras": {
+      "heading": "Delivery details",
+      "deliveryDate": "Delivery date",
+      "deliverySlot": "Time slot",
+      "pickSlot": "Choose a time slot",
+      "note": "Note for the shop (optional)",
+      "giftMessage": "Gift message (optional)",
+      "chooseOption": "Choose an option"
+    },
+    "returns": {
+      "heading": "Returns and exchanges",
+      "open": "Return or exchange items",
+      "exchange": "Exchange",
+      "status": {
+        "pending": "Waiting for the shop to review",
+        "approved": "Approved. The shop will tell you the next step",
+        "requested": "Requested",
+        "received": "Received by the shop",
+        "inspected": "Being checked",
+        "closed": "Completed",
+        "rejected": "Not accepted"
+      },
+      "sent": "Request sent. The shop will review it and message you.",
+      "windowClosed": "The return window for this order has closed.",
+      "unavailable": "Returns are not available for this order.",
+      "exchangeFor": "Exchange for",
+      "returnOnly": "Return only",
+      "exchangeTo": "Exchange for {option}",
+      "reason": "Reason",
+      "pickReason": "Choose a reason",
+      "reasons": {
+        "wrong_item": "Wrong item received",
+        "damaged": "Damaged or faulty",
+        "not_as_described": "Not as described",
+        "size_fit": "Size or fit",
+        "changed_mind": "Changed my mind",
+        "other": "Something else"
+      },
+      "note": "Tell us more (optional)",
+      "afterSend": "Sending this does not refund anything. The shop reviews your request first.",
+      "send": "Send request",
+      "cancel": "Cancel"
+    },
+    "notFoundReturnHint": "This link has expired. To return or exchange an item, message the shop on WhatsApp.",
+    "emailLabel": "Email (optional)",
+    "emailHint": "We send your order confirmation here.",
+    "emailOffers": "Email me offers",
     "trackOrder": "Track your order",
     "gstInvoice": {
       "toggle": "I need a GST tax invoice (business purchase)",
@@ -14699,7 +15518,8 @@
     "reviewLabel3": "Okay",
     "reviewLabel2": "Poor",
     "reviewLabel1": "Very poor",
-    "reviewThanks": "Thanks! Add a few words about it, or just skip."
+    "reviewThanks": "Thanks! Add a few words about it, or just skip.",
+    "digitalDelivery": "Thank you for your order {ref}. Your download is ready: {url}"
   },
   "AiSettings": {
     "features": {
@@ -17590,6 +18410,65 @@
     "boughtTogether": "Often bought together",
     "addOne": "Add",
     "productDetails": "Details",
+    "shipsBy": "Ships by {date}",
+    "digitalNote": "Digital download. Nothing is shipped.",
+    "lock": {
+      "comingSoonTitle": "Coming soon",
+      "comingSoonDefault": "This shop is not open yet. Please check back soon.",
+      "passwordTitle": "This shop is private",
+      "passwordHelp": "Enter the password you were given to open the shop.",
+      "passwordLabel": "Password",
+      "enter": "Open the shop",
+      "checking": "Checking",
+      "errors": {
+        "wrong_password": "That password is not right.",
+        "too_many": "Too many tries. Please wait a few minutes.",
+        "generic": "Something went wrong. Please try again.",
+        "network": "No connection. Please try again."
+      }
+    },
+    "download": {
+      "title": "Your downloads"
+    },
+    "priceDrop": {
+      "text": "Good news! {product} is now {price} (was {was}). Order here:"
+    },
+    "wishlist": {
+      "save": "Save for later",
+      "saved": "Saved",
+      "hint": "Saved on this device. It joins your wishlist when you check out with your number."
+    },
+    "linkPage": {
+      "title": "Links",
+      "visitShop": "Visit the shop",
+      "featured": "Featured"
+    },
+    "unsubscribe": {
+      "title": "Unsubscribe from emails",
+      "help": "Press the button to stop receiving marketing emails from this shop.",
+      "button": "Unsubscribe",
+      "done": "You are unsubscribed. You will not get marketing emails from this shop again.",
+      "invalid": "This link is not valid.",
+      "error": "Something went wrong. Please try again."
+    },
+    "skipToContent": "Skip to main content",
+    "search": {
+      "label": "Search the shop",
+      "placeholder": "Search products",
+      "submit": "Search",
+      "suggestions": "Suggestions",
+      "noMatches": "No matching products.",
+      "title": "Search",
+      "resultsFor": "Results for \"{query}\"",
+      "prompt": "Type a product name, category or SKU.",
+      "noResults": "No products found. Try a different word."
+    },
+    "consent": {
+      "title": "Remember your referral link?",
+      "text": "This shop can keep the referral code from your link in this browser so the right person is credited. It is not used for anything else.",
+      "accept": "Accept",
+      "decline": "No thanks"
+    },
     "track": {
       "title": "Order tracking",
       "order": "Order {code}",
@@ -17659,6 +18538,19 @@
       "deliverTo": "Deliver to",
       "enterAtCheckout": "Enter another address at checkout",
       "otherNumber": "Use a different number"
+    }
+  },
+  "ShopMarketing": {
+    "email": {
+      "unsubscribeLine": "Unsubscribe from these emails:"
+    },
+    "orderEmail": {
+      "subject": "Your order {reference} at {shop}",
+      "intro": "Thank you for your order at {shop}. We have received it.",
+      "reference": "Order reference",
+      "total": "Total",
+      "cod": "You pay cash on delivery.",
+      "thanks": "Thank you for shopping with {shop}."
     }
   }
 }

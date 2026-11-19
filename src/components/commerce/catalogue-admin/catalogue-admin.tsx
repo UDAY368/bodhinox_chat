@@ -32,6 +32,8 @@ import { useCan } from "@/hooks/use-can";
 import { CategoriesPanel } from "./categories-panel";
 import { CollectionsPanel } from "./collections-panel";
 import { InventoryPanel } from "./inventory-panel";
+import { LocationsPanel } from "./locations-panel";
+import { PurchaseOrdersPanel } from "./purchase-orders-panel";
 import { MetaLinkPanel } from "./meta-link-panel";
 import { NewArrivalsDialog } from "./new-arrivals-dialog";
 import { CsvImportDialog } from "./csv-dialog";
@@ -43,7 +45,7 @@ import {
 } from "./catalogue-api";
 
 const PAGE = 50;
-const TABS = ["products", "categories", "collections", "inventory", "meta"] as const;
+const TABS = ["products", "categories", "collections", "inventory", "locations", "purchaseOrders", "meta"] as const;
 type Tab = (typeof TABS)[number];
 export const selectClass = "h-9 rounded-lg border border-border bg-card px-2.5 text-sm text-foreground";
 
@@ -87,6 +89,8 @@ export function CatalogueAdmin() {
         {tab === "categories" && <CategoriesPanel canManage={canManage} />}
         {tab === "collections" && <CollectionsPanel canManage={canManage} />}
         {tab === "inventory" && <InventoryPanel canManage={canManage} />}
+        {tab === "locations" && <LocationsPanel canManage={canManage} />}
+        {tab === "purchaseOrders" && <PurchaseOrdersPanel canManage={canManage} />}
         {tab === "meta" && <MetaLinkPanel canManage={canManage} />}
       </div>
     </div>

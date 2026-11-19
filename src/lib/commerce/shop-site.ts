@@ -73,7 +73,7 @@ export async function checklistOf(tx: TenantTransaction, accountId: string, site
     EXISTS (SELECT 1 FROM commerce_settings WHERE account_id=${accountId}::uuid) AS settings,
     COALESCE((SELECT checkout_enabled FROM commerce_settings WHERE account_id=${accountId}::uuid), false) AS checkout,
     COALESCE((SELECT cod_enabled FROM commerce_settings WHERE account_id=${accountId}::uuid), false) AS cod,
-    EXISTS (SELECT 1 FROM shop_products p WHERE p.account_id=${accountId}::uuid AND p.status='published'
+    EXISTS (SELECT 1 FROM shop_products p WHERE p.account_id=${accountId}::uuid AND shop_product_live(p.status, p.publish_at, p.hide_at)
       AND EXISTS (SELECT 1 FROM shop_variants v WHERE v.account_id=p.account_id AND v.product_id=p.id AND v.archived_at IS NULL
         AND v.price_minor IS NOT NULL)) AS product,
     EXISTS (SELECT 1 FROM shipping_rates WHERE account_id=${accountId}::uuid AND active) AS shipping`;

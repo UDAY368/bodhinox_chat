@@ -15,6 +15,7 @@ import {
 } from "./order-api";
 
 const RETURNABLE = new Set(["dispatched", "fulfilled"]);
+const REASONS = new Set(["wrong_item", "damaged", "not_as_described", "size_fit", "changed_mind", "other"]);
 
 /**
  * Staff-created returns: open one for chosen lines (within the store's return
@@ -150,6 +151,8 @@ export function OrderReturnsPanel({ order, returns, canAct, canAdmin, onChanged 
           <li key={r.id} className="space-y-2 rounded-md border border-border p-3 text-sm">
             <div className="flex flex-wrap justify-between gap-2">
               <span className="font-medium">{t(`statuses.${r.status}`)}</span>
+              {r.source === "buyer" && <span className="text-xs text-muted-foreground">{t(r.exchange ? "fromBuyerExchange" : "fromBuyer")}{r.reason && REASONS.has(r.reason) ? ` · ${t(`reasons.${r.reason as "other"}`)}` : ""}</span>}
+              {r.pending_approval && <span className="text-xs font-medium text-amber-600">{t("pendingApproval")}</span>}
               {r.refund_id && <span className="text-xs text-muted-foreground">{t("refundLinked")}</span>}
               {r.restocked_at && <span className="text-xs text-muted-foreground">{t("restocked")}</span>}
             </div>
@@ -163,9 +166,17 @@ export function OrderReturnsPanel({ order, returns, canAct, canAdmin, onChanged 
             </ul>
             {r.note && <p className="text-xs whitespace-pre-wrap break-words">{r.note}</p>}
 
+            {r.exchange && (
+              <p className="text-xs text-muted-foreground">
+                {r.exchange_order_id ? t("exchangeMade") : r.pending_approval ? t("exchangeWillMake") : t("exchangeNotMade")}
+              </p>
+            )}
             {canAct && r.status === "requested" && (
               <div className="flex flex-wrap gap-2">
-                <Button size="sm" variant="outline" disabled={busy !== null} onClick={() => act(r, { action: "receive" }, t("received"))}>{t("receive")}</Button>
+                {(r.pending_approval || (r.exchange && !r.exchange_order_id)) && (
+                  <Button size="sm" disabled={busy !== null} onClick={() => act(r, { action: "approve" }, t("approved"))}>{r.pending_approval ? t("approve") : t("retryExchange")}</Button>
+                )}
+                {!r.pending_approval && <Button size="sm" variant="outline" disabled={busy !== null} onClick={() => act(r, { action: "receive" }, t("received"))}>{t("receive")}</Button>}
                 <Button size="sm" variant="ghost" disabled={busy !== null} onClick={() => act(r, { action: "reject" }, t("rejected"))}>{t("reject")}</Button>
               </div>
             )}

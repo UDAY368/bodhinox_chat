@@ -284,3 +284,12 @@ html[data-theme="rose"] {
     @apply font-sans;
   }
 }
+
+/* Public shop (store plan Phase 8, batch 7): a visible keyboard focus ring in the shop's own text color (it always contrasts with the page). */
+.shop-a11y :is(a, button, summary, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--shop-text);
+  outline-offset: 2px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .shop-a11y *, .shop-a11y *::before, .shop-a11y *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
+}

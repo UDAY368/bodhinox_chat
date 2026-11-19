@@ -45,6 +45,7 @@ import type { MessageTemplate } from '@/types';
 import { collectionProductIds } from './catalogue/collections';
 import { COLLECTION_SORTS, readStoredRules, type CollectionKind, type CollectionMatch, type CollectionSort } from './catalogue/collection-rules';
 import { queueAbandonedCartTx } from './cart-followups';
+import { loadShopAccessTx, visitorMayEnterTx } from './shop-access';
 import { STOCK_ALERT_CODE_HOURS, stockAlertMessage } from './stock-alerts';
 import { currencyExponent, minorFromDb } from './money';
 import { loadProductReviews, loadRatingSummaries, type ProductReviews } from './review-data';
@@ -59,6 +60,7 @@ import {
 } from './storefront';
 import { deriveStorefrontToken, storefrontUrl } from './storefront-token';
 import { isUuid, loadPricingSettings, StoreError } from './store-settings';
+import { lookupReferralCodeTx } from './referrals';
 
 // ---------------------------------------------------------------------------
 // Resolving a shop
@@ -73,11 +75,17 @@ export async function resolvePublicShop(handle: string): Promise<string | null> 
   return hit?.account_id ?? null;
 }
 
-/** Tenant work for an anonymous visitor: worker client, owner role, the plan feature and the suspension check first. */
-export function inShopTenant<T>(accountId: string, work: (tx: TenantTransaction) => Promise<T>): Promise<T> {
+/**
+ * Tenant work for an anonymous visitor: worker client, owner role, the plan feature and the suspension check first,
+ * then the shop's access mode (Phase 8: a "coming soon" shop, or a password shop without the visitor's cookie, is
+ * the plain 404 for everything it does). `gate` is 'inbound' for a WhatsApp message claiming a saved cart (no
+ * browser, so only "coming soon" refuses it) and 'none' for the lock screen and the logo it shows.
+ */
+export function inShopTenant<T>(accountId: string, work: (tx: TenantTransaction) => Promise<T>, gate: 'visitor' | 'inbound' | 'none' = 'visitor'): Promise<T> {
   return withTenant({ accountId, role: 'owner' }, async (tx) => {
     await requireFeature(tx, accountId, 'storefront');
     await requireSendingAllowed(tx, accountId);
+    if (gate !== 'none' && !(await visitorMayEnterTx(tx, accountId, gate))) throw new StoreError('not_found');
     return work(tx);
   }, getWorkerPrisma());
 }
@@ -89,11 +97,12 @@ export function isShopHidden(error: unknown): boolean {
 }
 
 /** Run `work` for a published shop; null when the handle does not resolve or the shop is hidden. */
-export async function withPublicShop<T>(handle: string, work: (tx: TenantTransaction, accountId: string) => Promise<T>): Promise<T | null> {
+export async function withPublicShop<T>(handle: string, work: (tx: TenantTransaction, accountId: string) => Promise<T>,
+  gate: 'visitor' | 'none' = 'visitor'): Promise<T | null> {
   const accountId = await resolvePublicShop(handle);
   if (!accountId) return null;
   try {
-    return await inShopTenant(accountId, (tx) => work(tx, accountId));
+    return await inShopTenant(accountId, (tx) => work(tx, accountId), gate);
   } catch (error) {
     if (isShopHidden(error)) return null;
     throw error;
@@ -134,7 +143,11 @@ export interface PublicProduct {
   /** Label and value rows from the product's details (plain text). */
   details: Array<{ label: string; value: string }>;
   /** `imageIndex`: the position in `images` this variant shows, or null. */
-  variants: Array<{ id: string; options: Record<string, string>; priceMinor: number; compareAtMinor: number | null; inStock: boolean; imageIndex: number | null }>;
+  variants: Array<{ id: string; options: Record<string, string>; priceMinor: number; compareAtMinor: number | null; inStock: boolean; imageIndex: number | null;
+    /** Pre-order: ships by this date (YYYY-MM-DD). */
+    shipsBy: string | null }>;
+  /** A digital download: nothing is shipped. */
+  digital: boolean;
   /** Average and count of the published reviews (store plan Phase 3); null until there is one. */
   rating: RatingSummary | null;
 }
@@ -202,10 +215,10 @@ export async function loadProductsWith(tx: TenantTransaction, accountId: string,
   const productIds = where.productIds ?? null;
   const categoryId = where.categoryId ?? null;
   const rows = await tx.$queryRaw<{ id: string; name: string; description: string | null; disclosure: string | null; details: unknown;
-    category_id: string | null; category: string | null }[]>`
-    SELECT p.id::text AS id, p.name, p.description, p.disclosure, p.details, c.id::text AS category_id, c.name AS category FROM shop_products p
+    category_id: string | null; category: string | null; is_digital: boolean }[]>`
+    SELECT p.id::text AS id, p.name, p.description, p.disclosure, p.details, c.id::text AS category_id, c.name AS category, p.is_digital FROM shop_products p
     LEFT JOIN shop_categories c ON c.account_id=p.account_id AND c.id=p.category_id AND c.archived_at IS NULL
-    WHERE p.account_id=${accountId}::uuid AND p.status='published'
+    WHERE p.account_id=${accountId}::uuid AND shop_product_live(p.status, p.publish_at, p.hide_at)
       AND EXISTS (SELECT 1 FROM shop_variants v WHERE v.account_id=p.account_id AND v.product_id=p.id AND v.archived_at IS NULL AND v.price_minor IS NOT NULL)
       AND (${productId}::uuid IS NULL OR p.id=${productId}::uuid)
       AND (${productIds}::uuid[] IS NULL OR p.id = ANY(${productIds}::uuid[]))
@@ -214,10 +227,11 @@ export async function loadProductsWith(tx: TenantTransaction, accountId: string,
   if (!rows.length) return [];
   const ids = rows.map((r) => r.id);
   const variants = await tx.$queryRaw<{ id: string; product_id: string; option_values: Record<string, string>; price_minor: bigint;
-    compare_at_minor: bigint | null; in_stock: boolean; image_id: string | null }[]>`
+    compare_at_minor: bigint | null; in_stock: boolean; image_id: string | null; ship_date: string | null }[]>`
     SELECT v.id::text AS id, v.product_id::text AS product_id, v.option_values, v.price_minor, v.compare_at_minor, v.image_id::text AS image_id,
-      (NOT v.track_inventory OR COALESCE(l.on_hand - l.reserved, 0) > 0) AS in_stock
-    FROM shop_variants v LEFT JOIN inventory_levels l ON l.account_id=v.account_id AND l.variant_id=v.id
+      COALESCE(shop_variant_availability(v.account_id, v.id), 1) > 0 AS in_stock,
+      CASE WHEN v.preorder THEN to_char(v.preorder_ship_date, 'YYYY-MM-DD') END AS ship_date
+    FROM shop_variants v
     WHERE v.account_id=${accountId}::uuid AND v.product_id = ANY(${ids}::uuid[]) AND v.archived_at IS NULL AND v.price_minor IS NOT NULL
     ORDER BY v.position, v.sku`;
   const images = await tx.$queryRaw<(ProductImageRow & { product_id: string })[]>`
@@ -231,14 +245,14 @@ export async function loadProductsWith(tx: TenantTransaction, accountId: string,
     const shown = images.filter((i) => i.product_id === p.id).map((i) => ({ id: i.id, url: imageUrl(i) })).filter((i): i is { id: string; url: string } => !!i.url);
     return {
       id: p.id, name: p.name, description: p.description, disclosure: p.disclosure, categoryId: p.category_id, categoryName: p.category,
-      rating: ratings.get(p.id) ?? null,
+      digital: p.is_digital, rating: ratings.get(p.id) ?? null,
       details: publicDetails(p.details),
       images: shown.map((i) => i.url),
       variants: variants.filter((v) => v.product_id === p.id).map((v) => {
         const at = v.image_id ? shown.findIndex((i) => i.id === v.image_id) : -1;
         return {
           id: v.id, options: v.option_values ?? {}, priceMinor: minorFromDb(v.price_minor) ?? 0,
-          compareAtMinor: minorFromDb(v.compare_at_minor), inStock: v.in_stock, imageIndex: at >= 0 ? at : null,
+          compareAtMinor: minorFromDb(v.compare_at_minor), inStock: v.in_stock, imageIndex: at >= 0 ? at : null, shipsBy: v.ship_date,
         };
       }),
     };
@@ -357,7 +371,7 @@ export async function loadBoughtTogether(tx: TenantTransaction, accountId: strin
     JOIN shop_variants v1 ON v1.account_id=i1.account_id AND v1.id=i1.variant_id
     JOIN order_items i2 ON i2.account_id=o.account_id AND i2.order_id=o.id
     JOIN shop_variants v2 ON v2.account_id=i2.account_id AND v2.id=i2.variant_id
-    JOIN shop_products p ON p.account_id=v2.account_id AND p.id=v2.product_id AND p.status='published'
+    JOIN shop_products p ON p.account_id=v2.account_id AND p.id=v2.product_id AND shop_product_live(p.status, p.publish_at, p.hide_at)
     WHERE o.account_id=${accountId}::uuid AND o.created_at > now() - interval '365 days'
       AND (o.status IN ('paid','partially_shipped','dispatched','fulfilled') OR (o.status='confirmed' AND o.payment_method='cod'))
       AND v1.product_id = ANY(${seedIds}::uuid[]) AND v2.product_id <> ALL(${seedIds}::uuid[])
@@ -524,8 +538,8 @@ export function loadShopAll(handle: string, cursor?: string): Promise<{ shop: Pu
       products: page.products.map((p) => ({
         rating: ratings.get(p.id) ?? null,
         id: p.id, name: p.name, description: p.description, disclosure: p.disclosure, categoryId: null, categoryName: p.categoryName,
-        images: p.images.map((id) => shopImageUrl(handle, id)), details: [],
-        variants: p.variants.map((v) => ({ id: v.id, options: v.options, priceMinor: v.priceMinor, compareAtMinor: v.compareAtMinor, inStock: v.inStock, imageIndex: null })),
+        digital: p.digital, images: p.images.map((id) => shopImageUrl(handle, id)), details: [],
+        variants: p.variants.map((v) => ({ id: v.id, options: v.options, priceMinor: v.priceMinor, compareAtMinor: v.compareAtMinor, inStock: v.inStock, imageIndex: null, shipsBy: v.shipsBy })),
       })),
     };
   });
@@ -542,8 +556,12 @@ export interface CartPreviewLine {
   qty: number;
   unitPriceMinor: number;
   lineTotalMinor: number;
-  /** Units that can be bought now (null: not tracked). */
+  /** Units that can be bought now (null: no limit). */
   available: number | null;
+  /** Pre-order: ships by this date (YYYY-MM-DD). */
+  shipsBy: string | null;
+  /** A digital download. */
+  digital: boolean;
 }
 export interface CartPreview {
   lines: CartPreviewLine[];
@@ -583,6 +601,7 @@ export async function previewCartTx(tx: TenantTransaction, accountId: string, li
     out.push({
       variantId: v.id, productId: v.productId, name: v.productName, options: v.optionValues, qty: line.qty,
       unitPriceMinor: v.priceMinor, lineTotalMinor: v.priceMinor * line.qty, available: v.available,
+      shipsBy: v.preorderShipDate ?? null, digital: v.digital === true,
     });
   }
   return { lines: out, removed, subtotalMinor: out.reduce((s, l) => s + l.lineTotalMinor, 0), currency: settings?.currency ?? null };
@@ -692,7 +711,7 @@ export async function openShopRow(tx: TenantTransaction, accountId: string): Pro
   return row;
 }
 
-export interface OtpStartInput { phone: unknown; cart: unknown; clientIp: string }
+export interface OtpStartInput { phone: unknown; cart: unknown; clientIp: string; /** The referral code the buyer's link carried (store plan Phase 8, batch 6); unknown codes are ignored. */ ref?: unknown }
 
 /**
  * What a code is for. A challenge is stored with its purpose and each verify
@@ -710,7 +729,7 @@ export type OtpPurpose = 'checkout' | 'sign_in';
 export async function startOtp(handle: string, input: OtpStartInput): Promise<{ challengeId: string; expiresAt: string } | null> {
   const phone = normaliseBuyerPhone(input.phone);
   if (!phone) throw new StoreError('invalid', { field: 'phone' });
-  return sendOtp(handle, { phone, lines: parseCartLines(input.cart), purpose: 'checkout', clientIp: input.clientIp });
+  return sendOtp(handle, { phone, lines: parseCartLines(input.cart), purpose: 'checkout', clientIp: input.clientIp, ref: input.ref });
 }
 
 /**
@@ -718,7 +737,7 @@ export async function startOtp(handle: string, input: OtpStartInput): Promise<{ 
  * number, and outbound intent. A checkout code needs the shop open for orders
  * and a sellable cart; a sign-in code (no cart) needs only the shop itself.
  */
-export async function sendOtp(handle: string, input: { phone: string; lines: CartLine[]; purpose: OtpPurpose; clientIp: string }):
+export async function sendOtp(handle: string, input: { phone: string; lines: CartLine[]; purpose: OtpPurpose; clientIp: string; ref?: unknown }):
   Promise<{ challengeId: string; expiresAt: string } | null> {
   const { phone, lines, purpose } = input;
   const accountId = await resolvePublicShop(handle);
@@ -735,10 +754,11 @@ export async function sendOtp(handle: string, input: { phone: string; lines: Car
       // Per number, after every other check, so a closed shop never spends the buyer's allowance.
       await enforceShopLimit('otpStartPhone', `${accountId}:${phone}`);
       const challengeId = randomUUID();
+      const referralId = await lookupReferralCodeTx(tx, accountId, input.ref);
       const [inserted] = await tx.$queryRaw<{ expires_at: Date }[]>`
-        INSERT INTO shop_otp_challenges(id,account_id,phone,code_hash,cart,purpose,expires_at)
+        INSERT INTO shop_otp_challenges(id,account_id,phone,code_hash,cart,purpose,expires_at,referral_code_id)
         VALUES(${challengeId}::uuid,${accountId}::uuid,${phone},${otpHash(challengeId, code)},${cartJson(lines)}::jsonb,${purpose},
-          now() + make_interval(mins => ${OTP.ttlMinutes}))
+          now() + make_interval(mins => ${OTP.ttlMinutes}),${referralId}::uuid)
         RETURNING expires_at`;
       return { challengeId, expiresAt: inserted.expires_at, sender };
     });
@@ -888,7 +908,7 @@ export function cartCodeMessage(shopName: string, lines: CartPreviewLine[], code
 }
 
 /** Save the cart under a fresh code and answer the wa.me link that sends it. */
-export async function createCartCode(handle: string, input: { cart: unknown; clientIp: string }): Promise<CartCodeResult | null> {
+export async function createCartCode(handle: string, input: { cart: unknown; clientIp: string; ref?: unknown }): Promise<CartCodeResult | null> {
   const lines = parseCartLines(input.cart);
   const accountId = await resolvePublicShop(handle);
   if (!accountId) return null;
@@ -900,11 +920,12 @@ export async function createCartCode(handle: string, input: { cart: unknown; cli
       const preview = await previewCartTx(tx, accountId, lines);
       if (preview.removed.length) throw new StoreError('variant_unavailable', { variantId: preview.removed[0] });
       const shop = await loadPublicShopTx(tx, accountId);
+      const referralId = await lookupReferralCodeTx(tx, accountId, input.ref);
       for (let attempt = 0; attempt < 5; attempt++) {
         const code = newCartCode();
         const [saved] = await tx.$queryRaw<{ id: string }[]>`
-          INSERT INTO shop_cart_codes(account_id,code,cart,expires_at)
-          VALUES(${accountId}::uuid,${code},${cartJson(lines)}::jsonb,now() + make_interval(hours => ${CART_CODE_TTL_HOURS}))
+          INSERT INTO shop_cart_codes(account_id,code,cart,expires_at,referral_code_id)
+          VALUES(${accountId}::uuid,${code},${cartJson(lines)}::jsonb,now() + make_interval(hours => ${CART_CODE_TTL_HOURS}),${referralId}::uuid)
           ON CONFLICT (account_id, code) DO NOTHING RETURNING id::text AS id`;
         if (saved) {
           const text = cartCodeMessage(shop?.name ?? handle, preview.lines, code);
@@ -939,11 +960,11 @@ export async function createStockAlert(handle: string, input: { variantId: unkno
       if (!row) throw new StoreError('not_found');
       if (!row.whatsapp_phone || !row.whatsapp_config_id) throw new StoreError('whatsapp_order_unavailable');
       const [variant] = await tx.$queryRaw<{ name: string; option_values: Record<string, string> | null; in_stock: boolean }[]>`
-        SELECT p.name, v.option_values, (COALESCE(l.on_hand - l.reserved, 0) > 0) AS in_stock
+        SELECT p.name, v.option_values, (COALESCE(shop_variant_availability(v.account_id, v.id), 1) > 0) AS in_stock
         FROM shop_variants v JOIN shop_products p ON p.account_id=v.account_id AND p.id=v.product_id
-        LEFT JOIN inventory_levels l ON l.account_id=v.account_id AND l.variant_id=v.id
-        WHERE v.account_id=${accountId}::uuid AND v.id=${variantId}::uuid AND p.status='published' AND v.archived_at IS NULL
-          AND v.price_minor IS NOT NULL AND v.track_inventory`;
+        WHERE v.account_id=${accountId}::uuid AND v.id=${variantId}::uuid AND shop_product_live(p.status, p.publish_at, p.hide_at)
+          AND v.archived_at IS NULL AND v.price_minor IS NOT NULL AND v.track_inventory
+          AND NOT v.preorder AND NOT p.is_bundle AND NOT p.is_digital`;
       if (!variant) throw new StoreError('variant_unavailable', { variantId });
       if (variant.in_stock) throw new StoreError('in_stock', { variantId });
       const options = Object.values(variant.option_values ?? {}).filter(Boolean).join(', ');
@@ -1050,7 +1071,7 @@ export async function handleShopCartCode(input: ShopCartCodeInput,
         session_id=${sessionId}::uuid WHERE account_id=${accountId}::uuid AND id=${hit.id}::uuid
           AND (contact_id IS NULL OR contact_id=${input.contactId}::uuid)`;
       return issued.url;
-    });
+    }, 'inbound');
   } catch (error) {
     // The store closed (checkout off, plan, suspension) since the code was made: ordinary text.
     if (isShopHidden(error) || (error instanceof StoreError && ['checkout_disabled', 'store_not_configured', 'conflict'].includes(error.code)))
@@ -1084,4 +1105,32 @@ async function replyOnce(send: () => Promise<unknown>, outcome: 'sent' | 'expire
 /** Just the shop (the layout's header and theme). */
 export function loadShopOnly(handle: string): Promise<PublicShop | null> {
   return withPublicShop(handle, (tx, accountId) => loadPublicShopTx(tx, accountId));
+}
+
+// ---------------------------------------------------------------------------
+// Shop access (store plan Phase 8, batch 3)
+
+export type ShopGate =
+  | { state: 'open'; shop: PublicShop }
+  | { state: 'password' | 'coming_soon'; shop: PublicShop; message: string | null };
+
+/**
+ * What the shop layout shows: the shop itself, or its lock screen (a password form, or "coming soon" with the
+ * owner's message). Only the name, brand and message of the shop are read here; null when there is no such shop.
+ */
+export async function loadShopGate(handle: string): Promise<ShopGate | null> {
+  const accountId = await resolvePublicShop(handle);
+  if (!accountId) return null;
+  try {
+    return await inShopTenant(accountId, async (tx): Promise<ShopGate | null> => {
+      const shop = await loadPublicShopTx(tx, accountId);
+      if (!shop) return null;
+      if (await visitorMayEnterTx(tx, accountId)) return { state: 'open', shop };
+      const access = await loadShopAccessTx(tx, accountId);
+      return { state: access?.mode === 'password' ? 'password' : 'coming_soon', shop, message: access?.message ?? null };
+    }, 'none');
+  } catch (error) {
+    if (isShopHidden(error)) return null;
+    throw error;
+  }
 }

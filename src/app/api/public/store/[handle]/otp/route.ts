@@ -10,5 +10,5 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 export function POST(request: Request, context: HandleParams) {
-  return shopPost(request, context, 'otp', (handle, body, ip) => startOtp(handle, { phone: body.phone, cart: body.cart, clientIp: ip }));
+  return shopPost(request, context, 'otp', (handle, body, ip) => startOtp(handle, { phone: body.phone, cart: body.cart, clientIp: ip, ref: body.ref }));
 }

@@ -75,11 +75,11 @@ async function linkedItems(tx: TenantTransaction, accountId: string, catalogRowI
     price: bigint | null; currency: string | null; sellable: boolean }[]>`
     SELECT m.retailer_id, m.price_minor AS meta_price, m.currency AS meta_currency, m.availability AS meta_availability,
       v.price_minor AS price, st.currency,
-      (p.status='published' AND v.archived_at IS NULL AND (NOT v.track_inventory OR COALESCE(l.on_hand - l.reserved, 0) > 0)) AS sellable
+      (shop_product_live(p.status, p.publish_at, p.hide_at) AND v.archived_at IS NULL
+        AND COALESCE(shop_variant_availability(v.account_id, v.id), 1) > 0) AS sellable
     FROM products m
     JOIN shop_variants v ON v.account_id=m.account_id AND v.sku=m.retailer_id
     JOIN shop_products p ON p.account_id=v.account_id AND p.id=v.product_id
-    LEFT JOIN inventory_levels l ON l.account_id=v.account_id AND l.variant_id=v.id
     LEFT JOIN commerce_settings st ON st.account_id=m.account_id
     WHERE m.account_id=${accountId}::uuid AND m.catalog_row_id=${catalogRowId}::uuid AND NOT m.is_hidden
       -- A variant the full catalogue sync has in hand (catalogue/meta-sync-job.ts) is sent there, as a whole item, not here too.

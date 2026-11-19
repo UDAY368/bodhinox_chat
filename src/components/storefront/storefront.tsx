@@ -11,7 +11,7 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
-import { AlertTriangle, Loader2, Minus, Plus, Search, ShoppingBag, Trash2 } from 'lucide-react';
+import { AlertTriangle, Heart, Loader2, Minus, Plus, Search, ShoppingBag, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -19,8 +19,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import {
-  MARKETING_OPT_IN_VERSION, shopApi, shopErrorCode, type Quote, type ShopErrorCode, type StorefrontProduct, type StorefrontView,
+  MARKETING_OPT_IN_VERSION, shopApi, shopErrorCode, type ExtrasValues, type Quote, type ShopErrorCode, type StorefrontProduct, type StorefrontView,
 } from './api';
+import { CheckoutExtrasForm, normaliseDraft } from './checkout-extras-form';
+import { readWishlist, writeWishlist } from '@/components/shop-public/wishlist-store';
+import { formatShipDate } from '@/lib/commerce/selling-rules';
 import { money, OrderSummary } from './order-summary';
 import { validateGstin } from '@/lib/billing/gst';
 
@@ -45,7 +48,15 @@ export function Storefront({ token }: { token: string }) {
   const [buyerGstin, setBuyerGstin] = useState('');
   const [buyerLegalName, setBuyerLegalName] = useState('');
   const gstinInvalid = wantInvoice && buyerGstin.trim() !== '' && validateGstin(buyerGstin) === null;
+  const [email, setEmail] = useState('');
+  const [emailOffers, setEmailOffers] = useState(false);
   const justPlaced = useRef(false);
+  // What the buyer types for the checkout extras; sent with the order (the server checks it again), seeded from the session once.
+  const [extrasDraft, setExtrasDraft] = useState<ExtrasValues>({});
+  const extrasSeeded = useRef(false);
+  // The contact's saved variants (their wishlist); a visitor's browser list is saved here once, when they come in through a session.
+  const [wishlist, setWishlist] = useState<ReadonlySet<string>>(new Set());
+  const wishlistSynced = useRef(false);
   // The catalogue is paged and searched on its own (GET …/products): set from the first view only, so a cart
   // change never resets the pages the customer already loaded.
   const [products, setProducts] = useState<StorefrontProduct[] | null>(null);
@@ -79,6 +90,8 @@ export function Storefront({ token }: { token: string }) {
       setManyProducts(next.productsNext !== null);
       remember(next.products);
     }
+    if (next.extras && !extrasSeeded.current) { extrasSeeded.current = true; setExtrasDraft(next.extras.values); }
+    setWishlist(new Set(next.wishlist));
     if (next.address) setAddress({ ...EMPTY_ADDRESS, ...Object.fromEntries(Object.entries(next.address).map(([k, v]) => [k, v ?? ''])) } as Address);
     setCoupon(next.couponCode ?? '');
   }, [remember]);
@@ -93,6 +106,17 @@ export function Storefront({ token }: { token: string }) {
   }, [token, accept]);
 
   useEffect(() => { void load(); }, [load]);
+
+  // A visitor's browser wishlist joins their contact the first time they are here through a session; then the browser list is cleared.
+  useEffect(() => {
+    if (loadState !== 'ready' || view?.purpose !== 'shop' || !view.open || wishlistSynced.current) return;
+    wishlistSynced.current = true;
+    const saved = readWishlist();
+    if (!saved.length) return;
+    shopApi.wishlist(token, { action: 'sync', variantIds: saved })
+      .then((list) => { setWishlist(new Set(list.items.map((i) => i.variantId))); writeWishlist([]); })
+      .catch(() => { /* keep the browser list for next time */ });
+  }, [loadState, view, token]);
 
   // While the payment link is being prepared, poll the order (database only) and open the link once it exists.
   const pending = view?.order?.status === 'awaiting_payment' && view.order.paymentPending;
@@ -169,7 +193,7 @@ export function Storefront({ token }: { token: string }) {
     return (
       <Card className="w-full max-w-md self-start">
         <CardHeader><CardTitle>{loadState === 'not_found' ? t('notFoundTitle') : t('errors.error')}</CardTitle></CardHeader>
-        <CardContent className="text-sm text-muted-foreground">{loadState === 'not_found' ? t('notFoundBody') : null}</CardContent>
+        <CardContent className="text-sm text-muted-foreground">{loadState === 'not_found' ? <><p>{t('notFoundBody')}</p><p className="mt-2">{t('notFoundReturnHint')}</p></> : null}</CardContent>
       </Card>
     );
   }
@@ -197,13 +221,38 @@ export function Storefront({ token }: { token: string }) {
   const choosePayment = (method: 'online' | 'cod') => {
     if (method !== view.paymentMethod) void run(() => shopApi.payment(token, view.version, method));
   };
+  // Store credit and loyalty points: switches only. The server decides how much each pays, from its own balances.
+  const wallet = view.wallet;
+  const chooseTender = (useStoreCredit: boolean, usePoints: boolean) => void run(() => shopApi.tender(token, view.version, useStoreCredit, usePoints));
+  // Credit and points cover the whole order: nothing is left to pay, so no payment method is needed.
+  const nothingToPay = !!quote && quote.payableMinor === 0 && quote.storeCreditMinor + quote.pointsValueMinor > 0;
+  const delivery = view.delivery;
+  // 'ship' is always there; pickup and local delivery only when the store offers them. The server prices the choice.
+  const chooseDelivery = (method: 'ship' | 'pickup' | 'local') => {
+    if (method !== delivery.method) void run(() => shopApi.delivery(token, view.version, method));
+  };
+  const toggleSaved = (variantId: string) => {
+    const saved = wishlist.has(variantId);
+    setError(null);
+    shopApi.wishlist(token, { action: saved ? 'remove' : 'add', variantId })
+      .then((list) => setWishlist(new Set(list.items.map((i) => i.variantId))))
+      .catch((e) => setError(shopErrorCode(e)));
+  };
+  // One tap for a repeat buyer: the server copies the last order's address and delivery choice onto this cart.
+  const useLastDelivery = () => void run(() => shopApi.repeat(token, view.version));
   const placeOrder = () => {
     if (!quote) return;
     justPlaced.current = true;
     void run(async () => {
       try {
-        const placed = await shopApi.place(token, { expectedVersion: view.version, expectedTotalMinor: quote.totalMinor, clientRequestId: crypto.randomUUID(),
-          marketingOptIn, ...(wantInvoice && buyerGstin.trim() ? { buyerGstin: buyerGstin.trim().toUpperCase(), buyerLegalName: buyerLegalName.trim() } : {}) });
+        // The extras the buyer typed are saved first (the server checks them), so the order is placed with them.
+        let version = view.version;
+        const draft = normaliseDraft(extrasDraft);
+        if (view.extras && JSON.stringify(draft) !== JSON.stringify(normaliseDraft(view.extras.values))) version = (await shopApi.extras(token, view.version, draft)).version;
+        const placed = await shopApi.place(token, { expectedVersion: version, expectedTotalMinor: quote.totalMinor,
+          expectedPayableMinor: quote.payableMinor, clientRequestId: crypto.randomUUID(), marketingOptIn,
+          ...(email.trim() ? { email: email.trim(), emailOffers } : {}),
+          ...(wantInvoice && buyerGstin.trim() ? { buyerGstin: buyerGstin.trim().toUpperCase(), buyerLegalName: buyerLegalName.trim() } : {}) });
         if (placed.view?.order?.paymentUrl) window.location.assign(placed.view.order.paymentUrl);
         return placed.view;
       } catch (e) {
@@ -229,7 +278,7 @@ export function Storefront({ token }: { token: string }) {
       )}
 
       {view.order && (view.order.priced || view.purpose === 'status') ? (
-        <OrderSummary order={view.order} locale={locale} />
+        <OrderSummary order={view.order} locale={locale} token={token} onOrder={(order) => setView((v) => (v ? { ...v, order } : v))} />
       ) : !view.open ? (
         <Card><CardContent className="pt-6 text-sm text-muted-foreground">{t('expired')}</CardContent></Card>
       ) : (
@@ -272,7 +321,13 @@ export function Storefront({ token }: { token: string }) {
                       <img src={shopApi.imageUrl(token, p.images[0])} alt="" className="aspect-square w-full bg-muted object-cover" loading="lazy" referrerPolicy="no-referrer" />
                     )}
                     <CardContent className="flex flex-1 flex-col gap-2 pt-4">
-                      <h2 className="font-medium">{p.name}</h2>
+                      <div className="flex items-start justify-between gap-2">
+                        <h2 className="font-medium">{p.name}</h2>
+                        <Button type="button" variant="ghost" size="icon" className="-mt-1 -mr-2 shrink-0" aria-pressed={wishlist.has(chosen.id)}
+                          aria-label={t(wishlist.has(chosen.id) ? 'unsave' : 'save')} onClick={() => toggleSaved(chosen.id)}>
+                          <Heart className={`size-4 ${wishlist.has(chosen.id) ? 'fill-current text-primary' : ''}`} aria-hidden />
+                        </Button>
+                      </div>
                       {p.description && <p className="line-clamp-3 text-sm text-muted-foreground">{p.description}</p>}
                       {p.disclosure && <p className="text-xs text-muted-foreground">{p.disclosure}</p>}
                       {p.variants.length > 1 && (
@@ -320,7 +375,11 @@ export function Storefront({ token }: { token: string }) {
                   const options = q ? Object.values(q.optionValues).join(' / ') : info?.options;
                   return (
                     <li key={line.variantId} className="flex items-center justify-between gap-2 py-2">
-                      <span className="min-w-0 break-words">{name}{options ? ` (${options})` : ''}</span>
+                      <span className="min-w-0 break-words">
+                        {name}{options ? ` (${options})` : ''}
+                        {q?.preorderShipDate && <span className="block text-xs text-muted-foreground">{t('shipsBy', { date: formatShipDate(q.preorderShipDate, locale) })}</span>}
+                        {q?.digital && <span className="block text-xs text-muted-foreground">{t('digitalNote')}</span>}
+                      </span>
                       {view.cartLocked ? <span className="shrink-0">× {line.qty}</span> : (
                         <span className="flex shrink-0 items-center gap-1">
                           <Button variant="ghost" size="icon" aria-label={t('decrease')} disabled={busy} onClick={() => setQty(line.variantId, line.qty - 1)}>
@@ -341,6 +400,15 @@ export function Storefront({ token }: { token: string }) {
 
           {cart.length > 0 && (
             <>
+              {view.repeat && !quote?.digitalOnly && (
+                <Card>
+                  <CardContent className="flex flex-wrap items-center justify-between gap-3 pt-6 text-sm">
+                    <p>{t('repeatPrompt', { name: view.repeat.name, city: view.repeat.city, postalCode: view.repeat.postalCode })}</p>
+                    <Button type="button" disabled={busy} onClick={useLastDelivery}>{t('repeatUse')}</Button>
+                  </CardContent>
+                </Card>
+              )}
+              {!quote?.digitalOnly && (
               <Card>
                 <CardHeader><CardTitle className="text-lg">{t('addressHeading')}</CardTitle></CardHeader>
                 <CardContent>
@@ -363,6 +431,11 @@ export function Storefront({ token }: { token: string }) {
                   </form>
                 </CardContent>
               </Card>
+              )}
+
+              {view.extras && (
+                <CheckoutExtrasForm extras={view.extras} draft={extrasDraft} onChange={setExtrasDraft} disabled={busy} digitalOnly={!!quote?.digitalOnly} />
+              )}
 
               <Card>
                 <CardHeader><CardTitle className="text-lg">{t('summaryHeading')}</CardTitle></CardHeader>
@@ -372,6 +445,22 @@ export function Storefront({ token }: { token: string }) {
                       onChange={(e) => setCoupon(e.target.value.toUpperCase())} />
                     <Button type="submit" variant="outline" disabled={busy}>{view.couponCode && !coupon ? t('removeCoupon') : t('applyCoupon')}</Button>
                   </form>
+                  {!quote?.digitalOnly && (delivery.methods.length > 1 || delivery.method !== 'ship') && (
+                    <fieldset className="space-y-2" disabled={busy}>
+                      <legend className="mb-1 text-sm font-medium">{t('deliveryHeading')}</legend>
+                      {(['ship', 'pickup', 'local'] as const).filter((m) => delivery.methods.includes(m) || m === delivery.method).map((m) => (
+                        <label key={m} className="flex items-start gap-2 text-sm">
+                          <input type="radio" name="delivery-method" className="mt-0.5 size-4" checked={delivery.method === m} onChange={() => chooseDelivery(m)} />
+                          <span>
+                            {m === 'local' ? t('deliveryLocal', { fee: money(delivery.localFeeMinor, currency, locale) }) : t(m === 'pickup' ? 'deliveryPickup' : 'deliveryShip')}
+                            {m === 'pickup' && delivery.pickupAddress && (
+                              <span className="block whitespace-pre-line text-xs text-muted-foreground">{delivery.pickupAddress}</span>
+                            )}
+                          </span>
+                        </label>
+                      ))}
+                    </fieldset>
+                  )}
                   {(codOffered || cod || !onlineAvailable) && (
                     <fieldset className="space-y-2" disabled={busy}>
                       <legend className="mb-1 text-sm font-medium">{t('paymentHeading')}</legend>
@@ -391,6 +480,25 @@ export function Storefront({ token }: { token: string }) {
                       {codOffered && !codPossible && !cod && <p className="text-xs text-muted-foreground">{t('codNotForCart')}</p>}
                       {cod && onlineAvailable && quote && quote.prepaidSavingMinor > 0 && (
                         <p className="text-sm font-medium text-primary">{t('payOnlineSave', { amount: money(quote.prepaidSavingMinor, quote.currency, locale) })}</p>
+                      )}
+                    </fieldset>
+                  )}
+                  {wallet && (wallet.storeCreditMinor > 0 || wallet.points > 0 || wallet.useStoreCredit || wallet.usePoints) && (
+                    <fieldset className="space-y-2" disabled={busy}>
+                      <legend className="mb-1 text-sm font-medium">{t('walletHeading')}</legend>
+                      {(wallet.storeCreditMinor > 0 || wallet.useStoreCredit) && (
+                        <div className="flex items-start gap-2">
+                          <Checkbox id="use-store-credit" checked={wallet.useStoreCredit} onCheckedChange={(v) => chooseTender(v === true, wallet.usePoints)} />
+                          <Label htmlFor="use-store-credit" className="text-sm font-normal leading-snug">
+                            {t('useStoreCredit', { amount: money(wallet.storeCreditMinor, currency, locale) })}
+                          </Label>
+                        </div>
+                      )}
+                      {wallet.pointValueMinor !== null && (wallet.points > 0 || wallet.usePoints) && (
+                        <div className="flex items-start gap-2">
+                          <Checkbox id="use-points" checked={wallet.usePoints} onCheckedChange={(v) => chooseTender(wallet.useStoreCredit, v === true)} />
+                          <Label htmlFor="use-points" className="text-sm font-normal leading-snug">{t('usePoints', { points: wallet.points })}</Label>
+                        </div>
                       )}
                     </fieldset>
                   )}
@@ -418,6 +526,16 @@ export function Storefront({ token }: { token: string }) {
                       </div>
                     )}
                   </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="checkout-email" className="text-sm">{t('emailLabel')}</Label>
+                    <Input id="checkout-email" type="email" autoComplete="email" maxLength={254} value={email} disabled={busy}
+                      onChange={(e) => { setEmail(e.target.value); if (!e.target.value.trim()) setEmailOffers(false); }} />
+                    <p className="text-xs text-muted-foreground">{t('emailHint')}</p>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <Checkbox id="email-offers" checked={emailOffers} disabled={busy || !email.trim()} onCheckedChange={(v) => setEmailOffers(v === true)} />
+                    <Label htmlFor="email-offers" className="text-sm font-normal leading-snug">{t('emailOffers')}</Label>
+                  </div>
                   <div className="flex items-start gap-2">
                     <Checkbox id="marketing-opt-in" checked={marketingOptIn} disabled={busy}
                       onCheckedChange={(v) => setMarketingOptIn(v === true)} />
@@ -425,11 +543,12 @@ export function Storefront({ token }: { token: string }) {
                       {t(`marketingOptIn.${MARKETING_OPT_IN_VERSION}`)}
                     </Label>
                   </div>
-                  <Button className="w-full" disabled={busy || gstinInvalid || !quote?.shipping || !view.store.checkoutEnabled || (!cod && !onlineAvailable)} onClick={placeOrder}>
+                  <Button className="w-full" disabled={busy || gstinInvalid || !quote?.shipping || !view.store.checkoutEnabled || (!cod && !onlineAvailable && !nothingToPay)} onClick={placeOrder}>
                     {busy && <Loader2 className="size-4 animate-spin" aria-hidden />}
-                    {quote ? t(cod ? 'placeCod' : 'placeAndPay', { amount: money(quote.totalMinor, quote.currency, locale) }) : t('placeOrder')}
+                    {!quote ? t('placeOrder') : nothingToPay ? t('placeNothingToPay')
+                      : t(cod ? 'placeCod' : 'placeAndPay', { amount: money(quote.payableMinor, quote.currency, locale) })}
                   </Button>
-                  <p className="text-xs text-muted-foreground">{t(cod ? 'codNote' : 'paymentNote')}</p>
+                  {!nothingToPay && <p className="text-xs text-muted-foreground">{t(cod ? 'codNote' : 'paymentNote')}</p>}
                 </CardContent>
               </Card>
             </>
@@ -443,7 +562,7 @@ export function Storefront({ token }: { token: string }) {
 const ERROR_SET: Record<string, true> = Object.fromEntries([
   'tax_not_configured', 'shipping_unavailable', 'price_not_configured', 'variant_unavailable', 'coupon_not_found', 'coupon_inactive',
   'coupon_not_started', 'coupon_expired', 'coupon_min_subtotal', 'store_not_configured', 'cart_empty', 'invalid_cart', 'amount_out_of_range',
-  'cod_unavailable', 'online_unavailable',
+  'cod_unavailable', 'online_unavailable', 'delivery_unavailable', 'extras_invalid',
 ].map((c) => [c, true]));
 
 const AUTOCOMPLETE: Record<string, string> = {
@@ -461,17 +580,29 @@ function QuoteTotals({ quote, locale }: { quote: Quote; locale: string }) {
   );
   return (
     <div className="space-y-1 text-sm">
-      {quote.lines.map((l) => <div key={l.variantId}>{row(`${l.productName} × ${l.qty}`, money(l.grossMinor, c, locale))}</div>)}
+      {quote.lines.map((l) => (
+        <div key={`${l.variantId}${l.gift ? ':gift' : ''}`}>
+          {row(`${l.productName} × ${l.qty}`, l.gift ? t('freeGift') : money(l.grossMinor, c, locale))}
+          {!l.gift && l.unitPriceMinor < l.catalogPriceMinor && (
+            <p className="text-xs text-muted-foreground">{t('yourPrice', { price: money(l.unitPriceMinor, c, locale), was: money(l.catalogPriceMinor, c, locale) })}</p>
+          )}
+        </div>
+      ))}
       <div className="border-t pt-1" />
       {row(t('subtotal'), money(quote.subtotalMinor, c, locale))}
       {quote.autoDiscounts.map((d) => (
         <div key={d.id}>{row(d.name, d.kind === 'free_shipping_over' ? t('freeShipping') : `−${money(d.savingMinor, c, locale)}`)}</div>
       ))}
       {couponMinor > 0 && row(t('discountWithCode', { code: quote.couponCode ?? '' }), `−${money(couponMinor, c, locale)}`)}
-      {quote.shipping && row(t('shippingWith', { name: quote.shipping.name }), money(quote.shippingMinor, c, locale))}
+      {quote.shipping && !quote.digitalOnly && row(quote.deliveryMethod === 'pickup' ? t('deliveryPickup') : quote.deliveryMethod === 'local' ? t('deliveryLocalLine')
+        : t('shippingWith', { name: quote.shipping.name }), money(quote.shippingMinor, c, locale))}
       {quote.codFee && quote.codFeeMinor > 0 && row(t('codFee'), money(quote.codFeeMinor, c, locale))}
       {row(quote.taxInclusive ? t('taxIncluded') : t('tax'), money(quote.taxMinor, c, locale))}
       {row(t('total'), money(quote.totalMinor, c, locale), true)}
+      {quote.pointsValueMinor > 0 && row(t('pointsApplied', { points: quote.pointsRedeemed }), `−${money(quote.pointsValueMinor, c, locale)}`)}
+      {quote.storeCreditMinor > 0 && row(t('storeCreditApplied'), `−${money(quote.storeCreditMinor, c, locale)}`)}
+      {quote.payableMinor !== quote.totalMinor && row(t('toPay'), money(quote.payableMinor, c, locale), true)}
+      {quote.preorderShipDate && <p className="pt-1 text-xs text-muted-foreground">{t('shipsBy', { date: formatShipDate(quote.preorderShipDate, locale) })}</p>}
     </div>
   );
 }

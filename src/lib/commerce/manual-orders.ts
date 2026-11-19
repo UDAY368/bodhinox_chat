@@ -10,7 +10,10 @@
  * - the contact must be in this workspace; the order is tied to the
  *   contact's latest conversation (for the payment link and updates);
  * - the cart is priced with priceCart (no shipping, no coupon, online
- *   payment); a refusal is a 409 with its pricing code;
+ *   payment), with the customer's wholesale price list, the discount rules
+ *   that reach them and the gift rules (Phase 8), exactly as their own
+ *   checkout would; store credit and points are not spent here; a refusal
+ *   is a 409 with its pricing code;
  * - tracked stock is reserved with no expiry (StockError out_of_stock ->
  *   409), committed when the payment settles, released when the order is
  *   cancelled (order-lifecycle closeOrderTx);
@@ -33,6 +36,7 @@ import { minorFromDb } from './money';
 import { asStaff, auditOrder, type StaffContext } from './order-lifecycle';
 import { ORDER_LIMITS } from './order-format';
 import { CART_LIMITS, normaliseCart, priceCart, type CartLine, type PricingRefusal } from './pricing';
+import { loadBuyerPricingTx } from './price-rules-store';
 import { reserveTx } from './stock';
 import { loadVariants, seededUuid } from './storefront';
 import { loadPricingSettings } from './store-settings';
@@ -111,30 +115,44 @@ export async function createManualOrder(ctx: StaffContext, input: ManualOrderInp
 
     const settings = await loadPricingSettings(tx, ctx.accountId);
     if (!settings) throw new ManualOrderError('store_not_configured', 409);
-    const variants = await loadVariants(tx, ctx.accountId, input.lines.map((l) => l.variantId));
-    const priced = priceCart({ lines: input.lines, variants, settings, shippingRates: [], coupon: null, address: null, paymentMethod: 'online', now });
+    const buyer = await loadBuyerPricingTx(tx, ctx.accountId, input.contactId, input.lines.map((l) => l.variantId));
+    const variants = await loadVariants(tx, ctx.accountId, [...input.lines.map((l) => l.variantId), ...buyer.giftRules.map((g) => g.giftVariantId)]);
+    const priced = priceCart({
+      lines: input.lines, variants, settings, shippingRates: [], coupon: null, address: null, paymentMethod: 'online',
+      priceTiers: buyer.priceTiers, lineRules: buyer.lineRules, giftRules: buyer.giftRules, now,
+    });
     if (!priced.ok) throw new ManualOrderError(priced.code, 409, priced.variantId);
     const quote = priced.quote;
 
+    // What was applied: names and savings only, as checkout stores them.
+    const discountDetails = quote.autoDiscounts.length
+      ? JSON.stringify(quote.autoDiscounts.map((d) => ({ name: d.name, kind: d.kind, saving_minor: d.savingMinor }))) : null;
     // ON CONFLICT: a double click racing this one waits for it, then finds the order already made.
     const inserted = await tx.$executeRaw`INSERT INTO orders(id,account_id,source,contact_id,conversation_id,whatsapp_config_id,currency,subtotal_minor,
-        discount_minor,shipping_minor,tax_minor,tax_inclusive,total_minor,status,priced_at,payment_method,cod_fee_minor,note)
+        discount_minor,shipping_minor,tax_minor,tax_inclusive,total_minor,status,priced_at,payment_method,cod_fee_minor,note,preorder_ship_date,
+        auto_discount_minor,discount_details)
       VALUES(${orderId}::uuid,${ctx.accountId}::uuid,'manual',${input.contactId}::uuid,${conversation?.id ?? null}::uuid,
         ${conversation?.whatsapp_config_id ?? null}::uuid,${quote.currency},${quote.subtotalMinor},${quote.discountMinor},
-        ${quote.shippingMinor},${quote.taxMinor},${quote.taxInclusive},${quote.totalMinor},'confirmed',${now},'online',0,${input.note})
+        ${quote.shippingMinor},${quote.taxMinor},${quote.taxInclusive},${quote.totalMinor},'confirmed',${now},'online',0,${input.note},
+        ${quote.preorderShipDate}::date,${quote.autoDiscountMinor},${discountDetails}::jsonb)
       ON CONFLICT (id) DO NOTHING`;
     if (inserted === 0) return { orderId, created: false };
     for (const line of quote.lines) {
       const options = Object.values(line.optionValues).filter(Boolean).join(' / ');
       const name = (options ? `${line.productName} (${options})` : line.productName).slice(0, 500);
       await tx.$executeRaw`INSERT INTO order_items(account_id,order_id,retailer_id,name,quantity,unit_price_minor,currency,variant_id,
-          tax_rate_bps,tax_minor,discount_minor,line_total_minor,hsn_code,sku)
+          tax_rate_bps,tax_minor,discount_minor,line_total_minor,hsn_code,sku,preorder_ship_date,is_gift)
         VALUES(${ctx.accountId}::uuid,${orderId}::uuid,${line.sku},${name},${line.qty},${line.unitPriceMinor},${quote.currency},
-          ${line.variantId}::uuid,${line.taxRateBps},${line.taxMinor},${line.discountMinor},${line.lineTotalMinor},${line.hsnCode},${line.sku})`;
+          ${line.variantId}::uuid,${line.taxRateBps},${line.taxMinor},${line.discountMinor},${line.lineTotalMinor},${line.hsnCode},${line.sku},
+          ${line.preorderShipDate}::date,${line.gift})`;
     }
+    // A bundle line keeps the parts it was sold with: a cancel or return restores these, whatever the bundle becomes later.
+    await tx.$executeRaw`UPDATE order_items i SET bundle_parts=(SELECT jsonb_agg(jsonb_build_object('variant_id', b.part_variant_id::text, 'quantity', b.quantity) ORDER BY b.position, b.part_variant_id)
+        FROM shop_variants v JOIN shop_products p ON p.account_id=v.account_id AND p.id=v.product_id AND p.is_bundle
+        JOIN shop_bundle_parts b ON b.account_id=v.account_id AND b.product_id=p.id WHERE v.account_id=i.account_id AND v.id=i.variant_id)
+      WHERE i.account_id=${ctx.accountId}::uuid AND i.order_id=${orderId}::uuid AND i.bundle_parts IS NULL`;
     // Held with no expiry: committed when the payment settles, released when the order is cancelled.
-    await reserveTx(tx, ctx.accountId, orderId,
-      quote.lines.filter((l) => l.trackInventory).map((l) => ({ variantId: l.variantId, quantity: l.qty })), null);
+    await reserveTx(tx, ctx.accountId, orderId, quote.lines.map((l) => ({ variantId: l.variantId, quantity: l.qty })), null);
     await orderEventTx(tx, ctx.accountId, orderId, 'manual_created', { actorUserId: ctx.userId });
     await auditOrder(tx, ctx, 'order.manual_created', orderId, {
       lines: quote.lines.length, units: quote.lines.reduce((n, l) => n + l.qty, 0), total_minor: quote.totalMinor, currency: quote.currency,
@@ -161,10 +179,9 @@ export async function listSellableVariants(ctx: TenantContext, q: string | null)
     const rows = await tx.$queryRaw<{ id: string; product_id: string; product_name: string; option_values: Record<string, string> | null;
       sku: string; price_minor: bigint; available: number | null }[]>`
       SELECT v.id::text AS id, p.id::text AS product_id, p.name AS product_name, v.option_values, v.sku, v.price_minor,
-        CASE WHEN v.track_inventory THEN GREATEST(COALESCE(l.on_hand,0) - COALESCE(l.reserved,0), 0) END AS available
+        shop_variant_availability(v.account_id, v.id) AS available
       FROM shop_variants v JOIN shop_products p ON p.account_id=v.account_id AND p.id=v.product_id
-      LEFT JOIN inventory_levels l ON l.account_id=v.account_id AND l.variant_id=v.id
-      WHERE v.account_id=${ctx.accountId}::uuid AND p.status='published' AND v.archived_at IS NULL AND v.price_minor IS NOT NULL
+      WHERE v.account_id=${ctx.accountId}::uuid AND shop_product_live(p.status, p.publish_at, p.hide_at) AND v.archived_at IS NULL AND v.price_minor IS NOT NULL
         AND (${pattern}::text IS NULL OR p.name ILIKE ${pattern} OR v.sku ILIKE ${pattern})
       ORDER BY lower(p.name), v.position, v.sku
       LIMIT 100`;

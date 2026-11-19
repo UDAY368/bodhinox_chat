@@ -92,7 +92,9 @@ export function OrderTimelinePanel({ timeline }: { timeline: OrderTimeline | nul
                 <span>{t.has(`messageKinds.${m.kind}`) ? t(`messageKinds.${m.kind}`) : m.kind}</span>
                 <span className="text-xs text-muted-foreground">
                   {t.has(`messageStatuses.${m.status}`) ? t(`messageStatuses.${m.status}`) : m.status}
-                  {m.reason ? ` · ${m.reason}` : ""}
+                  {/* A download link that could not be sent: say what the store must do. */}
+                  {m.kind === "digital_delivery" && m.status === "blocked" && m.reason === "no_template"
+                    ? ` · ${t("digitalNeedsTemplate")}` : m.reason ? ` · ${m.reason}` : ""}
                 </span>
               </li>
             ))}

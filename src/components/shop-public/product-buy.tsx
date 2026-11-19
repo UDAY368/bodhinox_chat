@@ -7,14 +7,16 @@
  * on the server at checkout. A sold-out variant of a shop with a WhatsApp number
  * offers "Notify me on WhatsApp": the buyer's own message claims the alert.
  */
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useSyncExternalStore } from 'react';
 import Link from 'next/link';
 import { useLocale, useTranslations } from 'next-intl';
-import { Bell, Check, Loader2, Minus, Plus } from 'lucide-react';
+import { Bell, Check, Heart, Loader2, Minus, Plus } from 'lucide-react';
 import type { PublicProduct } from '@/lib/commerce/public-shop';
 import { formatMoney } from '@/lib/commerce/money';
+import { formatShipDate } from '@/lib/commerce/selling-rules';
 import { addToCart, MAX_QTY } from './cart-store';
 import { PincodeCheck } from './pincode-check';
+import { subscribeWishlist, toggleWishlist, wishlistSnapshot } from './wishlist-store';
 
 export function ProductBuy({ handle, product, currency, canNotify }: { handle: string; product: PublicProduct; currency: string | null; canNotify: boolean }) {
   const t = useTranslations('ShopPublic');
@@ -30,6 +32,9 @@ export function ProductBuy({ handle, product, currency, canNotify }: { handle: s
   const [notifyError, setNotifyError] = useState<string | null>(null);
   const variantFor = (choice: Record<string, string>) => product.variants.find((v) => optionNames.every((n) => v.options[n] === choice[n])) ?? null;
   const variant = variantFor(picked);
+  // "Save for later": kept in this browser until the visitor comes in through a shop session, which saves it to their contact.
+  const savedIds = useSyncExternalStore(subscribeWishlist, wishlistSnapshot, () => '');
+  const saved = variant ? savedIds.split(',').includes(variant.id) : false;
   const money = (minor: number) => (currency ? formatMoney(minor, currency, locale) : '');
   const notify = async () => {
     if (!variant) return;
@@ -113,6 +118,10 @@ export function ProductBuy({ handle, product, currency, canNotify }: { handle: s
         <p className="text-sm" role="status">
           {!variant ? t('pickOptions') : variant.inStock ? t('inStock') : t('soldOut')}
         </p>
+        {variant?.shipsBy && variant.inStock && (
+          <p className="text-sm font-medium" data-testid="ships-by">{t('shipsBy', { date: formatShipDate(variant.shipsBy, locale) })}</p>
+        )}
+        {product.digital && <p className="text-sm opacity-80">{t('digitalNote')}</p>}
 
         <div className="flex items-center gap-3">
           <div className="flex items-center rounded-[var(--shop-radius)] border border-black/15 bg-[var(--shop-surface)]">
@@ -131,6 +140,15 @@ export function ProductBuy({ handle, product, currency, canNotify }: { handle: s
           </button>
         </div>
         <PincodeCheck handle={handle} variantId={variant?.id ?? null} quantity={qty} />
+        {variant && (
+          <div className="flex flex-col gap-1">
+            <button type="button" aria-pressed={saved} onClick={() => toggleWishlist(variant.id)}
+              className="flex h-11 items-center justify-center gap-2 rounded-[var(--shop-radius)] border border-black/15 px-5 text-sm font-medium">
+              <Heart className={`size-5 ${saved ? 'fill-current text-[var(--shop-primary)]' : ''}`} aria-hidden />{t(saved ? 'wishlist.saved' : 'wishlist.save')}
+            </button>
+            {saved && <p className="text-xs opacity-70">{t('wishlist.hint')}</p>}
+          </div>
+        )}
         {canNotify && variant && !variant.inStock && (
           <div className="flex flex-col gap-2">
             <button type="button" disabled={notifying} onClick={() => void notify()}

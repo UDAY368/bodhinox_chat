@@ -10,5 +10,5 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 export function POST(request: Request, context: HandleParams) {
-  return shopPost(request, context, 'whatsapp', (handle, body, ip) => createCartCode(handle, { cart: body.cart, clientIp: ip }));
+  return shopPost(request, context, 'whatsapp', (handle, body, ip) => createCartCode(handle, { cart: body.cart, clientIp: ip, ref: body.ref }));
 }

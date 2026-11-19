@@ -155,9 +155,8 @@ function loadSellable(accountId: string, variantId: string): Promise<VariantFact
       SELECT p.id::text AS product_id, p.name, v.option_values, s.handle
       FROM shop_variants v JOIN shop_products p ON p.account_id=v.account_id AND p.id=v.product_id
       JOIN shop_storefronts s ON s.account_id=v.account_id AND s.published
-      LEFT JOIN inventory_levels l ON l.account_id=v.account_id AND l.variant_id=v.id
-      WHERE v.account_id=${accountId}::uuid AND v.id=${variantId}::uuid AND p.status='published' AND v.archived_at IS NULL
-        AND v.price_minor IS NOT NULL AND (NOT v.track_inventory OR COALESCE(l.on_hand - l.reserved, 0) > 0)`;
+      WHERE v.account_id=${accountId}::uuid AND v.id=${variantId}::uuid AND shop_product_live(p.status, p.publish_at, p.hide_at)
+        AND v.archived_at IS NULL AND v.price_minor IS NOT NULL AND COALESCE(shop_variant_availability(v.account_id, v.id), 1) > 0`;
     return row ? { productId: row.product_id, productName: row.name, options: row.option_values ?? {}, handle: row.handle } : null;
   });
 }

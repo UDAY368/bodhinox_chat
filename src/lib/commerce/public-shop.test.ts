@@ -54,7 +54,7 @@ describe('public shop helpers', () => {
 
   it('writes the WhatsApp order message with the code on the last line', () => {
     const text = cartCodeMessage('Kumar', [
-      { variantId: V1, productId: V2, name: 'Tulsi', options: { Size: '100g' }, qty: 2, unitPriceMinor: 100, lineTotalMinor: 200, available: null },
+      { variantId: V1, productId: V2, name: 'Tulsi', options: { Size: '100g' }, qty: 2, unitPriceMinor: 100, lineTotalMinor: 200, available: null, shipsBy: null, digital: false },
     ], 'ABC234');
     expect(text.split('\n').at(-1)).toBe('ORDER ABC234');
     expect(text).toContain('2 × Tulsi (100g)');

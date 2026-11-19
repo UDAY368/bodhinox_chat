@@ -25,7 +25,8 @@ export async function GET(request: Request, { params }: Params) {
         WHERE account_id=${account}::uuid`;
       const ids = contentMediaIds(readThemeSettings(row?.theme), readShopContent(row?.document));
       return ids.includes(mediaId.toLowerCase()) ? account : null;
-    });
+      // The logo and banner also show on the lock screen of a password or coming-soon shop.
+    }, 'none');
     if (!accountId) return notFound();
     return streamShopMedia(accountId, null, mediaId.toLowerCase());
   } catch (error) {

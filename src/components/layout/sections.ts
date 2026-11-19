@@ -72,6 +72,7 @@ export function buildSections(enabled: readonly Channel[] | null | undefined): S
         { href: '/commerce/payments', labelKey: 'payments' },
         { href: '/commerce/store', labelKey: 'onlineStore' },
         { href: '/commerce/reviews', labelKey: 'reviews' },
+        { href: '/commerce/insights', labelKey: 'shopReports' },
         { href: '/commerce/settings', labelKey: 'storeSettings' },
       ],
     },

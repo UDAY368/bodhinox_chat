@@ -1,6 +1,8 @@
 // POST /api/payments/customer-payments/{id}/refund — refund part or all of a
 // gateway payment. Admin and above with the commerce.refunds permission.
-//     { amount (major units, e.g. "120.50"), reason, note?, restock?, return_id?, client_request_id }
+//     { amount (major units, e.g. "120.50"), reason, note?, restock?, return_id?, to_store_credit?, client_request_id }
+// `to_store_credit: true` gives the money back as store credit instead of through the gateway: the refund is
+// recorded as processed at once and the customer's credit balance grows by the same amount (200, not 202).
 // The refund row, its send job and the audit entry commit together; the send
 // happens in the worker. `client_request_id` (a UUID per click) makes a replay
 // return the same refund instead of refunding twice.
@@ -13,6 +15,7 @@ import { withTenant } from '@/lib/db/tenant';
 import { getT } from '@/lib/i18n/translate';
 import { paymentsErrorResponse, readJsonObject } from '@/lib/payments/http';
 import { refundAmountFrom, REFUND_REASONS, requestRefund, type RefundReason } from '@/lib/payments/refunds';
+import { refundToStoreCredit } from '@/lib/commerce/store-credit';
 import { checkRateLimit, rateLimitResponse } from '@/lib/rate-limit';
 
 const t = getT('Validation.payments');
@@ -40,6 +43,15 @@ export async function POST(request: Request, context: Context) {
     if (!payment) return NextResponse.json({ error: t('not_found'), code: 'not_found' }, { status: 404 });
     const amountMinor = refundAmountFrom(body.amount, payment.currency);
     const returnId = typeof body.return_id === 'string' && body.return_id ? body.return_id : null;
+    if (body.to_store_credit === true) {
+      // A return has its own refund flow; store credit here is for a plain refund of the payment.
+      if (returnId) return NextResponse.json({ error: t('invalidRequest'), code: 'return_id' }, { status: 400 });
+      const credited = await refundToStoreCredit({ ...tenantOf(ctx), userId: ctx.userId }, {
+        paymentId: id, amountMinor, reason: body.reason as RefundReason, note: typeof body.note === 'string' ? body.note : null,
+        restock: body.restock === true, clientRequestId,
+      });
+      return NextResponse.json({ refund_id: credited.refundId, store_credit: true }, { status: 200, headers: { 'Cache-Control': 'private, no-store' } });
+    }
     const { refundId } = await requestRefund({ ...tenantOf(ctx), userId: ctx.userId }, {
       paymentId: id, amountMinor, reason: body.reason as RefundReason, note: typeof body.note === 'string' ? body.note : null,
       restock: body.restock === true, returnId, clientRequestId,

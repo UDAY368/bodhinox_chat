@@ -122,7 +122,7 @@ export async function listRefunds(params: { orderId?: string; status?: string; b
   return (await json<{ refunds: CustomerRefundItem[] }>(res, fallback)).refunds;
 }
 
-export async function requestRefund(paymentId: string, body: { amount: string; reason: RefundReason; note?: string; restock: boolean; client_request_id: string }, fallback: string): Promise<string> {
+export async function requestRefund(paymentId: string, body: { amount: string; reason: RefundReason; note?: string; restock: boolean; client_request_id: string; to_store_credit?: boolean }, fallback: string): Promise<string> {
   const res = await authFetch(`/api/payments/customer-payments/${paymentId}/refund`, {
     method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
   });
