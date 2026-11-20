@@ -18,7 +18,7 @@ export async function POST(request: Request, context: Context) {
     const session = await requireSession(request);
     await assertMutation(request, session);
     if (!hasMinRole(session.role, 'admin')) throw new ForbiddenError('Reviewing sends requires an admin role');
-    const limit = checkRateLimit(`needsReview:resolve:${session.userId}`, { limit: 60, windowMs: 60_000 });
+    const limit = await checkRateLimit(`needsReview:resolve:${session.userId}`, { limit: 60, windowMs: 60_000 });
     if (!limit.success) return rateLimitResponse(limit);
     const { id } = await context.params;
     const body = (await request.json().catch(() => null)) as { action?: unknown } | null;
