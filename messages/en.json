@@ -14908,7 +14908,8 @@
       "exceptions": "Holidays & exceptions",
       "pages": "Booking pages",
       "settings": "Settings",
-      "tasks": "Tasks"
+      "tasks": "Tasks",
+      "team": "Team"
     },
     "status": {
       "held": "Awaiting WhatsApp",
@@ -15004,7 +15005,10 @@
       "meeting_deleted": "Zoom meeting removed",
       "meeting_sync_failed": "Zoom meeting could not be set up",
       "meeting_joined_provider": "Zoom recorded a join",
-      "attendance_confirmed": "Customer confirmed"
+      "attendance_confirmed": "Customer confirmed",
+      "deal_linked": "Deal linked",
+      "deal_unlinked": "Deal unlinked",
+      "refund_requested": "Refund requested"
     },
     "actors": {
       "staff": "Staff",
@@ -15302,6 +15306,78 @@
       "loadFailed": "Couldn't load bookings.",
       "showMore": "Show more",
       "waitingForPayment": "Waiting for payment"
+    },
+    "screen": {
+      "newBooking": "New booking",
+      "bookingLink": "Booking links",
+      "viewsLabel": "Schedule view",
+      "viewToday": "Today",
+      "viewWeek": "Week",
+      "viewList": "List",
+      "truncated": "Showing the first {count}. Narrow the dates or load more.",
+      "loadMore": "Load more",
+      "attention": "Needs attention",
+      "outcomeDue": "Outcome due",
+      "taskDue": "Task",
+      "noBookingsToday": "No bookings today",
+      "noBookings": "No bookings in these dates",
+      "teamStaff": "Staff and hours",
+      "teamHolidays": "Holidays and exceptions",
+      "teamLocations": "Locations",
+      "settingsPages": "Booking pages",
+      "settingsMessages": "Messages and reminders",
+      "settingsDeals": "Deals",
+      "reminderButtonsLater": "Reminder buttons will appear here once they are available."
+    },
+    "payment": {
+      "title": "Payment",
+      "paid": "Paid",
+      "waiting": "Waiting for payment",
+      "refunded": "Refunded",
+      "open": "Open payments",
+      "refundThis": "Refund this payment",
+      "refundHelp": "Cancelling did not refund the customer. Refund the payment separately if you need to.",
+      "refundRecorded": "Refund requested"
+    },
+    "links": {
+      "openContact": "Open contact",
+      "openChat": "Open chat",
+      "customerConfirmed": "Customer confirmed",
+      "cameFrom": "Came from",
+      "campaign": "Campaign: {name}",
+      "ad": "Ad: {name}",
+      "adNoName": "Ad click"
+    },
+    "deal": {
+      "title": "Deal",
+      "none": "No deal linked",
+      "link": "Link a deal",
+      "unlink": "Unlink",
+      "unlinkConfirm": "Unlink this deal from the booking?",
+      "open": "Open deal",
+      "search": "Search deals",
+      "empty": "No open deals for this customer",
+      "loadMore": "Load more",
+      "linked": "Deal linked",
+      "unlinked": "Deal unlinked",
+      "stageLabel": "When a booking is completed, move its deal to",
+      "stageNone": "Leave deals where they are",
+      "stageHelp": "Only open deals move, and only to a stage in the deal's own pipeline.",
+      "stageSaved": "Saved"
+    },
+    "intake": {
+      "label": "Intake form",
+      "none": "No form",
+      "help": "Sent on WhatsApp after a booking of this service is confirmed. Only published forms are listed.",
+      "loadMore": "Load more forms",
+      "saved": "Saved"
+    },
+    "drag": {
+      "moveTitle": "Move this booking?",
+      "moveBody": "{from} to {to}",
+      "move": "Move",
+      "moved": "Booking moved",
+      "hint": "Drag a booking to move it (press and hold on touch screens), or focus it and use the arrow keys, then Enter."
     }
   },
   "AppointmentSettings": {
