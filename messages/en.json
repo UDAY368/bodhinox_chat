@@ -15326,8 +15326,7 @@
       "teamLocations": "Locations",
       "settingsPages": "Booking pages",
       "settingsMessages": "Messages and reminders",
-      "settingsDeals": "Deals",
-      "reminderButtonsLater": "Reminder buttons will appear here once they are available."
+      "settingsDeals": "Deals"
     },
     "payment": {
       "title": "Payment",
@@ -15342,7 +15341,6 @@
     "links": {
       "openContact": "Open contact",
       "openChat": "Open chat",
-      "customerConfirmed": "Customer confirmed",
       "cameFrom": "Came from",
       "campaign": "Campaign: {name}",
       "ad": "Ad: {name}",

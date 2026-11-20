@@ -25,6 +25,7 @@ import { BookingPagesPanel } from '@/components/appointments/booking-pages-panel
 import { ExceptionsPanel } from '@/components/appointments/exceptions-panel';
 import { LocationsPanel } from '@/components/appointments/locations-panel';
 import { NewAppointmentDialog } from '@/components/appointments/new-appointment-dialog';
+import { ReminderTemplateCard } from '@/components/appointments/reminder-template-card';
 import { ScheduleView } from '@/components/appointments/schedule-view';
 import { ServicesPanel } from '@/components/appointments/services-panel';
 import { DealStageCard, SettingsPanel } from '@/components/appointments/settings-panel';
@@ -164,7 +165,7 @@ function AppointmentsContent() {
               </Section>
               <Section id="messages" title={t('screen.settingsMessages')}>
                 <SettingsPanel canEdit={abilities.settings} />
-                {/* TODO(b3 WP-B): mount <ReminderTemplateCard canEdit={abilities.settings} /> from ./reminder-template-card here once WP-B's file lands. */}
+                <ReminderTemplateCard canEdit={abilities.settings} />
               </Section>
               <Section id="deals" title={t('screen.settingsDeals')}>
                 <DealStageCard canEdit={abilities.settings} />

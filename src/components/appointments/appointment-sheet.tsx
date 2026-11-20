@@ -243,7 +243,7 @@ export function AppointmentSheet({
                     : <span className="text-muted-foreground">{t('schedule.awaitingContact')}</span>}
                   {a.attendance_confirmed_at && (
                     <span className="mt-0.5 block text-footnote text-emerald-600 dark:text-emerald-400" data-testid="customer-confirmed">
-                      {t('links.customerConfirmed')} · {fmt(a.attendance_confirmed_at)}
+                      {t('events.attendance_confirmed')} · {fmt(a.attendance_confirmed_at)}
                     </span>
                   )}
                 </dd>
