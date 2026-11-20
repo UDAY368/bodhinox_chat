@@ -4,6 +4,8 @@
 // limit values in SQL stay in step with the shared types. schema-inventory.json
 // carries every new column (contracts.ts reads it). The database behaviour
 // itself is covered by phase3-schema.integration.test.ts.
+// Batch 5's event-feed triggers came later still (20261205006000).
+import { EVENT_TRIGGER_TYPES } from '@/lib/events/types';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -42,7 +44,7 @@ describe('Stage 4A migration inventory', () => {
   it('adds the Share-to-Story trigger to the flow check, on top of every existing trigger', () => {
     const values = inList(sql('20261117190300_flow_ig_share_trigger'), 'trigger_type');
     // The automation list's event triggers came later (20261122003000, flow-event-triggers-schema.test.ts).
-    const later = ['contact_created', 'tag_added', 'outside_hours'];
+    const later: string[] = ['contact_created', 'tag_added', 'outside_hours', ...EVENT_TRIGGER_TYPES];
     expect(values.sort()).toEqual([...FLOW_TRIGGER_TYPES].filter((type) => !later.includes(type)).sort());
     expect(values).toContain('ig_share_to_story');
     expect(columnsDefinition('flows', 'trigger_type')).toContain("'ig_share_to_story'");
