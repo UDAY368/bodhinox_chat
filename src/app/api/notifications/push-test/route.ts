@@ -12,7 +12,7 @@ import { checkRateLimit, rateLimitResponse, RATE_LIMITS } from '@/lib/rate-limit
 export async function POST() {
   try {
     const ctx = await getCurrentAccount();
-    const limit = checkRateLimit(`push:test:${ctx.userId}`, RATE_LIMITS.adminAction);
+    const limit = await checkRateLimit(`push:test:${ctx.userId}`, RATE_LIMITS.adminAction);
     if (!limit.success) return rateLimitResponse(limit);
     if (!webPushAvailable()) return NextResponse.json({ error: 'push_unavailable', code: 'push_unavailable' }, { status: 503 });
     const result = await sendTestPush({ accountId: ctx.accountId, userId: ctx.userId, role: ctx.role });

@@ -15,7 +15,7 @@ type Params = { params: Promise<{ id: string }> };
 async function change(request: Request, { params }: Params, member: boolean) {
   try {
     const ctx = await requireRole('admin');
-    const limit = checkRateLimit(`commerce:customer-groups:${ctx.userId}`, RATE_LIMITS.adminAction);
+    const limit = await checkRateLimit(`commerce:customer-groups:${ctx.userId}`, RATE_LIMITS.adminAction);
     if (!limit.success) return rateLimitResponse(limit);
     const { id } = await params;
     const body = (await request.json().catch(() => null)) as { contact_id?: unknown } | null;

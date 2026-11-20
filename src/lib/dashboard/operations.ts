@@ -12,20 +12,26 @@ export async function loadDashboardOperations(context: TenantContext, days = 7):
     const rows = await tx.$queryRaw<{ overview: DashboardOperations }[]>(Prisma.sql`
       WITH settings AS (
         SELECT reply_target_minutes FROM accounts WHERE id=${context.accountId}::uuid
-      ), message_state AS (
-        SELECT conversation_id,
-          max(created_at) FILTER (WHERE sender_type='customer') AS inbound_at,
-          max(created_at) FILTER (WHERE sender_type IN ('agent','bot') AND status IN ('sent','delivered','read')
-            AND content_type NOT IN ('template','system')) AS reply_at
-        FROM messages WHERE account_id=${context.accountId}::uuid GROUP BY conversation_id
       ), queue_state AS (
+        -- Open chats only (a closed chat is never waiting), each read through the per-conversation
+        -- message indexes: the latest customer message and whether any real reply came after it.
+        -- Never a scan of the whole message history.
         SELECT c.id, coalesce(nullif(ct.name,''),${phoneName},'Contact') AS name,
           c.assigned_agent_id, c.bot_paused AS handed_off, s.inbound_at,
           s.inbound_at + interval '24 hours' AS closes_at,
-          (c.status <> 'closed' AND s.inbound_at IS NOT NULL AND (s.reply_at IS NULL OR s.reply_at < s.inbound_at)) AS waiting
-        FROM conversations c LEFT JOIN message_state s ON s.conversation_id=c.id
+          (s.inbound_at IS NOT NULL AND NOT EXISTS (
+            SELECT 1 FROM messages r
+            WHERE r.account_id=c.account_id AND r.conversation_id=c.id AND r.created_at>=s.inbound_at
+              AND r.sender_type IN ('agent','bot') AND r.status IN ('sent','delivered','read')
+              AND r.content_type NOT IN ('template','system'))) AS waiting
+        FROM conversations c
+        LEFT JOIN LATERAL (
+          SELECT i.created_at AS inbound_at FROM messages i
+          WHERE i.account_id=c.account_id AND i.conversation_id=c.id AND i.sender_type='customer'
+          ORDER BY i.created_at DESC, i.arrival_sequence DESC LIMIT 1
+        ) s ON true
         LEFT JOIN contacts ct ON ct.id=c.contact_id AND ct.account_id=c.account_id
-        WHERE c.account_id=${context.accountId}::uuid
+        WHERE c.account_id=${context.accountId}::uuid AND c.status <> 'closed'
       ), real_replies AS (
         SELECT m.sender_id,m.sender_type,m.created_at,inbound.created_at AS inbound_at,
           NOT EXISTS (
@@ -63,11 +69,12 @@ export async function loadDashboardOperations(context: TenantContext, days = 7):
         FROM account_memberships membership JOIN profiles p ON p.user_id=membership.user_id
         WHERE membership.account_id=${context.accountId}::uuid
       ), pipeline AS (
+        -- Won and lost count by when the deal closed (closed_at, set by the deals trigger), not its last edit.
         SELECT p.id,p.name,count(d.id) FILTER(WHERE d.status='open') AS open,
-          count(d.id) FILTER(WHERE d.status='won' AND d.updated_at>=now()-(${days}*interval '1 day')) AS won,
-          count(d.id) FILTER(WHERE d.status='lost' AND d.updated_at>=now()-(${days}*interval '1 day')) AS lost,
+          count(d.id) FILTER(WHERE d.status='won' AND d.closed_at>=now()-(${days}*interval '1 day')) AS won,
+          count(d.id) FILTER(WHERE d.status='lost' AND d.closed_at>=now()-(${days}*interval '1 day')) AS lost,
           count(d.id) FILTER(WHERE d.status='open' AND d.updated_at<now()-interval '7 days') AS idle,
-          avg(extract(epoch FROM(d.updated_at-d.created_at))/86400) FILTER(WHERE d.status='won' AND d.updated_at>=now()-(${days}*interval '1 day')) AS "avgDaysToWin"
+          avg(extract(epoch FROM(d.closed_at-d.created_at))/86400) FILTER(WHERE d.status='won' AND d.closed_at>=now()-(${days}*interval '1 day')) AS "avgDaysToWin"
         FROM pipelines p LEFT JOIN deals d ON d.pipeline_id=p.id AND d.account_id=p.account_id
         WHERE p.account_id=${context.accountId}::uuid GROUP BY p.id,p.name
       ) SELECT json_build_object(

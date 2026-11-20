@@ -29,7 +29,7 @@ const notFound = () => NextResponse.json({ error: t('common.notFound') }, { stat
 export async function POST(request: Request, { params }: Params) {
   try {
     const { db, accountId, userId, role } = await requireRole('agent')
-    const limit = checkRateLimit(`ai-unanswered:${userId}`, RATE_LIMITS.adminAction)
+    const limit = await checkRateLimit(`ai-unanswered:${userId}`, RATE_LIMITS.adminAction)
     if (!limit.success) return rateLimitResponse(limit)
 
     const { id } = await params

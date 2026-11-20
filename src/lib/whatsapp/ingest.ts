@@ -2,12 +2,12 @@ import { getWorkerPrisma } from "@/lib/db/prisma";
 import { withTenant } from "@/lib/db/tenant";
 import { NotDispatchedError, UncertainDispatchError } from "@/lib/jobs/dispatch";
 import { LONG_RETRY_ATTEMPTS } from "@/lib/jobs/retry";
+import { conversationLaneKey } from "@/lib/jobs/lanes";
 import { formSummaryText, recordFormResponse, type FormAnswers } from "@/lib/whatsapp/forms/responses";
 import type { InboundFormPayload } from "@/lib/whatsapp/inbound-structured";
 import { randomUUID } from "node:crypto";
 import { orderContentText, type InboundOrder, type OrderMessagePayload } from "@/lib/commerce/order-format";
 import { recordWhatsAppOrder, withProductNames } from "@/lib/commerce/orders";
-import { emitOrderCreated } from "@/lib/webhooks/commerce-events";
 import { notifyAssignedMessage } from "@/lib/notifications/emit";
 import { recordReferralTx, toAdReferralSummary, type AdReferral, type AdReferralSummary } from "@/lib/meta-ads/referrals";
 import { queueConversionEventTx } from "@/lib/meta-ads/capi";
@@ -59,10 +59,7 @@ export type InboundActionsPayload = MessageActionsPayload | StatusActionsPayload
 
 /** Message identity, unread state and follow-up work commit together. */
 export async function ingestInboundMessage(input: IngestInboundInput): Promise<{ messageId: string; inserted: boolean; isFirstInboundMessage: boolean }> {
-  // Set only by the attempt that commits a new cart order (reset per attempt).
-  let createdOrder: { order: OrderMessagePayload; createdAt: Date } | null = null;
   const result = await withTenant({ accountId: input.accountId, userId: input.userId, role: "owner" }, async tx => {
-    createdOrder = null;
     const conversation = await tx.$queryRaw<{ id: string }[]>`SELECT id FROM conversations
       WHERE account_id=${input.accountId}::uuid AND id=${input.conversationId}::uuid AND contact_id=${input.contactId}::uuid FOR UPDATE`;
     if (!conversation.length) throw new Error("Inbound conversation is unavailable");
@@ -94,10 +91,8 @@ export async function ingestInboundMessage(input: IngestInboundInput): Promise<{
       if (!existing.length) throw new Error("Inbound message identity could not be resolved");
       return { messageId: existing[0].id, inserted: false, isFirstInboundMessage: false };
     }
-    if (order && await recordWhatsAppOrder(tx, { accountId: input.accountId, orderId: order.order_id, metaMessageId: input.metaMessageId,
-      contactId: input.contactId, conversationId: input.conversationId, whatsappConfigId: input.whatsappConfigId ?? null, order })) {
-      createdOrder = { order, createdAt: input.createdAt };
-    }
+    if (order) await recordWhatsAppOrder(tx, { accountId: input.accountId, orderId: order.order_id, metaMessageId: input.metaMessageId,
+      contactId: input.contactId, conversationId: input.conversationId, whatsappConfigId: input.whatsappConfigId ?? null, order });
     // Pure DB work under a savepoint; never throws, so a bad referral cannot drop the message.
     // A redelivery returned above, and ON CONFLICT makes the insert idempotent as well.
     const referralId = input.referral ? await recordReferralTx(tx, { accountId: input.accountId, contactId: input.contactId,
@@ -123,28 +118,17 @@ export async function ingestInboundMessage(input: IngestInboundInput): Promise<{
       last_message_text=${input.contentText || `[${input.contentType}]`},last_message_at=NOW(),
       status=CASE WHEN status='closed' THEN 'open' ELSE status END,updated_at=NOW()
       WHERE account_id=${input.accountId}::uuid AND id=${input.conversationId}::uuid`;
-    await tx.$executeRaw`INSERT INTO jobs(type,tenant_id,payload,dedupe_key,max_attempts)
-      VALUES('inbound.actions',${input.accountId}::uuid,${JSON.stringify(payload)}::jsonb,${`inbound:${inserted[0].id}`},${LONG_RETRY_ATTEMPTS})
+    // Keyed by conversation: the worker runs one conversation's actions one at a time, oldest first.
+    await tx.$executeRaw`INSERT INTO jobs(type,tenant_id,payload,dedupe_key,max_attempts,lane_key)
+      VALUES('inbound.actions',${input.accountId}::uuid,${JSON.stringify(payload)}::jsonb,${`inbound:${inserted[0].id}`},${LONG_RETRY_ATTEMPTS},${conversationLaneKey(input.conversationId)})
       ON CONFLICT(dedupe_key) DO NOTHING`;
     // The assignee's "new message" alert commits with the message (debounced per conversation).
     await notifyAssignedMessage(tx, { accountId: input.accountId, conversationId: input.conversationId,
       contactId: input.contactId, messageId: inserted[0].id });
     return { messageId: inserted[0].id, inserted: true, isFirstInboundMessage: payload.isFirstInboundMessage };
   }, getWorkerPrisma());
-  // order.created goes out only after the order has committed, and only from
-  // the delivery that created it: a redelivered webhook finds the message and
-  // never reaches recordWhatsAppOrder, so the event is emitted once per cart.
-  // Best effort like every outbound webhook (emitOrderCreated never throws);
-  // ids, totals and counts only, no item names or the customer's note.
-  const created = createdOrder as { order: OrderMessagePayload; createdAt: Date } | null;
-  if (created) {
-    await emitOrderCreated(input.accountId, {
-      orderId: created.order.order_id, source: "whatsapp_cart", status: "new",
-      totalMinor: created.order.subtotal_minor, currency: created.order.currency,
-      itemCount: created.order.items.reduce((sum, item) => sum + item.quantity, 0),
-      contactId: input.contactId, conversationId: input.conversationId, occurredAt: created.createdAt,
-    });
-  }
+  // order.created is recorded in the event feed by the orders trigger, in the order's own
+  // transaction, and delivered by the events.dispatch job (src/lib/events/dispatch.ts).
   return result;
 }
 
@@ -210,8 +194,8 @@ export async function applyProviderStatus(accountId: string, event: ProviderStat
     for (const row of updated) {
       const payload: StatusActionsPayload = { kind: "status", messageId: row.id, accountId,
         conversationId: row.conversation_id, metaMessageId: event.id, status: event.status };
-      await tx.$executeRaw`INSERT INTO jobs(type,tenant_id,payload,dedupe_key,max_attempts)
-        VALUES('inbound.actions',${accountId}::uuid,${JSON.stringify(payload)}::jsonb,${`status:${row.id}:${event.status}`},${LONG_RETRY_ATTEMPTS})
+      await tx.$executeRaw`INSERT INTO jobs(type,tenant_id,payload,dedupe_key,max_attempts,lane_key)
+        VALUES('inbound.actions',${accountId}::uuid,${JSON.stringify(payload)}::jsonb,${`status:${row.id}:${event.status}`},${LONG_RETRY_ATTEMPTS},${conversationLaneKey(row.conversation_id)})
         ON CONFLICT(dedupe_key) DO NOTHING`;
     }
   }, getWorkerPrisma());

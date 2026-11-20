@@ -14,7 +14,7 @@ export async function POST(_request: Request, context: { params: Promise<{ id: s
   try {
     const { id } = await context.params;
     const ctx = await requireRole('admin');
-    const limit = checkRateLimit(`catalogs:sync:${ctx.userId}`, RATE_LIMITS.adminAction);
+    const limit = await checkRateLimit(`catalogs:sync:${ctx.userId}`, RATE_LIMITS.adminAction);
     if (!limit.success) return rateLimitResponse(limit);
     await requestCatalogSync(tenantOf(ctx), id);
     return NextResponse.json({ queued: true }, { status: 202 });

@@ -861,6 +861,7 @@ model jobs {
   created_at DateTime @db.Timestamptz(6) @default(now())
   updated_at DateTime @db.Timestamptz(6) @default(now())
   lease_token String? @db.Uuid
+  lane_key String?
 }
 
 model webhook_receipts {
@@ -903,6 +904,21 @@ model outbox_events {
   @@unique([account_id, id])
 }
 
+model domain_events {
+  id String @db.Uuid @id @default(dbgenerated("gen_random_uuid()"))
+  account_id String @db.Uuid
+  type String
+  subject_kind String
+  subject_id String @db.Uuid
+  contact_id String? @db.Uuid
+  data Json @db.JsonB @default("{}")
+  dedupe_key String?
+  occurred_at DateTime @db.Timestamptz(6) @default(now())
+  @@unique([account_id, id])
+  @@index([account_id, subject_kind, subject_id, occurred_at], map: "domain_events_subject_idx")
+  @@index([account_id, occurred_at], map: "domain_events_occurred_idx")
+}
+
 model outbound_intents {
   id String @db.Uuid @id @default(dbgenerated("gen_random_uuid()"))
   account_id String @db.Uuid
@@ -914,6 +930,8 @@ model outbound_intents {
   updated_at DateTime @db.Timestamptz(6) @default(now())
   last_error String?
   result Json? @db.JsonB
+  /// The job that claimed the send (null outside a job and before 20261205003000).
+  job_id String? @db.Uuid
   @@unique([account_id, id])
 }
 

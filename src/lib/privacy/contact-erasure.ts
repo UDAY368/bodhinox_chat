@@ -156,6 +156,8 @@ export async function runContactErasure(accountId: string, payload: Record<strin
     c.formAnswers = await tx.$executeRaw`DELETE FROM whatsapp_form_responses WHERE ${where}`;
     c.formSessions = await tx.$executeRaw`DELETE FROM whatsapp_form_sessions WHERE ${where}`;
     c.notifications = await tx.$executeRaw`DELETE FROM notifications WHERE ${where}`;
+    // The contact's event-feed records (ids and amounts, but they name the contact).
+    c.domainEvents = await tx.$executeRaw`DELETE FROM domain_events WHERE ${where}`;
     c.contacts = await tx.$executeRaw`DELETE FROM contacts WHERE account_id=${accountId}::uuid AND id=${contactId}::uuid`;
     // Realtime copies of the contact, its conversations and messages, including the delete events just written.
     const refs = [contactId, ...conversations.map((r) => r.id)];

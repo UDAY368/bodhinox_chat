@@ -19,8 +19,8 @@ const t = getT('Validation.shipments');
 export const actorOf = (ctx: AccountContext): FulfilmentActor => ({ ...tenantOf(ctx), userId: ctx.userId });
 
 /** null when the member may write, else the 429 response. */
-export function writeLimit(key: string, userId: string): NextResponse | null {
-  const limit = checkRateLimit(`${key}:${userId}`, RATE_LIMITS.adminAction);
+export async function writeLimit(key: string, userId: string): Promise<NextResponse | null> {
+  const limit = await checkRateLimit(`${key}:${userId}`, RATE_LIMITS.adminAction);
   return limit.success ? null : (rateLimitResponse(limit) as NextResponse);
 }
 

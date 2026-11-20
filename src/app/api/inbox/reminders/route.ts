@@ -36,7 +36,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const ctx = await requireRole('agent');
-    const limit = checkRateLimit(`inbox:reminders:${ctx.userId}`, REMINDER_WRITE_LIMIT);
+    const limit = await checkRateLimit(`inbox:reminders:${ctx.userId}`, REMINDER_WRITE_LIMIT);
     if (!limit.success) return rateLimitResponse(limit);
     const input = parseReminderCreate(await request.json().catch(() => null));
     return NextResponse.json({ reminder: await createReminder(tenantOf(ctx), input) }, { status: 201, headers: reminderHeaders });

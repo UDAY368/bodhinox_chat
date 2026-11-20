@@ -12,7 +12,7 @@ export const GET = configCollection({ key: 'offerings', list: listOfferings }).G
 export async function PUT(request: Request) {
   try {
     const caller = await staffCaller(request, { min: 'admin', mutation: true, permission: 'appointments.settings' });
-    const limited = mutationLimit(caller);
+    const limited = await mutationLimit(caller);
     if (limited) return limited;
     const body = await readJson(request);
     return json({ offerings: await inTenant(caller, (tx) => setOfferings(tx, caller.accountId, caller.userId, body)) });

@@ -18,7 +18,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const caller = await staffCaller(request, { min: 'admin', mutation: true, permission: 'commerce.inventory' });
-    const limited = mutationLimit(caller);
+    const limited = await mutationLimit(caller);
     if (limited) return limited;
     return json({ order: await createPurchaseOrder(caller.tenant, parsePurchaseOrderInput(await readJson(request))) }, 201);
   } catch (error) {

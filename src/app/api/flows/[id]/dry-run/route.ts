@@ -24,7 +24,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   const { id } = await context.params;
   try {
     const caller = await requireFlowMutation(request);
-    const limit = checkRateLimit(`flows-dry-run:${caller.userId}`, { limit: 20, windowMs: 60_000 });
+    const limit = await checkRateLimit(`flows-dry-run:${caller.userId}`, { limit: 20, windowMs: 60_000 });
     if (!limit.success) return rateLimitResponse(limit);
     if (!FLOW_ID.test(id)) return NextResponse.json({ error: t('common.notFound') }, { status: 404 });
     const body = parseDryRunRequest(await request.json().catch(() => null));

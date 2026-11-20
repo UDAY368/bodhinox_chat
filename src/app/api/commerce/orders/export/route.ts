@@ -13,7 +13,7 @@ import { checkRateLimit, rateLimitResponse } from '@/lib/rate-limit';
 export async function GET(request: Request) {
   try {
     const ctx = await requireRole('admin');
-    const limit = checkRateLimit(`orders:export:${ctx.userId}`, { limit: 5, windowMs: 60_000 });
+    const limit = await checkRateLimit(`orders:export:${ctx.userId}`, { limit: 5, windowMs: 60_000 });
     if (!limit.success) return rateLimitResponse(limit);
     const filters = parseOrderFilters(new URL(request.url).searchParams);
     const { csv, rows, truncated } = await exportOrdersCsv(tenantOf(ctx), filters);

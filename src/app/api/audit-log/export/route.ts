@@ -12,7 +12,7 @@ import { NextResponse } from 'next/server';
 export async function GET(request: Request) {
   try {
     const ctx = await requireRole('admin');
-    const limit = checkRateLimit(`auditLogExport:${ctx.userId}`, RATE_LIMITS.adminAction);
+    const limit = await checkRateLimit(`auditLogExport:${ctx.userId}`, RATE_LIMITS.adminAction);
     if (!limit.success) return rateLimitResponse(limit);
     const params = new URL(request.url).searchParams;
     params.delete('cursor');

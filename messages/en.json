@@ -2011,6 +2011,38 @@
         },
         "fieldsRejected": "{count, plural, one {# custom value did not fit its field and was skipped} other {# custom values did not fit their fields and were skipped}}"
       }
+    },
+    "activity": {
+      "title": "Activity",
+      "empty": "Nothing yet. Orders, payments, bookings, forms and deal moves show here.",
+      "failed": "Could not load activity.",
+      "retry": "Retry",
+      "loadMore": "Show more",
+      "events": {
+        "order_created": "Placed an order",
+        "order_created_amount": "Placed an order of {amount}",
+        "order_paid": "Order paid",
+        "order_shipped": "Order shipped",
+        "order_delivered": "Order delivered",
+        "order_returned": "Return received",
+        "payment_received": "Payment received",
+        "payment_received_amount": "Paid {amount}",
+        "form_submitted": "Filled in a form",
+        "deal_stage_changed": "Deal moved",
+        "deal_stage_changed_named": "Deal moved to {stage}",
+        "deal_stage_changed_value": "Deal moved to {stage} ({value})",
+        "cart_abandoned": "Left items in the cart",
+        "appointment_booked": "Booking made",
+        "appointment_booked_named": "Booked {service}",
+        "appointment_cancelled": "Booking cancelled",
+        "appointment_cancelled_named": "{service} cancelled",
+        "appointment_rescheduled": "Booking moved",
+        "appointment_rescheduled_named": "{service} moved",
+        "appointment_completed": "Booking completed",
+        "appointment_completed_named": "{service} completed",
+        "appointment_no_show": "Missed a booking",
+        "appointment_no_show_named": "Missed {service}"
+      }
     }
   },
   "Pipelines": {
@@ -2254,7 +2286,14 @@
       "clicks": "{count, number} of {sent, number} recipients clicked the link",
       "trackedTo": "Link opens {url}",
       "apiTitle": "Add recipients through the API",
-      "apiHint": "Use an API key with the broadcasts:send scope. Up to 1,000 recipients per request; params fill the template variables in order."
+      "apiHint": "Use an API key with the broadcasts:send scope. Up to 1,000 recipients per request; params fill the template variables in order.",
+      "sales": {
+        "title": "Sales from this campaign",
+        "orders": "{count, plural, =1 {# order} other {# orders}}",
+        "revenue": "Revenue",
+        "hint": "Paid orders from people who got this campaign in the 7 days before buying, when it was the last campaign they got. Refunds are taken off.",
+        "none": "No orders yet"
+      }
     },
     "new": {
       "title": "New Broadcast",
@@ -2561,7 +2600,8 @@
         "send_webhook": "Send Webhook",
         "close_conversation": "Resolve conversation",
         "notify_team": "Notify Team",
-        "start_flow": "Start a Flow"
+        "start_flow": "Start a Flow",
+        "move_deal_stage": "Move Deal Stage"
       },
       "triggers": {
         "new_message_received": {
@@ -2627,6 +2667,42 @@
         "field_changed": {
           "label": "Field Changed",
           "hint": "When a contact field changes"
+        },
+        "order_created": {
+          "label": "Order Created",
+          "hint": "A new order is placed"
+        },
+        "order_paid": {
+          "label": "Order Paid",
+          "hint": "An order is paid"
+        },
+        "order_shipped": {
+          "label": "Order Shipped",
+          "hint": "An order is dispatched"
+        },
+        "order_delivered": {
+          "label": "Order Delivered",
+          "hint": "An order is delivered"
+        },
+        "order_returned": {
+          "label": "Order Returned",
+          "hint": "A returned order is received back"
+        },
+        "payment_received": {
+          "label": "Payment Received",
+          "hint": "A customer payment is captured"
+        },
+        "form_submitted": {
+          "label": "Form Submitted",
+          "hint": "A customer submits a WhatsApp form"
+        },
+        "deal_stage_changed": {
+          "label": "Deal Stage Changed",
+          "hint": "A deal moves to another stage"
+        },
+        "cart_abandoned": {
+          "label": "Cart Abandoned",
+          "hint": "A customer leaves a cart without ordering"
         }
       },
       "trigger": "Trigger",
@@ -2751,7 +2827,19 @@
         "notifyTextLabel": "Notice text",
         "notifyTextPlaceholder": "New lead from {name}",
         "notifyTextHint": "In-app notice, up to 200 characters. You can use {contact} and {automation}; message content is never included.",
-        "bodyTemplateHint": "JSON. Placeholders are filled safely inside quoted strings, for example {example}."
+        "bodyTemplateHint": "JSON. Placeholders are filled safely inside quoted strings, for example {example}.",
+        "dealStatusLabel": "Then mark the deal",
+        "dealStatusOpen": "Keep it open",
+        "dealStatusWon": "Won",
+        "dealStatusLost": "Lost",
+        "moveDealHint": "Moves the contact's newest open deal in this pipeline. A rule started by this deal's own move never moves it again.",
+        "methodLabel": "Method",
+        "mappingsLabel": "Keep values from the reply",
+        "mappingPath": "Reply field (e.g. data.id)",
+        "mappingVar": "Variable name",
+        "mappingRemove": "Remove",
+        "mappingAdd": "Add value",
+        "mappingsHint": "Use them in later steps as {example}."
       },
       "preview": {
         "noText": "no text yet",
@@ -2817,6 +2905,26 @@
       "basics": "Basics",
       "sequences": "Sequences",
       "templates": "Templates"
+    },
+    "eventTriggers": {
+      "help": "Optional: leave a filter on Any to run for every event.",
+      "source": "Order source",
+      "anySource": "Any source",
+      "form": "Form",
+      "anyForm": "Any form",
+      "pipeline": "Pipeline",
+      "anyPipeline": "Any pipeline",
+      "stage": "Moved to stage",
+      "anyStage": "Any stage",
+      "missing": "Not found",
+      "vars": "Values you can use in messages",
+      "sources": {
+        "whatsapp": "WhatsApp",
+        "shopify": "Shopify",
+        "woocommerce": "WooCommerce",
+        "manual": "Manual",
+        "storefront": "Storefront"
+      }
     }
   },
   "Flows": {
@@ -2907,7 +3015,23 @@
       "chooseChannel": "Channel for the new automation",
       "triggerContactCreated": "Triggers on: a new contact's first message",
       "triggerTagAdded": "Triggers on: a tag is added",
-      "triggerOutsideHours": "Triggers on: a message outside working hours"
+      "triggerOutsideHours": "Triggers on: a message outside working hours",
+      "triggerEvents": {
+        "order_created": "Order Created",
+        "order_paid": "Order Paid",
+        "order_shipped": "Order Shipped",
+        "order_delivered": "Order Delivered",
+        "order_returned": "Order Returned",
+        "payment_received": "Payment Received",
+        "form_submitted": "Form Submitted",
+        "deal_stage_changed": "Deal Stage Changed",
+        "cart_abandoned": "Cart Abandoned",
+        "appointment_booked": "Appointment booked",
+        "appointment_cancelled": "Appointment cancelled",
+        "appointment_rescheduled": "Appointment rescheduled",
+        "appointment_completed": "Appointment completed",
+        "appointment_no_show": "Appointment no-show"
+      }
     },
     "edit": {
       "notFound": "Flow not found.",
@@ -3594,7 +3718,21 @@
       },
       "triggerContactCreatedTitle": "New contact is created",
       "triggerTagAddedTitle": "Tag is added",
-      "triggerOutsideHoursTitle": "Message outside working hours"
+      "triggerOutsideHoursTitle": "Message outside working hours",
+      "triggerOrderCreatedTitle": "Order Created",
+      "triggerOrderPaidTitle": "Order Paid",
+      "triggerOrderShippedTitle": "Order Shipped",
+      "triggerOrderDeliveredTitle": "Order Delivered",
+      "triggerOrderReturnedTitle": "Order Returned",
+      "triggerPaymentReceivedTitle": "Payment Received",
+      "triggerFormSubmittedTitle": "Form Submitted",
+      "triggerDealStageChangedTitle": "Deal Stage Changed",
+      "triggerCartAbandonedTitle": "Cart Abandoned",
+      "triggerAppointmentBookedTitle": "Appointment booked",
+      "triggerAppointmentCancelledTitle": "Appointment cancelled",
+      "triggerAppointmentRescheduledTitle": "Appointment rescheduled",
+      "triggerAppointmentCompletedTitle": "Appointment completed",
+      "triggerAppointmentNoShowTitle": "Appointment no-show"
     },
     "validation": {
       "noIssues": "No issues. Ready to activate.",
@@ -4117,7 +4255,9 @@
           "resume_automations": "Resume automations",
           "log_conversion": "Log conversion event",
           "set_conversation_status": "Mark conversation open or resolved",
-          "notify_team": "Notify the team"
+          "notify_team": "Notify the team",
+          "create_deal": "Create deal",
+          "move_deal_stage": "Move deal stage"
         },
         "increment": "Add to the number",
         "set": "Set to",
@@ -4130,7 +4270,19 @@
         "note": "Note for the team",
         "selfFlow": "An automation cannot start or stop itself.",
         "invalid": "Complete the settings of this action.",
-        "onSuccess": "After a valid answer, also do this"
+        "onSuccess": "After a valid answer, also do this",
+        "pipeline": "Pipeline",
+        "stage": "Stage",
+        "dealTitle": "Deal title",
+        "dealValue": "Value",
+        "createDealHelp": "Skipped when the contact already has an open deal in this pipeline.",
+        "dealStatus": "Then mark the deal",
+        "dealKeepOpen": "Keep it open",
+        "dealWon": "Won",
+        "dealLost": "Lost",
+        "moveDealHelp": "Moves the contact's newest open deal in this pipeline. A flow started by this deal's own move never moves it again.",
+        "dealNeedsStage": "Choose a pipeline and a stage",
+        "dealNeedsTitle": "Give the deal a title (at most 200 characters)"
       },
       "randomizer": {
         "title": "Split the traffic",
@@ -4412,7 +4564,21 @@
         "ig_share_to_story": "Share to story",
         "contact_created": "New contact",
         "tag_added": "Tag added",
-        "outside_hours": "Outside hours"
+        "outside_hours": "Outside hours",
+        "order_created": "Order Created",
+        "order_paid": "Order Paid",
+        "order_shipped": "Order Shipped",
+        "order_delivered": "Order Delivered",
+        "order_returned": "Order Returned",
+        "payment_received": "Payment Received",
+        "form_submitted": "Form Submitted",
+        "deal_stage_changed": "Deal Stage Changed",
+        "cart_abandoned": "Cart Abandoned",
+        "appointment_booked": "Appointment booked",
+        "appointment_cancelled": "Appointment cancelled",
+        "appointment_rescheduled": "Appointment rescheduled",
+        "appointment_completed": "Appointment completed",
+        "appointment_no_show": "Appointment no-show"
       }
     },
     "canvas": {
@@ -7924,7 +8090,8 @@
       "stage5Pending": "This step or setting is not available yet. Remove it to publish the flow.",
       "triggerTagRequired": "Choose the tag that starts this flow.",
       "triggerBadFrequency": "Choose how often this can start for one person.",
-      "appointmentPaidNotReady": "{count, plural, one {A picked service takes} other {# picked services take}} payment, and online payments are not set up. Turn on the store and connect Razorpay, or untick {count, plural, one {it} other {them}}."
+      "appointmentPaidNotReady": "{count, plural, one {A picked service takes} other {# picked services take}} payment, and online payments are not set up. Turn on the store and connect Razorpay, or untick {count, plural, one {it} other {them}}.",
+      "triggerEventFilterInvalid": "Choose a valid filter or leave it on Any"
     },
     "automations": {
       "needsStep": "active automations need at least one step",
@@ -7970,7 +8137,11 @@
       "webhookUrlNotAllowed": "The webhook URL points to a private or reserved address. Use a public address.",
       "oncePerContactInvalid": "Once per contact must be on or off.",
       "segmentUnavailable": "The chosen segment is not available in this workspace.",
-      "stage5Pending": "This trigger or step is not available yet. Choose another one to turn the automation on."
+      "stage5Pending": "This trigger or step is not available yet. Choose another one to turn the automation on.",
+      "eventFilterInvalid": "Choose a valid filter or leave it on Any",
+      "dealStatusInvalid": "Choose won, lost or keep the deal open",
+      "webhookMethodInvalid": "Choose GET, POST, PUT, PATCH or DELETE",
+      "webhookMappingsInvalid": "Each kept value needs a reply field and a variable name (letters, digits, _), at most {max}"
     },
     "templates": {
       "nameRequired": "Template name is required.",
@@ -17659,7 +17830,9 @@
       "sent": "Sent",
       "delivered": "Delivered",
       "read": "Read",
-      "replied": "Replied"
+      "replied": "Replied",
+      "orders": "Orders",
+      "revenue": "Revenue"
     },
     "when": {
       "draft": "Not sent yet",
@@ -19130,5 +19303,44 @@
     "error": "Contacts didn't load.",
     "retry": "Retry",
     "loadMore": "Load more"
+  },
+  "NeedsReview": {
+    "railLabel": "Needs review",
+    "title": "Needs review",
+    "subtitle": "Messages we could not confirm were delivered. Check the chat, then mark each one.",
+    "count": "{count, plural, one {# to check} other {# to check}}",
+    "empty": "Nothing to review",
+    "emptyBody": "Every message has a confirmed outcome.",
+    "failed": "Could not load the list.",
+    "loadMore": "Show more",
+    "unnamed": "Unnamed contact",
+    "openChat": "Open chat",
+    "wasSent": "Was sent",
+    "sendAgain": "Send again",
+    "markNotSent": "Mark not sent",
+    "confirmSendTitle": "Send this message again?",
+    "confirmSendBody": "Do this only after checking the chat. If the first message did arrive, the customer gets it twice.",
+    "confirmNotSentTitle": "Mark as not sent?",
+    "confirmNotSentBody": "It leaves this list. Send it again from the chat if it is still needed.",
+    "doneSent": "Marked as sent",
+    "doneQueued": "Queued to send again",
+    "doneCampaign": "Marked not sent. Use Retry failed on the campaign to send it.",
+    "doneCleared": "Marked not sent",
+    "actionFailed": "Could not save. Try again.",
+    "gone": "Already handled",
+    "kinds": {
+      "order": "Order message",
+      "appointment": "Booking message",
+      "store_event": "Store message",
+      "flow": "Flow message",
+      "rule": "Rule message",
+      "campaign": "Campaign message",
+      "scheduled_reply": "Scheduled reply",
+      "other": "Message"
+    },
+    "reasons": {
+      "outcome_unknown": "No answer from the provider",
+      "stuck_sending": "Sending did not finish"
+    }
   }
 }

@@ -26,7 +26,7 @@ export async function PATCH(request: Request, { params }: Params) {
   try {
     const { id } = await params;
     const ctx = await requireRole('agent');
-    const limit = checkRateLimit(`inbox:scheduled:${ctx.userId}`, SCHEDULED_REPLY_WRITE_LIMIT);
+    const limit = await checkRateLimit(`inbox:scheduled:${ctx.userId}`, SCHEDULED_REPLY_WRITE_LIMIT);
     if (!limit.success) return rateLimitResponse(limit);
     const patch = parseScheduledReplyPatch(await request.json().catch(() => null));
     const row = patch.kind === 'reconcile'

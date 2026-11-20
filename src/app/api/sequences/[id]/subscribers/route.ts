@@ -37,7 +37,7 @@ export async function POST(request: Request, { params }: Params) {
     const { id } = await params;
     const ctx = await requireRole('agent');
     requireInstagram();
-    const limit = checkRateLimit(`sequences:write:${ctx.userId}`, SEQUENCE_WRITE_LIMIT);
+    const limit = await checkRateLimit(`sequences:write:${ctx.userId}`, SEQUENCE_WRITE_LIMIT);
     if (!limit.success) return rateLimitResponse(limit);
     const input = parseSubscriberAction(await request.json().catch(() => null));
     return NextResponse.json(await changeSubscriber(tenantOf(ctx), id, input), { headers: sequenceHeaders });

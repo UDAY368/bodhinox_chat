@@ -29,7 +29,7 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const ctx = await requireRole('viewer');
-    const limit = checkRateLimit(`inbox:saved-filters:${ctx.userId}`, PREFERENCE_WRITE_LIMIT);
+    const limit = await checkRateLimit(`inbox:saved-filters:${ctx.userId}`, PREFERENCE_WRITE_LIMIT);
     if (!limit.success) return rateLimitResponse(limit);
     const input = parseSavedFilterCreate(await request.json().catch(() => null));
     return NextResponse.json({ saved_filter: await createSavedFilter(tenantOf(ctx), input) }, { status: 201 });

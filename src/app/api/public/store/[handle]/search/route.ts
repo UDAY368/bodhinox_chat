@@ -12,7 +12,7 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(request: Request, { params }: HandleParams) {
   try {
-    if (!burstAllowed('read', request)) return tooMany();
+    if (!(await burstAllowed('read', request))) return tooMany();
     const { handle } = await params;
     if (!isShopHandleFormat(handle)) return notFound();
     const suggestions = await searchSuggestions(handle, new URL(request.url).searchParams.get('q'));

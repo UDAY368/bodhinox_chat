@@ -5,6 +5,7 @@ import { verifyAccessToken } from './jwt';
 import { assertCsrf, assertOrigin } from './csrf';
 import { UnauthorizedError } from './errors';
 import { isAccountRole, type AccountRole } from './roles';
+import { readCachedSession, sessionCacheKey, writeCachedSession } from './session-cache';
 
 export interface AuthContext {
   userId: string;
@@ -21,6 +22,7 @@ export interface AuthContext {
 }
 type SessionRow = {
   user_id: string;
+  csrf_hash: string;
   account_id: string;
   role: string;
   email: string;
@@ -28,6 +30,14 @@ type SessionRow = {
   expires_at: Date;
   created_at: Date;
 };
+/** The CSRF hash read with each resolved session, so assertMutation needs no second query. */
+const csrfHashes = new WeakMap<AuthContext, string>();
+/** A fresh copy per request (callers never share one object), carrying its CSRF hash. */
+function issue(context: AuthContext, csrfHash: string): AuthContext {
+  const copy = { ...context, user: { ...context.user, user_metadata: { ...context.user.user_metadata } } };
+  csrfHashes.set(copy, csrfHash);
+  return copy;
+}
 // MFA is optional for every role: a user with a verified factor must pass it at sign-in, nobody is forced to enrol.
 async function resolve(
   request: Request | undefined
@@ -54,8 +64,12 @@ async function resolve(
   } catch {
     return null;
   }
+  // The access token was verified above (signature and expiry); the cache is keyed by its hash.
+  const cacheKey = sessionCacheKey(token);
+  const cached = readCachedSession<AuthContext>(cacheKey);
+  if (cached) return issue(cached.value, cached.csrfHash);
   const rows = await getAuthPrisma().$queryRaw<SessionRow[]>`
-    SELECT s.user_id, s.account_id, s.expires_at, u.email, u.full_name, u.created_at, m.role
+    SELECT s.user_id, s.account_id, s.expires_at, s.csrf_hash, u.email, u.full_name, u.created_at, m.role
     FROM auth_sessions s JOIN auth_users u ON u.id=s.user_id
     JOIN account_memberships m ON m.user_id=s.user_id AND m.account_id=s.account_id
     WHERE s.id=${claims.sid}::uuid AND s.user_id=${claims.sub}::uuid AND s.account_id=${claims.tenant_id}::uuid
@@ -63,7 +77,7 @@ async function resolve(
       AND (NOT EXISTS(SELECT 1 FROM auth_mfa_factors f WHERE f.user_id=u.id AND f.verified_at IS NOT NULL) OR s.mfa_verified_at IS NOT NULL)`;
   const row = rows[0];
   if (!row || !isAccountRole(row.role)) return null;
-  return {
+  const context: AuthContext = {
     userId: row.user_id,
     accountId: row.account_id,
     role: row.role,
@@ -79,6 +93,9 @@ async function resolve(
       created_at: row.created_at.toISOString(),
     },
   };
+  writeCachedSession(cacheKey, { value: context, userId: context.userId, accountId: context.accountId,
+    sessionId: context.sessionId, csrfHash: row.csrf_hash }, context.expiresAt * 1000);
+  return issue(context, row.csrf_hash);
 }
 export async function resolveSession(
   request?: Request
@@ -121,6 +138,9 @@ export async function assertMutation(
     return;
   }
   assertOrigin(request);
+  // Read with the session itself (at most SESSION_CACHE_TTL_MS ago); a context built elsewhere reads it here.
+  const known = csrfHashes.get(context);
+  if (known !== undefined) return assertCsrf(request, known);
   const rows = await getAuthPrisma().$queryRaw<{ csrf_hash: string }[]>`
     SELECT csrf_hash FROM auth_sessions WHERE id=${context.sessionId}::uuid AND user_id=${context.userId}::uuid
       AND revoked_at IS NULL AND expires_at>NOW()`;

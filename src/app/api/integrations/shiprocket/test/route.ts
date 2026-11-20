@@ -14,7 +14,7 @@ export const runtime = 'nodejs';
 export async function POST(request: Request) {
   try {
     const ctx = await requireRole('admin');
-    const limited = writeLimit('shiprocketSettings', ctx.userId);
+    const limited = await writeLimit('shiprocketSettings', ctx.userId);
     if (limited) return limited;
     const body = await jsonObject(request);
     if (!body) return shipmentErrorResponse('invalid', 400);

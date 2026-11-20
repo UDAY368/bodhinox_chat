@@ -37,7 +37,7 @@ async function adminMutation(request: Request): Promise<AuthContext | NextRespon
   const session = await requireSession(request);
   await assertMutation(request, session);
   if (!hasMinRole(session.role, 'admin')) throw new ForbiddenError();
-  const limit = checkRateLimit(`metaAdsConnection:${session.userId}`, RATE_LIMITS.adminAction);
+  const limit = await checkRateLimit(`metaAdsConnection:${session.userId}`, RATE_LIMITS.adminAction);
   if (!limit.success) return rateLimitResponse(limit);
   return session;
 }

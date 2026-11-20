@@ -14,7 +14,7 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: Request, { params }: { params: Promise<{ slug: string }> }) {
-  if (!burstAllowed('slots', request, RATE_LIMITS.bookingSlots)) return tooMany();
+  if (!(await burstAllowed('slots', request, RATE_LIMITS.bookingSlots))) return tooMany();
   const query = new URL(request.url).searchParams;
   const serviceId = query.get('service');
   const locationId = query.get('location');

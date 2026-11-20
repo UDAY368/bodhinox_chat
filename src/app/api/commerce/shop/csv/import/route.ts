@@ -10,7 +10,7 @@ import { catalogueErrorResponse, inTenant, json, mutationLimit, readCsvBody, sta
 export async function POST(request: Request) {
   try {
     const caller = await staffCaller(request, { min: 'admin', mutation: true });
-    const limited = mutationLimit(caller);
+    const limited = await mutationLimit(caller);
     if (limited) return limited;
     const csv = checkCsvText(await readCsvBody(request, MAX_CSV_BYTES));
     const ctx = { ...caller.tenant, userId: caller.userId };

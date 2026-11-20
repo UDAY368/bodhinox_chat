@@ -19,7 +19,7 @@ export async function GET(request: Request, context: Context) {
     if (!UUID.test(id)) return shipmentErrorResponse('not_found', 404);
     const ctx = await requireRole('agent');
     // A provider call per request: the write limit applies.
-    const limited = writeLimit('shipments', ctx.userId);
+    const limited = await writeLimit('shipments', ctx.userId);
     if (limited) return limited;
     // Split shipments: ?shipment_id= names one of the order's shipments (default: the newest live one).
     const shipmentId = new URL(request.url).searchParams.get('shipment_id');

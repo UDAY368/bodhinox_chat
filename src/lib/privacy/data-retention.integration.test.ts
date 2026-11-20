@@ -60,7 +60,7 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('[SEC-01][BIL-03] Data reten
     if (!/test/i.test((await q('SELECT current_database() AS name')).rows[0].name)) throw new Error('Requires an isolated test database');
     const worker = await getWorkerPrisma().$queryRaw<{ role: string }[]>`SELECT current_user AS role`;
     if (worker[0].role !== 'bodhinox_worker') throw new Error('Requires constrained test worker credentials');
-    await q("INSERT INTO auth_users(id,email,full_name) SELECT x, x::text || '@example.invalid', 'Retention' FROM unnest($1::uuid[]) x", [users]);
+    await q("INSERT INTO auth_users(id,email,full_name,password_hash) SELECT x, x::text || '@example.invalid', 'Retention', 'unused' FROM unnest($1::uuid[]) x", [users]);
   }, 60_000);
 
   beforeEach(() => {
@@ -182,7 +182,7 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('[SEC-01][BIL-03] Data reten
 
   it('sweeps only finished jobs, processed receipts and old realtime events, in every workspace', async () => {
     const job = async (tenant: string | null, status: string, days: number) => (await q(
-      "INSERT INTO jobs(type,tenant_id,payload,status,updated_at) VALUES('flow.sweep',$1,'{}'::jsonb,$2,now()-make_interval(days=>$3)) RETURNING id",
+      "INSERT INTO jobs(type,tenant_id,payload,status,updated_at) VALUES('webhook.delivery',$1,'{}'::jsonb,$2,now()-make_interval(days=>$3)) RETURNING id",
       [tenant, status, days])).rows[0].id as string;
     const oldDoneA = await job(A, 'done', 31), oldDoneB = await job(B, 'done', 31), recentDone = await job(A, 'done', 2);
     const oldFailed = await job(B, 'failed', 91), recentFailed = await job(B, 'failed', 31), oldPending = await job(A, 'pending', 60);
@@ -200,5 +200,41 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('[SEC-01][BIL-03] Data reten
     expect(await left('jobs', [oldDoneA, oldDoneB, recentDone, oldFailed, recentFailed, oldPending])).toEqual([recentDone, recentFailed, oldPending].sort());
     expect(await left('webhook_receipts', [oldProcessed, oldPendingReceipt, recentProcessed])).toEqual([oldPendingReceipt, recentProcessed].sort());
     expect(await left('outbox_events', [oldA, oldB, recentB])).toEqual([recentB]);
+  });
+
+  it('prunes final send records, old events, scheduler jobs, expired sessions and spent limits; never uncertain sends', async () => {
+    const left = async (table: string, ids: string[]) => (await q(`SELECT id::text FROM ${table} WHERE id = ANY($1::uuid[])`, [ids])).rows.map((r) => r.id).sort();
+    const job = async (type: string, days: number) => (await q(
+      "INSERT INTO jobs(type,tenant_id,payload,status,updated_at) VALUES($1,$2,'{}'::jsonb,'done',now()-make_interval(days=>$3)) RETURNING id",
+      [type, A, days])).rows[0].id as string;
+    const oldSchedule = await job('automation.schedule', 3), oldPush = await job('inbox.notification_push', 3);
+    const recentSchedule = await job('automation.schedule', 1), otherDone = await job('webhook.delivery', 3);
+    const intent = async (account: string, status: string, days: number) => (await q(
+      "INSERT INTO outbound_intents(account_id,idempotency_key,status,updated_at) VALUES($1,$2,$3,now()-make_interval(days=>$4)) RETURNING id",
+      [account, `retention:${randomUUID()}`, status, days])).rows[0].id as string;
+    const acceptedA = await intent(A, 'accepted', 31), failedB = await intent(B, 'failed', 31), recentAccepted = await intent(A, 'accepted', 5);
+    const unknown = await intent(A, 'unknown', 90), dispatching = await intent(B, 'dispatching', 90), pending = await intent(A, 'pending', 90);
+    const domainEvent = async (account: string, days: number) => (await q(
+      "INSERT INTO domain_events(account_id,type,subject_kind,subject_id,occurred_at) VALUES($1,'order.created','order',$2,now()-make_interval(days=>$3)) RETURNING id",
+      [account, randomUUID(), days])).rows[0].id as string;
+    const oldEventA = await domainEvent(A, 401), oldEventB = await domainEvent(B, 401), keptEvent = await domainEvent(B, 30);
+    const session = async (hours: number) => (await q(
+      "INSERT INTO auth_sessions(user_id,account_id,csrf_hash,expires_at) VALUES($1,$2,$3,now()+make_interval(hours=>$4)) RETURNING id",
+      [ownerA, A, 'a'.repeat(64), hours])).rows[0].id as string;
+    const expiredSession = await session(-1), liveSession = await session(24);
+    const spentKey = `retention-spent-${randomUUID()}`, liveKey = `retention-live-${randomUUID()}`;
+    await q("INSERT INTO auth_rate_limits(key,attempts,reset_at) VALUES($1,3,now()-interval '1 minute'),($2,3,now()+interval '1 minute')", [spentKey, liveKey]);
+
+    const result = await runDataRetentionSweep();
+    expect(result.scheduleJobs).toBeGreaterThanOrEqual(2);
+    expect(await left('jobs', [oldSchedule, oldPush, recentSchedule, otherDone])).toEqual([recentSchedule, otherDone].sort());
+    // Uncertain sends ('unknown', 'dispatching') and 'pending' survive however old they are.
+    expect(await left('outbound_intents', [acceptedA, failedB, recentAccepted, unknown, dispatching, pending]))
+      .toEqual([recentAccepted, unknown, dispatching, pending].sort());
+    expect(await left('domain_events', [oldEventA, oldEventB, keptEvent])).toEqual([keptEvent]);
+    expect(await left('auth_sessions', [expiredSession, liveSession])).toEqual([liveSession]);
+    expect((await q('SELECT key FROM auth_rate_limits WHERE key = ANY($1::text[])', [[spentKey, liveKey]])).rows).toEqual([{ key: liveKey }]);
+    await q('DELETE FROM auth_rate_limits WHERE key=$1', [liveKey]);
+    await q('DELETE FROM auth_sessions WHERE id=$1', [liveSession]);
   });
 });

@@ -67,6 +67,29 @@ describe.skipIf(!ownerUrl || !workerUrl)("real PostgreSQL durable queue and disp
     ]);
   });
 
+  it("strips a processed WhatsApp receipt to ids and types in the same update, keeping its dedupe key", async () => {
+    const payload = { object: "whatsapp_business_account", entry: [{ id: "1", changes: [{ field: "messages", value: {
+      metadata: { phone_number_id: `9${Date.now()}`, display_phone_number: "15550001111" },
+      contacts: [{ wa_id: "919800011122", profile: { name: "Receipt Person" } }],
+      messages: [{ from: "919800011122", id: `wamid.${randomUUID()}`, timestamp: "1", type: "text", text: { body: "private receipt text" } }],
+    } }] }] };
+    const receipt = await persistWebhook(JSON.stringify(payload), payload);
+    receipts.add(receipt);
+    const before = (await owner.query("SELECT dedupe_key FROM webhook_receipts WHERE id=$1", [receipt])).rows[0].dedupe_key;
+    const { handleJob } = await import("./handlers");
+    // The number is not connected to any workspace, so processing routes nothing and marks it processed.
+    await handleJob({ id: randomUUID(), type: "whatsapp.webhook", tenant_id: null, payload: { receiptId: receipt }, attempts: 1, max_attempts: 8, lease_token: randomUUID() });
+    const row = (await owner.query("SELECT status, dedupe_key, payload FROM webhook_receipts WHERE id=$1", [receipt])).rows[0];
+    expect(row.status).toBe("processed");
+    expect(row.dedupe_key).toBe(before);
+    expect(row.payload.stripped).toBe(true);
+    expect(row.payload.entry[0].changes[0].messages[0]).toEqual({ id: payload.entry[0].changes[0].value.messages[0].id, type: "text", timestamp: "1" });
+    const stored = JSON.stringify(row.payload);
+    for (const secret of ["private receipt text", "Receipt Person", "919800011122", "15550001111"]) expect(stored).not.toContain(secret);
+    // A second delivery of the same body is still recognised as a duplicate.
+    expect(await persistWebhook(JSON.stringify(payload), payload)).toBe(receipt);
+  });
+
   it("simultaneous SKIP LOCKED claims lease different jobs", async () => {
     const ids = [await createJob(), await createJob()];
     const claimed = await Promise.all([claimJob(), claimJob()]);
@@ -153,18 +176,19 @@ describe.skipIf(!ownerUrl || !workerUrl)("real PostgreSQL durable queue and disp
     expect((await owner.query("SELECT status,attempts,lease_token,payload FROM jobs WHERE id=$1",[id])).rows[0]).toEqual({status:"running",attempts:1,lease_token:second!.lease_token,payload:{manual:true}});
   });
 
-  it("[audit-10/37] the main lane never takes a campaign pass and the bulk lane takes nothing else", async () => {
+  it("[audit-10/37] the inbound lane never takes a campaign pass and the bulk lane takes nothing else", async () => {
     const campaign = await enqueueJob("broadcast.dispatch", { test: true }, { tenantId: accountId, runAt: new Date(0), dedupeKey: randomUUID() });
     jobs.add(campaign);
-    const inbound = await createJob();
+    const inbound = await enqueueJob("webhook.delivery", { test: true }, { tenantId: accountId, runAt: new Date(0), dedupeKey: randomUUID() });
+    jobs.add(inbound);
     // The shared test database may hold due jobs left by other files: drain each lane and check
     // what it took, rather than assuming the queue is otherwise empty.
-    const drain = async (lane: "main" | "bulk") => {
+    const drain = async (lane: "inbound" | "bulk") => {
       const taken: Awaited<ReturnType<typeof claimJob>>[] = [];
       for (let job = await claimJob(lane); job && taken.length < 200; job = await claimJob(lane)) taken.push(job);
       return taken;
     };
-    const [bulk, main] = await Promise.all([drain("bulk"), drain("main")]);
+    const [bulk, main] = await Promise.all([drain("bulk"), drain("inbound")]);
     expect(bulk.map((j) => j!.id)).toContain(campaign);
     expect(main.map((j) => j!.id)).toContain(inbound);
     expect(bulk.every((j) => (BULK_JOB_TYPES as readonly string[]).includes(j!.type))).toBe(true);

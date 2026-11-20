@@ -13,7 +13,7 @@ type Params = { params: Promise<{ id: string }> };
 export async function PATCH(request: Request, { params }: Params) {
   try {
     const ctx = await requireRole('admin');
-    const limit = checkRateLimit(`commerce:reviews:${ctx.userId}`, RATE_LIMITS.adminAction);
+    const limit = await checkRateLimit(`commerce:reviews:${ctx.userId}`, RATE_LIMITS.adminAction);
     if (!limit.success) return rateLimitResponse(limit);
     const { id } = await params;
     const body: unknown = await request.json().catch(() => null);

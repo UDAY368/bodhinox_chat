@@ -45,7 +45,7 @@ export async function GET() {
 export async function PUT(request: Request) {
   try {
     const ctx = await getCurrentAccount();
-    const limit = checkRateLimit(`notifications:preferences:${ctx.userId}`, RATE_LIMITS.adminAction);
+    const limit = await checkRateLimit(`notifications:preferences:${ctx.userId}`, RATE_LIMITS.adminAction);
     if (!limit.success) return rateLimitResponse(limit);
     const body = await request.json().catch(() => null);
     const updates = parsePreferenceUpdate(body);

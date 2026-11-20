@@ -29,7 +29,7 @@ export async function GET(_request: Request, { params }: Params) {
 export async function PATCH(request: Request, { params }: Params) {
   try {
     const ctx = await requireRole('admin')
-    const limit = checkRateLimit(`ai-agents:write:${ctx.userId}`, RATE_LIMITS.adminAction)
+    const limit = await checkRateLimit(`ai-agents:write:${ctx.userId}`, RATE_LIMITS.adminAction)
     if (!limit.success) return rateLimitResponse(limit)
     const body = await request.json().catch(() => null)
     const { move, ...rest } = (body && typeof body === 'object' && !Array.isArray(body) ? body : { invalid: true }) as Record<string, unknown>
@@ -45,7 +45,7 @@ export async function PATCH(request: Request, { params }: Params) {
 export async function DELETE(_request: Request, { params }: Params) {
   try {
     const ctx = await requireRole('admin')
-    const limit = checkRateLimit(`ai-agents:write:${ctx.userId}`, RATE_LIMITS.adminAction)
+    const limit = await checkRateLimit(`ai-agents:write:${ctx.userId}`, RATE_LIMITS.adminAction)
     if (!limit.success) return rateLimitResponse(limit)
     await deleteAgent(tenantOf(ctx), (await params).id)
     return NextResponse.json({ success: true })

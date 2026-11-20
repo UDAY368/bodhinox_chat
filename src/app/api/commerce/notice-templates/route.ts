@@ -27,7 +27,7 @@ export async function GET() {
 export async function PUT(request: Request) {
   try {
     const ctx = await requireRole('admin');
-    const limit = checkRateLimit(`commerce:notice-templates:${ctx.userId}`, RATE_LIMITS.adminAction);
+    const limit = await checkRateLimit(`commerce:notice-templates:${ctx.userId}`, RATE_LIMITS.adminAction);
     if (!limit.success) return rateLimitResponse(limit);
     const input = parseNoticeTemplateInput(await request.json().catch(() => null));
     const templates = await saveNoticeTemplate({ ...tenantOf(ctx), userId: ctx.userId }, input);

@@ -22,6 +22,14 @@ export const WEBHOOK_EVENTS = [
   'appointment.rescheduled', // an appointment moved to a new time
   'appointment.completed', // staff marked an appointment completed
   'appointment.no_show', // staff marked an appointment as a no-show
+  // The event feed (src/lib/events): delivered by the events.dispatch job.
+  'order.shipped', // an order (or its first parcel) was dispatched
+  'order.delivered', // an order was delivered
+  'order.returned', // a returned parcel was received back
+  'payment.received', // a customer payment was captured (link, checkout or recorded offline)
+  'form.submitted', // a WhatsApp form was answered (ids only, never the answers)
+  'deal.stage_changed', // a deal moved to another stage
+  'cart.abandoned', // a shop cart was left without checking out
 ] as const;
 
 export type WebhookEvent = (typeof WEBHOOK_EVENTS)[number];
@@ -43,6 +51,13 @@ export const WEBHOOK_EVENT_DESCRIPTIONS: Record<WebhookEvent, string> = {
   'appointment.rescheduled': 'An appointment was moved to a new time',
   'appointment.completed': 'An appointment was marked completed',
   'appointment.no_show': 'An appointment was marked as a no-show',
+  'order.shipped': 'An order was dispatched',
+  'order.delivered': 'An order was delivered',
+  'order.returned': 'A returned order was received back',
+  'payment.received': 'A customer payment was received',
+  'form.submitted': 'A WhatsApp form was submitted (ids only, never the answers)',
+  'deal.stage_changed': 'A deal moved to another stage',
+  'cart.abandoned': 'A shop cart was abandoned before checkout',
 };
 
 /** Type-narrow an unknown value into a valid `WebhookEvent`. */
@@ -104,6 +119,13 @@ export const WEBHOOK_EVENT_SCOPE: Record<WebhookEvent, WebhookEventScope> = {
   'appointment.rescheduled': 'workspace',
   'appointment.completed': 'workspace',
   'appointment.no_show': 'workspace',
+  'order.shipped': 'workspace',
+  'order.delivered': 'workspace',
+  'order.returned': 'workspace',
+  'payment.received': 'workspace',
+  'form.submitted': 'workspace',
+  'deal.stage_changed': 'workspace',
+  'cart.abandoned': 'workspace',
 };
 
 export function isWebhookChannel(value: unknown): value is WebhookChannel {

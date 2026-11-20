@@ -11,8 +11,9 @@ const { execFileSync, spawnSync } = require('node:child_process');
 const crypto = require('node:crypto');
 const fs = require('node:fs');
 
-const CONTAINER = 'bodhinox-test-db';
-const PORT = 55432;
+// TEST_DB_CONTAINER / TEST_DB_PORT let parallel worktrees each keep their own database.
+const CONTAINER = process.env.TEST_DB_CONTAINER || 'bodhinox-test-db';
+const PORT = Number(process.env.TEST_DB_PORT) || 55432;
 const DATABASE = 'bodhinox_test';
 const ENV_FILE = '.env.test.docker';
 // Every variable the database tooling or the tests read for connections.

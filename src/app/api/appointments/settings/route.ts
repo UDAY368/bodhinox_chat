@@ -27,7 +27,7 @@ export async function GET(request: Request) {
 export async function PATCH(request: Request) {
   try {
     const caller = await staffCaller(request, { min: 'admin', mutation: true, permission: 'appointments.settings' });
-    const limited = mutationLimit(caller);
+    const limited = await mutationLimit(caller);
     if (limited) return limited;
     const body = await readJson(request);
     if (!body || typeof body !== 'object' || Array.isArray(body)) throw new AppointmentError('invalid');

@@ -22,7 +22,7 @@ const safeType = (value: string | null | undefined) => (value && /^[\w.+-]+\/[\w
 const fileName = (name: string) => name.replace(/[^\w. -]+/g, '_').slice(0, 80) || 'download';
 
 export async function GET(request: Request) {
-  if (!burstAllowed('read', request)) return tooMany();
+  if (!(await burstAllowed('read', request))) return tooMany();
   try {
     const params = new URL(request.url).searchParams;
     const accountId = params.get('a'), orderId = params.get('o');

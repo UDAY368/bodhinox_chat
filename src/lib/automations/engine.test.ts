@@ -1475,13 +1475,32 @@ describe("send_webhook — Phase 12 hardening", () => {
     expect(sf.fetch).not.toHaveBeenCalled();
   });
 
+  it("batch 5: sends a GET through the flow runner and keeps mapped reply values as variables", async () => {
+    sf.fetch.mockResolvedValue({ ok: true, status: 200, contentType: "application/json", body: '{"data":{"ref":"R-9"}}' });
+    const failed = await run({ method: "GET", mappings: [{ path: "data.ref", var_key: "order_ref" }] });
+    expect(failed).toBeUndefined();
+    const [url, init] = sf.fetch.mock.calls[0];
+    expect(url).toBe("https://hooks.example.com/in");
+    expect(init.method).toBe("GET");
+    expect(init.body).toBeUndefined();
+    await expect(dispatch.once.mock.results[0].value).resolves.toMatchObject({ status: 200, mapped: { order_ref: "R-9" } });
+  });
+
+  it("batch 5: without a body template POSTs the trigger context as it is, never filling placeholders in it", async () => {
+    sf.fetch.mockResolvedValue({ ok: true, status: 204, contentType: "", body: "" });
+    expect(await run({}, "{{workspace.tier}}")).toBeUndefined();
+    const [, init] = sf.fetch.mock.calls[0];
+    expect(init.method).toBe("POST");
+    expect(JSON.parse(init.body)).toMatchObject({ message_text: "{{workspace.tier}}" });
+  });
+
   it("records a non-2xx reply as a definite outcome and fails the step", async () => {
     sf.fetch.mockResolvedValue({ ok: true, status: 500, contentType: "", body: "" });
     const failed = await run({ body_template: "{}" });
     expect(failed).toBe(tErr("webhookStatus", { status: "500" }));
     expect(sf.fetch).toHaveBeenCalledTimes(1);
     // dispatchOnce got a value back (so the intent is 'accepted'), not an error.
-    await expect(dispatch.once.mock.results[0].value).resolves.toEqual({ status: 500 });
+    await expect(dispatch.once.mock.results[0].value).resolves.toMatchObject({ status: 500, error: null });
   });
 
   it("reports a timeout as uncertain: the intent is not accepted and nothing is re-sent", async () => {

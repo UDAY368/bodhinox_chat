@@ -18,7 +18,7 @@ export async function POST(request: Request, context: Context) {
   try {
     const ctx = await requireRole('agent');
     const { id } = await context.params;
-    const limit = checkRateLimit(`conversationUnread:${ctx.userId}`, { limit: 120, windowMs: 60_000 });
+    const limit = await checkRateLimit(`conversationUnread:${ctx.userId}`, { limit: 120, windowMs: 60_000 });
     if (!limit.success) return rateLimitResponse(limit);
     const body = (await request.json().catch(() => null)) as { unread?: unknown } | null;
     if (typeof body?.unread !== 'boolean')

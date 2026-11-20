@@ -22,9 +22,9 @@ export async function POST(request: Request) {
   try {
     const { db, accountId, userId } = await requireRole('agent')
 
-    const userLimit = checkRateLimit(`ai-generate-flow:${userId}`, RATE_LIMITS.aiDraft)
+    const userLimit = await checkRateLimit(`ai-generate-flow:${userId}`, RATE_LIMITS.aiDraft)
     if (!userLimit.success) return rateLimitResponse(userLimit)
-    const accountLimit = checkRateLimit(`ai-draft-acct:${accountId}`, RATE_LIMITS.aiDraftAccount)
+    const accountLimit = await checkRateLimit(`ai-draft-acct:${accountId}`, RATE_LIMITS.aiDraftAccount)
     if (!accountLimit.success) return rateLimitResponse(accountLimit)
 
     const body = await request.json().catch(() => null)

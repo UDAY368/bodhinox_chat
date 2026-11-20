@@ -46,7 +46,7 @@ export async function PUT(request: Request) {
   try {
     if (!instagramEnabled()) return off();
     const ctx = await requireRole('admin');
-    const limit = checkRateLimit(`consentSettings:${ctx.userId}`, RATE_LIMITS.send);
+    const limit = await checkRateLimit(`consentSettings:${ctx.userId}`, RATE_LIMITS.send);
     if (!limit.success) return rateLimitResponse(limit);
     const settings = parseConsentSettingsInput(await request.json().catch(() => null));
     return NextResponse.json({ settings: await saveConsentSettings(tenantOf(ctx), settings), built_in: builtIn }, { headers });

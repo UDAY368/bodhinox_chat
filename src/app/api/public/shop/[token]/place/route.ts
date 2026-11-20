@@ -19,7 +19,7 @@ export const dynamic = 'force-dynamic';
 export async function POST(request: Request, { params }: TokenParams) {
   try {
     assertOrigin(request);
-    if (!burstAllowed('mutate', request)) return tooMany();
+    if (!(await burstAllowed('mutate', request))) return tooMany();
     const { token } = await params;
     if (!isStorefrontTokenFormat(token)) return notFound();
     const body = await readBody(request);

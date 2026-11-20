@@ -32,7 +32,7 @@ export async function GET() {
 export async function PUT(request: Request) {
   try {
     const { accountId, userId, role } = await requireRole('admin')
-    const limit = checkRateLimit(`ai-agent-profile:${userId}`, RATE_LIMITS.adminAction)
+    const limit = await checkRateLimit(`ai-agent-profile:${userId}`, RATE_LIMITS.adminAction)
     if (!limit.success) return rateLimitResponse(limit)
 
     const body = await request.json().catch(() => undefined)

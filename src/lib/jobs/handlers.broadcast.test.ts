@@ -13,6 +13,8 @@ const h = vi.hoisted(() => ({
   channel: 'whatsapp' as 'whatsapp' | 'instagram',
   igPass: { sent: 1, failed: 0, remaining: 0, stopped: false },
   igCalls: [] as unknown[][],
+  timedOut: false,
+  deliverOptions: null as null | Record<string, unknown>,
 }));
 
 vi.mock('@/lib/db/prisma', () => ({ getWorkerPrisma: () => ({}) }));
@@ -50,8 +52,10 @@ vi.mock('@/lib/whatsapp/broadcast-core', () => {
     BroadcastError,
     MAX_THROTTLE_RETRIES: 6,
     throttleDelayMs: () => 1000,
-    deliverBroadcast: async () => {
+    deliverBroadcast: async (_db: unknown, _plan: unknown, options: Record<string, unknown>) => {
       h.delivered += 1;
+      h.deliverOptions = options;
+      if (h.timedOut) return { sent: 3, throttled: false, timedOut: true };
       if (h.stopped) return { sent: 0, throttled: false, stopped: true };
       return h.throttled ? { sent: 0, throttled: true } : { sent: 1, throttled: false };
     },
@@ -170,5 +174,42 @@ describe('broadcast.dispatch pause and Instagram campaigns', () => {
     await handleJob(job);
     expect(h.enqueued).toEqual([]);
     expect(h.finalized).toBe(0);
+  });
+});
+
+describe('broadcast.dispatch time box (batch 5)', () => {
+  beforeEach(() => {
+    Object.assign(h, { planError: null, claimed: 0, delivered: 0, finalized: 0, unlocked: 0, enqueued: [], steps: [], throttled: false,
+      stopped: false, channel: 'whatsapp', igPass: { sent: 1, failed: 0, remaining: 0, stopped: false }, igCalls: [], timedOut: false, deliverOptions: null });
+  });
+
+  it('gives a pending pass about 30 s and queues the next pass when it runs out, after the lock is released', async () => {
+    h.timedOut = true;
+    const before = Date.now();
+    await handleJob(job);
+    const deadline = h.deliverOptions?.deadline as number;
+    expect(deadline).toBeGreaterThanOrEqual(before + 30_000);
+    expect(deadline).toBeLessThanOrEqual(Date.now() + 30_000);
+    expect(h.enqueued).toHaveLength(1);
+    const [type, payload, options] = h.enqueued[0] as [string, Record<string, unknown>, Record<string, unknown>];
+    expect(type).toBe('broadcast.dispatch');
+    expect(payload).toMatchObject({ broadcastId: BROADCAST, scope: 'pending', throttles: 0 });
+    expect(options).toMatchObject({ tenantId: ACCOUNT, requeueCompleted: true, dedupeKey: `broadcast:${BROADCAST}:next:job-1` });
+    expect((options.runAt as Date).getTime()).toBeGreaterThan(Date.now());
+    expect(h.unlocked).toBe(1);
+  });
+
+  it('never cuts a Retry failed pass (its rows would be picked again)', async () => {
+    await handleJob({ ...job, payload: { broadcastId: BROADCAST, scope: 'failed' } } as unknown as Job);
+    expect(h.deliverOptions?.deadline).toBeUndefined();
+    h.channel = 'instagram';
+    await handleJob({ ...job, payload: { broadcastId: BROADCAST, scope: 'all' } } as unknown as Job);
+    expect((h.igCalls[0][3] as Record<string, unknown>).deadline).toBeUndefined();
+  });
+
+  it('gives an Instagram pending pass the same budget', async () => {
+    h.channel = 'instagram';
+    await handleJob(job);
+    expect((h.igCalls[0][3] as Record<string, unknown>).deadline).toEqual(expect.any(Number));
   });
 });

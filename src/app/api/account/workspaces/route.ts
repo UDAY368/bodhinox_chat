@@ -19,7 +19,7 @@ export async function POST(request: Request) {
   try {
     const session = await requireSession(request);
     await assertMutation(request, session);
-    const limit = checkRateLimit(`account:createWorkspace:${session.userId}`, { limit: 5, windowMs: 60 * 60_000 });
+    const limit = await checkRateLimit(`account:createWorkspace:${session.userId}`, { limit: 5, windowMs: 60 * 60_000 });
     if (!limit.success) return rateLimitResponse(limit);
     const parsed = body.safeParse(await request.json().catch(() => null));
     if (!parsed.success) throw new AccountActionError('invalid_name', 400);

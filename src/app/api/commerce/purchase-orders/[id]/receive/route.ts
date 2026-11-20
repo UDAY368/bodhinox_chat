@@ -11,7 +11,7 @@ export async function POST(request: Request, context: IdContext) {
   try {
     const { id } = await context.params;
     const caller = await staffCaller(request, { min: 'admin', mutation: true, permission: 'commerce.inventory' });
-    const limited = mutationLimit(caller);
+    const limited = await mutationLimit(caller);
     if (limited) return limited;
     return json(await receivePurchaseOrder(caller.tenant, id, parseReceiveInput(await readJson(request))));
   } catch (error) {

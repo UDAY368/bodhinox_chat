@@ -41,8 +41,8 @@ export function inTenant<T>(caller: StaffCaller, work: (tx: TenantTransaction) =
 }
 
 /** Per-member burst limit for catalogue writes; null when allowed. */
-export function mutationLimit(caller: StaffCaller): NextResponse | null {
-  const result = checkRateLimit(`catalogue:${caller.accountId}:${caller.userId}`, { limit: 120, windowMs: 60_000 });
+export async function mutationLimit(caller: StaffCaller): Promise<NextResponse | null> {
+  const result = await checkRateLimit(`catalogue:${caller.accountId}:${caller.userId}`, { limit: 120, windowMs: 60_000 });
   return result.success ? null : rateLimitResponse(result);
 }
 

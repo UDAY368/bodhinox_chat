@@ -9,7 +9,7 @@ export const dynamic = 'force-dynamic'
 // that a deep mode exists. The token is never read from the URL.
 export async function GET(request: Request) {
   if (new URL(request.url).searchParams.get('deep') === '1' && deepHealthAuthorized(request.headers.get('authorization'))) {
-    const limit = checkRateLimit('ops-health-deep', RATE_LIMITS.opsHealth)
+    const limit = await checkRateLimit('ops-health-deep', RATE_LIMITS.opsHealth)
     if (!limit.success) return rateLimitResponse(limit)
     const body = await deepHealth()
     return Response.json(body, { status: body.status === 'down' ? 503 : 200, headers: { 'Cache-Control': 'no-store' } })

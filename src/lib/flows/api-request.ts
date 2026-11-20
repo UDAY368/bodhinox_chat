@@ -32,7 +32,7 @@ export const jsonEscape = (s: string) => JSON.stringify(s).slice(1, -1)
 const headerSafe = (s: string) => s.replace(/[\r\n]+/g, ' ')
 
 /** The request to send, or null when the filled-in URL is not an http(s) URL. */
-export function buildApiRequest(cfg: ApiRequestNodeConfig, values: RequestValues): { url: string; method: string; headers: Record<string, string>; body?: string } | null {
+export function buildApiRequest(cfg: ApiRequestNodeConfig, values: RequestValues, rawBody?: string): { url: string; method: string; headers: Record<string, string>; body?: string } | null {
   let url: URL
   try {
     url = new URL(fill(cfg.url.trim(), values, values.publicWorkspace, encodeURIComponent))
@@ -44,7 +44,8 @@ export function buildApiRequest(cfg: ApiRequestNodeConfig, values: RequestValues
     if (key.trim()) url.searchParams.append(key.trim(), fill(value, values, values.publicWorkspace, (s) => s))
   }
   const headers: Record<string, string> = { 'user-agent': 'Bodhinox-Flows/1.0', accept: 'application/json' }
-  const sendsBody = cfg.method !== 'GET' && cfg.method !== 'DELETE' && Boolean(cfg.body?.trim())
+  // `rawBody` (a rule's default body, the trigger context as JSON) is sent as it is, never filled.
+  const sendsBody = cfg.method !== 'GET' && cfg.method !== 'DELETE' && Boolean(rawBody?.trim() || cfg.body?.trim())
   if (sendsBody) headers['content-type'] = 'application/json'
   for (const { key, value } of cfg.headers ?? []) {
     if (key.trim()) headers[key.trim().toLowerCase()] = headerSafe(fill(value, values, values.workspace, headerSafe))
@@ -53,7 +54,7 @@ export function buildApiRequest(cfg: ApiRequestNodeConfig, values: RequestValues
     url: url.toString(),
     method: cfg.method,
     headers,
-    ...(sendsBody ? { body: fill(cfg.body!, values, values.workspace, jsonEscape) } : {}),
+    ...(sendsBody ? { body: rawBody?.trim() ? rawBody : fill(cfg.body!, values, values.workspace, jsonEscape) } : {}),
   }
 }
 
@@ -101,9 +102,9 @@ export interface ApiRequestOutcome {
   durationMs: number
 }
 
-export async function runApiRequest(cfg: ApiRequestNodeConfig, values: RequestValues): Promise<ApiRequestOutcome> {
+export async function runApiRequest(cfg: ApiRequestNodeConfig, values: RequestValues, rawBody?: string): Promise<ApiRequestOutcome> {
   const started = Date.now()
-  const request = buildApiRequest(cfg, values)
+  const request = buildApiRequest(cfg, values, rawBody)
   const result: SafeFetchResult = request
     ? await safeFetch(request.url, request)
     : { ok: false, error: 'invalid_url' }

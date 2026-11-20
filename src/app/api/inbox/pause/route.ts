@@ -27,7 +27,7 @@ const invalid = () => NextResponse.json({ error: 'Invalid pause request', code: 
 export async function POST(request: Request) {
   try {
     const ctx = await requireRole('agent');
-    const limit = checkRateLimit(`inboxPause:${ctx.userId}`, RATE_LIMITS.send);
+    const limit = await checkRateLimit(`inboxPause:${ctx.userId}`, RATE_LIMITS.send);
     if (!limit.success) return rateLimitResponse(limit);
     const body = parsePauseRequest(await request.json().catch(() => null));
     if (!body) return invalid();

@@ -19,9 +19,9 @@ export async function assistCaller(opts: { rateLimited: boolean }): Promise<{ ct
   const ctx = await requireRole('agent');
   await requirePermission(tenantOf(ctx), 'ai.assist');
   if (opts.rateLimited) {
-    const user = checkRateLimit(`ai-assist:${ctx.userId}`, RATE_LIMITS.aiAssistUser);
+    const user = await checkRateLimit(`ai-assist:${ctx.userId}`, RATE_LIMITS.aiAssistUser);
     if (!user.success) return { response: rateLimitResponse(user) };
-    const account = checkRateLimit(`ai-assist-acct:${ctx.accountId}`, RATE_LIMITS.aiAssistAccount);
+    const account = await checkRateLimit(`ai-assist-acct:${ctx.accountId}`, RATE_LIMITS.aiAssistAccount);
     if (!account.success) return { response: rateLimitResponse(account) };
   }
   return { ctx };

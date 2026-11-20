@@ -19,6 +19,7 @@ import {
 import { BroadcastActionsMenu, useBroadcastActions } from '@/components/broadcasts/broadcast-actions';
 import { ChannelDot, broadcastStarted, broadcastWhen, sentPercent, shouldRefreshCounts, statusSignature } from '@/components/broadcasts/broadcast-display';
 import { NumberHealthBar } from '@/components/broadcasts/number-health-bar';
+import { revenueText, useCampaignSales } from '@/components/broadcasts/campaign-sales';
 import { numberLabel, useWhatsAppNumbers } from '@/components/settings/numbers/use-whatsapp-numbers';
 import { ApiCampaignDialog } from '@/components/broadcasts/api-campaign-dialog';
 import { planAllows, usePlan } from '@/lib/billing/client';
@@ -136,6 +137,8 @@ export default function BroadcastsPage() {
   }, [fetchBroadcasts]);
   const refetch = useCallback(() => fetchBroadcasts(), [fetchBroadcasts]);
 
+  // Orders and revenue for the visible page: one request, re-read when the page's campaigns change.
+  const sales = useCampaignSales(useMemo(() => broadcasts.map((b) => b.id), [broadcasts]));
   const totalPages = Math.ceil(total / PAGE_SIZE);
   const actions = useBroadcastActions({ onChanged: refetch });
   const num = (n: number) => n.toLocaleString();
@@ -331,12 +334,14 @@ export default function BroadcastsPage() {
                     {tStatus(status.label)}
                   </StatusPill>
                 </span>
-                <div className="order-6 grid flex-[1_1_100%] grid-cols-5 gap-2 sm:pl-12 @5xl:order-none @5xl:flex-none @5xl:grid-cols-[repeat(5,72px)] @5xl:pl-0">
+                <div className="order-6 grid flex-[1_1_100%] grid-cols-4 gap-2 sm:grid-cols-7 sm:pl-12 @5xl:order-none @5xl:flex-none @5xl:grid-cols-[repeat(5,64px)_56px_80px] @5xl:pl-0">
                   <Stat label={tc('stats.audience')} value={num(broadcast.total_recipients)} />
                   <Stat label={tc('stats.sent')} value={v(broadcast.sent_count)} />
                   <Stat label={tc('stats.delivered')} value={v(broadcast.delivered_count)} />
                   <Stat label={tc('stats.read')} value={v(broadcast.read_count)} />
                   <Stat label={tc('stats.replied')} value={v(broadcast.replied_count)} />
+                  <Stat label={tc('stats.orders')} value={started && sales[broadcast.id] ? num(sales[broadcast.id].orders) : '–'} />
+                  <Stat label={tc('stats.revenue')} value={started ? revenueText(sales[broadcast.id], { compact: true }) : '–'} />
                 </div>
                 <div
                   className="order-4 h-1.5 min-w-12 max-w-60 flex-1 overflow-hidden rounded-full bg-muted @5xl:order-none @5xl:w-20 @5xl:flex-none"

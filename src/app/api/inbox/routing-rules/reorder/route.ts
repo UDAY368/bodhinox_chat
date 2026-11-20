@@ -12,7 +12,7 @@ import { noStore, routingError } from '@/lib/inbox/routing-http';
 export async function POST(request: Request) {
   try {
     const ctx = await requireRole('admin');
-    const limit = checkRateLimit(`routingRules:${ctx.userId}`, RATE_LIMITS.send);
+    const limit = await checkRateLimit(`routingRules:${ctx.userId}`, RATE_LIMITS.send);
     if (!limit.success) return rateLimitResponse(limit);
     const ids = parseRuleOrder(await request.json().catch(() => null));
     return NextResponse.json({ rules: await reorderRoutingRules(tenantOf(ctx), ids) }, { headers: noStore });

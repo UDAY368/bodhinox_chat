@@ -12,7 +12,7 @@ import { checkRateLimit, rateLimitResponse } from '@/lib/rate-limit';
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await requireSession(request);
-    const limit = checkRateLimit(`account:exportDownload:${session.userId}`, { limit: 20, windowMs: 60_000 });
+    const limit = await checkRateLimit(`account:exportDownload:${session.userId}`, { limit: 20, windowMs: 60_000 });
     if (!limit.success) return rateLimitResponse(limit);
     const { id } = await params;
     const opened = await openWorkspaceExportDownload(session, id);

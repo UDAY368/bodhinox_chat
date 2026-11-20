@@ -10,6 +10,8 @@ import {
 } from '@/lib/channels/capabilities';
 import { instagramScheduledAutomationsEnabled } from '@/lib/instagram/config';
 import { quickRepliesFit } from '@/lib/instagram/graph-limits';
+import { isEventTriggerType } from '@/lib/events/types';
+import { eventFilterProblems } from '@/lib/events/trigger-filters';
 import {
   parseScheduledAudience,
   scheduleNeedsContact,
@@ -219,6 +221,17 @@ function validateOne(
         }
       }
       break;
+    case 'move_deal_stage':
+      if (!nonEmpty(c.pipeline_id)) {
+        issues.push({ path: `${path}.pipeline_id`, message: t('pipelineRequired') });
+      }
+      if (!nonEmpty(c.stage_id)) {
+        issues.push({ path: `${path}.stage_id`, message: t('stageRequired') });
+      }
+      if (c.status !== undefined && c.status !== null && c.status !== 'won' && c.status !== 'lost') {
+        issues.push({ path: `${path}.status`, message: t('dealStatusInvalid') });
+      }
+      break;
     case 'send_webhook':
       if (!nonEmpty(c.url)) {
         issues.push({ path: `${path}.url`, message: t('webhookUrlRequired') });
@@ -361,6 +374,11 @@ export function validateTriggerForActivation(
       ids.some((v) => typeof v !== 'string' || !/^\d{1,32}$/.test(v)))) {
       issues.push({ path: 'trigger.ad_ids', message: t('adIdsInvalid', { max: 50 }) });
     }
+  } else if (isEventTriggerType(triggerType) && !triggerType.startsWith('appointment_')) {
+    // Batch 5: optional event filters (src/lib/events/trigger-filters.ts).
+    for (const field of eventFilterProblems(triggerType, cfg)) {
+      issues.push({ path: `trigger.${field}`, message: t('eventFilterInvalid') });
+    }
   } else if (triggerType.startsWith('appointment_')) {
     // Optional service ids: empty or absent runs for every service.
     const ids = cfg.service_ids;
@@ -502,8 +520,22 @@ export function webhookHeaderProblem(name: string, value: string): 'name' | 'den
   return null;
 }
 
+/** Methods a send_webhook step may use (the flow API request's). */
+export const WEBHOOK_METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'] as const;
+/** Reply values a send_webhook step may keep as variables. */
+export const WEBHOOK_MAPPINGS_MAX = 10;
+const MAPPING_VAR = /^[a-zA-Z0-9_]{1,40}$/;
+
 function webhookConfigIssues(c: Record<string, unknown>, path: string): ValidationIssue[] {
   const issues: ValidationIssue[] = [];
+  if (c.method !== undefined && c.method !== null && !(WEBHOOK_METHODS as readonly unknown[]).includes(c.method)) {
+    issues.push({ path: `${path}.method`, message: t('webhookMethodInvalid') });
+  }
+  if (c.mappings !== undefined && c.mappings !== null && (!Array.isArray(c.mappings) || c.mappings.length > WEBHOOK_MAPPINGS_MAX
+    || c.mappings.some((m) => !m || typeof m !== 'object' || typeof (m as { path?: unknown }).path !== 'string'
+      || !(m as { path: string }).path.trim() || !MAPPING_VAR.test(String((m as { var_key?: unknown }).var_key ?? ''))))) {
+    issues.push({ path: `${path}.mappings`, message: t('webhookMappingsInvalid', { max: WEBHOOK_MAPPINGS_MAX }) });
+  }
   // The URL is sent as written: a workspace placeholder there would leak into logs, and a secret must never go there.
   if (/\{\{\s*workspace\./.test(String(c.url))) {
     issues.push({ path: `${path}.url`, message: t('webhookUrlNoWorkspace') });

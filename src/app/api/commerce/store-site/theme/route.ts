@@ -43,7 +43,7 @@ export async function GET() {
 export async function PUT(request: Request) {
   try {
     const ctx = await requireRole('admin');
-    const limit = checkRateLimit(`commerce:store-theme:${ctx.userId}`, RATE_LIMITS.adminAction);
+    const limit = await checkRateLimit(`commerce:store-theme:${ctx.userId}`, RATE_LIMITS.adminAction);
     if (!limit.success) return rateLimitResponse(limit);
     const input = parseDraftInput(await readJson(request));
     return NextResponse.json(await saveThemeDraft({ ...tenantOf(ctx), userId: ctx.userId }, input));
@@ -55,7 +55,7 @@ export async function PUT(request: Request) {
 export async function POST(request: Request) {
   try {
     const ctx = await requireRole('admin');
-    const limit = checkRateLimit(`commerce:store-theme:${ctx.userId}`, RATE_LIMITS.adminAction);
+    const limit = await checkRateLimit(`commerce:store-theme:${ctx.userId}`, RATE_LIMITS.adminAction);
     if (!limit.success) return rateLimitResponse(limit);
     const input = parseThemeAction(await readJson(request));
     return NextResponse.json(await runThemeAction({ ...tenantOf(ctx), userId: ctx.userId }, input));

@@ -13,7 +13,7 @@ export const runtime = 'nodejs';
 export async function POST() {
   try {
     const ctx = await requireRole('admin');
-    const limited = writeLimit('shiprocketSettings', ctx.userId);
+    const limited = await writeLimit('shiprocketSettings', ctx.userId);
     if (limited) return limited;
     const { token } = await rotateWebhookToken(actorOf(ctx));
     return NextResponse.json({ token }, { headers: NO_STORE });

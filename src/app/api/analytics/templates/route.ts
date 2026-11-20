@@ -38,7 +38,7 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: t('invalidFilter') }, { status: 400 });
 
     const ctx = await requireRole('viewer');
-    const limit = checkRateLimit(`analytics:templates:${ctx.userId}`, { limit: 60, windowMs: 60_000 });
+    const limit = await checkRateLimit(`analytics:templates:${ctx.userId}`, { limit: 60, windowMs: 60_000 });
     if (!limit.success) return rateLimitResponse(limit);
 
     const body = await runAnalytics(tenantOf(ctx), async (tx, timezone): Promise<TemplateAnalyticsResponse | null> => {

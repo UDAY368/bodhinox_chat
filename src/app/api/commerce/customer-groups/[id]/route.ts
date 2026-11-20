@@ -13,7 +13,7 @@ type Params = { params: Promise<{ id: string }> };
 export async function DELETE(_request: Request, { params }: Params) {
   try {
     const ctx = await requireRole('admin');
-    const limit = checkRateLimit(`commerce:customer-groups:${ctx.userId}`, RATE_LIMITS.adminAction);
+    const limit = await checkRateLimit(`commerce:customer-groups:${ctx.userId}`, RATE_LIMITS.adminAction);
     if (!limit.success) return rateLimitResponse(limit);
     const { id } = await params;
     await deleteCustomerGroup({ ...tenantOf(ctx), userId: ctx.userId }, id);

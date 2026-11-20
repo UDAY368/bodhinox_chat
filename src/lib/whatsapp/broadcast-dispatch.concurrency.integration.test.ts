@@ -90,6 +90,33 @@ describe.skipIf(!ownerUrl || !workerUrl)('[WA-04] broadcast dispatch under concu
     expect((await owner.query('SELECT delivery_locked_at FROM broadcasts WHERE id=$1', [broadcastId])).rows[0].delivery_locked_at).toBeNull();
   });
 
+  it('[batch-5] a pass out of time queues the next pass; together they send each recipient exactly once', async () => {
+    const broadcastId = await newBroadcast();
+    const first = dispatchJob(broadcastId);
+    // The clock jumps past the 30 s budget once two recipients are sent.
+    const realNow = Date.now.bind(Date);
+    const clock = vi.spyOn(Date, 'now').mockImplementation(() => realNow() + (sends.calls.length >= 2 ? 31_000 : 0));
+    try {
+      await handleJob(first);
+    } finally { clock.mockRestore(); }
+    expect(sends.calls).toHaveLength(2);
+    const afterFirst = await recipients(broadcastId);
+    expect(afterFirst.filter((r) => r.status === 'sent')).toHaveLength(2);
+    expect(afterFirst.filter((r) => r.status === 'pending')).toHaveLength(2);
+    expect((await owner.query('SELECT status, delivery_locked_at FROM broadcasts WHERE id=$1', [broadcastId])).rows[0])
+      .toEqual({ status: 'sending', delivery_locked_at: null });
+    const [next] = (await owner.query(`SELECT id::text, payload, status FROM jobs WHERE tenant_id=$1 AND dedupe_key=$2`,
+      [accountId, `broadcast:${broadcastId}:next:${first.id}`])).rows;
+    expect(next).toMatchObject({ status: 'pending', payload: { broadcastId, scope: 'pending', throttles: 0 } });
+
+    await handleJob({ ...dispatchJob(broadcastId), id: next.id, payload: next.payload });
+    expect(Object.values(sentPerPhone())).toEqual(PHONES.map(() => 1));
+    expect((await recipients(broadcastId)).every((r) => r.status === 'sent')).toBe(true);
+    const keys = await intents(broadcastId);
+    expect(keys).toHaveLength(PHONES.length);
+    expect(keys.every((k) => k.status === 'accepted')).toBe(true);
+  });
+
   it('a redelivered job after the pass finished sends nothing more', async () => {
     const broadcastId = await newBroadcast();
     await handleJob(dispatchJob(broadcastId));

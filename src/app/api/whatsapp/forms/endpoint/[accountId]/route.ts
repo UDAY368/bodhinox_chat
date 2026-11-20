@@ -41,7 +41,7 @@ export async function POST(request: Request, context: { params: Promise<{ accoun
   // Fails closed when META_APP_SECRET is missing.
   if (!verifyMetaWebhookSignature(raw, request.headers.get('x-hub-signature-256'))) return new Response('Invalid signature', { status: 401 });
   if (!UUID.test(accountId)) return new Response('Not found', { status: 404 });
-  const limit = checkRateLimit(`formsEndpoint:${accountId}`, ENDPOINT_LIMIT);
+  const limit = await checkRateLimit(`formsEndpoint:${accountId}`, ENDPOINT_LIMIT);
   if (!limit.success) return rateLimitResponse(limit);
 
   let body: unknown;

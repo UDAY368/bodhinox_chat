@@ -24,7 +24,7 @@ export async function POST(request: Request, context: Context) {
   try {
     const { id } = await context.params;
     const ctx = await staffContext();
-    const limited = writeLimit(ctx);
+    const limited = await writeLimit(ctx);
     if (limited) return limited;
     const body = await jsonBody(request);
     const created = await createReturn(ctx, id, { items: body.items, note: body.note });

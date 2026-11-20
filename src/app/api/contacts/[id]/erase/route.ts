@@ -18,7 +18,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     await assertMutation(request, session);
     if (!hasMinRole(session.role, 'admin'))
       return NextResponse.json({ error: 'forbidden', code: 'forbidden' }, { status: 403, headers: NO_STORE });
-    const limit = checkRateLimit(`contactErase:${session.userId}`, RATE_LIMITS.adminAction);
+    const limit = await checkRateLimit(`contactErase:${session.userId}`, RATE_LIMITS.adminAction);
     if (!limit.success) return rateLimitResponse(limit);
     const { id } = await params;
     await requestContactErasure({ accountId: session.accountId, userId: session.userId, role: session.role }, id);

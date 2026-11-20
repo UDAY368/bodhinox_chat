@@ -15,7 +15,7 @@ export async function GET(request: Request) {
   try {
     const session = await requireSession(request);
     if (!hasMinRole(session.role, 'admin')) throw new ForbiddenError('Insufficient workspace role');
-    const limit = checkRateLimit(`analytics:${session.userId}`, ANALYTICS_RATE_LIMIT);
+    const limit = await checkRateLimit(`analytics:${session.userId}`, ANALYTICS_RATE_LIMIT);
     if (!limit.success) return rateLimitResponse(limit);
     const params = new URL(request.url).searchParams;
     const { csv, startDay, endDay } = await runAnalytics({ accountId: session.accountId, userId: session.userId, role: session.role }, async (tx, timezone) => {

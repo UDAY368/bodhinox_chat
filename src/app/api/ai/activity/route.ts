@@ -20,7 +20,7 @@ const noStore = { 'Cache-Control': 'private, no-store' }
 export async function GET(request: Request) {
   try {
     const ctx = await requireRole('admin')
-    const limit = checkRateLimit(`ai-activity:${ctx.userId}`, RATE_LIMITS.send)
+    const limit = await checkRateLimit(`ai-activity:${ctx.userId}`, RATE_LIMITS.send)
     if (!limit.success) return rateLimitResponse(limit)
     const query = parseActivityQuery(new URL(request.url).searchParams)
     return NextResponse.json(await listReplyEvents(tenantOf(ctx), query), { headers: noStore })

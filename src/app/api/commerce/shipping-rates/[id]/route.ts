@@ -13,7 +13,7 @@ type Params = { params: Promise<{ id: string }> };
 export async function PATCH(request: Request, { params }: Params) {
   try {
     const ctx = await requireRole('admin');
-    const limit = checkRateLimit(`commerce:shipping:${ctx.userId}`, RATE_LIMITS.adminAction);
+    const limit = await checkRateLimit(`commerce:shipping:${ctx.userId}`, RATE_LIMITS.adminAction);
     if (!limit.success) return rateLimitResponse(limit);
     const { id } = await params;
     const input = parseShippingRate(await request.json().catch(() => null));
@@ -26,7 +26,7 @@ export async function PATCH(request: Request, { params }: Params) {
 export async function DELETE(_request: Request, { params }: Params) {
   try {
     const ctx = await requireRole('admin');
-    const limit = checkRateLimit(`commerce:shipping:${ctx.userId}`, RATE_LIMITS.adminAction);
+    const limit = await checkRateLimit(`commerce:shipping:${ctx.userId}`, RATE_LIMITS.adminAction);
     if (!limit.success) return rateLimitResponse(limit);
     const { id } = await params;
     await deleteShippingRate({ ...tenantOf(ctx), userId: ctx.userId }, id);

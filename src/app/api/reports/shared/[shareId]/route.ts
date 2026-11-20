@@ -37,7 +37,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ shar
       if (UUID.test(shareId)) login.searchParams.set('next', `/reports/shared/${shareId.toLowerCase()}`);
       return NextResponse.redirect(login, { status: 303, headers: PRIVATE });
     }
-    const limit = checkRateLimit(`reportShareOpen:${session.userId}`, { limit: 30, windowMs: 60_000 });
+    const limit = await checkRateLimit(`reportShareOpen:${session.userId}`, { limit: 30, windowMs: 60_000 });
     if (!limit.success) return rateLimitResponse(limit);
     let opened;
     try {

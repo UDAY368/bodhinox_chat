@@ -235,6 +235,21 @@ const FLOW_TRIGGER_CHANNELS = {
   contact_created: ['whatsapp', 'instagram'],
   tag_added: ['whatsapp', 'instagram'],
   outside_hours: ['whatsapp', 'instagram'],
+  // Batch 5: the event feed's triggers start a run on the contact's WhatsApp conversation (src/lib/flows/event-start.ts).
+  order_created: ['whatsapp'],
+  order_paid: ['whatsapp'],
+  order_shipped: ['whatsapp'],
+  order_delivered: ['whatsapp'],
+  order_returned: ['whatsapp'],
+  payment_received: ['whatsapp'],
+  form_submitted: ['whatsapp'],
+  deal_stage_changed: ['whatsapp'],
+  cart_abandoned: ['whatsapp'],
+  appointment_booked: ['whatsapp'],
+  appointment_cancelled: ['whatsapp'],
+  appointment_rescheduled: ['whatsapp'],
+  appointment_completed: ['whatsapp'],
+  appointment_no_show: ['whatsapp'],
 } as const satisfies Record<TriggerType, readonly Channel[]>;
 
 const triggersOn = (channel: Channel): readonly TriggerType[] =>
@@ -272,6 +287,15 @@ const ALL_AUTOMATION_TRIGGERS = Object.keys({
   appointment_rescheduled: true,
   appointment_completed: true,
   appointment_no_show: true,
+  order_created: true,
+  order_paid: true,
+  order_shipped: true,
+  order_delivered: true,
+  order_returned: true,
+  payment_received: true,
+  form_submitted: true,
+  deal_stage_changed: true,
+  cart_abandoned: true,
   tag_removed: true,
   field_changed: true,
 } satisfies Record<AutomationTriggerType, true>) as AutomationTriggerType[];
@@ -292,6 +316,7 @@ const ALL_AUTOMATION_STEPS = Object.keys({
   close_conversation: true,
   notify_team: true,
   start_flow: true,
+  move_deal_stage: true,
 } satisfies Record<AutomationStepType, true>) as AutomationStepType[];
 
 /** Instagram's automation triggers. Comment, story, live and ref events are flow triggers only. */

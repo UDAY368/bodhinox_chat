@@ -4,6 +4,8 @@
 // knows (also covered generically in phase1-schema.test.ts), and
 // schema-inventory.json carries every new column (contracts.ts reads it). The
 // database behaviour itself is covered by phase2-schema.integration.test.ts.
+// Batch 5's event-feed triggers came later still (20261205006000).
+import { EVENT_TRIGGER_TYPES } from '@/lib/events/types';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -43,7 +45,7 @@ describe('Stage 3A migration inventory', () => {
     const values = inList(sql('20261117130000_flow_ig_phase2_triggers'), 'trigger_type');
     // Stage 4 adds ig_share_to_story in 20261117190300 (the latest check is covered in phase1-schema.test.ts).
     // Later migrations add ig_share_to_story (20261117190300) and the event triggers (20261123014000).
-    const later = ['ig_share_to_story', 'contact_created', 'tag_added', 'outside_hours'];
+    const later: string[] = ['ig_share_to_story', 'contact_created', 'tag_added', 'outside_hours', ...EVENT_TRIGGER_TYPES];
     expect(values.sort()).toEqual(FLOW_TRIGGER_TYPES.filter((type) => !later.includes(type)).sort());
     expect(values).toEqual(expect.arrayContaining(['ig_live_comment', 'ig_ref']));
   });

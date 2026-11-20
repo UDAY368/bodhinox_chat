@@ -53,6 +53,16 @@ export const TRIGGER_META: Record<AutomationTriggerType, TriggerMeta> = {
   appointment_no_show: {
     pillClass: 'border-orange-500/30 bg-orange-500/10 text-orange-300',
   },
+  // Batch 5: the event feed.
+  order_created: { pillClass: 'border-sky-500/30 bg-sky-500/10 text-sky-300' },
+  order_paid: { pillClass: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300' },
+  order_shipped: { pillClass: 'border-indigo-500/30 bg-indigo-500/10 text-indigo-300' },
+  order_delivered: { pillClass: 'border-green-500/30 bg-green-500/10 text-green-300' },
+  order_returned: { pillClass: 'border-orange-500/30 bg-orange-500/10 text-orange-300' },
+  payment_received: { pillClass: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300' },
+  form_submitted: { pillClass: 'border-violet-500/30 bg-violet-500/10 text-violet-300' },
+  deal_stage_changed: { pillClass: 'border-primary/30 bg-primary/10 text-primary' },
+  cart_abandoned: { pillClass: 'border-rose-500/30 bg-rose-500/10 text-rose-300' },
   // Stage 5 contact events (5D).
   tag_removed: {
     pillClass: 'border-amber-500/30 bg-amber-500/10 text-amber-300',

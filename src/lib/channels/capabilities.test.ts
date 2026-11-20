@@ -1,3 +1,4 @@
+import { EVENT_TRIGGER_TYPES } from '@/lib/events/types';
 import { describe, expect, it } from 'vitest';
 import {
   automationStepAvailableOn,
@@ -88,7 +89,7 @@ describe('channel capabilities', () => {
 
   it('builds each channel flow palette from one exhaustive map', () => {
     expect(flowTriggersFor('whatsapp')).toEqual(['keyword', 'first_inbound_message', 'manual', 'template_reply', 'order_received', 'ad_click',
-      'default_reply', 'contact_created', 'tag_added', 'outside_hours']);
+      'default_reply', 'contact_created', 'tag_added', 'outside_hours', ...EVENT_TRIGGER_TYPES]);
     // Stage 3: click-to-Direct ads (ad_click), Live comments and ref links; Stage 4: Share-to-Story (conversion_event also opens on Instagram).
     // The automation list's event triggers run on both channels.
     expect(flowTriggersFor('instagram')).toEqual(['keyword', 'first_inbound_message', 'manual', 'ad_click', 'default_reply', 'ig_comment',
@@ -127,7 +128,7 @@ describe('channel capabilities', () => {
       expect(automationTriggerAvailableOn(trigger, 'instagram')).toBe(false);
       expect(automationTriggerAvailableOn(trigger, 'whatsapp')).toBe(true);
     }
-    expect(automationTriggersFor('whatsapp')).toHaveLength(16);
+    expect(automationTriggersFor('whatsapp')).toHaveLength(25);
   });
 
   it('Stage 5: offers the contact-event triggers on both channels and Instagram schedules only behind their flag', () => {
@@ -158,7 +159,7 @@ describe('channel capabilities', () => {
   });
 
   it('keeps templates and list messages out of Instagram automation steps', () => {
-    expect(automationStepsFor('whatsapp')).toHaveLength(15);
+    expect(automationStepsFor('whatsapp')).toHaveLength(16);
     expect(automationStepAvailableOn('send_template', 'instagram')).toBe(false);
     expect(automationStepAvailableOn('send_list', 'instagram')).toBe(false);
     for (const step of ['send_message', 'send_buttons', 'add_tag', 'remove_tag', 'assign_conversation', 'update_contact_field',
@@ -166,7 +167,7 @@ describe('channel capabilities', () => {
       expect(automationStepAvailableOn(step, 'instagram')).toBe(true);
       expect(automationStepAvailableOn(step, 'whatsapp')).toBe(true);
     }
-    expect(automationStepsFor('instagram')).toHaveLength(13);
+    expect(automationStepsFor('instagram')).toHaveLength(14);
   });
 
   it('recognises only known channels', () => {

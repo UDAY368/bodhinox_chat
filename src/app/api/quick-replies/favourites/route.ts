@@ -29,7 +29,7 @@ export async function GET() {
 export async function PUT(request: Request) {
   try {
     const ctx = await requireRole('agent');
-    const limit = checkRateLimit(`quick-replies:favourites:${ctx.userId}`, PREFERENCE_WRITE_LIMIT);
+    const limit = await checkRateLimit(`quick-replies:favourites:${ctx.userId}`, PREFERENCE_WRITE_LIMIT);
     if (!limit.success) return rateLimitResponse(limit);
     const { quickReplyId, favourite } = parseFavouriteBody(await request.json().catch(() => null));
     await setQuickReplyFavourite(tenantOf(ctx), quickReplyId, favourite);

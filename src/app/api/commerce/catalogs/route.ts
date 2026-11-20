@@ -22,7 +22,7 @@ export async function GET(request: Request) {
     const configId = new URL(request.url).searchParams.get('whatsapp_config_id');
     if (configId !== null) {
       const ctx = await requireRole('admin');
-      const limit = checkRateLimit(`catalogs:meta:${ctx.userId}`, RATE_LIMITS.adminAction);
+      const limit = await checkRateLimit(`catalogs:meta:${ctx.userId}`, RATE_LIMITS.adminAction);
       if (!limit.success) return rateLimitResponse(limit);
       return NextResponse.json({ available: await listMetaCatalogs(tenantOf(ctx), configId) });
     }
@@ -36,7 +36,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const ctx = await requireRole('admin');
-    const limit = checkRateLimit(`catalogs:write:${ctx.userId}`, RATE_LIMITS.adminAction);
+    const limit = await checkRateLimit(`catalogs:write:${ctx.userId}`, RATE_LIMITS.adminAction);
     if (!limit.success) return rateLimitResponse(limit);
     const input = parseConnectInput(await request.json().catch(() => null));
     return NextResponse.json({ catalog: await connectCatalog(tenantOf(ctx), input) }, { status: 201 });

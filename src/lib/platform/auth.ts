@@ -87,7 +87,7 @@ export async function requirePlatformAdmin(request: Request, options: PlatformAc
   if (decision === 'step_up')
     throw new AuthError('Confirm your two-step verification code to continue', 403, 'mfa_step_up_required');
   if (options.mutation) await assertMutation(request, context);
-  const limit = checkRateLimit(`platform:${options.mutation ? 'write' : 'read'}:${context.userId}`,
+  const limit = await checkRateLimit(`platform:${options.mutation ? 'write' : 'read'}:${context.userId}`,
     { limit: options.mutation ? 30 : 240, windowMs: 60_000 });
   if (!limit.success) throw new AuthError('Too many requests. Try again shortly.', 429, 'rate_limited');
   return { userId: context.userId, sessionId: context.sessionId, email: context.user.email.trim().toLowerCase() };

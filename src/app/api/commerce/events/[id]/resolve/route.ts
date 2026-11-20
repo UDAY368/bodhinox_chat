@@ -19,7 +19,7 @@ export async function POST(request: Request, context: Context) {
   try {
     const { id } = await context.params;
     const ctx = await requireRole('admin');
-    const limit = checkRateLimit(`commerceEvents:resolve:${ctx.userId}`, RATE_LIMITS.send);
+    const limit = await checkRateLimit(`commerceEvents:resolve:${ctx.userId}`, RATE_LIMITS.send);
     if (!limit.success) return rateLimitResponse(limit);
     const resolution = parseResolution(await request.json().catch(() => null));
     if (!resolution) return NextResponse.json({ error: t('resolution'), code: 'resolution' }, { status: 400 });

@@ -7,6 +7,7 @@ import {
   retryProviderStatus,
   type InboundActionsPayload,
 } from '@/lib/whatsapp/process-webhook';
+import { processedWebhookShell } from '@/lib/whatsapp/webhook-shell';
 import {
   expireAwaitingReplies,
   resumePendingExecution,
@@ -42,7 +43,7 @@ import { broadcastHalted } from '@/lib/broadcasts/pause';
 import { broadcastChannel, deliverInstagramBroadcast } from '@/lib/broadcasts/instagram';
 import { NUMBER_DISCONNECTED_REASON } from '@/lib/whatsapp/number-admin';
 import { withJobScope } from './scope';
-import { enqueueJob, type Job } from './queue';
+import { enqueueJob, enqueueTenantJobs, type Job } from './queue';
 import { deliverQueuedWebhook } from '@/lib/webhooks/deliver';
 import { HEALTH_SYNC_JOB, scheduleHealthSync, syncNumberHealth } from '@/lib/whatsapp/health-sync';
 import { COMMERCE_EVENT_JOB, handleCommerceEventJob } from '@/lib/commerce/event-rules';
@@ -50,6 +51,8 @@ import { handleInboxJob, isInboxJob, scheduleInboxSweeps } from '@/lib/inbox/job
 import { isAppointmentJobType } from '@/lib/appointments/types';
 import { NOTIFICATION_DIGEST_JOB, scheduleNotificationDigests, sendNotificationDigest } from '@/lib/notifications/digest';
 
+/** Time budget of one campaign pass of pending recipients before it queues the next pass. */
+export const BROADCAST_PASS_BUDGET_MS = 30_000;
 const uuid = (value: unknown): string => {
   if (typeof value !== 'string' || !/^[0-9a-f-]{36}$/i.test(value))
     throw new Error('Invalid job identifier');
@@ -81,12 +84,12 @@ export async function scheduleWork() {
   const range = scheduleRange(last?.[0]?.last_minute ?? null, now);
   if (range.missed > 0)
     console.error('[worker] automation schedule gap longer than the catch-up window', { skippedMinutes: range.missed });
-  for (const { account_id } of accounts)
-    await enqueueJob(
-      'automation.schedule',
-      { minute: range.to.toISOString(), from: range.from.toISOString() },
-      { tenantId: account_id, dedupeKey: `schedule:${account_id}:${window}` }
-    );
+  // Every workspace's job in one statement; the dedupe keys are the ones queued one by one before.
+  await enqueueTenantJobs(
+    'automation.schedule',
+    { minute: range.to.toISOString(), from: range.from.toISOString() },
+    accounts.map(({ account_id }) => ({ tenantId: account_id, dedupeKey: `schedule:${account_id}:${window}` }))
+  );
   // Advanced only after every workspace's job is queued; a failure re-covers the range next time.
   if (last)
     await prisma.$executeRaw`INSERT INTO worker_schedule_state(name,last_minute) VALUES('automation.schedule',${range.to})
@@ -162,8 +165,9 @@ export async function handleJob(job: Job, assertLease: () => void = () => {}) {
     >`SELECT payload,status FROM webhook_receipts WHERE id=${id}::uuid`;
     if (!rows[0] || rows[0].status === 'processed') return;
     await processWebhook(rows[0].payload, assertLease);
+    // Processed: keep ids and types only (no message text, media links or phone numbers); the dedupe key stays.
     await getWorkerPrisma()
-      .$executeRaw`UPDATE webhook_receipts SET status='processed' WHERE id=${id}::uuid`;
+      .$executeRaw`UPDATE webhook_receipts SET status='processed', payload=${JSON.stringify(processedWebhookShell(rows[0].payload))}::jsonb WHERE id=${id}::uuid`;
     return;
   }
   if (job.type === 'billing.event')
@@ -216,14 +220,22 @@ export async function handleJob(job: Job, assertLease: () => void = () => {}) {
       try {
         // A member's Pause is read between recipients; a paused pass leaves the rest pending.
         const shouldStop = () => broadcastHalted(accountId, broadcastId);
+        // A pass of pending recipients ends after about 30 s and queues the next one, so one large
+        // campaign takes turns with other workspaces' bulk work. Only pending rows: each one leaves
+        // 'pending' once handled, so every pass makes progress, and the per-recipient send intents
+        // keep a recipient from being sent twice across passes. Retry-failed passes are not cut.
+        const deadline = scope === 'pending' ? Date.now() + BROADCAST_PASS_BUDGET_MS : undefined;
+        // The next pass starts after this one released the delivery lock (else it would wait 60 s).
+        const nextPassAt = () => new Date(Date.now() + 2_000);
         if ((await broadcastChannel(accountId, broadcastId)) === 'instagram') {
           // Instagram: free text inside each recipient's 24-hour window (lib/broadcasts/instagram).
           if (!(await claimBroadcastStart(accountId, broadcastId))) return;
-          const pass = await deliverInstagramBroadcast(accountId, broadcastId, scope, { assertLease, shouldStop });
+          const pass = await deliverInstagramBroadcast(accountId, broadcastId, scope, { assertLease, shouldStop, deadline });
           if (pass.stopped) return;
           if (pass.remaining > 0 && scope === 'pending')
             await enqueueJob('broadcast.dispatch', { broadcastId, scope: 'pending' }, {
               tenantId: accountId,
+              runAt: nextPassAt(),
               requeueCompleted: true,
               dedupeKey: `broadcast:${broadcastId}:next:${job.id}`,
             });
@@ -253,6 +265,7 @@ export async function handleJob(job: Job, assertLease: () => void = () => {}) {
           // an uncertain outcome still waits for reconciliation.
           retryRejected: true,
           shouldStop,
+          deadline,
         });
         // Paused by a member: the rest stays pending until Resume queues the next pass.
         if (result.stopped) return;
@@ -281,12 +294,14 @@ export async function handleJob(job: Job, assertLease: () => void = () => {}) {
           );
           return;
         }
-        if (remaining > 0)
+        // Out of time with recipients left in this plan, or more beyond the per-pass cap.
+        if (result.timedOut || remaining > 0)
           await enqueueJob(
             'broadcast.dispatch',
             { ...job.payload, scope: 'pending', throttles: 0 },
             {
               tenantId: accountId,
+              runAt: nextPassAt(),
               requeueCompleted: true,
               dedupeKey: `broadcast:${broadcastId}:next:${job.id}`,
             }
@@ -593,6 +608,9 @@ export async function handleJob(job: Job, assertLease: () => void = () => {}) {
     else if (job.type === 'sequences.due')
       // Due sequence messages (Stage 5): claimed per subscription, 24-hour window re-checked before each send.
       await (await import('@/lib/sequences/jobs')).handleSequenceJob(accountId);
+    else if (job.type === 'events.dispatch')
+      // One domain event fanned out once to rules, flows and webhooks (src/lib/events/dispatch.ts).
+      await (await import('@/lib/events/dispatch')).handleEventDispatchJob(accountId, job.payload);
     else if (job.type.startsWith('instagram.'))
       // Token sweep, profile fetch and comment private replies; each returns early while Instagram is off.
       await (await import('@/lib/instagram/jobs')).handleInstagramJob(accountId, job.type, job.payload, { attempts: job.attempts, maxAttempts: job.max_attempts });

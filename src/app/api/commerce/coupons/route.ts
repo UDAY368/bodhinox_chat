@@ -21,7 +21,7 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const ctx = await requireRole('admin');
-    const limit = checkRateLimit(`commerce:coupons:${ctx.userId}`, RATE_LIMITS.adminAction);
+    const limit = await checkRateLimit(`commerce:coupons:${ctx.userId}`, RATE_LIMITS.adminAction);
     if (!limit.success) return rateLimitResponse(limit);
     const input = parseCouponCreate(await request.json().catch(() => null));
     return NextResponse.json({ coupon: await createCoupon({ ...tenantOf(ctx), userId: ctx.userId }, input) }, { status: 201 });

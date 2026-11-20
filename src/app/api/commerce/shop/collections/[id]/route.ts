@@ -20,7 +20,7 @@ export async function PATCH(request: Request, context: IdContext) {
   try {
     const { id } = await context.params;
     const caller = await staffCaller(request, { min: 'admin', mutation: true });
-    const limited = mutationLimit(caller);
+    const limited = await mutationLimit(caller);
     if (limited) return limited;
     const body = await readJson(request);
     return json({ collection: await inTenant(caller, (tx) => upsertCollection(tx, caller.accountId, caller.userId, id, body)) });
@@ -33,7 +33,7 @@ export async function DELETE(request: Request, context: IdContext) {
   try {
     const { id } = await context.params;
     const caller = await staffCaller(request, { min: 'admin', mutation: true });
-    const limited = mutationLimit(caller);
+    const limited = await mutationLimit(caller);
     if (limited) return limited;
     await inTenant(caller, (tx) => deleteCollection(tx, caller.accountId, caller.userId, id));
     return json({ ok: true });

@@ -25,10 +25,12 @@ vi.mock('@/lib/db/prisma', () => ({
   }),
 }));
 vi.mock('./queue', () => ({
-  enqueueJob: vi.fn(async (_type: string, payload: Record<string, unknown>, options: Record<string, unknown>) => {
-    if (h.enqueueFails && h.enqueued.length === 1) throw new Error('queue unavailable');
-    h.enqueued.push({ payload, options });
-    return 'job';
+  enqueueJob: vi.fn(),
+  // Every workspace's automation.schedule job in one statement.
+  enqueueTenantJobs: vi.fn(async (_type: string, payload: Record<string, unknown>, entries: Record<string, unknown>[]) => {
+    if (h.enqueueFails) throw new Error('queue unavailable');
+    for (const options of entries) h.enqueued.push({ payload, options });
+    return entries.length;
   }),
 }));
 vi.mock('@/lib/whatsapp/health-sync', () => ({ HEALTH_SYNC_JOB: 'whatsapp.health_sync', scheduleHealthSync: vi.fn(async () => {}), syncNumberHealth: vi.fn() }));
@@ -50,6 +52,7 @@ vi.mock('@/lib/sequences/jobs', () => ({ SEQUENCES_DUE_JOB: 'sequences.due', sch
 
 import { scheduleWork } from './handlers';
 import { scheduleSequenceSweeps } from '@/lib/sequences/jobs';
+import { enqueueTenantJobs } from './queue';
 
 const NOW = new Date('2026-10-15T09:10:20.000Z');
 const A = '11111111-1111-4111-8111-111111111111';
@@ -76,6 +79,10 @@ describe('[audit-50/56] scheduleWork catch-up', () => {
       { minute: '2026-10-15T09:10:00.000Z', from: '2026-10-15T09:06:00.000Z' },
     ]);
     expect(h.enqueued.map((e) => e.options.tenantId)).toEqual([A, B]);
+    // The per-workspace dedupe keys are unchanged by the batched insert.
+    const window = Math.floor(NOW.getTime() / 30_000);
+    expect(h.enqueued.map((e) => e.options.dedupeKey)).toEqual([`schedule:${A}:${window}`, `schedule:${B}:${window}`]);
+    expect(vi.mocked(enqueueTenantJobs).mock.calls.filter(([type]) => type === 'automation.schedule')).toHaveLength(1);
     expect(h.writes).toEqual([[new Date('2026-10-15T09:10:00.000Z')]]);
   });
 

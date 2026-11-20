@@ -20,7 +20,7 @@ export async function GET(request: Request) {
     if (!metaAdsConfig()) return notEnabledResponse();
     const session = await requireSession(request);
     if (!hasMinRole(session.role, 'admin')) throw new ForbiddenError();
-    const limit = checkRateLimit(`metaAdsChoices:${session.userId}`, RATE_LIMITS.adminAction);
+    const limit = await checkRateLimit(`metaAdsChoices:${session.userId}`, RATE_LIMITS.adminAction);
     if (!limit.success) return rateLimitResponse(limit);
     return NextResponse.json(await listChoices(actorOf(session)), { headers: NO_STORE });
   } catch (error) {

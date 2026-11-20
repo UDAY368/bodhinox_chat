@@ -18,7 +18,7 @@ export async function GET(_request: Request, context: Context) {
   try {
     const ctx = await requireRole('agent');
     const { id } = await context.params;
-    const limit = checkRateLimit(`conversationExport:${ctx.userId}`, { limit: 20, windowMs: 60_000 });
+    const limit = await checkRateLimit(`conversationExport:${ctx.userId}`, { limit: 20, windowMs: 60_000 });
     if (!limit.success) return rateLimitResponse(limit);
     const tenant = tenantOf(ctx);
     const { csv, fileName } = await withTenant(tenant, (tx) => exportConversation(tx, tenant, id));

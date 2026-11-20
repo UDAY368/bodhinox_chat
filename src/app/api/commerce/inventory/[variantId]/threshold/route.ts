@@ -12,7 +12,7 @@ export async function PUT(request: Request, context: Context) {
   try {
     const { variantId } = await context.params;
     const caller = await staffCaller(request, { min: 'admin', mutation: true, permission: 'commerce.inventory' });
-    const limited = mutationLimit(caller);
+    const limited = await mutationLimit(caller);
     if (limited) return limited;
     await setLowStockThreshold(caller.tenant, parseThresholdInput(variantId, await readJson(request)));
     return json({ ok: true });

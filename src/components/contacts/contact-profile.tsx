@@ -48,6 +48,7 @@ import { ContactForm } from './contact-form';
 import { ContactIdentities } from './contact-identities';
 import { InstagramFacts } from './instagram-facts';
 import { ContactPayments } from './contact-payments';
+import { ContactTimeline } from './contact-timeline';
 import { ContactAppointmentsCard } from '@/components/appointments/contact-appointments-card';
 import { bookingTimelineEvent } from '@/lib/appointments/contact-bookings';
 import { CustomFieldInput, FIELD_SELECT } from './custom-field-input';
@@ -669,6 +670,7 @@ export function ContactProfile({ contactId }: { contactId: string }) {
               </button>
             )}
           </section>
+          <ContactTimeline contactId={contactId} className={CARD} titleClassName={CARD_TITLE} />
         </div>
 
         <aside className="flex min-w-0 flex-col gap-4">

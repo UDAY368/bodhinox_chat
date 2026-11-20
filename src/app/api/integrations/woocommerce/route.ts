@@ -44,7 +44,7 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const ctx = await requireRole('admin');
-    const limit = checkRateLimit(`admin:wooStore:${ctx.userId}`, RATE_LIMITS.adminAction);
+    const limit = await checkRateLimit(`admin:wooStore:${ctx.userId}`, RATE_LIMITS.adminAction);
     if (!limit.success) return rateLimitResponse(limit);
     const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
     const { store, webhookSecret } = await withTenant(tenantOf(ctx), (tx) =>

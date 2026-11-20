@@ -26,7 +26,7 @@ export async function shopPost(
 ): Promise<NextResponse> {
   try {
     assertOrigin(request);
-    if (!burstAllowed('mutate', request)) return tooMany();
+    if (!(await burstAllowed('mutate', request))) return tooMany();
     const { handle } = await params;
     if (!isShopHandleFormat(handle)) return notFound();
     const body = await readBody(request);

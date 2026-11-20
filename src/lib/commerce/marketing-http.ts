@@ -17,7 +17,7 @@ export async function readerOf(): Promise<TenantContext> {
 /** An admin, inside the write limit; or the ready 429 response. Throws the auth errors storeErrorResponse maps. */
 export async function writerOf(scope: string): Promise<{ staff: Staff } | { response: NextResponse }> {
   const ctx = await requireRole('admin');
-  const limit = checkRateLimit(`commerce:${scope}:${ctx.userId}`, RATE_LIMITS.adminAction);
+  const limit = await checkRateLimit(`commerce:${scope}:${ctx.userId}`, RATE_LIMITS.adminAction);
   if (!limit.success) return { response: rateLimitResponse(limit) };
   return { staff: { ...tenantOf(ctx), userId: ctx.userId } };
 }

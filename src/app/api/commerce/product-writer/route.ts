@@ -19,9 +19,9 @@ const t = getT('Api');
 export async function POST(request: Request) {
   try {
     const { db, accountId, userId } = await requireRole('admin');
-    const userLimit = checkRateLimit(`ai-product-writer:${userId}`, RATE_LIMITS.aiDraft);
+    const userLimit = await checkRateLimit(`ai-product-writer:${userId}`, RATE_LIMITS.aiDraft);
     if (!userLimit.success) return rateLimitResponse(userLimit);
-    const accountLimit = checkRateLimit(`ai-draft-acct:${accountId}`, RATE_LIMITS.aiDraftAccount);
+    const accountLimit = await checkRateLimit(`ai-draft-acct:${accountId}`, RATE_LIMITS.aiDraftAccount);
     if (!accountLimit.success) return rateLimitResponse(accountLimit);
 
     const input = parseWriterInput(await readBody(request));

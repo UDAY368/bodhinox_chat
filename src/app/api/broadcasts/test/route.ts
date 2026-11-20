@@ -11,7 +11,7 @@ import { checkRateLimit, rateLimitResponse, RATE_LIMITS } from '@/lib/rate-limit
 export async function POST(request: Request) {
   try {
     const ctx = await requireRole('agent');
-    const limit = checkRateLimit(`campaignTest:${ctx.userId}`, RATE_LIMITS.campaignTest);
+    const limit = await checkRateLimit(`campaignTest:${ctx.userId}`, RATE_LIMITS.campaignTest);
     if (!limit.success) return rateLimitResponse(limit);
     const results = await sendCampaignTest(tenantOf(ctx), await request.json().catch(() => null));
     return NextResponse.json({ results });

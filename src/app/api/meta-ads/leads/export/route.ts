@@ -20,7 +20,7 @@ export async function GET(request: Request) {
     await requirePermission(tenantOf(ctx), 'contacts.export');
     // Admins are never masked; kept so a lower export role cannot leak numbers.
     if (await resolvePhoneMask(tenantOf(ctx))) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-    const limit = checkRateLimit(`admin:metaLeadsExport:${ctx.userId}`, RATE_LIMITS.adminAction);
+    const limit = await checkRateLimit(`admin:metaLeadsExport:${ctx.userId}`, RATE_LIMITS.adminAction);
     if (!limit.success) return rateLimitResponse(limit);
     const filter = parseLeadsFilter(new URL(request.url).searchParams);
     const { csv } = await exportLeadsCsv({ ...tenantOf(ctx), userId: ctx.userId }, filter);

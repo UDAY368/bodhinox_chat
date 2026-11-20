@@ -38,7 +38,7 @@ async function resolveNumber(ctx: AccountContext, request: Request) {
 export async function GET(request: Request) {
   try {
     const ctx = await getCurrentAccount();
-    const limit = checkRateLimit(`whatsapp:health:${ctx.accountId}:${ctx.userId}`, { limit: 12, windowMs: 60_000 });
+    const limit = await checkRateLimit(`whatsapp:health:${ctx.accountId}:${ctx.userId}`, { limit: 12, windowMs: 60_000 });
     if (!limit.success) return rateLimitResponse(limit);
     const config = await resolveNumber(ctx, request);
     if (config instanceof NextResponse) return config;
@@ -64,7 +64,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const ctx = await requireRole('admin');
-    const limit = checkRateLimit(`whatsapp:health:sync:${ctx.accountId}:${ctx.userId}`, RATE_LIMITS.adminAction);
+    const limit = await checkRateLimit(`whatsapp:health:sync:${ctx.accountId}:${ctx.userId}`, RATE_LIMITS.adminAction);
     if (!limit.success) return rateLimitResponse(limit);
     const config = await resolveNumber(ctx, request);
     if (config instanceof NextResponse) return config;

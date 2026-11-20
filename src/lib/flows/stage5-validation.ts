@@ -96,6 +96,13 @@ export function actionProblem(raw: unknown, flowId?: string): string | null {
       return isUuid(a.event_type_id) ? null : tFlows("conversionInvalidEvent");
     case "set_conversation_status":
       return a.status === "open" || a.status === "closed" ? null : tActions("invalid");
+    case "create_deal":
+      if (!isUuid(a.pipeline_id) || !isUuid(a.stage_id)) return tActions("dealNeedsStage");
+      if (typeof a.title !== "string" || !a.title.trim() || a.title.length > 200) return tActions("dealNeedsTitle");
+      return a.value === undefined || (typeof a.value === "number" && Number.isFinite(a.value) && a.value >= 0) ? null : tActions("invalid");
+    case "move_deal_stage":
+      if (!isUuid(a.pipeline_id) || !isUuid(a.stage_id)) return tActions("dealNeedsStage");
+      return a.status === undefined || a.status === "won" || a.status === "lost" ? null : tActions("invalid");
     case "notify_team":
       if (a.target !== "assignee" && a.target !== "admins") return tActions("invalid");
       return a.note === undefined || (typeof a.note === "string" && a.note.length <= FLOW_STEP_LIMITS.notifyNoteChars) ? null : tActions("invalid");

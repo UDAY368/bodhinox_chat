@@ -41,7 +41,7 @@ export async function POST(request: Request) {
     if (!metaAdsConfig()) return notEnabledResponse();
     const session = await requireSession(request);
     await assertMutation(request, session);
-    const limit = checkRateLimit(`metaAdsAudiences:${session.userId}`, RATE_LIMITS.adminAction);
+    const limit = await checkRateLimit(`metaAdsAudiences:${session.userId}`, RATE_LIMITS.adminAction);
     if (!limit.success) return rateLimitResponse(limit);
     const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
     const actor = actorOf(session);

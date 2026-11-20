@@ -26,7 +26,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const caller = await staffCaller(request, { min: 'agent', mutation: true, permission: 'appointments.manage' });
-    const limited = mutationLimit(caller);
+    const limited = await mutationLimit(caller);
     if (limited) return limited;
     const body = await readJson(request);
     return json({ item: await inTenant(caller, (tx) => createTask(tx, caller.accountId, caller.userId, body)) }, 201);

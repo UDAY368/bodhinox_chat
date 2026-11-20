@@ -186,9 +186,11 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('phase 8 batch 3: selling op
     expect(await availability(V.dig)).toBeNull(); // a download has no stock
     expect(await availability(V.soldOut)).toBe(0);
     // A bundle with no parts sells nothing.
-    await db.query(`INSERT INTO shop_products(id,account_id,name,status,is_bundle) VALUES($1,$2,'Empty bundle','draft',true)`, [P.other.replace(/^./, 'e'), accountA]);
-    await db.query(`INSERT INTO shop_variants(id,account_id,product_id,sku,price_minor,track_inventory) VALUES($1,$2,$3,'EMPTY-B',1000,false)`, ['e' + V.other.slice(1), accountA, P.other.replace(/^./, 'e')]);
-    expect(await availability('e' + V.other.slice(1))).toBe(0);
+    // Fresh ids (deriving them from existing ones collided whenever the id already started with the swapped character).
+    const emptyBundle = randomUUID(), emptyVariant = randomUUID();
+    await db.query(`INSERT INTO shop_products(id,account_id,name,status,is_bundle) VALUES($1,$2,'Empty bundle','draft',true)`, [emptyBundle, accountA]);
+    await db.query(`INSERT INTO shop_variants(id,account_id,product_id,sku,price_minor,track_inventory) VALUES($1,$2,$3,'EMPTY-B',1000,false)`, [emptyVariant, accountA, emptyBundle]);
+    expect(await availability(emptyVariant)).toBe(0);
   });
 
   // ------------------------------------------------------------------ bundles

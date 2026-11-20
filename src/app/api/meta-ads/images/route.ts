@@ -20,7 +20,7 @@ export async function POST(request: Request) {
     if (!metaAdsConfig()) return notEnabledResponse();
     const session = await requireSession(request);
     await assertMutation(request, session);
-    const limit = checkRateLimit(`metaAdsImage:${session.userId}`, RATE_LIMITS.adminAction);
+    const limit = await checkRateLimit(`metaAdsImage:${session.userId}`, RATE_LIMITS.adminAction);
     if (!limit.success) return rateLimitResponse(limit);
     const body = await readBoundedBody(request, BODY_LIMIT);
     const form = await new Response(body, { headers: { 'Content-Type': request.headers.get('Content-Type') || '' } })

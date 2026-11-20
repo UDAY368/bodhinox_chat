@@ -20,6 +20,8 @@ import {
   IgStoryReplyTriggerFields,
 } from "./ig-trigger-fields";
 import { ContactCreatedTriggerFields, OutsideHoursTriggerFields, TagAddedTriggerFields } from "./event-trigger-fields";
+import { EventTriggerFilters } from "@/components/automations/event-trigger-filters";
+import { isEventTriggerType } from "@/lib/events/types";
 
 type Config = Record<string, unknown>;
 
@@ -41,6 +43,20 @@ export const TRIGGER_TITLE_KEYS: Record<FlowTriggerType, string> = {
   contact_created: "triggerContactCreatedTitle",
   tag_added: "triggerTagAddedTitle",
   outside_hours: "triggerOutsideHoursTitle",
+  order_created: "triggerOrderCreatedTitle",
+  order_paid: "triggerOrderPaidTitle",
+  order_shipped: "triggerOrderShippedTitle",
+  order_delivered: "triggerOrderDeliveredTitle",
+  order_returned: "triggerOrderReturnedTitle",
+  payment_received: "triggerPaymentReceivedTitle",
+  form_submitted: "triggerFormSubmittedTitle",
+  deal_stage_changed: "triggerDealStageChangedTitle",
+  cart_abandoned: "triggerCartAbandonedTitle",
+  appointment_booked: "triggerAppointmentBookedTitle",
+  appointment_cancelled: "triggerAppointmentCancelledTitle",
+  appointment_rescheduled: "triggerAppointmentRescheduledTitle",
+  appointment_completed: "triggerAppointmentCompletedTitle",
+  appointment_no_show: "triggerAppointmentNoShowTitle",
 };
 
 export function TriggerForm({ type, config, onChange, instagramOnly, shareToStoryOn }: {
@@ -84,5 +100,8 @@ export function TriggerForm({ type, config, onChange, instagramOnly, shareToStor
     case "first_inbound_message":
     case "manual":
       return null;
+    default:
+      // Batch 5: the event feed's triggers (orders, payments, forms, deals, carts, appointments).
+      return isEventTriggerType(type) ? <div className="md:col-span-2"><EventTriggerFilters trigger={type} config={config} onChange={onChange} /></div> : null;
   }
 }

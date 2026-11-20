@@ -9,6 +9,7 @@
  * from keys.ts so a retried transaction never queues a duplicate.
  */
 import type { TenantTransaction } from '@/lib/db/tenant';
+import { emitAppointmentDomainEvent } from './domain-event';
 import { appointmentKeys } from './keys';
 import {
   APPOINTMENT_JOB_TYPES,
@@ -38,9 +39,12 @@ export async function insertJob(
 }
 
 /** Staff notification, automation trigger, webhook and superseded-reminder retirement (run by the worker after commit). */
-export function enqueueEvent(tx: TenantTransaction, accountId: string, appointmentId: string, version: number, kind: AppointmentEventKind) {
+export async function enqueueEvent(tx: TenantTransaction, accountId: string, appointmentId: string, version: number, kind: AppointmentEventKind) {
   const payload: EventJobPayload = { appointmentId, version, kind };
-  return insertJob(tx, accountId, APPOINTMENT_JOB_TYPES.event, payload, appointmentKeys.event(appointmentId, version, kind));
+  const queued = await insertJob(tx, accountId, APPOINTMENT_JOB_TYPES.event, payload, appointmentKeys.event(appointmentId, version, kind));
+  // Rules, flows and webhooks run from the shared event feed (src/lib/events), recorded with the change.
+  await emitAppointmentDomainEvent(tx, accountId, appointmentId, version, kind);
+  return queued;
 }
 
 /**

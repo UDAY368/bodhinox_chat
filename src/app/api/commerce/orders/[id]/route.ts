@@ -35,7 +35,7 @@ export async function PATCH(request: Request, context: Context) {
   try {
     const { id } = await context.params;
     const ctx = await requireRole('agent');
-    const limit = checkRateLimit(`orders:write:${ctx.userId}`, RATE_LIMITS.send);
+    const limit = await checkRateLimit(`orders:write:${ctx.userId}`, RATE_LIMITS.send);
     if (!limit.success) return rateLimitResponse(limit);
     const patch = parseOrderPatch(await request.json().catch(() => null));
     const order = await updateOrder(tenantOf(ctx), id, patch);

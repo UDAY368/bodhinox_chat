@@ -24,7 +24,7 @@ export async function identityMutation<T extends z.ZodTypeAny>(request: Request,
     const session = await requireSession(request);
     await assertMutation(request, session);
     if (!hasMinRole(session.role, 'admin')) return instagramErrorResponse('forbidden');
-    const limit = checkRateLimit(`contactIdentity:${kind}:${session.userId}`, RATE_LIMITS.adminAction);
+    const limit = await checkRateLimit(`contactIdentity:${kind}:${session.userId}`, RATE_LIMITS.adminAction);
     if (!limit.success) return rateLimitResponse(limit);
     const parsed = schema.safeParse(await request.json().catch(() => null));
     if (!parsed.success) return instagramErrorResponse('invalid_request');

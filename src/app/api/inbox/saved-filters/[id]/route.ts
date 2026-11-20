@@ -22,7 +22,7 @@ export async function PATCH(request: Request, { params }: Params) {
   try {
     const { id } = await params;
     const ctx = await requireRole('viewer');
-    const limit = checkRateLimit(`inbox:saved-filters:${ctx.userId}`, PREFERENCE_WRITE_LIMIT);
+    const limit = await checkRateLimit(`inbox:saved-filters:${ctx.userId}`, PREFERENCE_WRITE_LIMIT);
     if (!limit.success) return rateLimitResponse(limit);
     const patch = parseSavedFilterPatch(await request.json().catch(() => null));
     return NextResponse.json({ saved_filter: await updateSavedFilter(tenantOf(ctx), id, patch) });
@@ -35,7 +35,7 @@ export async function DELETE(_request: Request, { params }: Params) {
   try {
     const { id } = await params;
     const ctx = await requireRole('viewer');
-    const limit = checkRateLimit(`inbox:saved-filters:${ctx.userId}`, PREFERENCE_WRITE_LIMIT);
+    const limit = await checkRateLimit(`inbox:saved-filters:${ctx.userId}`, PREFERENCE_WRITE_LIMIT);
     if (!limit.success) return rateLimitResponse(limit);
     await deleteSavedFilter(tenantOf(ctx), id);
     return NextResponse.json({ ok: true });

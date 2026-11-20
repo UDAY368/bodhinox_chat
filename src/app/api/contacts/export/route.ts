@@ -18,7 +18,7 @@ export async function GET(request: Request) {
     await requirePermission(tenantOf(ctx), 'contacts.export');
     // Admins are never masked; kept so a lower export role can't leak numbers.
     if (await resolvePhoneMask(tenantOf(ctx))) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-    const limit = checkRateLimit(`admin:contactsExport:${ctx.userId}`, RATE_LIMITS.adminAction);
+    const limit = await checkRateLimit(`admin:contactsExport:${ctx.userId}`, RATE_LIMITS.adminAction);
     if (!limit.success) return rateLimitResponse(limit);
     const query = new URL(request.url).searchParams;
     const segmentId = query.get('segmentId');

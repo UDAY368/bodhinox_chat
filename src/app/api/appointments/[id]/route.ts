@@ -50,7 +50,7 @@ export async function PATCH(request: Request, context: Context) {
   try {
     const { id } = await context.params;
     const caller = await staffCaller(request, { min: 'agent', mutation: true, permission: 'appointments.manage' });
-    const limited = mutationLimit(caller);
+    const limited = await mutationLimit(caller);
     if (limited) return limited;
     if (!isId(id)) throw new AppointmentError('not_found');
     const body = (await readJson(request)) as Record<string, unknown> | null;

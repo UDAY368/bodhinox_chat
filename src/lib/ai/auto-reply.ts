@@ -2,6 +2,7 @@ import { databaseAdmin } from './admin-client'
 import { loadAiConfig } from './config'
 import { buildConversationContext } from './context'
 import { retrieveKnowledgeScored } from './knowledge'
+import { loadCustomerContext } from './customer-context'
 import { generateReply } from './generate'
 import { buildAgentSystemPrompt, loadAgentProfileTx, matchHandoffKeyword, type AgentProfile } from './agent-profile'
 import { agentProfileFor, pickAgent } from './agents'
@@ -271,7 +272,7 @@ export async function dispatchInboundToAiReply(
     // inbound is retried by a delayed job after the window (eligible()
     // drops it then if a newer message or a person took over); after
     // MAX_RATE_LIMIT_RETRIES it is left for a person, as before.
-    const acctLimit = checkRateLimit(
+    const acctLimit = await checkRateLimit(
       `ai-autoreply:${accountId}`,
       RATE_LIMITS.aiAutoReplyAccount,
     )
@@ -356,6 +357,9 @@ export async function dispatchInboundToAiReply(
       await record('handed_off', 'no_knowledge')
       return
     }
+    // Live shop records for this customer (products matching their message, their own orders
+    // and bookings), quoted as data in the prompt. Best-effort: a failed read never costs the reply.
+    const customerData = await loadCustomerContext(accountId, contactId, question)
 
     // Platform rules first, then the operator's profile, then knowledge
     // quoted as untrusted reference material (see agent-profile.ts).
@@ -369,6 +373,7 @@ export async function dispatchInboundToAiReply(
       knowledge,
       legacyPrompt: goalText && !agentProfile ? [config.systemPrompt?.trim(), goalText].filter(Boolean).join('\n\n') : config.systemPrompt,
       agent: agent && !agent.is_default ? { name: agent.name, role: agent.role } : null,
+      customerData,
     })
 
     // Personal data in customer messages is masked before it leaves for the provider.

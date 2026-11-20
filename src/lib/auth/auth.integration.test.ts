@@ -3,6 +3,7 @@ import { config } from 'dotenv';
 import { randomBytes } from 'node:crypto';
 import {
   afterAll,
+  afterEach,
   beforeAll,
   beforeEach,
   describe,
@@ -28,6 +29,7 @@ import {
   resolveEnrollmentSession,
   resolveSession,
 } from './session';
+import { clearSessionCacheForTests, SESSION_CACHE_TTL_MS } from './session-cache';
 import {
   confirmEmailChange,
   login,
@@ -121,9 +123,18 @@ describe.skipIf(!connectionString)(
       });
     }, 30000);
     beforeEach(async () => {
+      clearSessionCacheForTests();
       await getAuthPrisma()
         .$executeRaw`DELETE FROM auth_rate_limits WHERE key=${hashToken(`login:${email}`)}`;
     }, 30000);
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+    /** Moves the clock past the per-process session cache, as a request a few seconds later would see. */
+    function afterSessionCacheTtl() {
+      const real = Date.now();
+      vi.spyOn(Date, 'now').mockImplementation(() => real + SESSION_CACHE_TTL_MS + 1);
+    }
     afterAll(async () => {
       if (connectionString) {
         await getAuthPrisma().$transaction(async (tx) => {
@@ -406,14 +417,43 @@ describe.skipIf(!connectionString)(
       const issued = await login({ email, password });
       const context = await requireSession(request(issued.accessToken));
       expect(context).toMatchObject({ userId, accountId, role: 'owner' });
+      // A change written by another process (raw SQL here) applies once the cached entry expires.
       await getAuthPrisma()
         .$executeRaw`UPDATE account_memberships SET role='viewer' WHERE user_id=${userId}::uuid AND account_id=${accountId}::uuid`;
+      afterSessionCacheTtl();
       expect((await requireSession(request(issued.accessToken))).role).toBe(
         'viewer'
       );
       await getAuthPrisma()
         .$executeRaw`UPDATE account_memberships SET role='owner' WHERE user_id=${userId}::uuid AND account_id=${accountId}::uuid`;
       await revokeSessions(context);
+      expect(await resolveSession(request(issued.accessToken))).toBeNull();
+    }, 30000);
+    it('caches a resolved session per token, never for another token, and refuses it once revoked elsewhere', async () => {
+      const first = await login({ email, password });
+      const second = await login({ email, password });
+      const a = await requireSession(request(first.accessToken));
+      const b = await requireSession(request(second.accessToken));
+      expect(a.sessionId).not.toBe(b.sessionId);
+      // A cached entry answers only its own token: a forged or other token never borrows it.
+      expect((await requireSession(request(first.accessToken))).sessionId).toBe(a.sessionId);
+      expect(await resolveSession(request(`${first.accessToken}x`))).toBeNull();
+      // The CSRF hash came with the session: a wrong token is refused without a second lookup.
+      await expect(assertMutation(request(first.accessToken, 'wrong'), a)).rejects.toThrow();
+      await expect(assertMutation(request(first.accessToken, first.csrfToken), a)).resolves.toBeUndefined();
+      await expect(assertMutation(request(first.accessToken, second.csrfToken), a)).rejects.toThrow();
+      // Revoked by another process (raw SQL): refused once the short cache entry expires.
+      await getAuthPrisma()
+        .$executeRaw`UPDATE auth_sessions SET revoked_at=NOW() WHERE id=${a.sessionId}::uuid`;
+      afterSessionCacheTtl();
+      expect(await resolveSession(request(first.accessToken))).toBeNull();
+      expect(await resolveSession(request(second.accessToken))).not.toBeNull();
+    }, 30000);
+    it('drops this process cache at once on sign-out', async () => {
+      const issued = await login({ email, password });
+      const context = await requireSession(request(issued.accessToken));
+      await revokeSessions(context);
+      // No clock change: the revoking process never serves its cached entry again.
       expect(await resolveSession(request(issued.accessToken))).toBeNull();
     }, 30000);
     it('stores only hashed refresh secrets and revokes the family after replay', async () => {

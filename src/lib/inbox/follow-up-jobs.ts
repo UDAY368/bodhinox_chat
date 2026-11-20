@@ -1,4 +1,5 @@
 import { getWorkerPrisma } from '@/lib/db/prisma';
+import { enqueueTenantJobs } from '@/lib/jobs/queue';
 
 /**
  * Worker scheduling for reminders and scheduled replies (Stage 4, 4D). Called
@@ -19,13 +20,8 @@ export async function scheduleFollowUpSweeps(now: number = Date.now()): Promise<
   const slot = Math.floor(now / SLOT_MS);
   const reminders = await prisma.$queryRaw<{ account_id: string }[]>`SELECT * FROM crm_due_conversation_reminder_accounts()`;
   const replies = await prisma.$queryRaw<{ account_id: string }[]>`SELECT * FROM crm_due_scheduled_reply_accounts()`;
-  for (const { account_id } of reminders)
-    await prisma.$executeRaw`INSERT INTO jobs(type,tenant_id,payload,dedupe_key,max_attempts)
-      VALUES(${REMINDERS_JOB},${account_id}::uuid,'{}'::jsonb,${`inbox-reminders:${account_id}:${slot}`},2)
-      ON CONFLICT(dedupe_key) DO NOTHING`;
-  for (const { account_id } of replies)
-    await prisma.$executeRaw`INSERT INTO jobs(type,tenant_id,payload,dedupe_key,max_attempts)
-      VALUES(${SCHEDULED_REPLIES_JOB},${account_id}::uuid,'{}'::jsonb,${`inbox-scheduled:${account_id}:${slot}`},2)
-      ON CONFLICT(dedupe_key) DO NOTHING`;
+  // One statement per job type for every workspace (same dedupe keys as one insert per workspace).
+  await enqueueTenantJobs(REMINDERS_JOB, {}, reminders.map(({ account_id }) => ({ tenantId: account_id, dedupeKey: `inbox-reminders:${account_id}:${slot}` })), 2);
+  await enqueueTenantJobs(SCHEDULED_REPLIES_JOB, {}, replies.map(({ account_id }) => ({ tenantId: account_id, dedupeKey: `inbox-scheduled:${account_id}:${slot}` })), 2);
   return reminders.length + replies.length;
 }

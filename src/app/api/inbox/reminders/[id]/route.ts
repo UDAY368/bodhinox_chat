@@ -21,7 +21,7 @@ export async function PATCH(request: Request, { params }: Params) {
   try {
     const { id } = await params;
     const ctx = await requireRole('agent');
-    const limit = checkRateLimit(`inbox:reminders:${ctx.userId}`, REMINDER_WRITE_LIMIT);
+    const limit = await checkRateLimit(`inbox:reminders:${ctx.userId}`, REMINDER_WRITE_LIMIT);
     if (!limit.success) return rateLimitResponse(limit);
     const patch = parseReminderPatch(await request.json().catch(() => null));
     return NextResponse.json({ reminder: await updateReminder(tenantOf(ctx), id, patch) }, { headers: reminderHeaders });
