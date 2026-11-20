@@ -42,11 +42,16 @@ export function decodeTimelineCursor(value: string | null): TimelineCursor | nul
   }
 }
 
-/** One page of a contact's events, newest first (index domain_events_contact_idx). */
+/**
+ * One page of a contact's events, newest first (index domain_events_contact_idx). `excludeKinds`
+ * leaves out subjects the member may not read (a viewer's orders and payments).
+ */
 export async function listContactEvents(
   tx: TenantTransaction, accountId: string, contactId: string, cursor: TimelineCursor | null, limit = TIMELINE_PAGE_SIZE,
+  options: { excludeKinds?: readonly DomainSubjectKind[] } = {},
 ): Promise<{ events: DomainEventRow[]; nextCursor: string | null }> {
   const size = Math.min(Math.max(1, limit), 100);
+  const exclude = [...(options.excludeKinds ?? [])];
   const rows = cursor
     ? await tx.$queryRaw<DomainEventRow[]>`
       SELECT id::text AS id, account_id::text AS account_id, type, subject_kind, subject_id::text AS subject_id,
@@ -54,12 +59,14 @@ export async function listContactEvents(
       FROM domain_events
       WHERE account_id=${accountId}::uuid AND contact_id=${contactId}::uuid
         AND (occurred_at, id) < (${cursor.at}::timestamptz, ${cursor.id}::uuid)
+        AND NOT (subject_kind = ANY(${exclude}::text[]))
       ORDER BY occurred_at DESC, id DESC LIMIT ${size + 1}`
     : await tx.$queryRaw<DomainEventRow[]>`
       SELECT id::text AS id, account_id::text AS account_id, type, subject_kind, subject_id::text AS subject_id,
         contact_id::text AS contact_id, data, occurred_at
       FROM domain_events
       WHERE account_id=${accountId}::uuid AND contact_id=${contactId}::uuid
+        AND NOT (subject_kind = ANY(${exclude}::text[]))
       ORDER BY occurred_at DESC, id DESC LIMIT ${size + 1}`;
   const events = rows.slice(0, size).filter((row) => isDomainEventType(row.type));
   return { events, nextCursor: rows.length > size ? encodeTimelineCursor(rows[size - 1]) : null };

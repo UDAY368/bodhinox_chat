@@ -2011,6 +2011,38 @@
         },
         "fieldsRejected": "{count, plural, one {# custom value did not fit its field and was skipped} other {# custom values did not fit their fields and were skipped}}"
       }
+    },
+    "activity": {
+      "title": "Activity",
+      "empty": "Nothing yet. Orders, payments, bookings, forms and deal moves show here.",
+      "failed": "Could not load activity.",
+      "retry": "Retry",
+      "loadMore": "Show more",
+      "events": {
+        "order_created": "Placed an order",
+        "order_created_amount": "Placed an order of {amount}",
+        "order_paid": "Order paid",
+        "order_shipped": "Order shipped",
+        "order_delivered": "Order delivered",
+        "order_returned": "Return received",
+        "payment_received": "Payment received",
+        "payment_received_amount": "Paid {amount}",
+        "form_submitted": "Filled in a form",
+        "deal_stage_changed": "Deal moved",
+        "deal_stage_changed_named": "Deal moved to {stage}",
+        "deal_stage_changed_value": "Deal moved to {stage} ({value})",
+        "cart_abandoned": "Left items in the cart",
+        "appointment_booked": "Booking made",
+        "appointment_booked_named": "Booked {service}",
+        "appointment_cancelled": "Booking cancelled",
+        "appointment_cancelled_named": "{service} cancelled",
+        "appointment_rescheduled": "Booking moved",
+        "appointment_rescheduled_named": "{service} moved",
+        "appointment_completed": "Booking completed",
+        "appointment_completed_named": "{service} completed",
+        "appointment_no_show": "Missed a booking",
+        "appointment_no_show_named": "Missed {service}"
+      }
     }
   },
   "Pipelines": {

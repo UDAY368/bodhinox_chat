@@ -2011,6 +2011,38 @@
         },
         "fieldsRejected": "필드 유형에 맞지 않는 사용자 지정 값 {count}개를 건너뛰었습니다"
       }
+    },
+    "activity": {
+      "title": "활동",
+      "empty": "아직 없습니다. 주문, 결제, 예약, 양식, 거래 단계 이동이 여기에 표시됩니다.",
+      "failed": "활동을 불러오지 못했습니다.",
+      "retry": "다시 시도",
+      "loadMore": "더 보기",
+      "events": {
+        "order_created": "주문함",
+        "order_created_amount": "{amount} 주문함",
+        "order_paid": "주문 결제됨",
+        "order_shipped": "주문 발송됨",
+        "order_delivered": "주문 배송 완료",
+        "order_returned": "반품 수령",
+        "payment_received": "결제 받음",
+        "payment_received_amount": "{amount} 결제함",
+        "form_submitted": "양식을 작성함",
+        "deal_stage_changed": "거래 이동됨",
+        "deal_stage_changed_named": "거래가 {stage}(으)로 이동됨",
+        "deal_stage_changed_value": "거래가 {stage}(으)로 이동됨 ({value})",
+        "cart_abandoned": "장바구니에 상품을 남김",
+        "appointment_booked": "예약함",
+        "appointment_booked_named": "{service} 예약함",
+        "appointment_cancelled": "예약 취소됨",
+        "appointment_cancelled_named": "{service} 취소됨",
+        "appointment_rescheduled": "예약 변경됨",
+        "appointment_rescheduled_named": "{service} 변경됨",
+        "appointment_completed": "예약 완료됨",
+        "appointment_completed_named": "{service} 완료됨",
+        "appointment_no_show": "예약에 오지 않음",
+        "appointment_no_show_named": "{service}에 오지 않음"
+      }
     }
   },
   "Pipelines": {

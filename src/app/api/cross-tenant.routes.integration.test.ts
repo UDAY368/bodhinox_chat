@@ -89,6 +89,7 @@ export const CASES: Case[] = [
   { route: 'pipelines/[id]/deals', method: 'GET', params: rid('pipelines'), query: (b) => `stage=${b.ids.pipeline_stages}` },
   { route: 'contacts/[id]/summary', method: 'GET', params: id('contactId') },
   { route: 'contacts/[id]/payments', method: 'GET', params: id('contactId') },
+  { route: 'contacts/[id]/timeline', method: 'GET', params: id('contactId') },
   // Needs review: another workspace's uncertain send can be neither marked sent nor sent again.
   { route: 'needs-review/[id]/resolve', method: 'POST', params: extra('reviewIntent'), body: () => ({ action: 'was_sent' }) },
   { route: 'needs-review/[id]/resolve', method: 'POST', params: extra('reviewIntent'), body: () => ({ action: 'send_again' }) },

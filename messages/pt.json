@@ -2011,6 +2011,38 @@
         },
         "fieldsRejected": "{count, plural, one {# valor personalizado não combinava com o campo e foi ignorado} other {# valores personalizados não combinavam com os campos e foram ignorados}}"
       }
+    },
+    "activity": {
+      "title": "Atividade",
+      "empty": "Nada ainda. Pedidos, pagamentos, reservas, formulários e mudanças de etapa aparecem aqui.",
+      "failed": "Não foi possível carregar a atividade.",
+      "retry": "Tentar novamente",
+      "loadMore": "Ver mais",
+      "events": {
+        "order_created": "Fez um pedido",
+        "order_created_amount": "Fez um pedido de {amount}",
+        "order_paid": "Pedido pago",
+        "order_shipped": "Pedido enviado",
+        "order_delivered": "Pedido entregue",
+        "order_returned": "Devolução recebida",
+        "payment_received": "Pagamento recebido",
+        "payment_received_amount": "Pagou {amount}",
+        "form_submitted": "Preencheu um formulário",
+        "deal_stage_changed": "Negócio movido",
+        "deal_stage_changed_named": "Negócio movido para {stage}",
+        "deal_stage_changed_value": "Negócio movido para {stage} ({value})",
+        "cart_abandoned": "Deixou itens no carrinho",
+        "appointment_booked": "Reserva feita",
+        "appointment_booked_named": "Reservou {service}",
+        "appointment_cancelled": "Reserva cancelada",
+        "appointment_cancelled_named": "{service} cancelada",
+        "appointment_rescheduled": "Reserva remarcada",
+        "appointment_rescheduled_named": "{service} remarcada",
+        "appointment_completed": "Reserva concluída",
+        "appointment_completed_named": "{service} concluída",
+        "appointment_no_show": "Faltou a uma reserva",
+        "appointment_no_show_named": "Faltou a {service}"
+      }
     }
   },
   "Pipelines": {
