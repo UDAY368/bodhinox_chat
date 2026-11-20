@@ -7634,32 +7634,11 @@
     "book_keyword": {
       "name": "Book in the chat",
       "description": "When someone writes \"book\", offer your free times and book one right in the chat. Falls back to your booking page.",
-      "keywords": "book, booking, appointment",
+      "keywords": "book a slot, free slots",
       "booked": "You're booked for {time}. We'll send you a reminder before your visit.",
       "payToConfirm": "We're holding {time} for you. We've sent a payment link; your booking is confirmed once it's paid.",
       "usePage": "Sorry, we can't book that here right now. You can pick a time on our booking page: {link}",
       "notNow": "No problem. Write \"book\" whenever you're ready."
-    },
-    "ig_story_book": {
-      "name": "Story reply to booking",
-      "description": "When someone replies to your story, offer to book a time in the DM. Falls back to your booking page.",
-      "intro": "Thanks for replying! Would you like to book a time with us?",
-      "booked": "You're booked for {time}. We'll send you a reminder before your visit.",
-      "payToConfirm": "We're holding {time} for you. We've sent a payment link; your booking is confirmed once it's paid.",
-      "usePage": "Sorry, we can't book that here right now. You can pick a time on our booking page: {link}",
-      "notNow": "No problem. Reply to any story when you'd like to book."
-    },
-    "ig_comment_book": {
-      "name": "Comment to booking",
-      "description": "When someone comments the keyword on your post, send a private reply that opens booking in the DM.",
-      "keywords": "book, booking, appointment",
-      "publicReply": "Sent you a DM to book!",
-      "opening": "Hi! Tap below and we'll find you a time.",
-      "optIn": "Book a time",
-      "booked": "You're booked for {time}. We'll send you a reminder before your visit.",
-      "payToConfirm": "We're holding {time} for you. We've sent a payment link; your booking is confirmed once it's paid.",
-      "usePage": "Sorry, we can't book that here right now. You can pick a time on our booking page: {link}",
-      "notNow": "No problem. Comment again whenever you'd like to book."
     }
   },
   "LibErrors": {
@@ -16791,6 +16770,27 @@
           "humanButton": "상담원 연결",
           "info": "자세한 내용은 웹사이트에서 확인하세요. 상담원이 필요하면 언제든 메시지를 보내 주세요.",
           "handoffNote": "기본 답장에서 상담원 연결을 요청함."
+        },
+        "ig_story_book": {
+          "name": "Story reply to booking",
+          "description": "When someone replies to your story, offer to book a time in the DM. Falls back to your booking page.",
+          "intro": "Thanks for replying! Would you like to book a time with us?",
+          "booked": "You're booked for {time}. We'll send you a reminder before your visit.",
+          "payToConfirm": "We're holding {time} for you. We've sent a payment link; your booking is confirmed once it's paid.",
+          "usePage": "Sorry, we can't book that here right now. You can pick a time on our booking page: {link}",
+          "notNow": "No problem. Reply to any story when you'd like to book."
+        },
+        "ig_comment_book": {
+          "name": "Comment to booking",
+          "description": "When someone comments the keyword on your post, send a private reply that opens booking in the DM.",
+          "keywords": "slot please, open slots",
+          "publicReply": "Sent you a DM to book!",
+          "opening": "Hi! Tap below and we'll find you a time.",
+          "optIn": "Book a time",
+          "booked": "You're booked for {time}. We'll send you a reminder before your visit.",
+          "payToConfirm": "We're holding {time} for you. We've sent a payment link; your booking is confirmed once it's paid.",
+          "usePage": "Sorry, we can't book that here right now. You can pick a time on our booking page: {link}",
+          "notNow": "No problem. Comment again whenever you'd like to book."
         }
       },
       "preview": {

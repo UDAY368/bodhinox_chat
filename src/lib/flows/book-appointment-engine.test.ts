@@ -49,6 +49,7 @@ vi.mock("./appointment-runtime", () => ({
   appointmentSlots: h.slots,
   bookFlowAppointment: h.book,
   appointmentPaidOnly: h.paidOnly,
+  appointmentBookingLink: async () => null,
 }));
 
 import { dispatchInboundToFlows, handleFlowTimer } from "./engine";
@@ -127,7 +128,7 @@ describe("book_appointment step", () => {
     expect(h.sendText.mock.calls.map(([a]) => a.text)).toEqual(["Booked for 2026-11-09 10:00"]);
     expect(run().status).toBe("completed");
     // Ids and local time only: no progress state, no manage link.
-    expect(run().vars).toEqual({ appointment_id: APPT, appointment_local_time: "2026-11-09 10:00" });
+    expect(run().vars).toEqual({ appointment_id: APPT, appointment_local_time: "2026-11-09 10:00", appointment_status: "confirmed" });
     const prompts = h.keys.filter((k) => k.includes(":book:"));
     expect(new Set(prompts).size).toBe(3);
     for (const k of prompts) expect(k).toMatch(/^flow:.+:book:\d+:0$/);
@@ -297,7 +298,7 @@ describe("book_appointment step", () => {
       expect(h.book).toHaveBeenCalledTimes(1);
       expect(h.book).toHaveBeenCalledWith("acct-1", expect.objectContaining({ runId: run().id, nodeKey: "book", transitionSeq: seq }));
       expect(h.sendText.mock.calls.map(([a]) => a.text)).toEqual(["Booked for 2026-11-09 10:00"]);
-      expect(run().vars).toEqual({ appointment_id: APPT, appointment_local_time: "2026-11-09 10:00" });
+      expect(run().vars).toEqual({ appointment_id: APPT, appointment_local_time: "2026-11-09 10:00", appointment_status: "confirmed" });
       // The tap is not recorded twice.
       expect(events("reply_received").filter((e) => (e.payload as { meta_message_id: string }).meta_message_id === "wamid.crashed")).toHaveLength(1);
     });

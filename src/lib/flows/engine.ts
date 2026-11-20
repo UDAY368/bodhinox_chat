@@ -116,7 +116,6 @@ import {
 
 import { databaseAdmin } from "./admin-client";
 import { dispatchWebhookEvent } from "@/lib/webhooks/deliver";
-import { engineSendInteractiveList } from "./meta-send";
 import { flowSend, runChannel } from "./channel-send";
 import { nodeAvailableOn, scopeIncludes, triggerAvailableOn, type Channel } from "@/lib/channels/capabilities";
 import { decideFallback, resolveFallbackPolicy } from "./fallback";

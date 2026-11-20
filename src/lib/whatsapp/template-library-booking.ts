@@ -36,7 +36,9 @@ export function bookingLibraryTemplates(origin?: string): LibraryTemplate[] {
     header: { type: 'text', text: t('header') },
     body_text: t('body', { v1: '{{1}}', v2: '{{2}}' }),
     footer_text: t('footer'),
-    buttons: [{ type: 'URL', text: t('buttons.b1'), url: trackedBookingUrl(origin) }],
+    // Meta needs a sample for {{1}}: a click token is 32 hex characters (tracking.ts CLICK_TOKEN).
+    buttons: [{ type: 'URL', text: t('buttons.b1'), url: trackedBookingUrl(origin),
+      example: trackedBookingUrl(origin).replace('{{1}}', '0123456789abcdef0123456789abcdef') }],
     sample_values: { body: t('samples').split('|').map((s) => s.trim()) },
   }];
 }

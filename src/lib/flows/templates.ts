@@ -2078,8 +2078,7 @@ function waLeadQuiz(): FlowTemplate {
 // ============================================================
 
 /** The booking graph after `opening` (entry), shared by the three booking starters. */
-function bookingNodes(slug: string, entry: string): FlowTemplateNode[] {
-  const s = scoped(slug);
+function bookingNodes(s: (key: string, values?: Record<string, string>) => string, entry: string): FlowTemplateNode[] {
   return [
     book(entry, { success: "check_paid", unavailable: "use_page", cancelled: "not_now" }),
     node("check_paid", "condition", {
@@ -2097,38 +2096,33 @@ function bookingNodes(slug: string, entry: string): FlowTemplateNode[] {
 /** "book" keyword on WhatsApp and Instagram: books a time in the chat. */
 function bookKeyword(): FlowTemplate {
   return {
-    ...template("book_keyword", "services", "CalendarCheck", "keyword", [startAt("book"), ...bookingNodes("book_keyword", "book")]),
+    ...template("book_keyword", "services", "CalendarCheck", "keyword", [startAt("book"), ...bookingNodes(scoped("book_keyword"), "book")]),
     channels: ["whatsapp", "instagram"],
   };
 }
 
-/** A reply to an Instagram story opens booking. */
+/** A reply to an Instagram story opens booking (copy: Instagram.quickAutomations.flows.ig_story_book). */
 function igStoryBook(): FlowTemplate {
-  const slug = "ig_story_book";
+  const s = igScoped("ig_story_book");
   return {
-    slug, name: t(`${slug}.name`), description: t(`${slug}.description`), category: "instagram_stories", icon: "CalendarCheck",
-    trigger_type: "ig_story_reply",
-    trigger_config: { match_mode: "contains", reactions: false } satisfies IgStoryReplyTriggerConfig,
-    entry_node_id: "start",
-    nodes: [startAt("intro"), say("intro", t(`${slug}.intro`), "book"), ...bookingNodes(slug, "book")],
-    channels: ["instagram"],
+    ...igTemplate("ig_story_book", "instagram_stories", "CalendarCheck", "ig_story_reply",
+      { match_mode: "contains", reactions: false } satisfies IgStoryReplyTriggerConfig,
+      [startAt("intro"), say("intro", s("intro"), "book"), ...bookingNodes(s, "book")]),
+    meta: flowMeta(["engage_audience"], "story_reply"),
   };
 }
 
 /** A comment with the keyword gets a private reply whose button opens booking in the DM. */
 function igCommentBook(): FlowTemplate {
-  const slug = "ig_comment_book";
+  const s = igScoped("ig_comment_book");
   return {
-    slug, name: t(`${slug}.name`), description: t(`${slug}.description`), category: "instagram_comments", icon: "CalendarCheck",
-    trigger_type: "ig_comment",
-    trigger_config: commentTrigger(keywords(`${slug}.keywords`), t(`${slug}.publicReply`)),
-    entry_node_id: "start",
-    nodes: [
-      startAt("opening"),
-      privateReply("opening", t(`${slug}.opening`), t(`${slug}.optIn`), "book"),
-      ...bookingNodes(slug, "book"),
-    ],
-    channels: ["instagram"],
+    ...igTemplate("ig_comment_book", "instagram_comments", "CalendarCheck", "ig_comment",
+      commentTrigger(igKeywords("ig_comment_book"), s("publicReply")), [
+        startAt("opening"),
+        privateReply("opening", s("opening"), s("optIn"), "book"),
+        ...bookingNodes(s, "book"),
+      ]),
+    meta: flowMeta(["engage_audience"], "post_comment"),
   };
 }
 
