@@ -15,7 +15,7 @@ import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/use-auth';
 import { useCan } from '@/hooks/use-can';
 import { useTotalUnread } from '@/hooks/use-total-unread';
-import { useUnreadBookingNotifications } from '@/hooks/use-unread-booking-notifications';
+import { useUnreadBookingNotifications } from '@/hooks/use-unread-notifications';
 import { useWorkspaceChannels } from '@/hooks/use-workspace-channels';
 import { CHANNELS_SETTINGS_PATH } from '@/lib/channels/routes';
 import { addChannelPrompt } from '@/components/layout/page-search-navigation';
