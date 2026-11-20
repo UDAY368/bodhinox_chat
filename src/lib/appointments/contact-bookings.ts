@@ -95,3 +95,45 @@ export async function contactBookings(
   }));
   return { items, next: rows.length > limit ? encodeCursor(items[items.length - 1]) : null };
 }
+
+// ------------------------------------------------------------ contact timeline
+
+/** Lifecycle events shown on the contact timeline, by appointment_events.kind. */
+export const BOOKING_TIMELINE_EVENTS = {
+  confirmed: 'booked', rescheduled: 'rescheduled', cancelled: 'cancelled', completed: 'completed', no_show: 'no_show',
+} as const;
+export type BookingTimelineEvent = (typeof BOOKING_TIMELINE_EVENTS)[keyof typeof BOOKING_TIMELINE_EVENTS];
+export const BOOKING_TIMELINE_LIMIT = 50;
+
+/** A timeline row's detail.event, 'booked' for anything unexpected (for describeEvent). */
+export function bookingTimelineEvent(detail: Record<string, unknown>): BookingTimelineEvent {
+  const event = detail.event;
+  return (Object.values(BOOKING_TIMELINE_EVENTS) as string[]).includes(event as string) ? event as BookingTimelineEvent : 'booked';
+}
+
+export interface BookingTimelineRow {
+  kind: 'booking';
+  at: string;
+  actor_id: string | null;
+  detail: { appointment_id: string; event: BookingTimelineEvent; service_name: string };
+}
+
+/**
+ * The contact's booking events for the profile timeline (kind 'booking'),
+ * newest first, at most 50. A cancelled hold that was never confirmed is not
+ * shown (nobody was told about it). Ids, the service name and the event only.
+ */
+export async function contactBookingTimeline(tx: TenantTransaction, accountId: string, contactId: string): Promise<BookingTimelineRow[]> {
+  const rows = await tx.$queryRaw<{ kind: keyof typeof BOOKING_TIMELINE_EVENTS; created_at: Date; actor_id: string | null; id: string; service_name: string }[]>`
+    SELECT e.kind, e.created_at, e.actor_user_id::text AS actor_id, a.id::text AS id, a.service_name
+    FROM appointments a
+    JOIN appointment_events e ON e.account_id=a.account_id AND e.appointment_id=a.id
+    WHERE a.account_id=${accountId}::uuid AND a.contact_id=${contactId}::uuid
+      AND e.kind IN ('confirmed','rescheduled','cancelled','completed','no_show')
+      AND (e.kind <> 'cancelled' OR a.confirmed_at IS NOT NULL)
+    ORDER BY e.created_at DESC LIMIT ${BOOKING_TIMELINE_LIMIT}`;
+  return rows.map((r) => ({
+    kind: 'booking', at: r.created_at.toISOString(), actor_id: r.actor_id,
+    detail: { appointment_id: r.id, event: BOOKING_TIMELINE_EVENTS[r.kind], service_name: r.service_name },
+  }));
+}

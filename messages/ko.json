@@ -1856,7 +1856,14 @@
         "blocked": "차단됨",
         "unblocked": "차단 해제됨",
         "templateSent": "템플릿 보냄",
-        "templateSentNamed": "템플릿 ‘{name}’ 보냄"
+        "templateSentNamed": "템플릿 ‘{name}’ 보냄",
+        "booking": {
+          "booked": "Booked {service}",
+          "rescheduled": "Moved {service} booking",
+          "cancelled": "Cancelled {service} booking",
+          "completed": "Completed {service}",
+          "no_show": "Missed {service} booking (no-show)"
+        }
       },
       "segmentsTab": {
         "hint": "세그먼트는 연락처가 바뀌면 자동으로 업데이트됩니다.",

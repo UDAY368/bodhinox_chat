@@ -1856,7 +1856,14 @@
         "blocked": "Blocked",
         "unblocked": "Unblocked",
         "templateSent": "Template sent",
-        "templateSentNamed": "Sent the template “{name}”"
+        "templateSentNamed": "Sent the template “{name}”",
+        "booking": {
+          "booked": "Booked {service}",
+          "rescheduled": "Moved {service} booking",
+          "cancelled": "Cancelled {service} booking",
+          "completed": "Completed {service}",
+          "no_show": "Missed {service} booking (no-show)"
+        }
       },
       "segmentsTab": {
         "hint": "Segments update on their own as contacts change.",

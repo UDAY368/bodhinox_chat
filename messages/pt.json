@@ -1856,7 +1856,14 @@
         "blocked": "Bloqueado",
         "unblocked": "Desbloqueado",
         "templateSent": "Modelo enviado",
-        "templateSentNamed": "Enviou o modelo “{name}”"
+        "templateSentNamed": "Enviou o modelo “{name}”",
+        "booking": {
+          "booked": "Booked {service}",
+          "rescheduled": "Moved {service} booking",
+          "cancelled": "Cancelled {service} booking",
+          "completed": "Completed {service}",
+          "no_show": "Missed {service} booking (no-show)"
+        }
       },
       "segmentsTab": {
         "hint": "Os segmentos se atualizam sozinhos quando os contatos mudam.",

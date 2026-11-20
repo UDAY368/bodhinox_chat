@@ -1856,7 +1856,14 @@
         "blocked": "Bloqueado",
         "unblocked": "Desbloqueado",
         "templateSent": "Plantilla enviada",
-        "templateSentNamed": "Envió la plantilla «{name}»"
+        "templateSentNamed": "Envió la plantilla «{name}»",
+        "booking": {
+          "booked": "Booked {service}",
+          "rescheduled": "Moved {service} booking",
+          "cancelled": "Cancelled {service} booking",
+          "completed": "Completed {service}",
+          "no_show": "Missed {service} booking (no-show)"
+        }
       },
       "segmentsTab": {
         "hint": "Los segmentos se actualizan solos cuando cambian los contactos.",
