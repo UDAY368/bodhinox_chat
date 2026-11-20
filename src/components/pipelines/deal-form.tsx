@@ -27,14 +27,7 @@ import type {
   PipelineStage,
   Profile,
 } from "@/types";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
   Sheet,
   SheetContent,
@@ -195,7 +188,6 @@ export function DealForm({
   // A new deal's stage follows its pipeline's stage list (NewDealSheet loads it after opening).
   useEffect(() => {
     if (!open || deal || stages.some((s) => s.id === stageId)) return;
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setStageId(defaultStageId && stages.some((s) => s.id === defaultStageId) ? defaultStageId : stages[0]?.id ?? "");
   }, [open, deal, stages, stageId, defaultStageId]);
    
@@ -743,31 +735,27 @@ export function DealForm({
         </div>
       </SheetContent>
       {deal && (
-        <Dialog open={lostOpen} onOpenChange={setLostOpen}>
-          <DialogContent className="sm:max-w-sm">
-            <DialogHeader>
-              <DialogTitle>{ts("lostTitle")}</DialogTitle>
-              <DialogDescription>{ts("lostBody")}</DialogDescription>
-            </DialogHeader>
+        <ConfirmDialog
+          open={lostOpen}
+          onOpenChange={setLostOpen}
+          title={ts("lostTitle")}
+          destructive
+          confirmLabel={ts("markLost")}
+          onConfirm={() => handleStatusChange("lost", lostDraft)}
+          body={
             <div className="grid gap-2">
-              <Label htmlFor="deal-lost-reason">{ts("lostReason")}</Label>
+              <p>{ts("lostBody")}</p>
+              <Label htmlFor="deal-lost-reason" className="text-foreground">{ts("lostReason")}</Label>
               <Input
                 id="deal-lost-reason"
                 value={lostDraft}
                 maxLength={LOST_REASON_MAX}
                 onChange={(e) => setLostDraft(e.target.value)}
                 placeholder={ts("lostReasonPlaceholder")}
-                onKeyDown={(e) => { if (e.key === "Enter") void handleStatusChange("lost", lostDraft); }}
               />
             </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setLostOpen(false)}>{t("cancel")}</Button>
-              <Button variant="destructive" disabled={!!statusAction} onClick={() => void handleStatusChange("lost", lostDraft)}>
-                {statusAction === "lost" && <Loader2 className="h-4 w-4 animate-spin" />} {ts("markLost")}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+          }
+        />
       )}
       {deal && (
         <CreatePaymentLinkDialog

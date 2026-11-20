@@ -14,7 +14,7 @@ import { useTranslations } from "next-intl";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -111,23 +111,18 @@ export function OptionsBuilder({ form, update, pool, readOnly }: { form: Product
       )}
       <p className="text-xs text-muted-foreground">{t("hint", { max: MAX_VARIANTS })}</p>
 
-      <Dialog open={pending !== null} onOpenChange={(open) => { if (!open) cancel(); }}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>{t("confirmTitle", { count: pending?.removed.length ?? 0 })}</DialogTitle>
-            <DialogDescription>{t("confirmBody")}</DialogDescription>
-          </DialogHeader>
-          <ul className="max-h-40 list-disc space-y-0.5 overflow-auto pl-5 text-sm">
-            {pending?.removed.map((r) => (
-              <li key={r.key}>{rowLabel(r) || r.sku} · {r.sku}{r.baseOnHand > 0 ? ` · ${t("onHand", { count: r.baseOnHand })}` : ""}{r.ordered ? ` · ${t("hasOrders")}` : ""}</li>
-            ))}
-          </ul>
-          <DialogFooter>
-            <Button variant="outline" onClick={cancel}>{t("keep")}</Button>
-            <Button variant="destructive" onClick={confirm}>{t("remove")}</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ConfirmDialog open={pending !== null} onOpenChange={(open) => { if (!open) cancel(); }} destructive
+        title={t("confirmTitle", { count: pending?.removed.length ?? 0 })} confirmLabel={t("remove")} cancelLabel={t("keep")} onConfirm={confirm}
+        body={(
+          <>
+            <span className="block">{t("confirmBody")}</span>
+            <ul className="mt-2 max-h-40 list-disc space-y-0.5 overflow-auto pl-5 text-sm">
+              {pending?.removed.map((r) => (
+                <li key={r.key}>{rowLabel(r) || r.sku} · {r.sku}{r.baseOnHand > 0 ? ` · ${t("onHand", { count: r.baseOnHand })}` : ""}{r.ordered ? ` · ${t("hasOrders")}` : ""}</li>
+              ))}
+            </ul>
+          </>
+        )} />
     </div>
   );
 }

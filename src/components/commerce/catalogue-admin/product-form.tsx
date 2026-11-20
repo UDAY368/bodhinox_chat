@@ -11,15 +11,15 @@
  * Admins edit; agents read.
  */
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import { Archive, ArchiveRestore, Eye, EyeOff, Loader2, MoreHorizontal, RotateCw } from "lucide-react";
+import { Archive, ArchiveRestore, Loader2, MoreHorizontal, RotateCw } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -31,7 +31,7 @@ import {
   archiveShopProduct, fetchCategories, fetchShopProduct, publishShopProduct, saveProductForm, unpublishShopProduct,
   type ShopCategory, type ShopProduct,
 } from "./catalogue-api";
-import { selectClass, StatusBadge, useCatalogueError } from "./catalogue-admin";
+import { selectClass, StatusBadge, useCatalogueError, VisibilityControl } from "./catalogue-admin";
 import { ProductWriter } from "./product-writer";
 import { ProductPhotos } from "./product-photos";
 import { OptionsBuilder, VariantDetails, VariantMatrix } from "./product-options";
@@ -159,7 +159,11 @@ export function ProductForm({ id, currency: listCurrency, onSaved, onDirtyChange
           <SheetOrPageTitle>{title}</SheetOrPageTitle>
           {product && (
             <span className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-              <StatusBadge status={product.status} />
+              {canManage ? (
+                <VisibilityControl status={product.status} disabled={busy} onChange={(next) => void act(next === "published"
+                  ? publishShopProduct(product.id, product.version) : unpublishShopProduct(product.id),
+                next === "published" ? tEditor("publishedToast") : tEditor("unpublished"))} />
+              ) : <StatusBadge status={product.status} />}
               {product.content_reviewed_at ? tEditor("reviewed", { date: new Date(product.content_reviewed_at) }) : tEditor("notReviewed")}
             </span>
           )}
@@ -177,17 +181,6 @@ export function ProductForm({ id, currency: listCurrency, onSaved, onDirtyChange
               <MoreHorizontal className="size-4" />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-52">
-              {product.status === "draft" && (
-                <DropdownMenuItem onClick={() => void act(publishShopProduct(product.id, product.version), tEditor("publishedToast"))}>
-                  <Eye className="size-4" />{t("makeLive")}
-                </DropdownMenuItem>
-              )}
-              {product.status === "published" && (
-                <DropdownMenuItem onClick={() => void act(unpublishShopProduct(product.id), tEditor("unpublished"))}>
-                  <EyeOff className="size-4" />{t("makeHidden")}
-                </DropdownMenuItem>
-              )}
-              <DropdownMenuSeparator />
               {product.status === "archived" ? (
                 <DropdownMenuItem onClick={() => void act(archiveShopProduct(product.id, false), tEditor("restored"))}>
                   <ArchiveRestore className="size-4" />{tEditor("restore")}
@@ -326,18 +319,8 @@ export function ProductSheet({ productId, open, currency, onOpenChange, onSaved 
           </SheetContext.Provider>
         </SheetContent>
       </Sheet>
-      <Dialog open={asking} onOpenChange={setAsking}>
-        <DialogContent className="sm:max-w-sm">
-          <DialogHeader>
-            <DialogTitle>{t("discardTitle")}</DialogTitle>
-            <DialogDescription>{t("discardBody")}</DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setAsking(false)}>{t("keepEditing")}</Button>
-            <Button variant="destructive" onClick={() => { setAsking(false); setDirty(false); onOpenChange(false); }}>{t("discard")}</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ConfirmDialog open={asking} onOpenChange={setAsking} destructive title={t("discardTitle")} body={t("discardBody")}
+        confirmLabel={t("discard")} cancelLabel={t("keepEditing")} onConfirm={() => { setDirty(false); onOpenChange(false); }} />
     </>
   );
 }

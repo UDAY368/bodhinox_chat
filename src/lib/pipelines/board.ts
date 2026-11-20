@@ -6,10 +6,15 @@
 // - loadStageDeals: the next page of one stage ("Load more");
 // - getDeal: one deal by id (the /pipelines?deal=<id> link), 404 outside the workspace.
 // Values are never summed across currencies; each currency is its own total.
+// A member whose numbers are masked gets masked contact phones and can match a
+// number only by its last digits (the same rule as contact search).
 import { Prisma } from '@prisma/client';
 import { NextResponse } from 'next/server';
 import { toErrorResponse } from '@/lib/auth/account';
 import { withTenant, type TenantContext } from '@/lib/db/tenant';
+import { maskPhone } from '@/lib/inbox/masking';
+import { loadPhoneMask } from '@/lib/inbox/masking-apply';
+import { contactMatchSql } from '@/lib/search/contacts';
 
 export const BOARD_PAGE_SIZE = 25;
 export const DEAL_SEARCH_MAX = 100;
@@ -89,13 +94,12 @@ export const isUuid = (id: string): boolean => UUID.test(id);
 const likePattern = (q: string) => `%${q.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
 
 /** The WHERE clause for one pipeline under the owner and search filters (no status). */
-function scope(ctx: TenantContext, pipelineId: string, f: Pick<BoardFilters, 'owner' | 'q'>): Prisma.Sql {
+function scope(ctx: TenantContext, pipelineId: string, f: Pick<BoardFilters, 'owner' | 'q'>, maskPhones: boolean): Prisma.Sql {
   const parts = [Prisma.sql`d.account_id=${ctx.accountId}::uuid`, Prisma.sql`d.pipeline_id=${pipelineId}::uuid`];
   if (f.owner === 'none') parts.push(Prisma.sql`d.assigned_to IS NULL`);
   else if (f.owner !== 'all') parts.push(Prisma.sql`d.assigned_to=${f.owner}::uuid`);
   if (f.q) {
-    const p = likePattern(f.q);
-    parts.push(Prisma.sql`(d.title ILIKE ${p} OR c.name ILIKE ${p} OR c.phone ILIKE ${p})`);
+    parts.push(Prisma.sql`(d.title ILIKE ${likePattern(f.q)} OR (c.id IS NOT NULL ${contactMatchSql(f.q, maskPhones)}))`);
   }
   return Prisma.join(parts, ' AND ');
 }
@@ -120,15 +124,17 @@ type DealRow = Omit<BoardDeal, 'contact' | 'assignee' | 'created_at' | 'updated_
   p_id: string | null; p_name: string | null; p_email: string | null;
 };
 
-function toDeal(r: DealRow): BoardDeal {
+function toDeal(r: DealRow, maskPhones: boolean): BoardDeal {
   const { c_id, c_name, c_phone, p_id, p_name, p_email, created_at, updated_at, closed_at, ...rest } = r;
+  // The board query's row_number (a bigint) never reaches JSON.
+  delete (rest as { rn?: unknown }).rn;
   return {
     ...rest,
     value: Number(rest.value),
     created_at: (created_at ?? new Date(0)).toISOString(),
     updated_at: updated_at?.toISOString() ?? null,
     closed_at: closed_at?.toISOString() ?? null,
-    contact: c_id ? { id: c_id, name: c_name, phone: c_phone ?? '' } : null,
+    contact: c_id ? { id: c_id, name: c_name, phone: maskPhones ? maskPhone(c_phone) : c_phone ?? '' } : null,
     assignee: p_id ? { id: p_id, full_name: p_name ?? '', email: p_email ?? '' } : null,
   };
 }
@@ -150,7 +156,8 @@ export async function loadBoard(ctx: TenantContext, pipelineId: string, f: Board
   if (!isUuid(pipelineId)) throw new BoardError('not_found', 404);
   return withTenant(ctx, async (tx) => {
     await assertPipeline(tx, ctx, pipelineId);
-    const where = scope(ctx, pipelineId, f);
+    const mask = await loadPhoneMask(tx, ctx);
+    const where = scope(ctx, pipelineId, f, mask);
     const deals = await tx.$queryRaw<DealRow[]>(Prisma.sql`
       SELECT * FROM (
         SELECT ${DEAL_COLUMNS}, row_number() OVER (PARTITION BY d.stage_id ORDER BY ${DEAL_ORDER}) AS rn
@@ -169,7 +176,7 @@ export async function loadBoard(ctx: TenantContext, pipelineId: string, f: Board
     const overview = rows.map((r) => ({ ...r, total: Number(r.total) }));
     return {
       stages: groupStageTotals(overview.filter((r) => r.status === f.view)),
-      deals: deals.map(({ rn: _rn, ...row }: DealRow & { rn?: unknown }) => toDeal(row)),
+      deals: deals.map((r) => toDeal(r, mask)),
       overview,
     };
   });
@@ -193,11 +200,12 @@ export async function loadStageDeals(ctx: TenantContext, pipelineId: string, sta
   if (!isUuid(pipelineId) || !isUuid(stageId)) throw new BoardError('not_found', 404);
   return withTenant(ctx, async (tx) => {
     await assertPipeline(tx, ctx, pipelineId);
+    const mask = await loadPhoneMask(tx, ctx);
     const rows = await tx.$queryRaw<DealRow[]>(Prisma.sql`
       SELECT ${DEAL_COLUMNS} FROM deals d ${DEAL_JOINS}
-      WHERE ${scope(ctx, pipelineId, f)} AND d.stage_id=${stageId}::uuid AND ${statusOf}=${f.view}
+      WHERE ${scope(ctx, pipelineId, f, mask)} AND d.stage_id=${stageId}::uuid AND ${statusOf}=${f.view}
       ORDER BY ${DEAL_ORDER} LIMIT ${BOARD_PAGE_SIZE + 1} OFFSET ${offset}`);
-    return { deals: rows.slice(0, BOARD_PAGE_SIZE).map(toDeal), hasMore: rows.length > BOARD_PAGE_SIZE };
+    return { deals: rows.slice(0, BOARD_PAGE_SIZE).map((r) => toDeal(r, mask)), hasMore: rows.length > BOARD_PAGE_SIZE };
   });
 }
 
@@ -209,6 +217,6 @@ export async function getDeal(ctx: TenantContext, dealId: string): Promise<Board
       SELECT ${DEAL_COLUMNS} FROM deals d ${DEAL_JOINS}
       WHERE d.account_id=${ctx.accountId}::uuid AND d.id=${dealId}::uuid`);
     if (!rows[0]) throw new BoardError('not_found', 404);
-    return toDeal(rows[0]);
+    return toDeal(rows[0], await loadPhoneMask(tx, ctx));
   });
 }

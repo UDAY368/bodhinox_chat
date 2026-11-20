@@ -27,7 +27,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { PageHeader } from "@/components/ui/page-header";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 import { GitBranch, Plus, ChevronDown, Settings, Search, User, Check, BarChart3, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import { useCan } from "@/hooks/use-can";
@@ -242,7 +243,6 @@ function PipelinesBoard() {
   // is a legitimate sync with state; loads set state in promise callbacks.
   useEffect(() => {
     if (!selectedPipelineId) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setStages([]);
       return;
     }
@@ -264,7 +264,6 @@ function PipelinesBoard() {
   // The board: the first page of each stage, the stage totals and the overview, all from SQL.
   useEffect(() => {
     if (!selectedPipelineId) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setBoard(null);
       return;
     }
@@ -483,21 +482,11 @@ function PipelinesBoard() {
 
   return (
     <div className="space-y-4">
-      {/* Header */}
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <h1 className="text-[22px] font-bold tracking-tight text-foreground">
-          {tNav("pipelines")}
-        </h1>
-        <div className="flex flex-wrap items-center gap-2">
-          <GatedButton
-            variant="outline"
-            canAct={canEditSettings}
-            gateReason={tGate("reasons.createPipelines")}
-            onClick={() => setNewPipelineOpen(true)}
-          >
-            <Plus className="h-4 w-4" />
-            {t("addPipeline")}
-          </GatedButton>
+      <PageHeader
+        title={tNav("pipelines")}
+        className="mb-0"
+        moreActions={canEditSettings ? [{ label: t("addPipeline"), icon: Plus, onSelect: () => setNewPipelineOpen(true) }] : undefined}
+        primaryAction={
           <GatedButton
             canAct={canCreateDeals}
             gateReason={tGate("reasons.createDeals")}
@@ -507,8 +496,8 @@ function PipelinesBoard() {
             <Plus className="h-4 w-4" />
             {t("addDeal")}
           </GatedButton>
-        </div>
-      </div>
+        }
+      />
 
       {pipelines.length > 0 && (
         <div className="flex flex-wrap items-center gap-2">
@@ -563,15 +552,12 @@ function PipelinesBoard() {
               {tSales("manageStages")}
             </Button>
           )}
-          <Tabs value={view} onValueChange={(v) => setView(v as BoardView)}>
-            <TabsList aria-label={tSales("viewLabel")} className="bg-muted">
-              {VIEWS.map((v) => (
-                <TabsTrigger key={v} value={v} className="min-h-11 px-3 sm:min-h-0">
-                  {tSales(VIEW_LABEL[v])}
-                </TabsTrigger>
-              ))}
-            </TabsList>
-          </Tabs>
+          <SegmentedControl
+            aria-label={tSales("viewLabel")}
+            value={view}
+            onValueChange={setView}
+            options={VIEWS.map((v) => ({ value: v, label: tSales(VIEW_LABEL[v]) }))}
+          />
           <span className="hidden flex-1 sm:block" />
           <DropdownMenu>
             <DropdownMenuTrigger

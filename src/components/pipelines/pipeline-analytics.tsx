@@ -12,13 +12,13 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useAuth } from "@/hooks/use-auth";
-import { formatCurrency } from "@/lib/currency";
+import { formatMajor } from "@/lib/format/money";
 import { useTranslations } from "next-intl";
 
 /** Amounts per currency side by side ("₹12,000 · $300"); zero in the workspace currency when empty. */
 export function formatTotals(totals: CurrencyTotal[], fallbackCurrency: string): string {
-  if (totals.length === 0) return formatCurrency(0, fallbackCurrency);
-  return totals.map((t) => formatCurrency(t.total, t.currency)).join(" · ");
+  if (totals.length === 0) return formatMajor(0, fallbackCurrency);
+  return totals.map((t) => formatMajor(Math.round(t.total), t.currency)).join(" · ");
 }
 
 interface PipelineAnalyticsProps {

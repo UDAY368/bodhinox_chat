@@ -11,8 +11,7 @@ import { useRouter } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { useTranslations } from "next-intl";
 
-import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { ProductForm } from "./product-form";
 
 export function ProductEditor({ id }: { id: string }) {
@@ -30,18 +29,8 @@ export function ProductEditor({ id }: { id: string }) {
       <div className="flex flex-col rounded-xl border border-border bg-card">
         <ProductForm id={id} onDirtyChange={setDirty} />
       </div>
-      <Dialog open={asking} onOpenChange={setAsking}>
-        <DialogContent className="sm:max-w-sm">
-          <DialogHeader>
-            <DialogTitle>{tf("discardTitle")}</DialogTitle>
-            <DialogDescription>{tf("discardBody")}</DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setAsking(false)}>{tf("keepEditing")}</Button>
-            <Button variant="destructive" onClick={() => { setAsking(false); setDirty(false); router.push("/commerce/catalogue"); }}>{tf("discard")}</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ConfirmDialog open={asking} onOpenChange={setAsking} destructive title={tf("discardTitle")} body={tf("discardBody")}
+        confirmLabel={tf("discard")} cancelLabel={tf("keepEditing")} onConfirm={() => { setDirty(false); router.push("/commerce/catalogue"); }} />
     </div>
   );
 }

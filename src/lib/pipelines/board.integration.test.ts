@@ -78,6 +78,8 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('pipeline board', { timeout:
     const board = await loadBoard(viewer, pipelineA, open);
     const first = board.deals.filter((d) => d.stage_id === stage1);
     expect(first).toHaveLength(25);
+    expect(() => JSON.stringify(board)).not.toThrow();
+    expect(first[0]).not.toHaveProperty('rn');
     expect(first.every((d) => d.status === 'open')).toBe(true);
     expect(board.deals.filter((d) => d.stage_id === stage2).map((d) => d.title)).toEqual(['Proposal open']);
     const more = await loadStageDeals(viewer, pipelineA, stage1, open, 25);
@@ -167,5 +169,28 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('pipeline board', { timeout:
     const changed = await withTenant(viewer, (tx) => tx.$executeRaw`UPDATE deals SET status='lost', lost_reason='no' WHERE id=${id}::uuid`).catch(() => 0);
     expect(changed).toBe(0);
     expect(await row(id)).toMatchObject({ status: 'open', closed_at: null, lost_reason: null });
+  });
+
+  it('masks contact numbers for a masked member and matches them only by their last digits', async () => {
+    const contact = (await db.query("INSERT INTO contacts(account_id,user_id,name,phone) VALUES($1,$2,'Masked Buyer','+919876543210') RETURNING id",
+      [A, ownerA])).rows[0].id as string;
+    const { rows } = await db.query(
+      "INSERT INTO deals(account_id,user_id,pipeline_id,stage_id,title,contact_id) VALUES($1,$2,$3,$4,'Masked deal',$5) RETURNING id",
+      [A, ownerA, pipelineA, stage2, contact]);
+    const dealId = rows[0].id as string;
+    expect((await getDeal(viewer, dealId)).contact?.phone).toBe('+919876543210');
+    await db.query('UPDATE account_memberships SET mask_phone_numbers=true WHERE account_id=$1 AND user_id=$2', [A, viewerA]);
+    try {
+      const seen = await getDeal(viewer, dealId);
+      expect(seen.contact?.phone).not.toContain('98765');
+      const board = await loadBoard(viewer, pipelineA, { ...open, q: '3210' });
+      expect(board.deals.find((d) => d.id === dealId)?.contact?.phone).not.toContain('98765');
+      // A masked member cannot find the contact by the hidden middle digits.
+      expect((await loadBoard(viewer, pipelineA, { ...open, q: '98765' })).deals.map((d) => d.id)).not.toContain(dealId);
+      // Owners are never masked.
+      expect((await getDeal({ accountId: A, userId: ownerA, role: 'owner' }, dealId)).contact?.phone).toBe('+919876543210');
+    } finally {
+      await db.query('UPDATE account_memberships SET mask_phone_numbers=false WHERE account_id=$1 AND user_id=$2', [A, viewerA]);
+    }
   });
 });
