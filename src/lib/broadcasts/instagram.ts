@@ -210,6 +210,8 @@ export async function deliverInstagramBroadcast(accountId: string, broadcastId: 
   shouldStop?: () => Promise<boolean>;
   /** Pause between sends (ms); 0 in tests. */
   paceMs?: number;
+  /** Epoch ms. Once passed (after at least one row) the pass ends; the untried rows count as remaining. */
+  deadline?: number;
 }): Promise<InstagramPassResult> {
   const statuses = scope === 'pending' ? ['pending'] : scope === 'failed' ? ['failed'] : ['pending', 'failed'];
   const { text, rows, inScope } = await tenant(accountId, async (tx) => {
@@ -232,6 +234,11 @@ export async function deliverInstagramBroadcast(accountId: string, broadcastId: 
   for (const [index, row] of rows.entries()) {
     if (options.shouldStop && index % 10 === 0 && await options.shouldStop()) {
       result.stopped = true;
+      result.remaining += rows.length - index;
+      return result;
+    }
+    // Out of time: the untried rows stay pending; the caller queues the next pass for them.
+    if (index > 0 && options.deadline !== undefined && Date.now() >= options.deadline) {
       result.remaining += rows.length - index;
       return result;
     }

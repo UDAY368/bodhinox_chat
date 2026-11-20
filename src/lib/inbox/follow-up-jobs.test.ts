@@ -27,10 +27,10 @@ describe('scheduleFollowUpSweeps', () => {
     h.replies = [{ account_id: A }, { account_id: B }];
     expect(await scheduleFollowUpSweeps(now)).toBe(3);
     const slot = Math.floor(now / 30_000);
+    // One batched insert per job type, same dedupe keys as one insert per workspace.
     expect(h.inserts).toEqual([
-      [REMINDERS_JOB, A, `inbox-reminders:${A}:${slot}`],
-      [SCHEDULED_REPLIES_JOB, A, `inbox-scheduled:${A}:${slot}`],
-      [SCHEDULED_REPLIES_JOB, B, `inbox-scheduled:${B}:${slot}`],
+      [REMINDERS_JOB, '{}', 2, [A], [`inbox-reminders:${A}:${slot}`]],
+      [SCHEDULED_REPLIES_JOB, '{}', 2, [A, B], [`inbox-scheduled:${A}:${slot}`, `inbox-scheduled:${B}:${slot}`]],
     ]);
   });
   it('offers nothing when nothing is due', async () => {

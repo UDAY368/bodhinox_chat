@@ -153,18 +153,19 @@ describe.skipIf(!ownerUrl || !workerUrl)("real PostgreSQL durable queue and disp
     expect((await owner.query("SELECT status,attempts,lease_token,payload FROM jobs WHERE id=$1",[id])).rows[0]).toEqual({status:"running",attempts:1,lease_token:second!.lease_token,payload:{manual:true}});
   });
 
-  it("[audit-10/37] the main lane never takes a campaign pass and the bulk lane takes nothing else", async () => {
+  it("[audit-10/37] the inbound lane never takes a campaign pass and the bulk lane takes nothing else", async () => {
     const campaign = await enqueueJob("broadcast.dispatch", { test: true }, { tenantId: accountId, runAt: new Date(0), dedupeKey: randomUUID() });
     jobs.add(campaign);
-    const inbound = await createJob();
+    const inbound = await enqueueJob("webhook.delivery", { test: true }, { tenantId: accountId, runAt: new Date(0), dedupeKey: randomUUID() });
+    jobs.add(inbound);
     // The shared test database may hold due jobs left by other files: drain each lane and check
     // what it took, rather than assuming the queue is otherwise empty.
-    const drain = async (lane: "main" | "bulk") => {
+    const drain = async (lane: "inbound" | "bulk") => {
       const taken: Awaited<ReturnType<typeof claimJob>>[] = [];
       for (let job = await claimJob(lane); job && taken.length < 200; job = await claimJob(lane)) taken.push(job);
       return taken;
     };
-    const [bulk, main] = await Promise.all([drain("bulk"), drain("main")]);
+    const [bulk, main] = await Promise.all([drain("bulk"), drain("inbound")]);
     expect(bulk.map((j) => j!.id)).toContain(campaign);
     expect(main.map((j) => j!.id)).toContain(inbound);
     expect(bulk.every((j) => (BULK_JOB_TYPES as readonly string[]).includes(j!.type))).toBe(true);

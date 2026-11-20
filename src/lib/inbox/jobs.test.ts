@@ -32,9 +32,10 @@ describe('scheduleInboxSweeps', () => {
   it('offers one SLA check per minute slot and one auto-resolve per five-minute slot', async () => {
     const now = Date.UTC(2026, 10, 2, 10, 7, 30);
     expect(await scheduleInboxSweeps(now)).toBe(2);
-    expect(h.inserts[0]).toEqual([
-      'inbox.sla_check', ACCOUNT, `inbox-sla:${ACCOUNT}:${Math.floor(now / 60_000)}`,
-      'inbox.auto_resolve', ACCOUNT, `inbox-resolve:${ACCOUNT}:${Math.floor(now / 300_000)}`,
+    // One batched insert per job type for every workspace, same dedupe keys as before.
+    expect(h.inserts).toEqual([
+      ['inbox.sla_check', '{}', 2, [ACCOUNT], [`inbox-sla:${ACCOUNT}:${Math.floor(now / 60_000)}`]],
+      ['inbox.auto_resolve', '{}', 2, [ACCOUNT], [`inbox-resolve:${ACCOUNT}:${Math.floor(now / 300_000)}`]],
     ]);
   });
   it('looks again only after a minute', async () => {
