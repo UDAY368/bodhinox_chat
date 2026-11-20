@@ -46,7 +46,8 @@ export const INSTAGRAM_NODE_SUPPORT: Record<FlowNodeType, NodeSupport> = {
   send_catalog: 'no',
   send_storefront_link: 'yes',
   payment_link: 'yes',
-  book_appointment: 'no',
+  // Batch 3 (B8): questions go as quick replies (at most 10, titles cut to 20 characters), the window re-checked per prompt.
+  book_appointment: 'yes',
   // Stage 4: Conversions API events from Instagram flows. The step sends no message (needsMessagingWindow
   // already skips it) and queues the event for the contact's latest attributable click-to-Direct ad.
   conversion_event: 'yes',

@@ -51,7 +51,7 @@ describe('messageReasonKey covers every reason code the server stores', () => {
     ...[...source.matchAll(/reason: '([a-z_]+)'/g)].map((m) => m[1]),
     ...[...source.matchAll(/\b(?:skip|block|fail)\('([a-z_]+)'\)/g)].map((m) => m[1]),
     ...[...source.matchAll(/return '([a-z_]+)';/g)].map((m) => m[1]),
-  ]);
+  ].filter((code) => code !== 'instagram' && code !== 'whatsapp')); // channel choices in customer-send.ts, not reasons
 
   it('finds the codes', () => {
     for (const code of ['template_not_found', 'template_not_approved', 'template_wrong_number', 'feedback_recorded', 'no_template'])

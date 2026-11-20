@@ -125,12 +125,19 @@ describe('report queries', () => {
     expect(lines[0]).toBe('"product_key","product","currency","orders","units","gross","discounts","refunds","net"');
     expect(lines[1]).toBe('"SKU-1","Ashwagandha","INR","2","3","1500.00","100.00","0.00","1400.00"');
 
-    h.respond = () => [
-      { service_id: 's1', service_name: 'Chiropractic', day: '2026-10-02', booked: 2, confirmed: 2, cancelled: 0, completed: 1, no_show: 1 },
-      { service_id: 's1', service_name: 'Chiropractic', day: '2026-10-03', booked: 1, confirmed: 1, cancelled: 1, completed: 2, no_show: 0 },
-    ];
+    h.respond = (sql) => (sql.includes("payment_status='paid'")
+      ? [{ service_id: 's1', service_name: 'Chiropractic', currency: 'USD', paid_bookings: 1, revenue_minor: BigInt(1000) },
+        { service_id: 's1', service_name: 'Chiropractic', currency: 'INR', paid_bookings: 2, revenue_minor: BigInt(150000) },
+        { service_id: 's2', service_name: 'Massage', currency: 'INR', paid_bookings: 1, revenue_minor: BigInt(50000) }]
+      : [
+        { service_id: 's1', service_name: 'Chiropractic', day: '2026-10-02', booked: 2, confirmed: 2, cancelled: 0, completed: 1, no_show: 1 },
+        { service_id: 's1', service_name: 'Chiropractic', day: '2026-10-03', booked: 1, confirmed: 1, cancelled: 1, completed: 2, no_show: 0 },
+      ]);
     lines = decode((await buildReport(tx as never, A, 'service_summary', range)).bytes).slice(1).split('\r\n');
-    expect(lines[1]).toBe('"s1","Chiropractic","3","3","1","3","1","25.0"');
+    expect(lines[0]).toBe('"service_id","service","booked","confirmed","cancelled","completed","no_show","no_show_rate_pct","show_rate_pct","paid_bookings","revenue"');
+    expect(lines[1]).toBe('"s1","Chiropractic","3","3","1","3","1","25.0","75.0","3","1500.00 INR; 10.00 USD"');
+    // A service with paid bookings but no events in the range still reports its revenue.
+    expect(lines[2]).toBe('"s2","Massage","0","0","0","0","0","","","1","500.00 INR"');
 
     h.respond = (sql) => (sql.includes('ledger') ? [{ day: '2026-10-02', currency: 'INR', collected: BigInt(50000), refunds: BigInt(2000) }] : []);
     lines = decode((await buildReport(tx as never, A, 'commerce_daily', range)).bytes).slice(1).split('\r\n');

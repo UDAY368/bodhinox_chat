@@ -15,6 +15,7 @@ import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/use-auth';
 import { useCan } from '@/hooks/use-can';
 import { useTotalUnread } from '@/hooks/use-total-unread';
+import { useUnreadBookingNotifications } from '@/hooks/use-unread-notifications';
 import { useWorkspaceChannels } from '@/hooks/use-workspace-channels';
 import { CHANNELS_SETTINGS_PATH } from '@/lib/channels/routes';
 import { addChannelPrompt } from '@/components/layout/page-search-navigation';
@@ -91,6 +92,7 @@ export function Sidebar({ open = false, onClose, compact = false, onToggleCompac
   const pathname = usePathname();
   const { profile, account, accountRole, signOut } = useAuth();
   const unread = useTotalUnread();
+  const bookingAlerts = useUnreadBookingNotifications();
   const { data: channels } = useWorkspaceChannels();
   const isAdmin = useCan('edit-settings');
   // Until the channel state loads (or if it cannot), the sections assume WhatsApp, the no-row default.
@@ -179,7 +181,7 @@ export function Sidebar({ open = false, onClose, compact = false, onToggleCompac
             <ul key={group.labelKey ?? 'top'} className="flex flex-col gap-0.5">
               {group.sections.map((section) => (
                 <SectionLink key={section.id} section={section} active={current?.id === section.id}
-                  unread={section.unread ? unread[section.unread] : 0} />
+                  unread={section.unread ? unread[section.unread] : 0} attention={section.id === 'sales' && bookingAlerts > 0} />
               ))}
             </ul>,
           ])}

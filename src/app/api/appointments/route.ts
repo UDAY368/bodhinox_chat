@@ -1,5 +1,6 @@
-// GET  /api/appointments?from=<ISO>&to=<ISO>&status=&staff_id=&location_id=&service_id=&needs_outcome=1
-//   The schedule (any member; at most 62 days, 500 rows). 200 { appointments }. The staff note is
+// GET  /api/appointments?from=<ISO>&to=<ISO>&status=&staff_id=&location_id=&service_id=&needs_outcome=1&limit=&cursor=
+//   The schedule (any member; at most 62 days, pages of up to 500 rows in start order).
+//   200 { appointments, next_cursor, truncated }. The staff note is
 //   returned only to members with appointments.manage; contacts appear as id + name only.
 // POST /api/appointments { contact_id, service_id, location_id, staff_id?, start_at }
 //   Staff booking (agents and above with appointments.manage): confirmed at once; the customer's
@@ -17,11 +18,11 @@ export async function GET(request: Request) {
   try {
     const caller = await staffCaller(request, { min: 'viewer' });
     const filter = parseScheduleFilter(new URL(request.url).searchParams);
-    const { rows, manage } = await inTenant(caller, async (tx) => ({
-      rows: await listSchedule(tx, caller.accountId, filter),
+    const { page, manage } = await inTenant(caller, async (tx) => ({
+      page: await listSchedule(tx, caller.accountId, filter),
       manage: await can(tx, caller, 'appointments.manage'),
     }));
-    return json({ appointments: rows.map((r) => publicRow(r, manage)) });
+    return json({ appointments: page.rows.map((r) => publicRow(r, manage)), next_cursor: page.nextCursor, truncated: page.truncated });
   } catch (error) {
     return appointmentErrorResponse(error);
   }

@@ -5,7 +5,14 @@
  * rescheduled appointment never gets an obsolete reminder (D4): a job queued
  * for an older version records skipped/stale_version and sends nothing.
  * Retiring superseded jobs (events.ts) is hygiene only.
+ *
+ * Batch 3: inside the customer window the reminder is free-form text with
+ * Confirm / Reschedule / Cancel buttons (reminder-actions.ts); outside it the
+ * approved appointment_reminder_actions template when there is one, else the
+ * settings reminder template. A booking whose chat is on Instagram gets the
+ * text there while that window is open (B9).
  */
+import { getT } from '@/lib/i18n/translate';
 import { appointmentKeys } from './keys';
 import { sendCustomerMessage } from './customer-send';
 import type { AppointmentRow, ReminderJobPayload, ReminderKind } from './types';
@@ -33,6 +40,10 @@ export async function handleAppointmentReminderJob(accountId: string, payload: R
     templateSlot: 'reminder',
     applies: (row, at) => reminderApplies(row, version, kind, at),
     enabled: (settings) => (kind === '24h' ? settings.reminder_24h : settings.reminder_2h),
+    freeForm: (ctx) => getT('AppointmentNotices')('reminder', { service: ctx.serviceName, time: ctx.time, location: ctx.location,
+      link: ctx.manageLink() }),
+    actions: true,
+    instagram: true,
     now,
   });
 }

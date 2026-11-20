@@ -7,6 +7,8 @@
 import type { TenantTransaction } from '@/lib/db/tenant';
 import { loadSettings } from '@/lib/appointments/availability';
 import { paidBookingReady } from '@/lib/appointments/booking';
+import { sourceRefs } from '@/lib/appointments/keys';
+import { deriveManageToken, MANAGE_PATH, manageTokenHash } from '@/lib/appointments/tokens';
 import type { AppointmentStatus, LocationKind, ServiceMode } from '@/lib/appointments/types';
 import { decrypt } from '@/lib/whatsapp/encryption';
 import { verifyPhoneNumber } from '@/lib/whatsapp/meta-api';
@@ -220,4 +222,51 @@ export async function loadManageView(tx: TenantTransaction, accountId: string, i
     meetingLinkLater: confirmed && online && !linkWindow && now.getTime() < start,
     canChange: confirmed && now.getTime() <= start - settings.customer_cancel_cutoff_minutes * MINUTE,
   };
+}
+
+// ------------------------------------------------------------ hold status (the booking page waiting for "BOOK <code>")
+
+/** What the waiting booking page may learn about its own hold: a state word and, once booked, the manage path. */
+export type HoldState = 'held' | 'payment_pending' | 'confirmed' | 'expired' | 'cancelled';
+export interface HoldStatusView { status: HoldState; managePath?: string }
+
+interface HoldRow { status: AppointmentStatus; payment_status: string; contact_id: string | null; hold_expires_at: Date | null }
+
+/** Map a row to the public state (pure; tested). A hold past its expiry reads as expired before the sweeper runs. */
+export function holdState(row: HoldRow, now: Date): HoldState {
+  switch (row.status) {
+    case 'held':
+      if (!row.hold_expires_at || row.hold_expires_at.getTime() <= now.getTime()) return 'expired';
+      // Bound to a WhatsApp sender and waiting for the payment link to be paid.
+      return row.payment_status === 'pending' && row.contact_id ? 'payment_pending' : 'held';
+    case 'confirmed':
+    case 'completed':
+    case 'no_show':
+      return 'confirmed';
+    case 'cancelled':
+      return 'cancelled';
+    default:
+      return 'expired';
+  }
+}
+
+/**
+ * The status of the public hold this page made with `requestId` (the
+ * browser's own secret, a client-generated UUID). One lookup on the unique
+ * (account_id, source_ref); a requestId sent to another page or workspace
+ * never matches because source_ref carries the page id. No customer data.
+ */
+export async function loadHoldStatus(
+  tx: TenantTransaction, accountId: string, pageId: string, requestId: string, now = new Date(),
+): Promise<HoldStatusView | null> {
+  const [row] = await tx.$queryRaw<(HoldRow & { id: string; token_epoch: number; manage_token_hash: string | null })[]>`
+    SELECT id::text, status, payment_status, contact_id::text, hold_expires_at, token_epoch, manage_token_hash
+    FROM appointments
+    WHERE account_id=${accountId}::uuid AND source_ref=${sourceRefs.public(pageId, requestId.toLowerCase())} AND source='public'`;
+  if (!row) return null;
+  const status = holdState(row, now);
+  if (status !== 'confirmed' || !row.manage_token_hash) return { status };
+  // The same link the confirmation message carries; a rotated token gives none.
+  const token = deriveManageToken(row.id, row.token_epoch);
+  return manageTokenHash(token) === row.manage_token_hash ? { status, managePath: `${MANAGE_PATH}${token}` } : { status };
 }

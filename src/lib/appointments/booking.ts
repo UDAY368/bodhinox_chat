@@ -22,6 +22,7 @@ import {
   computeSlots, loadAvailabilityConfig, loadBusy, loadSettings, MAX_CANDIDATE_STAFF,
   type AvailabilityConfig, type BusyRow,
 } from './availability';
+import { applyAttribution, resolveAttribution, whatsappConversationFor } from './attribution';
 import { lockKeys, lockOrder } from './keys';
 import { enqueueEvent, enqueueFollowup, enqueueHoldExpiry, enqueueNotice, scheduleReminders } from './schedule-jobs';
 import { enqueueMeetingSync } from '@/lib/meetings/sync';
@@ -43,7 +44,8 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-
 
 export const APPOINTMENT_COLUMNS = `id, contact_id, service_id, staff_id, location_id, start_at, end_at, timezone, local_date::text AS local_date,
   status, version, source, source_ref, booking_page_id, hold_expires_at, hold_code, confirmed_at, price_minor, currency,
-  meeting_url, service_name, token_epoch, cancel_reason, outcome_note, feedback_score, payment_status, created_by, created_at, updated_at`;
+  meeting_url, service_name, token_epoch, cancel_reason, outcome_note, feedback_score, payment_status, created_by, created_at, updated_at,
+  deal_id, broadcast_id, ad_referral_id, conversation_id, attendance_confirmed_at`;
 
 export async function getAppointment(tx: TenantTransaction, accountId: string, id: string, forUpdate = false): Promise<AppointmentRow | null> {
   if (!UUID.test(id)) return null;
@@ -230,6 +232,8 @@ export interface BookInput {
   intake?: BookingIntake | null;
   /** Staff member who booked (audit identity). */
   actorUserId?: string | null;
+  /** The chat the booking is made in (flow bookings: the run's conversation, WhatsApp or Instagram). */
+  conversationId?: string | null;
   now?: Date;
 }
 
@@ -257,6 +261,7 @@ export async function bookAppointment(tx: TenantTransaction, input: BookInput): 
   if (source === 'public' ? (input.contactId || !input.bookingPageId || !input.sourceRef) : (!input.contactId || input.clientHash))
     throw new AppointmentError('invalid');
   if (input.clientHash && !CLIENT_HASH.test(input.clientHash)) throw new AppointmentError('invalid');
+  if (input.conversationId && (source === 'public' || !UUID.test(input.conversationId))) throw new AppointmentError('invalid');
 
   // 1. Validate what does not need the locks.
   await requireFeature(tx, accountId, 'appointments');
@@ -267,11 +272,11 @@ export async function bookAppointment(tx: TenantTransaction, input: BookInput): 
   }
   const configBefore = await loadAvailabilityConfig(tx, accountId, input.serviceId, input.locationId);
   // Paid services (E15): staff bookings are allowed (nothing collected online);
-  // public holds wait for a verified payment; flow bookings still refuse.
+  // public and flow bookings become a paid hold that waits for a verified
+  // payment (confirmPaidHold), only when the workspace can take payment.
   const assertPayable = async (paid: boolean) => {
-    if (!paid) return;
-    if (source === 'flow') throw new AppointmentError('not_yet_supported');
-    if (source === 'public' && !(await paidBookingReady(tx, accountId))) throw new AppointmentError('not_yet_supported');
+    if (!paid || source === 'staff') return;
+    if (!(await paidBookingReady(tx, accountId))) throw new AppointmentError('not_yet_supported');
   };
   await assertPayable(configBefore.service.payment_required);
   if (!configBefore.offerings.length) throw new AppointmentError('slot_unavailable');
@@ -302,7 +307,7 @@ export async function bookAppointment(tx: TenantTransaction, input: BookInput): 
   const config = locked.config;
   candidates = locked.staffIds;
   if (config.service.payment_required !== configBefore.service.payment_required) await assertPayable(config.service.payment_required);
-  const paidHold = source === 'public' && config.service.payment_required;
+  const paidHold = source !== 'staff' && config.service.payment_required;
 
   // 3. Idempotency again: a concurrent replay may have committed while we waited.
   if (input.sourceRef) {
@@ -333,39 +338,50 @@ export async function bookAppointment(tx: TenantTransaction, input: BookInput): 
       throw new AppointmentError('too_many');
     }
   } else {
+    // Unexpired paid holds count too, so a flow cannot stack unpaid holds past the cap.
     const [row] = await tx.$queryRaw<{ n: number }[]>`SELECT count(*)::int AS n FROM appointments
       WHERE account_id=${accountId}::uuid AND contact_id=${input.contactId}::uuid AND service_id=${input.serviceId}::uuid
-        AND status='confirmed' AND start_at > ${now}`;
+        AND (status='confirmed' OR (status='held' AND hold_expires_at > ${now})) AND start_at > ${now}`;
     if ((row?.n ?? 0) >= MAX_UPCOMING_PER_CONTACT_SERVICE) throw new AppointmentError('too_many');
   }
 
-  // 7. Insert.
+  // 7. Insert. A public hold waits for its BOOK code; a flow's paid hold (A6)
+  //    already knows its contact and waits only for settlement.
   const id = randomUUID();
-  const held = source === 'public';
-  const holdExpiresAt = held ? new Date(now.getTime() + config.settings.hold_minutes * MINUTE) : null;
-  const holdCode = held ? await newHoldCode(tx, accountId) : null;
+  const publicHold = source === 'public';
+  const held = publicHold || paidHold;
+  const holdMinutes = publicHold ? config.settings.hold_minutes : paidHold ? await paidHoldMinutes(tx, accountId) : 0;
+  const holdExpiresAt = held ? new Date(now.getTime() + holdMinutes * MINUTE) : null;
+  const holdCode = publicHold ? await newHoldCode(tx, accountId) : null;
   const tokenHash = held ? null : manageTokenHash(deriveManageToken(id, 1));
-  const intake = held ? cleanIntake(input.intake) : null;
+  const intake = publicHold ? cleanIntake(input.intake) : null;
+  // Confirmed now: the campaign click and ad that led here go in the INSERT (B11/B12).
+  const attribution = held ? { broadcastId: null, adReferralId: null } : await resolveAttribution(tx, accountId, input.contactId ?? null, now);
   const s = config.service;
   const [appointment] = await tx.$queryRawUnsafe<AppointmentRow[]>(
     `INSERT INTO appointments(id,contact_id,service_id,staff_id,location_id,start_at,end_at,timezone,status,source,source_ref,
        booking_page_id,hold_expires_at,hold_code,intake,confirmed_at,price_minor,currency,meeting_url,service_name,manage_token_hash,created_by,
-       hold_client_hash,payment_status)
-     VALUES($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::uuid,$6,$7,$8,$9,$10,$11,$12::uuid,$13,$14,$15::jsonb,$16,$17,$18,$19,$20,$21,$22::uuid,$23,$24)
+       hold_client_hash,payment_status,conversation_id,broadcast_id,ad_referral_id)
+     VALUES($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::uuid,$6,$7,$8,$9,$10,$11,$12::uuid,$13,$14,$15::jsonb,$16,$17,$18,$19,$20,$21,$22::uuid,$23,$24,
+       $25::uuid,$26::uuid,$27::uuid)
      RETURNING ${APPOINTMENT_COLUMNS}`,
     id, input.contactId ?? null, s.id, staffId, config.location.id, startAt, endAt, config.location.timezone,
     held ? 'held' : 'confirmed', source, input.sourceRef ?? null, input.bookingPageId ?? null, holdExpiresAt, holdCode,
     intake ? JSON.stringify(intake) : null, held ? null : now, s.price_minor ?? null, s.currency ?? null,
-    s.mode === 'online' ? s.meeting_url : null, s.name, tokenHash, input.actorUserId ?? null, held ? input.clientHash ?? null : null,
-    paidHold ? 'pending' : 'none');
+    s.mode === 'online' ? s.meeting_url : null, s.name, tokenHash, input.actorUserId ?? null, publicHold ? input.clientHash ?? null : null,
+    paidHold ? 'pending' : 'none', input.conversationId ?? null, attribution.broadcastId, attribution.adReferralId);
 
   // 8. History and durable jobs in the same transaction.
   const actor: AppointmentActor = source === 'staff' ? 'staff' : 'customer';
-  await insertEvent(tx, { appointmentId: id, version: 1, kind: held ? 'held' : 'confirmed', actor,
+  const firstKind: AppointmentEventKind = !held ? 'confirmed' : publicHold ? 'held' : 'payment_pending';
+  await insertEvent(tx, { appointmentId: id, version: 1, kind: firstKind, actor,
     actorUserId: input.actorUserId, newStartAt: startAt, detail: source });
   await enqueueEvent(tx, accountId, id, 1, held ? 'held' : 'confirmed');
-  if (held) await enqueueHoldExpiry(tx, accountId, id, 1, holdExpiresAt as Date);
-  else {
+  if (held) {
+    await enqueueHoldExpiry(tx, accountId, id, 1, holdExpiresAt as Date);
+    // A flow's paid hold: the link goes out on the run's conversation (paid.ts); settlement confirms.
+    if (!publicHold) await enqueuePaymentLink(tx, accountId, id, 1);
+  } else {
     await enqueueNotice(tx, accountId, id, 1, 'confirmation', startAt);
     await scheduleReminders(tx, accountId, { id, version: 1, start_at: startAt }, now);
     // Phase 9: a Zoom meeting for an online service (no job unless Zoom is connected and configured).
@@ -461,10 +477,12 @@ export async function confirmHold(tx: TenantTransaction, input: ConfirmHoldInput
     if (!(await paidBookingReady(tx, accountId))) throw new AppointmentError('slot_unavailable');
     const version = row.version + 1;
     const holdExpiresAt = new Date(now.getTime() + (await paidHoldMinutes(tx, accountId)) * MINUTE);
+    const conversationId = await whatsappConversationFor(tx, accountId, input.contactId, input.whatsappConfigId);
     const [pending] = await tx.$queryRawUnsafe<AppointmentRow[]>(
-      `UPDATE appointments SET contact_id=$3::uuid, status='held', version=$4, hold_expires_at=$5, hold_client_hash=NULL, updated_at=now()
+      `UPDATE appointments SET contact_id=$3::uuid, status='held', version=$4, hold_expires_at=$5, hold_client_hash=NULL,
+         conversation_id=coalesce(conversation_id, $6::uuid), updated_at=now()
        WHERE account_id=$1::uuid AND id=$2::uuid RETURNING ${APPOINTMENT_COLUMNS}`,
-      accountId, row.id, input.contactId, version, holdExpiresAt);
+      accountId, row.id, input.contactId, version, holdExpiresAt, conversationId);
     await insertEvent(tx, { appointmentId: row.id, version, kind: 'payment_pending', actor: 'customer', newStartAt: row.start_at,
       detail: 'whatsapp_code' });
     await enqueueHoldExpiry(tx, accountId, row.id, version, holdExpiresAt);
@@ -475,6 +493,11 @@ export async function confirmHold(tx: TenantTransaction, input: ConfirmHoldInput
   const [intake] = await tx.$queryRaw<{ intake: BookingIntake | null }[]>`SELECT intake FROM appointments WHERE id=${row.id}::uuid`;
   const version = row.version + 1;
   const tokenHash = manageTokenHash(deriveManageToken(row.id, row.token_epoch));
+  // B11/B12: the campaign click and ad that led here, and the chat the code arrived in.
+  await applyAttribution(tx, accountId, row.id, {
+    ...(await resolveAttribution(tx, accountId, input.contactId, now)),
+    conversationId: await whatsappConversationFor(tx, accountId, input.contactId, input.whatsappConfigId),
+  });
   const [updated] = await tx.$queryRawUnsafe<AppointmentRow[]>(
     `UPDATE appointments SET contact_id=$3::uuid, status='confirmed', confirmed_at=$4, version=$5, manage_token_hash=$6,
        intake=NULL, hold_client_hash=NULL, hold_expires_at=NULL, updated_at=now()
@@ -584,6 +607,8 @@ export async function confirmPaidHold(tx: TenantTransaction, input: ConfirmPaidH
   const [intake] = await tx.$queryRaw<{ intake: BookingIntake | null }[]>`SELECT intake FROM appointments WHERE id=${row.id}::uuid`;
   const version = row.version + 1;
   const tokenHash = manageTokenHash(deriveManageToken(row.id, row.token_epoch));
+  // B11/B12: attribution at confirmation; the conversation set when the hold was made or bound stays.
+  await applyAttribution(tx, accountId, row.id, await resolveAttribution(tx, accountId, contactId, now));
   await tx.$executeRaw`UPDATE appointments SET status='confirmed', payment_status='paid', confirmed_at=${now}, version=${version},
       manage_token_hash=${tokenHash}, intake=NULL, hold_client_hash=NULL, hold_expires_at=NULL, updated_at=now()
     WHERE account_id=${accountId}::uuid AND id=${row.id}::uuid`;

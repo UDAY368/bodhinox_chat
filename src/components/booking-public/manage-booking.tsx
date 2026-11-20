@@ -8,17 +8,26 @@
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
-import { AlertTriangle, ExternalLink, Loader2 } from 'lucide-react';
+import { CalendarX, ExternalLink, Loader2 } from 'lucide-react';
 import { Button, buttonVariants } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { AppointmentStatusBadge } from '@/components/appointments/appointment-status-badge';
 import { SlotPicker } from '@/components/appointments/slot-picker';
+import { googleCalendarUrl } from '@/lib/appointments/calendar';
 import { zoneLabel } from '@/lib/appointments/time';
 import type { Slot } from '@/lib/appointments/types';
+import { cn } from '@/lib/utils';
 import {
-  bookingApi, errorCode, formatPrice, formatWhen, shiftWindow, slotDates, todayIn, WINDOW_DAYS,
+  bookingApi, errorCode, formatWhen, shiftWindow, slotDates, todayIn, WINDOW_DAYS,
   type ManageView, type PublicErrorCode, type PublicSlot,
 } from './api';
+import { icsPath, priceText } from './flow-helpers';
+import {
+  BookingHeader, BottomBar, CalendarButtons, InfoRow, TAP,
+} from './parts';
+import { EmptyState } from '@/components/ui/empty-state';
+import { GroupedList } from '@/components/ui/grouped-list';
+import { InlineError } from '@/components/ui/inline-error';
+import { PageLoading } from '@/components/ui/page-loading';
 
 type Mode = 'view' | 'cancel' | 'reschedule';
 
@@ -28,6 +37,7 @@ export function ManageBooking({ token }: { token: string }) {
   const locale = useLocale();
   const [view, setView] = useState<ManageView | null>(null);
   const [loadState, setLoadState] = useState<'loading' | 'ready' | 'not_found' | 'error'>('loading');
+  const [loadKey, setLoadKey] = useState(0);
   const [mode, setMode] = useState<Mode>('view');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<PublicErrorCode | null>(null);
@@ -46,7 +56,7 @@ export function ManageBooking({ token }: { token: string }) {
       .then((data) => { if (live) { setView(data); setLoadedAt(Date.now()); setLoadState('ready'); } })
       .catch((e) => { if (live) setLoadState(errorCode(e) === 'not_found' ? 'not_found' : 'error'); });
     return () => { live = false; };
-  }, [token]);
+  }, [token, loadKey]);
 
   const today = useMemo(() => (view ? todayIn(view.timezone) : null), [view]);
   const ended = view ? Date.parse(view.endAt) <= loadedAt : false;
@@ -106,116 +116,112 @@ export function ManageBooking({ token }: { token: string }) {
     }
   }
 
-  if (loadState === 'loading') {
-    return <div className="text-muted-foreground flex w-full max-w-lg justify-center py-20"><Loader2 className="h-5 w-5 animate-spin" aria-label={t('loading')} /></div>;
-  }
+  if (loadState === 'loading') return <PageLoading rows={4} className="w-full max-w-lg" />;
   if (loadState !== 'ready' || !view) {
-    return (
-      <Card className="h-fit w-full max-w-lg">
-        <CardHeader><CardTitle>{loadState === 'not_found' ? t('notFound') : t('error')}</CardTitle></CardHeader>
-      </Card>
-    );
+    return loadState === 'not_found'
+      ? <EmptyState icon={CalendarX} title={t('notFound')} className="w-full max-w-lg" />
+      : <InlineError message={t('error')} className="w-full max-w-lg" onRetry={() => { setLoadState('loading'); setLoadKey((k) => k + 1); }} />;
   }
 
-  const price = view.priceMinor === 0 ? tp('free') : formatPrice(view.priceMinor, view.currency, locale);
+  const price = priceText(view.priceMinor, view.currency, locale, tp('free'));
   const zone = zoneLabel(new Date(view.startAt), view.timezone, locale);
   const dates = slotDates(slots);
+  const place = view.online ? null : [view.location?.name, view.location?.address].filter(Boolean).join(', ') || null;
+  const calendar = view.status === 'confirmed' && !ended;
+  const google = calendar ? googleCalendarUrl({
+    title: `${view.serviceName} · ${view.businessName}`, start: view.startAt, end: view.endAt, location: place,
+    url: typeof window === 'undefined' ? null : `${window.location.origin}/my-booking/${token}`,
+  }) : null;
 
   return (
-    <Card className="h-fit w-full max-w-lg">
-      <CardHeader>
-        <CardDescription>{view.businessName}</CardDescription>
-        <CardTitle className="flex items-center justify-between gap-2">
-          {t('title')}
-          <AppointmentStatusBadge status={view.status} />
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-5">
-        {notice && <p className="rounded-md border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm" role="status">{t(notice)}</p>}
-        {error && (
-          <div className="flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm" role="alert">
-            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-            <span>{tp(`errors.${error}`)}</span>
-          </div>
-        )}
+    <div className="w-full max-w-lg space-y-6">
+      <BookingHeader subtitle={view.businessName} title={mode === 'reschedule' ? t('chooseNewTime') : t('title')}
+        onBack={mode === 'reschedule' ? () => { setMode('view'); setError(null); } : undefined} backLabel={tp('back')} />
+      {notice && <p className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm" role="status">{t(notice)}</p>}
+      {error && <InlineError className="py-4" message={tp(`errors.${error}`)} />}
 
-        <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
-          <dt className="text-muted-foreground">{t('service')}</dt>
-          <dd>{view.serviceName}</dd>
-          {view.practitioner && (<><dt className="text-muted-foreground">{t('practitioner')}</dt><dd>{view.practitioner}</dd></>)}
-          <dt className="text-muted-foreground">{t('location')}</dt>
-          <dd>
+      {mode !== 'reschedule' && (
+        <GroupedList>
+          <InfoRow label={t('status')}><AppointmentStatusBadge status={view.status} /></InfoRow>
+          <InfoRow label={t('service')}>{view.serviceName}</InfoRow>
+          {view.practitioner && <InfoRow label={t('practitioner')}>{view.practitioner}</InfoRow>}
+          <InfoRow label={t('location')}>
             {view.online ? t('online') : view.location?.name}
             {!view.online && view.location?.address && <span className="text-muted-foreground block text-xs">{view.location.address}</span>}
-          </dd>
-          <dt className="text-muted-foreground">{t('when')}</dt>
-          <dd data-testid="booking-when">
+          </InfoRow>
+          <InfoRow label={t('when')} testId="booking-when">
             {formatWhen(view.startAt, view.timezone, locale)}
             <span className="text-muted-foreground block text-xs">{tp('timesShownIn', { zone })}</span>
-          </dd>
-          {price && (<><dt className="text-muted-foreground">{t('price')}</dt><dd>{price}</dd></>)}
-        </dl>
+          </InfoRow>
+          {price && <InfoRow label={t('price')}>{price}</InfoRow>}
+        </GroupedList>
+      )}
 
-        {view.meetingUrl && (
-          <a href={view.meetingUrl} target="_blank" rel="noopener noreferrer" className={buttonVariants({ variant: 'outline' })}>
-            <ExternalLink className="size-4" />
-            {t('meetingLink')}
-          </a>
-        )}
-        {view.meetingLinkLater && <p className="text-muted-foreground text-xs">{t('meetingLinkLater')}</p>}
-        {/* Inside the link window but the online meeting is not ready yet (being created, or staff will send it). */}
-        {view.online && view.status === 'confirmed' && !view.meetingUrl && !view.meetingLinkLater && !ended && (
-          <p className="text-muted-foreground text-xs" data-testid="meeting-link-pending">{tp('meetingLinkPending')}</p>
-        )}
+      {mode === 'view' && view.meetingUrl && (
+        <a href={view.meetingUrl} target="_blank" rel="noopener noreferrer" className={cn(buttonVariants(), TAP, 'w-full')}>
+          <ExternalLink className="size-4" />
+          {t('meetingLink')}
+        </a>
+      )}
+      {mode === 'view' && view.meetingLinkLater && <p className="text-muted-foreground px-1 text-sm">{t('meetingLinkLater')}</p>}
+      {/* Inside the link window but the online meeting is not ready yet (being created, or staff will send it). */}
+      {mode === 'view' && view.online && view.status === 'confirmed' && !view.meetingUrl && !view.meetingLinkLater && !ended && (
+        <p className="text-muted-foreground px-1 text-sm" data-testid="meeting-link-pending">{tp('meetingLinkPending')}</p>
+      )}
 
-        {view.status === 'confirmed' && !view.canChange && <p className="text-muted-foreground text-sm">{t('cutoffPassed')}</p>}
+      {mode === 'view' && google && <CalendarButtons icsHref={icsPath(token)} googleHref={google} />}
 
-        {view.canChange && mode === 'view' && (
-          <div className="flex flex-wrap gap-2">
-            <Button type="button" variant="outline" onClick={openReschedule}>{t('reschedule')}</Button>
-            <Button type="button" variant="destructive" onClick={() => { setMode('cancel'); setNotice(null); setError(null); }}>{t('cancel')}</Button>
+      {view.status === 'confirmed' && !view.canChange && <p className="text-muted-foreground px-1 text-sm">{t('cutoffPassed')}</p>}
+
+      {view.canChange && mode === 'view' && (
+        <>
+          <BottomBar>
+            <Button type="button" variant="ghost" className={cn(TAP, 'w-full text-destructive sm:w-auto')}
+              onClick={() => { setMode('cancel'); setNotice(null); setError(null); }}>
+              {t('cancel')}
+            </Button>
+            <Button type="button" className={cn(TAP, 'w-full sm:w-auto sm:px-8')} onClick={openReschedule}>{t('reschedule')}</Button>
+          </BottomBar>
+        </>
+      )}
+
+      {view.canChange && mode === 'cancel' && (
+        <div className="space-y-3 rounded-xl border bg-card p-4" role="alertdialog" aria-labelledby="cancel-question">
+          <p id="cancel-question" className="font-medium">{t('cancelConfirm')}</p>
+          <p className="text-muted-foreground text-sm">{t('cancelHelp')}</p>
+          <div className="grid gap-2 sm:grid-cols-2">
+            <Button type="button" variant="destructive" className={TAP} disabled={busy} onClick={() => void change('cancel')}>
+              {busy && <Loader2 className="size-4 animate-spin" />}
+              {t('cancel')}
+            </Button>
+            <Button type="button" variant="outline" className={TAP} disabled={busy} onClick={() => setMode('view')}>{t('keepBooking')}</Button>
           </div>
-        )}
+        </div>
+      )}
 
-        {view.canChange && mode === 'cancel' && (
-          <div className="space-y-3 rounded-md border p-3">
-            <p className="text-sm">{t('cancelConfirm')}</p>
-            <div className="flex flex-wrap gap-2">
-              <Button type="button" variant="destructive" disabled={busy} onClick={() => void change('cancel')}>
-                {busy && <Loader2 className="size-4 animate-spin" />}
-                {t('cancel')}
-              </Button>
-              <Button type="button" variant="ghost" disabled={busy} onClick={() => setMode('view')}>{t('keepBooking')}</Button>
-            </div>
-          </div>
-        )}
-
-        {view.canChange && mode === 'reschedule' && (
-          <div className="space-y-3 rounded-md border p-3">
-            <h2 className="text-sm font-medium">{t('chooseNewTime')}</h2>
-            <SlotPicker
-              dates={dates}
-              selectedDate={selectedDate}
-              onDateChange={(d) => { setSelectedDate(d); setSlot(null); }}
-              slots={slots.filter((s) => s.localDate === selectedDate) as Slot[]}
-              selectedStartAt={slot?.startAt ?? null}
-              onSelect={(s) => setSlot(s)}
-              timeZone={view.timezone}
-              loading={slotsLoading}
-              onPreviousDates={windowFrom && today && windowFrom > today ? () => pageDates(-WINDOW_DAYS) : undefined}
-              onNextDates={() => pageDates(WINDOW_DAYS)}
-              disabled={slotsLoading || busy}
-            />
-            <div className="flex flex-wrap gap-2">
-              <Button type="button" disabled={!slot || busy} onClick={() => void change('reschedule')}>
-                {busy && <Loader2 className="size-4 animate-spin" />}
-                {t('saveTime')}
-              </Button>
-              <Button type="button" variant="ghost" disabled={busy} onClick={() => { setMode('view'); setError(null); }}>{tp('back')}</Button>
-            </div>
-          </div>
-        )}
-      </CardContent>
-    </Card>
+      {view.canChange && mode === 'reschedule' && (
+        <>
+          <SlotPicker
+            dates={dates}
+            selectedDate={selectedDate}
+            onDateChange={(d) => { setSelectedDate(d); setSlot(null); }}
+            slots={slots.filter((s) => s.localDate === selectedDate) as Slot[]}
+            selectedStartAt={slot?.startAt ?? null}
+            onSelect={(s) => setSlot(s)}
+            timeZone={view.timezone}
+            loading={slotsLoading}
+            onPreviousDates={windowFrom && today && windowFrom > today ? () => pageDates(-WINDOW_DAYS) : undefined}
+            onNextDates={() => pageDates(WINDOW_DAYS)}
+            disabled={slotsLoading || busy}
+          />
+          <BottomBar>
+            <Button type="button" className={cn(TAP, 'w-full sm:w-auto sm:px-8')} disabled={!slot || busy} onClick={() => void change('reschedule')}>
+              {busy && <Loader2 className="size-4 animate-spin" />}
+              {t('saveTime')}
+            </Button>
+          </BottomBar>
+        </>
+      )}
+    </div>
   );
 }

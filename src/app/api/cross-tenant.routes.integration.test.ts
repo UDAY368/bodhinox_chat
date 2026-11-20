@@ -155,6 +155,9 @@ export const CASES: Case[] = [
   { route: 'commerce/shop/products/[id]/bundle', method: 'PUT', params: extra('shopProduct'), body: () => ({ parts: [] }) },
   // Appointments
   { route: 'appointments/[id]', method: 'GET', params: id('appointmentId') },
+  // Batch 3: another workspace's booking has no deal options; another workspace's contact has no bookings card.
+  { route: 'appointments/[id]/deals', method: 'GET', params: id('appointmentId') },
+  { route: 'appointments/contact/[contactId]', method: 'GET', params: (b) => ({ contactId: b.contactId }) },
   { route: 'appointments/[id]', method: 'PATCH', params: id('appointmentId'), body: () => ({ action: 'cancel', reason: 'staff', expected_version: 1 }) },
   { route: 'appointments/services/[id]', method: 'PATCH', params: rid('appointment_services'), body: () => ({ name: 'p15 tamper' }) },
   { route: 'appointments/locations/[id]', method: 'PATCH', params: rid('appointment_locations'), body: () => ({ name: 'p15 tamper' }) },

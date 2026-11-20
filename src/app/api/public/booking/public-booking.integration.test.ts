@@ -12,6 +12,8 @@ import { GET as GET_PAGE, POST as POST_HOLD } from './[slug]/route';
 import { GET as GET_SLOTS } from './[slug]/slots/route';
 import { GET as GET_MANAGE, POST as POST_MANAGE } from './manage/[token]/route';
 import { GET as GET_MANAGE_SLOTS } from './manage/[token]/slots/route';
+import { GET as GET_HOLD_STATUS } from './[slug]/hold/[requestId]/route';
+import { GET as GET_ICS } from './manage/[token]/ics/route';
 
 // The anonymous booking routes end to end on PostgreSQL: definer lookups,
 // worker-scoped reads, a public hold confirmed by a WhatsApp code, and the
@@ -31,8 +33,9 @@ process.env.APP_URL = ORIGIN;
 const account = randomUUID();
 const owner = randomUUID();
 const contact = randomUUID();
-const ids = { location: randomUUID(), service: randomUUID(), other: randomUUID(), staff: randomUUID(), page: randomUUID() };
+const ids = { location: randomUUID(), service: randomUUID(), other: randomUUID(), staff: randomUUID(), page: randomUUID(), page2: randomUUID() };
 const slug = `pub-${account.slice(0, 8)}`;
+const slug2 = `pub2-${account.slice(0, 8)}`;
 const ip = `198.51.100.${Math.floor(Math.random() * 200) + 1}`;
 let db: pg.Client;
 let manageToken = '';
@@ -78,6 +81,8 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl || !authUrl)('public booking 
       [account, ids.staff, ids.location, JSON.stringify({ mon: [{ start: '09:00', end: '17:00' }], tue: [{ start: '09:00', end: '17:00' }] })]);
     await db.query("INSERT INTO booking_pages(id,account_id,slug,title) VALUES($1,$2,$3,'Book a visit')", [ids.page, account, slug]);
     await db.query('INSERT INTO booking_page_services(account_id,page_id,service_id) VALUES($1,$2,$3)', [account, ids.page, ids.service]);
+    await db.query("INSERT INTO booking_pages(id,account_id,slug,title) VALUES($1,$2,$3,'Second page')", [ids.page2, account, slug2]);
+    await db.query('INSERT INTO booking_page_services(account_id,page_id,service_id) VALUES($1,$2,$3)', [account, ids.page2, ids.service]);
   });
 
   afterAll(async () => {
@@ -136,11 +141,35 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl || !authUrl)('public booking 
     expect(taken.status).toBe(409);
     expect(await taken.json()).toEqual({ code: 'slot_unavailable' });
 
+    // The waiting page sees its own hold; another page's slug with the same request id, or another id, sees nothing.
+    const status = (s: string, id: string) => GET_HOLD_STATUS(get(`/api/public/booking/${s}/hold/${id}`), { params: Promise.resolve({ slug: s, requestId: id }) });
+    const live = await status(slug, requestId);
+    expect(live.status).toBe(200);
+    expect(await live.json()).toEqual({ status: 'held' });
+    expect((await status(slug2, requestId)).status).toBe(404);
+    expect((await status(slug, randomUUID())).status).toBe(404);
+
     const result = await withTenant({ accountId: account, role: 'owner' }, (tx) => confirmHold(tx, {
       accountId: account, code: hold.holdCode, contactId: contact, messageAt: new Date(), whatsappConfigId: null,
     }), getWorkerPrisma());
     expect(result.status).toBe('confirmed');
     manageToken = deriveManageToken(appointmentId, 1);
+
+    // Flips to confirmed with the manage link, and never carries customer data.
+    const done = await (await status(slug, requestId.toUpperCase())).text();
+    expect(JSON.parse(done)).toEqual({ status: 'confirmed', managePath: `/my-booking/${manageToken}` });
+    expect(done).not.toMatch(/Secret Customer|14155550199|Walk In|Pune/);
+    expect(done).not.toContain(contact);
+  });
+
+  it('serves the booking as a calendar file through the manage token', async () => {
+    const response = await GET_ICS(get(`/api/public/booking/manage/${manageToken}/ics`), tokenParams());
+    expect(response.status).toBe(200);
+    expect(response.headers.get('content-type')).toBe('text/calendar; charset=utf-8');
+    const text = await response.text();
+    expect(text).toContain('SUMMARY:Free consultation · Acme Clinic');
+    expect(text).not.toMatch(/Secret Customer|14155550199|Walk In/);
+    expect(text).not.toContain(appointmentId);
   });
 
   it('shows the customer their booking without any customer data', async () => {

@@ -1856,7 +1856,14 @@
         "blocked": "Bloqueado",
         "unblocked": "Desbloqueado",
         "templateSent": "Modelo enviado",
-        "templateSentNamed": "Enviou o modelo “{name}”"
+        "templateSentNamed": "Enviou o modelo “{name}”",
+        "booking": {
+          "booked": "Booked {service}",
+          "rescheduled": "Moved {service} booking",
+          "cancelled": "Cancelled {service} booking",
+          "completed": "Completed {service}",
+          "no_show": "Missed {service} booking (no-show)"
+        }
       },
       "segmentsTab": {
         "hint": "Os segmentos se atualizam sozinhos quando os contatos mudam.",
@@ -3521,7 +3528,9 @@
         "serviceMode": "Tipo de serviço",
         "modeBoth": "Online e presencial",
         "modeOnline": "Somente online",
-        "modeOffline": "Somente presencial"
+        "modeOffline": "Somente presencial",
+        "paidServiceFlowNote": "Paid: customer gets a payment link",
+        "variablesHelpMore": "Also saves appointment_status (confirmed, or waiting_for_payment for a paid service until the link is paid) and booking_link (your booking page, for the Unavailable path)."
       },
       "capabilitySetUp": "Configurar",
       "capabilityBlocked": {
@@ -6495,7 +6504,8 @@
       "payment_exception": "Pagamento para revisar",
       "instagram_account_health": "Conta do Instagram",
       "automation_notice": "Aviso de automação",
-      "webhook_disabled": "Webhook desativado"
+      "webhook_disabled": "Webhook desativado",
+      "appointment_no_show": "No-show"
     },
     "loadFailed": "Não foi possível carregar as notificações."
   },
@@ -7628,6 +7638,15 @@
           "nurture": "Obrigado por fazer o quiz! Vamos mandar ideias e ofertas quando você estiver pronto."
         }
       }
+    },
+    "book_keyword": {
+      "name": "Book in the chat",
+      "description": "When someone writes \"book\", offer your free times and book one right in the chat. Falls back to your booking page.",
+      "keywords": "book a slot, free slots",
+      "booked": "You're booked for {time}. We'll send you a reminder before your visit.",
+      "payToConfirm": "We're holding {time} for you. We've sent a payment link; your booking is confirmed once it's paid.",
+      "usePage": "Sorry, we can't book that here right now. You can pick a time on our booking page: {link}",
+      "notNow": "No problem. Write \"book\" whenever you're ready."
     }
   },
   "LibErrors": {
@@ -7890,7 +7909,8 @@
       "crossFlowLoop": "As etapas Conectar fluxo formam um ciclo sem resposta do cliente: {flows}.",
       "stage5Pending": "Esta etapa ou configuração ainda não está disponível. Remova-a para publicar o fluxo.",
       "triggerTagRequired": "Escolha a tag que inicia este fluxo.",
-      "triggerBadFrequency": "Escolha com que frequência isso pode começar para a mesma pessoa."
+      "triggerBadFrequency": "Escolha com que frequência isso pode começar para a mesma pessoa.",
+      "appointmentPaidNotReady": "{count, plural, one {A picked service takes} other {# picked services take}} payment, and online payments are not set up. Turn on the store and connect Razorpay, or untick {count, plural, one {it} other {them}}."
     },
     "automations": {
       "needsStep": "automações ativas precisam de pelo menos uma etapa",
@@ -9179,6 +9199,29 @@
         "b1": "Gerenciar agendamento"
       },
       "samples": "Consulta odontológica|segunda-feira, 10 de junho, 11:30 IST|Clínica Andheri"
+    },
+    "appointment_reminder_actions": {
+      "title": "Appointment reminder with Confirm, Reschedule and Cancel",
+      "description": "Remind customers of a booking and let them confirm, reschedule or cancel it with one tap.",
+      "header": "Appointment reminder",
+      "body": "Reminder: your {v1} appointment is on {v2} ({v3}). Tap Confirm if you are coming, or choose Reschedule or Cancel.",
+      "buttons": {
+        "b1": "Confirm",
+        "b2": "Reschedule",
+        "b3": "Cancel"
+      },
+      "samples": "Dental check-up|Monday 10 June, 11:30 AM IST|Andheri clinic"
+    },
+    "appointment_book_now": {
+      "title": "Book now campaign",
+      "description": "Invite customers to book, with a tracked link to your booking page. Bookings from the link count for the campaign.",
+      "header": "Time for your next visit?",
+      "body": "Hi {v1}, slots for {v2} are open this week. Tap below to pick a time that suits you.",
+      "footer": "Reply STOP to opt out",
+      "buttons": {
+        "b1": "Book now"
+      },
+      "samples": "Priya|a hair spa"
     }
   },
   "Templates": {
@@ -12557,6 +12600,10 @@
     "webhook_disabled": {
       "label": "Webhooks desativados",
       "description": "As entregas para um webhook falharam durante um dia, então ele foi desativado."
+    },
+    "appointment_no_show": {
+      "label": "No-shows",
+      "description": "A customer did not come to a confirmed appointment."
     }
   },
   "Weekdays": {
@@ -14861,7 +14908,8 @@
       "exceptions": "Feriados e exceções",
       "pages": "Páginas de agendamento",
       "settings": "Configurações",
-      "tasks": "Tarefas"
+      "tasks": "Tarefas",
+      "team": "Team"
     },
     "status": {
       "held": "Aguardando WhatsApp",
@@ -14956,7 +15004,11 @@
       "meeting_updated": "Reunião do Zoom atualizada",
       "meeting_deleted": "Reunião do Zoom removida",
       "meeting_sync_failed": "Não foi possível preparar a reunião do Zoom",
-      "meeting_joined_provider": "O Zoom registrou uma entrada"
+      "meeting_joined_provider": "O Zoom registrou uma entrada",
+      "attendance_confirmed": "Customer confirmed",
+      "deal_linked": "Deal linked",
+      "deal_unlinked": "Deal unlinked",
+      "refund_requested": "Refund requested"
     },
     "actors": {
       "staff": "Equipe",
@@ -14971,7 +15023,8 @@
       "rescheduled": "Mudança de horário",
       "feedback": "Pedido de avaliação",
       "rebook": "Lembrete para reagendar",
-      "payment_link": "Link de pagamento"
+      "payment_link": "Link de pagamento",
+      "intake_form": "Intake form"
     },
     "messageStatuses": {
       "sent": "Enviada",
@@ -15006,7 +15059,9 @@
       "link_unknown": "O Razorpay não confirmou o link de pagamento. Verifique a página de Pagamentos.",
       "link_not_ready": "O link de pagamento não estava pronto para envio.",
       "already_paid": "O link já estava pago.",
-      "conversation_not_found": "O cliente não tem uma conversa para receber o link."
+      "conversation_not_found": "O cliente não tem uma conversa para receber o link.",
+      "form_unavailable": "The intake form is not published or cannot be sent from this number.",
+      "bot_paused": "An agent paused automated messages in this chat."
     },
     "create": {
       "title": "Novo agendamento",
@@ -15119,7 +15174,18 @@
       "copyLink": "Copiar link",
       "copied": "Link copiado",
       "empty": "Ainda não há páginas de agendamento.",
-      "inactive": "Oculta"
+      "inactive": "Oculta",
+      "links": "Links",
+      "linksTitle": "Links for {title}",
+      "linksHelp": "Share a link that opens the page with a service or practitioner already chosen.",
+      "linkGroup": {
+        "page": "Booking page",
+        "service": "Services",
+        "staff": "Practitioners"
+      },
+      "wholePage": "All services",
+      "copy": "Copy",
+      "copyNamed": "Copy link for {name}"
     },
     "tasks": {
       "title": "Tarefas",
@@ -15202,6 +15268,110 @@
       "registrationUnavailable": "O Zoom não aceitou a inscrição, então o cliente entra com o link compartilhado.",
       "recreate": "Criar novamente",
       "useLink": "Usar o link fornecido"
+    },
+    "settings": {
+      "reminderButtons": {
+        "title": "Reminder buttons",
+        "description": "Let customers confirm, reschedule or cancel from a reminder with one tap. Inside the 24-hour window the buttons always work; outside it they need the appointment_reminder_actions template approved by Meta.",
+        "state": {
+          "none": "Not submitted to Meta yet",
+          "draft": "Saved but not submitted to Meta",
+          "pending": "Waiting for Meta review",
+          "approved": "Approved: reminders show Confirm, Reschedule and Cancel",
+          "rejected": "Rejected by Meta"
+        },
+        "rejectedReason": "Meta said: {reason}",
+        "fallback": "Until it is approved, reminders outside the 24-hour window use your reminder template with the manage link.",
+        "submit": "Submit to Meta",
+        "submitting": "Submitting",
+        "submitFailed": "Could not submit the template. Try again.",
+        "adminOnly": "An admin can submit it.",
+        "loadFailed": "Could not load the template state.",
+        "confirmTitle": "Submit the reminder template to Meta?",
+        "confirmBody": "Meta reviews it, usually within a day. Reminders keep using your current template until it is approved.",
+        "nameTaken": "A template with this name was already submitted. Refresh to see its state."
+      }
+    },
+    "campaignLink": {
+      "label": "Use a booking page",
+      "help": "Send clicks to one of your booking pages. Bookings made within 7 days of a click count for this campaign.",
+      "none": "No active booking pages yet."
+    },
+    "contactCard": {
+      "title": "Bookings",
+      "upcoming": "Upcoming",
+      "past": "Past and cancelled",
+      "newBooking": "New booking",
+      "empty": "No bookings yet",
+      "loadFailed": "Couldn't load bookings.",
+      "showMore": "Show more",
+      "waitingForPayment": "Waiting for payment"
+    },
+    "screen": {
+      "newBooking": "New booking",
+      "bookingLink": "Booking links",
+      "viewsLabel": "Schedule view",
+      "viewToday": "Today",
+      "viewWeek": "Week",
+      "viewList": "List",
+      "truncated": "Showing the first {count}. Narrow the dates or load more.",
+      "loadMore": "Load more",
+      "attention": "Needs attention",
+      "outcomeDue": "Outcome due",
+      "taskDue": "Task",
+      "noBookingsToday": "No bookings today",
+      "noBookings": "No bookings in these dates",
+      "settingsMessages": "Messages and reminders",
+      "settingsDeals": "Deals"
+    },
+    "payment": {
+      "title": "Payment",
+      "paid": "Paid",
+      "waiting": "Waiting for payment",
+      "refunded": "Refunded",
+      "open": "Open payments",
+      "refundThis": "Refund this payment",
+      "refundHelp": "Cancelling did not refund the customer. Refund the payment separately if you need to.",
+      "refundRecorded": "Refund requested"
+    },
+    "links": {
+      "openContact": "Open contact",
+      "openChat": "Open chat",
+      "cameFrom": "Came from",
+      "campaign": "Campaign: {name}",
+      "ad": "Ad: {name}",
+      "adNoName": "Ad click"
+    },
+    "deal": {
+      "title": "Deal",
+      "none": "No deal linked",
+      "link": "Link a deal",
+      "unlink": "Unlink",
+      "unlinkConfirm": "Unlink this deal from the booking?",
+      "open": "Open deal",
+      "search": "Search deals",
+      "empty": "No open deals for this customer",
+      "loadMore": "Load more",
+      "linked": "Deal linked",
+      "unlinked": "Deal unlinked",
+      "stageLabel": "When a booking is completed, move its deal to",
+      "stageNone": "Leave deals where they are",
+      "stageHelp": "Only open deals move, and only to a stage in the deal's own pipeline.",
+      "stageSaved": "Saved"
+    },
+    "intake": {
+      "label": "Intake form",
+      "none": "No form",
+      "help": "Sent on WhatsApp after a booking of this service is confirmed. Only published forms are listed.",
+      "loadMore": "Load more forms",
+      "saved": "Saved"
+    },
+    "drag": {
+      "moveTitle": "Move this booking?",
+      "moveBody": "{from} to {to}",
+      "move": "Move",
+      "moved": "Booking moved",
+      "hint": "Drag a booking to move it (press and hold on touch screens), or focus it and use the arrow keys, then Enter."
     }
   },
   "AppointmentSettings": {
@@ -15301,7 +15471,25 @@
     "payInAdvance": "Pagamento antecipado",
     "paymentNotice": "Este serviço é pago antecipadamente. Depois de enviar o código pelo WhatsApp, enviamos um link de pagamento seguro; a reserva é confirmada quando o pagamento for recebido.",
     "paymentAfterCode": "Depois de enviar o código, responderemos com um link de pagamento seguro. Sua reserva é confirmada quando o pagamento for recebido.",
-    "meetingLinkPending": "O link da sua reunião aparecerá aqui em breve."
+    "meetingLinkPending": "O link da sua reunião aparecerá aqui em breve.",
+    "stepOf": "Step {step} of {total}",
+    "confirmTitle": "Confirm",
+    "summaryService": "Service",
+    "summaryWhen": "When",
+    "summaryWhere": "Where",
+    "summaryWith": "With",
+    "summaryPrice": "Price",
+    "retry": "Retry",
+    "bookedTitle": "Booked",
+    "bookedHelp": "You are booked. We sent the details on WhatsApp.",
+    "viewBooking": "View or change booking",
+    "expiredTitle": "Hold expired",
+    "waitingPaymentTitle": "Waiting for payment",
+    "waitingPaymentHelp": "We sent you a secure payment link on WhatsApp. Your booking is confirmed once it is paid.",
+    "waitingForPayment": "Waiting for your payment…",
+    "waitingForCode": "Waiting for your WhatsApp message…",
+    "addToCalendar": "Add to calendar",
+    "googleCalendar": "Google Calendar"
   },
   "BookingManage": {
     "metaTitle": "Seu agendamento",
@@ -15325,7 +15513,9 @@
     "notFound": "Este link de agendamento não é válido.",
     "error": "Algo deu errado. Tente de novo.",
     "loading": "Carregando…",
-    "saveTime": "Mudar para este horário"
+    "saveTime": "Mudar para este horário",
+    "status": "Status",
+    "cancelHelp": "The time is released for someone else."
   },
   "AppointmentNotices": {
     "confirmation": "Seu atendimento de {service} está confirmado para {time} ({location}). Veja, altere ou cancele aqui: {link}",
@@ -15338,7 +15528,19 @@
     "staffBooked": "Novo agendamento: {service} em {time}",
     "staffCancelled": "Agendamento cancelado: {service} em {time}",
     "staffRescheduled": "Agendamento remarcado: {service} para {time}",
-    "paymentLink": "Para confirmar seu agendamento de {service} em {time}, pague {amount} com este link seguro. Sua reserva é confirmada quando recebermos o pagamento."
+    "paymentLink": "Para confirmar seu agendamento de {service} em {time}, pague {amount} com este link seguro. Sua reserva é confirmada quando recebermos o pagamento.",
+    "reminder": "Reminder: your {service} appointment is on {time} ({location}). View, change or cancel it here: {link}",
+    "calendarLine": "Add it to Google Calendar: {link}",
+    "buttonConfirm": "Confirm",
+    "buttonReschedule": "Reschedule",
+    "buttonCancel": "Cancel",
+    "actionConfirmed": "Thank you for confirming your {service} appointment. See you then!",
+    "actionReschedule": "To pick a new time for your {service} appointment, open your booking here: {link}",
+    "actionTooLate": "It is too late to change your {service} appointment online. Please reply here and our team will help.",
+    "actionStale": "This reminder is out of date. You can see your booking here: {link}",
+    "intakeBody": "Please fill in this short form before your {service} appointment on {time}.",
+    "intakeCta": "Fill in form",
+    "staffNoShow": "No-show: {service} at {time}"
   },
   "Storefront": {
     "metaTitle": "Seu pedido",
@@ -16661,6 +16863,27 @@
           "humanButton": "Falar com a gente",
           "info": "Você encontra tudo no nosso site. Escreva quando quiser se preferir falar com uma pessoa.",
           "handoffNote": "Pediu para falar com uma pessoa na resposta padrão."
+        },
+        "ig_story_book": {
+          "name": "Story reply to booking",
+          "description": "When someone replies to your story, offer to book a time in the DM. Falls back to your booking page.",
+          "intro": "Thanks for replying! Would you like to book a time with us?",
+          "booked": "You're booked for {time}. We'll send you a reminder before your visit.",
+          "payToConfirm": "We're holding {time} for you. We've sent a payment link; your booking is confirmed once it's paid.",
+          "usePage": "Sorry, we can't book that here right now. You can pick a time on our booking page: {link}",
+          "notNow": "No problem. Reply to any story when you'd like to book."
+        },
+        "ig_comment_book": {
+          "name": "Comment to booking",
+          "description": "When someone comments the keyword on your post, send a private reply that opens booking in the DM.",
+          "keywords": "slot please, open slots",
+          "publicReply": "Sent you a DM to book!",
+          "opening": "Hi! Tap below and we'll find you a time.",
+          "optIn": "Book a time",
+          "booked": "You're booked for {time}. We'll send you a reminder before your visit.",
+          "payToConfirm": "We're holding {time} for you. We've sent a payment link; your booking is confirmed once it's paid.",
+          "usePage": "Sorry, we can't book that here right now. You can pick a time on our booking page: {link}",
+          "notNow": "No problem. Comment again whenever you'd like to book."
         }
       },
       "preview": {

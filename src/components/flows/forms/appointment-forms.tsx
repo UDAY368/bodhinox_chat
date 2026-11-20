@@ -32,7 +32,7 @@ interface Choice {
   id: string;
   name: string;
   archived_at?: string | null;
-  /** Services only: paid services cannot be booked from a flow (audit finding 21). */
+  /** Services only: a paid service booked in a flow waits for its payment link to be paid. */
   payment_required?: boolean;
 }
 
@@ -91,16 +91,16 @@ export function BookAppointmentForm({ node, allNodes, onUpdateConfig, t }: { nod
             {services.map((s) => {
               const checked = picked.includes(s.id);
               const paid = s.payment_required === true;
-              // A paid service can be unticked (publishing refuses it) but never newly picked.
+              // A paid service is held and the customer gets a payment link (A6); publishing refuses it until online payments are set up.
               return (
-                <label key={s.id} className="flex items-center gap-2 text-sm">
+                <label key={s.id} className="flex min-h-11 items-center gap-2 text-sm">
                   <Checkbox
                     checked={checked}
-                    disabled={!checked && (paid || picked.length >= BOOK_APPOINTMENT_LIMITS.maxServices)}
+                    disabled={!checked && picked.length >= BOOK_APPOINTMENT_LIMITS.maxServices}
                     onCheckedChange={(on) => toggle(s.id, on === true)}
                   />
                   <span className="truncate">{s.name}</span>
-                  {paid && <span className="shrink-0 text-[10px] text-muted-foreground">{ta("paidServiceNote")}</span>}
+                  {paid && <span className="shrink-0 text-[10px] text-muted-foreground">{ta("paidServiceFlowNote")}</span>}
                 </label>
               );
             })}
@@ -170,6 +170,7 @@ export function BookAppointmentForm({ node, allNodes, onUpdateConfig, t }: { nod
       {port("unavailable_next", "unavailable")}
       {port("cancelled_next", "cancelled")}
       <p className={help}>{ta("variablesHelp")}</p>
+      <p className={help}>{ta("variablesHelpMore")}</p>
       <div>
         <label htmlFor={id("timeout")} className={label}>{t("timeoutLabel")}</label>
         <Input

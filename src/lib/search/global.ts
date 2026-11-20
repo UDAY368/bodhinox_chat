@@ -9,6 +9,7 @@ import { Prisma } from '@prisma/client';
 import { hasMinRole } from '@/lib/auth/roles';
 import { withTenant, type TenantContext } from '@/lib/db/tenant';
 import { loadPhoneMask } from '@/lib/inbox/masking-apply';
+import { searchAppointments } from '@/lib/appointments/search';
 import { contactHit, contactMatchSql, contactRows } from './contacts';
 import { containsPattern, referenceTerm } from './normalise';
 
@@ -83,16 +84,7 @@ export async function globalSearch(ctx: TenantContext, input: { q: string; limit
       result.products = products.map((p) => ({ id: p.id, title: p.name, subtitle: p.sku ?? '', href: `/commerce/catalogue/${p.id}` }));
     }
 
-    const bookings = await tx.$queryRaw<{ id: string; service_name: string; start_at: Date; contact_name: string | null }[]>(Prisma.sql`
-      SELECT a.id::text AS id, a.service_name, a.start_at, c.name AS contact_name
-      FROM appointments a LEFT JOIN contacts c ON c.account_id=a.account_id AND c.id=a.contact_id
-      WHERE a.account_id=${ctx.accountId}::uuid AND a.status <> 'expired'
-        AND (a.service_name ILIKE ${like} OR (c.id IS NOT NULL ${match}))
-      ORDER BY a.start_at DESC, a.id DESC LIMIT ${limit}`);
-    result.bookings = bookings.map((b) => ({
-      id: b.id, title: b.contact_name || b.service_name, subtitle: b.contact_name ? b.service_name : '',
-      href: `/appointments?id=${b.id}`, at: b.start_at.toISOString(),
-    }));
+    result.bookings = await searchAppointments(tx, ctx.accountId, q, limit, maskPhones);
     return result;
   });
 }

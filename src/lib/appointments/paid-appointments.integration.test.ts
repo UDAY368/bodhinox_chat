@@ -14,8 +14,8 @@ import { isAppointmentError } from './types';
 // Phase 8 paid appointments (design E15) on PostgreSQL: a public hold of a
 // paid service is bound by BOOK, gets one payment link, and is confirmed only
 // by settlement (confirmPaidHoldTx); a late capture after the slot was taken
-// is slot_lost; a double capture confirms once; flows still refuse paid
-// services. Razorpay is never called: the link module is replaced by a fake
+// is slot_lost; a double capture confirms once; flows refuse paid services
+// without online payments (store on, Razorpay connected). Razorpay is never called: the link module is replaced by a fake
 // that stores the row the way createPaymentLinkRecord does.
 
 const h = vi.hoisted(() => ({
@@ -272,14 +272,19 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('paid appointments on Postgr
     expect(await row(held.id)).toMatchObject({ status: 'cancelled' });
   });
 
-  it('staff may book a paid service (nothing collected online); flows still refuse it; the app role cannot claim payment', async () => {
+  it('staff may book a paid service (nothing collected online); flows refuse it without online payments; the app role cannot claim payment', async () => {
     const staff = await withTenant(asAgent, (tx) => bookAppointment(tx, { accountId: account, source: 'staff', serviceId: ids.paid,
       locationId: ids.location, staffId: ids.s1, startAt: at('2026-12-17T05:30:00Z'), contactId: contacts[6] }));
     expect(staff.appointment).toMatchObject({ status: 'confirmed', payment_status: 'none' });
     expect(await settle(staff.appointment.id, await payment(staff.appointment.id))).toEqual({ kind: 'not_payable', reason: 'not_pending' });
-    const flow = worker((tx) => bookAppointment(tx, { accountId: account, source: 'flow', serviceId: ids.paid, locationId: ids.location,
-      startAt: at('2026-12-17T07:30:00Z'), contactId: contacts[7], sourceRef: `flow:${randomUUID()}:book:1` }));
-    await expect(flow).rejects.toSatisfy((error: unknown) => isAppointmentError(error) && error.code === 'not_yet_supported');
+    await db.query("DELETE FROM payment_providers WHERE account_id=$1", [account]);
+    try {
+      const flow = worker((tx) => bookAppointment(tx, { accountId: account, source: 'flow', serviceId: ids.paid, locationId: ids.location,
+        startAt: at('2026-12-17T07:30:00Z'), contactId: contacts[7], sourceRef: `flow:${randomUUID()}:book:1` }));
+      await expect(flow).rejects.toSatisfy((error: unknown) => isAppointmentError(error) && error.code === 'not_yet_supported');
+    } finally {
+      await db.query(`INSERT INTO payment_providers(account_id,provider,mode,key_id,key_secret_enc) VALUES($1,'razorpay','test','rzp_test_PAID','enc')`, [account]);
+    }
     await expect(withTenant(asAgent, (tx) => tx.$executeRaw`INSERT INTO appointments(contact_id,service_id,location_id,start_at,end_at,timezone,
       status,source,service_name,payment_status) VALUES(${contacts[7]}::uuid,${ids.paid}::uuid,${ids.location}::uuid,now()+interval '9 days',
       now()+interval '9 days 30 minutes','Asia/Kolkata','confirmed','staff','x','paid')`)).rejects.toBeTruthy();

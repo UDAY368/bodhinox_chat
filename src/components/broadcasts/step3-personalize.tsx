@@ -15,6 +15,7 @@ import {
 import { ArrowLeft, ArrowRight, Eye, ImageIcon, Loader2, MapPin, TicketPercent } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { trackedButtonIndex, validTrackedUrl } from '@/lib/broadcasts/tracking';
+import { BookingPageLinkPicker } from '@/components/appointments/booking-page-link-picker';
 import {
   COUPON_CODE_MAX_LENGTH,
   cardVariableKey,
@@ -606,6 +607,7 @@ export function Step3Personalize({
           <p className="text-xs text-muted-foreground">
             {trackedUrl.trim() && trackedInvalid ? t('personalize.trackedUrlInvalid') : t('personalize.trackedUrlHint')}
           </p>
+          <BookingPageLinkPicker value={trackedUrl} onPick={(url) => onTrackedUrlChange?.(url)} />
         </div>
       )}
 

@@ -17,7 +17,7 @@ vi.mock('@/hooks/use-auth', () => ({
 }));
 vi.mock('@/hooks/use-can', () => ({ useCan: () => h.isAdmin }));
 vi.mock('@/hooks/use-total-unread', () => ({ useTotalUnread: () => h.unread }));
-vi.mock('@/hooks/use-unread-notifications', () => ({ useUnreadNotifications: () => 0 }));
+vi.mock('@/hooks/use-unread-notifications', () => ({ useUnreadNotifications: () => 0, useUnreadBookingNotifications: () => 0 }));
 vi.mock('@/hooks/use-workspace-channels', () => ({
   useWorkspaceChannels: () => ({ data: h.data, loading: false, error: false, refresh: vi.fn(), save: vi.fn() }),
 }));

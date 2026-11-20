@@ -38,7 +38,7 @@ import { csvCell } from '@/lib/audience/export';
 import { getWorkerPrisma } from '@/lib/db/prisma';
 import { withTenant, type TenantTransaction } from '@/lib/db/tenant';
 import { getT } from '@/lib/i18n/translate';
-import { appointmentStats } from '@/lib/appointments/stats';
+import { appointmentStats, bookingRevenue } from '@/lib/appointments/stats';
 import { minorToDecimalString } from '@/lib/commerce/money';
 import { dispatchOnce, UncertainDispatchError } from '@/lib/jobs/dispatch';
 import { commerceStats, type CommerceDay } from './commerce';
@@ -365,20 +365,38 @@ export interface ServiceSummaryRow {
   cancelled: number;
   completed: number;
   noShow: number;
+  /** Bookings still paid (refunds excluded) starting in the range. */
+  paidBookings: number;
+  /** Paid booking revenue in minor units, per currency. */
+  revenue: Map<string, bigint>;
+}
+
+/** "1500.00 INR; 10.00 USD", currencies in alphabetical order. */
+export function revenueText(revenue: Map<string, bigint>): string {
+  return [...revenue.entries()].sort(([a], [b]) => a.localeCompare(b))
+    .map(([currency, minor]) => `${money(Number(minor), currency)} ${currency}`).join('; ');
 }
 
 /** Appointment counts per service over the range's local days (appointmentStats buckets in each booking's zone). */
 export async function serviceSummaryRows(tx: TenantTransaction, accountId: string, range: AnalyticsRange): Promise<ServiceSummaryRow[]> {
-  const { rows } = await appointmentStats(tx, accountId, { from: range.startDay, to: range.endDay });
+  const days = { from: range.startDay, to: range.endDay };
+  const { rows } = await appointmentStats(tx, accountId, days);
   const byService = new Map<string, ServiceSummaryRow>();
+  const blank = (serviceId: string, service: string): ServiceSummaryRow => ({
+    serviceId, service, booked: 0, confirmed: 0, cancelled: 0, completed: 0, noShow: 0, paidBookings: 0, revenue: new Map() });
   for (const r of rows) {
-    const row = byService.get(r.service_id)
-      ?? { serviceId: r.service_id, service: r.service_name, booked: 0, confirmed: 0, cancelled: 0, completed: 0, noShow: 0 };
+    const row = byService.get(r.service_id) ?? blank(r.service_id, r.service_name);
     row.booked += r.booked;
     row.confirmed += r.confirmed;
     row.cancelled += r.cancelled;
     row.completed += r.completed;
     row.noShow += r.no_show;
+    byService.set(r.service_id, row);
+  }
+  for (const r of await bookingRevenue(tx, accountId, days)) {
+    const row = byService.get(r.service_id) ?? blank(r.service_id, r.service_name);
+    row.paidBookings += r.paid_bookings;
+    row.revenue.set(r.currency, (row.revenue.get(r.currency) ?? BigInt(0)) + BigInt(r.revenue_minor));
     byService.set(r.service_id, row);
   }
   return [...byService.values()].sort((a, b) => b.booked - a.booked || a.service.localeCompare(b.service) || a.serviceId.localeCompare(b.serviceId));
@@ -409,6 +427,9 @@ export async function reportTable(tx: TenantTransaction, accountId: string, kind
       { header: 'completed', value: (r) => r.completed },
       { header: 'no_show', value: (r) => r.noShow },
       { header: 'no_show_rate_pct', value: (r) => rate(r.noShow, r.completed + r.noShow) },
+      { header: 'show_rate_pct', value: (r) => rate(r.completed, r.completed + r.noShow) },
+      { header: 'paid_bookings', value: (r) => r.paidBookings },
+      { header: 'revenue', value: (r) => revenueText(r.revenue) },
     ], await serviceSummaryRows(tx, accountId, range));
   if (kind === 'ads_summary')
     return finish<AdsReportRow>([

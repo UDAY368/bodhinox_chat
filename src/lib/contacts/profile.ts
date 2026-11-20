@@ -12,6 +12,7 @@
 
 import { Prisma } from '@prisma/client';
 import { withTenant, type TenantContext, type TenantTransaction } from '@/lib/db/tenant';
+import { contactBookingTimeline } from '@/lib/appointments/contact-bookings';
 import { conversationVisibleSql } from '@/lib/inbox/inbox-scope';
 import { loadPhoneMask, maskContactIdentifier, maskContactRow } from '@/lib/inbox/masking-apply';
 import { parseInternationalPhone } from '@/lib/whatsapp/phone-utils';
@@ -216,6 +217,7 @@ export type TimelineKind =
   | 'order_placed'
   | 'tag_added'
   | 'note_added'
+  | 'booking'
   | ActivityKind;
 
 export interface TimelineEvent {
@@ -283,6 +285,7 @@ export async function contactOverview(ctx: TenantContext, contactId: string): Pr
     for (const n of notes) if (n.created_at) events.push({ kind: 'note_added', at: n.created_at.toISOString(), actor_id: n.user_id, detail: {} });
     for (const v of conversations) events.push({ kind: 'conversation_started', at: v.created_at.toISOString(), actor_id: null, detail: { channel: v.channel } });
     for (const o of orders) events.push({ kind: 'order_placed', at: o.created_at.toISOString(), actor_id: null, detail: { order_id: o.id } });
+    events.push(...(await contactBookingTimeline(tx, ctx.accountId, contactId)));
     if (contact[0].created_at) events.push({ kind: 'created', at: contact[0].created_at.toISOString(), actor_id: null, detail: {} });
     events.sort((a, b) => (a.at < b.at ? 1 : a.at > b.at ? -1 : 0));
 

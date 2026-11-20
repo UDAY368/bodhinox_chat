@@ -22,6 +22,8 @@ const h = vi.hoisted(() => ({
   startAt: new Date('2026-11-09T04:30:00Z'),
   status: 'confirmed' as string,
   meetingUrl: null as string | null,
+  hold: null as null | { status: string; payment_status: string; contact_id: string | null; hold_expires_at: Date | null; manage_token_hash: string | null },
+  holdLookups: [] as string[][],
 }));
 
 vi.mock('@/lib/db/prisma', () => ({
@@ -38,8 +40,12 @@ vi.mock('@/lib/db/prisma', () => ({
 
 function fakeTx() {
   return {
-    $queryRaw: async (strings: TemplateStringsArray) => {
+    $queryRaw: async (strings: TemplateStringsArray, ...values: unknown[]) => {
       const sql = strings.join('?');
+      if (sql.includes('source_ref=')) {
+        h.holdLookups.push(values.map(String));
+        return values.includes(`public:${PAGE}:${REQUEST}`) && h.hold ? [{ id: APPT, token_epoch: 1, ...h.hold }] : [];
+      }
       if (sql.includes('FROM booking_pages p JOIN accounts')) return [{ id: PAGE, title: 'Clinic', location_id: null, whatsapp_config_id: null, business_name: 'Acme Clinic' }];
       if (sql.includes('FROM booking_page_services ps JOIN appointment_services')) return [{ id: SERVICE, name: 'Free consultation', mode: 'offline',
         duration_minutes: 30, price_minor: BigInt(0), currency: 'INR', capacity: 1, payment_required: false }];
@@ -116,6 +122,11 @@ import { GET as GET_PAGE, POST as POST_HOLD } from './[slug]/route';
 import { GET as GET_SLOTS } from './[slug]/slots/route';
 import { GET as GET_MANAGE, POST as POST_MANAGE } from './manage/[token]/route';
 import { GET as GET_MANAGE_SLOTS } from './manage/[token]/slots/route';
+import { GET as GET_HOLD_STATUS } from './[slug]/hold/[requestId]/route';
+import { GET as GET_ICS } from './manage/[token]/ics/route';
+import { deriveManageToken, manageTokenHash } from '@/lib/appointments/tokens';
+import { holdState } from './_lib/views';
+import { HOLD_STATUS_LIMIT } from './_lib/public';
 
 const slug = (s = 'acme-clinic') => ({ params: Promise.resolve({ slug: s }) });
 const token = (t = TOKEN) => ({ params: Promise.resolve({ token: t }) });
@@ -128,8 +139,11 @@ beforeEach(() => {
   process.env.APP_URL = ORIGIN;
   Object.assign(h, { pageHit: true, tokenHit: true, featureOk: true, suspended: false, durableLimited: false, bookError: null,
     definerCalls: 0, status: 'confirmed', meetingUrl: null, startAt: new Date(Date.now() + 3 * 86_400_000) });
+  process.env.ENCRYPTION_KEY ||= 'a'.repeat(64);
   h.booked.length = 0;
   h.changes.length = 0;
+  h.hold = null;
+  h.holdLookups.length = 0;
   __resetRateLimitForTests();
 });
 
@@ -271,5 +285,102 @@ describe('manage page', () => {
     const response = await GET_MANAGE_SLOTS(new Request('http://x/s?days=7'), token());
     expect(response.status).toBe(409);
     expect(await response.json()).toEqual({ code: 'conflict' });
+  });
+});
+
+describe('hold status (the waiting booking page)', () => {
+  const holdParams = (requestId = REQUEST, s = 'acme-clinic') => ({ params: Promise.resolve({ slug: s, requestId }) });
+  const future = () => new Date(Date.now() + 10 * 60_000);
+  const req = () => new Request('http://x', { headers: { 'x-forwarded-for': '203.0.113.9' } });
+  const CONTACT = '88888888-8888-4888-8888-888888888888';
+
+  it('answers only a state word for a live hold, looked up by this page and request id', async () => {
+    h.hold = { status: 'held', payment_status: 'none', contact_id: null, hold_expires_at: future(), manage_token_hash: null };
+    const response = await GET_HOLD_STATUS(req(), holdParams());
+    expect(response.status).toBe(200);
+    expect(response.headers.get('cache-control')).toBe('no-store');
+    expect(await response.json()).toEqual({ status: 'held' });
+    expect(h.holdLookups[0]).toContain(ACCOUNT);
+    expect(h.holdLookups[0]).toContain(`public:${PAGE}:${REQUEST}`);
+  });
+
+  it('says payment_pending once a paid hold is bound to a WhatsApp sender, without the contact', async () => {
+    h.hold = { status: 'held', payment_status: 'pending', contact_id: CONTACT, hold_expires_at: future(), manage_token_hash: null };
+    const text = await (await GET_HOLD_STATUS(req(), holdParams())).text();
+    expect(JSON.parse(text)).toEqual({ status: 'payment_pending' });
+    expect(text).not.toContain('88888888');
+  });
+
+  it('gives the manage path once confirmed, and only the one the confirmation issued', async () => {
+    const issued = deriveManageToken(APPT, 1);
+    h.hold = { status: 'confirmed', payment_status: 'none', contact_id: CONTACT, hold_expires_at: null, manage_token_hash: manageTokenHash(issued) };
+    expect(await (await GET_HOLD_STATUS(req(), holdParams())).json()).toEqual({ status: 'confirmed', managePath: `/my-booking/${issued}` });
+    h.hold = { ...h.hold, manage_token_hash: 'f'.repeat(64) };
+    expect(await (await GET_HOLD_STATUS(req(), holdParams())).json()).toEqual({ status: 'confirmed' });
+  });
+
+  it('is the plain 404 for another request id, a malformed one, or an unknown page', async () => {
+    h.hold = { status: 'held', payment_status: 'none', contact_id: null, hold_expires_at: future(), manage_token_hash: null };
+    const other = await GET_HOLD_STATUS(req(), holdParams('99999999-9999-4999-8999-999999999999'));
+    expect(other.status).toBe(404);
+    h.definerCalls = 0;
+    expect((await GET_HOLD_STATUS(req(), holdParams('not-a-uuid'))).status).toBe(404);
+    expect(h.definerCalls).toBe(0);
+    h.pageHit = false;
+    const unknown = await GET_HOLD_STATUS(req(), holdParams());
+    expect(unknown.status).toBe(404);
+    expect(await unknown.text()).toBe(await other.text());
+  });
+
+  it('is rate limited per IP with the burst limiter', async () => {
+    h.hold = { status: 'held', payment_status: 'none', contact_id: null, hold_expires_at: future(), manage_token_hash: null };
+    for (let i = 0; i < HOLD_STATUS_LIMIT.limit; i += 1) expect((await GET_HOLD_STATUS(req(), holdParams())).status).toBe(200);
+    const limited = await GET_HOLD_STATUS(req(), holdParams());
+    expect(limited.status).toBe(429);
+    expect(await limited.json()).toEqual({ code: 'too_many' });
+  });
+});
+
+describe('holdState', () => {
+  const now = new Date('2026-12-01T10:00:00Z');
+  type Row = Parameters<typeof holdState>[0];
+  const row = (over: Partial<Row>): Row => ({
+    status: 'held', payment_status: 'none', contact_id: null, hold_expires_at: new Date('2026-12-01T10:05:00Z'), ...over,
+  });
+
+  it('maps every appointment status to the public word', () => {
+    expect(holdState(row({}), now)).toBe('held');
+    expect(holdState(row({ hold_expires_at: new Date('2026-12-01T09:59:59Z') }), now)).toBe('expired');
+    expect(holdState(row({ payment_status: 'pending' }), now)).toBe('held');
+    expect(holdState(row({ payment_status: 'pending', contact_id: 'c' }), now)).toBe('payment_pending');
+    expect(holdState(row({ status: 'confirmed' }), now)).toBe('confirmed');
+    expect(holdState(row({ status: 'completed' }), now)).toBe('confirmed');
+    expect(holdState(row({ status: 'no_show' }), now)).toBe('confirmed');
+    expect(holdState(row({ status: 'cancelled' }), now)).toBe('cancelled');
+    expect(holdState(row({ status: 'expired' }), now)).toBe('expired');
+  });
+});
+
+describe('calendar file', () => {
+  it('returns a text/calendar attachment for a confirmed booking with no customer data', async () => {
+    const response = await GET_ICS(new Request('http://x'), token());
+    expect(response.status).toBe(200);
+    expect(response.headers.get('content-type')).toBe('text/calendar; charset=utf-8');
+    expect(response.headers.get('content-disposition')).toBe('attachment; filename="booking.ics"');
+    const text = await response.text();
+    expect(text).toContain('BEGIN:VEVENT');
+    expect(text).toContain('SUMMARY:Free consultation · Acme Clinic');
+    expect(text).toContain('LOCATION:Main\\, MG Road');
+    expect(text.replace(/\r\n /g, '')).toContain(`URL:${ORIGIN}/my-booking/${TOKEN}`);
+    expect(text).not.toContain(APPT);
+  });
+
+  it('is the plain 404 for a bad token, an unknown one, or a booking that is not confirmed', async () => {
+    expect((await GET_ICS(new Request('http://x'), token('short'))).status).toBe(404);
+    h.tokenHit = false;
+    expect((await GET_ICS(new Request('http://x'), token())).status).toBe(404);
+    h.tokenHit = true;
+    h.status = 'cancelled';
+    expect((await GET_ICS(new Request('http://x'), token())).status).toBe(404);
   });
 });

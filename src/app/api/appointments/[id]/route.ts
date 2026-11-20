@@ -5,14 +5,20 @@
 //   { action:'cancel', expected_version, reason?: 'customer'|'staff'|'other' }
 //   { action:'outcome', expected_version, outcome:'completed'|'no_show', note? }  only after the start
 //   { action:'details', outcome_note?, feedback_score? }  no version change
+//   { action:'deal', deal_id: uuid | null }  link or unlink a deal (same workspace; the booking's customer's deal)
+//   { action:'refund_requested', refund_id }  record a refund already requested through the payments refund
+//     route (which alone moves money, admin + commerce.refunds); the refund must belong to this booking
+//   An outcome 'completed' also moves the linked open deal to settings.completed_deal_stage_id (same transaction).
 //   200 { appointment }; 409 conflict (stale expected_version or wrong status), slot_unavailable, customer_conflict.
 // Another workspace's id is a 404.
 export const runtime = 'nodejs';
 
 import { can } from '@/lib/auth/permissions';
 import {
-  cancelAppointment, markOutcome, rescheduleAppointment, updateAppointmentDetails,
+  cancelAppointment, getAppointment, markOutcome, rescheduleAppointment, updateAppointmentDetails,
 } from '@/lib/appointments/booking';
+import { recordRefundRequested } from '@/lib/appointments/connections';
+import { moveDealOnCompleted, setAppointmentDeal } from '@/lib/appointments/deals';
 import { getAppointmentDetail } from '@/lib/appointments/listing';
 import { AppointmentError, type AppointmentRow } from '@/lib/appointments/types';
 import { appointmentErrorResponse, inTenant, isId, json, mutationLimit, publicRow, readJson, staffCaller } from '../_lib/http';
@@ -70,8 +76,22 @@ export async function PATCH(request: Request, context: Context) {
         case 'outcome': {
           if (body.outcome !== 'completed' && body.outcome !== 'no_show') throw new AppointmentError('invalid');
           if (body.note != null && typeof body.note !== 'string') throw new AppointmentError('invalid');
-          return markOutcome(tx, { ...base, outcome: body.outcome, note: body.note as string | null | undefined,
+          const row = await markOutcome(tx, { ...base, outcome: body.outcome, note: body.note as string | null | undefined,
             expectedVersion: version(body), actorUserId: caller.userId });
+          // Same transaction: a completed booking moves its open deal to the chosen stage (when set).
+          await moveDealOnCompleted(tx, { accountId: caller.accountId, userId: caller.userId, appointment: row });
+          return row;
+        }
+        case 'deal': {
+          if (body.deal_id !== null && !isId(body.deal_id)) throw new AppointmentError('invalid');
+          return setAppointmentDeal(tx, { ...base, userId: caller.userId, dealId: body.deal_id as string | null });
+        }
+        case 'refund_requested': {
+          if (!isId(body.refund_id)) throw new AppointmentError('invalid');
+          await recordRefundRequested(tx, { ...base, userId: caller.userId, refundId: body.refund_id });
+          const row = await getAppointment(tx, caller.accountId, id);
+          if (!row) throw new AppointmentError('not_found');
+          return row;
         }
         case 'details': {
           if (body.outcome_note != null && typeof body.outcome_note !== 'string') throw new AppointmentError('invalid');

@@ -12,5 +12,6 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default function BookLayout({ children }: { children: ReactNode }) {
-  return <div className="flex min-h-screen justify-center bg-background px-4 py-10">{children}</div>;
+  // Phone first: a narrow column from the top; the step's primary button is pinned to the bottom on phones.
+  return <div className="flex min-h-screen justify-center bg-background px-4 pt-6 pb-10 sm:items-start sm:py-12">{children}</div>;
 }

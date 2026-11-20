@@ -15,6 +15,7 @@ import { withTenant } from '@/lib/db/tenant';
 import { expireHold } from './booking';
 import { handleAppointmentEventJob } from './events';
 import { handleAppointmentFollowupJob } from './followup';
+import { handleIntakeFormJob } from './intake-form';
 import { handleAppointmentNoticeJob, handleHoldReplyJob } from './notify-customer';
 import { handleAppointmentReminderJob } from './reminders';
 import {
@@ -83,6 +84,9 @@ export async function handleAppointmentJob(
         appointmentId: id(p.appointmentId, type), version: version(p.version, type),
         kind: oneOf(p.kind, ['feedback', 'rebook'] as const, type),
       });
+      return;
+    case APPOINTMENT_JOB_TYPES.intakeForm:
+      await handleIntakeFormJob(accountId, { appointmentId: id(p.appointmentId, type), version: version(p.version, type) });
       return;
     default:
       invalid(type);

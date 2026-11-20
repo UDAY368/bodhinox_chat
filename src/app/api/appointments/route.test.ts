@@ -56,8 +56,8 @@ vi.mock('@/lib/billing/entitlements', async () => {
 });
 vi.mock('@/lib/appointments/listing', async (original) => ({
   ...(await original<typeof import('@/lib/appointments/listing')>()),
-  listSchedule: async () => [h.row],
-  getAppointmentDetail: async () => ({ appointment: h.row, events: [], messages: [], tasks: [] }),
+  listSchedule: async () => ({ rows: [h.row], nextCursor: 'next', truncated: true }),
+  getAppointmentDetail: async () => ({ appointment: h.row, events: [], messages: [], tasks: [], links: { deal: null, broadcast: null, ad: null } }),
 }));
 vi.mock('@/lib/appointments/booking', async (original) => ({
   ...(await original<typeof import('@/lib/appointments/booking')>()),
@@ -70,6 +70,15 @@ vi.mock('@/lib/appointments/booking', async (original) => ({
   cancelAppointment: async (_tx: unknown, input: Record<string, unknown>) => { h.changes.push({ fn: 'cancel', input }); return h.row; },
   markOutcome: async (_tx: unknown, input: Record<string, unknown>) => { h.changes.push({ fn: 'outcome', input }); return h.row; },
   updateAppointmentDetails: async (_tx: unknown, input: Record<string, unknown>) => { h.changes.push({ fn: 'details', input }); return h.row; },
+  getAppointment: async () => h.row,
+}));
+
+vi.mock('@/lib/appointments/deals', () => ({
+  moveDealOnCompleted: async (_tx: unknown, input: Record<string, unknown>) => { h.changes.push({ fn: 'moveDeal', input }); return true; },
+  setAppointmentDeal: async (_tx: unknown, input: Record<string, unknown>) => { h.changes.push({ fn: 'deal', input }); return h.row; },
+}));
+vi.mock('@/lib/appointments/connections', () => ({
+  recordRefundRequested: async (_tx: unknown, input: Record<string, unknown>) => { h.changes.push({ fn: 'refund', input }); return 'recorded'; },
 }));
 
 import { AppointmentError } from '@/lib/appointments/types';
@@ -95,6 +104,7 @@ describe('GET /api/appointments', () => {
     expect(body.appointments[0]).not.toHaveProperty('hold_code');
     expect(body.appointments[0]).not.toHaveProperty('outcome_note');
     expect(body.appointments[0].price_minor).toBe(50000);
+    expect(body).toMatchObject({ next_cursor: 'next', truncated: true });
     h.canManage = true;
     expect((await (await list()).json()).appointments[0].outcome_note).toBe('staff only');
     const one = await (await GET_ONE(new Request(`http://x/api/appointments/${APPT}`), { params: Promise.resolve({ id: APPT }) })).json();
@@ -155,5 +165,36 @@ describe('PATCH /api/appointments/[id]', () => {
     expect((await patch({ action: 'delete', expected_version: 1 })).status).toBe(400);
     expect((await patch({ action: 'cancel', expected_version: 1 }, 'not-an-id')).status).toBe(404);
     expect(h.changes).toEqual([]);
+  });
+});
+
+describe('PATCH /api/appointments/[id] deal, refund record and completed deal move', () => {
+  it('moves the deal in the same call as a completed outcome', async () => {
+    expect((await patch({ action: 'outcome', outcome: 'completed', expected_version: 2 })).status).toBe(200);
+    expect(h.changes.map((c) => c.fn)).toEqual(['outcome', 'moveDeal']);
+    expect(h.changes[1].input).toMatchObject({ accountId: ACCOUNT, userId: USER });
+  });
+
+  it('links and unlinks a deal, refusing a malformed id', async () => {
+    expect((await patch({ action: 'deal', deal_id: ID })).status).toBe(200);
+    expect((await patch({ action: 'deal', deal_id: null })).status).toBe(200);
+    expect((await patch({ action: 'deal', deal_id: 'x' })).status).toBe(400);
+    expect((await patch({ action: 'deal' })).status).toBe(400);
+    expect(h.changes.map((c) => [c.fn, c.input.dealId])).toEqual([['deal', ID], ['deal', null]]);
+  });
+
+  it('records a refund only with an id, and needs the manage permission, CSRF and the agent role', async () => {
+    expect((await patch({ action: 'refund_requested', refund_id: 'nope' })).status).toBe(400);
+    expect((await patch({ action: 'refund_requested', refund_id: ID })).status).toBe(200);
+    expect(h.changes[0]).toMatchObject({ fn: 'refund', input: { refundId: ID, accountId: ACCOUNT } });
+    h.permissionOk = false;
+    expect((await patch({ action: 'deal', deal_id: ID })).status).toBe(403);
+    h.permissionOk = true;
+    h.mutationOk = false;
+    expect((await patch({ action: 'refund_requested', refund_id: ID })).status).toBe(401);
+    h.mutationOk = true;
+    h.role = 'viewer';
+    expect((await patch({ action: 'deal', deal_id: ID })).status).toBe(403);
+    expect(h.changes).toHaveLength(1);
   });
 });
