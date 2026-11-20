@@ -16,6 +16,7 @@ import { getWorkerPrisma } from '@/lib/db/prisma';
 import { withTenant, type TenantTransaction } from '@/lib/db/tenant';
 import { gateWithinLimit } from '@/lib/billing/limits';
 import { loadFlowFormLookup } from '@/lib/whatsapp/forms/flow-lookup';
+import { paidBookingReady } from '@/lib/appointments/booking';
 import { validateFlowForActivation, type CrossFlowSnapshot, type ValidationIssue } from './validate';
 import type { WorkspaceCapabilities } from './node-registry';
 import type { CanvasNote, FlowChannelScope, FlowNodeRow, FlowNodeType, FlowRow, FlowTriggerConfig } from './types';
@@ -280,6 +281,8 @@ export interface PublishResult {
 /** The account's paid appointment services, read only when the graph has a booking step. */
 async function paidServicesFor(tx: TenantTransaction, accountId: string, nodes: ReadonlyArray<{ node_type: string }>): Promise<ReadonlySet<string> | undefined> {
   if (!nodes.some((n) => n.node_type === 'book_appointment')) return undefined;
+  // A6: paid services become a paid hold in a flow once the workspace can take payment.
+  if (await paidBookingReady(tx, accountId)) return undefined;
   const rows = await tx.$queryRaw<{ id: string }[]>(Prisma.sql`SELECT id::text AS id FROM appointment_services
     WHERE account_id=${accountId}::uuid AND payment_required`);
   return new Set(rows.map((r) => r.id.toLowerCase()));

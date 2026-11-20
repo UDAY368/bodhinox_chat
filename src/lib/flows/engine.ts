@@ -54,8 +54,8 @@ import { executeSheetsNode } from '@/lib/integrations/google-sheets/node';
 import { instagramAutomationAllowed } from '@/lib/contacts/channel-consent';
 import { workspaceTimezone } from '@/lib/analytics/range';
 import {
-  APPOINTMENT_STATE_VAR, BOOK_APPOINTMENT_LIMITS, appointmentDaysAhead, appointmentPortFor, appointmentReplyIds, dayLabel,
-  pagedRows, parseAppointmentReply, readAppointmentState, rowTitle, singleListRows, slotDays,
+  APPOINTMENT_STATE_VAR, APPOINTMENT_STATUS_VALUES, BOOK_APPOINTMENT_LIMITS, appointmentDaysAhead, appointmentPortFor, appointmentReplyIds, dayLabel,
+  instagramRows, pagedRows, parseAppointmentReply, readAppointmentState, rowTitle, singleListRows, slotDays,
   type AppointmentListRow, type AppointmentOutcome, type AppointmentStepState,
 } from './appointment-node';
 /**
@@ -1977,18 +1977,23 @@ async function planAppointmentPrompt(run: FlowRunRow, node: FlowNodeRow, from: A
   };
 }
 
-/** Sends one question as a list. `attempt` keeps a re-prompt a distinct outbound intent. */
+/**
+ * Sends one question: a WhatsApp list, or on Instagram (B8) the same rows as
+ * quick replies (titles cut to 20 characters; flowSend refuses before the
+ * intent when the 24-hour window has closed). `attempt` keeps a re-prompt a
+ * distinct outbound intent.
+ */
 async function sendAppointmentPrompt(db: AdminClient, run: FlowRunRow, node: FlowNodeRow, prompt: AppointmentPrompt, attempt: number): Promise<void> {
-  await assertWhatsAppRun(run);
-  const { whatsapp_message_id } = await dispatchOnce(run.account_id, `flow:${run.id}:${node.node_key}:${run.transition_seq ?? 0}:${attempt}`, () => engineSendInteractiveList({
+  const rows = (await runChannel(run)) === "instagram" ? instagramRows(prompt.rows) : prompt.rows;
+  const { whatsapp_message_id } = await flowSend(run, `flow:${run.id}:${node.node_key}:${run.transition_seq ?? 0}:${attempt}`, { kind: "list", args: {
     accountId: run.account_id,
     userId: run.user_id,
     conversationId: run.conversation_id!,
     contactId: run.contact_id!,
     bodyText: prompt.text,
     buttonLabel: appointmentT()("listButton"),
-    sections: [{ rows: prompt.rows }],
-  }));
+    sections: [{ rows }],
+  } });
   // The stage only: row titles can carry practitioner names, never logged.
   await logEvent(db, run.id, "message_sent", node.node_key, { node_type: "book_appointment", stage: prompt.state.stage, whatsapp_message_id });
   const { data: msg } = await db.from("messages").select("id").eq("message_id", whatsapp_message_id).maybeSingle();
@@ -2004,10 +2009,13 @@ async function startAppointmentStep(
   run: FlowRunRow,
   node: FlowNodeRow,
 ): Promise<{ kind: "waiting" } | { kind: "next"; outcome: AppointmentOutcome; key: string | null } | { kind: "failed" }> {
+  // The public booking page, so an Unavailable path can send {{vars.booking_link}} (B10). Not customer data.
+  const bookingLink = await appointmentRuntime.appointmentBookingLink(run.account_id).catch(() => null);
+  const linkVars: Record<string, unknown> = bookingLink ? { booking_link: bookingLink } : {};
   const unavailable = async (reason: string) => {
     await logEvent(db, run.id, "error", node.node_key, { reason });
-    if (APPOINTMENT_STATE_VAR in run.vars) {
-      const vars = withoutAppointmentState(run.vars);
+    if (APPOINTMENT_STATE_VAR in run.vars || bookingLink) {
+      const vars = { ...withoutAppointmentState(run.vars), ...linkVars };
       const { error } = await db.from("flow_runs").update({ vars }).eq("id", run.id).eq("status", "active");
       if (!error) run.vars = vars;
     }
@@ -2025,7 +2033,7 @@ async function startAppointmentStep(
     return unavailable(paidOnly ? "appointment_paid_only" : "appointment_no_slots");
   }
   try {
-    await setRunVars(db, run, { [APPOINTMENT_STATE_VAR]: prompt.state });
+    await setRunVars(db, run, { [APPOINTMENT_STATE_VAR]: prompt.state, ...linkVars });
     await sendAppointmentPrompt(db, run, node, prompt, run.reprompt_count);
   } catch (err) {
     await logEvent(db, run.id, "error", node.node_key, { reason: "book_appointment_failed", detail: errorDetail(err) });
@@ -2150,6 +2158,7 @@ async function handleAppointmentReply(
         locationId: state.location_id,
         staffId: state.staff_id ?? null,
         startAt: reply.startAt,
+        conversationId: run.conversation_id,
       });
     } catch (err) {
       // The booking transaction rolled back.
@@ -2160,10 +2169,16 @@ async function handleAppointmentReply(
       // port. A crash before the success claim is finished by the retried
       // inbound (resumeInterruptedBooking), which replays this source_ref.
       // Ids only; the manage link never goes into vars (flow.completed webhooks carry them).
-      await logEvent(db, run.id, "node_entered", node.node_key, { appointment_result: "booked", appointment_id: result.appointmentId, replayed: result.replayed });
+      // A paid service (A6) is held, not booked: its payment link goes out as a queued job and
+      // settlement confirms it; the run continues now with appointment_status "waiting_for_payment".
+      const paymentPending = result.status === "payment_pending";
+      await logEvent(db, run.id, "node_entered", node.node_key, {
+        appointment_result: paymentPending ? "payment_pending" : "booked", appointment_id: result.appointmentId, replayed: result.replayed,
+      });
       return finishAppointmentStep(db, run, node, nodes, "success", {
         appointment_id: result.appointmentId,
         appointment_local_time: result.localTime,
+        appointment_status: paymentPending ? APPOINTMENT_STATUS_VALUES.paymentPending : APPOINTMENT_STATUS_VALUES.confirmed,
       });
     }
     await logEvent(db, run.id, "error", node.node_key, { reason: `appointment_${result.code}` });
