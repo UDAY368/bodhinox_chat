@@ -1,5 +1,6 @@
 'use client';
 
+import { ContactAppointmentsCard } from "@/components/appointments/contact-appointments-card";
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useFormatter, useTranslations } from 'next-intl';
@@ -580,7 +581,7 @@ export function ContactSidebar({
                   <div className="bg-muted h-9 animate-pulse rounded-lg" />
                 </div>
               )}
-              {/* Batch 3 mounts <ContactAppointmentsCard contactId={contact.id} /> here (contact-appointments-card.tsx). */}
+              <ContactAppointmentsCard contactId={contact.id} conversationId={conversationId} contactName={contact.name} compact />
             </>
           )}
         </div>

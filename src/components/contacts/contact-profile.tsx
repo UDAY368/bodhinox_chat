@@ -13,7 +13,7 @@ import { toast } from 'sonner';
 import { useLocale, useTranslations } from 'next-intl';
 import {
   ArrowLeft, Ban, Check, Copy, Download, Loader2, MessageSquare, MoreHorizontal, Pencil, Plus, Send, ShoppingBag, Tag as TagIcon,
-  Trash2, UserRound, X, Inbox, FileText, ShieldCheck, Upload, CircleDot,
+  Trash2, UserRound, X, Inbox, FileText, ShieldCheck, Upload, CircleDot, CalendarDays,
 } from 'lucide-react';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -47,6 +47,8 @@ import { ContactForm } from './contact-form';
 import { ContactIdentities } from './contact-identities';
 import { InstagramFacts } from './instagram-facts';
 import { ContactPayments } from './contact-payments';
+import { ContactAppointmentsCard } from '@/components/appointments/contact-appointments-card';
+import { bookingTimelineEvent } from '@/lib/appointments/contact-bookings';
 import { CustomFieldInput, FIELD_SELECT } from './custom-field-input';
 import { downloadContactsCsv, memberName, saveContactField, useContactMembers, useCustomFields } from './contacts-client';
 import { formatDay, formatLastSeen, formatWhen } from './format';
@@ -813,6 +815,8 @@ export function ContactProfile({ contactId }: { contactId: string }) {
           {/* Payments (agents and above, like orders) */}
           {canEdit && <ContactPayments contactId={contactId} className={CARD} titleClassName={CARD_TITLE} />}
 
+          <ContactAppointmentsCard contactId={contact.id} contactName={contact.name} />
+
           {/* Deals */}
           <section className={CARD} aria-labelledby="ct-deals">
             <h2 id="ct-deals" className={cn(CARD_TITLE, 'mb-2')}>{t('profile.deals')}</h2>
@@ -963,6 +967,8 @@ export function ContactProfile({ contactId }: { contactId: string }) {
         return by(t('timeline.blocked'));
       case 'unblocked':
         return by(t('timeline.unblocked'));
+      case 'booking':
+        return by(t(`timeline.booking.${bookingTimelineEvent(d)}`, { service: String(d.service_name ?? '') }));
       case 'template_sent':
         return by(typeof d.template === 'string' && d.template ? t('timeline.templateSentNamed', { name: d.template }) : t('timeline.templateSent'));
       default:
@@ -984,6 +990,7 @@ function EventIcon({ kind }: { kind: TimelineEvent['kind'] }) {
     case 'blocked':
     case 'unblocked': return <Ban className={cls} />;
     case 'template_sent': return <Send className={cls} />;
+    case 'booking': return <CalendarDays className={cls} />;
     case 'created': return <Upload className={cls} />;
     case 'field_changed':
     case 'custom_field_changed': return <Pencil className={cls} />;
