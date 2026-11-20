@@ -36,6 +36,7 @@ describe('product listing', () => {
 
 describe('productJsonLd', () => {
   it('describes the product, its offer, SKU and breadcrumb with absolute slug addresses', () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- JSON-LD is read as loose JSON in this test
     const [ld, crumbs] = productJsonLd(input(), ORIGIN) as [Record<string, any>, Record<string, any>];
     expect(ld).toMatchObject({
       '@type': 'Product', name: 'Neem Oil', url: `${ORIGIN}/s/shop/p/neem-oil`, sku: 'NEEM-1',
@@ -54,6 +55,7 @@ describe('productJsonLd', () => {
         { id: 'b', options: {}, priceMinor: 30000, compareAtMinor: null, inStock: false, available: 0, imageIndex: null, shipsBy: null },
       ],
     });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- JSON-LD is read as loose JSON in this test
     const [ld] = productJsonLd(input(p), ORIGIN) as [Record<string, any>];
     expect(ld.offers).toMatchObject({ '@type': 'AggregateOffer', lowPrice: '100.00', highPrice: '300.00', availability: 'https://schema.org/OutOfStock', offerCount: 2 });
     expect(ld.aggregateRating).toMatchObject({ ratingValue: 4.5, reviewCount: 12 });
