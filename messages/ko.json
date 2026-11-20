@@ -2254,7 +2254,14 @@
       "clicks": "{sent, number}명 중 {count, number}명이 링크를 클릭했습니다",
       "trackedTo": "링크 이동 위치: {url}",
       "apiTitle": "API로 수신자 추가",
-      "apiHint": "broadcasts:send 권한이 있는 API 키를 사용하세요. 요청당 최대 1,000명이며 params가 템플릿 변수를 순서대로 채웁니다."
+      "apiHint": "broadcasts:send 권한이 있는 API 키를 사용하세요. 요청당 최대 1,000명이며 params가 템플릿 변수를 순서대로 채웁니다.",
+      "sales": {
+        "title": "이 캠페인의 판매",
+        "orders": "주문 {count, number}건",
+        "revenue": "매출",
+        "hint": "구매 전 7일 안에 이 캠페인을 받은 사람의 결제된 주문으로, 마지막으로 받은 캠페인이 이 캠페인인 경우입니다. 환불 금액은 제외됩니다.",
+        "none": "아직 주문이 없습니다"
+      }
     },
     "new": {
       "title": "새 브로드캐스트",
@@ -17659,7 +17666,9 @@
       "sent": "발송",
       "delivered": "전달",
       "read": "읽음",
-      "replied": "답장"
+      "replied": "답장",
+      "orders": "주문",
+      "revenue": "매출"
     },
     "when": {
       "draft": "아직 발송 안 됨",

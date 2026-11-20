@@ -2254,7 +2254,14 @@
       "clicks": "{count, number} de {sent, number} destinatários clicaram no link",
       "trackedTo": "O link abre {url}",
       "apiTitle": "Adicione destinatários pela API",
-      "apiHint": "Use uma chave de API com o escopo broadcasts:send. Até 1.000 destinatários por requisição; params preenche as variáveis do modelo em ordem."
+      "apiHint": "Use uma chave de API com o escopo broadcasts:send. Até 1.000 destinatários por requisição; params preenche as variáveis do modelo em ordem.",
+      "sales": {
+        "title": "Vendas desta campanha",
+        "orders": "{count, plural, =1 {# pedido} other {# pedidos}}",
+        "revenue": "Receita",
+        "hint": "Pedidos pagos de pessoas que receberam esta campanha nos 7 dias antes da compra, quando foi a última campanha que receberam. Os reembolsos são descontados.",
+        "none": "Ainda não há pedidos"
+      }
     },
     "new": {
       "title": "Novo disparo",
@@ -17659,7 +17666,9 @@
       "sent": "Enviadas",
       "delivered": "Entregues",
       "read": "Lidas",
-      "replied": "Respondidas"
+      "replied": "Respondidas",
+      "orders": "Pedidos",
+      "revenue": "Receita"
     },
     "when": {
       "draft": "Ainda não enviada",
