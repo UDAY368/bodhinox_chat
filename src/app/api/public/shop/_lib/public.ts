@@ -64,8 +64,8 @@ export function clientIp(request: Request): string {
   return (forwarded || request.headers.get('x-real-ip')?.trim() || 'unknown').slice(0, 64);
 }
 
-export function burstAllowed(scope: keyof typeof SHOP_BURST, request: Request): boolean {
-  return checkRateLimit(`shop:${scope}:${clientIp(request)}`, SHOP_BURST[scope]).success;
+export async function burstAllowed(scope: keyof typeof SHOP_BURST, request: Request): Promise<boolean> {
+  return (await checkRateLimit(`shop:${scope}:${clientIp(request)}`, SHOP_BURST[scope])).success;
 }
 
 export interface ShopRef { accountId: string; sessionId: string; tokenHash: string }
@@ -157,7 +157,7 @@ export async function mutateSession(
 ): Promise<NextResponse> {
   try {
     assertOrigin(request);
-    if (!burstAllowed('mutate', request)) return tooMany();
+    if (!(await burstAllowed('mutate', request))) return tooMany();
     const { token } = await params;
     if (!isStorefrontTokenFormat(token)) return notFound();
     const body = await readBody(request);
@@ -186,7 +186,7 @@ export async function sessionAction(
 ): Promise<NextResponse> {
   try {
     assertOrigin(request);
-    if (!burstAllowed('mutate', request)) return tooMany();
+    if (!(await burstAllowed('mutate', request))) return tooMany();
     const { token } = await params;
     if (!isStorefrontTokenFormat(token)) return notFound();
     const body = await readBody(request);

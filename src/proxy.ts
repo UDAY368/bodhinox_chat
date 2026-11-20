@@ -7,7 +7,7 @@ import {
 import { cookieNames } from '@/lib/auth/cookies';
 import { AuthError } from '@/lib/auth/errors';
 import { postLoginPath } from '@/lib/auth/callback';
-import { checkRateLimit } from '@/lib/rate-limit';
+import { checkLocalRateLimit } from '@/lib/rate-limit';
 
 /** Public shop page views per client IP per minute (in memory, best effort). */
 const STORE_PAGE_BURST = { limit: 240, windowMs: 60_000 };
@@ -56,9 +56,10 @@ export async function proxy(request: NextRequest) {
     pathname.startsWith('/api/public/store/'))
     return response;
   // The public shop pages (/s/<handle>): anonymous and indexable, so a burst
-  // budget per client IP keeps one visitor from hammering the catalogue.
+  // budget per client IP keeps one visitor from hammering the catalogue (per process:
+  // a database write per anonymous page view is not worth it for a best-effort burst).
   if (pathname.startsWith('/s/')) {
-    if (!checkRateLimit(`store:page:${proxyClientIp(request)}`, STORE_PAGE_BURST).success)
+    if (!checkLocalRateLimit(`store:page:${proxyClientIp(request)}`, STORE_PAGE_BURST).success)
       return new NextResponse('Too many requests', { status: 429, headers: { 'Retry-After': '60', 'Cache-Control': 'no-store' } });
     return response;
   }

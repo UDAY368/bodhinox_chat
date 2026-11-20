@@ -27,7 +27,7 @@ export async function GET(request: Request, context: Context) {
     if (!hasMinRole(session.role, 'agent')) return instagramErrorResponse('forbidden');
     const { id } = await context.params;
     if (!isUuid(id)) return instagramErrorResponse('not_found');
-    const limited = checkRateLimit(`instagram:media:${session.userId}`, MEDIA_LIMIT);
+    const limited = await checkRateLimit(`instagram:media:${session.userId}`, MEDIA_LIMIT);
     if (!limited.success) return rateLimitResponse(limited);
     const after = new URL(request.url).searchParams.get('after') ?? undefined;
     const page = await listPickerMedia(actorOf(session), id, after);

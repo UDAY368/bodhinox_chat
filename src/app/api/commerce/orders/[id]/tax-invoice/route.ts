@@ -26,7 +26,7 @@ export async function PUT(request: Request, context: Context) {
   try {
     const { id } = await context.params;
     const ctx = await staffContext();
-    const limited = writeLimit(ctx);
+    const limited = await writeLimit(ctx);
     if (limited) return limited;
     const body = await jsonBody(request);
     await setOrderBuyerTax(ctx, id, { gstin: body.gstin, legal_name: body.legal_name });
@@ -40,7 +40,7 @@ export async function POST(_request: Request, context: Context) {
   try {
     const { id } = await context.params;
     const ctx = await staffContext();
-    const limited = writeLimit(ctx);
+    const limited = await writeLimit(ctx);
     if (limited) return limited;
     return NextResponse.json({ document_id: await requestOrderTaxInvoice(ctx, id) }, { headers: NO_STORE });
   } catch (error) {

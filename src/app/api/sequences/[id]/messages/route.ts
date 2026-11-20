@@ -24,7 +24,7 @@ type Params = { params: Promise<{ id: string }> };
 async function guard() {
   const ctx = await requireRole('agent');
   requireInstagram();
-  const limit = checkRateLimit(`sequences:write:${ctx.userId}`, SEQUENCE_WRITE_LIMIT);
+  const limit = await checkRateLimit(`sequences:write:${ctx.userId}`, SEQUENCE_WRITE_LIMIT);
   return { ctx, limited: limit.success ? null : rateLimitResponse(limit) };
 }
 

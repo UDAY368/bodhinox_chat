@@ -75,7 +75,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const ctx = await requireRole('agent');
-    const userLimit = checkRateLimit(`paymentLink:${ctx.userId}`, CREATE_LIMIT);
+    const userLimit = await checkRateLimit(`paymentLink:${ctx.userId}`, CREATE_LIMIT);
     if (!userLimit.success) return rateLimitResponse(userLimit);
 
     let input: Record<string, unknown>;
@@ -126,7 +126,7 @@ export async function POST(request: Request) {
     // Bad input is refused here, before the workspace limit is spent or Razorpay is called.
     validateCreateInput({ amountMinor, currency, description: description as string | null, expireBy });
 
-    const accountLimit = checkRateLimit(`paymentLinkAccount:${ctx.accountId}`, ACCOUNT_CREATE_LIMIT);
+    const accountLimit = await checkRateLimit(`paymentLinkAccount:${ctx.accountId}`, ACCOUNT_CREATE_LIMIT);
     if (!accountLimit.success) return rateLimitResponse(accountLimit);
 
     const created = await createPaymentLinkRecord({

@@ -26,7 +26,7 @@ export async function POST(request: Request) {
   try {
     // Agents and above send, as in /api/whatsapp/send: Meta is called before anything is stored.
     const ctx = await requireRole('agent');
-    const limit = checkRateLimit(`send:${ctx.userId}`, RATE_LIMITS.send);
+    const limit = await checkRateLimit(`send:${ctx.userId}`, RATE_LIMITS.send);
     if (!limit.success) return rateLimitResponse(limit);
     const raw = await request.json().catch(() => null);
     const body = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;

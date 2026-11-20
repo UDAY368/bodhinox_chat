@@ -15,7 +15,7 @@ export async function POST(request: Request, context: Context) {
   try {
     const { id } = await context.params;
     const ctx = await staffContext();
-    const limited = writeLimit(ctx);
+    const limited = await writeLimit(ctx);
     if (limited) return limited;
     const body = await jsonBody(request);
     if (body.from !== undefined && !isOrderStatus(body.from)) throw new OrderError(400, 'invalid', 'Invalid status');

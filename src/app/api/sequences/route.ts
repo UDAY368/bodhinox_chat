@@ -31,7 +31,7 @@ export async function POST(request: Request) {
   try {
     const ctx = await requireRole('agent');
     requireInstagram();
-    const limit = checkRateLimit(`sequences:write:${ctx.userId}`, SEQUENCE_WRITE_LIMIT);
+    const limit = await checkRateLimit(`sequences:write:${ctx.userId}`, SEQUENCE_WRITE_LIMIT);
     if (!limit.success) return rateLimitResponse(limit);
     const body = (await request.json().catch(() => null)) as { name?: unknown } | null;
     const sequence = await createSequence(tenantOf(ctx), parseName(body?.name));

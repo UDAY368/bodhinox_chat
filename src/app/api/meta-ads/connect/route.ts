@@ -26,9 +26,9 @@ export async function POST(request: Request) {
     const session = await requireSession(request);
     await assertMutation(request, session);
     if (!hasMinRole(session.role, 'admin')) throw new ForbiddenError();
-    const userLimit = checkRateLimit(`metaAdsConnect:${session.userId}`, RATE_LIMITS.adminAction);
+    const userLimit = await checkRateLimit(`metaAdsConnect:${session.userId}`, RATE_LIMITS.adminAction);
     if (!userLimit.success) return rateLimitResponse(userLimit);
-    const accountLimit = checkRateLimit(`metaAdsConnectAccount:${session.accountId}`, ACCOUNT_LIMIT);
+    const accountLimit = await checkRateLimit(`metaAdsConnectAccount:${session.accountId}`, ACCOUNT_LIMIT);
     if (!accountLimit.success) return rateLimitResponse(accountLimit);
     const parsed = Body.safeParse(await request.json().catch(() => null));
     if (!parsed.success) return metaAdsErrorResponse('invalid_request');

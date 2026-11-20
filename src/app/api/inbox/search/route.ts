@@ -33,7 +33,7 @@ function isStatementTimeout(error: unknown): boolean {
 export async function GET(request: Request) {
   try {
     const ctx = await requireRole('viewer');
-    const limit = checkRateLimit(`inbox-search:${ctx.userId}`, INBOX_SEARCH_RATE_LIMIT);
+    const limit = await checkRateLimit(`inbox-search:${ctx.userId}`, INBOX_SEARCH_RATE_LIMIT);
     if (!limit.success) return rateLimitResponse(limit);
     const input = parseInboxSearchParams(new URL(request.url).searchParams, ctx.userId);
     const result = await withTenant(tenantOf(ctx), (tx) =>

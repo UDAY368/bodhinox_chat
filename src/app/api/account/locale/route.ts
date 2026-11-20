@@ -45,7 +45,7 @@ export async function GET() {
 export async function PUT(request: Request) {
   try {
     const ctx = await getCurrentAccount();
-    const limit = checkRateLimit(`locale:${ctx.userId}`, RATE_LIMITS.adminAction);
+    const limit = await checkRateLimit(`locale:${ctx.userId}`, RATE_LIMITS.adminAction);
     if (!limit.success) return rateLimitResponse(limit);
     const body = (await request.json().catch(() => null)) as { language?: unknown } | null;
     const keys = body && typeof body === 'object' && !Array.isArray(body) ? Object.keys(body) : null;

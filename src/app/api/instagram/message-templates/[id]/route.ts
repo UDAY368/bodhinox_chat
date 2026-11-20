@@ -24,7 +24,7 @@ export async function PATCH(request: Request, { params }: Params) {
   try {
     if (!instagramEnabled()) return off();
     const ctx = await requireRole('agent');
-    const limit = checkRateLimit(`igTemplates:${ctx.userId}`, RATE_LIMITS.send);
+    const limit = await checkRateLimit(`igTemplates:${ctx.userId}`, RATE_LIMITS.send);
     if (!limit.success) return rateLimitResponse(limit);
     const { id } = await params;
     const template = await updateInstagramTemplate(tenantOf(ctx), id, await request.json().catch(() => null));

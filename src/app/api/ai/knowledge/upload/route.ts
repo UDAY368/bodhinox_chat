@@ -21,7 +21,7 @@ const BODY_LIMIT = FILE_MAX_BYTES + 64 * 1024
 export async function POST(request: Request) {
   try {
     const ctx = await requireRole('admin')
-    const limit = checkRateLimit(`ai-sources:upload:${ctx.userId}`, RATE_LIMITS.adminAction)
+    const limit = await checkRateLimit(`ai-sources:upload:${ctx.userId}`, RATE_LIMITS.adminAction)
     if (!limit.success) return rateLimitResponse(limit)
     const bytes = await readBoundedBody(request, BODY_LIMIT)
     const form = await new Response(bytes, { headers: { 'Content-Type': request.headers.get('Content-Type') || '' } })

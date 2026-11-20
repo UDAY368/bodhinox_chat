@@ -29,7 +29,7 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const ctx = await requireRole('admin');
-    const limit = checkRateLimit(`support-grants:${ctx.userId}`, RATE_LIMITS.adminAction);
+    const limit = await checkRateLimit(`support-grants:${ctx.userId}`, RATE_LIMITS.adminAction);
     if (!limit.success) return rateLimitResponse(limit);
     const input = parseProactiveGrant(await request.json().catch(() => null));
     if (!input) return NextResponse.json({ error: 'invalid', code: 'invalid' }, { status: 400, headers: noStore });

@@ -35,7 +35,7 @@ export async function adminMutation(request: Request): Promise<AuthContext | Nex
   await assertMutation(request, session);
   if (!hasMinRole(session.role, 'admin')) throw new ForbiddenError('Connecting Zoom requires an admin role');
   await requirePermission(actorOf(session), 'integrations.meetings');
-  const limit = checkRateLimit(`zoomConnection:${session.userId}`, RATE_LIMITS.adminAction);
+  const limit = await checkRateLimit(`zoomConnection:${session.userId}`, RATE_LIMITS.adminAction);
   if (!limit.success) return rateLimitResponse(limit);
   return session;
 }

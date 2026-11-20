@@ -52,7 +52,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     await assertMutation(request, session);
     const caller = await requireRole('admin');
     await requirePermission(tenantOf(caller), 'campaigns.send');
-    const limit = checkRateLimit(`broadcast-reconcile:${caller.userId}`, { limit: 20, windowMs: 60_000 });
+    const limit = await checkRateLimit(`broadcast-reconcile:${caller.userId}`, { limit: 20, windowMs: 60_000 });
     if (!limit.success) return rateLimitResponse(limit);
     const { id } = await params;
     if (!UUID.test(id)) return notFound();

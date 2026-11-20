@@ -22,7 +22,7 @@ export async function POST(request: Request, context: Context) {
   try {
     const ctx = await requireRole('admin');
     const { id } = await context.params;
-    const limit = checkRateLimit(`paymentException:${ctx.userId}`, LIMIT);
+    const limit = await checkRateLimit(`paymentException:${ctx.userId}`, LIMIT);
     if (!limit.success) return rateLimitResponse(limit);
     const body = await readJsonObject(request);
     if (!body || !(RESOLUTIONS as readonly unknown[]).includes(body.resolution)) return NextResponse.json({ error: t('invalidRequest'), code: 'resolution' }, { status: 400 });

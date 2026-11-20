@@ -19,7 +19,7 @@ export async function PUT(request: Request) {
   try {
     if (!shopifyConfig()) return NextResponse.json({ error: 'not_configured' }, { status: 503, headers });
     const ctx = await requireRole('admin');
-    const limit = checkRateLimit(`shopifyRules:${ctx.userId}`, RATE_LIMITS.adminAction);
+    const limit = await checkRateLimit(`shopifyRules:${ctx.userId}`, RATE_LIMITS.adminAction);
     if (!limit.success) return rateLimitResponse(limit);
     const parsed = RuleBody.safeParse(await request.json().catch(() => null));
     if (!parsed.success) return NextResponse.json({ error: 'invalid_rule' }, { status: 400, headers });

@@ -40,7 +40,7 @@ export async function PUT(request: Request) {
   try {
     const ctx = await requireRole('admin');
     await requirePermission(tenantOf(ctx), 'ai.settings');
-    const limit = checkRateLimit(`ai-settings:${ctx.userId}`, RATE_LIMITS.adminAction);
+    const limit = await checkRateLimit(`ai-settings:${ctx.userId}`, RATE_LIMITS.adminAction);
     if (!limit.success) return rateLimitResponse(limit);
     const patch = parseSettingsPatch(await request.json().catch(() => null));
     if (!patch) return NextResponse.json({ error: t('common.invalidRequestBody'), code: 'invalid' }, { status: 400 });

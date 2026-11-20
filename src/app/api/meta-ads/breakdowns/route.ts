@@ -23,7 +23,7 @@ export async function GET(request: Request) {
     const session = await requireSession(request);
     const query = parseBreakdownQuery(new URL(request.url).searchParams);
     if (!query) return metaAdsErrorResponse('invalid_request');
-    const limit = checkRateLimit(`metaAdsBreakdowns:${session.userId}`, LIMIT);
+    const limit = await checkRateLimit(`metaAdsBreakdowns:${session.userId}`, LIMIT);
     if (!limit.success) return rateLimitResponse(limit);
     return NextResponse.json(await getBreakdowns(actorOf(session), query), { headers: NO_STORE });
   } catch (error) {

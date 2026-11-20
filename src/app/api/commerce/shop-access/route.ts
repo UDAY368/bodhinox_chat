@@ -23,7 +23,7 @@ export async function GET() {
 export async function PUT(request: Request) {
   try {
     const ctx = await requireRole('admin');
-    const limit = checkRateLimit(`commerce:shop-access:${ctx.userId}`, RATE_LIMITS.adminAction);
+    const limit = await checkRateLimit(`commerce:shop-access:${ctx.userId}`, RATE_LIMITS.adminAction);
     if (!limit.success) return rateLimitResponse(limit);
     const input = parseShopAccessInput(await request.json().catch(() => null));
     return NextResponse.json({ access: await saveShopAccess({ ...tenantOf(ctx), userId: ctx.userId }, input) });

@@ -43,7 +43,7 @@ export async function POST(request: Request) {
     await assertMutation(request, await requireSession(request));
     const ctx = await requireRole('admin');
     await requirePermission(tenantOf(ctx), 'settings.billing');
-    const limit = checkRateLimit(`billingSubscription:${ctx.accountId}`, RATE_LIMITS.adminAction);
+    const limit = await checkRateLimit(`billingSubscription:${ctx.accountId}`, RATE_LIMITS.adminAction);
     if (!limit.success) return rateLimitResponse(limit);
     const body = await jsonBody(request);
     const scope = { accountId: ctx.accountId, userId: ctx.userId };

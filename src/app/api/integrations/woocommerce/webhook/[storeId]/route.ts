@@ -15,7 +15,7 @@ const WEBHOOK_LIMIT = { limit: 300, windowMs: 60_000 };
 export async function POST(request: Request, { params }: { params: Promise<{ storeId: string }> }) {
   const { storeId } = await params;
   if (!UUID.test(storeId)) return Response.json({ error: 'Unknown store' }, { status: 404 });
-  const limit = checkRateLimit(`wooWebhook:${storeId.toLowerCase()}`, WEBHOOK_LIMIT);
+  const limit = await checkRateLimit(`wooWebhook:${storeId.toLowerCase()}`, WEBHOOK_LIMIT);
   if (!limit.success) return rateLimitResponse(limit);
   if (Number(request.headers.get('content-length')) > MAX_BYTES) return new Response('Payload too large', { status: 413 });
   const reader = request.body?.getReader();

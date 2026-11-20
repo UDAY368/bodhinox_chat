@@ -20,7 +20,7 @@ export async function PATCH(
 ) {
   try {
     const ctx = await requireRole('admin');
-    const limit = checkRateLimit(`admin:webhookUpdate:${ctx.userId}`, RATE_LIMITS.adminAction);
+    const limit = await checkRateLimit(`admin:webhookUpdate:${ctx.userId}`, RATE_LIMITS.adminAction);
     if (!limit.success) return rateLimitResponse(limit);
     const { id } = await params;
     const updated = await updateWebhook(ctx.db, ctx.accountId, id, await request.json().catch(() => null));
@@ -37,7 +37,7 @@ export async function DELETE(
 ) {
   try {
     const ctx = await requireRole('admin');
-    const limit = checkRateLimit(`admin:webhookDelete:${ctx.userId}`, RATE_LIMITS.adminAction);
+    const limit = await checkRateLimit(`admin:webhookDelete:${ctx.userId}`, RATE_LIMITS.adminAction);
     if (!limit.success) return rateLimitResponse(limit);
     const { id } = await params;
     return (await deleteWebhook(ctx.db, ctx.accountId, id)) ? NextResponse.json({ success: true }) : notFound();

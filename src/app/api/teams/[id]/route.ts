@@ -15,7 +15,7 @@ type Params = { params: Promise<{ id: string }> };
 export async function PUT(request: Request, { params }: Params) {
   try {
     const ctx = await requireRole('admin');
-    const limit = checkRateLimit(`teams:${ctx.userId}`, RATE_LIMITS.adminAction);
+    const limit = await checkRateLimit(`teams:${ctx.userId}`, RATE_LIMITS.adminAction);
     if (!limit.success) return rateLimitResponse(limit);
     const { id } = await params;
     const input = parseTeamInput(await request.json().catch(() => null), true);

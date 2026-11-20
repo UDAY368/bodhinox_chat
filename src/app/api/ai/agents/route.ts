@@ -27,7 +27,7 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const ctx = await requireRole('admin')
-    const limit = checkRateLimit(`ai-agents:write:${ctx.userId}`, RATE_LIMITS.adminAction)
+    const limit = await checkRateLimit(`ai-agents:write:${ctx.userId}`, RATE_LIMITS.adminAction)
     if (!limit.success) return rateLimitResponse(limit)
     const input = parseAgentInput(await request.json().catch(() => null), true)
     return NextResponse.json({ agent: await createAgent(tenantOf(ctx), input) }, { status: 201, headers: NO_STORE })

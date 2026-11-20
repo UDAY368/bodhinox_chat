@@ -20,7 +20,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ shar
     const { shareId } = await params;
     const session = await resolveSession(request);
     if (!session) return NextResponse.json({ error: t('shareNotFound') }, { status: 401, headers: PRIVATE });
-    const limit = checkRateLimit(`reportShareInfo:${session.userId}`, { limit: 60, windowMs: 60_000 });
+    const limit = await checkRateLimit(`reportShareInfo:${session.userId}`, { limit: 60, windowMs: 60_000 });
     if (!limit.success) return rateLimitResponse(limit);
     try {
       const share = await peekShare(session, shareId);

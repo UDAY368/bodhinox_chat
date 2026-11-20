@@ -20,7 +20,7 @@ export async function POST(request: Request) {
     const config = shopifyConfig();
     if (!config) return NextResponse.json({ error: 'not_configured' }, { status: 503, headers });
     const ctx = await requireRole('admin');
-    const limit = checkRateLimit(`shopifyInstall:${ctx.userId}`, RATE_LIMITS.adminAction);
+    const limit = await checkRateLimit(`shopifyInstall:${ctx.userId}`, RATE_LIMITS.adminAction);
     if (!limit.success) return rateLimitResponse(limit);
     const body = (await request.json().catch(() => null)) as { shop?: unknown } | null;
     const shop = normalizeShopDomain(body?.shop);

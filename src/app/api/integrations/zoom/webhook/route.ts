@@ -61,7 +61,7 @@ export async function POST(request: Request) {
   if (raw === null) return text('Payload too large', 413);
   if (!verifyZoomSignature(raw, request.headers.get('x-zm-request-timestamp'), request.headers.get('x-zm-signature'), config.webhookSecretToken))
     return text('Invalid signature', 401);
-  const global = checkRateLimit('zoomWebhook:global', GLOBAL_LIMIT);
+  const global = await checkRateLimit('zoomWebhook:global', GLOBAL_LIMIT);
   if (!global.success) return rateLimitResponse(global);
 
   let body: unknown;
@@ -78,7 +78,7 @@ export async function POST(request: Request) {
 
   const event = minimiseZoomEvent(body);
   if (!event || !isZoomEvent(event.event) || !event.zoomAccountId) return ok({ status: 'ignored' });
-  const perAccount = checkRateLimit(`zoomWebhook:account:${event.zoomAccountId}`, ACCOUNT_LIMIT);
+  const perAccount = await checkRateLimit(`zoomWebhook:account:${event.zoomAccountId}`, ACCOUNT_LIMIT);
   if (!perAccount.success) return rateLimitResponse(perAccount);
 
   const receiptId = createHash('sha256').update(raw).digest('hex');

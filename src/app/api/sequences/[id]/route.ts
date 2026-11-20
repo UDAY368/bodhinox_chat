@@ -36,7 +36,7 @@ export async function PATCH(request: Request, { params }: Params) {
     const { id } = await params;
     const ctx = await requireRole('agent');
     requireInstagram();
-    const limit = checkRateLimit(`sequences:write:${ctx.userId}`, SEQUENCE_WRITE_LIMIT);
+    const limit = await checkRateLimit(`sequences:write:${ctx.userId}`, SEQUENCE_WRITE_LIMIT);
     if (!limit.success) return rateLimitResponse(limit);
     const patch = parseSequencePatch(await request.json().catch(() => null));
     return NextResponse.json({ sequence: await updateSequence(tenantOf(ctx), id, patch) }, { headers: sequenceHeaders });

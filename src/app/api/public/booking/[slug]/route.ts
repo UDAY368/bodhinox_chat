@@ -21,7 +21,7 @@ export const dynamic = 'force-dynamic';
 type Params = { params: Promise<{ slug: string }> };
 
 export async function GET(request: Request, { params }: Params) {
-  if (!burstAllowed('page', request, RATE_LIMITS.bookingSlots)) return tooMany();
+  if (!(await burstAllowed('page', request, RATE_LIMITS.bookingSlots))) return tooMany();
   try {
     const page = await resolvePage((await params).slug);
     if (!page) return notFound();
@@ -48,7 +48,7 @@ function parseIntake(value: unknown): BookingIntake | null | undefined {
 export async function POST(request: Request, { params }: Params) {
   try {
     assertOrigin(request);
-    if (!burstAllowed('create', request, RATE_LIMITS.bookingCreate)) return tooMany();
+    if (!(await burstAllowed('create', request, RATE_LIMITS.bookingCreate))) return tooMany();
     const body = await readBody(request);
     const startAt = typeof body?.startAt === 'string' && body.startAt.length <= 40 ? new Date(body.startAt) : null;
     const intake = parseIntake(body?.intake);

@@ -15,7 +15,7 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: Request, { params }: TokenParams) {
-  if (!burstAllowed('read', request)) return tooMany();
+  if (!(await burstAllowed('read', request))) return tooMany();
   try {
     const { token } = await params;
     if (!isStorefrontTokenFormat(token)) return notFound();

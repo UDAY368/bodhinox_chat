@@ -20,7 +20,7 @@ export async function GET(request: Request) {
     const session = await requireSession(request);
     const query = parsePreviewQuery(new URL(request.url).searchParams);
     if (!query) return metaAdsErrorResponse('invalid_request');
-    const limit = checkRateLimit(`metaAdsPreview:${session.userId}`, LIMIT);
+    const limit = await checkRateLimit(`metaAdsPreview:${session.userId}`, LIMIT);
     if (!limit.success) return rateLimitResponse(limit);
     return NextResponse.json(await getStoredAdPreview(actorOf(session), query.adId, query.format), { headers: NO_STORE });
   } catch (error) {

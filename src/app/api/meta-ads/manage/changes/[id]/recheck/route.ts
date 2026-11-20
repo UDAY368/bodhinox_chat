@@ -22,7 +22,7 @@ export async function POST(request: Request, context: Context) {
     const session = await requireSession(request);
     await assertMutation(request, session);
     if (!hasMinRole(session.role, 'admin')) return metaAdsErrorResponse('forbidden');
-    const limit = checkRateLimit(`metaAdsRecheck:${session.userId}`, RATE_LIMITS.adminAction);
+    const limit = await checkRateLimit(`metaAdsRecheck:${session.userId}`, RATE_LIMITS.adminAction);
     if (!limit.success) return rateLimitResponse(limit);
     return NextResponse.json({ change: await recheckAdChange(actorOf(session), id) }, { headers: NO_STORE });
   } catch (error) {

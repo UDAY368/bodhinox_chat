@@ -17,7 +17,7 @@ import { jsonBody, lifecycleErrorResponse, NO_STORE, staffContext, writeLimit } 
 export async function POST(request: Request) {
   try {
     const ctx = await staffContext('admin');
-    const limited = writeLimit(ctx);
+    const limited = await writeLimit(ctx);
     if (limited) return limited;
     const input = parseCounterSale(await jsonBody(request));
     const sale = await createCounterSale(ctx, input);

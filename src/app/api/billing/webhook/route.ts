@@ -43,7 +43,7 @@ export async function POST(request: Request) {
   const provider = getBillingProvider();
   // Billing off: nothing listens here.
   if (!provider) return new Response('Not found', { status: 404 });
-  const limit = checkRateLimit('billingWebhook', WEBHOOK_LIMIT);
+  const limit = await checkRateLimit('billingWebhook', WEBHOOK_LIMIT);
   if (!limit.success) return rateLimitResponse(limit);
   const raw = await readBody(request);
   if (raw === null) return new Response('Invalid body', { status: 400 });

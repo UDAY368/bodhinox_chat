@@ -27,7 +27,7 @@ export async function GET() {
 export async function PUT(request: Request) {
   try {
     const ctx = await requireRole('viewer');
-    const limit = checkRateLimit(`inbox:favourites:${ctx.userId}`, LABEL_WRITE_LIMIT);
+    const limit = await checkRateLimit(`inbox:favourites:${ctx.userId}`, LABEL_WRITE_LIMIT);
     if (!limit.success) return rateLimitResponse(limit);
     const input = parseFavouriteInput(await request.json().catch(() => null));
     await setFavourite(tenantOf(ctx), input.conversationId, input.favourite);

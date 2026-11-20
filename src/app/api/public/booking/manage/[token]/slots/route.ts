@@ -16,7 +16,7 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: Request, { params }: { params: Promise<{ token: string }> }) {
-  if (!burstAllowed('manage', request, RATE_LIMITS.bookingManage)) return tooMany();
+  if (!(await burstAllowed('manage', request, RATE_LIMITS.bookingManage))) return tooMany();
   const query = new URL(request.url).searchParams;
   const from = query.get('from') || undefined;
   const days = Number(query.get('days') ?? PUBLIC_SLOT_DAYS_MAX);

@@ -82,7 +82,7 @@ const text = (value: unknown, max: number): string | null =>
 export async function PUT(request: Request) {
   try {
     const ctx = await requireRole('admin');
-    const limit = checkRateLimit(`razorpaySettings:${ctx.userId}`, RATE_LIMITS.adminAction);
+    const limit = await checkRateLimit(`razorpaySettings:${ctx.userId}`, RATE_LIMITS.adminAction);
     if (!limit.success) return rateLimitResponse(limit);
     let input: Record<string, unknown>;
     try {
@@ -123,7 +123,7 @@ export async function PUT(request: Request) {
 export async function DELETE() {
   try {
     const ctx = await requireRole('admin');
-    const limit = checkRateLimit(`razorpaySettings:${ctx.userId}`, RATE_LIMITS.adminAction);
+    const limit = await checkRateLimit(`razorpaySettings:${ctx.userId}`, RATE_LIMITS.adminAction);
     if (!limit.success) return rateLimitResponse(limit);
     const removed = await withTenant(tenantOf(ctx), (tx) => deletePaymentProvider(tx, ctx.accountId));
     return NextResponse.json({ removed }, { headers });

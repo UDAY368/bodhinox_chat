@@ -32,7 +32,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const ctx = await staffContext('agent');
-    const limited = writeLimit(ctx);
+    const limited = await writeLimit(ctx);
     if (limited) return limited;
     const input = parseManualOrder(await jsonBody(request));
     const { orderId, created } = await createManualOrder(ctx, input);

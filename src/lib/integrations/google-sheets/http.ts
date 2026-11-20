@@ -20,7 +20,7 @@ export async function sheetsAdminMutation(request: Request): Promise<AuthContext
   const session = await requireSession(request);
   await assertMutation(request, session);
   if (!hasMinRole(session.role, 'admin')) throw new ForbiddenError('Connecting Google Sheets requires an admin role');
-  const limit = checkRateLimit(`googleSheets:${session.userId}`, RATE_LIMITS.adminAction);
+  const limit = await checkRateLimit(`googleSheets:${session.userId}`, RATE_LIMITS.adminAction);
   if (!limit.success) return rateLimitResponse(limit);
   return session;
 }

@@ -24,7 +24,7 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const ctx = await requireRole('admin');
-    const limit = checkRateLimit(`routingRules:${ctx.userId}`, RATE_LIMITS.send);
+    const limit = await checkRateLimit(`routingRules:${ctx.userId}`, RATE_LIMITS.send);
     if (!limit.success) return rateLimitResponse(limit);
     const input = parseRoutingRuleInput(await request.json().catch(() => null));
     return NextResponse.json({ rule: await createRoutingRule(tenantOf(ctx), input) }, { status: 201, headers: noStore });

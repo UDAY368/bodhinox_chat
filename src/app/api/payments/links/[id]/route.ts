@@ -41,7 +41,7 @@ export async function POST(request: Request, context: Context) {
   try {
     const ctx = await requireRole('agent');
     const { id } = await context.params;
-    const limit = checkRateLimit(`paymentLinkAction:${ctx.userId}`, ACTION_LIMIT);
+    const limit = await checkRateLimit(`paymentLinkAction:${ctx.userId}`, ACTION_LIMIT);
     if (!limit.success) return rateLimitResponse(limit);
     let input: Record<string, unknown>;
     try {

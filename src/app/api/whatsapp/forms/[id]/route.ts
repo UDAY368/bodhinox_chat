@@ -29,7 +29,7 @@ export async function PUT(request: Request, context: Context) {
   try {
     const { id } = await context.params;
     const ctx = await requireRole('admin');
-    const limit = checkRateLimit(`forms:write:${ctx.userId}`, RATE_LIMITS.adminAction);
+    const limit = await checkRateLimit(`forms:write:${ctx.userId}`, RATE_LIMITS.adminAction);
     if (!limit.success) return rateLimitResponse(limit);
     const input = parseFormInput(await request.json().catch(() => null), true);
     return NextResponse.json({ form: await updateForm(tenantOf(ctx), id, input) });
@@ -42,7 +42,7 @@ export async function DELETE(_request: Request, context: Context) {
   try {
     const { id } = await context.params;
     const ctx = await requireRole('admin');
-    const limit = checkRateLimit(`forms:write:${ctx.userId}`, RATE_LIMITS.adminAction);
+    const limit = await checkRateLimit(`forms:write:${ctx.userId}`, RATE_LIMITS.adminAction);
     if (!limit.success) return rateLimitResponse(limit);
     await deleteForm(tenantOf(ctx), id);
     return NextResponse.json({ success: true });

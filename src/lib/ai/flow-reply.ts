@@ -246,7 +246,7 @@ export async function runFlowAiReply(args: RunFlowAiReplyArgs): Promise<FlowAiOu
       }
 
       // Shared with the inbox auto-reply: bounds a burst on the account's key.
-      if (!checkRateLimit(`ai-autoreply:${accountId}`, RATE_LIMITS.aiAutoReplyAccount).success) return unavailable('rate_limited')
+      if (!(await checkRateLimit(`ai-autoreply:${accountId}`, RATE_LIMITS.aiAutoReplyAccount)).success) return unavailable('rate_limited')
       // The plan's AI messages and tokens, and the workspace's own monthly
       // token cap, held for this turn: the turn's intent key is its source
       // event, so a retried turn never meters twice. Over either, the model is

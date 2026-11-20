@@ -15,7 +15,7 @@ import { checkRateLimit, rateLimitResponse, RATE_LIMITS } from '@/lib/rate-limit
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const ctx = await requireRole('admin');
-    const limit = checkRateLimit(`support-grants:${ctx.userId}`, RATE_LIMITS.adminAction);
+    const limit = await checkRateLimit(`support-grants:${ctx.userId}`, RATE_LIMITS.adminAction);
     if (!limit.success) return rateLimitResponse(limit);
     const decision = parseGrantDecision(await request.json().catch(() => null));
     if (!decision) return NextResponse.json({ error: 'invalid', code: 'invalid' }, { status: 400 });

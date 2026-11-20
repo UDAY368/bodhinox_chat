@@ -19,7 +19,7 @@ export async function GET(request: Request) {
   try {
     if (!metaAdsConfig()) return notEnabledResponse();
     const session = await requireSession(request);
-    const limit = checkRateLimit(`metaAdsTargeting:${session.userId}`, SEARCH_LIMIT);
+    const limit = await checkRateLimit(`metaAdsTargeting:${session.userId}`, SEARCH_LIMIT);
     if (!limit.success) return rateLimitResponse(limit);
     const params = new URL(request.url).searchParams;
     const type = params.get('type') as TargetingSearchType;

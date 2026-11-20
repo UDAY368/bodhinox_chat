@@ -38,7 +38,7 @@ export async function POST(request: Request) {
   try {
     if (!instagramEnabled()) return off();
     const ctx = await requireRole('agent');
-    const limit = checkRateLimit(`igTemplates:${ctx.userId}`, RATE_LIMITS.send);
+    const limit = await checkRateLimit(`igTemplates:${ctx.userId}`, RATE_LIMITS.send);
     if (!limit.success) return rateLimitResponse(limit);
     const template = await createInstagramTemplate({ ...tenantOf(ctx), userId: ctx.userId }, await request.json().catch(() => null));
     return NextResponse.json({ template }, { status: 201, headers });

@@ -76,8 +76,8 @@ function authBlocked(ip: string): { reset: number } | null {
 }
 
 /** Charges one failed authentication to the IP; a 429 once its budget is spent, else the usual 401. */
-function authFailed(ip: string): Response {
-  const result = checkRateLimit(`shipmentTrackingAuthFail:${ip}`, AUTH_FAIL_LIMIT);
+async function authFailed(ip: string): Promise<Response> {
+  const result = await checkRateLimit(`shipmentTrackingAuthFail:${ip}`, AUTH_FAIL_LIMIT);
   if (result.success) return unauthorized();
   if (blockedUntil.size > 10_000) {
     const now = Date.now();
@@ -96,7 +96,7 @@ export async function POST(request: Request, context: { params: Promise<{ accoun
   const blocked = authBlocked(ip);
   if (blocked) return rateLimitResponse({ success: false, remaining: 0, reset: blocked.reset, limit: AUTH_FAIL_LIMIT.limit });
   const token = request.headers.get('x-api-key')?.trim() ?? '';
-  if (!UUID.test(accountId) || !TOKEN.test(token)) return authFailed(ip);
+  if (!UUID.test(accountId) || !TOKEN.test(token)) return await authFailed(ip);
 
   let matches: boolean;
   try {
@@ -104,8 +104,8 @@ export async function POST(request: Request, context: { params: Promise<{ accoun
   } catch {
     return new Response('Unavailable', { status: 500, headers: NO_STORE });
   }
-  if (!matches) return authFailed(ip);
-  const limit = checkRateLimit(`shipmentTracking:${accountId}`, WEBHOOK_LIMIT);
+  if (!matches) return await authFailed(ip);
+  const limit = await checkRateLimit(`shipmentTracking:${accountId}`, WEBHOOK_LIMIT);
   if (!limit.success) return rateLimitResponse(limit);
   // Kill switch: acknowledged, nothing queued (no provider call can follow).
   if (shiprocketDisabled()) return ok();

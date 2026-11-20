@@ -10,7 +10,7 @@ export async function PATCH(request: Request, context: IdContext) {
     const { id } = await context.params;
     const caller = await staffCaller(request, { min: 'admin', mutation: true });
     if (!isId(id)) throw new CatalogueError('not_found');
-    const limited = mutationLimit(caller);
+    const limited = await mutationLimit(caller);
     if (limited) return limited;
     const body = await readJson(request);
     return json({ category: await inTenant(caller, (tx) => updateCategory(tx, caller.accountId, caller.userId, id, body)) });

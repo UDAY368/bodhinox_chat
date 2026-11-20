@@ -27,9 +27,9 @@ export async function POST(_request: Request, { params }: Params) {
   try {
     const ctx = await requireRole('agent');
     await requirePermission(tenantOf(ctx), 'ai.assess');
-    const user = checkRateLimit(`ai-assist-user:${ctx.userId}`, RATE_LIMITS.aiAssistUser);
+    const user = await checkRateLimit(`ai-assist-user:${ctx.userId}`, RATE_LIMITS.aiAssistUser);
     if (!user.success) return rateLimitResponse(user);
-    const account = checkRateLimit(`ai-assist-account:${ctx.accountId}`, RATE_LIMITS.aiAssistAccount);
+    const account = await checkRateLimit(`ai-assist-account:${ctx.accountId}`, RATE_LIMITS.aiAssistAccount);
     if (!account.success) return rateLimitResponse(account);
     const { id } = await params;
     if (!UUID.test(id)) return NextResponse.json({ error: t('common.notFound') }, { status: 404 });

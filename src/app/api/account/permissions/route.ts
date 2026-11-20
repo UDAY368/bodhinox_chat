@@ -46,7 +46,7 @@ export async function GET() {
 export async function PUT(request: Request) {
   try {
     const ctx = await requireRole('admin');
-    const limit = checkRateLimit(`permissions:${ctx.userId}`, RATE_LIMITS.adminAction);
+    const limit = await checkRateLimit(`permissions:${ctx.userId}`, RATE_LIMITS.adminAction);
     if (!limit.success) return rateLimitResponse(limit);
     const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
     const role = body?.role;

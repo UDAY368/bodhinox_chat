@@ -31,7 +31,7 @@ export async function POST(request: Request) {
     const session = await requireSession(request);
     await assertMutation(request, session);
     if (!hasMinRole(session.role, 'admin')) throw new ForbiddenError();
-    const limit = checkRateLimit(`analyticsReportSchedules:${session.userId}`, { limit: 10, windowMs: 60_000 });
+    const limit = await checkRateLimit(`analyticsReportSchedules:${session.userId}`, { limit: 10, windowMs: 60_000 });
     if (!limit.success) return rateLimitResponse(limit);
     const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
     try {

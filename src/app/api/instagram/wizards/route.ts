@@ -44,7 +44,7 @@ export async function POST(request: Request) {
     const session = await requireSession(request);
     await assertMutation(request, session);
     if (!hasMinRole(session.role, 'agent')) throw new InstagramError('forbidden');
-    const limited = checkRateLimit(`instagram:wizards:${session.userId}`, WIZARD_LIMIT);
+    const limited = await checkRateLimit(`instagram:wizards:${session.userId}`, WIZARD_LIMIT);
     if (!limited.success) return rateLimitResponse(limited);
 
     const body = await readJson(request);

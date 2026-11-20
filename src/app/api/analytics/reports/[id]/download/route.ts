@@ -21,7 +21,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   try {
     const session = await requireSession(request);
     if (!hasMinRole(session.role, 'admin')) throw new ForbiddenError();
-    const limit = checkRateLimit(`analyticsReportDownload:${session.userId}`, { limit: 30, windowMs: 60_000 });
+    const limit = await checkRateLimit(`analyticsReportDownload:${session.userId}`, { limit: 30, windowMs: 60_000 });
     if (!limit.success) return rateLimitResponse(limit);
     const { id } = await params;
     let opened;

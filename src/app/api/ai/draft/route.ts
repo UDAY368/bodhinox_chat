@@ -52,10 +52,10 @@ export async function POST(request: Request) {
     // Workspaces can turn the AI assistant (drafts included) off per role.
     await requirePermission({ accountId, userId, role }, 'ai.assist');
 
-    const userLimit = checkRateLimit(`ai-draft:${userId}`, RATE_LIMITS.aiDraft);
+    const userLimit = await checkRateLimit(`ai-draft:${userId}`, RATE_LIMITS.aiDraft);
     if (!userLimit.success) return rateLimitResponse(userLimit);
     // Also cap the whole team's draws on the shared BYO provider key.
-    const accountLimit = checkRateLimit(
+    const accountLimit = await checkRateLimit(
       `ai-draft-acct:${accountId}`,
       RATE_LIMITS.aiDraftAccount
     );

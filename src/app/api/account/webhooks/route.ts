@@ -27,7 +27,7 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const ctx = await requireRole('admin');
-    const limit = checkRateLimit(`admin:webhookCreate:${ctx.userId}`, RATE_LIMITS.adminAction);
+    const limit = await checkRateLimit(`admin:webhookCreate:${ctx.userId}`, RATE_LIMITS.adminAction);
     if (!limit.success) return rateLimitResponse(limit);
     const created = await createWebhook(ctx.db, ctx.accountId, ctx.userId, await request.json().catch(() => null));
     return NextResponse.json({ webhook: created }, { status: 201 });

@@ -24,7 +24,7 @@ export async function POST(request: Request, context: Context) {
     const ctx = await requireRole('admin');
     const t = getT('Api.metaAds');
     if (!metaAdsConfig()) return NextResponse.json({ error: 'meta_ads_not_enabled', message: t('notEnabled') }, { status: 503, headers: NO_STORE });
-    const limit = checkRateLimit(`metaCapi:resolve:${ctx.userId}`, RATE_LIMITS.adminAction);
+    const limit = await checkRateLimit(`metaCapi:resolve:${ctx.userId}`, RATE_LIMITS.adminAction);
     if (!limit.success) return rateLimitResponse(limit);
     const resolution = parseResolution(await request.json().catch(() => null));
     if (!resolution) return NextResponse.json({ error: t('invalidResolution'), code: 'resolution' }, { status: 400, headers: NO_STORE });

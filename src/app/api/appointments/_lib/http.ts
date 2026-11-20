@@ -54,8 +54,8 @@ export function inTenant<T>(caller: StaffCaller, work: (tx: TenantTransaction) =
 }
 
 /** Per-workspace burst limit for staff mutations; null when allowed. */
-export function mutationLimit(caller: StaffCaller): NextResponse | null {
-  const result = checkRateLimit(`appointments:${caller.accountId}:${caller.userId}`, { limit: 120, windowMs: 60_000 });
+export async function mutationLimit(caller: StaffCaller): Promise<NextResponse | null> {
+  const result = await checkRateLimit(`appointments:${caller.accountId}:${caller.userId}`, { limit: 120, windowMs: 60_000 });
   return result.success ? null : rateLimitResponse(result);
 }
 
@@ -126,7 +126,7 @@ export function configCollection<T>(spec: {
       try {
         if (!spec.create) return json({ error: 'Method not allowed' }, 405);
         const caller = await staffCaller(request, { min: 'admin', mutation: true, permission: 'appointments.settings' });
-        const limited = mutationLimit(caller);
+        const limited = await mutationLimit(caller);
         if (limited) return limited;
         const body = await readJson(request);
         const create = spec.create;
@@ -156,7 +156,7 @@ export function configItem<T>(spec: {
       try {
         if (!spec.update) return json({ error: 'Method not allowed' }, 405);
         const { id, caller } = await guard(request, context);
-        const limited = mutationLimit(caller);
+        const limited = await mutationLimit(caller);
         if (limited) return limited;
         const body = await readJson(request);
         const update = spec.update;
@@ -170,7 +170,7 @@ export function configItem<T>(spec: {
       try {
         if (!spec.remove) return json({ error: 'Method not allowed' }, 405);
         const { id, caller } = await guard(request, context);
-        const limited = mutationLimit(caller);
+        const limited = await mutationLimit(caller);
         if (limited) return limited;
         const remove = spec.remove;
         await inTenant(caller, (tx) => remove(tx, caller.accountId, caller.userId, id));

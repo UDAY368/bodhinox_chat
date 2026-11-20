@@ -271,7 +271,7 @@ export async function dispatchInboundToAiReply(
     // inbound is retried by a delayed job after the window (eligible()
     // drops it then if a newer message or a person took over); after
     // MAX_RATE_LIMIT_RETRIES it is left for a person, as before.
-    const acctLimit = checkRateLimit(
+    const acctLimit = await checkRateLimit(
       `ai-autoreply:${accountId}`,
       RATE_LIMITS.aiAutoReplyAccount,
     )

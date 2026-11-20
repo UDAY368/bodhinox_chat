@@ -18,7 +18,7 @@ export async function POST(request: Request, context: Context) {
     const { id } = await context.params;
     if (!UUID.test(id)) return shipmentErrorResponse('not_found', 404);
     const ctx = await requireRole('agent');
-    const limited = writeLimit('shipments', ctx.userId);
+    const limited = await writeLimit('shipments', ctx.userId);
     if (limited) return limited;
     // Split shipments: ?shipment_id= names one of the order's shipments (default: the newest live one).
     const shipmentId = new URL(request.url).searchParams.get('shipment_id');

@@ -30,7 +30,7 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const ctx = await requireRole('agent');
-    const limit = checkRateLimit(`commerce:quote:${ctx.userId}`, RATE_LIMITS.send);
+    const limit = await checkRateLimit(`commerce:quote:${ctx.userId}`, RATE_LIMITS.send);
     if (!limit.success) return rateLimitResponse(limit);
     const input = parseQuoteInput(await request.json().catch(() => null));
     const quote = await createQuote({ ...tenantOf(ctx), userId: ctx.userId }, input);

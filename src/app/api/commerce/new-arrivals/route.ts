@@ -18,7 +18,7 @@ export async function POST(request: Request) {
   try {
     const ctx = await requireRole('agent');
     await requirePermission(tenantOf(ctx), 'campaigns.send');
-    const limit = checkRateLimit(`commerce:new-arrivals:${ctx.userId}`, RATE_LIMITS.adminAction);
+    const limit = await checkRateLimit(`commerce:new-arrivals:${ctx.userId}`, RATE_LIMITS.adminAction);
     if (!limit.success) return rateLimitResponse(limit);
     if (!request.headers.get('content-type')?.includes('application/json')) return NextResponse.json({ error: 'JSON content required' }, { status: 400 });
     const body: unknown = await request.json().catch(() => null);

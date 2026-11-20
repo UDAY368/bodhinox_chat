@@ -23,7 +23,7 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const ctx = await requireRole('admin');
-    const limit = checkRateLimit(`forms:write:${ctx.userId}`, RATE_LIMITS.adminAction);
+    const limit = await checkRateLimit(`forms:write:${ctx.userId}`, RATE_LIMITS.adminAction);
     if (!limit.success) return rateLimitResponse(limit);
     const input = parseFormInput(await request.json().catch(() => null), false);
     return NextResponse.json({ form: await createForm(tenantOf(ctx), input) }, { status: 201 });

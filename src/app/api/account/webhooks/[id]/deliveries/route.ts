@@ -22,7 +22,7 @@ export async function GET(
 ) {
   try {
     const ctx = await requireRole('admin');
-    const limit = checkRateLimit(`admin:webhookDeliveries:${ctx.userId}`, RATE_LIMITS.send);
+    const limit = await checkRateLimit(`admin:webhookDeliveries:${ctx.userId}`, RATE_LIMITS.send);
     if (!limit.success) return rateLimitResponse(limit);
     const { id } = await params;
     const deliveries = await listWebhookDeliveries(tenantOf(ctx), id);

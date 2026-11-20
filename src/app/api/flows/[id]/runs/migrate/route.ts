@@ -23,7 +23,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   try {
     const caller = await requireFlowMutation(request);
     await requirePermission(tenantOf(caller), 'flows.publish');
-    const limit = checkRateLimit(`flows-migrate:${caller.userId}`, { limit: 10, windowMs: 60_000 });
+    const limit = await checkRateLimit(`flows-migrate:${caller.userId}`, { limit: 10, windowMs: 60_000 });
     if (!limit.success) return rateLimitResponse(limit);
     if (!FLOW_ID.test(id)) return NextResponse.json({ error: t('common.notFound') }, { status: 404 });
     const body = (await request.json().catch(() => null)) as { from_version_id?: unknown } | null;

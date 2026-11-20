@@ -31,7 +31,7 @@ export async function PATCH(request: Request, context: Context) {
   try {
     const { id } = await context.params;
     const ctx = await requireRole('admin');
-    const limit = checkRateLimit(`catalogs:write:${ctx.userId}`, RATE_LIMITS.adminAction);
+    const limit = await checkRateLimit(`catalogs:write:${ctx.userId}`, RATE_LIMITS.adminAction);
     if (!limit.success) return rateLimitResponse(limit);
     const patch = parseSettingsInput(await request.json().catch(() => null));
     return NextResponse.json({ catalog: await updateCatalogSettings(tenantOf(ctx), id, patch) });
@@ -44,7 +44,7 @@ export async function DELETE(_request: Request, context: Context) {
   try {
     const { id } = await context.params;
     const ctx = await requireRole('admin');
-    const limit = checkRateLimit(`catalogs:write:${ctx.userId}`, RATE_LIMITS.adminAction);
+    const limit = await checkRateLimit(`catalogs:write:${ctx.userId}`, RATE_LIMITS.adminAction);
     if (!limit.success) return rateLimitResponse(limit);
     const deleted = await withTenant(tenantOf(ctx), (tx) => deleteCatalog(tx, ctx.accountId, id));
     if (!deleted) throw new CatalogError('not_found');

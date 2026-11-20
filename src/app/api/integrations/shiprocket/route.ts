@@ -35,7 +35,7 @@ const DIM_KEYS = ['length_cm', 'breadth_cm', 'height_cm', 'weight_grams'] as con
 export async function PUT(request: Request) {
   try {
     const ctx = await requireRole('admin');
-    const limited = writeLimit('shiprocketSettings', ctx.userId);
+    const limited = await writeLimit('shiprocketSettings', ctx.userId);
     if (limited) return limited;
     const body = await jsonObject(request);
     if (!body) return shipmentErrorResponse('invalid', 400);
@@ -62,7 +62,7 @@ export async function PUT(request: Request) {
 export async function DELETE() {
   try {
     const ctx = await requireRole('admin');
-    const limited = writeLimit('shiprocketSettings', ctx.userId);
+    const limited = await writeLimit('shiprocketSettings', ctx.userId);
     if (limited) return limited;
     await disconnectCourier(actorOf(ctx));
     return NextResponse.json({ ok: true }, { headers: NO_STORE });

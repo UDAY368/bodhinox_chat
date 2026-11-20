@@ -33,7 +33,7 @@ export async function GET(request: Request) {
     const session = await requireSession(request);
     const view = new URL(request.url).searchParams.get('view') ?? 'pending';
     if (view !== 'pending' && view !== 'history') return instagramErrorResponse('invalid_request');
-    const limited = checkRateLimit(`instagram:aiCommentsRead:${session.userId}`, READ_LIMIT);
+    const limited = await checkRateLimit(`instagram:aiCommentsRead:${session.userId}`, READ_LIMIT);
     if (!limited.success) return rateLimitResponse(limited);
     const actor = actorOf(session);
     const [settings, items] = await Promise.all([getAiCommentSettings(actor), listAiComments(actor, view)]);

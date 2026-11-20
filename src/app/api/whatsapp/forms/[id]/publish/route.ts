@@ -15,7 +15,7 @@ export async function POST(_request: Request, context: { params: Promise<{ id: s
   try {
     const { id } = await context.params;
     const ctx = await requireRole('admin');
-    const limit = checkRateLimit(`forms:publish:${ctx.userId}`, RATE_LIMITS.adminAction);
+    const limit = await checkRateLimit(`forms:publish:${ctx.userId}`, RATE_LIMITS.adminAction);
     if (!limit.success) return rateLimitResponse(limit);
     return NextResponse.json({ form: await publishForm(tenantOf(ctx), id) });
   } catch (error) {

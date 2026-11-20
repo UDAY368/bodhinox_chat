@@ -27,7 +27,7 @@ export async function GET(request: Request, context: Context) {
     if (!hasMinRole(session.role, 'admin')) return instagramErrorResponse('forbidden');
     const { id } = await context.params;
     if (!isUuid(id)) return instagramErrorResponse('not_found');
-    const limited = checkRateLimit(`instagram:posts:${session.userId}`, POSTS_LIMIT);
+    const limited = await checkRateLimit(`instagram:posts:${session.userId}`, POSTS_LIMIT);
     if (!limited.success) return rateLimitResponse(limited);
     return NextResponse.json({ posts: await listRecentPosts(actorOf(session), id) }, { headers: NO_STORE });
   } catch (error) {

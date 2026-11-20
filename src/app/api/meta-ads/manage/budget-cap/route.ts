@@ -20,7 +20,7 @@ export async function PUT(request: Request) {
     const session = await requireSession(request);
     await assertMutation(request, session);
     if (!hasMinRole(session.role, 'admin')) return metaAdsErrorResponse('forbidden');
-    const limit = checkRateLimit(`metaAdsBudgetCap:${session.userId}`, RATE_LIMITS.adminAction);
+    const limit = await checkRateLimit(`metaAdsBudgetCap:${session.userId}`, RATE_LIMITS.adminAction);
     if (!limit.success) return rateLimitResponse(limit);
     const cap = parseBudgetCap(await request.json().catch(() => null));
     if (cap === undefined) return metaAdsErrorResponse('invalid_request');

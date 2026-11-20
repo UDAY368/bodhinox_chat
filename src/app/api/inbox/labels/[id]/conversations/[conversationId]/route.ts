@@ -16,7 +16,7 @@ async function apply(on: boolean, { params }: Params) {
   try {
     const { id, conversationId } = await params;
     const ctx = await requireRole('agent');
-    const limit = checkRateLimit(`inbox:labels:${ctx.userId}`, LABEL_WRITE_LIMIT);
+    const limit = await checkRateLimit(`inbox:labels:${ctx.userId}`, LABEL_WRITE_LIMIT);
     if (!limit.success) return rateLimitResponse(limit);
     await setConversationLabel(tenantOf(ctx), id, conversationId, on);
     return NextResponse.json({ ok: true });

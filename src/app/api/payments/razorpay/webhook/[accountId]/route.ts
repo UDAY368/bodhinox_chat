@@ -55,7 +55,7 @@ export async function POST(request: Request, context: { params: Promise<{ accoun
   const { accountId } = await context.params;
   // An unknown account looks exactly like a bad signature.
   if (!UUID.test(accountId)) return unauthorized();
-  const limit = checkRateLimit(`razorpayWebhook:${accountId}`, WEBHOOK_LIMIT);
+  const limit = await checkRateLimit(`razorpayWebhook:${accountId}`, WEBHOOK_LIMIT);
   if (!limit.success) return rateLimitResponse(limit);
   const raw = await readBody(request);
   if (raw === null) return new Response('Invalid body', { status: 400 });

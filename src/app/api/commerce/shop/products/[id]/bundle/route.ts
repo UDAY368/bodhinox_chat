@@ -11,7 +11,7 @@ export async function PUT(request: Request, context: IdContext) {
   try {
     const { id } = await context.params;
     const caller = await staffCaller(request, { min: 'admin', mutation: true });
-    const limited = mutationLimit(caller);
+    const limited = await mutationLimit(caller);
     if (limited) return limited;
     const body = await readJson(request);
     return json({ product: await inTenant(caller, (tx) => setBundleParts(tx, caller.accountId, caller.userId, id, body)) });

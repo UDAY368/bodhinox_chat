@@ -18,7 +18,7 @@ export async function PUT(request: Request) {
   try {
     const ctx = await requireRole('admin')
     await requirePermission(tenantOf(ctx), 'ai.settings')
-    const limit = checkRateLimit(`ai-ratings:${ctx.userId}`, { limit: 120, windowMs: 60_000 })
+    const limit = await checkRateLimit(`ai-ratings:${ctx.userId}`, { limit: 120, windowMs: 60_000 })
     if (!limit.success) return rateLimitResponse(limit)
     const rating = parseRating(await request.json().catch(() => null))
     if (!rating) return NextResponse.json({ error: t('common.invalidRequestBody'), code: 'invalid_input' }, { status: 400 })

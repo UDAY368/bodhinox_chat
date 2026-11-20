@@ -27,7 +27,7 @@ export async function GET(request: Request) {
     const actor = actorOf(session);
     const accounts = await listLinkedAdAccounts(actor);
     if (new URL(request.url).searchParams.get('available') !== '1') return NextResponse.json({ accounts }, { headers: NO_STORE });
-    const limit = checkRateLimit(`metaAdsAccounts:${session.userId}`, RATE_LIMITS.adminAction);
+    const limit = await checkRateLimit(`metaAdsAccounts:${session.userId}`, RATE_LIMITS.adminAction);
     if (!limit.success) return rateLimitResponse(limit);
     return NextResponse.json({ accounts, available: await listAvailableAdAccounts(actor) }, { headers: NO_STORE });
   } catch (error) {
@@ -40,7 +40,7 @@ export async function POST(request: Request) {
     if (!metaAdsConfig()) return notEnabledResponse();
     const session = await requireSession(request);
     await assertMutation(request, session);
-    const limit = checkRateLimit(`metaAdsAccounts:${session.userId}`, RATE_LIMITS.adminAction);
+    const limit = await checkRateLimit(`metaAdsAccounts:${session.userId}`, RATE_LIMITS.adminAction);
     if (!limit.success) return rateLimitResponse(limit);
     const parsed = Body.safeParse(await request.json().catch(() => null));
     if (!parsed.success) return metaAdsErrorResponse('invalid_request');

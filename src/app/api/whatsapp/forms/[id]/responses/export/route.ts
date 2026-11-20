@@ -20,7 +20,7 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
     const ctx = await requireRole('admin');
     await requirePermission(tenantOf(ctx), 'contacts.export');
     await withTenant(tenantOf(ctx), (tx) => requireFeature(tx, ctx.accountId, 'contact_export'));
-    const limit = checkRateLimit(`admin:formResponsesExport:${ctx.userId}`, RATE_LIMITS.adminAction);
+    const limit = await checkRateLimit(`admin:formResponsesExport:${ctx.userId}`, RATE_LIMITS.adminAction);
     if (!limit.success) return rateLimitResponse(limit);
     const { csv } = await exportResponsesCsv(tenantOf(ctx), id);
     return new NextResponse(csv, {
