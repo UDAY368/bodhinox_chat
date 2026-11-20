@@ -20,6 +20,8 @@ const workerUrl = process.env.TEST_WORKER_DATABASE_URL || configured?.WORKER_DAT
 if (appUrl) process.env.DATABASE_URL = appUrl;
 if (workerUrl) process.env.WORKER_DATABASE_URL = workerUrl;
 process.env.APP_URL ??= 'https://app.example.test';
+// The origin the links are built with (CI sets APP_URL itself).
+const origin = new URL(process.env.APP_URL).origin;
 process.env.ENCRYPTION_KEY ??= 'a'.repeat(64);
 
 const account = randomUUID(), other = randomUUID(), owner = randomUUID();
@@ -103,8 +105,8 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('AI customer context on Post
 
   it('lists only products the public shop shows, with price, stock and link', async () => {
     const { value } = await counted(account, (tx) => buildCustomerContext(tx, account, quiet, 'Do you have a kurta in size L?'));
-    expect(value).toContain(`- Cotton Kurta: from ₹499.00, in stock, https://app.example.test/s/${handle}/p/${p.kurta}`);
-    expect(value).toContain(`- Silk Kurta: ₹1,299.00, out of stock, https://app.example.test/s/${handle}/p/${p.kurtaSoldOut}`);
+    expect(value).toContain(`- Cotton Kurta: from ₹499.00, in stock, ${origin}/s/${handle}/p/${p.kurta}`);
+    expect(value).toContain(`- Silk Kurta: ₹1,299.00, out of stock, ${origin}/s/${handle}/p/${p.kurtaSoldOut}`);
     for (const hidden of ['Draft Kurta', 'Archived Kurta', 'Hidden Kurta', 'Foreign Kurta', 'Unpriced Kurta']) expect(value).not.toContain(hidden);
     expect(value).not.toContain('orders');
   });
@@ -123,7 +125,7 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('AI customer context on Post
     const value = (await counted(account, (tx) => buildCustomerContext(tx, account, buyer, 'where is my order?'))).value!;
     const lines = value.split('\n');
     expect(lines[0]).toBe("This customer's latest orders (newest first):");
-    expect(lines[1]).toBe(`- Order ${o.newest.slice(0, 8).toUpperCase()}: confirmed, cash on delivery, total ₹1,299.00, tracking https://app.example.test/s/${handle}/track/${orderTrackingToken(account, o.newest)}`);
+    expect(lines[1]).toBe(`- Order ${o.newest.slice(0, 8).toUpperCase()}: confirmed, cash on delivery, total ₹1,299.00, tracking ${origin}/s/${handle}/track/${orderTrackingToken(account, o.newest)}`);
     expect(lines[2]).toContain(`- Order ${o.new.slice(0, 8).toUpperCase()}: shipped, paid, total ₹499.00`);
     expect(lines[3]).toContain('- Order #1001: delivered, paid');
     expect(lines).toHaveLength(4);
