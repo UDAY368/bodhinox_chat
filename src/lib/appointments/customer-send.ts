@@ -185,7 +185,7 @@ function linksFor(row: AppointmentRow, ctx: PlainContext): Pick<MessageContext, 
   return {
     manageLink,
     calendarLink: () => googleCalendarUrl({
-      uid: row.id, title: row.service_name, start: row.start_at, end: row.end_at, location: ctx.location, url: manageLink(),
+      title: row.service_name, start: row.start_at, end: row.end_at, location: ctx.location, url: manageLink(),
     }),
   };
 }
