@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+﻿import { randomUUID } from 'node:crypto';
 import { config } from 'dotenv';
 import pg from 'pg';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -91,14 +91,14 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('appointment reminder button
         VALUES($1,$2,$3,$4) RETURNING id`, [account, owner, contactId, ids.number])).rows[0].id;
     }
     await db.query(`INSERT INTO message_templates(account_id,user_id,name,language,status,category,body_text,header_type,header_content,buttons)
-      VALUES($1,$2,$3,'en_US','APPROVED','UTILITY','Reminder: your {{1}} appointment is on {{2}} ({{3}}). Tap Confirm, Reschedule or Cancel.',
+      VALUES($1,$2,$3,'en_US','APPROVED','Utility','Reminder: your {{1}} appointment is on {{2}} ({{3}}). Tap Confirm, Reschedule or Cancel.',
         'text','Appointment reminder',$4::jsonb)`,
     [account, owner, REMINDER_ACTIONS_TEMPLATE, JSON.stringify([{ type: 'QUICK_REPLY', text: 'Confirm' },
       { type: 'QUICK_REPLY', text: 'Reschedule' }, { type: 'QUICK_REPLY', text: 'Cancel' }])]);
     await db.query(`INSERT INTO whatsapp_forms(id,account_id,user_id,name,category,status,meta_flow_id,definition)
-      VALUES($1,$2,$3,'Intake','OTHER','published','flow-1','{"screens":[]}'::jsonb)`, [ids.form, account, owner]);
+      VALUES($1,$2,$3,'Intake','APPOINTMENT_BOOKING','published','flow-1','{"screens":[]}'::jsonb)`, [ids.form, account, owner]);
     await withTenant(asAdmin, async (tx) => {
-      await tx.$executeRaw`INSERT INTO appointment_settings(min_notice_minutes,horizon_days) VALUES(0,730)`;
+      await tx.$executeRaw`INSERT INTO appointment_settings(min_notice_minutes,horizon_days) VALUES(0,365)`;
       await tx.$executeRaw`INSERT INTO appointment_locations(id,name,timezone) VALUES(${ids.location}::uuid,'Clinic','Asia/Kolkata')`;
       await tx.$executeRaw`INSERT INTO appointment_services(id,name,mode,duration_minutes) VALUES(${ids.service}::uuid,'Consult','offline',30)`;
       await tx.$executeRaw`INSERT INTO appointment_staff(id,display_name,user_id) VALUES(${ids.s1}::uuid,'Dr One',${agent}::uuid)`;
