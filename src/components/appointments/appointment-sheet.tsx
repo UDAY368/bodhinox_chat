@@ -8,8 +8,10 @@
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { InlineError } from '@/components/ui/inline-error';
+import { PageLoading } from '@/components/ui/page-loading';
+import { DealSection, PaymentSection } from './sheet-connections';
 import { useLocale, useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -33,6 +35,9 @@ export interface AppointmentDetailDto {
     service_id: string; service_name: string; staff_id: string | null; location_id: string; contact_id: string | null;
     contact_name: string | null; conversation_id: string | null; source: 'staff' | 'public' | 'flow';
     price_minor: number | null; currency: string | null; meeting_url: string | null; cancel_reason: string | null;
+    payment_status?: 'none' | 'pending' | 'paid' | 'refunded';
+    deal_id?: string | null;
+    attendance_confirmed_at?: string | null;
     /** Present only for members with appointments.manage. */
     outcome_note?: string | null;
     feedback_score: number | null;
@@ -42,6 +47,12 @@ export interface AppointmentDetailDto {
   tasks: { id: string; kind: TaskKind; title: string; due_at: string | null; status: TaskStatus }[];
   /** The Zoom meeting (agents and above; null when there is none). */
   meeting?: AppointmentMeetingView | null;
+  /** The linked deal, and the campaign or ad the booking came from (names only). */
+  links?: {
+    deal: { id: string; title: string; status: string | null; stage_name: string | null } | null;
+    broadcast: { id: string; name: string } | null;
+    ad: { id: string; headline: string | null; source_type: string } | null;
+  };
 }
 
 /** The chip shown for each meeting sync state. */
@@ -195,25 +206,22 @@ export function AppointmentSheet({
   const fmt = (iso: string) => (a ? formatDateTime(iso, a.timezone, locale) : '');
   const price = a ? formatPrice(a.price_minor, a.currency, locale) : null;
   const meeting = detail?.meeting ?? null;
+  const links = detail?.links;
+  const changedHere = () => { onChanged(); void load(); };
   const evidence = meetingEvidence(meeting);
   const meetingNeedsAction = !!meeting && (meeting.sync_state === 'failed' || meeting.sync_state === 'unknown');
 
   return (
     <Sheet open={!!id} onOpenChange={(open) => { if (!open) onClose(); }}>
-      <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-lg">
+      <SheetContent side="right" size="md" className="overflow-y-auto">
         <SheetHeader>
           <SheetTitle>{a?.service_name ?? t('sheet.title')}</SheetTitle>
           {a && <SheetDescription>{fmt(a.start_at)} ({zoneLabel(new Date(a.start_at), a.timezone, locale)})</SheetDescription>}
         </SheetHeader>
 
         <div className="space-y-5 px-4 pb-6 text-sm">
-          {!detail && !failed && <Loader2 className="h-5 w-5 animate-spin text-primary" />}
-          {failed && (
-            <div className="flex items-center gap-2 text-destructive">
-              {t('loadFailed')}
-              <Button type="button" size="sm" variant="outline" onClick={() => void load()}>{t('retry')}</Button>
-            </div>
-          )}
+          {!detail && !failed && <PageLoading rows={4} />}
+          {failed && <InlineError message={t('loadFailed')} onRetry={() => void load()} />}
 
           {a && (
             <>
@@ -225,11 +233,19 @@ export function AppointmentSheet({
                   {a.contact_id
                     ? (<>
                       {a.contact_name || '—'}
-                      {a.conversation_id && (
-                        <Link className="ml-2 text-primary hover:underline" href={`/inbox?c=${a.conversation_id}`}>{t('sheet.openInbox')}</Link>
-                      )}
+                      <span className="mt-0.5 flex flex-wrap gap-x-3">
+                        <Link className="text-primary hover:underline" href={`/contacts/${a.contact_id}`}>{t('links.openContact')}</Link>
+                        {a.conversation_id && (
+                          <Link className="text-primary hover:underline" href={`/inbox?c=${a.conversation_id}`}>{t('links.openChat')}</Link>
+                        )}
+                      </span>
                     </>)
                     : <span className="text-muted-foreground">{t('schedule.awaitingContact')}</span>}
+                  {a.attendance_confirmed_at && (
+                    <span className="mt-0.5 block text-footnote text-emerald-600 dark:text-emerald-400" data-testid="customer-confirmed">
+                      {t('links.customerConfirmed')} · {fmt(a.attendance_confirmed_at)}
+                    </span>
+                  )}
                 </dd>
                 <dt className="text-muted-foreground">{t('sheet.practitioner')}</dt>
                 <dd>{staffName ?? t('schedule.pool')}</dd>
@@ -239,6 +255,11 @@ export function AppointmentSheet({
                 <dd>{fmt(a.start_at)} – {formatTime(a.end_at, a.timezone, locale)}</dd>
                 <dt className="text-muted-foreground">{t('sheet.source')}</dt>
                 <dd>{t(`source.${a.source}`)}</dd>
+                {(links?.broadcast || links?.ad) && (<><dt className="text-muted-foreground">{t('links.cameFrom')}</dt>
+                  <dd>
+                    {links.broadcast && <span className="block">{t('links.campaign', { name: links.broadcast.name })}</span>}
+                    {links.ad && <span className="block">{links.ad.headline ? t('links.ad', { name: links.ad.headline }) : t('links.adNoName')}</span>}
+                  </dd></>)}
                 {price && (<><dt className="text-muted-foreground">{t('services.price')}</dt><dd>{price}</dd></>)}
                 {a.meeting_url && (<><dt className="text-muted-foreground">{t('services.meetingUrl')}</dt>
                   <dd className="truncate"><a className="text-primary hover:underline" href={a.meeting_url} target="_blank" rel="noopener noreferrer">{a.meeting_url}</a></dd></>)}
@@ -273,6 +294,9 @@ export function AppointmentSheet({
               )}
 
               {a.status === 'held' && <p className="rounded-md bg-muted p-2 text-xs text-muted-foreground">{t('sheet.confirmHoldHelp')}</p>}
+
+              <PaymentSection appointment={a} abilities={abilities} locale={locale} onChanged={changedHere} />
+              <DealSection appointmentId={a.id} deal={links?.deal ?? null} canManage={abilities.manage} onChanged={changedHere} />
 
               {abilities.manage && a.status === 'confirmed' && mode === 'view' && (
                 <div className="flex flex-wrap gap-2">

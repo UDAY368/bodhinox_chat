@@ -1,18 +1,23 @@
 'use client';
 
-// Appointments (Phase 7): the schedule, the appointment sheet (?id=<id>, which
-// staff notifications link to) and the configuration tabs (?tab=). Every
-// member can read; agents and above book and change appointments
-// (appointments.manage); admins and above configure (appointments.settings).
-// The server enforces roles, permissions and the plan; the UI only hides what
-// a role can never do.
+// Appointments: one screen with four tabs (?tab=) — Schedule (Today / Week / List in ?view=, with what needs
+// attention and the follow-up tasks), Services, Team (staff and hours, holidays, locations) and Settings
+// (booking pages, messages and reminders, deals). The booking sheet opens from ?id=<id> (staff
+// notifications, payments and contact cards link there). Old ?tab= values (tasks, staff, locations,
+// exceptions, pages) are replaced by their new tab and scrolled to their section.
+// Every member can read; agents and above book and change appointments (appointments.manage); admins and
+// above configure (appointments.settings). The server enforces roles, permissions and the plan; the UI
+// only hides what a role can never do.
 
-import { Suspense, useCallback, useState } from 'react';
+import { Suspense, useCallback, useEffect, useState } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { Loader2 } from 'lucide-react';
+import { Clock, Link2 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 
 import { Button } from '@/components/ui/button';
+import { InlineError } from '@/components/ui/inline-error';
+import { PageHeader } from '@/components/ui/page-header';
+import { PageLoading } from '@/components/ui/page-loading';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { UpgradeBadge } from '@/components/ui/upgrade-badge';
 import { AppointmentSheet } from '@/components/appointments/appointment-sheet';
@@ -22,14 +27,15 @@ import { LocationsPanel } from '@/components/appointments/locations-panel';
 import { NewAppointmentDialog } from '@/components/appointments/new-appointment-dialog';
 import { ScheduleView } from '@/components/appointments/schedule-view';
 import { ServicesPanel } from '@/components/appointments/services-panel';
-import { SettingsPanel } from '@/components/appointments/settings-panel';
+import { DealStageCard, SettingsPanel } from '@/components/appointments/settings-panel';
 import { StaffPanel } from '@/components/appointments/staff-panel';
 import { TasksPanel } from '@/components/appointments/tasks-panel';
-import { abilitiesFor, useAppointmentConfig } from '@/components/appointments/shared';
+import {
+  abilitiesFor, APPOINTMENT_SCREEN_TABS, parseView, resolveTab, useAppointmentConfig,
+  type AppointmentScreenTab, type ScheduleViewName,
+} from '@/components/appointments/shared';
 import { useAuth } from '@/hooks/use-auth';
 
-const APPOINTMENT_TABS = ['schedule', 'tasks', 'services', 'staff', 'locations', 'exceptions', 'pages', 'settings'] as const;
-type Tab = (typeof APPOINTMENT_TABS)[number];
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export default function AppointmentsPage() {
@@ -37,6 +43,15 @@ export default function AppointmentsPage() {
     <Suspense fallback={null}>
       <AppointmentsContent />
     </Suspense>
+  );
+}
+
+function Section({ id, title, children }: { id: string; title: string; children: React.ReactNode }) {
+  return (
+    <section id={`appt-section-${id}`} className="scroll-mt-20 space-y-3">
+      <h2 className="text-title-3 font-semibold">{title}</h2>
+      {children}
+    </section>
   );
 }
 
@@ -52,79 +67,108 @@ function AppointmentsContent() {
   const [creating, setCreating] = useState(false);
   // A day and time clicked on the week calendar, offered first in the booking dialog.
   const [preferred, setPreferred] = useState<{ date: string; time: string } | null>(null);
+  const [phone, setPhone] = useState(false);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- the default view depends on the screen, known only in the browser
+    setPhone(window.matchMedia('(max-width: 699px)').matches);
+  }, []);
 
-  const rawTab = params.get('tab');
-  const tab: Tab = (APPOINTMENT_TABS as readonly string[]).includes(rawTab ?? '') ? (rawTab as Tab) : 'schedule';
+  const resolved = resolveTab(params.get('tab'));
+  const tab = resolved.tab;
+  const view = parseView(params.get('view'), phone);
   const rawId = params.get('id');
   const openId = rawId && UUID.test(rawId) ? rawId : null;
 
-  const navigate = useCallback((next: { tab?: Tab; id?: string | null }) => {
+  const navigate = useCallback((next: { tab?: AppointmentScreenTab; id?: string | null; view?: ScheduleViewName }) => {
     const q = new URLSearchParams(params.toString());
     if (next.tab) q.set('tab', next.tab);
+    if (next.view) q.set('view', next.view);
     if (next.id === null) q.delete('id');
     else if (next.id) q.set('id', next.id);
     router.replace(`${pathname}?${q.toString()}`, { scroll: false });
   }, [params, pathname, router]);
+
+  // An old ?tab= link: replace it with the new tab, then show the section it meant.
+  const legacySection = resolved.legacy ? resolved.section : null;
+  useEffect(() => {
+    if (!resolved.legacy) return;
+    navigate({ tab: resolved.tab });
+    if (legacySection) {
+      const timer = setTimeout(() => document.getElementById(`appt-section-${legacySection}`)?.scrollIntoView({ block: 'start' }), 300);
+      return () => clearTimeout(timer);
+    }
+  }, [resolved.legacy, resolved.tab, legacySection, navigate]);
 
   const changed = useCallback(() => setRefreshKey((k) => k + 1), []);
   const configChanged = useCallback(() => {
     void reload();
     changed();
   }, [reload, changed]);
+  const newBooking = () => { setPreferred(null); setCreating(true); };
 
   return (
     <div className="space-y-5">
-      <div>
-        <h1 className="text-[22px] font-bold tracking-tight text-foreground">{t('title')}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t('description')}</p>
-      </div>
+      <PageHeader
+        title={t('title')}
+        subtitle={t('description')}
+        primaryAction={config.state === 'ready' && abilities.manage
+          ? <Button type="button" onClick={newBooking}>{t('screen.newBooking')}</Button>
+          : undefined}
+        moreActions={config.state === 'ready' ? [
+          { label: t('screen.bookingLink'), icon: Link2, onSelect: () => navigate({ tab: 'settings' }) },
+          { label: t('tabs.services'), icon: Clock, onSelect: () => navigate({ tab: 'services' }) },
+        ] : undefined}
+      />
 
-      {config.state === 'loading' && <Loader2 className="h-5 w-5 animate-spin text-primary" />}
-      {config.state === 'failed' && (
-        <div className="flex items-center gap-2 text-sm text-destructive">
-          {t('loadFailed')}
-          <Button type="button" variant="outline" size="sm" onClick={() => void reload()}>{t('retry')}</Button>
-        </div>
-      )}
+      {config.state === 'loading' && <PageLoading />}
+      {config.state === 'failed' && <InlineError message={t('loadFailed')} onRetry={() => void reload()} />}
       {config.state === 'unavailable' && (
-        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border bg-card p-6 text-sm text-muted-foreground">
+        <div className="flex flex-wrap items-center gap-2 rounded-group border border-separator bg-grouped-surface p-6 text-sm text-muted-foreground">
           {t('upgrade')} <UpgradeBadge />
         </div>
       )}
 
       {config.state === 'ready' && (
         <>
-          {!abilities.manage && <p className="text-xs text-muted-foreground">{t('readOnly')}</p>}
-          <Tabs value={tab} onValueChange={(v) => navigate({ tab: v as Tab })}>
+          {!abilities.manage && <p className="text-footnote text-muted-foreground">{t('readOnly')}</p>}
+          <Tabs value={tab} onValueChange={(v) => navigate({ tab: v as AppointmentScreenTab })}>
             <TabsList className="max-w-full justify-start overflow-x-auto bg-muted [scrollbar-width:none] *:flex-none">
-              {APPOINTMENT_TABS.map((key) => <TabsTrigger key={key} value={key}>{t(`tabs.${key}`)}</TabsTrigger>)}
+              {APPOINTMENT_SCREEN_TABS.map((key) => <TabsTrigger key={key} value={key}>{t(`tabs.${key}`)}</TabsTrigger>)}
             </TabsList>
-            <TabsContent value="schedule" className="pt-4">
+            <TabsContent value="schedule" className="space-y-8 pt-4">
               <ScheduleView config={config.config} abilities={abilities} refreshKey={refreshKey}
-                onOpen={(id) => navigate({ id })} onNew={() => { setPreferred(null); setCreating(true); }}
-                onSlot={(date, time) => { setPreferred({ date, time }); setCreating(true); }}
-                onOpenTab={(next) => navigate({ tab: next })} />
-            </TabsContent>
-            <TabsContent value="tasks" className="pt-4">
-              <TasksPanel canManage={abilities.manage} onOpenAppointment={(id) => navigate({ id })} />
+                view={view} onViewChange={(v) => navigate({ view: v })} onChanged={changed}
+                onOpen={(id) => navigate({ id })} onNew={newBooking}
+                onSlot={(date, time) => { setPreferred({ date, time }); setCreating(true); }} />
+              <Section id="attention" title={t('screen.attention')}>
+                <TasksPanel canManage={abilities.manage} onOpenAppointment={(id) => navigate({ id })} />
+              </Section>
             </TabsContent>
             <TabsContent value="services" className="pt-4">
               <ServicesPanel config={config.config} canEdit={abilities.settings} onChanged={configChanged} />
             </TabsContent>
-            <TabsContent value="staff" className="pt-4">
-              <StaffPanel config={config.config} canEdit={abilities.settings} onChanged={configChanged} />
+            <TabsContent value="team" className="space-y-8 pt-4">
+              <Section id="staff" title={t('screen.teamStaff')}>
+                <StaffPanel config={config.config} canEdit={abilities.settings} onChanged={configChanged} />
+              </Section>
+              <Section id="exceptions" title={t('screen.teamHolidays')}>
+                <ExceptionsPanel config={config.config} canEdit={abilities.settings} />
+              </Section>
+              <Section id="locations" title={t('screen.teamLocations')}>
+                <LocationsPanel config={config.config} canEdit={abilities.settings} onChanged={configChanged} />
+              </Section>
             </TabsContent>
-            <TabsContent value="locations" className="pt-4">
-              <LocationsPanel config={config.config} canEdit={abilities.settings} onChanged={configChanged} />
-            </TabsContent>
-            <TabsContent value="exceptions" className="pt-4">
-              <ExceptionsPanel config={config.config} canEdit={abilities.settings} />
-            </TabsContent>
-            <TabsContent value="pages" className="pt-4">
-              <BookingPagesPanel config={config.config} canEdit={abilities.settings} />
-            </TabsContent>
-            <TabsContent value="settings" className="pt-4">
-              <SettingsPanel canEdit={abilities.settings} />
+            <TabsContent value="settings" className="space-y-8 pt-4">
+              <Section id="pages" title={t('screen.settingsPages')}>
+                <BookingPagesPanel config={config.config} canEdit={abilities.settings} />
+              </Section>
+              <Section id="messages" title={t('screen.settingsMessages')}>
+                <SettingsPanel canEdit={abilities.settings} />
+                {/* TODO(b3 WP-B): mount <ReminderTemplateCard canEdit={abilities.settings} /> from ./reminder-template-card here once WP-B's file lands. */}
+              </Section>
+              <Section id="deals" title={t('screen.settingsDeals')}>
+                <DealStageCard canEdit={abilities.settings} />
+              </Section>
             </TabsContent>
           </Tabs>
 

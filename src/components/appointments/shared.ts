@@ -275,3 +275,74 @@ export const FILTER_STATUSES: AppointmentStatus[] = ['confirmed', 'held', 'compl
 
 /** Unique local dates of a slot list, in order. */
 export const slotDates = (slots: { localDate: string }[]) => [...new Set(slots.map((s) => s.localDate))];
+
+// ------------------------------------------------------------ Batch 3: screen, views, payments, drag
+
+export const APPOINTMENT_SCREEN_TABS = ['schedule', 'services', 'team', 'settings'] as const;
+export type AppointmentScreenTab = (typeof APPOINTMENT_SCREEN_TABS)[number];
+/** Tabs from before the four-tab screen, and where each now lives. */
+const LEGACY_TABS: Record<string, { tab: AppointmentScreenTab; section: string }> = {
+  tasks: { tab: 'schedule', section: 'attention' },
+  staff: { tab: 'team', section: 'staff' },
+  locations: { tab: 'team', section: 'locations' },
+  exceptions: { tab: 'team', section: 'exceptions' },
+  pages: { tab: 'settings', section: 'pages' },
+};
+
+/** The tab for a ?tab= value, with the section an old value pointed at (pure; tested). */
+export function resolveTab(raw: string | null): { tab: AppointmentScreenTab; section: string | null; legacy: boolean } {
+  if (raw && (APPOINTMENT_SCREEN_TABS as readonly string[]).includes(raw)) return { tab: raw as AppointmentScreenTab, section: null, legacy: false };
+  const old = raw ? LEGACY_TABS[raw] : undefined;
+  if (old) return { tab: old.tab, section: old.section, legacy: true };
+  return { tab: 'schedule', section: null, legacy: false };
+}
+
+export const SCHEDULE_VIEWS = ['today', 'week', 'list'] as const;
+export type ScheduleViewName = (typeof SCHEDULE_VIEWS)[number];
+
+/** The view for a ?view= value; phones default to Today, wider screens to Week (pure; tested). */
+export function parseView(raw: string | null, phone: boolean): ScheduleViewName {
+  if (raw && (SCHEDULE_VIEWS as readonly string[]).includes(raw)) return raw as ScheduleViewName;
+  return phone ? 'today' : 'week';
+}
+
+export type PaymentStateKey = 'paid' | 'waiting' | 'refunded' | null;
+
+/** The payment words for a booking (pure; tested). */
+export function paymentStateKey(paymentStatus: string | null | undefined): PaymentStateKey {
+  if (paymentStatus === 'paid') return 'paid';
+  if (paymentStatus === 'pending') return 'waiting';
+  if (paymentStatus === 'refunded') return 'refunded';
+  return null;
+}
+
+/**
+ * Whether to offer "Refund this payment": the booking is cancelled, was paid
+ * online, and the payment still has money to give back. The refund itself is a
+ * separate, admin-only action through the payments refund dialog (pure; tested).
+ */
+export function refundOffered(
+  a: { status: string; payment_status?: string | null },
+  payment: { refundable_minor: number; status: string } | null,
+  canRefund: boolean,
+): boolean {
+  return canRefund && a.status === 'cancelled' && a.payment_status === 'paid'
+    && !!payment && payment.status === 'captured' && payment.refundable_minor > 0;
+}
+
+/**
+ * Week-grid drag: the new start minute for a pointer moved `deltaPx` from a
+ * booking that started at `startMinutes`, snapped to `step` minutes and kept
+ * inside the day [0, 24h - duration] (pure; tested).
+ */
+export function snapDrag(startMinutes: number, deltaPx: number, hourPx: number, step: number, duration: number): number {
+  const s = Math.max(1, step);
+  const snapped = Math.round((startMinutes + (deltaPx / hourPx) * 60) / s) * s;
+  return Math.min(Math.max(0, snapped), Math.max(0, 24 * 60 - duration));
+}
+
+/** The instant of a local day and minute in a zone, as ISO (null in a DST gap). */
+export function zonedStartIso(day: string, minutes: number, tz: string): string | null {
+  const hhmm = `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`;
+  return zonedWallToUtc(day, hhmm, tz)?.toISOString() ?? null;
+}

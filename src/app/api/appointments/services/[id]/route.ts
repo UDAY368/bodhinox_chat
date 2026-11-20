@@ -8,7 +8,7 @@ import { setServiceIntakeForm } from '@/lib/appointments/connections';
 import { AppointmentError } from '@/lib/appointments/types';
 import { configItem, isId, serviceJson } from '../../_lib/http';
 
-const handlers = configItem({
+const handlers = configItem<{ id: string; price_minor?: unknown }>({
   update: async (tx, accountId, userId, id, raw) => {
     if (!raw || typeof raw !== 'object' || Array.isArray(raw)) throw new AppointmentError('invalid');
     const { intake_form_id: formId, ...rest } = raw as Record<string, unknown>;
@@ -19,6 +19,6 @@ const handlers = configItem({
     const intake = hasForm ? await setServiceIntakeForm(tx, accountId, userId, id, formId as string | null) : undefined;
     return { ...(row ?? { id }), ...(intake !== undefined ? { intake_form_id: intake } : {}) };
   },
-  map: (row: { price_minor?: unknown }) => serviceJson(row),
+  map: (row) => serviceJson(row),
 });
 export const PATCH = handlers.PATCH;

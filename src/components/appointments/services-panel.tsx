@@ -8,7 +8,7 @@
  * needs a price above zero; the server also checks the store and Razorpay are
  * ready (field payment_required, detail price_required / payments_not_ready).
  */
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { useLocale, useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
@@ -73,6 +73,7 @@ export function ServicesPanel({ config, canEdit, onChanged }: { config: Appointm
   const [editing, setEditing] = useState<ServiceDto | 'new' | null>(null);
   const [draft, setDraft] = useState<ServiceDraft>(EMPTY_SERVICE);
   const [busy, setBusy] = useState(false);
+  const intake = useIntakeForms(canEdit);
   const set = <K extends keyof ServiceDraft>(k: K) => (v: ServiceDraft[K]) => setDraft((d) => ({ ...d, [k]: v }));
 
   const open = (s: ServiceDto | 'new') => {
@@ -133,6 +134,10 @@ export function ServicesPanel({ config, canEdit, onChanged }: { config: Appointm
               )}
             </div>
             {!s.archived_at && <OfferingsEditor service={s} config={config} canEdit={canEdit} onChanged={onChanged} />}
+            {!s.archived_at && canEdit && (
+              <IntakeFormPicker serviceId={s.id} value={(s as ServiceDto & { intake_form_id?: string | null }).intake_form_id ?? null}
+                intake={intake} onChanged={onChanged} />
+            )}
           </li>
         ))}
       </ul>
@@ -271,6 +276,60 @@ function OfferingsEditor({
         );
       })}
       {canEdit && <p className="text-[11px] text-muted-foreground">{t('services.offeringConflict')}</p>}
+    </div>
+  );
+}
+
+interface FormOption { id: string; name: string }
+
+interface IntakeForms { forms: FormOption[]; next: string | null; more: () => void }
+
+/** Published forms for the intake pickers, read once for the whole panel (25 per page). */
+function useIntakeForms(enabled: boolean): IntakeForms {
+  const [forms, setForms] = useState<FormOption[]>([]);
+  const [next, setNext] = useState<string | null>(null);
+  const page = useCallback(async (after: string | null) => {
+    const r = await apiRequest<{ forms: FormOption[]; next: string | null }>(`/api/appointments/intake-forms${after ? `?after=${after}` : ''}`);
+    if (!r.ok) return;
+    setForms((prev) => (after ? [...prev, ...r.data.forms] : r.data.forms));
+    setNext(r.data.next);
+  }, []);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- the first page is read once the panel is shown
+    if (enabled) void page(null);
+  }, [enabled, page]);
+  return { forms, next, more: () => { if (next) void page(next); } };
+}
+
+/** The intake form a service sends once a booking is confirmed. */
+function IntakeFormPicker({ serviceId, value, intake, onChanged }: { serviceId: string; value: string | null; intake: IntakeForms; onChanged: () => void }) {
+  const t = useTranslations('Appointments.intake');
+  const failureText = useFailureText();
+  const { forms, next } = intake;
+  const [busy, setBusy] = useState(false);
+
+  async function choose(formId: string) {
+    setBusy(true);
+    const r = await apiRequest(`/api/appointments/services/${serviceId}`, { method: 'PATCH', body: { intake_form_id: formId || null } });
+    setBusy(false);
+    if (!r.ok) return void toast.error(failureText(r));
+    toast.success(t('saved'));
+    onChanged();
+  }
+
+  const id = `svc-intake-${serviceId}`;
+  return (
+    <div className="mt-3 space-y-1">
+      <Label htmlFor={id}>{t('label')}</Label>
+      <div className="flex flex-wrap items-center gap-2">
+        <select id={id} className={`${selectClass} max-w-xs`} value={value ?? ''} disabled={busy} onChange={(e) => void choose(e.target.value)}>
+          <option value="">{t('none')}</option>
+          {value && !forms.some((f) => f.id === value) && <option value={value}>…</option>}
+          {forms.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
+        </select>
+        {next && <Button type="button" size="sm" variant="ghost" onClick={intake.more}>{t('loadMore')}</Button>}
+      </div>
+      <p className="text-[11px] text-muted-foreground">{t('help')}</p>
     </div>
   );
 }

@@ -8,9 +8,16 @@
  * Clicking an empty spot asks to book at that half hour (staff who can book).
  * The grid scrolls sideways inside its own box on narrow screens.
  */
-import { useMemo } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
+import { snapDrag } from './shared';
 import type { ScheduleItem } from './schedule-view';
+
+/** A proposed move from a drag or the keyboard: the booking, its new local day and start minute. */
+export interface GridMove { item: ScheduleItem; day: string; minutes: number }
+
+const LONG_PRESS_MS = 400;
+const DRAG_THRESHOLD_PX = 4;
 
 export interface HoursRow { staff_id: string | null; location_id: string; hours: Record<string, Array<{ start: string; end: string }>> | null }
 
@@ -36,6 +43,21 @@ export function zonedMinutes(iso: string, tz: string): number {
 }
 
 const weekdayOf = (day: string) => new Date(`${day}T12:00:00Z`).getUTCDay();
+
+/**
+ * Where a dragged booking lands: its day moved by whole columns (kept inside
+ * the shown week) and its start snapped to the step; null when nothing moved
+ * (pure; tested).
+ */
+export function dropTarget(
+  item: { day: string; start: number; end: number }, dx: number, dy: number, columnPx: number, days: string[], step: number, hourPx = HOUR_PX,
+): { day: string; minutes: number } | null {
+  const index = days.indexOf(item.day);
+  const shift = columnPx > 0 ? Math.round(dx / columnPx) : 0;
+  const day = days[Math.min(Math.max(0, index + shift), days.length - 1)] ?? item.day;
+  const minutes = snapDrag(item.start, dy, hourPx, step, item.end - item.start);
+  return day === item.day && minutes === item.start ? null : { day, minutes };
+}
 
 /** Side-by-side lanes for overlapping bookings of one day (pure; tested). */
 export function layoutLanes<T extends { id: string; start: number; end: number }>(items: T[]): { lane: Map<string, number>; lanes: number } {
@@ -79,7 +101,7 @@ export function gridFrame(hours: HoursRow[], locationId: string, bookings: Array
 }
 
 export function WeekGrid({
-  days, rows, hours, locationId, today, staffName, onOpen, onSlot,
+  days, rows, hours, locationId, today, staffName, onOpen, onSlot, onMove, stepFor, now,
 }: {
   days: string[];
   rows: ScheduleItem[];
@@ -90,9 +112,20 @@ export function WeekGrid({
   onOpen: (id: string) => void;
   /** Book at a picked half hour; absent for members who cannot book. */
   onSlot?: (day: string, hhmm: string) => void;
+  /** Ask to move a confirmed, not-yet-started booking (members who can reschedule). */
+  onMove?: (move: GridMove) => void;
+  /** The snap step in minutes for a booking's service. */
+  stepFor?: (item: ScheduleItem) => number;
+  /** "Now" in ms, so started bookings stay put. */
+  now?: number;
 }) {
+  // The booking being moved and how far, in px (pointer) or in steps and days (keyboard).
+  const [drag, setDrag] = useState<{ id: string; dx: number; dy: number } | null>(null);
+  const [keyMove, setKeyMove] = useState<{ id: string; minutes: number; dayShift: number } | null>(null);
+  const gridRef = useRef<HTMLDivElement>(null);
   const t = useTranslations('Sales.appointments');
   const tStatus = useTranslations('Appointments.status');
+  const tDrag = useTranslations('Appointments.drag');
   const locale = useLocale();
 
   const items = useMemo(() => rows.filter((r) => r.status !== 'cancelled' && r.status !== 'expired').map((r) => {
@@ -118,10 +151,96 @@ export function WeekGrid({
     onSlot(day, `${pad(Math.floor(minutes / 60))}:${pad(minutes % 60)}`);
   };
 
+  // ---------------------------------------------------------------- moving a booking
+  type Placed = (typeof items)[number];
+  const movable = (a: Placed) => !!onMove && a.status === 'confirmed' && new Date(a.start_at).getTime() > (now ?? 0);
+  const press = useRef<{ id: string; x: number; y: number; active: boolean; timer: ReturnType<typeof setTimeout> | null; columnPx: number } | null>(null);
+  const suppressClick = useRef(false);
+  const step = (a: Placed) => Math.max(5, stepFor?.(a) ?? 15);
+
+  // While a touch drag is active the page must not scroll (a passive listener cannot stop it).
+  useEffect(() => {
+    const el = gridRef.current;
+    if (!el) return;
+    const block = (event: TouchEvent) => { if (press.current?.active) event.preventDefault(); };
+    el.addEventListener('touchmove', block, { passive: false });
+    return () => el.removeEventListener('touchmove', block);
+  }, []);
+
+  const endPress = () => {
+    if (press.current?.timer) clearTimeout(press.current.timer);
+    press.current = null;
+    setDrag(null);
+  };
+  const dragHandlers = (a: Placed) => movable(a) ? {
+    onPointerDown: (e: React.PointerEvent<HTMLButtonElement>) => {
+      if (e.button !== 0) return;
+      const columnPx = e.currentTarget.parentElement?.getBoundingClientRect().width ?? 0;
+      const touch = e.pointerType === 'touch';
+      press.current = { id: a.id, x: e.clientX, y: e.clientY, active: false, columnPx, timer: null };
+      if (touch) press.current.timer = setTimeout(() => {
+        if (press.current?.id !== a.id) return;
+        press.current.active = true;
+        setDrag({ id: a.id, dx: 0, dy: 0 });
+      }, LONG_PRESS_MS);
+      e.currentTarget.setPointerCapture?.(e.pointerId);
+    },
+    onPointerMove: (e: React.PointerEvent<HTMLButtonElement>) => {
+      const p = press.current;
+      if (!p || p.id !== a.id) return;
+      const dx = e.clientX - p.x, dy = e.clientY - p.y;
+      if (!p.active) {
+        if (Math.hypot(dx, dy) < DRAG_THRESHOLD_PX) return;
+        // A touch that moves before the long press is a scroll, not a drag.
+        if (e.pointerType === 'touch') return endPress();
+        p.active = true;
+      }
+      setDrag({ id: a.id, dx, dy });
+    },
+    onPointerUp: (e: React.PointerEvent<HTMLButtonElement>) => {
+      const p = press.current;
+      if (!p || p.id !== a.id) return;
+      if (p.active) {
+        suppressClick.current = true;
+        const target = dropTarget(a, e.clientX - p.x, e.clientY - p.y, p.columnPx, days, step(a));
+        if (target) onMove?.({ item: a, ...target });
+      }
+      endPress();
+    },
+    onPointerCancel: endPress,
+    onKeyDown: (e: React.KeyboardEvent<HTMLButtonElement>) => {
+      const k = keyMove?.id === a.id ? keyMove : null;
+      const cur = k ?? { id: a.id, minutes: a.start, dayShift: 0 };
+      const s = step(a);
+      const index = days.indexOf(a.day);
+      if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+        e.preventDefault();
+        setKeyMove({ ...cur, minutes: snapDrag(cur.minutes, e.key === 'ArrowUp' ? -s : s, 60, s, a.end - a.start) });
+      } else if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+        e.preventDefault();
+        const dayShift = Math.min(Math.max(-index, cur.dayShift + (e.key === 'ArrowLeft' ? -1 : 1)), days.length - 1 - index);
+        setKeyMove({ ...cur, dayShift });
+      } else if (e.key === 'Escape' && k) {
+        e.preventDefault();
+        setKeyMove(null);
+      } else if (e.key === 'Enter' && k) {
+        e.preventDefault();
+        suppressClick.current = true;
+        setKeyMove(null);
+        const day = days[index + k.dayShift] ?? a.day;
+        if (day !== a.day || k.minutes !== a.start) onMove?.({ item: a, day, minutes: k.minutes });
+      }
+    },
+  } : {};
+  const open = (id: string) => {
+    if (suppressClick.current) { suppressClick.current = false; return; }
+    onOpen(id);
+  };
+
   return (
     <div>
       <div className="overflow-x-auto rounded-xl border border-border bg-card">
-        <div className="min-w-[760px]" role="grid" aria-label={t('gridLabel')}>
+        <div ref={gridRef} className="min-w-[760px]" role="grid" aria-label={t('gridLabel')}>
           <div className="grid grid-cols-[58px_repeat(7,minmax(0,1fr))] border-b border-border bg-muted" role="row">
             <span role="columnheader" />
             {days.map((day) => (
@@ -158,7 +277,12 @@ export function WeekGrid({
                   }}
                 >
                   {dayItems.map((a) => {
-                    const top = ((a.start - frame.startHour * 60) / 60) * HOUR_PX;
+                    const k = keyMove?.id === a.id ? keyMove : null;
+                    const d = drag?.id === a.id ? drag : null;
+                    const shownStart = k ? k.minutes : a.start;
+                    const top = ((shownStart - frame.startHour * 60) / 60) * HOUR_PX;
+                    const moving = !!(k || d);
+                    const shift = d ? `translate(${d.dx}px, ${d.dy}px)` : k ? `translateX(${k.dayShift * 100}%)` : undefined;
                     const height = Math.max(MIN_BLOCK_PX, ((a.end - a.start) / 60) * HOUR_PX - 2);
                     const index = lane.get(a.id) ?? 0;
                     const short = height < 40;
@@ -172,9 +296,12 @@ export function WeekGrid({
                         type="button"
                         aria-label={label}
                         title={`${label}${a.staff_id ? ` · ${staffName.get(a.staff_id) ?? ''}` : ''}`}
-                        onClick={() => onOpen(a.id)}
-                        className={`absolute flex overflow-hidden rounded-lg border-l-[3px] px-2 text-left text-xs leading-tight transition-shadow duration-150 hover:z-10 hover:shadow-md focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-primary ${tone} ${short ? 'flex-row items-center gap-1.5' : 'flex-col items-start py-1'}`}
-                        style={{ top, height, left: `calc(${(index / lanes) * 100}% + 2px)`, width: `calc(${100 / lanes}% - 4px)` }}
+                        onClick={() => open(a.id)}
+                        onBlur={() => { if (k) setKeyMove(null); }}
+                        data-movable={movable(a) ? 'true' : undefined}
+                        {...dragHandlers(a)}
+                        className={`absolute flex overflow-hidden rounded-lg border-l-[3px] px-2 text-left text-xs leading-tight transition-shadow duration-150 hover:z-10 hover:shadow-md focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-primary ${tone} ${short ? 'flex-row items-center gap-1.5' : 'flex-col items-start py-1'} ${moving ? 'z-20 shadow-lg ring-2 ring-primary' : ''} ${movable(a) ? 'cursor-grab select-none' : ''}`}
+                        style={{ top, height, left: `calc(${(index / lanes) * 100}% + 2px)`, width: `calc(${100 / lanes}% - 4px)`, transform: shift }}
                       >
                         <strong className="max-w-full truncate font-semibold">{who}</strong>
                         <small className="min-w-0 max-w-full truncate text-[11px] text-muted-foreground">{timeLabel(a.start)} · {a.service_name}</small>
@@ -188,6 +315,7 @@ export function WeekGrid({
         </div>
       </div>
       <p className="mt-2 text-xs text-muted-foreground">{onSlot ? t('hint') : t('hintReadOnly')}</p>
+      {onMove && <p className="mt-1 text-xs text-muted-foreground">{tDrag('hint')}</p>}
     </div>
   );
 }
