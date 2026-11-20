@@ -10,15 +10,12 @@ import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { useLocale, useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
+import { ContactPicker, type PickedContact } from '@/components/ui/contact-picker';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { createClient } from '@/lib/data/client';
 import type { Slot } from '@/lib/appointments/types';
 import { SlotSelector } from './slot-selector';
 import { apiRequest, selectClass, useFailureText, type AppointmentConfig } from './shared';
-
-interface ContactOption { id: string; name: string | null }
 
 /** Locations offering a service, and whether it is pooled there (pure; tested). */
 export function offeringChoices(config: Pick<AppointmentConfig, 'offerings' | 'locations' | 'staff'>, serviceId: string) {
@@ -38,19 +35,15 @@ export function NewAppointmentDialog({
   open: boolean; onOpenChange: (open: boolean) => void; config: AppointmentConfig; onBooked: (id: string) => void;
   /** A day and time clicked on the week calendar: offered first once a service and location are chosen. */
   preferred?: { date: string; time: string } | null;
-  /** Opened from a contact (card, chat): that contact is chosen and stays in the list. */
+  /** The customer to book for (a contact card or chat opened the dialog); still changeable. */
   initialContact?: { id: string; name: string | null } | null;
 }) {
   const t = useTranslations('Appointments');
   const ts = useTranslations('Sales.appointments');
   const locale = useLocale();
   const failureText = useFailureText();
-  const [search, setSearch] = useState('');
-  const [contacts, setContacts] = useState<ContactOption[]>([]);
-  const [contactId, setContactId] = useState(initialContact?.id ?? '');
-  // eslint-disable-next-line react-hooks/set-state-in-effect
-  useEffect(() => { if (open && initialContact) setContactId(initialContact.id); }, [open, initialContact]);
-  const contactOptions = initialContact && !contacts.some((c) => c.id === initialContact.id) ? [initialContact, ...contacts] : contacts;
+  const [contact, setContact] = useState<PickedContact | null>(null);
+  const contactId = contact?.id ?? '';
   const services = useMemo(() => config.services.filter((s) => !s.archived_at), [config.services]);
   const [serviceId, setServiceId] = useState('');
   const [locationId, setLocationId] = useState('');
@@ -58,33 +51,24 @@ export function NewAppointmentDialog({
   const [slot, setSlot] = useState<Slot | null>(null);
   const [busy, setBusy] = useState(false);
 
+  // Each opening starts from the given customer (or none).
+  const initialId = initialContact?.id ?? null;
+  const initialName = initialContact?.name ?? null;
   useEffect(() => {
     if (!open) return;
-    let live = true;
-    const term = search.trim().replace(/[%_,()]/g, '');
-    const timer = setTimeout(() => {
-      let q = createClient().from('contacts').select('id,name').order('name').limit(20);
-      if (term) q = q.ilike('name', `%${term}%`);
-      void q.then(({ data }) => {
-        if (live) setContacts(((data ?? []) as ContactOption[]));
-      });
-    }, 250);
-    return () => {
-      live = false;
-      clearTimeout(timer);
-    };
-  }, [open, search]);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- the prefill follows the prop on each opening
+    setContact(initialId ? { id: initialId, name: initialName, phone: null } : null);
+  }, [open, initialId, initialName]);
 
   const choices = useMemo(() => offeringChoices(config, serviceId), [config, serviceId]);
   const staffHere = locationId ? choices.staffAt(locationId) : [];
 
   const reset = () => {
-    setContactId('');
+    setContact(null);
     setServiceId('');
     setLocationId('');
     setStaffId('');
     setSlot(null);
-    setSearch('');
   };
 
   async function book() {
@@ -113,12 +97,8 @@ export function NewAppointmentDialog({
         <DialogHeader><DialogTitle>{t('create.title')}</DialogTitle></DialogHeader>
         <div className="space-y-3 text-sm">
           <div className="space-y-1">
-            <Label htmlFor="appt-contact-search">{t('create.contact')}</Label>
-            <Input id="appt-contact-search" placeholder={t('create.contactSearch')} value={search} onChange={(e) => setSearch(e.target.value)} />
-            <select aria-label={t('create.contact')} className={selectClass} value={contactId} onChange={(e) => setContactId(e.target.value)}>
-              <option value="">—</option>
-              {contactOptions.map((c) => <option key={c.id} value={c.id}>{c.name || c.id.slice(0, 8)}</option>)}
-            </select>
+            <Label htmlFor="appt-contact">{t('create.contact')}</Label>
+            <ContactPicker id="appt-contact" value={contact} onChange={setContact} placeholder={t('create.contactSearch')} disabled={busy} />
           </div>
           <div className="grid gap-3 sm:grid-cols-3">
             <div className="space-y-1">
