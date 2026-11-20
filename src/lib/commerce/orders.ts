@@ -291,6 +291,18 @@ async function decorate(tx: TenantTransaction, accountId: string, rows: ListRow[
   });
 }
 
+/**
+ * An order shown without a store number is labelled with the first 8 characters of its id (e.g. "3F2A9C1B").
+ * A search of 6 to 32 hex digits (dashes and a leading # ignored) becomes the id range starting with them,
+ * an indexed range on the primary key rather than a text scan. Shorter input is not treated as a reference.
+ */
+export function orderRefRange(q: string): { gte: string; lte: string } | null {
+  const hex = q.trim().replace(/^#/, '').replace(/-/g, '').toLowerCase();
+  if (!/^[0-9a-f]{6,32}$/.test(hex)) return null;
+  const uuid = (h: string) => `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}`;
+  return { gte: uuid(hex.padEnd(32, '0')), lte: uuid(hex.padEnd(32, 'f')) };
+}
+
 /** Newest first, keyset-paged. */
 export async function listOrders(ctx: TenantContext, filters: OrderFilters = {}): Promise<{ orders: OrderListItem[]; next_cursor: string | null }> {
   const limit = filters.limit ?? 50;
@@ -315,7 +327,14 @@ export async function listOrders(ctx: TenantContext, filters: OrderFilters = {})
         where: { account_id: ctx.accountId, OR: [{ name: { contains: filters.q, mode: 'insensitive' } }, ...phone] },
         select: { id: true }, take: 200,
       });
-      and.push({ OR: [{ external_id: { contains: filters.q, mode: 'insensitive' } }, { contact_id: { in: contacts.map((c) => c.id) } }] });
+      const external = filters.q.replace(/^#/, '');
+      const idRange = orderRefRange(filters.q);
+      and.push({ OR: [
+        ...(external ? [{ external_id: { contains: external, mode: 'insensitive' as const } }] : []),
+        { contact_id: { in: contacts.map((c) => c.id) } },
+        // The on-screen reference of an order with no store number: the first characters of its id.
+        ...(idRange ? [{ id: idRange }] : []),
+      ] });
     }
     if (cursor) {
       // (created_at, id) < cursor at full precision. Rows in an earlier

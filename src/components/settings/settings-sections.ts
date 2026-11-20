@@ -87,6 +87,11 @@ export interface SectionMeta {
    * works and opens the parent with this part selected.
    */
   parent?: SettingsSection;
+  /**
+   * Lives on its own page now. The rail does not list it, selecting it (an Overview tile) goes
+   * there, and next.config.ts redirects an old `?tab=` link on the server.
+   */
+  href?: string;
 }
 
 export const SECTION_META: Record<SettingsSection, SectionMeta> = {
@@ -133,11 +138,13 @@ export const SECTION_META: Record<SettingsSection, SectionMeta> = {
   instagram: { id: 'instagram', label: 'Instagram', icon: AtSign, group: 'workspace', parent: 'channels' },
   inbox: { id: 'inbox', label: 'Inbox', icon: Inbox, group: 'workspace' },
   media: { id: 'media', label: 'Media library', icon: Images, group: 'workspace' },
+  // One Templates screen: Campaigns > Templates (/templates).
   templates: {
     id: 'templates',
     label: 'Templates',
     icon: FileText,
     group: 'workspace',
+    href: '/templates',
   },
   'quick-replies': {
     id: 'quick-replies',
@@ -188,9 +195,9 @@ export function railSection(section: SettingsSection): SettingsSection {
   return SECTION_META[section].parent ?? section;
 }
 
-/** Sections the rail lists (no parented ones). */
+/** Sections the rail lists (no parented ones, none that live on their own page). */
 export function isRailSection(section: SettingsSection): boolean {
-  return !SECTION_META[section].parent;
+  return !SECTION_META[section].parent && !SECTION_META[section].href;
 }
 
 function isSection(value: string | null): value is SettingsSection {

@@ -62,6 +62,15 @@ export function sendScheduledNow(id: string): Promise<unknown> {
     'Could not start the campaign');
 }
 
+/** The workspace time zone (Settings > Workspace), which a campaign's "Send at" is read in. */
+export async function fetchWorkspaceTimeZone(): Promise<string> {
+  const body = await call<{ settings?: { timezone?: unknown } }>('/api/inbox/settings', { method: 'GET', cache: 'no-store' },
+    'Could not load the workspace time zone');
+  const zone = body.settings?.timezone;
+  if (typeof zone !== 'string' || !zone) throw new Error('Could not load the workspace time zone');
+  return zone;
+}
+
 /** Cancel a scheduled campaign before it starts. */
 export function cancelSchedule(id: string): Promise<unknown> {
   return call(`/api/broadcasts/${encodeURIComponent(id)}/schedule`, { method: 'DELETE' }, 'Could not cancel the schedule');

@@ -108,3 +108,13 @@ export function assessConfidence(args: {
   const confident = score >= threshold
   return { confident, score, reason: confident ? 'answered' : 'low_score', text }
 }
+
+/**
+ * The "hand off when nothing in knowledge matched" switch: true when it is on
+ * and the knowledge search ran and returned no match. Decided before any model
+ * call, so the turn spends no generation tokens. Off (the default) keeps
+ * replying without knowledge, as before.
+ */
+export function noKnowledgeHandoff(rules: { on_no_knowledge?: boolean } | null | undefined, matches: number): boolean {
+  return rules?.on_no_knowledge === true && !(matches > 0)
+}

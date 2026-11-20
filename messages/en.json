@@ -121,7 +121,10 @@
     "analyticsCampaigns": "Campaigns",
     "onlineStore": "Online store",
     "reviews": "Reviews",
-    "shopReports": "Shop reports"
+    "shopReports": "Shop reports",
+    "people": "People",
+    "segments": "Segments",
+    "customFields": "Custom fields"
   },
   "Header": {
     "notificationsUnread": "{count, plural, =1 {Notifications, 1 unread} other {Notifications, # unread}}",
@@ -164,7 +167,13 @@
     "sequences": "Sequences",
     "subscription": "Subscription",
     "automation": "Automation",
-    "ai": "AI"
+    "ai": "AI",
+    "catalogue": "Catalogue",
+    "onlineStore": "Online store",
+    "reviews": "Reviews",
+    "shopReports": "Shop reports",
+    "storeSettings": "Store settings",
+    "reports": "Reports"
   },
   "ModeToggle": {
     "switchMode": "Switch to {mode} mode"
@@ -396,7 +405,7 @@
       "filterUnread": "Unread",
       "filterOpen": "Open",
       "filterPending": "Pending",
-      "filterClosed": "Closed",
+      "filterClosed": "Resolved",
       "tags": "Tags",
       "company": "Company",
       "allCompanies": "All companies",
@@ -435,7 +444,8 @@
       "windowStripNext": "More",
       "tabActive": "Active",
       "tabRequesting": "Requesting",
-      "tabIntervened": "Intervened"
+      "tabIntervened": "Intervened",
+      "loadFailed": "Couldn't load conversations."
     },
     "messageThread": {
       "backToConversations": "Back to conversations",
@@ -448,7 +458,7 @@
       "status": "Status",
       "statusOpen": "Open",
       "statusPending": "Pending",
-      "statusClosed": "Closed",
+      "statusClosed": "Resolved",
       "assign": "Assign",
       "assigned": "Assigned",
       "unassign": "Unassign",
@@ -505,9 +515,10 @@
       "automationPausedBanner": "Automation paused for this chat.",
       "automationPausedHint": "Flows and AI replies will not run.",
       "blockTitle": "Block {name}?",
-      "blockBody": "No automated messages, flows or AI replies will reach them and this conversation will close. You can unblock them at any time.",
+      "blockBody": "No automated messages, flows or AI replies will reach them and this conversation will be resolved. You can unblock them at any time.",
       "cancel": "Cancel",
-      "blockConfirm": "Block"
+      "blockConfirm": "Block",
+      "loadFailed": "Couldn't load these messages."
     },
     "sessionTimer": {
       "expired": "Expired",
@@ -908,7 +919,7 @@
       },
       "reason": {
         "window_closed": "The messaging window had closed.",
-        "conversation_closed": "The conversation was closed.",
+        "conversation_closed": "The conversation was resolved.",
         "channel_off": "The channel was turned off.",
         "human_agent_off": "Replies after 24 hours are not available.",
         "send_failed": "The message could not be sent."
@@ -1127,12 +1138,12 @@
       "markRead": "Mark as read",
       "markUnread": "Mark as unread",
       "assignToMe": "Assign to me",
-      "close": "Close",
+      "close": "Resolve",
       "reopen": "Reopen",
       "markedUnread": "Marked as unread",
       "markedRead": "Marked as read",
       "assignedToYou": "Assigned to you",
-      "closed": "Conversation closed",
+      "closed": "Conversation resolved",
       "reopened": "Conversation reopened",
       "failed": "That did not work. Try again."
     },
@@ -1772,7 +1783,7 @@
         "startConversation": "Start a conversation",
         "open": "Open",
         "pending": "Pending",
-        "closed": "Closed",
+        "closed": "Resolved",
         "orders": "Orders",
         "noOrders": "No orders yet.",
         "orderName": "Order {ref}",
@@ -2058,10 +2069,10 @@
     "settings": {
       "managePipeline": "Manage Pipeline",
       "deletePipeline": "Delete Pipeline",
-      "deletePipelineDesc": "This will archive all deals in this pipeline. This cannot be undone.",
+      "deletePipelineDesc": "This permanently deletes the pipeline and all its deals, including won deals. This can’t be undone.",
       "cancel": "Cancel",
       "deleting": "Deleting...",
-      "deletePipelineBtn": "Delete Pipeline",
+      "deletePipelineBtn": "Delete permanently",
       "pipelineName": "Pipeline Name",
       "stages": "Stages",
       "newStageNamePlaceholder": "New stage name",
@@ -2125,7 +2136,8 @@
       "showing": "Showing {start}–{end} of {total}",
       "previousPage": "Previous page",
       "nextPage": "Next page",
-      "newApiCampaign": "New API campaign"
+      "newApiCampaign": "New API campaign",
+      "moreStatuses": "More statuses"
     },
     "status": {
       "draft": "Draft",
@@ -2383,7 +2395,7 @@
         "whenNow": "Send now",
         "whenLater": "Schedule for later",
         "scheduleAt": "Send at",
-        "scheduleHint": "Your time zone: {zone}. Up to 90 days ahead.",
+        "scheduleHint": "In the workspace time zone. Up to 90 days ahead.",
         "scheduleTooSoon": "Pick a time at least one minute from now.",
         "scheduleBroadcast": "Schedule Broadcast",
         "confirmScheduled": "It will start at {when}. You can reschedule or cancel it until then.",
@@ -2395,7 +2407,8 @@
         "testFailed": "Could not send the test",
         "testSent": "Test sent to {phone}",
         "testNotSent": "Not sent to {phone}: {error}",
-        "confirmSendFrom": "It will be sent from {number}."
+        "confirmSendFrom": "It will be sent from {number}.",
+        "reachFailed": "Couldn't count"
       }
     },
     "sending": {
@@ -2516,7 +2529,7 @@
         "wait": "Wait",
         "condition": "Condition (If/Else)",
         "send_webhook": "Send Webhook",
-        "close_conversation": "Close Conversation",
+        "close_conversation": "Resolve conversation",
         "notify_team": "Notify Team",
         "start_flow": "Start a Flow"
       },
@@ -2699,7 +2712,7 @@
         "matchExact": "Exact",
         "waitForReply": "Wait for reply before continuing",
         "waitForReplyHint": "Pauses here until the customer taps a button or replies (up to 24h). The steps after this one, including If/Else on message content, then use their reply.",
-        "closeConversationHint": "Sets the conversation status to \"closed\". No configuration needed.",
+        "closeConversationHint": "Marks the conversation Resolved. No settings needed.",
         "conditionTimezoneLabel": "Timezone",
         "conditionTimezoneHint": "Business timezone used to evaluate this time window.",
         "notifyAudienceLabel": "Notify",
@@ -4071,13 +4084,13 @@
           "pause_automations": "Pause automations",
           "resume_automations": "Resume automations",
           "log_conversion": "Log conversion event",
-          "set_conversation_status": "Mark conversation open or closed",
+          "set_conversation_status": "Mark conversation open or resolved",
           "notify_team": "Notify the team"
         },
         "increment": "Add to the number",
         "set": "Set to",
         "opened": "Open",
-        "closed": "Closed",
+        "closed": "Resolved",
         "optIn": "Subscribe",
         "optOut": "Unsubscribe",
         "assignee": "The assigned agent",
@@ -4773,7 +4786,11 @@
       "flowFormLoading": "Loading the form…",
       "flowFormHelp": "The button opens this form. Each send gets its own link to the answers.",
       "flowFormNone": "No published forms yet. Create and publish one under Forms.",
-      "flowFormUnavailable": "This form isn't published on WhatsApp yet."
+      "flowFormUnavailable": "This form isn't published on WhatsApp yet.",
+      "discardTitle": "Discard changes?",
+      "discardBody": "This template has changes you haven't saved. Closing it loses them.",
+      "keepEditing": "Keep editing",
+      "discardChanges": "Discard"
     },
     "roles": {
       "admin": "Admin",
@@ -5724,7 +5741,6 @@
       "title": "Audit log",
       "description": "Who did what in this workspace, newest first. Entries show identifiers and counts, never message content.",
       "linkDescription": "Review member, team, permission and export activity.",
-      "back": "Back to settings",
       "adminsOnly": "Only admins and owners can view the audit log.",
       "member": "Member",
       "anyMember": "Any member",
@@ -6471,7 +6487,8 @@
       "instagram_account_health": "Instagram account",
       "automation_notice": "Automation notice",
       "webhook_disabled": "Webhook switched off"
-    }
+    },
+    "loadFailed": "Couldn't load notifications."
   },
   "Agents": {
     "title": "AI Agents",
@@ -6571,7 +6588,9 @@
         "claim_failed": "Could not reserve a reply slot",
         "stale": "Conversation changed before sending",
         "dispatch_failed": "Something went wrong",
-        "no_agent": "No agent is on for this channel at this hour"
+        "no_agent": "No agent is on for this channel at this hour",
+        "no_knowledge": "Nothing in knowledge matched",
+        "workspace_ai_cap": "Monthly AI token cap reached"
       },
       "unknownReason": "Other ({code})",
       "detailTitle": "Activity details",
@@ -6663,7 +6682,10 @@
   "UiPrimitives": {
     "close": "Close",
     "scrollLeft": "Scroll left",
-    "scrollRight": "Scroll right"
+    "scrollRight": "Scroll right",
+    "loadFailed": "Couldn't load this. Check your connection and try again.",
+    "retry": "Retry",
+    "loading": "Loading"
   },
   "GatedButton": {
     "readOnly": "Read-only — your role can't {action}",
@@ -9675,7 +9697,7 @@
       "description": "Carts sent from your WhatsApp catalogue and orders from connected stores.",
       "loading": "Loading orders",
       "loadError": "Couldn’t load orders",
-      "searchPlaceholder": "Search by customer or order number",
+      "searchPlaceholder": "Search by customer, phone or order",
       "filterStatus": "Filter by status",
       "filterSource": "Filter by source",
       "allStatuses": "All statuses",
@@ -9740,7 +9762,8 @@
           "deliveryDate": "Delivery date",
           "note": "Note",
           "giftMessage": "Gift message"
-        }
+        },
+        "payments": "Payments"
       },
       "settings": {
         "open": "Confirmation message",
@@ -10079,7 +10102,9 @@
           "coupon_min_subtotal": "The order would fall below the minimum for its coupon.",
           "forbidden": "You do not have permission for this change. A change that refunds money needs an admin."
         }
-      }
+      },
+      "exportTruncated": "Export stopped at 5,000 orders. Narrow the filters to get the rest.",
+      "exportFailed": "Couldn’t export orders"
     },
     "attention": {
       "title": "{count, plural, one {# store message needs attention} other {# store messages need attention}}",
@@ -10112,9 +10137,10 @@
         "purchaseOrders": "Purchase orders"
       },
       "statuses": {
-        "draft": "Draft",
-        "published": "Published",
-        "archived": "Archived"
+        "draft": "Hidden",
+        "published": "Live",
+        "archived": "Archived",
+        "visibility": "Visibility"
       },
       "errors": {
         "invalid": "Check the highlighted value and try again.",
@@ -10160,7 +10186,7 @@
         "create": "Add product",
         "search": "Search by name or SKU",
         "statusFilter": "Status",
-        "activeStatuses": "Draft and published",
+        "activeStatuses": "Live and hidden",
         "allStatuses": "All, including archived",
         "stockFilter": "Stock",
         "allStock": "Any stock",
@@ -10264,10 +10290,10 @@
         "reviewed": "Content reviewed {date, date, medium}",
         "notReviewed": "Content not reviewed yet",
         "publish": "Review and publish",
-        "publishHint": "Publishing records you as the reviewer of the name, description and disclosure. It needs at least one priced variant.",
-        "publishedToast": "Product published",
+        "publishHint": "Making a product live records you as the reviewer of the name, description and disclosure. It needs at least one priced variant.",
+        "publishedToast": "Product is live",
         "unpublish": "Unpublish",
-        "unpublished": "Product moved back to draft",
+        "unpublished": "Product hidden from the shop",
         "archive": "Archive",
         "archivedToast": "Product archived",
         "restore": "Restore",
@@ -10285,7 +10311,7 @@
         "followUpLanguage": "Template language",
         "followUpDays": "Days after delivery",
         "followUpHint": "Optional. An approved utility template sent once after the order is delivered.",
-        "rereviewHint": "Saving changed text on a published product records you as its reviewer.",
+        "rereviewHint": "Saving changed text on a live product records you as its reviewer.",
         "save": "Save details",
         "images": "Images",
         "noImages": "No images.",
@@ -10616,7 +10642,7 @@
           "running": "Importing",
           "done": "Finished",
           "failed": "Stopped",
-          "canceled": "Canceled"
+          "canceled": "Cancelled"
         },
         "stats": {
           "pages_done": "Pages",
@@ -11962,7 +11988,7 @@
       "customer": "Customer",
       "walkIn": "Walk-in",
       "namedCustomer": "Named customer",
-      "customerSearch": "Search customers by name",
+      "customerSearch": "Search customers by name or phone",
       "chosen": "Selling to {name}",
       "products": "Products",
       "productSearch": "Search by name or scan a SKU",
@@ -12574,7 +12600,7 @@
     "anyStatus": "Any status",
     "statusOpen": "Open",
     "statusPending": "Pending",
-    "statusClosed": "Closed",
+    "statusClosed": "Resolved",
     "assignee": "Assignee",
     "anyAssignee": "Anyone",
     "assignedToMe": "Assigned to me",
@@ -12999,7 +13025,9 @@
       "threshold": "Confidence needed to reply: {value}%",
       "thresholdHint": "At 50% the agent's own judgement decides. Higher values also need a close match in the knowledge base and hand off more often. When nothing in the knowledge base matches, only the agent's own judgement decides.",
       "maxTurns": "Hand off after this many AI replies",
-      "maxTurnsHint": "0 means no limit."
+      "maxTurnsHint": "0 means no limit.",
+      "noKnowledge": "Hand off when nothing in knowledge matches",
+      "noKnowledgeHint": "If your knowledge has nothing on the question, a person answers instead of the AI."
     },
     "knowledge": {
       "title": "Add knowledge",
@@ -15535,7 +15563,7 @@
       "ready": "Ready"
     },
     "monthlyTokenCap": "Monthly AI token cap",
-    "monthlyTokenCapHint": "Applies to summaries, suggested replies, assessments and insights. Leave empty to use only your plan's limit.",
+    "monthlyTokenCapHint": "Applies to auto-replies, flow replies, summaries, suggested replies, assessments and insights. Leave empty to use only your plan's limit.",
     "staffReviewNote": "Nothing these features write is sent to a customer until a team member reviews it and presses Send.",
     "autonomousNote": "Auto-reply and the flow AI reply step send without human review.",
     "instagramGoals": {
@@ -17179,12 +17207,12 @@
     },
     "wizard": {
       "steps": {
-        "details": "Details",
+        "details": "Channel",
         "message": "Message",
         "review": "Review"
       },
-      "detailsTitle": "Name and channel",
-      "detailsSubtitle": "Name the broadcast and choose where it goes.",
+      "detailsTitle": "Channel",
+      "detailsSubtitle": "Choose where the broadcast goes.",
       "nameLabel": "Name",
       "namePlaceholder": "e.g. Diwali offer",
       "nameHint": "Only your team sees this name.",
@@ -17218,7 +17246,7 @@
       "willGetIt": "{count, plural, one {person will get this} other {people will get this}}",
       "leftOutWindow": "{count, plural, one {# person} other {# people}} left out: last wrote more than 24 hours ago",
       "leftOutRule": "Instagram only allows messages to people who wrote to you in the last 24 hours. Opted-out and blocked contacts are always left out.",
-      "countFailed": "Could not count the audience. Go back and try again.",
+      "countFailed": "Couldn't count the audience.",
       "counting": "Counting who gets it…",
       "instagramNoSchedule": "Instagram broadcasts send right away: the 24-hour window would close before a later time.",
       "sendNow": "Send now",
@@ -17327,7 +17355,9 @@
       "noteDeleted": "Note deleted",
       "delete": "Delete",
       "markLost": "Mark lost",
-      "markWon": "Mark won"
+      "markWon": "Mark won",
+      "contactSearchPlaceholder": "Search by name or phone",
+      "contactSearchFailed": "Couldn’t search contacts"
     },
     "paymentLink": {
       "sendNow": "Send it to the customer now",
@@ -17442,7 +17472,7 @@
         "title": "New order",
         "totalHelp": "Prices come from your catalogue. Tax is added when the order is created.",
         "customer": "Customer",
-        "customerSearch": "Search customers by name",
+        "customerSearch": "Search customers by name or phone",
         "chooseCustomer": "Choose a customer",
         "items": "Items",
         "product": "Product",
@@ -17477,7 +17507,7 @@
     },
     "products": {
       "copyName": "{name} (copy)",
-      "shown": "{name} is active in the shop",
+      "shown": "{name} is live in the shop",
       "hiddenToast": "{name} is hidden from the shop",
       "duplicated": "Copy added as a draft",
       "archived": "Product archived",
@@ -17489,7 +17519,7 @@
       "show": "Show in shop",
       "restore": "Restore",
       "archive": "Archive",
-      "activeFor": "{name} active in shop",
+      "activeFor": "{name} live in the shop",
       "all": "All",
       "categories": "Categories",
       "viewLabel": "View",
@@ -17671,7 +17701,9 @@
         "maxTurns": "Enter a number from 0 to 50.",
         "hours": "The start time must be before the end time."
       },
-      "overnightHint": "The start must be before the end. For overnight cover (for example 22:00 to 06:00), choose \"Only outside these hours\" and enter 06:00 to 22:00."
+      "overnightHint": "The start must be before the end. For overnight cover (for example 22:00 to 06:00), choose \"Only outside these hours\" and enter 06:00 to 22:00.",
+      "noKnowledge": "When knowledge has no answer",
+      "noKnowledgeHint": "Hands over instead of replying without your knowledge."
     },
     "test": {
       "panelLabel": "Test {name}",
@@ -17917,7 +17949,7 @@
       "barLabel": "Budget used",
       "pct": "{n}% used",
       "resets": "Resets {date}",
-      "overNote": "You are over your limit. The assistant features keep working because pausing is off.",
+      "overNote": "You are over your limit. The AI keeps working because pausing is off.",
       "pausedNote": "The AI is paused until the budget resets or you raise the limit.",
       "planLimit": "Your plan allows {n} tokens a month.",
       "limitLabel": "Monthly limit, in tokens",
@@ -17927,7 +17959,7 @@
       "setLimit": "Set a limit",
       "change": "Change limit",
       "pause": "Pause the AI when the budget is used up",
-      "pauseHint": "Assistant features stop at your limit; your team can still reply by hand. Your plan's limit always applies.",
+      "pauseHint": "At your limit, auto-replies, flow replies and assistant features stop, and chats go to your team. Your plan's limit always applies.",
       "pauseOn": "The AI will pause when the budget is used up",
       "pauseOff": "The AI will keep working past your limit",
       "tokensNote": "Tokens measure how much text the AI reads and writes. About 750 words is 1,000 tokens.",

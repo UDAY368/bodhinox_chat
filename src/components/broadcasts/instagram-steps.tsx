@@ -5,8 +5,9 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
-import { ArrowLeft, ArrowRight, Loader2, Send, UserRound } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Loader2, RotateCw, Send, UserRound } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import type { AudienceConfig } from '@/lib/broadcast-audience';
@@ -92,8 +93,10 @@ export function InstagramMessageStep({ text, onTextChange, onNext, onBack }: {
   );
 }
 
-export function InstagramReviewStep({ name, text, audience, audienceLabel, sending, onSend, onBack }: {
+export function InstagramReviewStep({ name, onNameChange, text, audience, audienceLabel, sending, onSend, onBack }: {
+  /** Filled in with the channel and date; asked only here. */
   name: string;
+  onNameChange: (name: string) => void;
   text: string;
   audience: AudienceConfig;
   audienceLabel: string;
@@ -102,8 +105,10 @@ export function InstagramReviewStep({ name, text, audience, audienceLabel, sendi
   onBack: () => void;
 }) {
   const t = useTranslations('Campaigns.wizard');
+  const tUi = useTranslations('UiPrimitives');
   const [count, setCount] = useState<InstagramAudienceCount | null>(null);
   const [failed, setFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -111,7 +116,7 @@ export function InstagramReviewStep({ name, text, audience, audienceLabel, sendi
       .then((c) => { if (!cancelled) { setCount(c); setFailed(false); } })
       .catch(() => { if (!cancelled) setFailed(true); });
     return () => { cancelled = true; };
-  }, [audience]);
+  }, [audience, attempt]);
 
   const outside = count ? Math.max(0, count.onInstagram - count.eligible) : 0;
   return (
@@ -123,7 +128,11 @@ export function InstagramReviewStep({ name, text, audience, audienceLabel, sendi
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_280px]">
         <div className="min-w-0 space-y-4">
           <dl className="grid grid-cols-[minmax(0,7rem)_minmax(0,1fr)] gap-x-4 gap-y-2 text-sm">
-            <dt className="text-muted-foreground">{t('reviewName')}</dt><dd className="break-words text-foreground">{name}</dd>
+            <dt className="self-center text-muted-foreground"><Label htmlFor="campaign-name">{t('reviewName')}</Label></dt>
+            <dd>
+              <Input id="campaign-name" value={name} maxLength={200} placeholder={t('namePlaceholder')}
+                aria-invalid={!name.trim()} onChange={(e) => onNameChange(e.target.value)} className="bg-muted" />
+            </dd>
             <dt className="text-muted-foreground">{t('reviewChannel')}</dt><dd className="text-foreground">{t('channelInstagram')}</dd>
             <dt className="text-muted-foreground">{t('reviewAudience')}</dt><dd className="break-words text-foreground">{audienceLabel}</dd>
             <dt className="text-muted-foreground">{t('reviewWhen')}</dt><dd className="text-foreground">{t('reviewNow')}</dd>
@@ -141,7 +150,13 @@ export function InstagramReviewStep({ name, text, audience, audienceLabel, sendi
                 </ul>
               </>
             ) : failed ? (
-              <p className="text-sm text-destructive">{t('countFailed')}</p>
+              <p role="alert" className="flex flex-wrap items-center gap-x-2 text-sm text-amber-600 dark:text-amber-400">
+                {t('countFailed')}
+                <Button variant="link" size="sm" className="h-auto p-0" onClick={() => { setFailed(false); setAttempt((n) => n + 1); }}>
+                  <RotateCw className="size-3.5" aria-hidden />
+                  {tUi('retry')}
+                </Button>
+              </p>
             ) : (
               <p className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="size-4 animate-spin" />{t('counting')}</p>
             )}
@@ -159,7 +174,7 @@ export function InstagramReviewStep({ name, text, audience, audienceLabel, sendi
           <ArrowLeft className="h-4 w-4" />
           {t('back')}
         </Button>
-        <Button onClick={onSend} disabled={sending || !count || count.eligible === 0}>
+        <Button onClick={onSend} disabled={sending || !name.trim() || failed || !count || count.eligible === 0}>
           {sending ? <Loader2 className="animate-spin" /> : <Send />}
           {t('sendNow')}
         </Button>

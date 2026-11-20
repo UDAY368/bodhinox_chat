@@ -73,6 +73,7 @@ import {
 import { InboxFilterPicker, type FilterCategory } from '@/components/inbox/inbox-filter-picker';
 import { formatDistanceToNow } from 'date-fns';
 import { useFormatter, useTranslations } from 'next-intl';
+import { InlineError } from '@/components/ui/inline-error';
 import { Input } from '@/components/ui/input';
 import {
   DropdownMenu,
@@ -216,7 +217,6 @@ export function ConversationList({
       ...(myTeam ? [{ label: t('filterMyTeam'), value: 'my-team' as const }] : []),
       { label: t('filterExpiringSoon'), value: 'expiring-soon' },
       { label: t('filterOpen'), value: 'open' },
-      { label: t('filterPending'), value: 'pending' },
       { label: t('filterClosed'), value: 'closed' },
     ],
     [t, myTeam]
@@ -242,7 +242,8 @@ export function ConversationList({
   const labelsById = useMemo(() => new Map((labels ?? []).map((label) => [label.id, label])), [labels]);
   const LIFECYCLE_OPTIONS: { label: string; value: InboxFilter }[] = useMemo(
     () =>
-      LIFECYCLE_STATES.map((state) => ({
+      // Resolved is the Resolved status filter already: one word, one place.
+      LIFECYCLE_STATES.filter((state) => state !== 'resolved').map((state) => ({
         label: tl(state),
         value: `lifecycle-${state}` as InboxFilter,
       })),
@@ -293,6 +294,9 @@ export function ConversationList({
   const [sessionFilter, setSessionFilter] = useState<SessionFilter>('all');
   const now = useSessionClock();
   const [loading, setLoading] = useState(true);
+  // The last load failed; with nothing loaded the list shows what happened and Retry.
+  const [loadError, setLoadError] = useState(false);
+  const [retryToken, setRetryToken] = useState(0);
   // Contact-based filters (issue #272). Tags use OR logic (a conversation
   // matches if its contact carries any selected tag), consistent with
   // Broadcast audience filtering. Company is an exact match on the field.
@@ -347,6 +351,7 @@ export function ConversationList({
       if (cancelled) return;
 
       if (error) {
+        setLoadError(true);
         // Supabase errors have non-enumerable properties — log fields explicitly
         console.error('Failed to fetch conversations:', {
           message: error.message,
@@ -365,6 +370,7 @@ export function ConversationList({
       };
       if (incremental) onConversationsChangedRef.current?.(rows);
       else onConversationsLoadedRef.current(rows);
+      setLoadError(false);
       setLoading(false);
     })();
 
@@ -376,7 +382,7 @@ export function ConversationList({
     // server's 30-second resync arrives. Between full reloads it reads
     // only the conversations changed since the last sync. `scope` is fixed
     // for a page (each inbox is its own route).
-  }, [resyncToken, scope]);
+  }, [resyncToken, scope, retryToken]);
 
   // Tag definitions for the filter picker — loaded once so labels/colours
   // stay stable regardless of which conversations happen to be loaded.
@@ -767,7 +773,7 @@ export function ConversationList({
     );
   const inMoreMenu = (filter !== 'all' && !TAB_VIEWS.includes(filter)) || sessionFilter === 'expired';
 
-  // Every view that is not a chip: waiting, my team, expiring soon, pending, folders, labels, lifecycle.
+  // Every view that is not a chip: waiting, my team, expiring soon, folders, labels, lifecycle.
   const moreViews = (
     <DropdownMenu>
       <DropdownMenuTrigger data-view-menu className={cn(chipClass(inMoreMenu), 'gap-1')}>
@@ -1034,6 +1040,14 @@ export function ConversationList({
           <div className="flex items-center justify-center py-12">
             <div className="border-primary h-5 w-5 animate-spin rounded-full border-2 border-t-transparent" />
           </div>
+        ) : loadError && conversations.length === 0 ? (
+          <InlineError
+            message={t('loadFailed')}
+            onRetry={() => {
+              setLoading(true);
+              setRetryToken((n) => n + 1);
+            }}
+          />
         ) : filtered.length === 0 ? (
           <div className="flex flex-col items-center px-4 py-12 text-center">
             <span className="bg-muted text-muted-foreground mb-3 flex size-11 items-center justify-center rounded-2xl" aria-hidden>

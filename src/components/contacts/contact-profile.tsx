@@ -318,7 +318,7 @@ export function ContactProfile({ contactId }: { contactId: string }) {
   const message = useCallback((data: ContactOverview | null = overview) => {
     if (!contact) return;
     const conversations = data?.conversations ?? [];
-    const convo = [...conversations].sort((a, b) => (a.status === 'open' ? 0 : 1) - (b.status === 'open' ? 0 : 1))[0];
+    const convo = [...conversations].sort((a, b) => (a.status !== 'closed' ? 0 : 1) - (b.status !== 'closed' ? 0 : 1))[0];
     if (convo) {
       router.push(conversationInboxPath(convo.channel as Channel, enabledChannels, convo.id));
       return;
@@ -768,7 +768,7 @@ export function ContactProfile({ contactId }: { contactId: string }) {
                       </span>
                       <span className={cn('shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium',
                         c.status === 'closed' ? 'bg-muted text-muted-foreground' : 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300')}>
-                        {c.status === 'closed' ? t('profile.closed') : c.status === 'pending' ? t('profile.pending') : t('profile.open')}
+                        {c.status === 'closed' ? t('profile.closed') : t('profile.open')}
                       </span>
                     </Link>
                   </li>

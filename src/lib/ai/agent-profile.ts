@@ -29,6 +29,8 @@ export interface HandoffRules {
   on_low_confidence: boolean
   /** 0..1. At or below 0.5 the model's own judgement decides; above 0.5 retrieval evidence is needed too. */
   confidence_threshold: number
+  /** Hand off, without a model call, when the knowledge search found nothing for the question. Off by default. */
+  on_no_knowledge: boolean
   /** Hand off after this many AI replies in one conversation; 0 means no limit. */
   max_turns_before_handoff: number
 }
@@ -49,6 +51,7 @@ export const DEFAULT_HANDOFF_RULES: HandoffRules = {
   keywords: [],
   on_low_confidence: true,
   confidence_threshold: 0.35,
+  on_no_knowledge: false,
   max_turns_before_handoff: 0,
 }
 
@@ -121,6 +124,7 @@ export const handoffRulesSchema = z.object({
     }).optional(),
   on_low_confidence: z.boolean().optional(),
   confidence_threshold: z.number().min(0).max(1).optional(),
+  on_no_knowledge: z.boolean().optional(),
   max_turns_before_handoff: z.number().int().min(0).max(PROFILE_LIMITS.maxTurns).optional(),
 }).strict()
 
@@ -146,6 +150,7 @@ export function parseHandoffRules(value: unknown): HandoffRules {
     keywords: parsed.data.keywords ?? DEFAULT_HANDOFF_RULES.keywords,
     on_low_confidence: parsed.data.on_low_confidence ?? DEFAULT_HANDOFF_RULES.on_low_confidence,
     confidence_threshold: parsed.data.confidence_threshold ?? DEFAULT_HANDOFF_RULES.confidence_threshold,
+    on_no_knowledge: parsed.data.on_no_knowledge ?? DEFAULT_HANDOFF_RULES.on_no_knowledge,
     max_turns_before_handoff: parsed.data.max_turns_before_handoff ?? DEFAULT_HANDOFF_RULES.max_turns_before_handoff,
   }
 }

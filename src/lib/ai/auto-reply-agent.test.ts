@@ -25,7 +25,7 @@ vi.mock('./context', () => ({ buildConversationContext: h.buildConversationConte
 vi.mock('./knowledge', () => ({ retrieveKnowledgeScored: h.retrieveKnowledgeScored }))
 vi.mock('./generate', () => ({ generateReply: h.generateReply }))
 vi.mock('./usage', () => ({ promptCharsOf: () => 0, usageLog: () => ({ totalTokens: 0 }) }))
-vi.mock('./budget', () => ({ reserveAi: async () => ({}), settleAi: async () => {}, failAi: async () => {}, chatTokenEstimate: () => 1 }))
+vi.mock('./budget', () => ({ reserveAi: async () => ({}), settleAi: async () => {}, failAi: async () => {}, releaseAi: async () => {}, chatTokenEstimate: () => 1 }))
 vi.mock('./unanswered', () => ({ recordUnanswered: h.recordUnanswered }))
 vi.mock('./reply-events', () => ({ recordReplyEvent: h.recordReplyEvent }))
 vi.mock('./agent-profile', async (importOriginal) => ({
@@ -257,6 +257,34 @@ describe('auto-reply with the agent profile', () => {
     expect(h.state.updatePayload).toMatchObject({ ai_autoreply_disabled: true })
     expect(h.recordReplyEvent).toHaveBeenCalledWith(expect.objectContaining({ outcome: 'handed_off', reason: 'low_confidence' }))
     noCustomerContentLogged()
+  })
+
+  it('hands off without a model call when nothing in knowledge matched and the switch is on', async () => {
+    h.loadAgentProfileTx.mockResolvedValue(profile({ on_no_knowledge: true }))
+    h.retrieveKnowledgeScored.mockResolvedValue(scored([], {}))
+    await dispatchInboundToAiReply(ARGS)
+    expect(h.generateReply).not.toHaveBeenCalled()
+    expect(h.engineSendText).not.toHaveBeenCalled()
+    expect(h.recordUnanswered).toHaveBeenCalledWith({ tx: true }, expect.objectContaining({ question: QUESTION }))
+    expect(h.state.updatePayload).toMatchObject({ bot_paused: true, ai_autoreply_disabled: true })
+    expect(h.recordReplyEvent).toHaveBeenCalledWith(expect.objectContaining({ outcome: 'handed_off', reason: 'no_knowledge' }))
+    noCustomerContentLogged()
+  })
+
+  it('replies when knowledge matched, with the no-knowledge switch on', async () => {
+    h.loadAgentProfileTx.mockResolvedValue(profile({ on_no_knowledge: true }))
+    h.retrieveKnowledgeScored.mockResolvedValue(scored(['We ship worldwide.'], { semanticDistances: [0.2] }))
+    await dispatchInboundToAiReply(ARGS)
+    expect(h.generateReply).toHaveBeenCalledTimes(1)
+    expect(h.engineSendText).toHaveBeenCalled()
+  })
+
+  it('still replies without knowledge when the no-knowledge switch is off (the default)', async () => {
+    h.loadAgentProfileTx.mockResolvedValue(profile())
+    h.retrieveKnowledgeScored.mockResolvedValue(scored([], {}))
+    await dispatchInboundToAiReply(ARGS)
+    expect(h.generateReply).toHaveBeenCalledTimes(1)
+    expect(h.engineSendText).toHaveBeenCalled()
   })
 
   it('still sends a weakly supported answer when on_low_confidence is off', async () => {

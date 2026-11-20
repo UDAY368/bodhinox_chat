@@ -7,7 +7,7 @@ import { NextIntlClientProvider } from 'next-intl';
 import { describe, expect, it } from 'vitest';
 
 import { SettingsRail } from './settings-rail';
-import { CHANNEL_SECTIONS, hiddenSections, railSection, resolveSection, SETTINGS_SECTIONS, visibleSection } from './settings-sections';
+import { CHANNEL_SECTIONS, hiddenSections, isRailSection, railSection, resolveSection, SECTION_META, SETTINGS_SECTIONS, visibleSection } from './settings-sections';
 import { CHANNELS_SETTINGS_PATH, channelSettingsPath } from '@/lib/channels/routes';
 
 const render = (hidden?: ReadonlySet<(typeof SETTINGS_SECTIONS)[number]>) =>
@@ -48,7 +48,8 @@ describe('SettingsRail', () => {
   it('shows one Channels entry (WhatsApp and Instagram are its tabs), and the redesign sections', () => {
     const html = render();
     expect(html).toContain('Channels.settings.title');
-    expect(html).toContain('Settings.sections.templates');
+    // Templates is one screen under Campaigns; Settings no longer lists a copy.
+    expect(html).not.toContain('Settings.sections.templates');
     expect(html).not.toContain('Settings.sections.whatsapp');
     expect(html).not.toContain('Settings.sections.instagram');
     for (const section of ['workspace', 'integrations', 'audit-log']) expect(html).toContain(`Settings.sections.${section}`);
@@ -84,6 +85,11 @@ describe('redesign sections', () => {
     expect(railSection('api')).toBe('api');
     for (const tab of ['payments', 'connections', 'api', 'members', 'workspace', 'integrations', 'audit-log'])
       expect(resolveSection(tab)).toBe(tab);
+  });
+
+  it('sends Templates to the one Campaigns screen instead of a Settings copy', () => {
+    expect(SECTION_META.templates.href).toBe('/templates');
+    expect(isRailSection('templates')).toBe(false);
   });
 
   it('sends a hidden audit log link to the Overview, not to Channels', () => {

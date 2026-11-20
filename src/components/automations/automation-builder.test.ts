@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest';
-import { addableStepsFor, fromServerSteps, toApiSteps, triggerOptionsFor } from './automation-builder';
+import { addableStepsFor, fromServerSteps, keywordMatchDefault, toApiSteps, triggerOptionsFor } from './automation-builder';
 it('keeps persisted step identities through builder edits and serialization', () => {
   const tree = fromServerSteps([
     {
@@ -53,4 +53,11 @@ it('offers each channel only its palette, in menu order', () => {
   expect(addableStepsFor('instagram')).toContain('start_flow');
   // A stored trigger outside the palette still shows as itself.
   expect(triggerOptionsFor('instagram', 'time_based')).toContain('time_based');
+});
+
+it('defaults new keyword rules to whole word and leaves saved rules on contains', () => {
+  // A new rule: "hi" must not fire inside "this".
+  expect(keywordMatchDefault(false)).toBe('word');
+  // A rule already saved as a keyword rule without a match type keeps the engine's old default.
+  expect(keywordMatchDefault(true)).toBe('contains');
 });

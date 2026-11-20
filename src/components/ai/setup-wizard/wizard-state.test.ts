@@ -28,6 +28,14 @@ describe('setup wizard state', () => {
     expect(draftToInput(draft, 'review')).toEqual({})
   })
 
+  it('carries the no-knowledge switch, off by default, in the handoff step', () => {
+    const draft = profileToDraft(emptyAgentProfile())
+    expect(draft.on_no_knowledge).toBe(false)
+    const { handoff_rules } = draftToInput({ ...draft, on_no_knowledge: true }, 'handoff') as { handoff_rules: { on_no_knowledge: boolean } }
+    expect(handoff_rules.on_no_knowledge).toBe(true)
+    expect(agentProfileInputSchema.safeParse({ handoff_rules }).success).toBe(true)
+  })
+
   it('clamps handoff numbers into the server limits', () => {
     const draft = { ...profileToDraft(emptyAgentProfile()), max_turns_before_handoff: 999, confidence_threshold: Number.NaN }
     const { handoff_rules } = draftToInput(draft, 'handoff') as { handoff_rules: { max_turns_before_handoff: number; confidence_threshold: number } }

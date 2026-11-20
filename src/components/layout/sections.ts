@@ -37,7 +37,14 @@ export function buildSections(enabled: readonly Channel[] | null | undefined): S
     both
       ? { id: 'inbox', href: ALL_INBOXES_PATH, labelKey: 'inbox', tabs: [], unread: 'all' }
       : { id: 'inbox', href: channelPath(channels[0], 'inbox'), labelKey: 'inbox', tabs: [], unread: channels[0] },
-    { id: 'contacts', href: '/contacts', labelKey: 'contacts', tabs: [] },
+    {
+      id: 'contacts', href: '/contacts', labelKey: 'contacts',
+      tabs: [
+        { href: '/contacts', labelKey: 'people' },
+        { href: '/contacts/segments', labelKey: 'segments' },
+        { href: '/contacts/fields', labelKey: 'customFields' },
+      ],
+    },
     {
       id: 'automation', href: '/automation', labelKey: 'automation',
       // Flows, rules and sequences share one list at /automation (All / Flows / Rules / Sequences);

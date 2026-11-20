@@ -80,18 +80,14 @@ test.describe('ads with META_ADS_ENABLED unset', () => {
 
     // "Broadcast to these leads" opens /broadcasts/new?segmentId=...; the
     // audience step must start on that segment, not on all contacts.
-    // Details come first (name and channel), then the template, then the audience.
+    // With one channel the wizard opens on the template, then the audience.
     await page.goto(`/broadcasts/new?segmentId=${encodeURIComponent(segmentId)}`);
-    await page.getByLabel('Name', { exact: true }).fill(`Ad clickers ${fixtures().runId}`);
-    await page.getByRole('button', { name: 'Next', exact: true }).click();
     await page.getByRole('button', { name: /e2e_template/ }).click();
     await page.getByRole('button', { name: 'Next', exact: true }).click();
     await expect(page.getByLabel('Choose a segment')).toHaveValue(segmentId);
 
     // An id that is not one of this workspace's segments is ignored.
     await page.goto('/broadcasts/new?segmentId=00000000-0000-0000-0000-000000000000');
-    await page.getByLabel('Name', { exact: true }).fill(`Ad clickers ${fixtures().runId}`);
-    await page.getByRole('button', { name: 'Next', exact: true }).click();
     await page.getByRole('button', { name: /e2e_template/ }).click();
     await page.getByRole('button', { name: 'Next', exact: true }).click();
     await expect(page.getByLabel('Choose a segment')).toHaveCount(0);

@@ -126,10 +126,10 @@ it('links queues and failures to conversations and shows human and automated met
 it('leaves out the WhatsApp setup steps for a workspace that does not use WhatsApp', () => {
   const withWhatsApp = render(empty);
   expect(withWhatsApp).toContain('href="/settings?tab=whatsapp"');
-  expect(withWhatsApp).toContain('href="/settings?tab=templates"');
+  expect(withWhatsApp).toContain('href="/templates"');
   const without = render(empty, false);
   expect(without).not.toContain('href="/settings?tab=whatsapp"');
-  expect(without).not.toContain('href="/settings?tab=templates"');
+  expect(without).not.toContain('href="/templates"');
   expect(without).toContain('href="/contacts"');
   expect(without).toContain('href="/settings?tab=members"');
 });

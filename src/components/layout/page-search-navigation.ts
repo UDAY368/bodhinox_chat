@@ -95,6 +95,12 @@ const otherSearchPages: NavPage[] = [
   { href: '/commerce/orders', labelKey: 'orders', group: 'workspace' },
   { href: '/commerce/products', labelKey: 'products', group: 'workspace' },
   { href: '/commerce/payments', labelKey: 'payments', group: 'workspace' },
+  { href: '/commerce/catalogue', labelKey: 'catalogue', group: 'workspace' },
+  { href: '/commerce/store', labelKey: 'onlineStore', group: 'workspace' },
+  { href: '/commerce/reviews', labelKey: 'reviews', group: 'workspace' },
+  { href: '/commerce/insights', labelKey: 'shopReports', group: 'workspace' },
+  { href: '/commerce/settings', labelKey: 'storeSettings', group: 'workspace' },
+  { href: '/reports', labelKey: 'reports', group: 'workspace' },
   { href: '/settings', labelKey: 'settings', group: 'workspace' },
 ];
 

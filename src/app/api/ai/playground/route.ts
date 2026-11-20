@@ -6,7 +6,7 @@ import { retrieveKnowledgeScored } from '@/lib/ai/knowledge'
 import { generateReply } from '@/lib/ai/generate'
 import { buildAgentSystemPrompt, loadAgentProfile, matchHandoffKeyword, type AgentProfile } from '@/lib/ai/agent-profile'
 import { agentProfileFor, getAgent, isAgentId } from '@/lib/ai/agents'
-import { assessConfidence } from '@/lib/ai/confidence'
+import { assessConfidence, noKnowledgeHandoff } from '@/lib/ai/confidence'
 import { autoReplyThreshold } from '@/lib/ai/auto-reply'
 import { latestUserMessage } from '@/lib/ai/query'
 import { AiError, type ChatMessage } from '@/lib/ai/types'
@@ -132,6 +132,13 @@ export async function POST(request: Request) {
     const { chunks, retrieval, citations } = await retrieveKnowledgeScored(db, accountId, config, question, 5, 'customer')
     const knowledge = chunks.map((c) => c.content)
     const retrievalMs = Math.round(performance.now() - retrievalStartedAt)
+    // "Hand off when nothing in knowledge matched", before any model call, as in auto-reply.
+    if (noKnowledgeHandoff(rules, knowledge.length)) {
+      return NextResponse.json({
+        reply: '', handoff: true, reason: 'no_knowledge', score: 0, sources: [],
+        diagnostics: diagnostics({ knowledgeMatches: 0, retrievalMs, generationMs: 0 }),
+      })
+    }
     const systemPrompt = buildAgentSystemPrompt(profile, {
       mode: 'auto_reply',
       knowledge,

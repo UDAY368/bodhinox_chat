@@ -121,7 +121,10 @@
     "analyticsCampaigns": "Campañas",
     "onlineStore": "Tienda en línea",
     "reviews": "Reseñas",
-    "shopReports": "Informes de la tienda"
+    "shopReports": "Informes de la tienda",
+    "people": "Personas",
+    "segments": "Segmentos",
+    "customFields": "Campos personalizados"
   },
   "Header": {
     "notificationsUnread": "{count, plural, =1 {Notificaciones, 1 sin leer} other {Notificaciones, # sin leer}}",
@@ -164,7 +167,13 @@
     "sequences": "Secuencias",
     "subscription": "Suscripción",
     "automation": "Automatización",
-    "ai": "IA"
+    "ai": "IA",
+    "catalogue": "Catálogo",
+    "onlineStore": "Tienda en línea",
+    "reviews": "Reseñas",
+    "shopReports": "Informes de la tienda",
+    "storeSettings": "Ajustes de la tienda",
+    "reports": "Informes"
   },
   "ModeToggle": {
     "switchMode": "Cambiar al modo {mode}"
@@ -396,7 +405,7 @@
       "filterUnread": "Sin leer",
       "filterOpen": "Abiertas",
       "filterPending": "Pendientes",
-      "filterClosed": "Cerradas",
+      "filterClosed": "Resueltas",
       "tags": "Etiquetas",
       "company": "Empresa",
       "allCompanies": "Todas las empresas",
@@ -435,7 +444,8 @@
       "windowStripNext": "Más",
       "tabActive": "Activos",
       "tabRequesting": "Solicitando",
-      "tabIntervened": "Intervenidos"
+      "tabIntervened": "Intervenidos",
+      "loadFailed": "No se pudieron cargar las conversaciones."
     },
     "messageThread": {
       "backToConversations": "Volver a las conversaciones",
@@ -448,7 +458,7 @@
       "status": "Estado",
       "statusOpen": "Abierta",
       "statusPending": "Pendiente",
-      "statusClosed": "Cerrada",
+      "statusClosed": "Resuelta",
       "assign": "Asignar",
       "assigned": "Asignada",
       "unassign": "Quitar asignación",
@@ -505,9 +515,10 @@
       "automationPausedBanner": "Automatización pausada en este chat.",
       "automationPausedHint": "Los flujos y las respuestas de IA no se ejecutarán.",
       "blockTitle": "¿Bloquear a {name}?",
-      "blockBody": "No le llegarán mensajes automáticos, flujos ni respuestas de IA y esta conversación se cerrará. Puedes desbloquearlo cuando quieras.",
+      "blockBody": "No le llegarán mensajes automáticos, flujos ni respuestas de IA y esta conversación se marcará como resuelta. Puedes desbloquearlo cuando quieras.",
       "cancel": "Cancelar",
-      "blockConfirm": "Bloquear"
+      "blockConfirm": "Bloquear",
+      "loadFailed": "No se pudieron cargar estos mensajes."
     },
     "sessionTimer": {
       "expired": "Expirada",
@@ -908,7 +919,7 @@
       },
       "reason": {
         "window_closed": "La ventana de mensajes estaba cerrada.",
-        "conversation_closed": "La conversación estaba cerrada.",
+        "conversation_closed": "La conversación estaba resuelta.",
         "channel_off": "El canal estaba desactivado.",
         "human_agent_off": "Las respuestas pasadas 24 horas no están disponibles.",
         "send_failed": "No se pudo enviar el mensaje."
@@ -1127,12 +1138,12 @@
       "markRead": "Marcar como leída",
       "markUnread": "Marcar como no leída",
       "assignToMe": "Asignarme",
-      "close": "Cerrar",
+      "close": "Resolver",
       "reopen": "Reabrir",
       "markedUnread": "Marcada como no leída",
       "markedRead": "Marcada como leída",
       "assignedToYou": "Asignada a ti",
-      "closed": "Conversación cerrada",
+      "closed": "Conversación resuelta",
       "reopened": "Conversación reabierta",
       "failed": "No se pudo hacer. Inténtalo de nuevo."
     },
@@ -1772,7 +1783,7 @@
         "startConversation": "Iniciar una conversación",
         "open": "Abierta",
         "pending": "Pendiente",
-        "closed": "Cerrada",
+        "closed": "Resuelta",
         "orders": "Pedidos",
         "noOrders": "Aún no hay pedidos.",
         "orderName": "Pedido {ref}",
@@ -2058,10 +2069,10 @@
     "settings": {
       "managePipeline": "Administrar pipeline",
       "deletePipeline": "Eliminar pipeline",
-      "deletePipelineDesc": "Esto archivará todos los negocios de este pipeline. No se puede deshacer.",
+      "deletePipelineDesc": "Esto elimina de forma permanente el pipeline y todos sus negocios, incluidos los ganados. No se puede deshacer.",
       "cancel": "Cancelar",
       "deleting": "Eliminando...",
-      "deletePipelineBtn": "Eliminar pipeline",
+      "deletePipelineBtn": "Eliminar definitivamente",
       "pipelineName": "Nombre del pipeline",
       "stages": "Etapas",
       "newStageNamePlaceholder": "Nombre de la nueva etapa",
@@ -2125,7 +2136,8 @@
       "showing": "Mostrando {start}–{end} de {total}",
       "previousPage": "Página anterior",
       "nextPage": "Página siguiente",
-      "newApiCampaign": "Nueva campaña por API"
+      "newApiCampaign": "Nueva campaña por API",
+      "moreStatuses": "Más estados"
     },
     "status": {
       "draft": "Borrador",
@@ -2383,7 +2395,7 @@
         "whenNow": "Enviar ahora",
         "whenLater": "Programar para más tarde",
         "scheduleAt": "Enviar el",
-        "scheduleHint": "Tu zona horaria: {zone}. Hasta 90 días de antelación.",
+        "scheduleHint": "En la zona horaria del espacio de trabajo. Hasta 90 días de antelación.",
         "scheduleTooSoon": "Elige una hora al menos un minuto en el futuro.",
         "scheduleBroadcast": "Programar difusión",
         "confirmScheduled": "Comenzará el {when}. Puedes reprogramarla o cancelarla hasta entonces.",
@@ -2395,7 +2407,8 @@
         "testFailed": "No se pudo enviar la prueba",
         "testSent": "Prueba enviada a {phone}",
         "testNotSent": "No se envió a {phone}: {error}",
-        "confirmSendFrom": "Se enviará desde {number}."
+        "confirmSendFrom": "Se enviará desde {number}.",
+        "reachFailed": "No se pudo contar"
       }
     },
     "sending": {
@@ -2516,7 +2529,7 @@
         "wait": "Esperar",
         "condition": "Condición (Si/Si no)",
         "send_webhook": "Enviar webhook",
-        "close_conversation": "Cerrar conversación",
+        "close_conversation": "Resolver conversación",
         "notify_team": "Avisar al equipo",
         "start_flow": "Iniciar un flujo"
       },
@@ -2699,7 +2712,7 @@
         "matchExact": "Exacta",
         "waitForReply": "Esperar respuesta antes de continuar",
         "waitForReplyHint": "Se detiene aquí hasta que el cliente toque un botón o responda (hasta 24 h). Los pasos siguientes, incluido Si/Si no sobre el contenido del mensaje, usan esa respuesta.",
-        "closeConversationHint": "Cambia el estado de la conversación a \"cerrada\". No requiere configuración.",
+        "closeConversationHint": "Marca la conversación como Resuelta. No requiere configuración.",
         "conditionTimezoneLabel": "Zona horaria",
         "conditionTimezoneHint": "Zona horaria del negocio usada para evaluar esta franja horaria.",
         "notifyAudienceLabel": "Avisar a",
@@ -4071,13 +4084,13 @@
           "pause_automations": "Pausar automatizaciones",
           "resume_automations": "Reanudar automatizaciones",
           "log_conversion": "Registrar evento de conversión",
-          "set_conversation_status": "Marcar conversación abierta o cerrada",
+          "set_conversation_status": "Marcar conversación abierta o resuelta",
           "notify_team": "Avisar al equipo"
         },
         "increment": "Sumar al número",
         "set": "Definir como",
         "opened": "Abierta",
-        "closed": "Cerrada",
+        "closed": "Resuelta",
         "optIn": "Suscribir",
         "optOut": "Cancelar suscripción",
         "assignee": "El agente asignado",
@@ -4773,7 +4786,11 @@
       "flowFormLoading": "Cargando el formulario…",
       "flowFormHelp": "El botón abre este formulario. Cada envío tiene su propio vínculo con las respuestas.",
       "flowFormNone": "Aún no hay formularios publicados. Crea y publica uno en Formularios.",
-      "flowFormUnavailable": "Este formulario aún no está publicado en WhatsApp."
+      "flowFormUnavailable": "Este formulario aún no está publicado en WhatsApp.",
+      "discardTitle": "¿Descartar cambios?",
+      "discardBody": "Esta plantilla tiene cambios sin guardar. Si la cierras, se perderán.",
+      "keepEditing": "Seguir editando",
+      "discardChanges": "Descartar"
     },
     "roles": {
       "admin": "Administrador",
@@ -5724,7 +5741,6 @@
       "title": "Registro de auditoría",
       "description": "Quién hizo qué en este espacio de trabajo, de lo más reciente a lo más antiguo. Las entradas muestran identificadores y recuentos, nunca el contenido de los mensajes.",
       "linkDescription": "Revisa la actividad de miembros, equipos, permisos y exportaciones.",
-      "back": "Volver a la configuración",
       "adminsOnly": "Solo los administradores y propietarios pueden ver el registro de auditoría.",
       "member": "Miembro",
       "anyMember": "Cualquier miembro",
@@ -6471,7 +6487,8 @@
       "instagram_account_health": "Cuenta de Instagram",
       "automation_notice": "Aviso de automatización",
       "webhook_disabled": "Webhook desactivado"
-    }
+    },
+    "loadFailed": "No se pudieron cargar las notificaciones."
   },
   "Agents": {
     "title": "Agentes de IA",
@@ -6571,7 +6588,9 @@
         "claim_failed": "No se pudo reservar un turno de respuesta",
         "stale": "La conversación cambió antes del envío",
         "dispatch_failed": "Algo salió mal",
-        "no_agent": "Ningún agente está activo para este canal a esta hora"
+        "no_agent": "Ningún agente está activo para este canal a esta hora",
+        "no_knowledge": "Nada del conocimiento coincidió",
+        "workspace_ai_cap": "Límite mensual de tokens de IA alcanzado"
       },
       "unknownReason": "Otro ({code})",
       "detailTitle": "Detalles de la actividad",
@@ -6663,7 +6682,10 @@
   "UiPrimitives": {
     "close": "Cerrar",
     "scrollLeft": "Desplazar a la izquierda",
-    "scrollRight": "Desplazar a la derecha"
+    "scrollRight": "Desplazar a la derecha",
+    "loadFailed": "No se pudo cargar. Revisa tu conexión e inténtalo de nuevo.",
+    "retry": "Reintentar",
+    "loading": "Cargando"
   },
   "GatedButton": {
     "readOnly": "Solo lectura: tu rol no puede {action}",
@@ -9675,7 +9697,7 @@
       "description": "Carritos enviados desde tu catálogo de WhatsApp y pedidos de tiendas conectadas.",
       "loading": "Cargando pedidos",
       "loadError": "No se pudieron cargar los pedidos",
-      "searchPlaceholder": "Buscar por cliente o número de pedido",
+      "searchPlaceholder": "Buscar por cliente, teléfono o pedido",
       "filterStatus": "Filtrar por estado",
       "filterSource": "Filtrar por origen",
       "allStatuses": "Todos los estados",
@@ -9740,7 +9762,8 @@
           "deliveryDate": "Fecha de entrega",
           "note": "Nota",
           "giftMessage": "Mensaje de regalo"
-        }
+        },
+        "payments": "Pagos"
       },
       "settings": {
         "open": "Mensaje de confirmación",
@@ -10079,7 +10102,9 @@
           "coupon_min_subtotal": "El pedido quedaría por debajo del mínimo de su cupón.",
           "forbidden": "No tienes permiso para este cambio. Un cambio que reembolsa dinero necesita un administrador."
         }
-      }
+      },
+      "exportTruncated": "La exportación se detuvo en 5.000 pedidos. Ajusta los filtros para obtener el resto.",
+      "exportFailed": "No se pudieron exportar los pedidos"
     },
     "attention": {
       "title": "{count, plural, one {# mensaje de la tienda requiere atención} other {# mensajes de la tienda requieren atención}}",
@@ -10112,9 +10137,10 @@
         "purchaseOrders": "Órdenes de compra"
       },
       "statuses": {
-        "draft": "Borrador",
-        "published": "Publicado",
-        "archived": "Archivado"
+        "draft": "Oculto",
+        "published": "Visible",
+        "archived": "Archivado",
+        "visibility": "Visibilidad"
       },
       "errors": {
         "invalid": "Revisa el valor indicado e inténtalo de nuevo.",
@@ -10160,7 +10186,7 @@
         "create": "Añadir producto",
         "search": "Buscar por nombre o SKU",
         "statusFilter": "Estado",
-        "activeStatuses": "Borradores y publicados",
+        "activeStatuses": "Visibles y ocultos",
         "allStatuses": "Todos, también archivados",
         "stockFilter": "Existencias",
         "allStock": "Cualquier existencia",
@@ -10264,10 +10290,10 @@
         "reviewed": "Contenido revisado el {date, date, medium}",
         "notReviewed": "Contenido aún sin revisar",
         "publish": "Revisar y publicar",
-        "publishHint": "Al publicar quedas registrado como revisor del nombre, la descripción y el aviso. Necesita al menos una variante con precio.",
-        "publishedToast": "Producto publicado",
+        "publishHint": "Al hacer visible un producto quedas registrado como revisor del nombre, la descripción y la información legal. Necesita al menos una variante con precio.",
+        "publishedToast": "El producto está visible",
         "unpublish": "Retirar",
-        "unpublished": "Producto devuelto a borrador",
+        "unpublished": "Producto oculto de la tienda",
         "archive": "Archivar",
         "archivedToast": "Producto archivado",
         "restore": "Restaurar",
@@ -10285,7 +10311,7 @@
         "followUpLanguage": "Idioma de la plantilla",
         "followUpDays": "Días tras la entrega",
         "followUpHint": "Opcional. Una plantilla de utilidad aprobada que se envía una vez tras entregar el pedido.",
-        "rereviewHint": "Guardar texto modificado en un producto publicado te registra como su revisor.",
+        "rereviewHint": "Guardar cambios de texto en un producto visible te registra como su revisor.",
         "save": "Guardar detalles",
         "images": "Imágenes",
         "noImages": "Sin imágenes.",
@@ -11962,7 +11988,7 @@
       "customer": "Cliente",
       "walkIn": "Cliente de paso",
       "namedCustomer": "Cliente con nombre",
-      "customerSearch": "Buscar clientes por nombre",
+      "customerSearch": "Buscar clientes por nombre o teléfono",
       "chosen": "Vendiendo a {name}",
       "products": "Productos",
       "productSearch": "Busca por nombre o escanea un SKU",
@@ -12574,7 +12600,7 @@
     "anyStatus": "Cualquier estado",
     "statusOpen": "Abierta",
     "statusPending": "Pendiente",
-    "statusClosed": "Cerrada",
+    "statusClosed": "Resuelta",
     "assignee": "Asignado a",
     "anyAssignee": "Cualquiera",
     "assignedToMe": "Asignadas a mí",
@@ -12999,7 +13025,9 @@
       "threshold": "Confianza necesaria para responder: {value} %",
       "thresholdHint": "Al 50 % decide el propio criterio del agente. Los valores más altos exigen además una coincidencia cercana en la base de conocimiento y traspasan con más frecuencia. Si nada de la base de conocimiento coincide, decide solo el criterio del agente.",
       "maxTurns": "Traspasar después de esta cantidad de respuestas de la IA",
-      "maxTurnsHint": "0 significa sin límite."
+      "maxTurnsHint": "0 significa sin límite.",
+      "noKnowledge": "Pasar a una persona cuando nada del conocimiento coincide",
+      "noKnowledgeHint": "Si tu conocimiento no dice nada sobre la pregunta, responde una persona en lugar de la IA."
     },
     "knowledge": {
       "title": "Añade conocimiento",
@@ -15535,7 +15563,7 @@
       "ready": "Listo"
     },
     "monthlyTokenCap": "Límite mensual de tokens de IA",
-    "monthlyTokenCapHint": "Se aplica a resúmenes, respuestas sugeridas, evaluaciones e informes. Déjalo vacío para usar solo el límite de tu plan.",
+    "monthlyTokenCapHint": "Se aplica a respuestas automáticas, respuestas de flujos, resúmenes, respuestas sugeridas, evaluaciones e informes. Déjalo vacío para usar solo el límite de tu plan.",
     "staffReviewNote": "Nada de lo que escriben estas funciones se envía a un cliente hasta que un miembro del equipo lo revisa y pulsa Enviar.",
     "autonomousNote": "La respuesta automática y el paso de respuesta con IA de los flujos envían sin revisión humana.",
     "instagramGoals": {
@@ -17179,12 +17207,12 @@
     },
     "wizard": {
       "steps": {
-        "details": "Detalles",
+        "details": "Canal",
         "message": "Mensaje",
         "review": "Revisión"
       },
-      "detailsTitle": "Nombre y canal",
-      "detailsSubtitle": "Pon nombre a la difusión y elige por dónde se envía.",
+      "detailsTitle": "Canal",
+      "detailsSubtitle": "Elige a dónde va la difusión.",
       "nameLabel": "Nombre",
       "namePlaceholder": "p. ej., Oferta de Diwali",
       "nameHint": "Solo tu equipo ve este nombre.",
@@ -17218,7 +17246,7 @@
       "willGetIt": "{count, plural, one {persona lo recibirá} other {personas lo recibirán}}",
       "leftOutWindow": "{count, plural, one {# persona excluida} other {# personas excluidas}}: escribieron hace más de 24 horas",
       "leftOutRule": "Instagram solo permite mensajes a quienes te escribieron en las últimas 24 horas. Los contactos dados de baja o bloqueados siempre se excluyen.",
-      "countFailed": "No se pudo contar la audiencia. Vuelve atrás e inténtalo de nuevo.",
+      "countFailed": "No se pudo contar la audiencia.",
       "counting": "Contando quién lo recibe…",
       "instagramNoSchedule": "Las difusiones de Instagram se envían al momento: la ventana de 24 horas se cerraría antes de una hora posterior.",
       "sendNow": "Enviar ahora",
@@ -17327,7 +17355,9 @@
       "noteDeleted": "Nota eliminada",
       "delete": "Eliminar",
       "markLost": "Marcar perdido",
-      "markWon": "Marcar ganado"
+      "markWon": "Marcar ganado",
+      "contactSearchPlaceholder": "Buscar por nombre o teléfono",
+      "contactSearchFailed": "No se pudieron buscar los contactos"
     },
     "paymentLink": {
       "sendNow": "Enviarlo ahora al cliente",
@@ -17442,7 +17472,7 @@
         "title": "Nuevo pedido",
         "totalHelp": "Los precios salen de tu catálogo. Los impuestos se añaden al crear el pedido.",
         "customer": "Cliente",
-        "customerSearch": "Buscar clientes por nombre",
+        "customerSearch": "Buscar clientes por nombre o teléfono",
         "chooseCustomer": "Elige un cliente",
         "items": "Artículos",
         "product": "Producto",
@@ -17477,7 +17507,7 @@
     },
     "products": {
       "copyName": "{name} (copia)",
-      "shown": "{name} está activo en la tienda",
+      "shown": "{name} está visible en la tienda",
       "hiddenToast": "{name} está oculto en la tienda",
       "duplicated": "Copia añadida como borrador",
       "archived": "Producto archivado",
@@ -17489,7 +17519,7 @@
       "show": "Mostrar en la tienda",
       "restore": "Restaurar",
       "archive": "Archivar",
-      "activeFor": "{name} activo en la tienda",
+      "activeFor": "{name} visible en la tienda",
       "all": "Todos",
       "categories": "Categorías",
       "viewLabel": "Vista",
@@ -17671,7 +17701,9 @@
         "maxTurns": "Escribe un número del 0 al 50.",
         "hours": "La hora de inicio debe ser anterior a la hora de fin."
       },
-      "overnightHint": "El inicio debe ser anterior al fin. Para cubrir la noche (por ejemplo, de 22:00 a 06:00), elige \"Solo fuera de este horario\" e introduce de 06:00 a 22:00."
+      "overnightHint": "El inicio debe ser anterior al fin. Para cubrir la noche (por ejemplo, de 22:00 a 06:00), elige \"Solo fuera de este horario\" e introduce de 06:00 a 22:00.",
+      "noKnowledge": "Cuando el conocimiento no tiene respuesta",
+      "noKnowledgeHint": "Pasa la conversación en lugar de responder sin tu conocimiento."
     },
     "test": {
       "panelLabel": "Probar {name}",
@@ -17917,7 +17949,7 @@
       "barLabel": "Presupuesto usado",
       "pct": "{n} % usado",
       "resets": "Se renueva el {date}",
-      "overNote": "Has superado tu límite. Las funciones del asistente siguen funcionando porque la pausa está desactivada.",
+      "overNote": "Has superado tu límite. La IA sigue funcionando porque la pausa está desactivada.",
       "pausedNote": "La IA está en pausa hasta que se renueve el presupuesto o subas el límite.",
       "planLimit": "Tu plan permite {n} tokens al mes.",
       "limitLabel": "Límite mensual, en tokens",
@@ -17927,7 +17959,7 @@
       "setLimit": "Fijar un límite",
       "change": "Cambiar límite",
       "pause": "Pausar la IA cuando se agote el presupuesto",
-      "pauseHint": "Las funciones del asistente se detienen en tu límite; tu equipo puede seguir respondiendo a mano. El límite de tu plan se aplica siempre.",
+      "pauseHint": "Al llegar a tu límite, las respuestas automáticas, las respuestas de flujos y las funciones del asistente se detienen, y los chats pasan a tu equipo. El límite de tu plan se aplica siempre.",
       "pauseOn": "La IA se pausará cuando se agote el presupuesto",
       "pauseOff": "La IA seguirá funcionando después de tu límite",
       "tokensNote": "Los tokens miden cuánto texto lee y escribe la IA. Unas 750 palabras son 1000 tokens.",

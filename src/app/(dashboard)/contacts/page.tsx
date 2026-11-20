@@ -83,6 +83,7 @@ import { ContactForm } from '@/components/contacts/contact-form';
 import { ImportModal } from '@/components/contacts/import-modal';
 import { LeadScoreCell, useLeadScores } from '@/components/contacts/lead-score-cell';
 import { ContactsHeader } from '@/components/contacts/contacts-header';
+import { InlineError } from '@/components/ui/inline-error';
 import { CustomFieldInput, FIELD_SELECT } from '@/components/contacts/custom-field-input';
 import { downloadContactsCsv, useContactMembers, useCustomFields } from '@/components/contacts/contacts-client';
 import { formatLastSeen } from '@/components/contacts/format';
@@ -168,7 +169,16 @@ function ContactsPeople() {
   // Advisory AI lead scores for the contacts on screen (agents and above).
   const leadScores = useLeadScores(contacts.map((c) => c.id));
   const [loading, setLoading] = useState(true);
+  // The last load failed: the table shows what happened and Retry, never the old rows.
+  const [loadError, setLoadError] = useState(false);
   const [search, setSearch] = useState('');
+  // The term the rows were fetched for: follows the box 300 ms after typing stops, so a word is
+  // one request, not one per key. Stale responses are dropped by fetchSeq below.
+  const [searchTerm, setSearchTerm] = useState('');
+  useEffect(() => {
+    const id = setTimeout(() => setSearchTerm(search.trim()), 300);
+    return () => clearTimeout(id);
+  }, [search]);
   const [page, setPage] = useState(0);
   const [totalCount, setTotalCount] = useState(0);
   // Tag filter — contacts shown must have ANY of these tags (OR).
@@ -262,7 +272,7 @@ function ContactsPeople() {
     setSelected(new Set());
     setAllMatching(false);
 
-    const term = search.trim();
+    const term = searchTerm;
     const query = new URLSearchParams({ offset: String(page * PAGE_SIZE), limit: String(PAGE_SIZE), sort: sort.key, dir: sort.dir });
     if (segmentId) query.set('segmentId', segmentId);
     else if (listId) query.set('listId', listId);
@@ -274,13 +284,17 @@ function ContactsPeople() {
     if (consentFilter) query.set('consent', consentFilter);
     const res = await authFetch(`/api/contacts/bulk/view?${query}`, { cache: 'no-store' }).catch(() => null);
     if (seq !== fetchSeq.current) return;
-    if (!res?.ok) {
-      toast.error(t('toastFailedLoad'));
+    const payload = res?.ok
+      ? ((await res.json().catch(() => null)) as { contacts: ContactRow[]; total: number } | null)
+      : null;
+    if (seq !== fetchSeq.current) return;
+    if (!payload) {
+      setLoadError(true);
+      setContacts([]);
       setLoading(false);
       return;
     }
-    const payload = (await res.json()) as { contacts: ContactRow[]; total: number };
-    if (seq !== fetchSeq.current) return;
+    setLoadError(false);
     setTotalCount(payload.total);
 
     if (payload.contacts.length === 0) {
@@ -308,7 +322,7 @@ function ContactsPeople() {
       tags: (tagsByContact[c.id] ?? []).map((tid) => tagsMap[tid]).filter(Boolean),
     })));
     setLoading(false);
-  }, [db, page, search, selectedTagIds, segmentId, listId, tagsMap, t, channelView, subscribedOnly, ownerFilter, consentFilter, sort]);
+  }, [db, page, searchTerm, selectedTagIds, segmentId, listId, tagsMap, channelView, subscribedOnly, ownerFilter, consentFilter, sort]);
 
   // Stage 5: the Instagram status of the rows on screen, read from stored state.
   const contactIdsKey = contacts.map((c) => c.id).join(',');
@@ -401,7 +415,8 @@ function ContactsPeople() {
 
   /** The current view as a bulk scope (POST /api/contacts/bulk). */
   function viewScope() {
-    const term = search.trim();
+    // The term the visible rows were fetched for, so a bulk action matches what is on screen.
+    const term = searchTerm;
     return {
       ...(segmentId ? { segmentId } : listId ? { listId } : selectedTagIds.length ? { tagIds: selectedTagIds } : {}),
       ...(term ? { search: term.slice(0, 200) } : {}),
@@ -760,8 +775,6 @@ function ContactsPeople() {
   return (
     <div className="min-w-0 space-y-5">
       <ContactsHeader
-        tab="people"
-        known={{ people: loading || filtersOn || search.trim() ? null : totalCount }}
         actions={
           <>
             {canEditSettings && !canExport && <UpgradeBadge />}
@@ -1267,6 +1280,12 @@ function ContactsPeople() {
                   </div>
                 </TableCell>
               </TableRow>
+            ) : loadError ? (
+              <TableRow className="border-border hover:bg-transparent">
+                <TableCell colSpan={8} className="whitespace-normal">
+                  <InlineError message={t('toastFailedLoad')} onRetry={() => void fetchContacts()} />
+                </TableCell>
+              </TableRow>
             ) : contacts.length === 0 ? (
               <TableRow className="border-border hover:bg-transparent">
                 <TableCell colSpan={8} className="py-16 text-center whitespace-normal">
@@ -1490,7 +1509,7 @@ function ContactsPeople() {
         </Table>
         </div>
 
-        {!loading && totalCount > 0 && (
+        {!loading && !loadError && totalCount > 0 && (
           <TablePagination
             className="border-t border-border"
             page={page}

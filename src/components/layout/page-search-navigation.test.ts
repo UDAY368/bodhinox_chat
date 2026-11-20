@@ -96,6 +96,12 @@ describe('page search', () => {
         '/commerce/orders',
         '/commerce/products',
         '/commerce/payments',
+        '/commerce/catalogue',
+        '/commerce/store',
+        '/commerce/reviews',
+        '/commerce/insights',
+        '/commerce/settings',
+        '/reports',
         '/settings',
       ]);
     }
@@ -153,6 +159,13 @@ describe('page titles', () => {
     expect(getPageTitleKey('/appointments')).toBe('appointments');
     expect(getPageTitleKey('/commerce/orders/42')).toBe('orders');
     expect(getPageTitleKey('/commerce')).toBe('dashboard');
+    // Every Sales tab and Reports has its own title (these six fell back to "Dashboard").
+    expect(getPageTitleKey('/commerce/catalogue/abc')).toBe('catalogue');
+    expect(getPageTitleKey('/commerce/store')).toBe('onlineStore');
+    expect(getPageTitleKey('/commerce/reviews')).toBe('reviews');
+    expect(getPageTitleKey('/commerce/insights')).toBe('shopReports');
+    expect(getPageTitleKey('/commerce/settings')).toBe('storeSettings');
+    expect(getPageTitleKey('/reports')).toBe('reports');
     expect(getPageTitleKey('/inbox-archive')).toBe('dashboard');
   });
 

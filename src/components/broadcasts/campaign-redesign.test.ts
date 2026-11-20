@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { availableActions, primaryAction } from './broadcast-actions';
 import { bodySamples } from './broadcast-message-card';
 import { COUNTS_REFRESH_MS, broadcastStarted, broadcastWhen, sentPercent, shouldRefreshCounts, statusSignature } from './broadcast-display';
-import { prefillFromBroadcast } from './wizard-prefill';
+import { defaultCampaignName, prefillFromBroadcast } from './wizard-prefill';
 import type { Broadcast } from '@/types';
 
 const row = (status: Broadcast['status'], extra: Partial<Broadcast> = {}) =>
@@ -93,6 +93,14 @@ describe('the report message preview', () => {
       _send: { coupon: 'X' },
     }, { customField: 'custom field' })).toEqual(['{name}', '20%', '{custom field}']);
     expect(bodySamples(undefined, { customField: 'x' })).toEqual([]);
+  });
+});
+
+describe('default campaign name', () => {
+  it('is the template name and the date, within the 200-character limit', () => {
+    const day = new Date(Date.UTC(2026, 10, 19, 12));
+    expect(defaultCampaignName(' diwali_offer ', day, 'en-GB')).toBe('diwali_offer · 19 Nov 2026');
+    expect(defaultCampaignName('x'.repeat(250), day, 'en-GB')).toHaveLength(200);
   });
 });
 

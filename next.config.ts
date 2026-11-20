@@ -126,6 +126,21 @@ const nextConfig: NextConfig = {
   ],
 
   /**
+   * Settings > Templates moved to the one templates screen, Campaigns > Templates.
+   * Old links (notifications, bookmarks, the dashboard) land there on the server.
+   */
+  async redirects() {
+    return [
+      {
+        source: "/settings",
+        has: [{ type: "query", key: "tab", value: "templates" }],
+        destination: "/templates",
+        permanent: false,
+      },
+    ];
+  },
+
+  /**
    * Cache-Control policy.
    *
    * Why this exists:

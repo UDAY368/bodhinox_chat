@@ -14,6 +14,8 @@ export interface OpsHealthRow {
   expiredRunningLeases: number;
   failedJobs1h: number;
   unknownIntents: number;
+  /** Sends left in 'dispatching' for more than 10 minutes (crm_ops_stuck_dispatching()). */
+  stuckDispatching10m: number;
   unprocessedWebhooks15m: number;
   latestMigration: string | null;
 }
@@ -24,6 +26,10 @@ export interface HealthThresholds {
   oldestDueDegradedS: number;
   /** More unknown outbound intents than this = degraded. HEALTH_UNKNOWN_INTENTS_DEGRADED, default 0. */
   unknownIntentsDegraded: number;
+  /** More sends stuck in 'dispatching' over 10 minutes than this = degraded. HEALTH_STUCK_DISPATCHING_DEGRADED, default 0. */
+  stuckDispatchingDegraded: number;
+  /** More jobs that exhausted their retries in the last hour than this = degraded. HEALTH_FAILED_JOBS_DEGRADED, default 0. */
+  failedJobsDegraded: number;
 }
 export type HealthStatus = 'ok' | 'degraded' | 'down';
 export interface DeepHealth {
@@ -34,13 +40,13 @@ export interface DeepHealth {
     ops: 'ok' | 'unconfigured' | 'unavailable';
     worker: { ageS: number | null; ok: boolean } | null;
     queue: { pendingDue: number; oldestDueS: number | null; expiredLeases: number; failed1h: number } | null;
-    intents: { unknown: number } | null;
+    intents: { unknown: number; stuckDispatching10m: number } | null;
     webhooks: { unprocessed15m: number } | null;
     migrations: { latest: string | null } | null;
   };
 }
 
-const DEFAULTS: HealthThresholds = { workerDownS: 90, oldestDueDegradedS: 300, unknownIntentsDegraded: 0 };
+const DEFAULTS: HealthThresholds = { workerDownS: 90, oldestDueDegradedS: 300, unknownIntentsDegraded: 0, stuckDispatchingDegraded: 0, failedJobsDegraded: 0 };
 const STATEMENT_TIMEOUT_MS = 2000;
 
 function nonNegativeInt(raw: string | undefined, fallback: number): number {
@@ -52,6 +58,8 @@ export function healthThresholds(env: Record<string, string | undefined> = proce
     workerDownS: nonNegativeInt(env.HEALTH_WORKER_DOWN_S, DEFAULTS.workerDownS),
     oldestDueDegradedS: nonNegativeInt(env.HEALTH_OLDEST_DUE_DEGRADED_S, DEFAULTS.oldestDueDegradedS),
     unknownIntentsDegraded: nonNegativeInt(env.HEALTH_UNKNOWN_INTENTS_DEGRADED, DEFAULTS.unknownIntentsDegraded),
+    stuckDispatchingDegraded: nonNegativeInt(env.HEALTH_STUCK_DISPATCHING_DEGRADED, DEFAULTS.stuckDispatchingDegraded),
+    failedJobsDegraded: nonNegativeInt(env.HEALTH_FAILED_JOBS_DEGRADED, DEFAULTS.failedJobsDegraded),
   };
 }
 
@@ -71,11 +79,11 @@ export function deepHealthAuthorized(authorization: string | null | undefined,
 const num = (value: unknown): number => (value === null || value === undefined ? 0 : Number(value));
 const age = (value: unknown): number | null => (value === null || value === undefined ? null : Math.max(0, Math.round(Number(value))));
 
-/** Reads crm_ops_health() with a 2 s statement timeout. `db` is the platform (web) or worker role. */
+/** Reads crm_ops_health() and crm_ops_stuck_dispatching() with a 2 s statement timeout. `db` is the platform (web) or worker role. */
 export async function readOpsHealth(db: PrismaClient): Promise<OpsHealthRow> {
   const rows = await db.$transaction(async (tx) => {
     await tx.$queryRaw`SELECT set_config('statement_timeout', ${String(STATEMENT_TIMEOUT_MS)}, true)`;
-    return tx.$queryRaw<Record<string, unknown>[]>`SELECT * FROM crm_ops_health()`;
+    return tx.$queryRaw<Record<string, unknown>[]>`SELECT h.*, crm_ops_stuck_dispatching() AS stuck_dispatching_10m FROM crm_ops_health() h`;
   }, { maxWait: STATEMENT_TIMEOUT_MS, timeout: STATEMENT_TIMEOUT_MS + 1000 });
   const row = rows[0] ?? {};
   return {
@@ -85,6 +93,7 @@ export async function readOpsHealth(db: PrismaClient): Promise<OpsHealthRow> {
     expiredRunningLeases: num(row.expired_running_leases),
     failedJobs1h: num(row.failed_jobs_1h),
     unknownIntents: num(row.unknown_intents),
+    stuckDispatching10m: num(row.stuck_dispatching_10m),
     unprocessedWebhooks15m: num(row.unprocessed_webhooks_15m),
     latestMigration: typeof row.latest_migration === 'string' ? row.latest_migration.slice(0, 200) : null,
   };
@@ -99,10 +108,14 @@ export function evaluateOpsHealth(appDb: boolean, ops: OpsHealthRow | 'unconfigu
   const workerOk = ops.lastBeatAgeS !== null && ops.lastBeatAgeS <= thresholds.workerDownS;
   const backlog = ops.oldestDueAgeS !== null && ops.oldestDueAgeS > thresholds.oldestDueDegradedS;
   const unknown = ops.unknownIntents > thresholds.unknownIntentsDegraded;
+  // A send the worker claimed but never finished: it may or may not have gone out.
+  const stuck = ops.stuckDispatching10m > thresholds.stuckDispatchingDegraded;
   // A webhook receipt still unprocessed after 15 minutes means inbound messages are missing even when
   // its job has already exhausted to `failed` and nothing stays due.
   const webhooks = ops.unprocessedWebhooks15m > 0;
-  const status: HealthStatus = !appDb || !workerOk ? 'down' : backlog || unknown || webhooks ? 'degraded' : 'ok';
+  // A job that exhausted its retries (a send, a sync) is otherwise seen by nobody.
+  const failed = ops.failedJobs1h > thresholds.failedJobsDegraded;
+  const status: HealthStatus = !appDb || !workerOk ? 'down' : backlog || unknown || stuck || webhooks || failed ? 'degraded' : 'ok';
   return {
     status,
     checks: {
@@ -110,7 +123,7 @@ export function evaluateOpsHealth(appDb: boolean, ops: OpsHealthRow | 'unconfigu
       ops: 'ok',
       worker: { ageS: ops.lastBeatAgeS, ok: workerOk },
       queue: { pendingDue: ops.pendingDue, oldestDueS: ops.oldestDueAgeS, expiredLeases: ops.expiredRunningLeases, failed1h: ops.failedJobs1h },
-      intents: { unknown: ops.unknownIntents },
+      intents: { unknown: ops.unknownIntents, stuckDispatching10m: ops.stuckDispatching10m },
       webhooks: { unprocessed15m: ops.unprocessedWebhooks15m },
       migrations: { latest: ops.latestMigration },
     },

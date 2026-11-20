@@ -13,7 +13,7 @@ import { Step2SelectAudience } from '@/components/broadcasts/step2-select-audien
 import { Step3Personalize } from '@/components/broadcasts/step3-personalize';
 import { Step4ScheduleSend } from '@/components/broadcasts/step4-schedule-send';
 import { InstagramMessageStep, InstagramReviewStep } from '@/components/broadcasts/instagram-steps';
-import { prefillFromBroadcast } from '@/components/broadcasts/wizard-prefill';
+import { defaultCampaignName, prefillFromBroadcast } from '@/components/broadcasts/wizard-prefill';
 import { useBroadcastSending } from '@/hooks/use-broadcast-sending';
 import { useWorkspaceChannels } from '@/hooks/use-workspace-channels';
 import type { AudienceConfig, CsvAudienceRow } from '@/lib/broadcast-audience';
@@ -24,13 +24,14 @@ import { csvValueColumns } from '@/lib/broadcast-csv';
 import { fetchSegments } from '@/lib/audience/client';
 import { presetSegmentAudience } from '@/components/broadcasts/preset-segment';
 import { Check } from 'lucide-react';
-import { useTranslations } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 
 type StepKey = 'details' | 'template' | 'audience' | 'personalize' | 'send' | 'message' | 'review';
-// The prototype's order: Details (name and channel) first. WhatsApp keeps its four template steps;
-// Instagram writes a text and reviews who is inside their 24-hour window.
-const WHATSAPP_STEPS: StepKey[] = ['details', 'template', 'audience', 'personalize', 'send'];
-const INSTAGRAM_STEPS: StepKey[] = ['details', 'audience', 'message', 'review'];
+// Details (the channel) comes first only when the workspace has two channels to choose from.
+// WhatsApp keeps its four template steps; Instagram writes a text and reviews who is inside
+// their 24-hour window. The name is asked once, on the last step, already filled in.
+const WHATSAPP_STEPS: StepKey[] = ['template', 'audience', 'personalize', 'send'];
+const INSTAGRAM_STEPS: StepKey[] = ['audience', 'message', 'review'];
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // `useSearchParams` requires a Suspense boundary or the production build
@@ -53,13 +54,16 @@ function NewBroadcastWizard() {
   const editingDraft = params.get('draft') === '1';
   const t = useTranslations('Broadcasts.new');
   const tc = useTranslations('Campaigns');
+  const locale = useLocale();
   const { accountId } = useAuth();
   const { data: channelState } = useWorkspaceChannels();
   const enabled = channelState?.enabled ?? ['whatsapp'];
-  const { createAndSendBroadcast, isProcessing, progress } = useBroadcastSending();
+  const { createAndSendBroadcast, isProcessing } = useBroadcastSending();
+  // One id for this wizard session: a retry or double submit returns the campaign already created.
+  const [clientRequestId] = useState(() => crypto.randomUUID());
 
   const [channel, setChannel] = useState<CampaignChannel>('whatsapp');
-  const [currentStep, setCurrentStep] = useState(0);
+  const [stepKey, setStepKey] = useState<StepKey | null>(null);
   const [template, setTemplate] = useState<MessageTemplate | null>(null);
   const [audience, setAudience] = useState<AudienceConfig>({ type: 'all' });
   const [variables, setVariables] = useState<Record<string, VariableMapping>>({});
@@ -67,6 +71,8 @@ function NewBroadcastWizard() {
   const [trackedUrl, setTrackedUrl] = useState('');
   const [sendExtras, setSendExtras] = useState<CampaignSendExtras>({});
   const [name, setName] = useState('');
+  // Until the member types a name, it follows the template (or channel) and today's date.
+  const [nameEdited, setNameEdited] = useState(false);
   const [text, setText] = useState('');
   const [igSending, setIgSending] = useState(false);
 
@@ -81,9 +87,20 @@ function NewBroadcastWizard() {
     if (channel === 'instagram' && !instagramOn && whatsappOn) setChannel('whatsapp');
   }, [channelsKnown, channel, whatsappOn, instagramOn]);
 
-  const steps = channel === 'instagram' ? INSTAGRAM_STEPS : WHATSAPP_STEPS;
-  const step = steps[Math.min(currentStep, steps.length - 1)];
-  const go = (key: StepKey) => setCurrentStep(Math.max(0, steps.indexOf(key)));
+  const showDetails = whatsappOn && instagramOn;
+  const steps: StepKey[] = [...(showDetails ? ['details' as const] : []), ...(channel === 'instagram' ? INSTAGRAM_STEPS : WHATSAPP_STEPS)];
+  const step = stepKey && steps.includes(stepKey) ? stepKey : steps[0];
+  const currentStep = steps.indexOf(step);
+  const go = (key: StepKey) => setStepKey(key);
+  /** Back from the first content step: the channel choice when there is one, else the list. */
+  const backToStart = () => (showDetails ? go('details') : router.push('/broadcasts'));
+
+  const nameBase = channel === 'instagram' ? tc('wizard.channelInstagram') : template?.name;
+  useEffect(() => {
+    if (nameEdited || !nameBase) return;
+    setName(defaultCampaignName(nameBase, new Date(), locale));
+  }, [nameEdited, nameBase, locale]);
+  const changeName = (next: string) => { setName(next); setNameEdited(true); };
 
   // ?segmentId= (from "Broadcast to these leads") preselects that segment, but
   // only once the workspace's own segment list confirms it, and only while the
@@ -125,6 +142,7 @@ function NewBroadcastWizard() {
       if (cancelled || !row) return;
       const prefill = prefillFromBroadcast(row, editingDraft ? undefined : (n) => tc('wizard.copyName', { name: n }));
       setName(prefill.name);
+      setNameEdited(true);
       setChannel(prefill.channel);
       setText(prefill.text);
       setAudience(prefill.audience);
@@ -186,6 +204,7 @@ function NewBroadcastWizard() {
         trackedUrl: trackedUrl.trim() || undefined,
         sendExtras,
         whatsappConfigId: options?.whatsappConfigId ?? null,
+        clientRequestId,
       });
       await retireDraft().catch(() => undefined);
       router.push(`/broadcasts/${broadcastId}`);
@@ -295,7 +314,7 @@ function NewBroadcastWizard() {
               <button
                 type="button"
                 disabled={!isCompleted || isProcessing || igSending}
-                onClick={() => setCurrentStep(index)}
+                onClick={() => setStepKey(key)}
                 className="flex min-w-0 items-center gap-2 rounded-sm px-1 pt-1.5 pb-2.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring enabled:hover:text-foreground disabled:cursor-default"
               >
                 <span
@@ -329,18 +348,16 @@ function NewBroadcastWizard() {
         >
           {step === 'details' && (
             <Step0Details
-              name={name}
-              onNameChange={setName}
               channel={channel}
               onChannelChange={(next) => {
                 setChannel(next);
-                setCurrentStep(0);
+                setStepKey('details');
                 // Instagram campaigns cannot use a CSV audience.
                 if (next === 'instagram' && audience.type === 'csv') setAudience({ type: 'all' });
               }}
               whatsappAvailable={whatsappOn}
               instagramAvailable={instagramOn}
-              onNext={() => setCurrentStep(1)}
+              onNext={() => go(channel === 'instagram' ? 'audience' : 'template')}
               onBack={() => router.push('/broadcasts')}
             />
           )}
@@ -363,7 +380,7 @@ function NewBroadcastWizard() {
                 if (picked.id !== template?.id) setSendExtras({});
               }}
               onNext={() => go('audience')}
-              onBack={() => go('details')}
+              onBack={backToStart}
             />
           )}
           {step === 'audience' && (
@@ -372,7 +389,7 @@ function NewBroadcastWizard() {
               audience={audience}
               onUpdate={setAudience}
               onNext={() => go(channel === 'instagram' ? 'message' : 'personalize')}
-              onBack={() => go(channel === 'instagram' ? 'details' : 'template')}
+              onBack={() => (channel === 'instagram' ? backToStart() : go('template'))}
             />
           )}
           {step === 'personalize' && template && (
@@ -395,7 +412,7 @@ function NewBroadcastWizard() {
           {step === 'send' && template && (
             <Step4ScheduleSend
               name={name}
-              onNameChange={setName}
+              onNameChange={changeName}
               template={template}
               audience={audience}
               onSend={handleSend}
@@ -405,7 +422,6 @@ function NewBroadcastWizard() {
               onSaveDraft={handleSaveDraft}
               onBack={() => go('personalize')}
               isProcessing={isProcessing}
-              progress={progress}
             />
           )}
           {step === 'message' && (
@@ -413,7 +429,8 @@ function NewBroadcastWizard() {
           )}
           {step === 'review' && (
             <InstagramReviewStep
-              name={name.trim()}
+              name={name}
+              onNameChange={changeName}
               text={text}
               audience={audience}
               audienceLabel={audienceLabel}

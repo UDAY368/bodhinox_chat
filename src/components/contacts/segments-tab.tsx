@@ -60,7 +60,6 @@ export function SegmentsTab() {
   const [editing, setEditing] = useState<SegmentSummary | null>(null);
   const [deleting, setDeleting] = useState<SegmentCard | null>(null);
   const [busy, setBusy] = useState(false);
-  const [refreshKey, setRefreshKey] = useState(0);
 
   const load = useCallback(async () => {
     const res = await authFetch('/api/segments/overview', { cache: 'no-store' }).catch(() => null);
@@ -92,7 +91,6 @@ export function SegmentsTab() {
   }, [db, load]);
 
   function changed() {
-    setRefreshKey((k) => k + 1);
     void load();
   }
 
@@ -199,9 +197,6 @@ export function SegmentsTab() {
   return (
     <div className="min-w-0 space-y-5">
       <ContactsHeader
-        tab="segments"
-        refreshKey={refreshKey}
-        known={{ segments: cards ? cards.length : null }}
         actions={canEdit && (
           <Button onClick={() => { setEditing(null); setBuilderOpen(true); }}>
             <Plus className="size-4" />

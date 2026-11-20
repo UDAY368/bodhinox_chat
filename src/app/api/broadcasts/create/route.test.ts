@@ -21,6 +21,11 @@ describe('POST /api/broadcasts/create',()=>{
     expect(h.create).toHaveBeenCalledWith({accountId,userId,role:'agent'},input);
     expect(response.headers.get('cache-control')).toBe('no-store');
   });
+  it('answers a repeated client request id with 200 and the same body as the first create',async()=>{
+    h.create.mockResolvedValueOnce({id,duplicate:true});
+    const response=await POST(request({...input,clientRequestId:randomUUID()}));
+    expect(response.status).toBe(200);expect(await response.json()).toEqual({id});
+  });
   it('rejects viewer identity and CSRF failure before campaign creation',async()=>{
     h.session.mockResolvedValueOnce({accountId,userId,role:'viewer'});
     expect((await POST(request())).status).toBe(403);expect(h.create).not.toHaveBeenCalled();

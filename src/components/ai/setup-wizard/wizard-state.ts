@@ -34,6 +34,7 @@ export interface WizardDraft {
   keywords: string
   on_low_confidence: boolean
   confidence_threshold: number
+  on_no_knowledge: boolean
   max_turns_before_handoff: number
 }
 
@@ -48,6 +49,7 @@ export function profileToDraft(p: AgentProfile): WizardDraft {
     keywords: p.handoff_rules.keywords.join(', '),
     on_low_confidence: p.handoff_rules.on_low_confidence,
     confidence_threshold: sliderThreshold(p.handoff_rules.confidence_threshold),
+    on_no_knowledge: p.handoff_rules.on_no_knowledge,
     max_turns_before_handoff: p.handoff_rules.max_turns_before_handoff,
   }
 }
@@ -78,6 +80,7 @@ export function draftToInput(d: WizardDraft, step: WizardStep): Record<string, u
         keywords: parseKeywords(d.keywords),
         on_low_confidence: d.on_low_confidence,
         confidence_threshold: sliderThreshold(d.confidence_threshold),
+        on_no_knowledge: d.on_no_knowledge,
         max_turns_before_handoff: clampInt(d.max_turns_before_handoff, 0, 50),
       }
       return { handoff_rules: rules }

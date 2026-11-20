@@ -22,14 +22,14 @@ interface BroadcastPayload {
   sendExtras?: CampaignSendExtras;
   /** The number to send from; omitted uses the workspace default. */
   whatsappConfigId?: string | null;
+  /** One id per wizard session, so a retry or double submit returns the campaign already created. */
+  clientRequestId?: string;
 }
 
 export function useBroadcastSending() {
   const [isProcessing, setIsProcessing] = useState(false);
-  const [progress, setProgress] = useState(0);
   async function createAndSendBroadcast(payload: BroadcastPayload): Promise<string> {
     setIsProcessing(true);
-    setProgress(10);
     try {
       const id = await requestBroadcastCreation({
         name: payload.name,
@@ -41,12 +41,12 @@ export function useBroadcastSending() {
         trackedUrl: payload.trackedUrl,
         ...(payload.sendExtras && Object.keys(payload.sendExtras).length ? { sendExtras: payload.sendExtras } : {}),
         ...(payload.whatsappConfigId ? { whatsappConfigId: payload.whatsappConfigId } : {}),
+        ...(payload.clientRequestId ? { clientRequestId: payload.clientRequestId } : {}),
       });
-      setProgress(100);
       return id;
     } finally {
       setIsProcessing(false);
     }
   }
-  return { createAndSendBroadcast, isProcessing, progress };
+  return { createAndSendBroadcast, isProcessing };
 }

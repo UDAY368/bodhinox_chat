@@ -6,7 +6,7 @@ test('an admin starts a template from the library, saves it as a draft, duplicat
   const name = `order_conf_${fixtures().runId}_${testInfo.retry}`;
   const dialog = page.getByRole('dialog');
   await login(page, fixtures().users.admin);
-  await page.goto('/settings?tab=templates');
+  await page.goto('/templates');
 
   await page.getByRole('button', { name: 'Start from library' }).click();
   await dialog.getByPlaceholder('Search templates').fill('Order confirmation');

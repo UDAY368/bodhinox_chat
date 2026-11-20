@@ -26,7 +26,7 @@ import {
   archiveShopProduct, fetchCategories, fetchShopProduct, publishShopProduct, saveBundleParts, saveVariant, unpublishShopProduct, updateShopProduct,
   type ApiResult, type ShopCategory, type ShopProduct, type VariantBody,
 } from "./catalogue-api";
-import { selectClass, StatusBadge, useCatalogueError } from "./catalogue-admin";
+import { selectClass, StatusBadge, useCatalogueError, VisibilityControl } from "./catalogue-admin";
 import { ProductWriter } from "./product-writer";
 import { bpsToPercent, moneyInput, moneyText, parseOptionsText, percentToBps } from "./catalogue-format";
 import { AdjustStockDialog, MovementsList, type AdjustTarget } from "./inventory-panel";
@@ -78,23 +78,22 @@ export function ProductEditor({ id }: { id: string }) {
       </Link>
       <header className="flex flex-wrap items-center gap-3">
         <h1 className="text-[22px] font-bold tracking-tight text-foreground">{product.name}</h1>
-        <StatusBadge status={product.status} />
         <span className="text-xs text-muted-foreground">
           {product.content_reviewed_at ? t("reviewed", { date: new Date(product.content_reviewed_at) }) : t("notReviewed")}
         </span>
         {canManage && (
           <span className="ml-auto flex flex-wrap gap-2">
-            {product.status === "published" ? (
-              <Button variant="outline" disabled={busy} onClick={() => void apply(unpublishShopProduct(product.id), t("unpublished"))}>{t("unpublish")}</Button>
-            ) : product.status === "draft" ? (
-              <Button disabled={busy} title={t("publishHint")} onClick={() => void apply(publishShopProduct(product.id, product.version), t("publishedToast"))}>{t("publish")}</Button>
-            ) : null}
+            {/* One control: Live publishes (records the reviewer), Hidden moves it back to draft. */}
+            <VisibilityControl status={product.status} disabled={busy} onChange={(next) => void (next === "published"
+              ? apply(publishShopProduct(product.id, product.version), t("publishedToast"))
+              : apply(unpublishShopProduct(product.id), t("unpublished")))} />
             <Button variant="ghost" disabled={busy} onClick={() => void apply(archiveShopProduct(product.id, product.status !== "archived"),
               product.status === "archived" ? t("restored") : t("archivedToast"))}>
               {product.status === "archived" ? t("restore") : t("archive")}
             </Button>
           </span>
         )}
+        {!canManage && <StatusBadge status={product.status} />}
       </header>
       {canManage && product.status === "draft" && <p className="text-xs text-muted-foreground">{t("publishHint")}</p>}
 

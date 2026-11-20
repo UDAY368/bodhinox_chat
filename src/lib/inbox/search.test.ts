@@ -58,6 +58,10 @@ describe('parseInboxSearchParams', () => {
     expect(parseInboxSearchParams(params({ q: 'x' }), USER).limit).toBe(20);
   });
 
+  it('reads an old status=pending link as Open', () => {
+    expect(parseInboxSearchParams(params({ q: 'x', status: 'pending' }), USER).filters.status).toBe('open');
+  });
+
   it('parses the channel filter (Phase 11) and leaves it unset by default', () => {
     expect(parseInboxSearchParams(params({ q: 'x', channel: 'instagram' }), USER).filters.channel).toBe('instagram');
     expect(parseInboxSearchParams(params({ q: 'x', channel: 'whatsapp' }), USER).filters.channel).toBe('whatsapp');
@@ -110,6 +114,19 @@ const row = (n: number, extra: Record<string, unknown> = {}) => ({
 describe('searchInboxMessages', () => {
   const ctx = { accountId: ACCOUNT, userId: USER, role: 'agent' as const };
   const masked = [{ mask_phone_numbers: true }];
+
+  it('filters Open as open or legacy pending, and Resolved as closed only', async () => {
+    const whereOf = async (status: 'open' | 'closed') => {
+      const tx = fakeTx([]) as unknown as { $queryRaw: ReturnType<typeof vi.fn> };
+      await searchInboxMessages(tx as never, ctx, { query: 'ok', filters: { status }, limit: 2 });
+      const search = tx.$queryRaw.mock.calls.find((call) => (call[0] as string[]).join('?').includes('WITH hits'))!;
+      return search.slice(1).map((v) => (v && typeof v === 'object' && 'sql' in v ? (v as { sql: string }).sql : '')).join(' ');
+    };
+    expect(await whereOf('open')).toContain("c.status IN ('open', 'pending')");
+    const closed = await whereOf('closed');
+    expect(closed).toContain('c.status = ?');
+    expect(closed).not.toContain('pending');
+  });
 
   it('pages with a cursor taken from the last returned row', async () => {
     const out = await searchInboxMessages(fakeTx([row(1), row(2), row(3)]), ctx, { query: 'ok', filters: {}, limit: 2 });

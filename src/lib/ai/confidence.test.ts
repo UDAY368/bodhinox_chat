@@ -1,5 +1,19 @@
 import { describe, expect, it } from 'vitest'
-import { NO_ANSWER_SENTINEL, assessConfidence, retrievalScore, stripSentinels } from './confidence'
+import { NO_ANSWER_SENTINEL, assessConfidence, noKnowledgeHandoff, retrievalScore, stripSentinels } from './confidence'
+
+describe('noKnowledgeHandoff', () => {
+  it('hands off only when the switch is on and nothing matched', () => {
+    expect(noKnowledgeHandoff({ on_no_knowledge: true }, 0)).toBe(true)
+    expect(noKnowledgeHandoff({ on_no_knowledge: true }, 2)).toBe(false)
+    expect(noKnowledgeHandoff({ on_no_knowledge: false }, 0)).toBe(false)
+  })
+
+  it('is off by default (missing rules or an older stored profile)', () => {
+    expect(noKnowledgeHandoff(null, 0)).toBe(false)
+    expect(noKnowledgeHandoff(undefined, 0)).toBe(false)
+    expect(noKnowledgeHandoff({}, 0)).toBe(false)
+  })
+})
 
 describe('retrievalScore', () => {
   it('is 0 without matches', () => {

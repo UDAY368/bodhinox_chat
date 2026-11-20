@@ -13,12 +13,13 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { InlineError } from "@/components/ui/inline-error";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatMoney } from "@/lib/commerce/money";
 import { ORDER_SOURCES, ORDER_STATUSES, type OrderSource, type OrderStatus } from "@/lib/commerce/order-format";
-import { listOrders, type OrderListItem } from "./order-api";
+import { exportOrders, listOrders, type OrderListItem } from "./order-api";
 import { OrderDrawer, type OrderIntent } from "./order-drawer";
 import { NewOrderDialog } from "./new-order-dialog";
 import { OrderRiskBadge } from "./order-risk-badge";
@@ -60,6 +61,8 @@ export function OrdersList() {
   const [orders, setOrders] = useState<OrderListItem[]>([]);
   const [cursor, setCursor] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [failed, setFailed] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [creating, setCreating] = useState<"order" | "quote" | null>(null);
@@ -70,13 +73,15 @@ export function OrdersList() {
     let cancelled = false;
      
     setLoading(true);
+    setFailed(false);
     listOrders({ status, source, q, tag, codConfirmation })
       .then((page) => {
         if (cancelled) return;
         setOrders(page.orders);
         setCursor(page.next_cursor);
       })
-      .catch(() => !cancelled && toast.error(t("loadError")))
+      // A failed load is an error with Retry, never "No orders yet".
+      .catch(() => !cancelled && setFailed(true))
       .finally(() => !cancelled && setLoading(false));
     return () => {
       cancelled = true;
@@ -109,8 +114,24 @@ export function OrdersList() {
 
   const openOrder = (id: string, intent: OrderIntent | null = null) => setOpen({ id, intent });
   const filtered = Boolean(q || status || source || tag || codConfirmation);
-  // Admins download the server-built CSV (formula-safe, masking-aware) for the current filters.
-  const exportHref = `/api/commerce/orders/export?${new URLSearchParams(Object.entries({ status, source, q, tag }).filter(([, v]) => v))}`;
+  // Admins download the server-built CSV (formula-safe, masking-aware) for every filter the list uses.
+  const exportCsv = async () => {
+    setExporting(true);
+    try {
+      const { blob, filename, truncated } = await exportOrders({ status, source, q, tag, codConfirmation });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 0);
+      if (truncated) toast.warning(t("exportTruncated"));
+    } catch {
+      toast.error(t("exportFailed"));
+    } finally {
+      setExporting(false);
+    }
+  };
 
   return (
     <div className="space-y-5">
@@ -127,10 +148,10 @@ export function OrdersList() {
             </Button>
           )}
           {canAdmin && (
-            <a href={exportHref} download className={buttonVariants({ variant: "outline" })}>
-              <Download className="h-4 w-4" />
+            <Button variant="outline" onClick={() => void exportCsv()} disabled={exporting}>
+              {exporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
               {t("exportCsv")}
-            </a>
+            </Button>
           )}
           {canAct && (
             <Button variant="outline" onClick={() => setCreating("quote")}>
@@ -194,6 +215,8 @@ export function OrdersList() {
         <div className="flex justify-center py-16">
           <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" aria-label={t("loading")} />
         </div>
+      ) : failed ? (
+        <InlineError message={t("loadError")} onRetry={refresh} className="rounded-xl border border-border" />
       ) : orders.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border px-6 py-16 text-center">
           <div className="flex size-[52px] items-center justify-center rounded-2xl bg-primary/10">
@@ -290,14 +313,14 @@ export function OrdersList() {
         </div>
       )}
 
-      {!loading && orders.length > 0 && (
+      {!loading && !failed && orders.length > 0 && (
         <p className="text-xs text-muted-foreground">
           {ts("shown", { count: orders.length })}{" "}
           <Link href="/commerce/payments" className="text-primary hover:underline">{ts("seePayments")}</Link>
         </p>
       )}
 
-      {cursor && !loading && (
+      {cursor && !loading && !failed && (
         <div className="flex justify-center">
           <Button variant="outline" onClick={loadMore} disabled={loadingMore}>
             {loadingMore && <Loader2 className="h-4 w-4 animate-spin" />}
