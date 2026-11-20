@@ -9,7 +9,7 @@ import { alertWebhookUrl, createOpsAlerter } from './alerts';
 import type { OpsHealthRow } from './health';
 
 const healthy: OpsHealthRow = { lastBeatAgeS: 5, pendingDue: 0, oldestDueAgeS: null, expiredRunningLeases: 0, failedJobs1h: 0,
-  unknownIntents: 0, unprocessedWebhooks15m: 0, latestMigration: '20261113090100_ops_health_fn' };
+  unknownIntents: 0, stuckDispatching10m: 0, unprocessedWebhooks15m: 0, latestMigration: '20261113090100_ops_health_fn' };
 const URL_ = 'https://alerts.example.com/hook/abc';
 
 function harness(rows: Array<OpsHealthRow | Error>, response = { ok: true }) {
@@ -94,6 +94,26 @@ describe('[OPS-01] ops alert hook', () => {
     const h = harness([degraded, healthy, degraded, healthy, degraded, healthy]);
     for (let i = 0; i < 6; i++) { expect(['held', 'unchanged']).toContain(await h.alerter.tick()); h.advance(60_000); }
     expect(h.sent).toHaveLength(0);
+  });
+
+  it('jobs that exhausted their retries in the last hour are a failing check, sent as a count only', async () => {
+    const failed = { ...healthy, failedJobs1h: 4 };
+    const h = harness([failed, failed]);
+    expect(await h.alerter.tick()).toBe('held');
+    h.advance(60_000);
+    expect(await h.alerter.tick()).toBe('sent');
+    expect(h.sent[0]).toMatchObject({ status: 'degraded', failing: ['jobs'], numbers: { failed1h: 4 } });
+    expect(h.sent[0].text).toBe('Bodhinox operations: degraded (was ok); failing: jobs');
+  });
+
+  it('sends stuck in dispatching for over 10 minutes are a failing check, sent as a count only', async () => {
+    const stuck = { ...healthy, stuckDispatching10m: 2 };
+    const h = harness([stuck, stuck]);
+    expect(await h.alerter.tick()).toBe('held');
+    h.advance(60_000);
+    expect(await h.alerter.tick()).toBe('sent');
+    expect(h.sent[0]).toMatchObject({ status: 'degraded', failing: ['dispatching'], numbers: { stuckDispatching10m: 2 } });
+    expect(h.sent[0].text).toBe('Bodhinox operations: degraded (was ok); failing: dispatching');
   });
 
   it('webhook receipts unprocessed after 15 minutes are a failing check', async () => {

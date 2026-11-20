@@ -37,7 +37,7 @@ export const CHANNELS_SETTINGS_PATH = '/settings?tab=channels';
 
 const WHATSAPP_TOOLS: Record<WhatsAppTool, string> = {
   broadcasts: '/broadcasts',
-  // Campaigns > Templates; Settings > Templates still renders the same manager.
+  // Campaigns > Templates, the one templates screen (/settings?tab=templates redirects here).
   templates: '/templates',
   forms: '/forms',
   ads: '/ads',

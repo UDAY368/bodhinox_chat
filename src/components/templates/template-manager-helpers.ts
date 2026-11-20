@@ -210,6 +210,11 @@ export interface TemplateFormData {
   lto_has_expiration: boolean;
 }
 
+/** Whether the editor holds anything not yet saved (closing it would lose that). */
+export function templateFormChanged(saved: TemplateFormData, current: TemplateFormData): boolean {
+  return JSON.stringify(saved) !== JSON.stringify(current);
+}
+
 export function emptyButton(type: TemplateButton['type']): TemplateButton {
   switch (type) {
     case 'QUICK_REPLY':

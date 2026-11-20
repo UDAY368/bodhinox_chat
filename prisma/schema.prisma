@@ -362,7 +362,10 @@ model broadcasts {
   /// 20261123016500: first move into 'sending' and last move into 'sent'/'failed' (set by a trigger).
   started_at DateTime? @db.Timestamptz(6)
   finished_at DateTime? @db.Timestamptz(6)
+  /// 20261201100000: the wizard's per-session request id; a repeated create returns the campaign already made.
+  client_request_id String? @db.Uuid
   @@unique([account_id, id])
+  @@unique([account_id, client_request_id], map: "broadcasts_account_client_request_id_key")
 }
 
 model broadcast_recipients {
@@ -2061,6 +2064,7 @@ model appointment_settings {
   rebook_template_name String?
   rebook_template_language String?
   updated_at DateTime @db.Timestamptz(6) @default(now())
+  completed_deal_stage_id String? @db.Uuid
 }
 
 model appointment_locations {
@@ -2095,6 +2099,7 @@ model appointment_services {
   archived_at DateTime? @db.Timestamptz(6)
   created_at DateTime @db.Timestamptz(6) @default(now())
   updated_at DateTime @db.Timestamptz(6) @default(now())
+  intake_form_id String? @db.Uuid
   @@unique([account_id, id])
 }
 
@@ -2199,10 +2204,16 @@ model appointments {
   created_at DateTime @db.Timestamptz(6) @default(now())
   updated_at DateTime @db.Timestamptz(6) @default(now())
   payment_status String @default("none")
+  deal_id String? @db.Uuid
+  broadcast_id String? @db.Uuid
+  ad_referral_id String? @db.Uuid
+  conversation_id String? @db.Uuid
+  attendance_confirmed_at DateTime? @db.Timestamptz(6)
   @@unique([account_id, id])
   @@unique([account_id, source_ref])
   @@index([account_id, contact_id, start_at], map: "appointments_contact_idx")
   @@index([account_id, local_date], map: "appointments_local_date_idx")
+  @@index([account_id, start_at, id], map: "appointments_start_idx")
 }
 
 model appointment_events {
@@ -2234,6 +2245,7 @@ model appointment_messages {
   resolved_by String? @db.Uuid
   created_at DateTime @db.Timestamptz(6) @default(now())
   updated_at DateTime @db.Timestamptz(6) @default(now())
+  channel String?
   @@unique([account_id, id])
   @@unique([account_id, appointment_id, version, kind])
 }

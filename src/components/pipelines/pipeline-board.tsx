@@ -77,11 +77,11 @@ export function PipelineBoard({
   }, [sortedStages, deals]);
 
   const sensors = useSensors(
-    // Mouse: 5px activation distance avoids clicks being interpreted as drags.
+    // Mouse: a 5px activation distance avoids clicks being interpreted as drags.
     useSensor(MouseSensor, { activationConstraint: { distance: 5 } }),
-    // Touch: press and hold to pick a card up, so a swipe still scrolls the page
-    // and the board (cards use touch-action: manipulation, not none).
-    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 8 } }),
+    // Touch: a swipe scrolls the board; a drag starts only after a 250ms press
+    // held within 5px, so cards never trap vertical scrolling on phones.
+    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 5 } }),
     // Keyboard drag support: focus a card, Space to pick up, arrows to move,
     // Space to drop, Escape to cancel.
     useSensor(KeyboardSensor),
@@ -351,8 +351,9 @@ function DraggableDealCard({
       ref={setNodeRef}
       {...(canMove ? listeners : {})}
       {...(canMove ? attributes : {})}
-      // manipulation (not none): a finger swipe keeps scrolling; a long press picks the card up.
-      style={{ opacity: isDragging ? 0.3 : 1, touchAction: "manipulation" }}
+      className={canMove ? "select-none" : undefined}
+      // "manipulation" keeps native scrolling; the touch sensor blocks it only once a long-press drag has begun.
+      style={{ opacity: isDragging ? 0.3 : 1, touchAction: canMove ? "manipulation" : undefined, WebkitTouchCallout: canMove ? "none" : undefined }}
     >
       <DealCard deal={deal} stage={stage} onEdit={onEdit} stages={stages} onMove={onMove} onDelete={onDelete} />
     </div>

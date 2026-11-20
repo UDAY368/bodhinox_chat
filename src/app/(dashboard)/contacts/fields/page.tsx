@@ -13,20 +13,17 @@ export default function ContactFieldsPage() {
   const t = useTranslations('Contacts.redesign');
   const canEditSettings = useCan('edit-settings');
   const [creating, setCreating] = useState(false);
-  const [count, setCount] = useState<number | null>(null);
   return (
     <div className="min-w-0 space-y-5">
       <ContactsHeader
-        tab="fields"
-        known={{ fields: count }}
-        actions={canEditSettings && (
+        primaryAction={canEditSettings && (
           <Button onClick={() => setCreating(true)}>
             <Plus className="size-4" />
             {t('fieldsTab.newField')}
           </Button>
         )}
       />
-      <CustomFieldsTab createOpen={creating} onCreateOpenChange={setCreating} onCount={setCount} />
+      <CustomFieldsTab createOpen={creating} onCreateOpenChange={setCreating} />
     </div>
   );
 }

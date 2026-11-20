@@ -12,7 +12,9 @@ import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
+import { InlineError } from '@/components/ui/inline-error';
 import { Input } from '@/components/ui/input';
+import { PageLoading } from '@/components/ui/page-loading';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { createClient } from '@/lib/data/client';
@@ -197,6 +199,78 @@ export function SettingsPanel({ canEdit }: { canEdit: boolean }) {
         })}
       </div>
       {canEdit && <Button type="button" disabled={busy} onClick={() => void save()}>{t('save')}</Button>}
+    </div>
+  );
+}
+
+interface StageOption { id: string; name: string; pipeline_id: string; pipeline_name: string }
+
+/**
+ * Deals (Batch 3): the stage a completed booking moves its linked deal to.
+ * Saved on its own, so it never overwrites the booking settings above.
+ */
+export function DealStageCard({ canEdit }: { canEdit: boolean }) {
+  const t = useTranslations('Appointments.deal');
+  const tA = useTranslations('Appointments');
+  const failureText = useFailureText();
+  const [stages, setStages] = useState<StageOption[] | null>(null);
+  const [value, setValue] = useState('');
+  const [failed, setFailed] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  const load = useCallback(async () => {
+    setFailed(false);
+    const [settings, list] = await Promise.all([
+      apiRequest<{ settings: { completed_deal_stage_id?: string | null } }>('/api/appointments/settings'),
+      canEdit ? apiRequest<{ stages: StageOption[] }>('/api/appointments/deal-stages') : Promise.resolve(null),
+    ]);
+    if (!settings.ok || (list && !list.ok)) return setFailed(true);
+    setValue(settings.data.settings.completed_deal_stage_id ?? '');
+    setStages(list && list.ok ? list.data.stages ?? [] : []);
+  }, [canEdit]);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void load();
+  }, [load]);
+
+  async function save(next: string) {
+    setBusy(true);
+    const previous = value;
+    setValue(next);
+    const r = await apiRequest('/api/appointments/settings', { method: 'PATCH', body: { completed_deal_stage_id: next || null } });
+    setBusy(false);
+    if (!r.ok) {
+      setValue(previous);
+      return void toast.error(failureText(r as ApiFailure));
+    }
+    toast.success(t('stageSaved'));
+  }
+
+  const pipelines = useMemo(() => {
+    const groups = new Map<string, { name: string; stages: StageOption[] }>();
+    for (const s of stages ?? []) {
+      const g = groups.get(s.pipeline_id) ?? { name: s.pipeline_name, stages: [] };
+      g.stages.push(s);
+      groups.set(s.pipeline_id, g);
+    }
+    return [...groups.entries()];
+  }, [stages]);
+
+  if (failed) return <InlineError message={tA('loadFailed')} onRetry={() => void load()} />;
+  if (!stages) return <PageLoading rows={1} />;
+  return (
+    <div className="space-y-2 rounded-group border border-separator bg-grouped-surface p-4">
+      <Label htmlFor="appt-deal-stage">{t('stageLabel')}</Label>
+      <select id="appt-deal-stage" className={selectClass} value={value} disabled={!canEdit || busy} onChange={(e) => void save(e.target.value)}>
+        <option value="">{t('stageNone')}</option>
+        {pipelines.map(([id, g]) => (
+          <optgroup key={id} label={g.name}>
+            {g.stages.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+          </optgroup>
+        ))}
+        {value && !stages.some((s) => s.id === value) && <option value={value}>{value.slice(0, 8)}</option>}
+      </select>
+      <p className="text-footnote text-muted-foreground">{t('stageHelp')}</p>
     </div>
   );
 }

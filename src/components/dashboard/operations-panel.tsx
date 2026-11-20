@@ -280,7 +280,7 @@ export function OperationsContent({ data, whatsapp = true }: {
   const setupLinks = {
     whatsapp: '/settings?tab=whatsapp',
     contacts: '/contacts',
-    template: '/settings?tab=templates',
+    template: '/templates',
     teammate: '/settings?tab=members',
     conversation: '/inbox',
   };
@@ -481,7 +481,7 @@ export function OperationsContent({ data, whatsapp = true }: {
             <Link href="/automations" className="hover:underline">
               {t('automations')}
             </Link>
-            <Link href="/flows" className="hover:underline">
+            <Link href="/automation" className="hover:underline">
               {t('flows')}
             </Link>
           </div>

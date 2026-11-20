@@ -62,6 +62,8 @@ const inputSchema=z.object({
   sendExtras:z.unknown().optional(),
   /** The number to send from; the workspace default when omitted. */
   whatsappConfigId:z.string().uuid().nullish(),
+  /** One id per wizard session: a repeated create with it returns the campaign already created. */
+  clientRequestId:z.string().uuid().optional(),
 }).strict();
 export type CampaignInput=z.infer<typeof inputSchema>;
 const FIELD_COLUMNS={name:Prisma.sql`c.name`,phone:Prisma.sql`c.phone`,email:Prisma.sql`c.email`,company:Prisma.sql`c.company`};
@@ -176,12 +178,19 @@ function paramsSql(accountId:string,input:CampaignInput,keys:string[]):Prisma.Sq
   }))})`;
 }
 
+/** The campaign this workspace already created for a client request id, if any. */
+async function existingCampaign(tx:TenantTransaction,accountId:string,clientRequestId:string|undefined):Promise<{id:string;duplicate:true}|null>{
+  if(!clientRequestId)return null;
+  const [row]=await tx.$queryRaw<{id:string}[]>`SELECT id FROM broadcasts WHERE account_id=${accountId}::uuid AND client_request_id=${clientRequestId}::uuid`;
+  return row?{id:row.id,duplicate:true}:null;
+}
+
 /**
  * The authenticated server owns audience resolution, frozen parameters and the initial durable job.
  * A scheduled campaign freezes its recipients now and its job waits until `scheduledAt`;
  * consent is checked again when each recipient is sent.
  */
-export async function createCampaign(scope:TenantContext,raw:unknown,now=new Date()):Promise<{id:string}>{
+export async function createCampaign(scope:TenantContext,raw:unknown,now=new Date()):Promise<{id:string;duplicate?:true}>{
   if(!scope.userId||!scope.role||!hasMinRole(scope.role,'agent'))throw new ForbiddenError('Campaign creation requires an agent role');
   const parsed=inputSchema.safeParse(raw);if(!parsed.success)invalid('Invalid campaign configuration');
   const input=parsed.data;
@@ -198,6 +207,9 @@ export async function createCampaign(scope:TenantContext,raw:unknown,now=new Dat
     const membership=await tx.$queryRaw<{role:string}[]>`SELECT role FROM account_memberships
       WHERE account_id=${scope.accountId}::uuid AND user_id=${scope.userId}::uuid`;
     if(!membership[0]||!['agent','admin','owner'].includes(membership[0].role))throw new ForbiddenError('Campaign creation requires an active agent membership');
+    // A retry or double submit of the same wizard session gets the campaign it already created.
+    const existing=await existingCampaign(tx,scope.accountId,input.clientRequestId);
+    if(existing)return existing;
     await requireSendingAllowed(tx,scope.accountId);
     const templates=await tx.$queryRaw<unknown[]>`SELECT * FROM message_templates WHERE account_id=${scope.accountId}::uuid AND id=${input.templateId}::uuid FOR SHARE`;
     if(!templates[0])throw new AuthError('Template unavailable',404,'not_found');
@@ -239,8 +251,15 @@ export async function createCampaign(scope:TenantContext,raw:unknown,now=new Dat
     if(matched*keys.length>CAMPAIGN_LIMITS.parameterCells)invalid('This audience is too large for this many template variables; narrow the audience or use fewer variables');
     const {csvContacts:_,...audienceFilter}=input.audience;void _;
     const trackedUrl=tracked>=0?input.trackedUrl!:null;
-    const broadcasts=await tx.$queryRaw<{id:string}[]>`INSERT INTO broadcasts(account_id,user_id,name,template_name,template_language,template_variables,audience_filter,status,scheduled_at,total_recipients,tracked_url,whatsapp_config_id)
-      VALUES(${scope.accountId}::uuid,${scope.userId}::uuid,${input.name},${template.name},${template.language||'en_US'},${JSON.stringify(Object.keys(extras.value).length?{...input.variables,[CAMPAIGN_SEND_EXTRAS_KEY]:extras.value}:input.variables)}::jsonb,${JSON.stringify(audienceFilter)}::jsonb,${scheduledAt?'scheduled':'sending'},${scheduledAt},0,${trackedUrl},${numberId}::uuid) RETURNING id`;
+    // A concurrent create with the same request id waits on the unique index; the loser returns the winner's campaign.
+    const broadcasts=await tx.$queryRaw<{id:string}[]>`INSERT INTO broadcasts(account_id,user_id,name,template_name,template_language,template_variables,audience_filter,status,scheduled_at,total_recipients,tracked_url,whatsapp_config_id,client_request_id)
+      VALUES(${scope.accountId}::uuid,${scope.userId}::uuid,${input.name},${template.name},${template.language||'en_US'},${JSON.stringify(Object.keys(extras.value).length?{...input.variables,[CAMPAIGN_SEND_EXTRAS_KEY]:extras.value}:input.variables)}::jsonb,${JSON.stringify(audienceFilter)}::jsonb,${scheduledAt?'scheduled':'sending'},${scheduledAt},0,${trackedUrl},${numberId}::uuid,${input.clientRequestId??null}::uuid)
+      ON CONFLICT (account_id,client_request_id) DO NOTHING RETURNING id`;
+    if(!broadcasts[0]){
+      const winner=await existingCampaign(tx,scope.accountId,input.clientRequestId);
+      if(winner)return winner;
+      throw new AuthError('Campaign could not be created; try again',409,'campaign_conflict');
+    }
     const id=broadcasts[0].id;
     // 122 random bits per recipient when tracking; the token is the button's {{1}}.
     const token=trackedUrl?Prisma.sql`replace(gen_random_uuid()::text,'-','')`:Prisma.sql`NULL`;

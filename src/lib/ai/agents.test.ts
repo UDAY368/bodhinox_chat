@@ -83,7 +83,7 @@ describe('chooseAgent', () => {
 })
 
 describe('agentProfileFor', () => {
-  const rules = { keywords: ['refund'], on_low_confidence: false, confidence_threshold: 0.5, max_turns_before_handoff: 3 }
+  const rules = { keywords: ['refund'], on_low_confidence: false, confidence_threshold: 0.5, on_no_knowledge: false, max_turns_before_handoff: 3 }
   const profile = { business_name: 'Shop', instructions: 'Workspace', tone: 'formal', handoff_rules: rules } as unknown as AgentProfile
 
   it('gives the default agent the workspace profile unchanged', () => {

@@ -1,7 +1,20 @@
 import { describe, expect, it } from 'vitest';
 import type { Slot } from '@/lib/appointments/types';
 import { preferredSlot } from './slot-selector';
-import { gridFrame, layoutLanes, zonedMinutes, type HoursRow } from './week-grid';
+import { dropTarget, gridFrame, layoutLanes, zonedMinutes, type HoursRow } from './week-grid';
+
+describe('dropTarget', () => {
+  const days = ['2026-11-16', '2026-11-17', '2026-11-18'];
+  const item = { day: '2026-11-17', start: 600, end: 630 };
+  it('moves by snapped time and by whole day columns, inside the shown week', () => {
+    expect(dropTarget(item, 0, 56, 100, days, 15)).toEqual({ day: '2026-11-17', minutes: 660 });
+    expect(dropTarget(item, 110, 0, 100, days, 15)).toEqual({ day: '2026-11-18', minutes: 600 });
+    expect(dropTarget(item, -500, 0, 100, days, 15)).toEqual({ day: '2026-11-16', minutes: 600 });
+  });
+  it('is null when the booking would land where it is', () => {
+    expect(dropTarget(item, 20, 3, 100, days, 15)).toBeNull();
+  });
+});
 
 describe('zonedMinutes', () => {
   it('reads the wall clock in the booking zone', () => {

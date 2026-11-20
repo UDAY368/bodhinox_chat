@@ -83,6 +83,10 @@ import { ContactForm } from '@/components/contacts/contact-form';
 import { ImportModal } from '@/components/contacts/import-modal';
 import { LeadScoreCell, useLeadScores } from '@/components/contacts/lead-score-cell';
 import { ContactsHeader } from '@/components/contacts/contacts-header';
+import { useConfirm } from '@/components/ui/confirm-dialog';
+import { InlineError } from '@/components/ui/inline-error';
+import { EmptyState } from '@/components/ui/empty-state';
+import { PageLoading } from '@/components/ui/page-loading';
 import { CustomFieldInput, FIELD_SELECT } from '@/components/contacts/custom-field-input';
 import { downloadContactsCsv, useContactMembers, useCustomFields } from '@/components/contacts/contacts-client';
 import { formatLastSeen } from '@/components/contacts/format';
@@ -168,7 +172,16 @@ function ContactsPeople() {
   // Advisory AI lead scores for the contacts on screen (agents and above).
   const leadScores = useLeadScores(contacts.map((c) => c.id));
   const [loading, setLoading] = useState(true);
+  // The last load failed: the table shows what happened and Retry, never the old rows.
+  const [loadError, setLoadError] = useState(false);
   const [search, setSearch] = useState('');
+  // The term the rows were fetched for: follows the box 300 ms after typing stops, so a word is
+  // one request, not one per key. Stale responses are dropped by fetchSeq below.
+  const [searchTerm, setSearchTerm] = useState('');
+  useEffect(() => {
+    const id = setTimeout(() => setSearchTerm(search.trim()), 300);
+    return () => clearTimeout(id);
+  }, [search]);
   const [page, setPage] = useState(0);
   const [totalCount, setTotalCount] = useState(0);
   // Tag filter — contacts shown must have ANY of these tags (OR).
@@ -214,6 +227,7 @@ function ContactsPeople() {
   const tc = useTranslations('Contacts.filters');
   const tcs = useTranslations('Contacts.channelStatus');
   const tb = useTranslations('Contacts.bulk');
+  const confirm = useConfirm();
   const tPause = useTranslations('Inbox.pause');
   const { data: channels } = useWorkspaceChannels();
   const instagramOn = channels?.enabled.includes('instagram') ?? false;
@@ -262,7 +276,7 @@ function ContactsPeople() {
     setSelected(new Set());
     setAllMatching(false);
 
-    const term = search.trim();
+    const term = searchTerm;
     const query = new URLSearchParams({ offset: String(page * PAGE_SIZE), limit: String(PAGE_SIZE), sort: sort.key, dir: sort.dir });
     if (segmentId) query.set('segmentId', segmentId);
     else if (listId) query.set('listId', listId);
@@ -274,13 +288,17 @@ function ContactsPeople() {
     if (consentFilter) query.set('consent', consentFilter);
     const res = await authFetch(`/api/contacts/bulk/view?${query}`, { cache: 'no-store' }).catch(() => null);
     if (seq !== fetchSeq.current) return;
-    if (!res?.ok) {
-      toast.error(t('toastFailedLoad'));
+    const payload = res?.ok
+      ? ((await res.json().catch(() => null)) as { contacts: ContactRow[]; total: number } | null)
+      : null;
+    if (seq !== fetchSeq.current) return;
+    if (!payload) {
+      setLoadError(true);
+      setContacts([]);
       setLoading(false);
       return;
     }
-    const payload = (await res.json()) as { contacts: ContactRow[]; total: number };
-    if (seq !== fetchSeq.current) return;
+    setLoadError(false);
     setTotalCount(payload.total);
 
     if (payload.contacts.length === 0) {
@@ -308,7 +326,7 @@ function ContactsPeople() {
       tags: (tagsByContact[c.id] ?? []).map((tid) => tagsMap[tid]).filter(Boolean),
     })));
     setLoading(false);
-  }, [db, page, search, selectedTagIds, segmentId, listId, tagsMap, t, channelView, subscribedOnly, ownerFilter, consentFilter, sort]);
+  }, [db, page, searchTerm, selectedTagIds, segmentId, listId, tagsMap, channelView, subscribedOnly, ownerFilter, consentFilter, sort]);
 
   // Stage 5: the Instagram status of the rows on screen, read from stored state.
   const contactIdsKey = contacts.map((c) => c.id).join(',');
@@ -401,7 +419,8 @@ function ContactsPeople() {
 
   /** The current view as a bulk scope (POST /api/contacts/bulk). */
   function viewScope() {
-    const term = search.trim();
+    // The term the visible rows were fetched for, so a bulk action matches what is on screen.
+    const term = searchTerm;
     return {
       ...(segmentId ? { segmentId } : listId ? { listId } : selectedTagIds.length ? { tagIds: selectedTagIds } : {}),
       ...(term ? { search: term.slice(0, 200) } : {}),
@@ -657,7 +676,7 @@ function ContactsPeople() {
    * or the ticked rows, with the same count check as the others.
    */
   async function runStage5Bulk(action: Stage5BulkAction, confirmed = false): Promise<boolean> {
-    if (!confirmed && !window.confirm(tb('confirm', { count: selectionCount }))) return false;
+    if (!confirmed && !(await confirm({ title: tb('confirm', { count: selectionCount }) }))) return false;
     setListBusy(true);
     try {
       const done = await runBulk(action, allMatching ? undefined : [...selected]);
@@ -760,36 +779,9 @@ function ContactsPeople() {
   return (
     <div className="min-w-0 space-y-5">
       <ContactsHeader
-        tab="people"
-        known={{ people: loading || filtersOn || search.trim() ? null : totalCount }}
-        actions={
+        primaryAction={
           <>
             {canEditSettings && !canExport && <UpgradeBadge />}
-            {canEdit && (
-              <Button variant="ghost" onClick={() => setNewListOpen(true)} className="text-muted-foreground">
-                <List className="size-4" />
-                {t('lists.newList')}
-              </Button>
-            )}
-            <GatedButton
-              variant="outline"
-              canAct={canEdit}
-              gateReason={tGate('reasons.addOrImportContacts')}
-              onClick={() => setImportOpen(true)}
-            >
-              <Upload className="size-4" />
-              {t('importBtn')}
-            </GatedButton>
-            {canEditSettings && (
-              <Button
-                variant="outline"
-                onClick={() => exportCsv(exportQuery)}
-                disabled={exporting || !canExport}
-              >
-                {exporting ? <Loader2 className="size-4 animate-spin" /> : <Download className="size-4" />}
-                {segmentId ? t('segments.exportSegment') : listId ? t('lists.exportList') : t('segments.exportAll')}
-              </Button>
-            )}
             <GatedButton
               canAct={canEdit}
               gateReason={tGate('reasons.addOrImportContacts')}
@@ -800,6 +792,18 @@ function ContactsPeople() {
             </GatedButton>
           </>
         }
+        moreActions={[
+          ...(canEdit ? [{ label: t('lists.newList'), icon: List, onSelect: () => setNewListOpen(true) }] : []),
+          { label: t('importBtn'), icon: Upload, disabled: !canEdit, onSelect: () => setImportOpen(true) },
+          ...(canEditSettings
+            ? [{
+                label: segmentId ? t('segments.exportSegment') : listId ? t('lists.exportList') : t('segments.exportAll'),
+                icon: Download,
+                disabled: exporting || !canExport,
+                onSelect: () => exportCsv(exportQuery),
+              }]
+            : []),
+        ]}
       />
 
       {/* One line: search, the two saved views (segment and list), one Filters menu and sort.
@@ -1260,26 +1264,24 @@ function ContactsPeople() {
           <TableBody>
             {loading ? (
               <TableRow className="border-border hover:bg-transparent">
-                <TableCell colSpan={8} className="py-16 text-center">
-                  <div className="flex flex-col items-center gap-2">
-                    <Loader2 className="size-5 animate-spin text-muted-foreground" />
-                    <p className="text-sm text-muted-foreground">{t('loading')}</p>
-                  </div>
+                <TableCell colSpan={8} className="p-0">
+                  <PageLoading rows={8} />
+                </TableCell>
+              </TableRow>
+            ) : loadError ? (
+              <TableRow className="border-border hover:bg-transparent">
+                <TableCell colSpan={8} className="whitespace-normal">
+                  <InlineError message={t('toastFailedLoad')} onRetry={() => void fetchContacts()} />
                 </TableCell>
               </TableRow>
             ) : contacts.length === 0 ? (
               <TableRow className="border-border hover:bg-transparent">
-                <TableCell colSpan={8} className="py-16 text-center whitespace-normal">
-                  <div className="flex flex-col items-center gap-3">
-                    <span className="flex size-12 items-center justify-center rounded-xl bg-muted text-muted-foreground">
-                      {hasActiveFilters ? <Search className="size-5" /> : <Users className="size-5" />}
-                    </span>
-                    <p className="text-sm text-muted-foreground">
-                      {hasActiveFilters
-                        ? t('noContactsMatch')
-                        : t('noContactsYet')}
-                    </p>
-                    {hasActiveFilters ? (
+                <TableCell colSpan={8} className="whitespace-normal">
+                  <EmptyState
+                    icon={hasActiveFilters ? Search : Users}
+                    title={hasActiveFilters ? t('noContactsMatch') : t('noContactsYet')}
+                    className="py-16"
+                    action={hasActiveFilters ? (
                       <Button variant="outline" onClick={() => { clearFilters(); setSearch(''); }}>
                         {tr('filters.clearAll')}
                       </Button>
@@ -1294,7 +1296,7 @@ function ContactsPeople() {
                         {t('addFirstContact')}
                       </GatedButton>
                     )}
-                  </div>
+                  />
                 </TableCell>
               </TableRow>
             ) : (
@@ -1490,7 +1492,7 @@ function ContactsPeople() {
         </Table>
         </div>
 
-        {!loading && totalCount > 0 && (
+        {!loading && !loadError && totalCount > 0 && (
           <TablePagination
             className="border-t border-border"
             page={page}

@@ -49,6 +49,10 @@
   --color-primary-hover: var(--primary-hover);
   --color-primary-soft: var(--primary-soft);
   --color-primary-soft-2: var(--primary-soft-2);
+  /* Grouped lists (iOS style): page background, group surface, hairline separators. */
+  --color-separator: var(--separator);
+  --color-grouped: var(--grouped-background);
+  --color-grouped-surface: var(--grouped-surface);
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -56,6 +60,65 @@
   --radius-2xl: calc(var(--radius) * 1.8);
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+/* ============================================================
+ * DESIGN SCALE (Batch 2 design foundation, Apple's way)
+ *
+ * Type: one scale for every screen. Utilities text-large-title,
+ * text-title-2, text-title-3, text-headline, text-body, text-callout,
+ * text-subhead, text-footnote, text-caption set size, line height,
+ * weight and tracking together. The same values are CSS variables
+ * (--text-large-title, --text-large-title--line-height, ...).
+ *   large title 28/34 700   page title (PageHeader h1, one per screen)
+ *   title 2     22/28 700   section title
+ *   title 3     20/25 600   sheet / card title
+ *   headline    17/22 600   emphasised row text
+ *   body        15/20 400   reading text
+ *   callout     14/19 400   secondary reading text
+ *   subhead     13/18 400   controls, tabs, subtitles
+ *   footnote    12/16 400   group headers and footers, row subtitles
+ *   caption     11/13 400   badges, timestamps
+ *
+ * Spacing: Tailwind's 4px base (--spacing: 0.25rem), so p-1 = 4px,
+ * p-2 = 8px, p-3 = 12px, p-4 = 16px, p-6 = 24px, p-8 = 32px. Use
+ * multiples of 4; 16px is the row and page gutter, 24px between groups.
+ *
+ * Radius: rounded-control (10px: buttons in groups, inputs, menu
+ * rows), rounded-group (14px: cards and grouped lists), rounded-sheet
+ * (20px: sheets and dialogs). The older --radius family (rounded-lg =
+ * 12px etc.) stays for existing screens.
+ * ============================================================ */
+@theme static {
+  --text-large-title: 1.75rem;
+  --text-large-title--line-height: 2.125rem;
+  --text-large-title--font-weight: 700;
+  --text-large-title--letter-spacing: -0.02em;
+  --text-title-2: 1.375rem;
+  --text-title-2--line-height: 1.75rem;
+  --text-title-2--font-weight: 700;
+  --text-title-2--letter-spacing: -0.015em;
+  --text-title-3: 1.25rem;
+  --text-title-3--line-height: 1.5625rem;
+  --text-title-3--font-weight: 600;
+  --text-title-3--letter-spacing: -0.01em;
+  --text-headline: 1.0625rem;
+  --text-headline--line-height: 1.375rem;
+  --text-headline--font-weight: 600;
+  --text-headline--letter-spacing: -0.01em;
+  --text-body: 0.9375rem;
+  --text-body--line-height: 1.25rem;
+  --text-callout: 0.875rem;
+  --text-callout--line-height: 1.1875rem;
+  --text-subhead: 0.8125rem;
+  --text-subhead--line-height: 1.125rem;
+  --text-footnote: 0.75rem;
+  --text-footnote--line-height: 1rem;
+  --text-caption: 0.6875rem;
+  --text-caption--line-height: 0.8125rem;
+  --radius-control: 10px;
+  --radius-group: 14px;
+  --radius-sheet: 20px;
 }
 
 /* ============================================================
@@ -121,6 +184,9 @@ html[data-mode="dark"] {
   --sidebar-border: #2f2f33;
   --studio-glass: #1c1c1ef0;
   --studio-shadow: 0 1px 2px #0006, 0 8px 24px #0005;
+  --separator: #54545899;
+  --grouped-background: var(--background);
+  --grouped-surface: var(--card);
 }
 
 :root,
@@ -153,6 +219,9 @@ html[data-mode="light"] {
   --sidebar-border: #e3e3e8;
   --studio-glass: #fffffff0;
   --studio-shadow: 0 1px 2px #0000000a, 0 8px 24px #0000000f;
+  --separator: #3c3c432e;
+  --grouped-background: var(--background);
+  --grouped-surface: var(--card);
 }
 
 :root,

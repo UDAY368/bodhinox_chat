@@ -27,6 +27,7 @@ import { useCan } from '@/hooks/use-can';
 import { GatedButton } from '@/components/ui/gated-button';
 import { getBroadcastStatus } from '@/lib/broadcast-status';
 import { useTranslations } from 'next-intl';
+import { InlineError } from '@/components/ui/inline-error';
 
 /**
  * Poll cadence while any broadcast is sending. Kept modest so we don't
@@ -36,8 +37,11 @@ import { useTranslations } from 'next-intl';
 const POLL_INTERVAL_MS = 5_000;
 const PAGE_SIZE = 20;
 type Tab = 'all' | BroadcastStatus;
-// The prototype's tabs (All, Draft, Scheduled, Sending, Sent, Paused), then the app's own Failed and Cancelled.
-const TABS: Tab[] = ['all', 'draft', 'scheduled', 'sending', 'sent', 'paused', 'failed', 'cancelled'];
+// The prototype's tabs (All, Draft, Scheduled, Sending, Sent, Paused); the rarer end states
+// (Failed, Cancelled) are one status menu beside them, so the row of tabs stays short.
+const MAIN_TABS: Tab[] = ['all', 'draft', 'scheduled', 'sending', 'sent', 'paused'];
+const MORE_STATUSES: Tab[] = ['failed', 'cancelled'];
+const TABS: Tab[] = [...MAIN_TABS, ...MORE_STATUSES];
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
@@ -120,7 +124,8 @@ export default function BroadcastsPage() {
       }));
       if (seq === fetchSeq.current) setCounts(Object.fromEntries(tallies));
     } catch (err) {
-      if (seq === fetchSeq.current) setError(err instanceof Error ? err.message : t('errorLoad'));
+      // A plain sentence, never the raw database error.
+      if (seq === fetchSeq.current) setError(t('errorLoad'));
     } finally {
       if (seq === fetchSeq.current) setLoading(false);
     }
@@ -185,46 +190,12 @@ export default function BroadcastsPage() {
   }
 
   if (error && broadcasts.length === 0) {
-    return (
-      <div className="flex h-64 flex-col items-center justify-center gap-2">
-        <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
-        <Button variant="outline" onClick={() => window.location.reload()}>
-          {t('retry')}
-        </Button>
-      </div>
-    );
+    return <InlineError message={t('errorLoad')} onRetry={() => { setLoading(true); void fetchBroadcasts(); }} />;
   }
 
+  // Each row shows its own real sent progress; there is no page-wide bar.
   return (
     <div className="space-y-6">
-      {/* Top indeterminate progress bar: only visible while a broadcast
-          is mid-send. Pure CSS animation so no extra deps. */}
-      {anySending && (
-        <div
-          role="progressbar"
-          aria-label={t('broadcastInProgress')}
-          className="broadcast-indeterminate fixed inset-x-0 top-0 z-40 h-0.5 overflow-hidden bg-muted"
-        >
-          <div className="broadcast-indeterminate-bar h-0.5 bg-primary" />
-          <style jsx>{`
-            .broadcast-indeterminate-bar {
-              width: 33%;
-              transform: translateX(-100%);
-              animation: broadcast-slide 1.6s cubic-bezier(0.4, 0, 0.2, 1)
-                infinite;
-            }
-            @keyframes broadcast-slide {
-              0% {
-                transform: translateX(-100%);
-              }
-              100% {
-                transform: translateX(400%);
-              }
-            }
-          `}</style>
-        </div>
-      )}
-
       <CampaignHeader
         title={tc('title')}
         description={tc('blurbs.broadcasts')}
@@ -254,16 +225,33 @@ export default function BroadcastsPage() {
 
       <ApiCampaignDialog open={apiOpen} onOpenChange={setApiOpen} onCreated={(id) => router.push(`/broadcasts/${id}`)} />
 
-      {/* Status filter (segmented) + name search */}
+      {/* Status filter (segmented, plus a menu for the end states) + name search */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <SegmentedTabs
-          // Eight tabs are wider than a tablet row: shrink and scroll instead of pushing the search off-screen.
-          className="min-w-0"
-          ariaLabel={t('tabsLabel')}
-          value={tab}
-          onChange={(key) => { setTab(key); setPage(0); }}
-          items={TABS.map((key) => ({ value: key, label: key === 'all' ? t('tabAll') : tStatus(key), count: counts[key] }))}
-        />
+        <div className="flex min-w-0 items-center gap-2">
+          <SegmentedTabs
+            // Six tabs can be wider than a tablet row: shrink and scroll instead of pushing the search off-screen.
+            className="min-w-0"
+            ariaLabel={t('tabsLabel')}
+            value={tab}
+            onChange={(key) => { setTab(key); setPage(0); }}
+            items={MAIN_TABS.map((key) => ({ value: key, label: key === 'all' ? t('tabAll') : tStatus(key), count: counts[key] }))}
+          />
+          <select
+            aria-label={t('moreStatuses')}
+            value={MORE_STATUSES.includes(tab) ? tab : ''}
+            onChange={(e) => { setTab((e.target.value || 'all') as Tab); setPage(0); }}
+            className={`h-9 shrink-0 rounded-lg border px-2.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+              MORE_STATUSES.includes(tab) ? 'border-primary bg-primary/5 text-foreground' : 'border-border bg-muted text-muted-foreground'
+            }`}
+          >
+            <option value="">{t('moreStatuses')}</option>
+            {MORE_STATUSES.map((key) => (
+              <option key={key} value={key}>
+                {tStatus(key)}{counts[key] != null ? ` (${counts[key]!.toLocaleString()})` : ''}
+              </option>
+            ))}
+          </select>
+        </div>
         <SearchField
           ariaLabel={t('searchLabel')}
           value={search}

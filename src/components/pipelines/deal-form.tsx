@@ -18,8 +18,8 @@ import { authFetch } from "@/lib/auth/client";
 import { useAuth } from "@/hooks/use-auth";
 import { useCan } from "@/hooks/use-can";
 import { CURRENCIES } from "@/lib/currency";
+import { searchContacts, type ContactOption } from "@/lib/contacts/contact-search";
 import type {
-  Contact,
   Conversation,
   Deal,
   DealStatus,
@@ -129,7 +129,10 @@ export function DealForm({
   const [expectedCloseDate, setExpectedCloseDate] = useState("");
   const [notes, setNotes] = useState("");
 
-  const [contacts, setContacts] = useState<Contact[]>([]);
+  // The picker shows up to 20 contacts matching the search (name or phone), never the whole list.
+  const [contactSearch, setContactSearch] = useState("");
+  const [contactOptions, setContactOptions] = useState<ContactOption[]>([]);
+  const [contact, setContact] = useState<ContactOption | null>(null);
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [linkedConversation, setLinkedConversation] =
     useState<Conversation | null>(null);
@@ -157,6 +160,7 @@ export function DealForm({
     setSavedField(null);
     setNoteDraft("");
     setNoteError("");
+    setContactSearch("");
     if (deal) {
       setTitle(deal.title);
       setValue(String(deal.value ?? ""));
@@ -201,18 +205,57 @@ export function DealForm({
     if (!open) return;
     let cancelled = false;
     (async () => {
-      const [c, p] = await Promise.all([
-        db.from("contacts").select("*").order("name"),
-        db.from("profiles").select("*").order("full_name"),
-      ]);
+      const p = await db.from("profiles").select("*").order("full_name");
       if (cancelled) return;
-      setContacts((c.data ?? []) as Contact[]);
       setProfiles((p.data ?? []) as Profile[]);
     })();
     return () => {
       cancelled = true;
     };
   }, [open, db]);
+
+  // Contact search waits 300ms after typing.
+  useEffect(() => {
+    if (!open) return;
+    let live = true;
+    const timer = setTimeout(() => {
+      searchContacts(contactSearch)
+        .then((rows) => { if (live) setContactOptions(rows); })
+        .catch(() => { if (live) toast.error(ts("contactSearchFailed")); });
+    }, 300);
+    return () => {
+      live = false;
+      clearTimeout(timer);
+    };
+  }, [open, contactSearch, ts]);
+
+  // The chosen contact, which may not be among the search results.
+  useEffect(() => {
+    if (!open || !contactId) {
+      setContact(null);
+      return;
+    }
+    if (contact?.id === contactId) return;
+    // A preselected contact (from the chat or a profile) or the deal's own contact needs no lookup.
+    const known = (!deal && defaultContact?.id === contactId ? defaultContact : null)
+      ?? (deal?.contact && deal.contact.id === contactId ? deal.contact : null);
+    if (known) {
+      setContact({ id: known.id, name: known.name ?? null, phone: known.phone ?? null });
+      return;
+    }
+    let cancelled = false;
+    void db.from("contacts").select("id,name,phone").eq("id", contactId).maybeSingle()
+      .then(({ data }) => { if (!cancelled) setContact((data as ContactOption | null) ?? null); });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, contactId, contact?.id, db, deal, defaultContact]);
+
+  const chooseContact = (id: string) => {
+    setContactId(id);
+    setContact(contactOptions.find((c) => c.id === id) ?? null);
+    if (deal) void saveField("contact_id", id);
+  };
 
   const loadNotes = useCallback(async (dealId: string) => {
     const res = await authFetch(`/api/deals/${encodeURIComponent(dealId)}/notes`, { cache: "no-store" });
@@ -251,6 +294,8 @@ export function DealForm({
       cancelled = true;
     };
   }, [open, contactId, db]);
+
+  const editing = Boolean(deal);
 
   /** Existing deal: save one field now. Text fields call it on blur, selects on change. */
   async function saveField(field: Field, raw: string) {
@@ -390,14 +435,6 @@ export function DealForm({
     toast.success(ts("noteDeleted"));
   }
 
-  const editing = Boolean(deal);
-  // The chosen contact may be outside the loaded list (a preselected one, or past the first page).
-  const presetContact = !deal && defaultContact?.id === contactId ? defaultContact : null;
-  const dealContact = deal?.contact && deal.contact.id === contactId ? deal.contact : null;
-  const contact: DealContactChoice | null = contacts.find((c) => c.id === contactId) ?? presetContact ?? dealContact;
-  const contactOptions: DealContactChoice[] = contact && !contacts.some((c) => c.id === contact.id)
-    ? [contact, ...contacts]
-    : contacts;
   const readOnly = !canWrite;
 
   return (
@@ -544,17 +581,31 @@ export function DealForm({
 
             <div className="grid gap-2">
               <Label htmlFor="deal-contact" className="text-muted-foreground">{t("contact")}</Label>
+              {!readOnly && (
+                <Input
+                  type="search"
+                  value={contactSearch}
+                  onChange={(e) => setContactSearch(e.target.value)}
+                  placeholder={ts("contactSearchPlaceholder")}
+                  aria-label={ts("contactSearchPlaceholder")}
+                  maxLength={80}
+                  className="border-border bg-card text-foreground"
+                />
+              )}
               <select
                 id="deal-contact"
                 value={contactId}
                 disabled={readOnly}
-                onChange={(e) => { setContactId(e.target.value); if (editing) void saveField("contact_id", e.target.value); }}
+                onChange={(e) => chooseContact(e.target.value)}
                 className={selectClass}
               >
                 <option value="">{t("selectContact")}</option>
+                {contact && !contactOptions.some((c) => c.id === contact.id) && (
+                  <option value={contact.id}>{contact.name || contact.phone}</option>
+                )}
                 {contactOptions.map((c) => (
                   <option key={c.id} value={c.id}>
-                    {c.name || c.phone}
+                    {c.name && c.phone ? `${c.name} · ${c.phone}` : c.name || c.phone}
                   </option>
                 ))}
               </select>

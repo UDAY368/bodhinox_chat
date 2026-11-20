@@ -27,6 +27,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { useTranslations } from 'next-intl';
 import { Card, CardContent } from '@/components/ui/card';
+import { InlineError } from '@/components/ui/inline-error';
 import { SettingsPanelHead } from './settings-panel-head';
 import { CampaignHeader } from '@/components/broadcasts/campaign-ui';
 import { TemplatePreview } from '@/components/templates/template-preview';
@@ -122,6 +123,8 @@ export function TemplateManager({ variant = 'settings' }: { variant?: 'settings'
   const canEdit = useCan('edit-settings');
 
   const [loading, setLoading] = useState(true);
+  // A failed load shows what happened and Retry, never an empty list.
+  const [loadFailed, setLoadFailed] = useState(false);
   const [templates, setTemplates] = useState<MessageTemplate[]>([]);
   const [syncing, setSyncing] = useState(false);
   const [tab, setTab] = useState<TemplateTab>('all');
@@ -172,10 +175,11 @@ export function TemplateManager({ variant = 'settings' }: { variant?: 'settings'
       if (error) throw error;
       const rows: MessageTemplate[] = data || [];
       setTemplates(rows);
+      setLoadFailed(false);
       return rows;
     } catch (err) {
       console.error('Failed to fetch templates:', err instanceof Error ? err.name : 'unknown');
-      toast.error(t('toastLoadFailed'));
+      setLoadFailed(true);
       return [];
     } finally {
       setLoading(false);
@@ -367,7 +371,12 @@ export function TemplateManager({ variant = 'settings' }: { variant?: 'settings'
         }
       />
 
-      {templates.length === 0 ? (
+      {loadFailed ? (
+        <InlineError
+          message={t('toastLoadFailed')}
+          onRetry={() => { setLoading(true); void fetchTemplates(); }}
+        />
+      ) : templates.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12 text-center">
             <p className="text-muted-foreground text-sm">{t('noTemplates')}</p>

@@ -5,6 +5,7 @@ import { Inter } from "next/font/google";
 import Script from "next/script";
 import "./globals.css";
 import { ThemeProvider } from "@/hooks/use-theme";
+import { publicBaseUrl } from "@/lib/public-base-url";
 import { ThemedToaster } from "@/components/themed-toaster";
 import {
   DEFAULT_MODE,
@@ -24,6 +25,7 @@ export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("Metadata");
   return {
     ...metadata,
+    metadataBase: publicBaseUrl(),
     description: t("description"),
   };
 }

@@ -144,7 +144,8 @@ export function parseInboxSearchParams(params: URLSearchParams, userId: string):
   const status = params.get('status');
   if (status) {
     if (!(INBOX_SEARCH_STATUSES as readonly string[]).includes(status)) throw new InboxSearchError(t('invalidStatus'));
-    filters.status = status as InboxSearchStatus;
+    // "Pending" is never shown; an old link asking for it gets Open, which includes those rows.
+    filters.status = status === 'pending' ? 'open' : (status as InboxSearchStatus);
   }
   const assignee = params.get('assignee');
   if (assignee) {
@@ -214,7 +215,9 @@ export async function searchInboxMessages(
   const conditions: Prisma.Sql[] = [Prisma.sql`m.account_id = ${ctx.accountId}::uuid`, Prisma.sql`m.created_at IS NOT NULL`, match];
   if (filters.whatsappConfigId) conditions.push(Prisma.sql`c.whatsapp_config_id = ${filters.whatsappConfigId}::uuid`);
   if (filters.channel) conditions.push(Prisma.sql`c.channel = ${filters.channel}`);
-  if (filters.status) conditions.push(Prisma.sql`c.status = ${filters.status}`);
+  // Open includes legacy rows still stored as 'pending' (no data migration).
+  if (filters.status === 'open' || filters.status === 'pending') conditions.push(Prisma.sql`c.status IN ('open', 'pending')`);
+  else if (filters.status) conditions.push(Prisma.sql`c.status = ${filters.status}`);
   if (filters.assignee === 'unassigned') conditions.push(Prisma.sql`c.assigned_agent_id IS NULL`);
   else if (filters.assignee) conditions.push(Prisma.sql`c.assigned_agent_id = ${filters.assignee}::uuid`);
   if (filters.from) conditions.push(Prisma.sql`m.created_at >= ${filters.from}`);

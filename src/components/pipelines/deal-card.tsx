@@ -53,8 +53,8 @@ export function DealCard({ deal, stage, onEdit, isOverlay, stages, onMove, onDel
       <button
         type="button"
         onClick={(e) => {
-          // `onClick` still fires after a tap: a mouse drag needs 5px of movement
-          // and a touch drag a long press before either counts as a drag.
+          // `onClick` still fires after a non-drag tap: a mouse drag needs 5px of
+          // movement and a touch drag a 250ms long-press.
           if (isOverlay) return;
           e.stopPropagation();
           onEdit(deal);

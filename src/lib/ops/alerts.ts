@@ -52,7 +52,9 @@ export function failingChecks(health: DeepHealth, thresholds = healthThresholds(
   if (checks.ops !== 'ok') failing.push('ops');
   if (checks.worker && !checks.worker.ok) failing.push('worker');
   if (checks.queue?.oldestDueS != null && checks.queue.oldestDueS > thresholds.oldestDueDegradedS) failing.push('queue');
+  if (checks.queue && checks.queue.failed1h > thresholds.failedJobsDegraded) failing.push('jobs');
   if (checks.intents && checks.intents.unknown > thresholds.unknownIntentsDegraded) failing.push('intents');
+  if (checks.intents && checks.intents.stuckDispatching10m > thresholds.stuckDispatchingDegraded) failing.push('dispatching');
   if (checks.webhooks && checks.webhooks.unprocessed15m > 0) failing.push('webhooks');
   return failing;
 }
@@ -73,6 +75,7 @@ export function alertPayload(health: DeepHealth, previous: HealthStatus, at: Dat
       expiredLeases: checks.queue?.expiredLeases ?? null,
       failed1h: checks.queue?.failed1h ?? null,
       unknownIntents: checks.intents?.unknown ?? null,
+      stuckDispatching10m: checks.intents?.stuckDispatching10m ?? null,
       unprocessedWebhooks15m: checks.webhooks?.unprocessed15m ?? null,
     },
     at: at.toISOString(),

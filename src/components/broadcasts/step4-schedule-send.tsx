@@ -15,7 +15,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import { ArrowLeft, CalendarClock, FlaskConical, Send, Loader2, Users, Save } from 'lucide-react';
+import { ArrowLeft, CalendarClock, FlaskConical, Send, Loader2, Users, Save, RotateCw } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import type { CampaignSendExtras } from '@/lib/whatsapp/template-send-params';
 import { toast } from 'sonner';
@@ -27,6 +27,8 @@ import { UpgradeBadge } from '@/components/ui/upgrade-badge';
 import { NumberSelect } from '@/components/settings/numbers/number-select';
 import { CampaignCostEstimate } from '@/components/broadcasts/campaign-cost';
 import { numberLabel, useWhatsAppNumbers } from '@/components/settings/numbers/use-whatsapp-numbers';
+import { fetchWorkspaceTimeZone } from '@/lib/broadcasts/campaign-client';
+import { browserTimeZone, scheduleLocalToUtc } from '@/lib/broadcasts/schedule-time';
 
 const TEST_NUMBERS_KEY = 'bodhinox.campaignTestNumbers';
 
@@ -49,7 +51,6 @@ interface Step4Props {
   onSaveDraft?: () => void;
   onBack: () => void;
   isProcessing: boolean;
-  progress: number;
 }
 
 export function Step4ScheduleSend({
@@ -64,9 +65,9 @@ export function Step4ScheduleSend({
   onSaveDraft,
   onBack,
   isProcessing,
-  progress,
 }: Step4Props) {
   const t = useTranslations('Broadcasts.wizard');
+  const tUi = useTranslations('UiPrimitives');
   const tn = useTranslations('whatsappNumbers');
   const { numbers: allNumbers } = useWhatsAppNumbers();
   // A template is approved per WhatsApp Business Account, so only numbers in
@@ -82,9 +83,17 @@ export function Step4ScheduleSend({
   const [showConfirm, setShowConfirm] = useState(false);
   const canSchedule = planAllows(usePlan(), 'campaign_scheduling');
   const [later, setLater] = useState(false);
-  // datetime-local value in the browser's own time zone.
+  // datetime-local value, read in the workspace time zone (the browser's only if that cannot load).
   const [scheduleAt, setScheduleAt] = useState('');
-  const scheduledDate = later && scheduleAt ? new Date(scheduleAt) : null;
+  const [timeZone, setTimeZone] = useState<string | null>(null);
+  useEffect(() => {
+    let live = true;
+    fetchWorkspaceTimeZone()
+      .then((zone) => { if (live) setTimeZone(zone); })
+      .catch(() => { if (live) setTimeZone(browserTimeZone()); });
+    return () => { live = false; };
+  }, []);
+  const scheduledDate = later && scheduleAt && timeZone ? scheduleLocalToUtc(scheduleAt, timeZone) : null;
   const scheduleValid = !later || (scheduledDate !== null && scheduledDate.getTime() > Date.now() + 60_000);
   // Test numbers are remembered per browser; storage can be unavailable (private mode).
   const [testNumbers, setTestNumbers] = useState(() => {
@@ -125,23 +134,22 @@ export function Step4ScheduleSend({
       setTesting(false);
     }
   }
+  // A failed count is never shown as 0: it says so, offers Retry, and Send waits until it is known.
   const [estimatedReach, setEstimatedReach] = useState<number>(0);
-  const [loadingReach, setLoadingReach] = useState(true);
+  const [reachState, setReachState] = useState<'loading' | 'ready' | 'failed'>('loading');
+  const [reachAttempt, setReachAttempt] = useState(0);
 
   useEffect(() => {
-    async function calculateReach() {
-      setLoadingReach(true);
-      try {
-        setEstimatedReach((await audienceReach(audience)) ?? 0);
-      } catch {
-        setEstimatedReach(0);
-      } finally {
-        setLoadingReach(false);
-      }
-    }
-
-    calculateReach();
-  }, [audience]);
+    let live = true;
+    audienceReach(audience)
+      .then((count) => {
+        if (!live) return;
+        setEstimatedReach(count ?? 0);
+        setReachState('ready');
+      })
+      .catch(() => { if (live) setReachState('failed'); });
+    return () => { live = false; };
+  }, [audience, reachAttempt]);
 
   const audienceLabel =
     audience.type === 'all'
@@ -213,8 +221,16 @@ export function Step4ScheduleSend({
           <div>
             <p className="text-xs text-muted-foreground">{t('scheduleSend.estimatedReach')}</p>
             <div className="flex items-center gap-1.5">
-              {loadingReach ? (
+              {reachState === 'loading' ? (
                 <Loader2 className="h-3 w-3 animate-spin text-primary" />
+              ) : reachState === 'failed' ? (
+                <span role="alert" className="flex flex-wrap items-center gap-x-2 text-amber-600 dark:text-amber-400">
+                  {t('scheduleSend.reachFailed')}
+                  <Button variant="link" size="sm" className="h-auto p-0" onClick={() => { setReachState('loading'); setReachAttempt((n) => n + 1); }}>
+                    <RotateCw className="size-3.5" aria-hidden />
+                    {tUi('retry')}
+                  </Button>
+                </span>
               ) : (
                 <>
                   <Users className="h-3.5 w-3.5 text-primary" />
@@ -272,39 +288,34 @@ export function Step4ScheduleSend({
         </div>
         {later && (
           <div className="space-y-1">
-            <Input
-              type="datetime-local"
-              aria-label={t('scheduleSend.scheduleAt')}
-              value={scheduleAt}
-              onChange={(e) => setScheduleAt(e.target.value)}
-              className="w-60 border-border bg-muted text-foreground"
-            />
+            <div className="flex flex-wrap items-center gap-2">
+              <Input
+                type="datetime-local"
+                aria-label={t('scheduleSend.scheduleAt')}
+                aria-describedby="broadcast-schedule-zone"
+                value={scheduleAt}
+                onChange={(e) => setScheduleAt(e.target.value)}
+                className="w-60 border-border bg-muted text-foreground"
+              />
+              <span id="broadcast-schedule-zone" className="text-sm text-muted-foreground">
+                {timeZone ?? <Loader2 className="size-3.5 animate-spin" aria-label={tUi('loading')} />}
+              </span>
+            </div>
             <p className="text-xs text-muted-foreground">
-              {scheduleAt && !scheduleValid
+              {scheduleAt && timeZone && !scheduleValid
                 ? t('scheduleSend.scheduleTooSoon')
-                : t('scheduleSend.scheduleHint', { zone: Intl.DateTimeFormat().resolvedOptions().timeZone })}
+                : t('scheduleSend.scheduleHint')}
             </p>
           </div>
         )}
       </div>
 
-      {/* Processing overlay */}
+      {/* Creating the campaign: the server answers once it is queued; sent counts show on the campaign page. */}
       {isProcessing && (
-        <div className="rounded-xl border border-primary/20 bg-primary/5 p-4">
-          <div className="mb-2 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Loader2 className="h-4 w-4 animate-spin text-primary" />
-              <p className="text-sm font-medium text-foreground">{t('scheduleSend.sending')}</p>
-            </div>
-            <span className="text-xs font-medium text-primary">{progress}%</span>
-          </div>
-          <div className="h-1.5 w-full rounded-full bg-muted">
-            <div
-              className="h-1.5 rounded-full bg-primary transition-all duration-300"
-              style={{ width: `${progress}%` }}
-            />
-          </div>
-        </div>
+        <p role="status" className="flex items-center gap-2 rounded-xl border border-primary/20 bg-primary/5 p-4 text-sm font-medium text-foreground">
+          <Loader2 className="h-4 w-4 animate-spin text-primary" />
+          {t('scheduleSend.sending')}
+        </p>
       )}
 
       <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border pt-4">
@@ -335,7 +346,7 @@ export function Step4ScheduleSend({
           <DialogTrigger
             render={
               <Button
-                disabled={!name.trim() || isProcessing || !scheduleValid}
+                disabled={!name.trim() || isProcessing || !scheduleValid || reachState !== 'ready'}
                 className="bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
               />
             }
@@ -359,7 +370,9 @@ export function Step4ScheduleSend({
                 )}
                 {scheduledDate && (
                   <span className="mt-2 block">
-                    {t('scheduleSend.confirmScheduled', { when: scheduledDate.toLocaleString() })}
+                    {t('scheduleSend.confirmScheduled', {
+                      when: `${scheduledDate.toLocaleString(undefined, { timeZone: timeZone ?? undefined, dateStyle: 'medium', timeStyle: 'short' })} (${timeZone})`,
+                    })}
                   </span>
                 )}
               </DialogDescription>

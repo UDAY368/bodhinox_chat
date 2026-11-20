@@ -1014,6 +1014,7 @@ export function AutomationBuilder({
             <TriggerCard
               type={state.trigger_type}
               config={state.trigger_config}
+              savedKeywordRule={isEditing && initial.trigger_type === 'keyword_match'}
               onTypeChange={(tVal) => patchTop('trigger_type', tVal)}
               onConfigChange={(c) => patchTop('trigger_config', c)}
               t={t}
@@ -1049,12 +1050,15 @@ export function AutomationBuilder({
 function TriggerCard({
   type,
   config,
+  savedKeywordRule = false,
   onTypeChange,
   onConfigChange,
   t,
 }: {
   type: AutomationTriggerType;
   config: Record<string, unknown>;
+  /** The rule was saved as a keyword rule: a missing match keeps the old "contains". */
+  savedKeywordRule?: boolean;
   onTypeChange: (t: AutomationTriggerType) => void;
   onConfigChange: (c: Record<string, unknown>) => void;
   t: ReturnType<typeof useTranslations>;
@@ -1121,6 +1125,7 @@ function TriggerCard({
             {type === 'keyword_match' && (
               <KeywordMatchConfig
                 config={config as unknown as KeywordMatchTriggerConfig}
+                defaultMatch={keywordMatchDefault(savedKeywordRule)}
                 onChange={onConfigChange}
                 t={t}
               />
@@ -1390,12 +1395,23 @@ function ScheduledRecipients({
   );
 }
 
+/**
+ * The match a keyword trigger shows and saves when none is stored. A new trigger matches whole
+ * words, so "hi" never fires inside "this". A rule already saved as a keyword rule without one
+ * keeps "contains", the engine's default for a missing match, so existing rules never change.
+ */
+export function keywordMatchDefault(savedKeywordRule: boolean): 'word' | 'contains' {
+  return savedKeywordRule ? 'contains' : 'word';
+}
+
 function KeywordMatchConfig({
   config,
+  defaultMatch,
   onChange,
   t,
 }: {
   config: KeywordMatchTriggerConfig;
+  defaultMatch: 'word' | 'contains';
   onChange: (c: Record<string, unknown>) => void;
   t: ReturnType<typeof useTranslations>;
 }) {
@@ -1408,14 +1424,13 @@ function KeywordMatchConfig({
   // when the trigger type changes, so the seed stays in sync.
   const [draft, setDraft] = useState(keywords.join(', '));
 
-  // Persist the default the <select> displays. The dropdown falls back to
-  // "contains" for display, but leaving it untouched would otherwise omit
-  // match_type from the saved config — and activation validation then
-  // rejected it (trigger.match_type). Seed once on mount; the component
-  // remounts when the trigger type changes, matching the keywords draft.
+  // Persist the default the <select> displays (whole word for a new rule, see
+  // keywordMatchDefault), so the saved config always names its match_type.
+  // Seed once on mount; the component remounts when the trigger type
+  // changes, matching the keywords draft.
   useEffect(() => {
     if (config?.match_type == null) {
-      onChange({ ...config, match_type: 'contains' });
+      onChange({ ...config, match_type: defaultMatch });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -1454,7 +1469,7 @@ function KeywordMatchConfig({
           {t('config.matchType')}
         </label>
         <select
-          value={config?.match_type ?? 'contains'}
+          value={config?.match_type ?? defaultMatch}
           onChange={(e) =>
             onChange({
               ...config,

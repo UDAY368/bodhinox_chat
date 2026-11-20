@@ -34,10 +34,10 @@ describe('channel capabilities', () => {
       expect(nodeAvailableOn(node, 'whatsapp')).toEqual((INSTAGRAM_ONLY_NODE_TYPES as readonly string[]).includes(node)
         ? { ok: false, reason: 'unavailable_on_channel' } : { ok: true });
     for (const node of ['send_template', 'send_form', 'send_product', 'send_product_list', 'send_catalog', 'ask_location',
-      'ask_address', 'book_appointment'] as const)
+      'ask_address'] as const)
       expect(nodeAvailableOn(node, 'instagram')).toEqual({ ok: false, reason: 'unavailable_on_channel' });
     for (const node of ['send_message', 'send_buttons', 'collect_input', 'ask_media', 'condition', 'set_tag', 'set_attribute', 'ai_reply',
-      'handoff', 'payment_link', 'send_storefront_link', 'conversion_event', ...INSTAGRAM_ONLY_NODE_TYPES] as const)
+      'handoff', 'payment_link', 'send_storefront_link', 'conversion_event', 'book_appointment', ...INSTAGRAM_ONLY_NODE_TYPES] as const)
       expect(nodeAvailableOn(node, 'instagram', { text: 'hi' }).ok).toBe(true);
   });
 
@@ -105,7 +105,9 @@ describe('channel capabilities', () => {
     const instagram = flowNodesFor('instagram');
     expect(instagram).toEqual(expect.arrayContaining(['send_message', 'send_buttons', 'send_media', 'send_list', 'condition', 'ai_reply',
       ...INSTAGRAM_ONLY_NODE_TYPES]));
-    for (const node of ['send_template', 'send_form', 'ask_location', 'ask_address', 'book_appointment'] as const) expect(instagram).not.toContain(node);
+    for (const node of ['send_template', 'send_form', 'ask_location', 'ask_address'] as const) expect(instagram).not.toContain(node);
+    // Batch 3 (B8): the booking step runs on Instagram as quick replies.
+    expect(instagram).toContain('book_appointment');
   });
 
   it('places every node type in both channel maps and the registry (capability matrix)', () => {

@@ -1,25 +1,21 @@
 'use client';
 
-// Wizard step 1 (Campaigns redesign): the campaign's name and its channel.
-// WhatsApp sends an approved template to everyone who opted in; Instagram
-// sends a text to the people who wrote in the last 24 hours.
+// Wizard step 1 (Campaigns redesign): the campaign's channel, shown only when the
+// workspace uses both. WhatsApp sends an approved template to everyone who opted in;
+// Instagram sends a text to the people who wrote in the last 24 hours. The name is
+// asked once, on the last step.
 
-import { useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { ArrowLeft, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
 import { ChannelDot } from './broadcast-display';
 
 export type CampaignChannel = 'whatsapp' | 'instagram';
 
 export function Step0Details({
-  name, onNameChange, channel, onChannelChange, instagramAvailable, whatsappAvailable, onNext, onBack,
+  channel, onChannelChange, instagramAvailable, whatsappAvailable, onNext, onBack,
 }: {
-  name: string;
-  onNameChange: (name: string) => void;
   channel: CampaignChannel;
   onChannelChange: (channel: CampaignChannel) => void;
   instagramAvailable: boolean;
@@ -28,8 +24,6 @@ export function Step0Details({
   onBack: () => void;
 }) {
   const t = useTranslations('Campaigns.wizard');
-  const [touched, setTouched] = useState(false);
-  const nameError = touched && !name.trim() ? t('nameRequired') : null;
   const options: { value: CampaignChannel; title: string; text: string; available: boolean }[] = [
     { value: 'whatsapp', title: t('channelWhatsapp'), text: t('channelWhatsappHint'), available: whatsappAvailable },
     { value: 'instagram', title: t('channelInstagram'), text: instagramAvailable ? t('channelInstagramHint') : t('channelInstagramOff'), available: instagramAvailable },
@@ -39,23 +33,6 @@ export function Step0Details({
       <div>
         <h2 className="text-base font-semibold text-foreground">{t('detailsTitle')}</h2>
         <p className="mt-1 text-sm text-muted-foreground">{t('detailsSubtitle')}</p>
-      </div>
-      <div className="space-y-1.5">
-        <Label htmlFor="campaign-name">{t('nameLabel')}</Label>
-        <Input
-          id="campaign-name"
-          value={name}
-          maxLength={200}
-          placeholder={t('namePlaceholder')}
-          aria-invalid={!!nameError}
-          aria-describedby="campaign-name-hint"
-          onChange={(e) => onNameChange(e.target.value)}
-          onBlur={() => setTouched(true)}
-          className="bg-muted"
-        />
-        <p id="campaign-name-hint" className={cn('text-xs', nameError ? 'text-destructive' : 'text-muted-foreground')}>
-          {nameError ?? t('nameHint')}
-        </p>
       </div>
       <fieldset className="space-y-1.5">
         <legend className="text-sm font-medium text-foreground">{t('channelLabel')}</legend>
@@ -90,7 +67,7 @@ export function Step0Details({
           {t('back')}
         </Button>
         <Button
-          onClick={() => { setTouched(true); if (name.trim()) onNext(); }}
+          onClick={onNext}
           disabled={!options.find((o) => o.value === channel)?.available}
           className="bg-primary text-primary-foreground hover:bg-primary/90"
         >

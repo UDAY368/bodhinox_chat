@@ -53,7 +53,8 @@ describe.each([['en', en], ['es', es], ['pt', pt], ['ko', ko]] as const)('%s tem
       await loadFor(locale, messages)
     const { getT } = await import('@/lib/i18n/translate')
     const t = getT('Validation.templates')
-    const withCta = listLibraryTemplates().filter(tpl => tpl.buttons?.some(b => b.type === 'URL' || b.type === 'PHONE_NUMBER'))
+    // The campaign "Book now" preset (template-library-booking.ts) carries the real tracked link, not a placeholder.
+    const withCta = listLibraryTemplates().filter(tpl => tpl.slug !== 'appointment_book_now' && tpl.buttons?.some(b => b.type === 'URL' || b.type === 'PHONE_NUMBER'))
     expect(withCta.length).toBeGreaterThan(0)
     for (const tpl of withCta) {
       const n = tpl.buttons!.findIndex(b => b.type === 'URL' || b.type === 'PHONE_NUMBER') + 1
@@ -92,7 +93,9 @@ describe.each([['en', en], ['es', es], ['pt', pt], ['ko', ko]] as const)('%s tem
       expect(['Marketing', 'Utility'], tpl.slug).toContain(tpl.category)
       expect(TEMPLATE_LIBRARY_INDUSTRIES, tpl.slug).toContain(tpl.industry)
       for (const b of tpl.buttons ?? []) {
-        if (b.type === 'URL') expect(b.url).toBe(LIBRARY_URL_PLACEHOLDER)
+        // The "Book now" preset's button is the tracked campaign link (`${origin}/r/{{1}}`).
+        if (b.type === 'URL' && tpl.slug === 'appointment_book_now') expect(b.url.endsWith('/r/{{1}}')).toBe(true)
+        else if (b.type === 'URL') expect(b.url).toBe(LIBRARY_URL_PLACEHOLDER)
         if (b.type === 'PHONE_NUMBER') expect(b.phone_number).toBe(LIBRARY_PHONE_PLACEHOLDER)
       }
     }

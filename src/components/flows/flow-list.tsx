@@ -27,6 +27,7 @@ import { useFormatter, useTranslations } from "next-intl";
 import { useCan } from "@/hooks/use-can";
 import { Button } from "@/components/ui/button";
 import { GatedButton } from "@/components/ui/gated-button";
+import { InlineError } from "@/components/ui/inline-error";
 import { Switch } from "@/components/ui/switch";
 import {
   Dialog,
@@ -199,6 +200,9 @@ export function FlowList({ channel }: { channel: Channel | "all" }) {
   const [sequences, setSequences] = useState<SequenceRow[]>([]);
   const [folders, setFolders] = useState<FolderRow[]>([]);
   const [loading, setLoading] = useState(true);
+  // The flow list failed to load: show what happened and Retry, never "no flows yet".
+  const [loadError, setLoadError] = useState(false);
+  const [retryToken, setRetryToken] = useState(0);
   const [createOpen, setCreateOpen] = useState(false);
   const [creating, setCreating] = useState(false);
   const [templates, setTemplates] = useState<TemplateSummary[]>([]);
@@ -273,7 +277,10 @@ export function FlowList({ channel }: { channel: Channel | "all" }) {
           throw new Error(`Failed to load flows: ${flowsRes.status}`);
         }
         const flowsJson = (await flowsRes.json()) as { flows: FlowRow[] };
-        if (!cancelled) setFlows(flowsJson.flows ?? []);
+        if (!cancelled) {
+          setFlows(flowsJson.flows ?? []);
+          setLoadError(false);
+        }
         // Templates endpoint is forward-looking — if it 404s on an
         // older deployment, gracefully fall through.
         if (tmplRes.ok) {
@@ -285,7 +292,7 @@ export function FlowList({ channel }: { channel: Channel | "all" }) {
       } catch (err) {
         if (!cancelled) {
           console.error(err);
-          toast.error(t("loadError"));
+          setLoadError(true);
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -296,7 +303,7 @@ export function FlowList({ channel }: { channel: Channel | "all" }) {
     };
     // `t` is stable for the page's locale; reload only when the section changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [channel]);
+  }, [channel, retryToken]);
 
   // Instagram sequences list here while Instagram is on (the API answers 503 while it is off).
   useEffect(() => {
@@ -603,6 +610,18 @@ export function FlowList({ channel }: { channel: Channel | "all" }) {
     );
   }
 
+  if (loadError) {
+    return (
+      <InlineError
+        message={t("loadError")}
+        onRetry={() => {
+          setLoading(true);
+          setRetryToken((n) => n + 1);
+        }}
+      />
+    );
+  }
+
   const statusLabel = (status: StatusFilter) =>
     status === "all" ? tList("anyStatus") : status === "testing" ? t("statusTesting") : tRow(`status.${STATUS_KEY[status]}`);
   const kindLabel = (kind: KindTab) => (kind === "all" ? t("filterAll") : tList(`tabs.${kind}`));
@@ -612,12 +631,7 @@ export function FlowList({ channel }: { channel: Channel | "all" }) {
     <div className="min-w-0 flex-1">
       <header className="flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <h1 className="text-[22px] font-bold tracking-tight text-foreground">{unified ? t("unifiedTitle") : tSection(channel === "instagram" ? "instagramTitle" : "whatsappTitle")}</h1>
-            <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
-              {t("beta")}
-            </span>
-          </div>
+          <h1 className="text-[22px] font-bold tracking-tight text-foreground">{unified ? t("unifiedTitle") : tSection(channel === "instagram" ? "instagramTitle" : "whatsappTitle")}</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             {unified ? tList("description") : tSection(channel === "instagram" ? "instagramDescription" : "whatsappDescription")}
           </p>

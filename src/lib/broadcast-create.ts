@@ -15,6 +15,8 @@ export interface BroadcastCreationInput {
   sendExtras?: CampaignSendExtras;
   /** The number to send from; the server uses the workspace default when omitted. */
   whatsappConfigId?: string | null;
+  /** One id per wizard session; the server returns the campaign already created for a repeat. */
+  clientRequestId?: string;
 }
 
 export async function requestBroadcastCreation(input: BroadcastCreationInput, send: typeof authFetch = authFetch): Promise<string> {

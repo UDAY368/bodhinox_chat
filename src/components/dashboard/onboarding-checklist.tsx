@@ -87,7 +87,7 @@ export const STEP_HREF: Record<OnboardingStep, string> = {
   instagramConnect: channelSettingsPath('instagram'),
   instagramAllowMessages: channelSettingsPath('instagram'),
   instagramCommentAutomation: channelPath('instagram', 'comments'),
-  automation: '/flows',
+  automation: '/automation',
   team: '/settings?tab=members',
 };
 

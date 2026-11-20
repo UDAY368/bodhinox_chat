@@ -97,7 +97,7 @@ export function ExceptionsQueue() {
                   <TableCell className="whitespace-nowrap">{row.amount_minor !== null && row.currency ? formatMoney(row.amount_minor, row.currency, locale) : "—"}</TableCell>
                   <TableCell className="text-xs">
                     {row.order_id ? <Link href={`/commerce/orders/${row.order_id}`} className="text-primary hover:underline">{t("order")}</Link>
-                      : row.appointment_id ? <span>{t("appointment")}</span> : "—"}
+                      : row.appointment_id ? <Link href={`/appointments?id=${row.appointment_id}`} className="text-primary hover:underline">{t("appointment")}</Link> : "—"}
                   </TableCell>
                   <TableCell className="text-right">
                     {row.status === "open" ? (

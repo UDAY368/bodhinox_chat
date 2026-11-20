@@ -11,6 +11,7 @@ import { AccountAccessAlert } from '@/components/layout/account-access-alert';
 import { TermsBanner } from '@/components/settings/privacy/terms-banner';
 import { PresenceHeartbeat } from '@/components/presence/presence-heartbeat';
 import { BrowserNotificationsListener } from '@/components/notifications/browser-notifications-listener';
+import { ConfirmProvider } from '@/components/ui/confirm-dialog';
 
 const SIDEBAR_COLLAPSED_KEY = 'bodhinox:sidebar-collapsed';
 
@@ -97,7 +98,9 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
 export function DashboardShell({ children }: { children: React.ReactNode }) {
   return (
     <AuthProvider>
-      <DashboardShellInner>{children}</DashboardShellInner>
+      <ConfirmProvider>
+        <DashboardShellInner>{children}</DashboardShellInner>
+      </ConfirmProvider>
     </AuthProvider>
   );
 }

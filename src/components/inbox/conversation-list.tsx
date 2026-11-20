@@ -31,7 +31,6 @@ import {
   useRef,
   type ReactNode,
 } from 'react';
-import { createPortal } from 'react-dom';
 import { createClient } from '@/lib/data/client';
 import {
   INBOX_FULL_RELOAD_MS,
@@ -42,7 +41,6 @@ import {
 } from '@/lib/inbox/conversations';
 import { getSessionWindow, matchesSessionFilter, type SessionFilter } from '@/lib/inbox/session';
 import { useSessionClock } from '@/hooks/use-session-clock';
-import { useMatchMedia } from '@/hooks/use-match-media';
 import { cn } from '@/lib/utils';
 import type { Conversation, Tag } from '@/types';
 import { authFetch } from '@/lib/auth/client';
@@ -73,6 +71,8 @@ import {
 import { InboxFilterPicker, type FilterCategory } from '@/components/inbox/inbox-filter-picker';
 import { formatDistanceToNow } from 'date-fns';
 import { useFormatter, useTranslations } from 'next-intl';
+import { InlineError } from '@/components/ui/inline-error';
+import { PageLoading } from '@/components/ui/page-loading';
 import { Input } from '@/components/ui/input';
 import {
   DropdownMenu,
@@ -216,7 +216,6 @@ export function ConversationList({
       ...(myTeam ? [{ label: t('filterMyTeam'), value: 'my-team' as const }] : []),
       { label: t('filterExpiringSoon'), value: 'expiring-soon' },
       { label: t('filterOpen'), value: 'open' },
-      { label: t('filterPending'), value: 'pending' },
       { label: t('filterClosed'), value: 'closed' },
     ],
     [t, myTeam]
@@ -242,7 +241,8 @@ export function ConversationList({
   const labelsById = useMemo(() => new Map((labels ?? []).map((label) => [label.id, label])), [labels]);
   const LIFECYCLE_OPTIONS: { label: string; value: InboxFilter }[] = useMemo(
     () =>
-      LIFECYCLE_STATES.map((state) => ({
+      // Resolved is the Resolved status filter already: one word, one place.
+      LIFECYCLE_STATES.filter((state) => state !== 'resolved').map((state) => ({
         label: tl(state),
         value: `lifecycle-${state}` as InboxFilter,
       })),
@@ -293,6 +293,9 @@ export function ConversationList({
   const [sessionFilter, setSessionFilter] = useState<SessionFilter>('all');
   const now = useSessionClock();
   const [loading, setLoading] = useState(true);
+  // The last load failed; with nothing loaded the list shows what happened and Retry.
+  const [loadError, setLoadError] = useState(false);
+  const [retryToken, setRetryToken] = useState(0);
   // Contact-based filters (issue #272). Tags use OR logic (a conversation
   // matches if its contact carries any selected tag), consistent with
   // Broadcast audience filtering. Company is an exact match on the field.
@@ -347,6 +350,7 @@ export function ConversationList({
       if (cancelled) return;
 
       if (error) {
+        setLoadError(true);
         // Supabase errors have non-enumerable properties — log fields explicitly
         console.error('Failed to fetch conversations:', {
           message: error.message,
@@ -365,6 +369,7 @@ export function ConversationList({
       };
       if (incremental) onConversationsChangedRef.current?.(rows);
       else onConversationsLoadedRef.current(rows);
+      setLoadError(false);
       setLoading(false);
     })();
 
@@ -376,7 +381,7 @@ export function ConversationList({
     // server's 30-second resync arrives. Between full reloads it reads
     // only the conversations changed since the last sync. `scope` is fixed
     // for a page (each inbox is its own route).
-  }, [resyncToken, scope]);
+  }, [resyncToken, scope, retryToken]);
 
   // Tag definitions for the filter picker — loaded once so labels/colours
   // stay stable regardless of which conversations happen to be loaded.
@@ -731,17 +736,6 @@ export function ConversationList({
     return map;
   }, [folders?.reminders]);
 
-  // Like AiSensy, the open-window strip lives in the page's top bar (the header's center slot).
-  // isWide reads false on the server and during hydration, so document is only touched in the browser.
-  const isWide = useMatchMedia('(min-width: 768px)');
-  const headerSlot = isWide ? document.getElementById('studio-header-center') : null;
-  // The header can mount after this list; look again next frame until its slot exists.
-  const [, lookAgain] = useState(0);
-  useEffect(() => {
-    if (!isWide || headerSlot) return;
-    const id = requestAnimationFrame(() => lookAgain((n) => n + 1));
-    return () => cancelAnimationFrame(id);
-  }, [isWide, headerSlot]);
   const windowStrip = (
     <WindowStrip conversations={baseFiltered} now={now} activeConversationId={activeConversationId} onSelect={handleSelect} />
   );
@@ -767,7 +761,7 @@ export function ConversationList({
     );
   const inMoreMenu = (filter !== 'all' && !TAB_VIEWS.includes(filter)) || sessionFilter === 'expired';
 
-  // Every view that is not a chip: waiting, my team, expiring soon, pending, folders, labels, lifecycle.
+  // Every view that is not a chip: waiting, my team, expiring soon, folders, labels, lifecycle.
   const moreViews = (
     <DropdownMenu>
       <DropdownMenuTrigger data-view-menu className={cn(chipClass(inMoreMenu), 'gap-1')}>
@@ -980,34 +974,16 @@ export function ConversationList({
     </div>
   );
 
-  // Tablets and up, like AiSensy: search, filter and the open-window avatars share the page's top bar;
-  // the list starts with the channel toggle and the status tabs. Phones keep everything in the list.
-  const inTopBar = isWide && headerSlot !== null;
-  const topBar = (
-    <div data-inbox-toolbar className="studio-inbox-topbar flex min-w-0 flex-1 items-center gap-2 px-3">
-      {/* Compact until used, then it widens so the avatars keep the room the rest of the time. */}
-      <div className={cn('w-44 shrink-0 transition-[width] duration-200 focus-within:w-80 motion-reduce:transition-none', search && 'w-80')}>{searchBox}</div>
-      <div className="flex shrink-0 items-center gap-0.5">
-        {tools}
-        {moreViews}
-      </div>
-      <div className="flex min-w-0 flex-1 items-center pl-2">{windowStrip}</div>
-    </div>
-  );
-
+  // Search, filters and the open-window avatars head the list at every width; the top bar is only the breadcrumb.
   const listHead = (
     <div data-inbox-list-head className="studio-chat-filters bg-card flex flex-col">
       <div className="flex flex-col gap-2 px-3 pt-3 pb-2">
-        {!inTopBar && (
-          <>
-            <div className="flex min-w-0 items-center justify-end gap-0.5">
-              {moreViews}
-              {tools}
-            </div>
-            {windowStrip}
-            {searchBox}
-          </>
-        )}
+        <div className="flex min-w-0 items-center justify-end gap-0.5">
+          {moreViews}
+          {tools}
+        </div>
+        {windowStrip}
+        {searchBox}
         {channelTabs}
         <SavedFilterChips store={savedStore} current={currentFilters} onApply={applySavedFilters} scope={scope} />
         {hasPickedChips && (
@@ -1021,7 +997,6 @@ export function ConversationList({
   return (
     <div className="studio-conversation-list border-border bg-card flex h-full w-full min-w-0 flex-col border-r lg:w-72 xl:w-80 2xl:w-[340px]">
       {listHead}
-      {inTopBar && createPortal(topBar, headerSlot)}
 
       {/* Conversation Items.
           `min-h-0` is load-bearing: a flex child defaults to
@@ -1031,9 +1006,15 @@ export function ConversationList({
           parent's overflow-hidden with no scrollbar (issue #229). */}
       <ScrollArea className="min-h-0 flex-1">
         {loading ? (
-          <div className="flex items-center justify-center py-12">
-            <div className="border-primary h-5 w-5 animate-spin rounded-full border-2 border-t-transparent" />
-          </div>
+          <PageLoading rows={8} />
+        ) : loadError && conversations.length === 0 ? (
+          <InlineError
+            message={t('loadFailed')}
+            onRetry={() => {
+              setLoading(true);
+              setRetryToken((n) => n + 1);
+            }}
+          />
         ) : filtered.length === 0 ? (
           <div className="flex flex-col items-center px-4 py-12 text-center">
             <span className="bg-muted text-muted-foreground mb-3 flex size-11 items-center justify-center rounded-2xl" aria-hidden>

@@ -21,7 +21,6 @@ const FILTERS: InboxFilter[] = [
   'all',
   'unread',
   'open',
-  'pending',
   'closed',
   'waiting',
   'unassigned',
@@ -36,9 +35,15 @@ const FILTERS: InboxFilter[] = [
   'reminders',
   'failed',
 ];
+/** Open, as the UI shows it: 'open', plus legacy rows stored as 'pending'. */
+export function isOpenStatus(status: string | null | undefined): boolean {
+  return status === 'open' || status === 'pending';
+}
 const LABEL_FILTER = /^label-([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i;
 export function parseInboxFilter(value: string | null): InboxFilter {
   if (value && LABEL_FILTER.test(value)) return value.toLowerCase() as InboxFilter;
+  // "Pending" is never shown: an old ?filter=pending link opens Open, which includes those rows.
+  if (value === 'pending') return 'open';
   return FILTERS.includes(value as InboxFilter)
     ? (value as InboxFilter)
     : 'all';
@@ -104,6 +109,8 @@ export function matchesInboxFilter(
   if (filter === 'unread') return c.unread_count > 0;
   if (filter.startsWith('lifecycle-'))
     return `lifecycle-${lifecycleOf(c)}` === filter;
+  // Open includes legacy rows still stored as 'pending' (the UI never shows that status).
+  if (filter === 'open' || filter === 'pending') return isOpenStatus(c.status);
   return filter === 'all' || c.status === filter;
 }
 

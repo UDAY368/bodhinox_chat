@@ -73,3 +73,13 @@ export function prefillFromBroadcast(row: SourceRow, copyName?: (name: string) =
     audience,
   };
 }
+
+/**
+ * The name a new campaign starts with, so the wizard never has to ask for it: the template's
+ * name (or the channel, for an Instagram text) and today's date, e.g. "diwali_offer · 19 Nov 2026".
+ * The member can change it on the last step.
+ */
+export function defaultCampaignName(base: string, date: Date, locale?: string): string {
+  const day = date.toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric' });
+  return `${base.trim()} · ${day}`.slice(0, 200);
+}

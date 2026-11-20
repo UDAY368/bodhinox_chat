@@ -121,7 +121,19 @@
     "analyticsCampaigns": "Campañas",
     "onlineStore": "Tienda en línea",
     "reviews": "Reseñas",
-    "shopReports": "Informes de la tienda"
+    "shopReports": "Informes de la tienda",
+    "people": "Personas",
+    "segments": "Segmentos",
+    "customFields": "Campos personalizados",
+    "whatsappSync": "Sincronización con WhatsApp",
+    "analyticsOverview": "Resumen",
+    "campaignResults": "Resultados de campañas",
+    "productsSection": "Productos",
+    "store": "Tienda",
+    "groupGrow": "Crecer",
+    "groupSell": "Vender",
+    "groupInsights": "Análisis",
+    "breadcrumb": "Ruta de navegación"
   },
   "Header": {
     "notificationsUnread": "{count, plural, =1 {Notificaciones, 1 sin leer} other {Notificaciones, # sin leer}}",
@@ -164,7 +176,13 @@
     "sequences": "Secuencias",
     "subscription": "Suscripción",
     "automation": "Automatización",
-    "ai": "IA"
+    "ai": "IA",
+    "catalogue": "Catálogo",
+    "onlineStore": "Tienda en línea",
+    "reviews": "Reseñas",
+    "shopReports": "Informes de la tienda",
+    "storeSettings": "Ajustes de la tienda",
+    "reports": "Informes"
   },
   "ModeToggle": {
     "switchMode": "Cambiar al modo {mode}"
@@ -327,8 +345,8 @@
       "broadcastEmpty": "Aún no hay difusiones.",
       "setup": "Configuración del espacio",
       "setupHint": "WhatsApp indica configuración guardada. Revisa su conexión en los ajustes.",
-      "done": "Completo",
-      "pending": "Pendiente",
+      "done": "Hecho",
+      "pending": "Por hacer",
       "setupItems": {
         "whatsapp": "Configurar WhatsApp",
         "contacts": "Añadir contactos",
@@ -396,7 +414,7 @@
       "filterUnread": "Sin leer",
       "filterOpen": "Abiertas",
       "filterPending": "Pendientes",
-      "filterClosed": "Cerradas",
+      "filterClosed": "Resueltas",
       "tags": "Etiquetas",
       "company": "Empresa",
       "allCompanies": "Todas las empresas",
@@ -410,7 +428,7 @@
       "unknown": "Desconocido",
       "studioEyebrow": "01 / Estudio de conversaciones",
       "studioTitle": "Cada conversación, con atención.",
-      "filterWaiting": "Esperando respuesta",
+      "filterWaiting": "En espera",
       "filterUnassigned": "Sin asignar",
       "filterExpiringSoon": "Vencen pronto",
       "chats": "Chats",
@@ -435,7 +453,8 @@
       "windowStripNext": "Más",
       "tabActive": "Activos",
       "tabRequesting": "Solicitando",
-      "tabIntervened": "Intervenidos"
+      "tabIntervened": "Intervenidos",
+      "loadFailed": "No se pudieron cargar las conversaciones."
     },
     "messageThread": {
       "backToConversations": "Volver a las conversaciones",
@@ -448,7 +467,7 @@
       "status": "Estado",
       "statusOpen": "Abierta",
       "statusPending": "Pendiente",
-      "statusClosed": "Cerrada",
+      "statusClosed": "Resuelta",
       "assign": "Asignar",
       "assigned": "Asignada",
       "unassign": "Quitar asignación",
@@ -505,9 +524,10 @@
       "automationPausedBanner": "Automatización pausada en este chat.",
       "automationPausedHint": "Los flujos y las respuestas de IA no se ejecutarán.",
       "blockTitle": "¿Bloquear a {name}?",
-      "blockBody": "No le llegarán mensajes automáticos, flujos ni respuestas de IA y esta conversación se cerrará. Puedes desbloquearlo cuando quieras.",
+      "blockBody": "No le llegarán mensajes automáticos, flujos ni respuestas de IA y esta conversación se marcará como resuelta. Puedes desbloquearlo cuando quieras.",
       "cancel": "Cancelar",
-      "blockConfirm": "Bloquear"
+      "blockConfirm": "Bloquear",
+      "loadFailed": "No se pudieron cargar estos mensajes."
     },
     "sessionTimer": {
       "expired": "Expirada",
@@ -917,7 +937,7 @@
       },
       "reason": {
         "window_closed": "La ventana de mensajes estaba cerrada.",
-        "conversation_closed": "La conversación estaba cerrada.",
+        "conversation_closed": "La conversación estaba resuelta.",
         "channel_off": "El canal estaba desactivado.",
         "human_agent_off": "Las respuestas pasadas 24 horas no están disponibles.",
         "send_failed": "No se pudo enviar el mensaje."
@@ -1136,12 +1156,12 @@
       "markRead": "Marcar como leída",
       "markUnread": "Marcar como no leída",
       "assignToMe": "Asignarme",
-      "close": "Cerrar",
+      "close": "Resolver",
       "reopen": "Reabrir",
       "markedUnread": "Marcada como no leída",
       "markedRead": "Marcada como leída",
       "assignedToYou": "Asignada a ti",
-      "closed": "Conversación cerrada",
+      "closed": "Conversación resuelta",
       "reopened": "Conversación reabierta",
       "failed": "No se pudo hacer. Inténtalo de nuevo."
     },
@@ -1781,7 +1801,7 @@
         "startConversation": "Iniciar una conversación",
         "open": "Abierta",
         "pending": "Pendiente",
-        "closed": "Cerrada",
+        "closed": "Resuelta",
         "orders": "Pedidos",
         "noOrders": "Aún no hay pedidos.",
         "orderName": "Pedido {ref}",
@@ -1849,7 +1869,14 @@
         "blocked": "Bloqueado",
         "unblocked": "Desbloqueado",
         "templateSent": "Plantilla enviada",
-        "templateSentNamed": "Envió la plantilla «{name}»"
+        "templateSentNamed": "Envió la plantilla «{name}»",
+        "booking": {
+          "booked": "Booked {service}",
+          "rescheduled": "Moved {service} booking",
+          "cancelled": "Cancelled {service} booking",
+          "completed": "Completed {service}",
+          "no_show": "Missed {service} booking (no-show)"
+        }
       },
       "segmentsTab": {
         "hint": "Los segmentos se actualizan solos cuando cambian los contactos.",
@@ -2072,10 +2099,10 @@
     "settings": {
       "managePipeline": "Administrar pipeline",
       "deletePipeline": "Eliminar pipeline",
-      "deletePipelineDesc": "Esto archivará todos los negocios de este pipeline. No se puede deshacer.",
+      "deletePipelineDesc": "Esto elimina de forma permanente el pipeline y todos sus negocios, incluidos los ganados. No se puede deshacer.",
       "cancel": "Cancelar",
       "deleting": "Eliminando...",
-      "deletePipelineBtn": "Eliminar pipeline",
+      "deletePipelineBtn": "Eliminar definitivamente",
       "pipelineName": "Nombre del pipeline",
       "stages": "Etapas",
       "newStageNamePlaceholder": "Nombre de la nueva etapa",
@@ -2139,7 +2166,8 @@
       "showing": "Mostrando {start}–{end} de {total}",
       "previousPage": "Página anterior",
       "nextPage": "Página siguiente",
-      "newApiCampaign": "Nueva campaña por API"
+      "newApiCampaign": "Nueva campaña por API",
+      "moreStatuses": "Más estados"
     },
     "status": {
       "draft": "Borrador",
@@ -2147,7 +2175,7 @@
       "sending": "Enviando",
       "sent": "Enviada",
       "failed": "Fallida",
-      "pending": "Pendiente",
+      "pending": "Aún sin enviar",
       "delivered": "Entregado",
       "read": "Leído",
       "replied": "Respondido",
@@ -2397,7 +2425,7 @@
         "whenNow": "Enviar ahora",
         "whenLater": "Programar para más tarde",
         "scheduleAt": "Enviar el",
-        "scheduleHint": "Tu zona horaria: {zone}. Hasta 90 días de antelación.",
+        "scheduleHint": "En la zona horaria del espacio de trabajo. Hasta 90 días de antelación.",
         "scheduleTooSoon": "Elige una hora al menos un minuto en el futuro.",
         "scheduleBroadcast": "Programar difusión",
         "confirmScheduled": "Comenzará el {when}. Puedes reprogramarla o cancelarla hasta entonces.",
@@ -2409,7 +2437,8 @@
         "testFailed": "No se pudo enviar la prueba",
         "testSent": "Prueba enviada a {phone}",
         "testNotSent": "No se envió a {phone}: {error}",
-        "confirmSendFrom": "Se enviará desde {number}."
+        "confirmSendFrom": "Se enviará desde {number}.",
+        "reachFailed": "No se pudo contar"
       }
     },
     "sending": {
@@ -2530,7 +2559,7 @@
         "wait": "Esperar",
         "condition": "Condición (Si/Si no)",
         "send_webhook": "Enviar webhook",
-        "close_conversation": "Cerrar conversación",
+        "close_conversation": "Resolver conversación",
         "notify_team": "Avisar al equipo",
         "start_flow": "Iniciar un flujo"
       },
@@ -2713,7 +2742,7 @@
         "matchExact": "Exacta",
         "waitForReply": "Esperar respuesta antes de continuar",
         "waitForReplyHint": "Se detiene aquí hasta que el cliente toque un botón o responda (hasta 24 h). Los pasos siguientes, incluido Si/Si no sobre el contenido del mensaje, usan esa respuesta.",
-        "closeConversationHint": "Cambia el estado de la conversación a \"cerrada\". No requiere configuración.",
+        "closeConversationHint": "Marca la conversación como Resuelta. No requiere configuración.",
         "conditionTimezoneLabel": "Zona horaria",
         "conditionTimezoneHint": "Zona horaria del negocio usada para evaluar esta franja horaria.",
         "notifyAudienceLabel": "Avisar a",
@@ -3513,7 +3542,9 @@
         "serviceMode": "Tipo de servicio",
         "modeBoth": "En línea y presencial",
         "modeOnline": "Solo en línea",
-        "modeOffline": "Solo presencial"
+        "modeOffline": "Solo presencial",
+        "paidServiceFlowNote": "Paid: customer gets a payment link",
+        "variablesHelpMore": "Also saves appointment_status (confirmed, or waiting_for_payment for a paid service until the link is paid) and booking_link (your booking page, for the Unavailable path)."
       },
       "capabilitySetUp": "Configurar",
       "capabilityBlocked": {
@@ -4085,13 +4116,13 @@
           "pause_automations": "Pausar automatizaciones",
           "resume_automations": "Reanudar automatizaciones",
           "log_conversion": "Registrar evento de conversión",
-          "set_conversation_status": "Marcar conversación abierta o cerrada",
+          "set_conversation_status": "Marcar conversación abierta o resuelta",
           "notify_team": "Avisar al equipo"
         },
         "increment": "Sumar al número",
         "set": "Definir como",
         "opened": "Abierta",
-        "closed": "Cerrada",
+        "closed": "Resuelta",
         "optIn": "Suscribir",
         "optOut": "Cancelar suscripción",
         "assignee": "El agente asignado",
@@ -4751,7 +4782,7 @@
       "tabs": {
         "all": "Todas",
         "approved": "Aprobadas",
-        "pending": "Pendientes",
+        "pending": "En revisión",
         "rejected": "Rechazadas",
         "drafts": "Borradores",
         "paused": "Pausadas o desactivadas"
@@ -4787,7 +4818,11 @@
       "flowFormLoading": "Cargando el formulario…",
       "flowFormHelp": "El botón abre este formulario. Cada envío tiene su propio vínculo con las respuestas.",
       "flowFormNone": "Aún no hay formularios publicados. Crea y publica uno en Formularios.",
-      "flowFormUnavailable": "Este formulario aún no está publicado en WhatsApp."
+      "flowFormUnavailable": "Este formulario aún no está publicado en WhatsApp.",
+      "discardTitle": "¿Descartar cambios?",
+      "discardBody": "Esta plantilla tiene cambios sin guardar. Si la cierras, se perderán.",
+      "keepEditing": "Seguir editando",
+      "discardChanges": "Descartar"
     },
     "roles": {
       "admin": "Administrador",
@@ -5738,7 +5773,6 @@
       "title": "Registro de auditoría",
       "description": "Quién hizo qué en este espacio de trabajo, de lo más reciente a lo más antiguo. Las entradas muestran identificadores y recuentos, nunca el contenido de los mensajes.",
       "linkDescription": "Revisa la actividad de miembros, equipos, permisos y exportaciones.",
-      "back": "Volver a la configuración",
       "adminsOnly": "Solo los administradores y propietarios pueden ver el registro de auditoría.",
       "member": "Miembro",
       "anyMember": "Cualquier miembro",
@@ -5775,13 +5809,13 @@
       "status": {
         "pending": "Confirmando",
         "active": "Activo",
-        "cancelled": "Detenido",
+        "cancelled": "Cancelado",
         "failed": "Rechazado"
       },
       "until": "Hasta el {date}",
       "cancel": "Detener",
       "cancelConfirm": "¿Detener este complemento ahora? El cargo ya añadido a tu próxima factura no se reembolsa.",
-      "cancelled": "Complemento detenido",
+      "cancelled": "Complemento cancelado",
       "cancelFailed": "No se pudo detener el complemento",
       "purchased": "Complemento activo",
       "purchasePending": "Compra enviada. Se activará cuando el proveedor de pagos la confirme.",
@@ -6484,8 +6518,10 @@
       "payment_exception": "Pago por revisar",
       "instagram_account_health": "Cuenta de Instagram",
       "automation_notice": "Aviso de automatización",
-      "webhook_disabled": "Webhook desactivado"
-    }
+      "webhook_disabled": "Webhook desactivado",
+      "appointment_no_show": "No-show"
+    },
+    "loadFailed": "No se pudieron cargar las notificaciones."
   },
   "Agents": {
     "title": "Agentes de IA",
@@ -6585,7 +6621,9 @@
         "claim_failed": "No se pudo reservar un turno de respuesta",
         "stale": "La conversación cambió antes del envío",
         "dispatch_failed": "Algo salió mal",
-        "no_agent": "Ningún agente está activo para este canal a esta hora"
+        "no_agent": "Ningún agente está activo para este canal a esta hora",
+        "no_knowledge": "Nada del conocimiento coincidió",
+        "workspace_ai_cap": "Límite mensual de tokens de IA alcanzado"
       },
       "unknownReason": "Otro ({code})",
       "detailTitle": "Detalles de la actividad",
@@ -6677,7 +6715,10 @@
   "UiPrimitives": {
     "close": "Cerrar",
     "scrollLeft": "Desplazar a la izquierda",
-    "scrollRight": "Desplazar a la derecha"
+    "scrollRight": "Desplazar a la derecha",
+    "loadFailed": "No se pudo cargar. Revisa tu conexión e inténtalo de nuevo.",
+    "retry": "Reintentar",
+    "loading": "Cargando"
   },
   "GatedButton": {
     "readOnly": "Solo lectura: tu rol no puede {action}",
@@ -6716,7 +6757,7 @@
   },
   "TemplateStatus": {
     "DRAFT": "Borrador",
-    "PENDING": "Pendiente",
+    "PENDING": "En revisión",
     "APPROVED": "Aprobada",
     "REJECTED": "Rechazada",
     "PAUSED": "Pausada",
@@ -7611,6 +7652,15 @@
           "nurture": "¡Gracias por hacer el quiz! Te enviaremos ideas y ofertas cuando estés listo."
         }
       }
+    },
+    "book_keyword": {
+      "name": "Book in the chat",
+      "description": "When someone writes \"book\", offer your free times and book one right in the chat. Falls back to your booking page.",
+      "keywords": "book a slot, free slots",
+      "booked": "You're booked for {time}. We'll send you a reminder before your visit.",
+      "payToConfirm": "We're holding {time} for you. We've sent a payment link; your booking is confirmed once it's paid.",
+      "usePage": "Sorry, we can't book that here right now. You can pick a time on our booking page: {link}",
+      "notNow": "No problem. Write \"book\" whenever you're ready."
     }
   },
   "LibErrors": {
@@ -7873,7 +7923,8 @@
       "crossFlowLoop": "Los pasos Conectar flujo forman un bucle sin respuesta del cliente: {flows}.",
       "stage5Pending": "Este paso o ajuste aún no está disponible. Quítalo para publicar el flujo.",
       "triggerTagRequired": "Elige la etiqueta que inicia este flujo.",
-      "triggerBadFrequency": "Elige con qué frecuencia puede empezar para una misma persona."
+      "triggerBadFrequency": "Elige con qué frecuencia puede empezar para una misma persona.",
+      "appointmentPaidNotReady": "{count, plural, one {A picked service takes} other {# picked services take}} payment, and online payments are not set up. Turn on the store and connect Razorpay, or untick {count, plural, one {it} other {them}}."
     },
     "automations": {
       "needsStep": "las automatizaciones activas necesitan al menos un paso",
@@ -8776,12 +8827,31 @@
     }
   },
   "PageSearch": {
-    "title": "Encuentra tu camino",
-    "description": "Abre una página de tu espacio de trabajo.",
-    "placeholder": "Buscar páginas…",
-    "trigger": "Buscar páginas",
-    "empty": "No se encontraron páginas.",
-    "results": "Páginas"
+    "title": "Buscar",
+    "description": "Encuentra páginas, contactos, pedidos, productos y reservas.",
+    "placeholder": "Busca páginas, contactos, pedidos…",
+    "trigger": "Buscar",
+    "empty": "Sin resultados.",
+    "results": "Resultados de búsqueda",
+    "searching": "Buscando…",
+    "error": "No se pudo cargar la búsqueda.",
+    "retry": "Reintentar",
+    "noName": "Sin nombre",
+    "groups": {
+      "pages": "Páginas",
+      "contacts": "Contactos",
+      "orders": "Pedidos",
+      "products": "Productos",
+      "bookings": "Reservas",
+      "create": "Crear"
+    },
+    "create": {
+      "contact": "Nuevo contacto",
+      "order": "Nuevo pedido",
+      "product": "Nuevo producto",
+      "booking": "Nueva reserva",
+      "broadcast": "Nueva difusión"
+    }
   },
   "inboxSettings": {
     "title": "Bandeja de entrada",
@@ -9143,6 +9213,29 @@
         "b1": "Gestionar reserva"
       },
       "samples": "Revisión dental|lunes 10 de junio, 11:30 IST|Clínica Andheri"
+    },
+    "appointment_reminder_actions": {
+      "title": "Appointment reminder with Confirm, Reschedule and Cancel",
+      "description": "Remind customers of a booking and let them confirm, reschedule or cancel it with one tap.",
+      "header": "Appointment reminder",
+      "body": "Reminder: your {v1} appointment is on {v2} ({v3}). Tap Confirm if you are coming, or choose Reschedule or Cancel.",
+      "buttons": {
+        "b1": "Confirm",
+        "b2": "Reschedule",
+        "b3": "Cancel"
+      },
+      "samples": "Dental check-up|Monday 10 June, 11:30 AM IST|Andheri clinic"
+    },
+    "appointment_book_now": {
+      "title": "Book now campaign",
+      "description": "Invite customers to book, with a tracked link to your booking page. Bookings from the link count for the campaign.",
+      "header": "Time for your next visit?",
+      "body": "Hi {v1}, slots for {v2} are open this week. Tap below to pick a time that suits you.",
+      "footer": "Reply STOP to opt out",
+      "buttons": {
+        "b1": "Book now"
+      },
+      "samples": "Priya|a hair spa"
     }
   },
   "Templates": {
@@ -9689,7 +9782,7 @@
       "description": "Carritos enviados desde tu catálogo de WhatsApp y pedidos de tiendas conectadas.",
       "loading": "Cargando pedidos",
       "loadError": "No se pudieron cargar los pedidos",
-      "searchPlaceholder": "Buscar por cliente o número de pedido",
+      "searchPlaceholder": "Buscar por cliente, teléfono o pedido",
       "filterStatus": "Filtrar por estado",
       "filterSource": "Filtrar por origen",
       "allStatuses": "Todos los estados",
@@ -9754,7 +9847,8 @@
           "deliveryDate": "Fecha de entrega",
           "note": "Nota",
           "giftMessage": "Mensaje de regalo"
-        }
+        },
+        "payments": "Pagos"
       },
       "settings": {
         "open": "Mensaje de confirmación",
@@ -10256,9 +10350,10 @@
         "purchaseOrders": "Órdenes de compra"
       },
       "statuses": {
-        "draft": "Borrador",
-        "published": "Publicado",
-        "archived": "Archivado"
+        "draft": "Oculto",
+        "published": "Visible",
+        "archived": "Archivado",
+        "visibility": "Visibilidad"
       },
       "errors": {
         "invalid": "Revisa el valor indicado e inténtalo de nuevo.",
@@ -10303,7 +10398,7 @@
         "create": "Añadir producto",
         "search": "Buscar por nombre o SKU",
         "statusFilter": "Estado",
-        "activeStatuses": "Borradores y publicados",
+        "activeStatuses": "Visibles y ocultos",
         "allStatuses": "Todos, también archivados",
         "stockFilter": "Existencias",
         "allStock": "Cualquier existencia",
@@ -10406,15 +10501,15 @@
         "back": "Catálogo",
         "reviewed": "Contenido revisado el {date, date, medium}",
         "notReviewed": "Contenido aún sin revisar",
-        "publishHint": "Al publicar quedas registrado como revisor del nombre, la descripción y el aviso. Necesita al menos una variante con precio.",
-        "publishedToast": "Producto publicado",
-        "unpublished": "Producto devuelto a borrador",
+        "publishHint": "Al hacer visible un producto quedas registrado como revisor del nombre, la descripción y la información legal. Necesita al menos una variante con precio.",
+        "publishedToast": "El producto está visible",
+        "unpublished": "Producto oculto de la tienda",
         "archive": "Archivar",
         "archivedToast": "Producto archivado",
         "restore": "Restaurar",
         "restored": "Producto restaurado como borrador",
         "noCategory": "Sin categoría",
-        "rereviewHint": "Guardar texto modificado en un producto publicado te registra como su revisor.",
+        "rereviewHint": "Guardar cambios de texto en un producto visible te registra como su revisor.",
         "currencyMissing": "Define la moneda en Ajustes de la tienda para añadir precios.",
         "writer": {
           "open": "Redactar descripción",
@@ -10475,7 +10570,7 @@
         "edit": "Editar",
         "view": "Ver",
         "published": "Publicada",
-        "draft": "Borrador",
+        "draft": "Oculta",
         "products": "{count, plural, one {# producto} other {# productos}}",
         "kinds": {
           "manual": "Elegida a mano",
@@ -10575,8 +10670,8 @@
         "job": {
           "queued": "Esperando para empezar",
           "running": "Importando",
-          "done": "Terminada",
-          "failed": "Detenida"
+          "done": "Hecha",
+          "failed": "Fallida"
         },
         "jobErrors": {
           "not_allowed": "Quien inició esta importación ya no es administrador, así que no se aplicó nada más.",
@@ -10647,8 +10742,8 @@
         "job": {
           "queued": "Esperando para empezar",
           "running": "Importando",
-          "done": "Terminada",
-          "failed": "Detenida",
+          "done": "Hecha",
+          "failed": "Fallida",
           "canceled": "Cancelada"
         },
         "stats": {
@@ -11126,7 +11221,7 @@
       "edit": "Editar",
       "delete": "Eliminar",
       "active": "Activo",
-      "inactive": "inactivo",
+      "inactive": "desactivada",
       "shippingTitle": "Tarifas de envío",
       "shippingHelp": "El pago rechaza una dirección que ninguna tarifa activa cubre. Gana el prefijo postal coincidente más largo.",
       "noShipping": "Aún no hay tarifas de envío.",
@@ -11944,12 +12039,12 @@
       "filter": "Filtrar por estado",
       "filters": {
         "all": "Todas",
-        "pending": "Pendientes",
+        "pending": "Pendiente de aprobación",
         "published": "Publicadas",
         "hidden": "Ocultas"
       },
       "status": {
-        "pending": "Pendiente",
+        "pending": "Pendiente de aprobación",
         "published": "Publicada",
         "hidden": "Oculta"
       },
@@ -12243,7 +12338,7 @@
       "customer": "Cliente",
       "walkIn": "Cliente de paso",
       "namedCustomer": "Cliente con nombre",
-      "customerSearch": "Buscar clientes por nombre",
+      "customerSearch": "Buscar clientes por nombre o teléfono",
       "chosen": "Vendiendo a {name}",
       "products": "Productos",
       "productSearch": "Busca por nombre o escanea un SKU",
@@ -12784,6 +12879,10 @@
     "webhook_disabled": {
       "label": "Webhooks desactivados",
       "description": "Las entregas a un webhook fallaron durante un día, así que se desactivó."
+    },
+    "appointment_no_show": {
+      "label": "No-shows",
+      "description": "A customer did not come to a confirmed appointment."
     }
   },
   "Weekdays": {
@@ -12855,7 +12954,7 @@
     "anyStatus": "Cualquier estado",
     "statusOpen": "Abierta",
     "statusPending": "Pendiente",
-    "statusClosed": "Cerrada",
+    "statusClosed": "Resuelta",
     "assignee": "Asignado a",
     "anyAssignee": "Cualquiera",
     "assignedToMe": "Asignadas a mí",
@@ -13280,7 +13379,9 @@
       "threshold": "Confianza necesaria para responder: {value} %",
       "thresholdHint": "Al 50 % decide el propio criterio del agente. Los valores más altos exigen además una coincidencia cercana en la base de conocimiento y traspasan con más frecuencia. Si nada de la base de conocimiento coincide, decide solo el criterio del agente.",
       "maxTurns": "Traspasar después de esta cantidad de respuestas de la IA",
-      "maxTurnsHint": "0 significa sin límite."
+      "maxTurnsHint": "0 significa sin límite.",
+      "noKnowledge": "Pasar a una persona cuando nada del conocimiento coincide",
+      "noKnowledgeHint": "Si tu conocimiento no dice nada sobre la pregunta, responde una persona en lugar de la IA."
     },
     "knowledge": {
       "title": "Añade conocimiento",
@@ -14864,8 +14965,8 @@
       "lastChecked": "Revisada {at}",
       "enabled": "Activar o desactivar {name}",
       "delete": "Eliminar {name}",
-      "on": "Activa",
-      "off": "Inactiva",
+      "on": "Activada",
+      "off": "Desactivada",
       "recent": "Lo que hicieron las reglas recientemente",
       "failed": "No funcionó. Inténtalo de nuevo.",
       "created": "Regla creada.",
@@ -15086,7 +15187,8 @@
       "exceptions": "Festivos y excepciones",
       "pages": "Páginas de reserva",
       "settings": "Ajustes",
-      "tasks": "Tareas"
+      "tasks": "Tareas",
+      "team": "Team"
     },
     "status": {
       "held": "Esperando WhatsApp",
@@ -15181,7 +15283,11 @@
       "meeting_updated": "Reunión de Zoom actualizada",
       "meeting_deleted": "Reunión de Zoom eliminada",
       "meeting_sync_failed": "No se pudo preparar la reunión de Zoom",
-      "meeting_joined_provider": "Zoom registró una conexión"
+      "meeting_joined_provider": "Zoom registró una conexión",
+      "attendance_confirmed": "Customer confirmed",
+      "deal_linked": "Deal linked",
+      "deal_unlinked": "Deal unlinked",
+      "refund_requested": "Refund requested"
     },
     "actors": {
       "staff": "Equipo",
@@ -15196,7 +15302,8 @@
       "rescheduled": "Cambio de hora",
       "feedback": "Solicitud de valoración",
       "rebook": "Recordatorio para volver a reservar",
-      "payment_link": "Enlace de pago"
+      "payment_link": "Enlace de pago",
+      "intake_form": "Intake form"
     },
     "messageStatuses": {
       "sent": "Enviado",
@@ -15231,7 +15338,9 @@
       "link_unknown": "Razorpay no confirmó el enlace de pago. Revisa la página de Pagos.",
       "link_not_ready": "El enlace de pago no estaba listo para enviarse.",
       "already_paid": "El enlace ya estaba pagado.",
-      "conversation_not_found": "El cliente no tiene una conversación donde enviar el enlace."
+      "conversation_not_found": "El cliente no tiene una conversación donde enviar el enlace.",
+      "form_unavailable": "The intake form is not published or cannot be sent from this number.",
+      "bot_paused": "An agent paused automated messages in this chat."
     },
     "create": {
       "title": "Nueva cita",
@@ -15344,7 +15453,18 @@
       "copyLink": "Copiar enlace",
       "copied": "Enlace copiado",
       "empty": "Aún no hay páginas de reserva.",
-      "inactive": "Inactiva"
+      "inactive": "Oculta",
+      "links": "Links",
+      "linksTitle": "Links for {title}",
+      "linksHelp": "Share a link that opens the page with a service or practitioner already chosen.",
+      "linkGroup": {
+        "page": "Booking page",
+        "service": "Services",
+        "staff": "Practitioners"
+      },
+      "wholePage": "All services",
+      "copy": "Copy",
+      "copyNamed": "Copy link for {name}"
     },
     "tasks": {
       "title": "Tareas",
@@ -15427,6 +15547,110 @@
       "registrationUnavailable": "Zoom no aceptó el registro, así que el cliente se une con el enlace compartido.",
       "recreate": "Crear de nuevo",
       "useLink": "Usar el enlace proporcionado"
+    },
+    "settings": {
+      "reminderButtons": {
+        "title": "Reminder buttons",
+        "description": "Let customers confirm, reschedule or cancel from a reminder with one tap. Inside the 24-hour window the buttons always work; outside it they need the appointment_reminder_actions template approved by Meta.",
+        "state": {
+          "none": "Not submitted to Meta yet",
+          "draft": "Saved but not submitted to Meta",
+          "pending": "Waiting for Meta review",
+          "approved": "Approved: reminders show Confirm, Reschedule and Cancel",
+          "rejected": "Rejected by Meta"
+        },
+        "rejectedReason": "Meta said: {reason}",
+        "fallback": "Until it is approved, reminders outside the 24-hour window use your reminder template with the manage link.",
+        "submit": "Submit to Meta",
+        "submitting": "Submitting",
+        "submitFailed": "Could not submit the template. Try again.",
+        "adminOnly": "An admin can submit it.",
+        "loadFailed": "Could not load the template state.",
+        "confirmTitle": "Submit the reminder template to Meta?",
+        "confirmBody": "Meta reviews it, usually within a day. Reminders keep using your current template until it is approved.",
+        "nameTaken": "A template with this name was already submitted. Refresh to see its state."
+      }
+    },
+    "campaignLink": {
+      "label": "Use a booking page",
+      "help": "Send clicks to one of your booking pages. Bookings made within 7 days of a click count for this campaign.",
+      "none": "No active booking pages yet."
+    },
+    "contactCard": {
+      "title": "Bookings",
+      "upcoming": "Upcoming",
+      "past": "Past and cancelled",
+      "newBooking": "New booking",
+      "empty": "No bookings yet",
+      "loadFailed": "Couldn't load bookings.",
+      "showMore": "Show more",
+      "waitingForPayment": "Waiting for payment"
+    },
+    "screen": {
+      "newBooking": "New booking",
+      "bookingLink": "Booking links",
+      "viewsLabel": "Schedule view",
+      "viewToday": "Today",
+      "viewWeek": "Week",
+      "viewList": "List",
+      "truncated": "Showing the first {count}. Narrow the dates or load more.",
+      "loadMore": "Load more",
+      "attention": "Needs attention",
+      "outcomeDue": "Outcome due",
+      "taskDue": "Task",
+      "noBookingsToday": "No bookings today",
+      "noBookings": "No bookings in these dates",
+      "settingsMessages": "Messages and reminders",
+      "settingsDeals": "Deals"
+    },
+    "payment": {
+      "title": "Payment",
+      "paid": "Paid",
+      "waiting": "Waiting for payment",
+      "refunded": "Refunded",
+      "open": "Open payments",
+      "refundThis": "Refund this payment",
+      "refundHelp": "Cancelling did not refund the customer. Refund the payment separately if you need to.",
+      "refundRecorded": "Refund requested"
+    },
+    "links": {
+      "openContact": "Open contact",
+      "openChat": "Open chat",
+      "cameFrom": "Came from",
+      "campaign": "Campaign: {name}",
+      "ad": "Ad: {name}",
+      "adNoName": "Ad click"
+    },
+    "deal": {
+      "title": "Deal",
+      "none": "No deal linked",
+      "link": "Link a deal",
+      "unlink": "Unlink",
+      "unlinkConfirm": "Unlink this deal from the booking?",
+      "open": "Open deal",
+      "search": "Search deals",
+      "empty": "No open deals for this customer",
+      "loadMore": "Load more",
+      "linked": "Deal linked",
+      "unlinked": "Deal unlinked",
+      "stageLabel": "When a booking is completed, move its deal to",
+      "stageNone": "Leave deals where they are",
+      "stageHelp": "Only open deals move, and only to a stage in the deal's own pipeline.",
+      "stageSaved": "Saved"
+    },
+    "intake": {
+      "label": "Intake form",
+      "none": "No form",
+      "help": "Sent on WhatsApp after a booking of this service is confirmed. Only published forms are listed.",
+      "loadMore": "Load more forms",
+      "saved": "Saved"
+    },
+    "drag": {
+      "moveTitle": "Move this booking?",
+      "moveBody": "{from} to {to}",
+      "move": "Move",
+      "moved": "Booking moved",
+      "hint": "Drag a booking to move it (press and hold on touch screens), or focus it and use the arrow keys, then Enter."
     }
   },
   "AppointmentSettings": {
@@ -15526,7 +15750,25 @@
     "payInAdvance": "Pago por adelantado",
     "paymentNotice": "Este servicio se paga por adelantado. Después de enviar el código por WhatsApp, te enviamos un enlace de pago seguro; la reserva se confirma cuando se recibe el pago.",
     "paymentAfterCode": "Después de enviar el código, te responderemos con un enlace de pago seguro. Tu reserva se confirma cuando se recibe el pago.",
-    "meetingLinkPending": "El enlace de tu reunión aparecerá aquí en breve."
+    "meetingLinkPending": "El enlace de tu reunión aparecerá aquí en breve.",
+    "stepOf": "Step {step} of {total}",
+    "confirmTitle": "Confirm",
+    "summaryService": "Service",
+    "summaryWhen": "When",
+    "summaryWhere": "Where",
+    "summaryWith": "With",
+    "summaryPrice": "Price",
+    "retry": "Retry",
+    "bookedTitle": "Booked",
+    "bookedHelp": "You are booked. We sent the details on WhatsApp.",
+    "viewBooking": "View or change booking",
+    "expiredTitle": "Hold expired",
+    "waitingPaymentTitle": "Waiting for payment",
+    "waitingPaymentHelp": "We sent you a secure payment link on WhatsApp. Your booking is confirmed once it is paid.",
+    "waitingForPayment": "Waiting for your payment…",
+    "waitingForCode": "Waiting for your WhatsApp message…",
+    "addToCalendar": "Add to calendar",
+    "googleCalendar": "Google Calendar"
   },
   "BookingManage": {
     "metaTitle": "Tu reserva",
@@ -15550,7 +15792,9 @@
     "notFound": "Este enlace de reserva no es válido.",
     "error": "Algo salió mal. Inténtalo de nuevo.",
     "loading": "Cargando…",
-    "saveTime": "Cambiar a esta hora"
+    "saveTime": "Cambiar a esta hora",
+    "status": "Status",
+    "cancelHelp": "The time is released for someone else."
   },
   "AppointmentNotices": {
     "confirmation": "Tu cita de {service} está confirmada para el {time} ({location}). Puedes verla, cambiarla o cancelarla aquí: {link}",
@@ -15563,7 +15807,19 @@
     "staffBooked": "Nueva reserva: {service} el {time}",
     "staffCancelled": "Reserva cancelada: {service} el {time}",
     "staffRescheduled": "Reserva movida: {service} al {time}",
-    "paymentLink": "Para confirmar tu cita de {service} el {time}, paga {amount} con este enlace seguro. Tu reserva queda confirmada cuando recibamos el pago."
+    "paymentLink": "Para confirmar tu cita de {service} el {time}, paga {amount} con este enlace seguro. Tu reserva queda confirmada cuando recibamos el pago.",
+    "reminder": "Reminder: your {service} appointment is on {time} ({location}). View, change or cancel it here: {link}",
+    "calendarLine": "Add it to Google Calendar: {link}",
+    "buttonConfirm": "Confirm",
+    "buttonReschedule": "Reschedule",
+    "buttonCancel": "Cancel",
+    "actionConfirmed": "Thank you for confirming your {service} appointment. See you then!",
+    "actionReschedule": "To pick a new time for your {service} appointment, open your booking here: {link}",
+    "actionTooLate": "It is too late to change your {service} appointment online. Please reply here and our team will help.",
+    "actionStale": "This reminder is out of date. You can see your booking here: {link}",
+    "intakeBody": "Please fill in this short form before your {service} appointment on {time}.",
+    "intakeCta": "Fill in form",
+    "staffNoShow": "No-show: {service} at {time}"
   },
   "Storefront": {
     "metaTitle": "Tu pedido",
@@ -15816,7 +16072,7 @@
       "ready": "Listo"
     },
     "monthlyTokenCap": "Límite mensual de tokens de IA",
-    "monthlyTokenCapHint": "Se aplica a resúmenes, respuestas sugeridas, evaluaciones e informes. Déjalo vacío para usar solo el límite de tu plan.",
+    "monthlyTokenCapHint": "Se aplica a respuestas automáticas, respuestas de flujos, resúmenes, respuestas sugeridas, evaluaciones e informes. Déjalo vacío para usar solo el límite de tu plan.",
     "staffReviewNote": "Nada de lo que escriben estas funciones se envía a un cliente hasta que un miembro del equipo lo revisa y pulsa Enviar.",
     "autonomousNote": "La respuesta automática y el paso de respuesta con IA de los flujos envían sin revisión humana.",
     "instagramGoals": {
@@ -16345,7 +16601,7 @@
       "supportTitle": "Acceso de soporte",
       "supportHelp": "Pide al espacio de trabajo acceso a los diagnósticos. Deciden sus propietarios y administradores; solo ves estados, recuentos y códigos de error.",
       "grantStatus": {
-        "requested": "Pendiente",
+        "requested": "Pendiente de aprobación",
         "approved": "Activo",
         "denied": "Rechazado",
         "revoked": "Revocado",
@@ -16372,7 +16628,7 @@
       "loadFailed": "No se pudieron cargar tus solicitudes.",
       "empty": "No tienes solicitudes.",
       "status": {
-        "requested": "Pendiente",
+        "requested": "Pendiente de aprobación",
         "approved": "Activo",
         "denied": "Rechazado",
         "revoked": "Revocado",
@@ -16886,6 +17142,27 @@
           "humanButton": "Hablar con nosotros",
           "info": "Encontrarás todo en nuestra web. Escríbenos cuando quieras si prefieres hablar con una persona.",
           "handoffNote": "Pidió hablar con una persona desde la respuesta predeterminada."
+        },
+        "ig_story_book": {
+          "name": "Story reply to booking",
+          "description": "When someone replies to your story, offer to book a time in the DM. Falls back to your booking page.",
+          "intro": "Thanks for replying! Would you like to book a time with us?",
+          "booked": "You're booked for {time}. We'll send you a reminder before your visit.",
+          "payToConfirm": "We're holding {time} for you. We've sent a payment link; your booking is confirmed once it's paid.",
+          "usePage": "Sorry, we can't book that here right now. You can pick a time on our booking page: {link}",
+          "notNow": "No problem. Reply to any story when you'd like to book."
+        },
+        "ig_comment_book": {
+          "name": "Comment to booking",
+          "description": "When someone comments the keyword on your post, send a private reply that opens booking in the DM.",
+          "keywords": "slot please, open slots",
+          "publicReply": "Sent you a DM to book!",
+          "opening": "Hi! Tap below and we'll find you a time.",
+          "optIn": "Book a time",
+          "booked": "You're booked for {time}. We'll send you a reminder before your visit.",
+          "payToConfirm": "We're holding {time} for you. We've sent a payment link; your booking is confirmed once it's paid.",
+          "usePage": "Sorry, we can't book that here right now. You can pick a time on our booking page: {link}",
+          "notNow": "No problem. Comment again whenever you'd like to book."
         }
       },
       "preview": {
@@ -17460,12 +17737,12 @@
     },
     "wizard": {
       "steps": {
-        "details": "Detalles",
+        "details": "Canal",
         "message": "Mensaje",
         "review": "Revisión"
       },
-      "detailsTitle": "Nombre y canal",
-      "detailsSubtitle": "Pon nombre a la difusión y elige por dónde se envía.",
+      "detailsTitle": "Canal",
+      "detailsSubtitle": "Elige a dónde va la difusión.",
       "nameLabel": "Nombre",
       "namePlaceholder": "p. ej., Oferta de Diwali",
       "nameHint": "Solo tu equipo ve este nombre.",
@@ -17499,7 +17776,7 @@
       "willGetIt": "{count, plural, one {persona lo recibirá} other {personas lo recibirán}}",
       "leftOutWindow": "{count, plural, one {# persona excluida} other {# personas excluidas}}: escribieron hace más de 24 horas",
       "leftOutRule": "Instagram solo permite mensajes a quienes te escribieron en las últimas 24 horas. Los contactos dados de baja o bloqueados siempre se excluyen.",
-      "countFailed": "No se pudo contar la audiencia. Vuelve atrás e inténtalo de nuevo.",
+      "countFailed": "No se pudo contar la audiencia.",
       "counting": "Contando quién lo recibe…",
       "instagramNoSchedule": "Las difusiones de Instagram se envían al momento: la ventana de 24 horas se cerraría antes de una hora posterior.",
       "sendNow": "Enviar ahora",
@@ -17623,7 +17900,9 @@
       "lostTitle": "¿Marcar este trato como perdido?",
       "lostBody": "Añade un motivo si quieres. Puedes reabrir el trato más tarde.",
       "lostReason": "Motivo (opcional)",
-      "lostReasonPlaceholder": "Por ejemplo, eligió otro proveedor"
+      "lostReasonPlaceholder": "Por ejemplo, eligió otro proveedor",
+      "contactSearchPlaceholder": "Buscar por nombre o teléfono",
+      "contactSearchFailed": "No se pudieron buscar los contactos"
     },
     "paymentLink": {
       "sendNow": "Enviarlo ahora al cliente",
@@ -17738,7 +18017,7 @@
         "title": "Nuevo pedido",
         "totalHelp": "Los precios salen de tu catálogo. Los impuestos se añaden al crear el pedido.",
         "customer": "Cliente",
-        "customerSearch": "Buscar clientes por nombre",
+        "customerSearch": "Buscar clientes por nombre o teléfono",
         "chooseCustomer": "Elige un cliente",
         "items": "Artículos",
         "product": "Producto",
@@ -17773,7 +18052,7 @@
     },
     "products": {
       "copyName": "{name} (copia)",
-      "shown": "{name} está activo en la tienda",
+      "shown": "{name} está visible en la tienda",
       "hiddenToast": "{name} está oculto en la tienda",
       "duplicated": "Copia añadida como borrador",
       "archived": "Producto archivado",
@@ -17785,7 +18064,7 @@
       "show": "Mostrar en la tienda",
       "restore": "Restaurar",
       "archive": "Archivar",
-      "activeFor": "{name} activo en la tienda",
+      "activeFor": "{name} visible en la tienda",
       "all": "Todos",
       "categories": "Categorías",
       "viewLabel": "Vista",
@@ -17808,7 +18087,7 @@
       "sentAgain": "Se creó y envió un enlace nuevo",
       "madeAgain": "Se creó un enlace nuevo",
       "all": "Todos",
-      "pending": "Pendientes",
+      "pending": "Pendiente de pago",
       "moreStatuses": "Más estados",
       "search": "Buscar enlaces de pago",
       "noMatches": "Ningún enlace de pago coincide.",
@@ -17849,8 +18128,8 @@
     },
     "agents": {
       "filterAll": "Todos",
-      "filterOn": "Activos",
-      "filterOff": "Inactivos",
+      "filterOn": "Activados",
+      "filterOff": "Desactivados",
       "filterLabel": "Mostrar agentes",
       "search": "Buscar agentes",
       "orderHint": "Cada conversación la responde un solo agente: el que ya respondió en ella o, si no, el primer agente de esta lista que esté activo para ese canal a esa hora.",
@@ -17890,8 +18169,8 @@
       "solved": "resueltas sin una persona",
       "newLabel": "Nuevo",
       "noChats": "aún sin chats",
-      "statusOn": "Activo",
-      "statusOff": "Inactivo",
+      "statusOn": "Activado",
+      "statusOff": "Desactivado",
       "test": "Probar agente",
       "edit": "Editar",
       "more": "Más opciones de {name}",
@@ -17961,7 +18240,9 @@
         "maxTurns": "Escribe un número del 0 al 50.",
         "hours": "La hora de inicio debe ser anterior a la hora de fin."
       },
-      "overnightHint": "El inicio debe ser anterior al fin. Para cubrir la noche (por ejemplo, de 22:00 a 06:00), elige \"Solo fuera de este horario\" e introduce de 06:00 a 22:00."
+      "overnightHint": "El inicio debe ser anterior al fin. Para cubrir la noche (por ejemplo, de 22:00 a 06:00), elige \"Solo fuera de este horario\" e introduce de 06:00 a 22:00.",
+      "noKnowledge": "Cuando el conocimiento no tiene respuesta",
+      "noKnowledgeHint": "Pasa la conversación en lugar de responder sin tu conocimiento."
     },
     "test": {
       "panelLabel": "Probar {name}",
@@ -18043,7 +18324,7 @@
         "learning": "Respuestas aprendidas"
       },
       "status": {
-        "queued": "En espera",
+        "queued": "En cola",
         "crawling": "Sincronizando",
         "ready": "Sincronizada",
         "failed": "Falló",
@@ -18207,7 +18488,7 @@
       "barLabel": "Presupuesto usado",
       "pct": "{n} % usado",
       "resets": "Se renueva el {date}",
-      "overNote": "Has superado tu límite. Las funciones del asistente siguen funcionando porque la pausa está desactivada.",
+      "overNote": "Has superado tu límite. La IA sigue funcionando porque la pausa está desactivada.",
       "pausedNote": "La IA está en pausa hasta que se renueve el presupuesto o subas el límite.",
       "planLimit": "Tu plan permite {n} tokens al mes.",
       "limitLabel": "Límite mensual, en tokens",
@@ -18217,7 +18498,7 @@
       "setLimit": "Fijar un límite",
       "change": "Cambiar límite",
       "pause": "Pausar la IA cuando se agote el presupuesto",
-      "pauseHint": "Las funciones del asistente se detienen en tu límite; tu equipo puede seguir respondiendo a mano. El límite de tu plan se aplica siempre.",
+      "pauseHint": "Al llegar a tu límite, las respuestas automáticas, las respuestas de flujos y las funciones del asistente se detienen, y los chats pasan a tu equipo. El límite de tu plan se aplica siempre.",
       "pauseOn": "La IA se pausará cuando se agote el presupuesto",
       "pauseOff": "La IA seguirá funcionando después de tu límite",
       "tokensNote": "Los tokens miden cuánto texto lee y escribe la IA. Unas 750 palabras son 1000 tokens.",
@@ -18842,5 +19123,23 @@
       "cod": "Pagas contra reembolso.",
       "thanks": "Gracias por comprar en {shop}."
     }
+  },
+  "UiKit": {
+    "more": "Más",
+    "cancel": "Cancelar",
+    "confirm": "Confirmar",
+    "working": "Procesando…"
+  },
+  "ContactPicker": {
+    "label": "Contacto",
+    "placeholder": "Busca por nombre o número…",
+    "results": "Contactos",
+    "clear": "Quitar contacto",
+    "noName": "Sin nombre",
+    "loading": "Buscando…",
+    "empty": "No se encontraron contactos.",
+    "error": "No se pudieron cargar los contactos.",
+    "retry": "Reintentar",
+    "loadMore": "Cargar más"
   }
 }

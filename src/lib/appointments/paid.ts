@@ -1,5 +1,5 @@
 /**
- * Paid appointments (design E15, T6). A public hold of a paid service is
+ * Paid appointments (design E15, T6). A public or flow hold of a paid service is
  * confirmed only after settlement verified its payment; confirmPaidHoldTx is
  * called by settlePaymentTx under the payment and appointment row locks and
  * re-checks capacity when the hold's time ran out. The payment-link job
@@ -99,14 +99,16 @@ async function plan(accountId: string, payload: AppointmentPaymentLinkJobPayload
     if (!contact) return { kind: 'settle', outcome: { status: 'skipped', reason: 'contact_missing' } };
     if (contact.blocked_at) return { kind: 'settle', outcome: { status: 'skipped', reason: 'contact_blocked' } };
     if (await isSuspended(tx, accountId)) return { kind: 'settle', outcome: { status: 'blocked', reason: 'workspace_suspended' } };
-    // The conversation the BOOK code arrived in: on the page's number first, then the latest customer message.
+    // The booking's own chat first (a flow booking's run, on WhatsApp or Instagram, or the
+    // chat the BOOK code arrived in), then the page's number, then the latest customer message.
     const [page] = row.booking_page_id ? await tx.$queryRaw<{ whatsapp_config_id: string | null }[]>`
       SELECT whatsapp_config_id::text AS whatsapp_config_id FROM booking_pages
       WHERE account_id=${accountId}::uuid AND id=${row.booking_page_id}::uuid` : [];
     const [conversation] = await tx.$queryRaw<{ id: string }[]>`
       SELECT c.id::text AS id FROM conversations c WHERE c.account_id=${accountId}::uuid AND c.contact_id=${row.contact_id}::uuid
-        AND c.channel='whatsapp'
-      ORDER BY (c.whatsapp_config_id IS NOT NULL AND c.whatsapp_config_id=${page?.whatsapp_config_id ?? null}::uuid) DESC,
+        AND (c.channel='whatsapp' OR c.id=${row.conversation_id}::uuid)
+      ORDER BY (c.id=${row.conversation_id}::uuid) IS TRUE DESC,
+        (c.whatsapp_config_id IS NOT NULL AND c.whatsapp_config_id=${page?.whatsapp_config_id ?? null}::uuid) DESC,
         (SELECT max(m.created_at) FROM messages m WHERE m.account_id=c.account_id AND m.conversation_id=c.id
           AND m.sender_type='customer') DESC NULLS LAST, c.created_at DESC LIMIT 1`;
     if (!conversation) return { kind: 'settle', outcome: { status: 'failed', reason: 'conversation_not_found' } };

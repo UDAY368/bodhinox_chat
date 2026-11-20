@@ -8,8 +8,8 @@ import { deepHealthAuthorized, evaluateOpsHealth, healthThresholds, readOpsHealt
 
 const token = 'a'.repeat(40);
 const healthy: OpsHealthRow = { lastBeatAgeS: 5, pendingDue: 0, oldestDueAgeS: null, expiredRunningLeases: 0, failedJobs1h: 0,
-  unknownIntents: 0, unprocessedWebhooks15m: 0, latestMigration: '20261113090100_ops_health_fn' };
-const thresholds = { workerDownS: 90, oldestDueDegradedS: 300, unknownIntentsDegraded: 0 };
+  unknownIntents: 0, stuckDispatching10m: 0, unprocessedWebhooks15m: 0, latestMigration: '20261113090100_ops_health_fn' };
+const thresholds = { workerDownS: 90, oldestDueDegradedS: 300, unknownIntentsDegraded: 0, stuckDispatchingDegraded: 0, failedJobsDegraded: 0 };
 
 describe('[OPS-01] deep health token', () => {
   it('accepts only the exact bearer token', () => {
@@ -31,8 +31,8 @@ describe('[OPS-01] deep health token', () => {
 describe('[OPS-01] deep health evaluation', () => {
   it('reads thresholds from env with safe defaults', () => {
     expect(healthThresholds({})).toEqual(thresholds);
-    expect(healthThresholds({ HEALTH_WORKER_DOWN_S: '120', HEALTH_OLDEST_DUE_DEGRADED_S: '60', HEALTH_UNKNOWN_INTENTS_DEGRADED: '3' }))
-      .toEqual({ workerDownS: 120, oldestDueDegradedS: 60, unknownIntentsDegraded: 3 });
+    expect(healthThresholds({ HEALTH_WORKER_DOWN_S: '120', HEALTH_OLDEST_DUE_DEGRADED_S: '60', HEALTH_UNKNOWN_INTENTS_DEGRADED: '3', HEALTH_STUCK_DISPATCHING_DEGRADED: '2', HEALTH_FAILED_JOBS_DEGRADED: '5' }))
+      .toEqual({ workerDownS: 120, oldestDueDegradedS: 60, unknownIntentsDegraded: 3, stuckDispatchingDegraded: 2, failedJobsDegraded: 5 });
     expect(healthThresholds({ HEALTH_WORKER_DOWN_S: '-5', HEALTH_OLDEST_DUE_DEGRADED_S: 'x' })).toEqual(thresholds);
   });
 
@@ -40,7 +40,7 @@ describe('[OPS-01] deep health evaluation', () => {
     const result = evaluateOpsHealth(true, healthy, thresholds);
     expect(result.status).toBe('ok');
     expect(result.checks).toEqual({ appDb: true, ops: 'ok', worker: { ageS: 5, ok: true },
-      queue: { pendingDue: 0, oldestDueS: null, expiredLeases: 0, failed1h: 0 }, intents: { unknown: 0 },
+      queue: { pendingDue: 0, oldestDueS: null, expiredLeases: 0, failed1h: 0 }, intents: { unknown: 0, stuckDispatching10m: 0 },
       webhooks: { unprocessed15m: 0 }, migrations: { latest: '20261113090100_ops_health_fn' } });
   });
 
@@ -56,6 +56,10 @@ describe('[OPS-01] deep health evaluation', () => {
     expect(evaluateOpsHealth(true, { ...healthy, unknownIntents: 1 }, thresholds).status).toBe('degraded');
     expect(evaluateOpsHealth(true, { ...healthy, unprocessedWebhooks15m: 1 }, thresholds).status).toBe('degraded');
     expect(evaluateOpsHealth(true, { ...healthy, unknownIntents: 1 }, { ...thresholds, unknownIntentsDegraded: 1 }).status).toBe('ok');
+    expect(evaluateOpsHealth(true, { ...healthy, failedJobs1h: 1 }, thresholds).status).toBe('degraded');
+    expect(evaluateOpsHealth(true, { ...healthy, stuckDispatching10m: 1 }, thresholds).status).toBe('degraded');
+    expect(evaluateOpsHealth(true, { ...healthy, stuckDispatching10m: 3 }, { ...thresholds, stuckDispatchingDegraded: 3 }).status).toBe('ok');
+    expect(evaluateOpsHealth(true, { ...healthy, failedJobs1h: 2 }, { ...thresholds, failedJobsDegraded: 2 }).status).toBe('ok');
     const unconfigured = evaluateOpsHealth(true, 'unconfigured', thresholds);
     expect(unconfigured).toEqual({ status: 'degraded', checks: { appDb: true, ops: 'unconfigured', worker: null, queue: null,
       intents: null, webhooks: null, migrations: null } });
@@ -66,14 +70,14 @@ describe('[OPS-01] deep health evaluation', () => {
     const tx = { $queryRaw: vi.fn(async (strings: TemplateStringsArray, ...values: unknown[]) => {
       statements.push(strings.join('?') + JSON.stringify(values));
       if (strings.join('').includes('crm_ops_health')) return [{ last_beat_age_s: 12.6, pending_due: BigInt(3), oldest_due_age_s: 40.2,
-        expired_running_leases: BigInt(1), failed_jobs_1h: BigInt(2), unknown_intents: BigInt(0), unprocessed_webhooks_15m: BigInt(4),
+        expired_running_leases: BigInt(1), failed_jobs_1h: BigInt(2), unknown_intents: BigInt(0), stuck_dispatching_10m: BigInt(5), unprocessed_webhooks_15m: BigInt(4),
         latest_migration: '20261113090100_ops_health_fn' }];
       return [];
     }) };
     const db = { $transaction: vi.fn(async (fn: (t: typeof tx) => Promise<unknown>) => fn(tx)) };
     const row = await readOpsHealth(db as never);
     expect(row).toEqual({ lastBeatAgeS: 13, pendingDue: 3, oldestDueAgeS: 40, expiredRunningLeases: 1, failedJobs1h: 2,
-      unknownIntents: 0, unprocessedWebhooks15m: 4, latestMigration: '20261113090100_ops_health_fn' });
+      unknownIntents: 0, stuckDispatching10m: 5, unprocessedWebhooks15m: 4, latestMigration: '20261113090100_ops_health_fn' });
     expect(statements[0]).toContain('statement_timeout');
     expect(statements[0]).toContain('"2000"');
   });

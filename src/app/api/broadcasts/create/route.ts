@@ -24,6 +24,7 @@ export async function POST(request:Request){
     await assertMutation(request,session);
     await requirePermission({accountId:session.accountId,userId:session.userId,role:session.role},'campaigns.send');
     const result=await createCampaign({accountId:session.accountId,userId:session.userId,role:session.role},await readBody(request));
-    return NextResponse.json(result,{status:202,headers:{'Cache-Control':'no-store'}});
+    // A repeated request id answers 200 with the campaign it already created (same body as the first 202).
+    return NextResponse.json({id:result.id},{status:result.duplicate?200:202,headers:{'Cache-Control':'no-store'}});
   }catch(error){return toErrorResponse(error);}
 }

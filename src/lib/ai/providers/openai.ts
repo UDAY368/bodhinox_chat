@@ -4,6 +4,7 @@ import {
   mergeConsecutive,
   normalizeUsage,
   providerHttpError,
+  fetchWithRetry,
   toNetworkError,
   type ProviderArgs,
 } from './shared'
@@ -32,7 +33,7 @@ export async function generateOpenAi(args: ProviderArgs): Promise<ProviderResult
 
   let res: Response
   try {
-    res = await fetch(OPENAI_URL, {
+    res = await fetchWithRetry(OPENAI_URL, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${apiKey}`,
@@ -46,8 +47,7 @@ export async function generateOpenAi(args: ProviderArgs): Promise<ProviderResult
         ],
         max_completion_tokens: args.maxOutputTokens ?? MAX_OUTPUT_TOKENS,
       }),
-      signal: AbortSignal.timeout(timeoutMs),
-    })
+    }, timeoutMs)
   } catch (err) {
     throw toNetworkError(err)
   }

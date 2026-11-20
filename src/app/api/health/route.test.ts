@@ -22,7 +22,7 @@ import { __resetRateLimitForTests } from '@/lib/rate-limit';
 
 const TOKEN = 'h'.repeat(48);
 const row = { last_beat_age_s: 4, pending_due: BigInt(0), oldest_due_age_s: null, expired_running_leases: BigInt(0), failed_jobs_1h: BigInt(0),
-  unknown_intents: BigInt(0), unprocessed_webhooks_15m: BigInt(0), latest_migration: '20261113090100_ops_health_fn' };
+  unknown_intents: BigInt(0), stuck_dispatching_10m: BigInt(0), unprocessed_webhooks_15m: BigInt(0), latest_migration: '20261113090100_ops_health_fn' };
 const call = (path = '/api/health', headers: Record<string, string> = {}) => GET(new Request(`https://app.example.com${path}`, { headers }));
 const PLAIN = { status: 'ok', application: 'Bodhinox Chat' };
 
@@ -71,7 +71,7 @@ describe('[OPS-01] GET /api/health', () => {
     expect(response.headers.get('cache-control')).toBe('no-store');
     const body = await response.json();
     expect(body).toEqual({ status: 'ok', checks: { appDb: true, ops: 'ok', worker: { ageS: 4, ok: true },
-      queue: { pendingDue: 0, oldestDueS: null, expiredLeases: 0, failed1h: 0 }, intents: { unknown: 0 },
+      queue: { pendingDue: 0, oldestDueS: null, expiredLeases: 0, failed1h: 0 }, intents: { unknown: 0, stuckDispatching10m: 0 },
       webhooks: { unprocessed15m: 0 }, migrations: { latest: '20261113090100_ops_health_fn' } } });
     const text = JSON.stringify(body);
     expect(text).not.toContain(TOKEN);

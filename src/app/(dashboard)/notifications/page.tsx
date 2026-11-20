@@ -12,6 +12,7 @@ import {
   CalendarCheck,
   CalendarClock,
   CalendarX,
+  CalendarOff,
   CheckCheck,
   CreditCard,
   FileX,
@@ -25,6 +26,7 @@ import {
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { Button } from "@/components/ui/button";
+import { InlineError } from "@/components/ui/inline-error";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { useTranslations } from "next-intl";
@@ -45,6 +47,7 @@ const TYPE_ICON: Record<Notification["type"], typeof Bell> = {
   appointment_booked: CalendarCheck,
   appointment_cancelled: CalendarX,
   appointment_rescheduled: CalendarClock,
+  appointment_no_show: CalendarOff,
   automation_notice: Zap,
   webhook_disabled: Webhook,
 };
@@ -56,7 +59,8 @@ export default function NotificationsPage() {
   const [notifications, setNotifications] = useState<Notification[] | null>(
     null,
   );
-  const [error, setError] = useState<string | null>(null);
+  // The list failed to load: what happened, then Retry (never the raw server error).
+  const [error, setError] = useState(false);
   const [markingAll, setMarkingAll] = useState(false);
 
   const load = useCallback(async () => {
@@ -69,9 +73,10 @@ export default function NotificationsPage() {
       .order("created_at", { ascending: false })
       .limit(100);
     if (fetchErr) {
-      setError(fetchErr.message);
+      setError(true);
       return;
     }
+    setError(false);
     setNotifications((data ?? []) as Notification[]);
   }, [accountId]);
 
@@ -187,14 +192,15 @@ export default function NotificationsPage() {
     }
   }, [unreadIds.length, load, t]);
 
-  if (error) {
+  if (error && notifications === null) {
     return (
-      <div className="flex h-64 flex-col items-center justify-center gap-2">
-        <p className="text-sm text-destructive">{error}</p>
-        <Button variant="outline" onClick={() => window.location.reload()}>
-          {t("retry")}
-        </Button>
-      </div>
+      <InlineError
+        message={t("loadFailed")}
+        onRetry={() => {
+          setError(false);
+          void load();
+        }}
+      />
     );
   }
 

@@ -8,6 +8,10 @@
  * blocked/no_template. A confirmation or rescheduled notice is skipped as
  * stale_version once the version moved on; a cancelled notice needs its own
  * version and status 'cancelled'.
+ *
+ * Batch 3: the free-form confirmation and rescheduled notices also carry a
+ * Google Calendar link (the manage link offers the .ics), and a sent
+ * confirmation queues the service's intake form (intake-form.ts).
  */
 import { createAdminClient } from '@/lib/data/admin';
 import { getWorkerPrisma } from '@/lib/db/prisma';
@@ -20,6 +24,7 @@ import { getT } from '@/lib/i18n/translate';
 import { MetaApiError } from '@/lib/whatsapp/meta-api';
 import { assertWhatsAppConversation, getNumberConfig, isNumberDisconnected, NoNumberError } from '@/lib/whatsapp/numbers';
 import { resolveContactSendTarget } from '@/lib/whatsapp/wa-identity';
+import { enqueueIntakeForm } from './intake-form';
 import { appointmentKeys } from './keys';
 import { OPEN_WINDOW_MS, sendCustomerMessage } from './customer-send';
 import type { AppointmentRow, NotifyJobPayload } from './types';
@@ -42,7 +47,7 @@ export async function handleAppointmentNoticeJob(
 ) {
   const { appointmentId, version, kind, startAt } = payload;
   const t = getT('AppointmentNotices');
-  return sendCustomerMessage({
+  const outcome = await sendCustomerMessage({
     accountId,
     appointmentId,
     version,
@@ -52,9 +57,13 @@ export async function handleAppointmentNoticeJob(
     applies: (row) => noticeApplies(row, version, kind, startAt),
     freeForm: (ctx) => kind === 'cancelled'
       ? t('cancelled', { service: ctx.serviceName, time: ctx.time })
-      : t(kind, { service: ctx.serviceName, time: ctx.time, location: ctx.location, link: ctx.manageLink() }),
+      : [t(kind, { service: ctx.serviceName, time: ctx.time, location: ctx.location, link: ctx.manageLink() }),
+        t('calendarLine', { link: ctx.calendarLink() })].join('\n'),
     now,
   });
+  // Batch 3: the service's intake form follows a sent confirmation (null = already settled sent earlier; queueing is idempotent).
+  if (kind === 'confirmation' && (outcome === null || outcome.status === 'sent')) await enqueueIntakeForm(accountId, appointmentId, version);
+  return outcome;
 }
 
 const HOLD_REPLY_TEXT: Record<NonNullable<NotifyJobPayload['reason']>, string> = {

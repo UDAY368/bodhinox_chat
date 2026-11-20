@@ -14,12 +14,14 @@
 // expiring reservation and under-meters (absorbed by the platform).
 //
 // Fast path: when the plan's ai_messages and ai_tokens_monthly (and, for the
-// assistant features, the workspace's monthly_token_cap) are all unlimited
-// (every workspace without a subscription), nothing is reserved and settle
-// records the usage once. The workspace cap applies only to the assistant
-// features (summaries, suggested replies, assessments, insights: `workspaceCap`
-// from runAiTask), as the AI settings say; auto-replies, flow AI replies, Draft,
-// the playground and the generators are limited by the plan only.
+// features that pass `workspaceCap`, the workspace's monthly_token_cap) are all
+// unlimited (every workspace without a subscription), nothing is reserved and
+// settle records the usage once. The workspace cap (`workspaceCap`) applies to
+// the assistant features (summaries, suggested replies, assessments, insights,
+// from runAiTask), to auto-replies and to flow AI replies; over it those stop
+// before the provider call and the chat goes to staff. Draft, the playground
+// and the generators are limited by the plan only. Every metered call's tokens
+// count toward the cap (aiTokensUsed), whichever path spent them.
 // A plan-limit refusal records the 100% usage notice (notifyLimitRefused).
 // Everything runs on the worker client inside the workspace's tenant scope.
 // settleAi, releaseAi and failAi never throw: the reply must not fail on accounting.
@@ -79,8 +81,8 @@ class AiPlanLimitError extends PlanLimitError {
 /**
  * Holds room for one provider call. Throws PlanLimitError when the plan's
  * monthly AI messages (when `message`) or AI tokens would be exceeded (and
- * records the 100% usage notice), or, with `workspaceCap` (assistant features
- * only), AiWorkspaceCapError when the workspace's own token cap would be. Live
+ * records the 100% usage notice), or, with `workspaceCap` (assistant features,
+ * auto-replies and flow AI replies), AiWorkspaceCapError when the workspace's own token cap would be. Live
  * reservations of other calls count, so concurrent calls cannot overshoot.
  */
 export async function reserveAi(accountId: string, sourceKey: string, input: { message: boolean; tokens: number; workspaceCap?: boolean },

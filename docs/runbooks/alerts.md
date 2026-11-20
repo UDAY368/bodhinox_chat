@@ -17,8 +17,9 @@ Requirement ids: OPS-01. Env var names only; no secrets, tenant ids or customer 
 | `checks.worker.ok=false` | down: no heartbeat for > 90 s | delayed-jobs §worker not beating |
 | `checks.queue.oldestDueS` > 300 | degraded: backlog | delayed-jobs |
 | `checks.queue.expiredLeases` > 0 for long | informational only (no status change): stuck lease | delayed-jobs §stuck lease |
-| `checks.queue.failed1h` > 0 | informational only (no status change): jobs that exhausted retries | delayed-jobs §failed jobs |
+| `checks.queue.failed1h` > `HEALTH_FAILED_JOBS_DEGRADED` (0) | degraded (failing check `jobs`): jobs that exhausted retries in the last hour; clears an hour after the last failure | delayed-jobs §failed jobs |
 | `checks.intents.unknown` > 0 | degraded: ambiguous provider send | delayed-payments / provider-outage (reconcile, never re-send) |
+| `checks.intents.stuckDispatching10m` > `HEALTH_STUCK_DISPATCHING_DEGRADED` (0) | degraded (failing check `dispatching`): a send claimed by the worker more than 10 minutes ago that never finished; it may or may not have gone out | provider-outage (reconcile, never re-send blindly) |
 | `checks.webhooks.unprocessed15m` > 0 | degraded: inbound receipts 15 min–24 h old not processed (also when their job already exhausted to `failed`) | delayed-jobs, provider-outage |
 | `checks.ops` = `unavailable` | degraded: ops query failed or > 2 s (its counts use the partial indexes from `20261113090400`..`090600`) | check DB load; incident-response |
 | `checks.migrations.latest` | compare with the release's newest migration after deploy | release-rollback |

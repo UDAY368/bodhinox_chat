@@ -71,6 +71,31 @@ export function StatusBadge({ status }: { status: ShopProductSummary["status"] }
   return <Badge variant={status === "published" ? "default" : status === "archived" ? "outline" : "secondary"}>{t(status)}</Badge>;
 }
 
+/**
+ * The one visibility control for a shop product: Live (published) or Hidden (draft). An archived
+ * product shows its badge instead; Restore lives in its menu.
+ */
+export function VisibilityControl({ status, disabled, onChange }: {
+  status: ShopProductSummary["status"];
+  disabled?: boolean;
+  onChange: (next: "published" | "draft") => void;
+}) {
+  const t = useTranslations("Commerce.catalogue.statuses");
+  if (status === "archived") return <StatusBadge status={status} />;
+  return (
+    <div className="inline-flex rounded-xl bg-muted p-[3px]" role="radiogroup" aria-label={t("visibility")}>
+      {(["published", "draft"] as const).map((v) => (
+        <button key={v} type="button" role="radio" aria-checked={status === v} disabled={disabled}
+          onClick={() => { if (status !== v) onChange(v); }}
+          className={`inline-flex min-h-11 items-center rounded-[9px] px-3 text-sm transition-[background-color,color] duration-150 focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-60 sm:min-h-[26px] ${
+            status === v ? "bg-card font-medium text-foreground shadow-[0_1px_3px_rgb(0_0_0/0.12)] dark:bg-input" : "text-muted-foreground hover:text-foreground"}`}>
+          {t(v)}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 export function CatalogueAdmin() {
   const t = useTranslations("Commerce.catalogue");
   const [tab, setTab] = useState<Tab>("products");
@@ -314,8 +339,6 @@ function ProductsTab({ canManage, onOpenCategories }: { canManage: boolean; onOp
               </DropdownMenuItem>
             </>
           )}
-          {canManage && p.status === "published" && <DropdownMenuItem onClick={() => void act(p, "hide")}><EyeOff className="h-4 w-4" /> {ts("hide")}</DropdownMenuItem>}
-          {canManage && p.status === "draft" && <DropdownMenuItem onClick={() => void act(p, "show")}><Eye className="h-4 w-4" /> {ts("show")}</DropdownMenuItem>}
           {canManage && <DropdownMenuSeparator />}
           {canManage && (p.status === "archived"
             ? <DropdownMenuItem onClick={() => void act(p, "restore")}><ArchiveRestore className="h-4 w-4" /> {ts("restore")}</DropdownMenuItem>
@@ -509,7 +532,6 @@ function ProductsTab({ canManage, onOpenCategories }: { canManage: boolean; onOp
                     <TableHead>{t("colStatus")}</TableHead>
                     <TableHead>{t("colPrice")}</TableHead>
                     <TableHead>{t("colStock")}</TableHead>
-                    <TableHead>{tl("liveColumn")}</TableHead>
                     <TableHead><span className="sr-only">{ts("actionsColumn")}</span></TableHead>
                   </TableRow>
                 </TableHeader>
@@ -533,10 +555,13 @@ function ProductsTab({ canManage, onOpenCategories }: { canManage: boolean; onOp
                           </span>
                         </Link>
                       </TableCell>
-                      <TableCell><StatusBadge status={p.status} /></TableCell>
+                      <TableCell>
+                        {p.status === "archived" ? <StatusBadge status={p.status} /> : (
+                          <span className="flex items-center gap-2">{activeSwitch(p)}<span className="text-xs text-muted-foreground">{p.status === "published" ? tl("live") : tl("hidden")}</span></span>
+                        )}
+                      </TableCell>
                       <TableCell className="whitespace-nowrap">{priceCell(p)}</TableCell>
                       <TableCell>{stockCell(p)}</TableCell>
-                      <TableCell>{activeSwitch(p)}</TableCell>
                       <TableCell className="w-px text-right">{menu(p)}</TableCell>
                     </TableRow>
                   ))}

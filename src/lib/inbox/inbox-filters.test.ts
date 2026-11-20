@@ -47,6 +47,18 @@ describe('operational inbox queues', () => {
   });
 });
 
+describe('Open includes legacy pending rows', () => {
+  it('matches open and pending, never closed, and maps an old ?filter=pending link to Open', () => {
+    expect(matchesInboxFilter(conversation, 'open', now)).toBe(true);
+    expect(matchesInboxFilter({ ...conversation, status: 'pending' }, 'open', now)).toBe(true);
+    expect(matchesInboxFilter({ ...conversation, status: 'closed' }, 'open', now)).toBe(false);
+    expect(matchesInboxFilter({ ...conversation, status: 'pending' }, 'closed', now)).toBe(false);
+    expect(parseInboxFilter('pending')).toBe('open');
+    expect(parseInboxFilter('open')).toBe('open');
+    expect(parseInboxFilter('closed')).toBe('closed');
+  });
+});
+
 describe('my-team filter', () => {
   const base = { status: 'open' as const, unread_count: 0, last_customer_message_at: undefined };
   it('matches conversations assigned to a teammate only', () => {

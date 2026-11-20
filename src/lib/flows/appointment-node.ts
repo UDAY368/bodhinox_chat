@@ -14,6 +14,7 @@
 
 import { getT } from "@/lib/i18n/translate";
 import { INTERACTIVE_LIMITS } from "@/lib/whatsapp/interactive-limits";
+import { INSTAGRAM_LIMITS } from "@/lib/instagram/graph-limits";
 import type { BookAppointmentNodeConfig } from "./types";
 import type { ValidationIssue } from "./validate";
 
@@ -31,8 +32,18 @@ export const BOOK_APPOINTMENT_LIMITS = {
   maxInvalid: 2,
 } as const;
 
-/** Variables the step stores for the steps after it (never the manage link: flow.completed webhooks carry vars). */
-export const BOOK_APPOINTMENT_VARS = ["appointment_id", "appointment_local_time"] as const;
+/**
+ * Variables the step stores for the steps after it (never the manage link:
+ * flow.completed webhooks carry vars). appointment_status is "confirmed", or
+ * "waiting_for_payment" for a paid service (A6: the slot is held and the
+ * payment link sent; it is confirmed when the payment settles). booking_link
+ * is the workspace's public booking page, set when the step starts, so the
+ * Unavailable path can offer it.
+ */
+export const BOOK_APPOINTMENT_VARS = ["appointment_id", "appointment_local_time", "appointment_status", "booking_link"] as const;
+
+/** appointment_status values. */
+export const APPOINTMENT_STATUS_VALUES = { confirmed: "confirmed", paymentPending: "waiting_for_payment" } as const;
 
 /** Ports of the step, by config field. success_next is required; an unwired unavailable/cancelled port ends the run. */
 export const BOOK_APPOINTMENT_PORT_FIELDS = ["success_next", "unavailable_next", "cancelled_next"] as const;
@@ -108,16 +119,17 @@ export function bookAppointmentIssues(node: NodeLike, knownKeys: ReadonlySet<str
 }
 
 /**
- * Paid services cannot be booked from a flow (booking.ts refuses source
- * 'flow'; payment is collected only on the booking page), so a step that
- * picks one cannot go live. Checked when the server knows the account's paid
- * services (publish); the builder already disables them (audit finding 21).
+ * A paid service booked from a flow becomes a paid hold whose link goes out
+ * in the chat (A6), which needs online payments (store on, Razorpay
+ * connected). Publish passes the account's paid services only while it
+ * cannot take payment (versions.ts), so a step that picks one cannot go live
+ * then.
  */
 export function bookAppointmentPaidIssues(node: NodeLike, paidServices?: ReadonlySet<string>): ValidationIssue[] {
   if (!paidServices?.size) return [];
   const paid = appointmentServiceIds(node.config).filter((id) => paidServices.has(id.toLowerCase()));
   return paid.length
-    ? [{ severity: "error", scope: "node", node_key: node.node_key, field: "service_ids", message: t("appointmentPaidService", { count: paid.length }) }]
+    ? [{ severity: "error", scope: "node", node_key: node.node_key, field: "service_ids", message: t("appointmentPaidNotReady", { count: paid.length }) }]
     : [];
 }
 
@@ -219,6 +231,20 @@ export function rowTitle(text: string): string {
   const chars = [...text.trim()];
   const max = INTERACTIVE_LIMITS.listRowTitleMaxLength;
   return chars.length <= max ? chars.join("") : `${chars.slice(0, max - 1).join("")}…`;
+}
+
+/**
+ * Instagram (B8): the same rows as quick replies, whose titles are at most
+ * 20 characters. Ids are unchanged, so a tap is parsed exactly like a list
+ * row. At most 10 rows (one page plus More and Cancel), inside Instagram's
+ * quick-reply cap.
+ */
+export function instagramRows(rows: readonly AppointmentListRow[]): AppointmentListRow[] {
+  const max = INSTAGRAM_LIMITS.quickReplyTitleChars;
+  return rows.slice(0, INSTAGRAM_LIMITS.quickReplies).map((row) => {
+    const chars = [...row.title.replace(/…$/, "").trim()];
+    return { id: row.id, title: chars.length <= max ? chars.join("") : `${chars.slice(0, max - 1).join("")}…` };
+  });
 }
 
 /**

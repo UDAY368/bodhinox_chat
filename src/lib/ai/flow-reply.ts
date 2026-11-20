@@ -38,7 +38,7 @@ import { buildConversationContext } from './context'
 import { generateReply } from './generate'
 import { latestUserMessage, recentCustomerText } from './query'
 import { promptCharsOf, usageLog } from './usage'
-import { chatTokenEstimate, failAi, reserveAi, settleAi, type AiReservation } from './budget'
+import { AiWorkspaceCapError, chatTokenEstimate, failAi, releaseAi, reserveAi, settleAi, type AiReservation } from './budget'
 import { retrieveKnowledgeScored, type ScoredKnowledgeChunk } from './knowledge'
 import {
   buildAgentSystemPrompt,
@@ -48,7 +48,7 @@ import {
   matchHandoffKeyword,
   type AgentProfile,
 } from './agent-profile'
-import { assessConfidence, type ConfidenceReason, type RetrievalScores } from './confidence'
+import { assessConfidence, noKnowledgeHandoff, type ConfidenceReason, type RetrievalScores } from './confidence'
 import { recordUnanswered } from './unanswered'
 import { logAiEvent } from './log'
 import { classifySensitive, hasUncoveredScript } from './safety/sensitive'
@@ -91,6 +91,8 @@ export type FlowAiUnavailableReason =
   | 'no_question'
   | 'rate_limited'
   | 'plan_limit'
+  /** The workspace's own monthly AI token cap is reached (and pauses the AI). */
+  | 'workspace_ai_cap'
   | 'generation_failed'
   | 'send_failed'
   /** The send may have reached the customer: reconcile, never continue blindly. */
@@ -105,6 +107,8 @@ export type FlowAiHandoffReason =
   | 'sensitive_topic'
   /** The answer made a forbidden claim or used an unreadable script: withheld, never sent. */
   | 'guard_blocked'
+  /** "Hand off when nothing in knowledge matched" is on and the search found nothing (no model call). */
+  | 'no_knowledge'
 
 export type FlowAiOutcome =
   | { kind: 'answered'; text: string; whatsappMessageId: string; score: number; citations: FlowAiCitation[] }
@@ -243,12 +247,16 @@ export async function runFlowAiReply(args: RunFlowAiReplyArgs): Promise<FlowAiOu
 
       // Shared with the inbox auto-reply: bounds a burst on the account's key.
       if (!checkRateLimit(`ai-autoreply:${accountId}`, RATE_LIMITS.aiAutoReplyAccount).success) return unavailable('rate_limited')
-      // The plan's AI messages and tokens, held for this turn: the turn's
-      // intent key is its source event, so a retried turn never meters twice.
+      // The plan's AI messages and tokens, and the workspace's own monthly
+      // token cap, held for this turn: the turn's intent key is its source
+      // event, so a retried turn never meters twice. Over either, the model is
+      // not called and the step leaves by its handoff port.
       let reservation: AiReservation
       try {
-        reservation = await reserveAi(accountId, args.intentKey, { message: true, tokens: chatTokenEstimate('', messages) }, getWorkerPrisma())
+        reservation = await reserveAi(accountId, args.intentKey,
+          { message: true, tokens: chatTokenEstimate('', messages), workspaceCap: true }, getWorkerPrisma())
       } catch (error) {
+        if (error instanceof AiWorkspaceCapError) return unavailable('workspace_ai_cap')
         if (error instanceof PlanLimitError) return unavailable('plan_limit')
         throw error
       }
@@ -257,6 +265,11 @@ export async function runFlowAiReply(args: RunFlowAiReplyArgs): Promise<FlowAiOu
       const knowledge = useKnowledge
         ? await retrieveFlowKnowledge(db, accountId, config, question)
         : { excerpts: [], retrieval: null, citations: [] as FlowAiCitation[] }
+      if (useKnowledge && noKnowledgeHandoff(rules, knowledge.excerpts.length)) {
+        await releaseAi(reservation)
+        await noteUnanswered(accountId, question, conversationId, contactId)
+        return { kind: 'handoff', reason: 'no_knowledge', score: 0, citations: [] }
+      }
       const lowScoreHandsOff = typeof args.config.confidence_threshold === 'number' || rules.on_low_confidence
 
       const systemPrompt = buildAgentSystemPrompt(withStepInstructions(profile, config, args.config.instructions, aiStepGuidance(args.config, args.goalGuidance)), {

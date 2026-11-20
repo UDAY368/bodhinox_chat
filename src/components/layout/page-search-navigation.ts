@@ -1,38 +1,28 @@
-// The app's navigation model (Stage 1), shared by the sidebar, the page
-// search and the header title so the three always agree. Pure: no React.
-//
-// Shared business pages sit in the Workspace group, led by the one Inbox
-// entry (every channel's conversations when both are enabled, else that
-// channel's inbox); each enabled channel follows as its own group (its
-// automations and tools). Every channel link comes from channelPath, so the
-// nav and the redirects agree.
-import { ALL_INBOXES_PATH, channelFromPath, channelPath } from '@/lib/channels/routes';
+// The page search's list, derived from the sidebar's sections (sections.ts) so the two always
+// agree, plus each channel's own pages and the pages outside every section. Pure: no React.
+// Every channel link comes from channelPath, so the nav and the redirects agree.
+import { channelPath } from '@/lib/channels/routes';
 import type { WorkspaceChannels } from '@/lib/channels/workspace';
 import type { Channel } from '@/types';
+import { buildSections, navChannels, OUTSIDE_PAGES } from './sections';
+
+export { navChannels };
 
 export type NavGroupId = 'workspace' | Channel;
 
 export interface NavPage {
   href: string;
-  /** Key in the Sidebar namespace (and the Header namespace for page titles). */
+  /** Key in the Sidebar namespace. */
   labelKey: string;
   group: NavGroupId;
+  /** The sidebar section the page sits in (Sidebar namespace key), when it is one of its tabs. */
+  sectionKey?: string;
   /** The unread badge this entry carries: one channel's conversations, or every channel's. */
   unread?: Channel | 'all';
   beta?: boolean;
 }
 
-export interface NavGroup {
-  id: NavGroupId;
-  pages: NavPage[];
-}
-
-/** The channels the nav shows. With none known (still loading, or a load failed) the no-row default: WhatsApp. */
-export function navChannels(enabled: readonly Channel[] | null | undefined): Channel[] {
-  const channels = (['whatsapp', 'instagram'] as const).filter((channel) => enabled?.includes(channel));
-  return channels.length ? channels : ['whatsapp'];
-}
-
+/** A channel's own pages: its automations and tools. */
 function channelPages(channel: Channel): NavPage[] {
   const common: NavPage[] = [
     { href: channelPath(channel, 'automations'), labelKey: 'automations', group: channel },
@@ -45,7 +35,6 @@ function channelPages(channel: Channel): NavPage[] {
       { href: channelPath('whatsapp', 'forms'), labelKey: 'forms', group: channel },
       { href: channelPath('whatsapp', 'ads'), labelKey: 'ads', group: channel },
     ];
-  // Stage 5's home first; then Stage 2 tools, then Stage 3's ref links, menu and insights.
   return [
     { href: channelPath('instagram', 'home'), labelKey: 'home', group: channel },
     ...common,
@@ -59,59 +48,36 @@ function channelPages(channel: Channel): NavPage[] {
   ];
 }
 
-function workspacePages(channels: readonly Channel[]): NavPage[] {
-  const both = channels.length > 1;
-  const page = (href: string, labelKey: string): NavPage => ({ href, labelKey, group: 'workspace' });
-  // One Inbox for the workspace: the All view (with its channel filter) when both channels are on.
-  const inbox: NavPage = both
-    ? { ...page(ALL_INBOXES_PATH, 'inbox'), unread: 'all' }
-    : { ...page(channelPath(channels[0], 'inbox'), 'inbox'), unread: channels[0] };
-  return [
-    inbox,
-    page('/dashboard', 'dashboard'),
-    page('/analytics', 'analytics'),
-    page('/notifications', 'notifications'),
-    page('/contacts', 'contacts'),
-    // One Automation section for every channel (the channel is chosen per automation).
-    page('/automation', 'automation'),
-    page('/pipelines', 'pipelines'),
-    page('/appointments', 'appointments'),
-    // Every AI feature (agent setup, knowledge, playground, assistant features) in one place.
-    page('/agents', 'ai'),
-  ];
-}
-
-/** The sidebar's Workspace group, then one group per enabled channel (WhatsApp first). */
-export function buildNavigation(enabled: readonly Channel[] | null | undefined): NavGroup[] {
-  const channels = navChannels(enabled);
-  return [
-    { id: 'workspace' as const, pages: workspacePages(channels) },
-    ...channels.map((channel) => ({ id: channel, pages: channelPages(channel) })),
-  ];
-}
-
-/** Pages the search offers besides the groups above (Commerce and Settings). */
-const otherSearchPages: NavPage[] = [
-  { href: '/commerce/orders', labelKey: 'orders', group: 'workspace' },
-  { href: '/commerce/products', labelKey: 'products', group: 'workspace' },
-  { href: '/commerce/payments', labelKey: 'payments', group: 'workspace' },
-  { href: '/settings', labelKey: 'settings', group: 'workspace' },
-];
-
-/** Every page the search lists for a workspace: the same channel filtering as the sidebar. */
+/**
+ * Every page the search lists for a workspace, in sidebar order: each section (or each of its tabs),
+ * then each channel's pages not already listed, each channel's inbox when both are on (the sidebar
+ * has one Inbox), then the pages outside every section.
+ */
 export function navigationPages(enabled: readonly Channel[] | null | undefined): NavPage[] {
   const channels = navChannels(enabled);
-  // With both channels the sidebar has one Inbox; the search still finds each channel's own.
+  const own = channels.flatMap(channelPages);
+  // A tab that is a channel's page (Broadcasts, Instagram tools) keeps the channel's name in search.
+  const groupOf = (href: string): NavGroupId => own.find((page) => page.href === href)?.group ?? 'workspace';
+  const pages: NavPage[] = buildSections(enabled).flatMap((section): NavPage[] =>
+    section.tabs.length
+      ? section.tabs.map((tab) => ({ href: tab.href, labelKey: tab.labelKey, group: groupOf(tab.href), sectionKey: section.labelKey }))
+      : [{ href: section.href, labelKey: section.labelKey, group: 'workspace', ...(section.unread ? { unread: section.unread } : {}) }]
+  );
   const channelInboxes: NavPage[] = channels.length > 1
     ? channels.map((channel) => ({ href: channelPath(channel, 'inbox'), labelKey: 'inbox', group: channel }))
     : [];
-  return [...buildNavigation(enabled).flatMap((group) => group.pages), ...channelInboxes, ...otherSearchPages];
+  return [
+    ...pages,
+    ...own.filter((page) => !pages.some((listed) => listed.href === page.href)),
+    ...channelInboxes,
+    ...OUTSIDE_PAGES.map((page) => ({ ...page, group: 'workspace' as const })),
+  ];
 }
 
 /**
  * Search the workspace's pages by translated label, group label (so
- * "instagram" finds the Instagram pages) and route, ignoring case and
- * surrounding whitespace.
+ * "instagram" finds the Instagram pages), section label (so "store" finds
+ * Reviews) and route, ignoring case and surrounding whitespace.
  */
 export function filterPages(
   query: string,
@@ -121,41 +87,9 @@ export function filterPages(
 ): NavPage[] {
   const search = query.trim().toLocaleLowerCase();
   return navigationPages(enabled).filter((page) =>
-    `${groupLabel(page.group)} ${label(page.labelKey)} ${page.href}`.toLocaleLowerCase().includes(search)
+    [groupLabel(page.group), page.sectionKey && label(page.sectionKey), label(page.labelKey), page.href]
+      .filter(Boolean).join(' ').toLocaleLowerCase().includes(search)
   );
-}
-
-/**
- * Every page any workspace can have, for titles: a page title never depends
- * on which channels are on. The pre-Stage-1 /flows and /automations URLs keep
- * their titles while they redirect or still render.
- */
-const allPages: NavPage[] = [
-  ...navigationPages(['whatsapp', 'instagram']).filter((page) => !page.href.includes('?')),
-  // Stage 5 Instagram pages reached from the automation area and the home page, not the sidebar.
-  // A flow's editor still lives under its channel; it belongs to the Automation section.
-  { href: channelPath('whatsapp', 'flows'), labelKey: 'automation', group: 'whatsapp' },
-  { href: channelPath('instagram', 'flows'), labelKey: 'automation', group: 'instagram' },
-  { href: channelPath('instagram', 'basics'), labelKey: 'basics', group: 'instagram' },
-  { href: channelPath('instagram', 'sequences'), labelKey: 'sequences', group: 'instagram' },
-  { href: channelPath('instagram', 'subscription'), labelKey: 'subscription', group: 'instagram' },
-  { href: '/flows', labelKey: 'flows', group: 'workspace' },
-  { href: '/automations', labelKey: 'automations', group: 'workspace' },
-];
-
-const pageForPath = (pathname: string): NavPage | undefined =>
-  allPages.find((page) => pathname === page.href || pathname.startsWith(`${page.href}/`));
-
-export function getPageTitleKey(pathname: string): string {
-  return pageForPath(pathname)?.labelKey ?? 'dashboard';
-}
-
-/**
- * The nav group a page sits in, for the header breadcrumb: the channel for
- * its section and its tools (WhatsApp › Broadcasts), Workspace otherwise.
- */
-export function getPageGroup(pathname: string): NavGroupId {
-  return channelFromPath(pathname) ?? pageForPath(pathname)?.group ?? 'workspace';
 }
 
 /**

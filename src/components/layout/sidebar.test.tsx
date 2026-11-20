@@ -17,7 +17,7 @@ vi.mock('@/hooks/use-auth', () => ({
 }));
 vi.mock('@/hooks/use-can', () => ({ useCan: () => h.isAdmin }));
 vi.mock('@/hooks/use-total-unread', () => ({ useTotalUnread: () => h.unread }));
-vi.mock('@/hooks/use-unread-notifications', () => ({ useUnreadNotifications: () => 0 }));
+vi.mock('@/hooks/use-unread-notifications', () => ({ useUnreadNotifications: () => 0, useUnreadBookingNotifications: () => 0 }));
 vi.mock('@/hooks/use-workspace-channels', () => ({
   useWorkspaceChannels: () => ({ data: h.data, loading: false, error: false, refresh: vi.fn(), save: vi.fn() }),
 }));
@@ -53,11 +53,12 @@ beforeEach(() => {
 });
 
 describe('Sidebar per channel set', () => {
-  it('only WhatsApp: eight sections, the WhatsApp inbox as the one Inbox, Campaigns on, no Instagram', () => {
+  it('only WhatsApp: every section, the WhatsApp inbox as the one Inbox, Campaigns on, no Instagram', () => {
     h.data = workspace({}, off);
     const html = render();
-    expect(sectionsIn(html)).toEqual(['inbox', 'contacts', 'automation', 'campaigns', 'sales', 'ai', 'analytics', 'settings']);
-    for (const href of ['/whatsapp/inbox', '/contacts', '/automation', '/broadcasts', '/pipelines', '/agents', '/dashboard', '/settings'])
+    expect(sectionsIn(html)).toEqual(['home', 'inbox', 'contacts', 'automation', 'campaigns', 'ai', 'sales', 'products', 'store', 'analytics', 'settings']);
+    for (const href of ['/dashboard', '/whatsapp/inbox', '/contacts', '/automation', '/broadcasts', '/agents', '/pipelines',
+      '/commerce/catalogue', '/commerce/store', '/analytics', '/settings'])
       expect(html).toContain(`href="${href}"`);
     expect(html).not.toContain('href="/inbox"');
     expect(html).not.toContain('/instagram/');
@@ -66,7 +67,7 @@ describe('Sidebar per channel set', () => {
   it('only Instagram: no Campaigns (WhatsApp tools), the Instagram inbox', () => {
     h.data = workspace(off, {});
     const html = render();
-    expect(sectionsIn(html)).toEqual(['inbox', 'contacts', 'automation', 'sales', 'ai', 'analytics', 'settings']);
+    expect(sectionsIn(html)).toEqual(['home', 'inbox', 'contacts', 'automation', 'ai', 'sales', 'products', 'store', 'analytics', 'settings']);
     expect(html).toContain('href="/instagram/inbox"');
     for (const href of ['/broadcasts', '/whatsapp/inbox', '/inbox']) expect(html).not.toContain(`href="${href}"`);
   });
@@ -118,7 +119,8 @@ describe('Sidebar per channel set', () => {
   it('marks the right section active for pages that live elsewhere (flows, Instagram tools, commerce, reports)', () => {
     h.data = workspace({}, {});
     const activeSection = () => /data-nav-section="([a-z]+)"[^>]*aria-current="page"/.exec(render())?.[1];
-    for (const [path, id] of [['/automation', 'automation'], ['/whatsapp/flows/abc', 'automation'], ['/instagram/flows/abc', 'automation'],
+    for (const [path, id] of [['/dashboard', 'home'], ['/commerce/orders/abc', 'sales'], ['/commerce/catalogue/9', 'products'],
+      ['/commerce/products', 'products'], ['/commerce/reviews', 'store'], ['/analytics/team', 'analytics'], ['/automation', 'automation'], ['/whatsapp/flows/abc', 'automation'], ['/instagram/flows/abc', 'automation'],
       ['/instagram/comments', 'automation'], ['/commerce/orders', 'sales'], ['/appointments', 'sales'], ['/reports', 'analytics'],
       ['/ads', 'campaigns'], ['/settings', 'settings']] as const) {
       h.pathname = path;
@@ -157,6 +159,18 @@ describe('Sidebar per channel set', () => {
     const html = render();
     expect(html).toMatch(/<a[^>]*href="\/pipelines"[^>]*title="Sidebar.sales"|<a[^>]*title="Sidebar.sales"[^>]*href="\/pipelines"/);
     expect(html).toMatch(/title="Sidebar.analytics"/);
+  });
+
+  it('labels the Grow, Sell and Insights groups quietly, as direct children of the nav (the icon rail hides them)', () => {
+    h.data = workspace({}, {});
+    const html = render();
+    expect([...html.matchAll(/data-nav-group="([a-zA-Z]+)"/g)].map((m) => m[1])).toEqual(['groupGrow', 'groupSell', 'groupInsights']);
+    expect(html).toMatch(/<nav[^>]*><p[^>]*data-nav-group="groupGrow"|<\/ul><p[^>]*data-nav-group="groupGrow"/);
+    expect(html).toContain('Sidebar.groupSell');
+  });
+
+  it('is see-through chrome with the solid sidebar colour as the fallback', () => {
+    expect(render()).toMatch(/<aside class="[^"]*material-chrome[^"]*bg-sidebar/);
   });
 
   it('never links to ?tab=whatsapp', () => {

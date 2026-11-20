@@ -125,7 +125,7 @@ describe('notifyTemplateRejected', () => {
     await notifyTemplateRejected(row);
     expect(h.create).toHaveBeenCalledWith(tx, expect.objectContaining({
       userIds: ['admin-1'], event: 'template_rejected', title: 'Template "order_update" was rejected',
-      body: "Meta's reason: INVALID_FORMAT", link: '/settings?tab=templates',
+      body: "Meta's reason: INVALID_FORMAT", link: '/templates',
       dedupeKey: `template-rejected:${TEMPLATE}:${EVENT}`,
     }));
   });

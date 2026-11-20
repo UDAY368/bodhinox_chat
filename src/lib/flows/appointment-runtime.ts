@@ -11,10 +11,11 @@ import { getWorkerPrisma } from "@/lib/db/prisma";
 import { withTenant, type TenantTransaction } from "@/lib/db/tenant";
 import { getEntitlements, PlanLimitError } from "@/lib/billing/entitlements";
 import { loadAvailabilityConfig, listSlots } from "@/lib/appointments/availability";
-import { bookAppointment } from "@/lib/appointments/booking";
+import { bookAppointment, paidBookingReady } from "@/lib/appointments/booking";
 import { sourceRefs } from "@/lib/appointments/keys";
 import { localParts } from "@/lib/appointments/time";
 import { isAppointmentError, type Slot } from "@/lib/appointments/types";
+import { appOrigin } from "@/lib/broadcasts/tracking";
 import { appointmentServiceIds, BOOK_APPOINTMENT_LIMITS } from "./appointment-node";
 
 export interface AppointmentChoice {
@@ -23,7 +24,12 @@ export interface AppointmentChoice {
 }
 
 export type AppointmentBookResult =
-  | { ok: true; appointmentId: string; localTime: string; replayed: boolean }
+  /**
+   * status 'confirmed', or 'payment_pending' for a paid service (A6): the slot
+   * is held, the payment link goes out on the run's conversation, and
+   * settlement (confirmPaidHold) confirms it.
+   */
+  | { ok: true; appointmentId: string; localTime: string; replayed: boolean; status: "confirmed" | "payment_pending" }
   /** A code-only refusal (Appointments.errors codes, or `plan` for a plan/suspension refusal). */
   | { ok: false; code: string };
 
@@ -39,8 +45,9 @@ const LIVE_OFFERING = `FROM appointment_offerings o
 
 /**
  * Services the step offers: the configured ones (or every service), of the
- * configured mode, not archived, not payment-gated (design D16) and offered
- * at a live location. Empty when the plan has no appointments.
+ * configured mode, not archived, offered at a live location, and payment-gated
+ * ones (design D16) only while the workspace can take payment online
+ * (paidBookingReady; A6). Empty when the plan has no appointments.
  */
 export async function appointmentServices(accountId: string, config: Record<string, unknown>): Promise<AppointmentChoice[]> {
   return inTenant(accountId, async (tx) => {
@@ -48,21 +55,32 @@ export async function appointmentServices(accountId: string, config: Record<stri
     const ids = appointmentServiceIds(config);
     const mode = config.service_mode === "online" || config.service_mode === "offline" ? config.service_mode : null;
     const location = typeof config.location_id === "string" && config.location_id ? config.location_id : null;
+    const paidOk = await paidBookingReady(tx, accountId);
     return tx.$queryRawUnsafe<AppointmentChoice[]>(
       `SELECT s.id::text AS id, s.name FROM appointment_services s
-       WHERE s.account_id=$1::uuid AND s.archived_at IS NULL AND NOT s.payment_required
+       WHERE s.account_id=$1::uuid AND s.archived_at IS NULL AND (NOT s.payment_required OR $5::boolean)
          AND (cardinality($2::uuid[]) = 0 OR s.id = ANY($2::uuid[]))
          AND ($3::text IS NULL OR s.mode = $3::text)
          AND EXISTS (SELECT 1 ${LIVE_OFFERING} AND o.service_id=s.id AND ($4::uuid IS NULL OR o.location_id=$4::uuid))
        ORDER BY s.name, s.id LIMIT ${BOOK_APPOINTMENT_LIMITS.maxServices}`,
-      accountId, ids, mode, location);
+      accountId, ids, mode, location, paidOk);
+  });
+}
+
+/** The public link of the workspace's oldest active booking page, or null: the step's fallback link. */
+export async function appointmentBookingLink(accountId: string): Promise<string | null> {
+  return inTenant(accountId, async (tx) => {
+    const [row] = await tx.$queryRaw<{ slug: string }[]>`SELECT slug FROM booking_pages
+      WHERE account_id=${accountId}::uuid AND active ORDER BY created_at, id LIMIT 1`;
+    return row ? `${appOrigin()}/book/${row.slug}` : null;
   });
 }
 
 /**
  * Whether the step offers nothing only because every service it would offer
- * is paid (flow bookings cannot take payment): logged as appointment_paid_only
- * rather than appointment_no_slots, so staff look at payment, not calendars.
+ * is paid and the workspace cannot take payment online: logged as
+ * appointment_paid_only rather than appointment_no_slots, so staff look at
+ * payment, not calendars.
  */
 export async function appointmentPaidOnly(accountId: string, config: Record<string, unknown>): Promise<boolean> {
   return inTenant(accountId, async (tx) => {
@@ -76,7 +94,7 @@ export async function appointmentPaidOnly(accountId: string, config: Record<stri
          AND ($3::text IS NULL OR s.mode = $3::text)
          AND EXISTS (SELECT 1 ${LIVE_OFFERING} AND o.service_id=s.id AND ($4::uuid IS NULL OR o.location_id=$4::uuid))`,
       accountId, ids, mode, location);
-    return row?.paid === true && row.free !== true;
+    return row?.paid === true && row.free !== true && !(await paidBookingReady(tx, accountId));
   });
 }
 
@@ -146,6 +164,8 @@ export async function bookFlowAppointment(accountId: string, input: {
   locationId: string;
   staffId?: string | null;
   startAt: Date;
+  /** The run's conversation (WhatsApp or Instagram), stored on the booking. */
+  conversationId?: string | null;
 }): Promise<AppointmentBookResult> {
   try {
     return await inTenant(accountId, async (tx) => {
@@ -158,9 +178,12 @@ export async function bookFlowAppointment(accountId: string, input: {
         startAt: input.startAt,
         contactId: input.contactId,
         sourceRef: sourceRefs.flow(input.runId, input.nodeKey, input.transitionSeq),
+        conversationId: input.conversationId ?? null,
       });
       const local = localParts(new Date(appointment.start_at), appointment.timezone);
-      return { ok: true as const, appointmentId: appointment.id, localTime: `${local.date} ${local.hhmm}`, replayed };
+      // A replay after settlement reads confirmed; an unpaid or expired paid hold still reads as waiting.
+      const status = appointment.status === "confirmed" ? "confirmed" as const : "payment_pending" as const;
+      return { ok: true as const, appointmentId: appointment.id, localTime: `${local.date} ${local.hhmm}`, replayed, status };
     });
   } catch (err) {
     if (isAppointmentError(err)) return { ok: false, code: err.code };

@@ -17,6 +17,7 @@ import { EMPTY_SERVICE, serviceBody } from './services-panel';
 import { templateChoices, type TemplateOption } from './settings-panel';
 import { bookingLink, SLUG_PATTERN } from './booking-pages-panel';
 import { ScheduleView } from './schedule-view';
+import { ConfirmProvider } from '@/components/ui/confirm-dialog';
 
 describe('failureKey', () => {
   it('maps plan, field, template and domain refusals to code-only messages', () => {
@@ -155,15 +156,22 @@ describe('small helpers', () => {
 
 describe('ScheduleView', () => {
   const config: AppointmentConfig = { services: [], staff: [], locations: [], offerings: [] };
-  const render = (manage: boolean) => renderToStaticMarkup(
+  const render = (manage: boolean, view: 'today' | 'week' | 'list' = 'today') => renderToStaticMarkup(
     <NextIntlClientProvider locale="en" messages={en} timeZone="UTC">
-      <ScheduleView config={config} abilities={{ manage, settings: false, resolve: false }} onOpen={() => {}} onNew={() => {}} refreshKey={0} />
+      <ConfirmProvider>
+        <ScheduleView config={config} abilities={{ manage, settings: false, resolve: false }} onOpen={() => {}} onNew={() => {}} refreshKey={0}
+          view={view} onViewChange={() => {}} onChanged={() => {}} />
+      </ConfirmProvider>
     </NextIntlClientProvider>,
   );
 
-  it('offers "New appointment" only to members who can manage appointments', () => {
-    expect(render(false)).not.toContain('New appointment');
-    expect(render(true)).toContain('New appointment');
+  it('shows the Today, Week and List views with the chosen one selected, and a skeleton while loading', () => {
+    const html = render(true, 'list');
+    for (const label of ['Today', 'Week', 'List']) expect(html).toContain(label);
+    const radios = [...html.matchAll(/<button[^>]*role="radio"[^>]*>[\s\S]*?<\/button>/g)].map((m) => m[0]);
+    expect(radios.find((s) => s.includes('>List<'))).toContain('aria-checked="true"');
+    expect(radios.find((s) => s.includes('>Today<'))).toContain('aria-checked="false"');
+    expect(html).not.toContain('animate-spin');
   });
 });
 

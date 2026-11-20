@@ -933,7 +933,7 @@ function InboxViewInner({ scope }: { scope: InboxScope }) {
   return (
     <div
       data-inbox-scope={scope}
-      className="studio-inbox bg-card -m-4 flex h-[calc(100vh-3.5rem)] flex-col overflow-hidden sm:-m-6"
+      className="studio-inbox bg-card -m-4 flex h-[calc(100dvh-3.5rem)] flex-col overflow-hidden sm:-m-6"
     >
       {statusBanners.map((state) => (
         <div key={state.channel} className="shrink-0 border-b border-amber-500/20 [&>div]:mb-0 [&>div]:rounded-none [&>div]:border-0">

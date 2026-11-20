@@ -4,6 +4,7 @@ import {
   mergeConsecutive,
   normalizeUsage,
   providerHttpError,
+  fetchWithRetry,
   toNetworkError,
   type ProviderArgs,
 } from './shared'
@@ -114,7 +115,7 @@ export async function generateOpenAiCompatible(
 
   let res: Response
   try {
-    res = await fetch(endpoint, {
+    res = await fetchWithRetry(endpoint, {
       method: 'POST',
       redirect: 'manual',
       headers: {
@@ -129,8 +130,7 @@ export async function generateOpenAiCompatible(
         // on extensive reasoning. Other compatible APIs retain their payload.
         ...(isOpenRouterBaseUrl(baseUrl) ? { reasoning: { effort: 'low', exclude: true } } : {}),
       }),
-      signal: AbortSignal.timeout(timeoutMs),
-    })
+    }, timeoutMs)
   } catch (err) {
     throw toNetworkError(err)
   }

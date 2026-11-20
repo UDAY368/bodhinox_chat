@@ -27,6 +27,8 @@ import { useCan } from '@/hooks/use-can';
 import { useWorkspaceChannels } from '@/hooks/use-workspace-channels';
 import type { Tag } from '@/types';
 import { ContactsHeader } from './contacts-header';
+import { EmptyState } from '@/components/ui/empty-state';
+import { PageLoading } from '@/components/ui/page-loading';
 import { downloadContactsCsv, useCustomFields } from './contacts-client';
 import { formatDay } from './format';
 import { SegmentBuilderDialog } from './segment-builder-dialog';
@@ -60,7 +62,6 @@ export function SegmentsTab() {
   const [editing, setEditing] = useState<SegmentSummary | null>(null);
   const [deleting, setDeleting] = useState<SegmentCard | null>(null);
   const [busy, setBusy] = useState(false);
-  const [refreshKey, setRefreshKey] = useState(0);
 
   const load = useCallback(async () => {
     const res = await authFetch('/api/segments/overview', { cache: 'no-store' }).catch(() => null);
@@ -92,7 +93,6 @@ export function SegmentsTab() {
   }, [db, load]);
 
   function changed() {
-    setRefreshKey((k) => k + 1);
     void load();
   }
 
@@ -199,10 +199,7 @@ export function SegmentsTab() {
   return (
     <div className="min-w-0 space-y-5">
       <ContactsHeader
-        tab="segments"
-        refreshKey={refreshKey}
-        known={{ segments: cards ? cards.length : null }}
-        actions={canEdit && (
+        primaryAction={canEdit && (
           <Button onClick={() => { setEditing(null); setBuilderOpen(true); }}>
             <Plus className="size-4" />
             {ts('newTitle')}
@@ -211,19 +208,20 @@ export function SegmentsTab() {
       />
 
       {cards === null ? (
-        <div className="flex justify-center py-16"><Loader2 className="size-5 animate-spin text-muted-foreground" aria-label={t('loading')} /></div>
+        <PageLoading rows={4} />
       ) : cards.length === 0 ? (
-        <div className="flex flex-col items-center gap-3 rounded-2xl border border-border bg-card px-6 py-16 text-center">
-          <span className="flex size-12 items-center justify-center rounded-xl bg-muted text-muted-foreground"><Filter className="size-5" /></span>
-          <h2 className="text-base font-semibold text-foreground">{t('segmentsTab.emptyTitle')}</h2>
-          <p className="max-w-sm text-sm text-muted-foreground">{t('segmentsTab.emptyText')}</p>
-          {canEdit && (
+        <EmptyState
+          icon={Filter}
+          title={t('segmentsTab.emptyTitle')}
+          body={t('segmentsTab.emptyText')}
+          className="rounded-group border border-border bg-card py-16"
+          action={canEdit && (
             <Button variant="outline" onClick={() => { setEditing(null); setBuilderOpen(true); }}>
               <Plus className="size-4" />
               {ts('newTitle')}
             </Button>
           )}
-        </div>
+        />
       ) : (
         <>
           <p className="text-[13px] text-muted-foreground">{t('segmentsTab.hint')}</p>

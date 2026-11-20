@@ -34,8 +34,16 @@ describe('agents tab', () => {
     const result = formToBody({ ...form, channels: [...form.channels], mode: 'during', from: '09:00', to: '17:00' }, { isDefault: false, takenNames: [] })
     expect(result).toEqual({ ok: true, body: expect.objectContaining({
       name: 'New agent', channels: ['whatsapp', 'instagram'], hours: { mode: 'during', from: '09:00', to: '17:00' },
-      handoff_rules: { keywords: ['refund', 'human'], max_turns_before_handoff: 6, on_low_confidence: true },
+      handoff_rules: { keywords: ['refund', 'human'], max_turns_before_handoff: 6, on_low_confidence: true, on_no_knowledge: false },
     }) })
+  })
+
+  it('carries the no-knowledge switch (off for a new agent)', () => {
+    expect(formFrom(null).noKnowledge).toBe(false)
+    const form = formFrom(view({ handoff_rules: { keywords: [], on_low_confidence: true, confidence_threshold: 0.5, on_no_knowledge: true, max_turns_before_handoff: 6 } }))
+    expect(form.noKnowledge).toBe(true)
+    const result = formToBody({ ...form, noKnowledge: false }, { isDefault: false, takenNames: [] })
+    expect(result.ok && (result.body.handoff_rules as { on_no_knowledge: boolean }).on_no_knowledge).toBe(false)
   })
 
   it('reports every invalid field', () => {

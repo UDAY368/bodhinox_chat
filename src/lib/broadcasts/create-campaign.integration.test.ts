@@ -122,6 +122,29 @@ describe.skipIf(!ownerUrl||!workerUrl)('atomic authenticated campaign creation',
     expect((await owner.query('SELECT count(*)::int AS count FROM broadcasts WHERE account_id=$1 AND name=$2',[accountId,input.name])).rows[0].count).toBe(0);
   });
 
+  it('returns the campaign already created for a repeated client request id, once per workspace',async()=>{
+    const clientRequestId=randomUUID(),input={...payload(),clientRequestId,audience:{type:'tags' as const,tagIds:[tagId]}};
+    const first=await createCampaign(scope,input);
+    expect(first.duplicate).toBeUndefined();
+    // A retry (even under another name) answers with the first campaign.
+    expect(await createCampaign(scope,{...input,name:'Second tab'})).toEqual({id:first.id,duplicate:true});
+    // Two concurrent submits with a new id: one creates, the other waits on the unique index and gets that campaign.
+    const raceId=randomUUID();
+    const racing=await Promise.all([createCampaign(scope,{...input,clientRequestId:raceId}),createCampaign(scope,{...input,clientRequestId:raceId})]);
+    expect(racing[0].id).toBe(racing[1].id);
+    expect(racing.filter((r)=>r.duplicate).length).toBe(1);
+    expect((await owner.query('SELECT count(*)::int AS count FROM broadcasts WHERE account_id=$1 AND client_request_id=$2',[accountId,raceId])).rows[0].count).toBe(1);
+    expect((await owner.query('SELECT count(*)::int AS count FROM broadcasts WHERE account_id=$1 AND client_request_id=$2',[accountId,clientRequestId])).rows[0].count).toBe(1);
+    expect((await owner.query('SELECT count(*)::int AS count FROM jobs WHERE dedupe_key=$1',[`broadcast:${first.id}:initial`])).rows[0].count).toBe(1);
+    // Another workspace may use the same id: the index is per account, and it never sees the first campaign.
+    const otherContact=randomUUID();
+    await owner.query("INSERT INTO contacts(id,account_id,user_id,name,phone) VALUES($1,$2,$3,'Other','14155550177')",[otherContact,otherAccountId,userId]);
+    const other=await createCampaign({accountId:otherAccountId,userId,role:'owner'},{name:'Other workspace',templateId:foreignTemplateId,audience:{type:'all'},variables:{},clientRequestId});
+    expect(other.id).not.toBe(first.id);
+    expect(other.duplicate).toBeUndefined();
+    expect((await owner.query('SELECT account_id FROM broadcasts WHERE client_request_id=$1 ORDER BY account_id',[clientRequestId])).rows.map((r:{account_id:string})=>r.account_id).sort()).toEqual([accountId,otherAccountId].sort());
+  });
+
   it('rolls back CSV contacts, campaign, recipients and outbox if initial job persistence fails',async()=>{
     const input=payload(),phone=`+1${String(Date.now()+1000).slice(-10)}`;
     const suffix=randomUUID().replaceAll('-',''),functionName=`campaign_job_fail_${suffix}`,triggerName=`campaign_job_fail_${suffix}`;

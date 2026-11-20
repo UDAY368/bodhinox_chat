@@ -1,10 +1,10 @@
 'use client';
 
 /**
- * The sidebar: eight sections (Inbox, Contacts, Automation, Campaigns, Sales, AI, Analytics,
- * Settings). Each section's pages appear as tabs above the page (SectionTabs), so the sidebar
- * stays short. Light, quiet, Apple-style; collapses to an icon rail on desktop and is a
- * drawer on phones.
+ * The sidebar: Home, Inbox and Contacts on top, then quiet groups (Grow: Automation, Campaigns,
+ * AI; Sell: Sales, Products, Store; Insights: Analytics), Settings at the bottom. Each section's
+ * pages appear as tabs above the page (SectionTabs), so the sidebar stays short. See-through,
+ * Apple-style; collapses to an icon rail on desktop and is a drawer on phones.
  */
 
 import Link from 'next/link';
@@ -15,22 +15,26 @@ import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/use-auth';
 import { useCan } from '@/hooks/use-can';
 import { useTotalUnread } from '@/hooks/use-total-unread';
+import { useUnreadBookingNotifications } from '@/hooks/use-unread-notifications';
 import { useWorkspaceChannels } from '@/hooks/use-workspace-channels';
 import { CHANNELS_SETTINGS_PATH } from '@/lib/channels/routes';
 import { addChannelPrompt } from '@/components/layout/page-search-navigation';
-import { buildSections, sectionFor, type Section, type SectionId } from '@/components/layout/sections';
+import { buildSections, sectionFor, sidebarGroups, type Section, type SectionId } from '@/components/layout/sections';
 import {
   BarChart3,
   Crown,
+  House,
   LogOut,
   MessageSquare,
   Megaphone,
+  Package,
   PanelLeftClose,
   PanelLeftOpen,
   Plus,
   Settings,
   Shield,
   ShoppingBag,
+  Store,
   User,
   UserCog,
   Users,
@@ -60,11 +64,15 @@ const brandSrcSet = (name: string) =>
   `/brand/${name}@1x.webp 1x, /brand/${name}@2x.webp 2x, /brand/${name}@3x.webp 3x`;
 
 const SECTION_ICONS: Record<SectionId, typeof MessageSquare> = {
+  home: House,
   inbox: MessageSquare,
   contacts: Users,
   automation: Workflow,
   campaigns: Megaphone,
   sales: ShoppingBag,
+  products: Package,
+  store: Store,
+  // Drawn with KhagaIcon instead.
   ai: MessageSquare,
   analytics: BarChart3,
   settings: Settings,
@@ -84,13 +92,14 @@ export function Sidebar({ open = false, onClose, compact = false, onToggleCompac
   const pathname = usePathname();
   const { profile, account, accountRole, signOut } = useAuth();
   const unread = useTotalUnread();
+  const bookingAlerts = useUnreadBookingNotifications();
   const { data: channels } = useWorkspaceChannels();
   const isAdmin = useCan('edit-settings');
   // Until the channel state loads (or if it cannot), the sections assume WhatsApp, the no-row default.
   const sections = buildSections(channels?.enabled);
   const current = sectionFor(pathname, sections);
   const addChannel = addChannelPrompt(channels, isAdmin);
-  const main = sections.filter((s) => s.id !== 'settings');
+  const groups = sidebarGroups(sections);
   const settings = sections.find((s) => s.id === 'settings')!;
 
   // Close the drawer when the route changes: the user opened it to navigate.
@@ -131,7 +140,7 @@ export function Sidebar({ open = false, onClose, compact = false, onToggleCompac
 
       <aside
         className={cn(
-          'studio-sidebar bg-sidebar text-sidebar-foreground fixed inset-y-0 left-0 z-40 flex h-full w-64 shrink-0 flex-col',
+          'studio-sidebar material-chrome bg-sidebar text-sidebar-foreground fixed inset-y-0 left-0 z-40 flex h-full w-64 shrink-0 flex-col',
           compact && 'studio-sidebar-compact',
           'transition-transform duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)] will-change-transform',
           open ? 'visible translate-x-0 shadow-2xl' : 'invisible -translate-x-full',
@@ -161,12 +170,21 @@ export function Sidebar({ open = false, onClose, compact = false, onToggleCompac
         </div>
 
         <nav className="flex-1 overflow-y-auto px-3 pb-3">
-          <ul className="flex flex-col gap-0.5">
-            {main.map((section) => (
-              <SectionLink key={section.id} section={section} active={current?.id === section.id}
-                unread={section.unread ? unread[section.unread] : 0} />
-            ))}
-          </ul>
+          {/* Group labels are direct <p> children of the nav: the icon rail hides them. */}
+          {groups.map((group) => [
+            group.labelKey && (
+              <p key={`${group.labelKey}-label`} data-nav-group={group.labelKey}
+                className="text-muted-foreground/80 mt-4 mb-1 px-3 text-[11px] font-semibold tracking-[0.02em]">
+                {t(group.labelKey)}
+              </p>
+            ),
+            <ul key={group.labelKey ?? 'top'} className="flex flex-col gap-0.5">
+              {group.sections.map((section) => (
+                <SectionLink key={section.id} section={section} active={current?.id === section.id}
+                  unread={section.unread ? unread[section.unread] : 0} attention={section.id === 'sales' && bookingAlerts > 0} />
+              ))}
+            </ul>,
+          ])}
           {addChannel && (
             <Link
               href={CHANNELS_SETTINGS_PATH}

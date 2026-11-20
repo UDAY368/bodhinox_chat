@@ -13,6 +13,7 @@ const h = vi.hoisted(() => ({
   conversationNumberDisconnected: vi.fn(),
   dispatchOnce: vi.fn(),
   reserveAi: vi.fn(),
+  releaseAi: vi.fn(),
   settleAi: vi.fn(),
   failAi: vi.fn(),
   recordUnanswered: vi.fn(),
@@ -38,7 +39,11 @@ vi.mock('@/lib/db/tenant', () => ({
   withTenant: (_ctx: unknown, fn: (tx: unknown) => unknown) => fn({ $queryRaw: async () => h.intents }),
 }))
 vi.mock('@/lib/db/prisma', () => ({ getWorkerPrisma: () => ({ worker: true }) }))
-vi.mock('./budget', () => ({ reserveAi: h.reserveAi, settleAi: h.settleAi, failAi: h.failAi, chatTokenEstimate: () => 50 }))
+vi.mock('./budget', async () => {
+  const { PlanLimitError } = await import('@/lib/billing/entitlements')
+  class AiWorkspaceCapError extends PlanLimitError { constructor() { super('cap reached') } }
+  return { reserveAi: h.reserveAi, releaseAi: h.releaseAi, settleAi: h.settleAi, failAi: h.failAi, chatTokenEstimate: () => 50, AiWorkspaceCapError }
+})
 vi.mock('@/lib/flows/meta-send', () => ({
   engineSendText: h.engineSendText,
   conversationNumberDisconnected: h.conversationNumberDisconnected,
@@ -48,7 +53,7 @@ vi.mock('@/lib/jobs/dispatch', () => ({ dispatchOnce: h.dispatchOnce }))
 import { PlanLimitError } from '@/lib/billing/entitlements'
 import { __resetRateLimitForTests } from '@/lib/rate-limit'
 import { NO_ANSWER_SENTINEL } from './confidence'
-import { emptyAgentProfile } from './agent-profile'
+import { DEFAULT_HANDOFF_RULES, emptyAgentProfile } from './agent-profile'
 import { runFlowAiReply, stepThreshold, withStepInstructions, type RunFlowAiReplyArgs } from './flow-reply'
 
 const ACCOUNT = 'acct-1'
@@ -123,7 +128,7 @@ describe('runFlowAiReply', () => {
     }))
     expect(h.rpc).toHaveBeenCalledWith('claim_ai_reply_slot', { conversation_id: 'cv-1', max_replies: 5 })
     // The turn's intent key is its metering source event: a retried turn never meters twice.
-    expect(h.reserveAi).toHaveBeenCalledWith(ACCOUNT, 'flow:run-1:ask_ai:0:0', { message: true, tokens: 50 }, expect.anything())
+    expect(h.reserveAi).toHaveBeenCalledWith(ACCOUNT, 'flow:run-1:ask_ai:0:0', { message: true, tokens: 50, workspaceCap: true }, expect.anything())
     expect(h.settleAi).toHaveBeenCalledTimes(1)
     expect(h.settleAi).toHaveBeenCalledWith({ reservation: true }, expect.objectContaining({ tokens: 15, log: expect.objectContaining({ mode: 'auto_reply' }) }))
     // Step instructions sit inside the operator block; knowledge is quoted as untrusted and defused.
@@ -156,9 +161,26 @@ describe('runFlowAiReply', () => {
   })
 
   it('hands off on a handoff keyword before calling the model', async () => {
-    h.profile = { ...emptyAgentProfile(), handoff_rules: { keywords: ['sunday'], on_low_confidence: true, confidence_threshold: 0.35, max_turns_before_handoff: 0 } }
+    h.profile = { ...emptyAgentProfile(), handoff_rules: { keywords: ['sunday'], on_low_confidence: true, confidence_threshold: 0.35, on_no_knowledge: false, max_turns_before_handoff: 0 } }
     expect(await runFlowAiReply(args())).toMatchObject({ kind: 'handoff', reason: 'keyword' })
     expect(h.generateOpenAi).not.toHaveBeenCalled()
+  })
+
+  it('hands off without calling the model when nothing in knowledge matched and the switch is on', async () => {
+    h.profile = { ...emptyAgentProfile(), handoff_rules: { ...DEFAULT_HANDOFF_RULES, on_no_knowledge: true } }
+    h.rpc.mockImplementation(async () => ({ data: [], error: null }))
+    expect(await runFlowAiReply(args())).toEqual({ kind: 'handoff', reason: 'no_knowledge', score: 0, citations: [] })
+    expect(h.generateOpenAi).not.toHaveBeenCalled()
+    expect(h.releaseAi).toHaveBeenCalledWith({ reservation: true })
+    expect(h.settleAi).not.toHaveBeenCalled()
+    expect(h.recordUnanswered).toHaveBeenCalledTimes(1)
+    expect(h.engineSendText).not.toHaveBeenCalled()
+  })
+
+  it('answers from matched knowledge with the no-knowledge switch on', async () => {
+    h.profile = { ...emptyAgentProfile(), handoff_rules: { ...DEFAULT_HANDOFF_RULES, on_no_knowledge: true } }
+    expect(await runFlowAiReply(args())).toMatchObject({ kind: 'answered' })
+    expect(h.releaseAi).not.toHaveBeenCalled()
   })
 
   it('routes a health question to staff before calling the model', async () => {
@@ -248,8 +270,12 @@ describe('runFlowAiReply', () => {
     ['reply_cap', () => { h.tables.conversations[0].ai_reply_count = 5 }],
     ['no_question', () => h.buildConversationContext.mockResolvedValue([])],
     ['plan_limit', () => h.reserveAi.mockRejectedValue(new PlanLimitError('used up'))],
+    ['workspace_ai_cap', async () => {
+      const { AiWorkspaceCapError } = await import('./budget')
+      h.reserveAi.mockRejectedValue(new AiWorkspaceCapError())
+    }],
   ])('is unavailable without calling the model: %s', async (reason, arrange) => {
-    arrange()
+    await arrange()
     expect(await runFlowAiReply(args())).toEqual({ kind: 'unavailable', reason })
     expect(h.generateOpenAi).not.toHaveBeenCalled()
     expect(h.engineSendText).not.toHaveBeenCalled()
