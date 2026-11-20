@@ -1,6 +1,7 @@
 import { getAuthPrisma } from '@/lib/db/prisma';
 import { AuthError } from './errors';
 import type { AuthContext } from './session';
+import { forgetCachedSessions } from './session-cache';
 import { parseUserAgent, storableUserAgent, type DeviceInfo } from './user-agent';
 
 export interface DeviceSession extends DeviceInfo {
@@ -56,13 +57,16 @@ export async function revokeDeviceSession(
   const count = await getAuthPrisma().$executeRaw`
     UPDATE auth_sessions SET revoked_at=NOW()
     WHERE id=${sessionId}::uuid AND user_id=${context.userId}::uuid AND revoked_at IS NULL`;
+  forgetCachedSessions({ userId: context.userId, sessionId });
   return count > 0;
 }
 
 export async function revokeOtherDeviceSessions(
   context: Pick<AuthContext, 'userId' | 'sessionId'>
 ): Promise<number> {
-  return getAuthPrisma().$executeRaw`
+  const count = await getAuthPrisma().$executeRaw`
     UPDATE auth_sessions SET revoked_at=NOW()
     WHERE user_id=${context.userId}::uuid AND id<>${context.sessionId}::uuid AND revoked_at IS NULL`;
+  forgetCachedSessions({ userId: context.userId });
+  return count;
 }

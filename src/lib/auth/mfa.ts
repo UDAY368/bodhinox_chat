@@ -10,6 +10,7 @@ import { hashToken } from './csrf';
 import { AuthError } from './errors';
 import type { AuthTransaction } from './service';
 import type { AuthContext } from './session';
+import { forgetCachedSessions } from './session-cache';
 import { verifyPassword } from './password';
 
 function key(): Buffer {
@@ -192,6 +193,7 @@ export async function verifyMfaEnrollment(
     await consumeCode(tx, rows[0], code);
     await tx.$executeRaw`UPDATE auth_mfa_factors SET verified_at=NOW(),recovery_hashes=${codes.map(hashToken)}::text[] WHERE id=${rows[0].id}::uuid`;
     await tx.$executeRaw`UPDATE auth_sessions SET revoked_at=COALESCE(revoked_at,NOW()) WHERE user_id=${context.userId}::uuid AND id<>${context.sessionId}::uuid`;
+    forgetCachedSessions({ userId: context.userId });
     await tx.$executeRaw`UPDATE auth_sessions SET mfa_verified_at=NOW() WHERE id=${context.sessionId}::uuid AND revoked_at IS NULL`;
   });
   return codes;
@@ -207,6 +209,7 @@ export async function disableMfa(
       throw new AuthError('MFA is not enabled', 400);
     await tx.$executeRaw`DELETE FROM auth_mfa_factors WHERE user_id=${context.userId}::uuid`;
     await tx.$executeRaw`UPDATE auth_sessions SET revoked_at=COALESCE(revoked_at,NOW()) WHERE user_id=${context.userId}::uuid`;
+    forgetCachedSessions({ userId: context.userId });
   });
 }
 export async function getMfaStatus(context: AuthContext): Promise<boolean> {

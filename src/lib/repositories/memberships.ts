@@ -1,6 +1,7 @@
 import { getAuthPrisma } from '@/lib/db/prisma';
 import { ContractError } from '@/lib/data/contracts';
 import type { AccountRole } from '@/lib/auth/roles';
+import { forgetCachedSessions } from '@/lib/auth/session-cache';
 import type {
   QueryResult,
   Row,
@@ -71,6 +72,8 @@ export async function leaveAccount(context: {
       context.userId,
       context.sessionId
     );
+    // This process drops the cached sessions at once (the current one moves workspace below).
+    forgetCachedSessions({ userId: context.userId, accountId: context.accountId });
     const moved = await tx.$executeRawUnsafe(
       'UPDATE auth_sessions SET account_id=$1::uuid WHERE id=$2::uuid AND user_id=$3::uuid AND account_id=$4::uuid AND revoked_at IS NULL',
       next,
@@ -243,12 +246,15 @@ export async function executeMembershipRpc(
       context.accountId,
       targetId
     );
-    if (operation === 'transfer')
+    forgetCachedSessions({ userId: targetId, accountId: context.accountId });
+    if (operation === 'transfer') {
       await tx.$executeRawUnsafe(
         'UPDATE auth_sessions SET revoked_at=NOW() WHERE account_id=$1::uuid AND user_id=$2::uuid AND revoked_at IS NULL',
         context.accountId,
         context.userId
       );
+      forgetCachedSessions({ userId: context.userId, accountId: context.accountId });
+    }
     await tx.$executeRawUnsafe(
       'INSERT INTO audit_logs(account_id,user_id,action,resource_id,metadata) VALUES($1::uuid,$2::uuid,$3,$4::uuid,$5::jsonb)',
       context.accountId,
