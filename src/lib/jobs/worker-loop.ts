@@ -160,7 +160,9 @@ export async function runWorkerLoop(options: WorkerLoopOptions): Promise<WorkerL
     if (!options.lanes && lanes.length > 1) {
       const needed = workerConnections(laneSlots());
       const pool = Number(process.env.DB_POOL_SIZE || '10');
-      if (needed > pool) console.error('[worker] lane slots may need more connections than DB_POOL_SIZE', { needed, pool });
+      // The scheduler and the heartbeat hold a connection only briefly; the slots must fit on their own.
+      if (needed - 2 > pool) console.error('[worker] lane slots need more connections than DB_POOL_SIZE', { needed, pool });
+      else if (needed > pool) console.warn('[worker] lane slots leave no spare connection for the scheduler and heartbeat', { needed, pool });
     }
     // A scheduling pass in flight shares the same drain bound as the jobs (measured from the abort,
     // not after the slots), and counts toward `drained`: the caller must not wait on the pool for it.

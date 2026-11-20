@@ -63,12 +63,23 @@ function slotCount(raw: string | undefined, fallback: number): number {
   return value >= 1 && value <= MAX_LANE_SLOTS ? value : fallback;
 }
 
-/** WORKER_INBOUND_SLOTS, WORKER_TIMER_SLOTS and WORKER_BULK_SLOTS: integers 1 to 8, defaults 2, 1 and 2. */
+/** One slot per lane: what a worker with a small DB_POOL_SIZE runs when no slot count is set. */
+export const SMALL_POOL_LANE_SLOTS: LaneSlots = { inbound: 1, timers: 1, bulk: 1 };
+
+/**
+ * WORKER_INBOUND_SLOTS, WORKER_TIMER_SLOTS and WORKER_BULK_SLOTS: integers 1 to 8, defaults 2, 1 and 2.
+ * When none is set and DB_POOL_SIZE (default 10) is smaller than the defaults need, one slot per lane,
+ * so the slots never wait on the pool for connections they cannot get.
+ */
 export function laneSlots(env: Record<string, string | undefined> = process.env): LaneSlots {
+  const explicit = [env.WORKER_INBOUND_SLOTS, env.WORKER_TIMER_SLOTS, env.WORKER_BULK_SLOTS].some((v) => v?.trim());
+  const pool = Number(env.DB_POOL_SIZE || '10');
+  const defaults = !explicit && Number.isFinite(pool) && pool < workerConnections(DEFAULT_LANE_SLOTS)
+    ? SMALL_POOL_LANE_SLOTS : DEFAULT_LANE_SLOTS;
   return {
-    inbound: slotCount(env.WORKER_INBOUND_SLOTS, DEFAULT_LANE_SLOTS.inbound),
-    timers: slotCount(env.WORKER_TIMER_SLOTS, DEFAULT_LANE_SLOTS.timers),
-    bulk: slotCount(env.WORKER_BULK_SLOTS, DEFAULT_LANE_SLOTS.bulk),
+    inbound: slotCount(env.WORKER_INBOUND_SLOTS, defaults.inbound),
+    timers: slotCount(env.WORKER_TIMER_SLOTS, defaults.timers),
+    bulk: slotCount(env.WORKER_BULK_SLOTS, defaults.bulk),
   };
 }
 
