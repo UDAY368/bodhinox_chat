@@ -265,14 +265,18 @@ function OrdersTab({ reloadKey, onOpenOrder, onNewOrder, onQueryChange }: {
             placeholder={t("searchPlaceholder")} aria-label={t("searchPlaceholder")} className="min-h-11 pl-8 sm:min-h-9" maxLength={100} />
         </div>
         <Select value={status || ALL} onValueChange={(v) => setStatus(v === ALL ? "" : (v as OrderStatus))}>
-          <SelectTrigger className="min-h-11 w-44 max-w-full sm:min-h-9" aria-label={t("filterStatus")}><SelectValue /></SelectTrigger>
+          <SelectTrigger className="min-h-11 w-44 max-w-full sm:min-h-9" aria-label={t("filterStatus")}>
+            <SelectValue>{(v: string) => (v === ALL ? t("allStatuses") : tStatus(v as OrderStatus))}</SelectValue>
+          </SelectTrigger>
           <SelectContent>
             <SelectItem value={ALL}>{t("allStatuses")}</SelectItem>
             {ORDER_STATUSES.map((s) => <SelectItem key={s} value={s}>{tStatus(s)}</SelectItem>)}
           </SelectContent>
         </Select>
         <Select value={payment || ALL} onValueChange={(v) => setPayment(v === ALL ? "" : (v as PaymentFilter | typeof CASH_DUE))}>
-          <SelectTrigger className="min-h-11 w-48 max-w-full sm:min-h-9" aria-label={tl("filterPayment")}><SelectValue /></SelectTrigger>
+          <SelectTrigger className="min-h-11 w-48 max-w-full sm:min-h-9" aria-label={tl("filterPayment")}>
+            <SelectValue>{(v: string) => (v === ALL ? tl("allPayments") : tl(`payment.${v as PaymentFilter | typeof CASH_DUE}`))}</SelectValue>
+          </SelectTrigger>
           <SelectContent>
             <SelectItem value={ALL}>{tl("allPayments")}</SelectItem>
             {PAYMENT_FILTERS.map((p) => <SelectItem key={p} value={p}>{tl(`payment.${p}`)}</SelectItem>)}
@@ -281,7 +285,9 @@ function OrdersTab({ reloadKey, onOpenOrder, onNewOrder, onQueryChange }: {
           </SelectContent>
         </Select>
         <Select value={datePreset} onValueChange={(v) => setDatePreset(v as DatePreset)}>
-          <SelectTrigger className="min-h-11 w-40 max-w-full sm:min-h-9" aria-label={tl("filterDate")}><SelectValue /></SelectTrigger>
+          <SelectTrigger className="min-h-11 w-40 max-w-full sm:min-h-9" aria-label={tl("filterDate")}>
+            <SelectValue>{(v: string) => tl(`date.${v as DatePreset}`)}</SelectValue>
+          </SelectTrigger>
           <SelectContent>
             {DATE_PRESETS.map((p) => <SelectItem key={p} value={p}>{tl(`date.${p}`)}</SelectItem>)}
           </SelectContent>
@@ -295,14 +301,18 @@ function OrdersTab({ reloadKey, onOpenOrder, onNewOrder, onQueryChange }: {
           </>
         )}
         <Select value={source || ALL} onValueChange={(v) => setSource(v === ALL ? "" : (v as OrderSource))}>
-          <SelectTrigger className="min-h-11 w-40 max-w-full sm:min-h-9" aria-label={t("filterSource")}><SelectValue /></SelectTrigger>
+          <SelectTrigger className="min-h-11 w-40 max-w-full sm:min-h-9" aria-label={t("filterSource")}>
+            <SelectValue>{(v: string) => (v === ALL ? t("allSources") : tSource(v as OrderSource))}</SelectValue>
+          </SelectTrigger>
           <SelectContent>
             <SelectItem value={ALL}>{t("allSources")}</SelectItem>
             {ORDER_SOURCES.map((s) => <SelectItem key={s} value={s}>{tSource(s)}</SelectItem>)}
           </SelectContent>
         </Select>
         <Select value={codConfirmation || ALL} onValueChange={(v) => setCodConfirmation(v === ALL ? "" : (v as "pending" | "declined"))}>
-          <SelectTrigger className="min-h-11 w-48 max-w-full sm:min-h-9" aria-label={t("filterCodConfirmation")}><SelectValue /></SelectTrigger>
+          <SelectTrigger className="min-h-11 w-48 max-w-full sm:min-h-9" aria-label={t("filterCodConfirmation")}>
+            <SelectValue>{(v: string) => (v === ALL ? t("allCodConfirmations") : t(`cod.confirmation.${v as "pending" | "declined"}`))}</SelectValue>
+          </SelectTrigger>
           <SelectContent>
             <SelectItem value={ALL}>{t("allCodConfirmations")}</SelectItem>
             <SelectItem value="pending">{t("cod.confirmation.pending")}</SelectItem>

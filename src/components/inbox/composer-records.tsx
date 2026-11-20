@@ -13,6 +13,7 @@ import { DropdownMenuItem, DropdownMenuSeparator } from "@/components/ui/dropdow
 import { NewOrderDialog } from "@/components/commerce/orders/new-order-dialog";
 import { NewDealSheet } from "@/components/pipelines/new-deal-sheet";
 import { useNewBookingDialog } from "@/components/appointments/contact-appointments-card";
+import { announceContactRecordsChanged } from "@/lib/inbox/panel-reload";
 
 export type ComposerRecord = "order" | "quote" | "deal" | "booking";
 export interface ComposerContact {
@@ -54,7 +55,11 @@ export function ComposerRecordDialogs({ open, contact, onClose }: {
 }) {
   const defaultContact = { id: contact.id, name: contact.name ?? null, phone: contact.phone ?? null };
   // The booking dialog (batch 3) owns its own open state; the menu choice just opens it.
-  const booking = useNewBookingDialog({ id: contact.id, name: contact.name ?? null });
+  const created = () => {
+    announceContactRecordsChanged(contact.id);
+    onClose();
+  };
+  const booking = useNewBookingDialog({ id: contact.id, name: contact.name ?? null }, () => announceContactRecordsChanged(contact.id));
   const openBooking = booking.open;
   useEffect(() => {
     if (open !== "booking") return;
@@ -68,13 +73,13 @@ export function ComposerRecordDialogs({ open, contact, onClose }: {
         mode={open === "quote" ? "quote" : "order"}
         defaultContact={defaultContact}
         onOpenChange={(value) => !value && onClose()}
-        onCreated={() => onClose()}
+        onCreated={created}
       />
       <NewDealSheet
         open={open === "deal"}
         defaultContact={defaultContact}
         onOpenChange={(value) => !value && onClose()}
-        onSaved={() => onClose()}
+        onSaved={created}
       />
       {booking.dialog}
     </>

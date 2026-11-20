@@ -6,6 +6,7 @@
 // Labels, Messaging consent per channel (plus Instagram identities), the
 // contact's Conversations, Orders and Deals. Keeps every capability of the old
 // side panel: consent, erase, send a template, deals, tags, notes, custom fields.
+import { orderRef } from '@/lib/commerce/order-state';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -799,7 +800,7 @@ export function ContactProfile({ contactId }: { contactId: string }) {
                   <li key={o.id}>
                     <Link href={`/commerce/orders/${o.id}`} className="flex items-center gap-2.5 rounded-lg p-2 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50">
                       <span className="min-w-0 flex-1">
-                        <strong className="block truncate text-[13px] font-semibold text-foreground">{t('profile.orderName', { ref: o.external_id || o.id.slice(0, 8) })}</strong>
+                        <strong className="block truncate text-[13px] font-semibold text-foreground">{t('profile.orderName', { ref: orderRef(o) })}</strong>
                         <small className="block text-xs text-muted-foreground">{formatDay(o.created_at, locale)} · {o.status}</small>
                       </span>
                       <b className="shrink-0 text-[13px] font-semibold tabular-nums text-foreground">{formatMoney(o.total_minor, o.currency, locale)}</b>

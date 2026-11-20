@@ -57,7 +57,7 @@ export function BulkDispatchSheet({ action, orders, onOpenChange, onDone }: {
 
   return (
     <Sheet open={action !== null} onOpenChange={close}>
-      <SheetContent className="w-full sm:max-w-md">
+      <SheetContent size="md" className="w-full">
         <SheetHeader>
           <SheetTitle>{action === "labels" ? t("labelsTitle") : t("createTitle")}</SheetTitle>
           <SheetDescription>

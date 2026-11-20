@@ -4,6 +4,7 @@
 // a count and "See all" (the contact's profile), every row opening its record.
 // Data comes from GET /api/contacts/[id]/summary in one round trip; orders and
 // payments are null for a viewer, and their blocks are then left out.
+import { orderRef } from '@/lib/commerce/order-state';
 import Link from 'next/link';
 import { useFormatter, useLocale, useTranslations } from 'next-intl';
 import { ChevronRight } from 'lucide-react';
@@ -80,7 +81,7 @@ export function SidebarCommerce({ contactId, summary }: { contactId: string; sum
             <li key={o.id}>
               <Link href={`/commerce/orders/${encodeURIComponent(o.id)}`} className={ROW}>
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate font-medium">{t('orderRef', { ref: o.external_id || o.id.slice(0, 8) })}</span>
+                  <span className="block truncate font-medium">{t('orderRef', { ref: orderRef(o) })}</span>
                   <span className="text-muted-foreground block truncate text-[11px]">
                     {[tOrder.has(o.status) ? tOrder(o.status) : o.status, date(o.created_at)].join(' · ')}
                   </span>

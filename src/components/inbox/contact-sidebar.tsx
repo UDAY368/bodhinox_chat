@@ -21,7 +21,7 @@ import {
   type ContactDetails,
   type WorkspaceLists,
 } from '@/lib/inbox/contact-details';
-import type { PanelChange } from '@/lib/inbox/panel-reload';
+import { CONTACT_RECORDS_CHANGED, type PanelChange } from '@/lib/inbox/panel-reload';
 import type { ContactCommerceSummary } from '@/lib/contacts/commerce-summary';
 import { SidebarCommerce, loadContactSummary } from '@/components/inbox/sidebar-commerce';
 import { contactHandle } from '@/lib/whatsapp/wa-identity';
@@ -154,6 +154,15 @@ export function ContactSidebar({
     if (change.kind === 'contact') void reload();
     else void reloadSummary();
   }, [change, reload, reloadSummary]);
+  // An order, quote, deal or booking made from the composer for this contact.
+  useEffect(() => {
+    if (!contactId) return;
+    const onChanged = (event: Event) => {
+      if ((event as CustomEvent<{ contactId: string }>).detail?.contactId === contactId) void reloadSummary();
+    };
+    window.addEventListener(CONTACT_RECORDS_CHANGED, onChanged);
+    return () => window.removeEventListener(CONTACT_RECORDS_CHANGED, onChanged);
+  }, [contactId, reloadSummary]);
   async function mutate(action: () => Promise<unknown>) {
     if (busy || !canSendMessages) return;
     setBusy(true);

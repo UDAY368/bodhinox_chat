@@ -45,7 +45,6 @@ import {
   X,
   Trash2,
   MessageSquare,
-  DollarSign,
   Link2,
   Loader2,
   Plus,
@@ -53,6 +52,15 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslations } from "next-intl";
+
+/** The symbol shown before the deal value (₹ for INR), from the deal's own currency. */
+function currencySymbol(currency: string): string {
+  try {
+    return new Intl.NumberFormat(undefined, { style: "currency", currency }).formatToParts(0).find((p) => p.type === "currency")?.value ?? currency;
+  } catch {
+    return currency;
+  }
+}
 
 export interface DealContactChoice {
   id: string;
@@ -473,7 +481,7 @@ export function DealForm({
               <div className="grid gap-2">
                 <Label htmlFor="deal-value" className="text-muted-foreground">{t("value")}</Label>
                 <div className="relative">
-                  <DollarSign className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                  <span aria-hidden className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">{currencySymbol(currency)}</span>
                   <Input
                     id="deal-value"
                     type="number"

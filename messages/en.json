@@ -218,7 +218,7 @@
     },
     "quickActions": {
       "newContact": "New Contact",
-      "newDeal": "New Deal",
+      "newDeal": "New deal",
       "newBroadcast": "New Broadcast",
       "newAutomation": "New Automation",
       "instagramHome": "Instagram home"
@@ -2019,7 +2019,7 @@
       "noPipelinesYet": "No pipelines yet",
       "managePipelines": "Manage Pipelines",
       "addPipeline": "Add Pipeline",
-      "addDeal": "Add Deal",
+      "addDeal": "Add deal",
       "createToStartTracking": "Create a pipeline to start tracking deals",
       "createPipeline": "Create Pipeline",
       "newPipeline": "New Pipeline",
@@ -2046,7 +2046,7 @@
     },
     "board": {
       "dropDealHere": "Drop a deal here",
-      "addDeal": "Add Deal",
+      "addDeal": "Add deal",
       "loadMore": "Show {count} more"
     },
     "card": {
@@ -2056,7 +2056,7 @@
     },
     "form": {
       "editDeal": "Edit Deal",
-      "newDeal": "New Deal",
+      "newDeal": "New deal",
       "title": "Title",
       "titlePlaceholder": "Deal title",
       "contact": "Contact",

@@ -38,3 +38,13 @@ export function panelReloadFor(table: string, event: ChangeEvent, contactId: str
       return null;
   }
 }
+
+/**
+ * The composer's + menu created an order, quote, deal or booking for this contact. Orders are not
+ * streamed, so the chat panel listens for this browser event to re-read its records block.
+ */
+export const CONTACT_RECORDS_CHANGED = 'bodhinox:contact-records-changed';
+
+export function announceContactRecordsChanged(contactId: string): void {
+  window.dispatchEvent(new CustomEvent(CONTACT_RECORDS_CHANGED, { detail: { contactId } }));
+}

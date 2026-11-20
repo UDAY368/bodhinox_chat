@@ -43,7 +43,9 @@ export function ReturnsQueue({ onOpenOrder, reloadKey }: { onOpenOrder: (orderId
   return (
     <div className="space-y-4">
       <Select value={status || ALL} onValueChange={(v) => { setStatus(v === ALL ? "" : (v as ReturnQueueFilter)); setPage(0); }}>
-        <SelectTrigger className="min-h-11 w-48 max-w-full sm:min-h-9" aria-label={t("returns.filter")}><SelectValue /></SelectTrigger>
+        <SelectTrigger className="min-h-11 w-48 max-w-full sm:min-h-9" aria-label={t("returns.filter")}>
+          <SelectValue>{(v: string) => (v === ALL ? t("returns.all") : v === "open" ? t("returns.open") : tr(`statuses.${v as Exclude<ReturnQueueFilter, "open">}`))}</SelectValue>
+        </SelectTrigger>
         <SelectContent>
           <SelectItem value={ALL}>{t("returns.all")}</SelectItem>
           {FILTERS.map((f) => <SelectItem key={f} value={f}>{f === "open" ? t("returns.open") : tr(`statuses.${f}`)}</SelectItem>)}

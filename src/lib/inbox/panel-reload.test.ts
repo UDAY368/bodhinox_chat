@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { panelReloadFor } from './panel-reload';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { announceContactRecordsChanged, CONTACT_RECORDS_CHANGED, panelReloadFor } from './panel-reload';
 
 const C = 'contact-1';
 
@@ -32,5 +32,18 @@ describe('chat side panel reload rules', () => {
   it('does nothing without an open contact', () => {
     expect(panelReloadFor('contacts', { new: { id: C }, old: {} }, null)).toBeNull();
     expect(panelReloadFor('deals', { new: { contact_id: undefined }, old: {} }, undefined)).toBeNull();
+  });
+});
+
+describe('records made from the composer', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('tells the open panel which contact got a new order, quote, deal or booking', () => {
+    const target = new EventTarget();
+    vi.stubGlobal('window', target);
+    const seen: unknown[] = [];
+    target.addEventListener(CONTACT_RECORDS_CHANGED, (event) => seen.push((event as CustomEvent).detail));
+    announceContactRecordsChanged(C);
+    expect(seen).toEqual([{ contactId: C }]);
   });
 });

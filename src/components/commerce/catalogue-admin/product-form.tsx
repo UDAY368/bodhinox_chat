@@ -310,7 +310,7 @@ export function ProductSheet({ productId, open, currency, onOpenChange, onSaved 
   return (
     <>
       <Sheet open={open} onOpenChange={(next) => { if (next) onOpenChange(true); else close(); }}>
-        <SheetContent side="right" showCloseButton={false} className="w-full gap-0 p-0 sm:max-w-2xl">
+        <SheetContent side="right" size="lg" showCloseButton={false} className="w-full gap-0 p-0">
           <SheetContext.Provider value>
             {open && (
               <ProductForm key={productId ?? "new"} id={productId} currency={currency} onDirtyChange={setDirty} onClose={close}

@@ -652,7 +652,7 @@ export function OrderSheet({ orderId, open, onOpenChange, onChanged, intent = nu
 }) {
   return (
     <Sheet open={open && orderId !== null} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-full gap-0 overflow-y-auto p-0 sm:max-w-[520px]">
+      <SheetContent side="right" size="lg" className="w-full gap-0 overflow-y-auto p-0">
         {orderId && <OrderView key={orderId} orderId={orderId} onChanged={onChanged} variant="sheet" intent={intent} />}
       </SheetContent>
     </Sheet>
