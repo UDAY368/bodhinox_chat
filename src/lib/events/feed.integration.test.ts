@@ -7,6 +7,7 @@ import { withTenant, type TenantContext } from '@/lib/db/tenant';
 import { emitDomainEvent } from './emit';
 import { listContactEvents } from './store';
 
+// Orders are written by the worker role (the app role may only update a few columns).
 // The event feed on PostgreSQL: the triggers record each business event once, in the
 // transaction of the change, with its events.dispatch job; tenancy holds for reads and writes.
 const configured = config({ path: '.env.test', quiet: true }).parsed;
@@ -55,7 +56,7 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('event feed on PostgreSQL', 
   it('an order records created, paid, shipped and delivered once each, with one dispatch job per event', async () => {
     const orderId = randomUUID();
     await withTenant(asA, (tx) => tx.$executeRaw`INSERT INTO orders(id,account_id,source,contact_id,currency,subtotal_minor,status)
-      VALUES(${orderId}::uuid,${accountA}::uuid,'manual',${contactA}::uuid,'INR',12500,'new')`);
+      VALUES(${orderId}::uuid,${accountA}::uuid,'manual',${contactA}::uuid,'INR',12500,'new')`, getWorkerPrisma());
     for (const status of ['paid', 'dispatched', 'fulfilled'])
       await withTenant(asA, (tx) => tx.$executeRaw`UPDATE orders SET status=${status} WHERE account_id=${accountA}::uuid AND id=${orderId}::uuid`,
         getWorkerPrisma());
@@ -72,7 +73,7 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('event feed on PostgreSQL', 
       await tx.$executeRaw`INSERT INTO orders(id,account_id,source,contact_id,currency,subtotal_minor,status)
         VALUES(${orderId}::uuid,${accountA}::uuid,'manual',${contactA}::uuid,'INR',100,'new')`;
       throw new Error('abort');
-    })).rejects.toThrow('abort');
+    }, getWorkerPrisma())).rejects.toThrow('abort');
     expect(await events(accountA, orderId)).toEqual([]);
   });
 

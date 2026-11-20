@@ -7,6 +7,7 @@ import { withTenant, type TenantContext } from '@/lib/db/tenant';
 import { encrypt } from '@/lib/whatsapp/encryption';
 import { ingestInboundMessage, type IngestInboundInput } from '@/lib/whatsapp/ingest';
 import { UncertainDispatchError } from '@/lib/jobs/dispatch';
+import { handleEventDispatchJob } from '@/lib/events/dispatch';
 import { parseInboundOrder, type OrderMessagePayload } from './order-format';
 import { getOrder, getOrderSettings, listOrders, saveOrderSettings, updateOrder, DEFAULT_ORDER_SETTINGS } from './orders';
 import { sendOrderConfirmation } from './order-confirmation';
@@ -116,7 +117,14 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('orders on PostgreSQL', { ti
     expect((message.interactive_payload.order as OrderMessagePayload).order_id).toBe(orderId);
     expect((await owner.query('SELECT count(*)::int AS n FROM jobs WHERE dedupe_key=$1', [`inbound:${first.messageId}`])).rows[0].n).toBe(1);
 
-    // order.created goes out once, after the commit, for the delivery that created the order; the redelivery adds none.
+    // order.created is recorded once in the event feed, in the transaction that stored the order (the redelivery
+    // adds none), and its webhook goes out from the feed's dispatch job, once even if the job runs twice.
+    const feed = (await owner.query(`SELECT d.id::text AS id, (SELECT count(*)::int FROM jobs j WHERE j.dedupe_key='domain-event:' || d.id) AS jobs
+      FROM domain_events d WHERE d.account_id=$1 AND d.subject_id=$2 AND d.type='order.created'`, [accountA, orderId])).rows;
+    expect(feed).toEqual([{ id: expect.any(String), jobs: 1 }]);
+    expect(webhooks.dispatch.mock.calls.filter((call) => call[2] === 'order.created')).toHaveLength(0);
+    await handleEventDispatchJob(accountA, { eventId: feed[0].id });
+    await handleEventDispatchJob(accountA, { eventId: feed[0].id });
     const created = webhooks.dispatch.mock.calls.filter((call) => call[2] === 'order.created');
     expect(created).toHaveLength(1);
     expect(created[0][1]).toBe(accountA);

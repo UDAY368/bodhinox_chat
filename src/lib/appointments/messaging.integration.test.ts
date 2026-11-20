@@ -15,6 +15,7 @@ import { withTenant, type TenantContext, type TenantTransaction } from '@/lib/db
 import { UncertainDispatchError } from '@/lib/jobs/dispatch';
 import { bookAppointment, cancelAppointment, rescheduleAppointment, type BookInput } from './booking';
 import { setHours, setOfferings } from './config';
+import { handleEventDispatchJob } from '@/lib/events/dispatch';
 import { handleAppointmentEventJob } from './events';
 import { handleBookingCode } from './inbound';
 import { handleAppointmentJob } from './job-handlers';
@@ -51,6 +52,14 @@ const messageRow = async (id: string, version: number, kind: string) => (await d
   [account, id, version, kind])).rows[0] as { status: string; reason: string | null } | undefined;
 const intent = async (key: string) => (await db.query('SELECT status FROM outbound_intents WHERE account_id=$1 AND idempotency_key=$2',
   [account, `${account}:${key}`])).rows[0] as { status: string } | undefined;
+/** Runs the event-feed dispatch for an appointment event (rules and webhook moved there) and returns its intent prefix. */
+const dispatchFeed = async (key: string) => {
+  const eventId = (await db.query('SELECT id::text AS id FROM domain_events WHERE account_id=$1 AND dedupe_key=$2', [account, key])).rows[0]?.id as string;
+  expect(eventId).toBeTruthy();
+  await handleEventDispatchJob(account, { eventId });
+  await handleEventDispatchJob(account, { eventId });
+  return `domain-event:${eventId}`;
+};
 const jobs = async (id: string) => (await db.query(
   "SELECT dedupe_key, status, last_error FROM jobs WHERE tenant_id=$1 AND payload->>'appointmentId'=$2 ORDER BY dedupe_key", [account, id])).rows as
   { dedupe_key: string; status: string; last_error: string | null }[];
@@ -130,7 +139,10 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('appointment messaging on Po
     const alerts = (await db.query("SELECT user_id, title, link FROM notifications WHERE account_id=$1 AND type='appointment_rescheduled'", [account])).rows;
     expect(alerts).toEqual([]); // the agent moved it themselves: never notified of their own action
     await handleAppointmentEventJob(account, { appointmentId: appointment.id, version: 2, kind: 'rescheduled' });
-    expect(await intent(`${appointmentKeys.event(appointment.id, 2, 'rescheduled')}:webhook`)).toEqual({ status: 'accepted' });
+    // Rules and the webhook go out from the event feed, once.
+    const feed = await dispatchFeed(appointmentKeys.event(appointment.id, 2, 'rescheduled'));
+    expect(await intent(`${feed}:webhook`)).toEqual({ status: 'accepted' });
+    expect(await intent(`${appointmentKeys.event(appointment.id, 2, 'rescheduled')}:webhook`)).toBeUndefined();
   });
 
   it('a cancelled appointment skips its reminders; the cancelled notice goes out once inside the window', async () => {
@@ -252,6 +264,8 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('appointment messaging on Po
     expect(alerts[0]).toMatchObject({ user_id: agent, link: `/appointments?id=${appointment.id}` });
     expect(alerts[0].title).toContain('Consult');
     expect(alerts[0].title).not.toContain('Contact');
-    expect(await intent(`${appointmentKeys.event(appointment.id, 1, 'confirmed')}:automations`)).toEqual({ status: 'accepted' });
+    const feed = await dispatchFeed(appointmentKeys.event(appointment.id, 1, 'confirmed'));
+    expect(await intent(`${feed}:rules`)).toEqual({ status: 'accepted' });
+    expect(await intent(`${appointmentKeys.event(appointment.id, 1, 'confirmed')}:automations`)).toBeUndefined();
   });
 });

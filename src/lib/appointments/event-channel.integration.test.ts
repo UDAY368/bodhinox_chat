@@ -5,7 +5,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
 // Phase 11: a WhatsApp contact linked to an Instagram identity may have a more
 // recently active Instagram conversation. The appointment event fan-out still
-// hands its automations the WhatsApp conversation, because they send over
+// (now the event-feed dispatch) hands its automations the WhatsApp conversation, because they send over
 // WhatsApp; the Instagram thread would only be refused (other_channel).
 const automations = vi.hoisted(() => ({ run: vi.fn(async () => true) }));
 vi.mock('@/lib/automations/engine', () => ({ runAutomationsForTrigger: automations.run }));
@@ -15,7 +15,9 @@ import { disconnectDatabases, getPrisma } from '@/lib/db/prisma';
 import { withTenant, type TenantContext } from '@/lib/db/tenant';
 import { bookAppointment } from './booking';
 import { setHours, setOfferings } from './config';
+import { handleEventDispatchJob } from '@/lib/events/dispatch';
 import { handleAppointmentEventJob } from './events';
+import { appointmentKeys } from './keys';
 
 const configured = config({ path: '.env.test', quiet: true }).parsed;
 const ownerUrl = process.env.TEST_DATABASE_URL;
@@ -86,6 +88,10 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('appointment event fan-out c
       serviceId: ids.service, locationId: ids.location, staffId: ids.s1, contactId: ids.contact,
       startAt: new Date('2026-12-14T05:30:00Z'), actorUserId: owner }));
     await handleAppointmentEventJob(account, { appointmentId: appointment.id, version: 1, kind: 'confirmed' });
+    expect(automations.run).not.toHaveBeenCalled(); // rules now run from the event feed
+    const eventId = (await db.query('SELECT id::text AS id FROM domain_events WHERE account_id=$1 AND dedupe_key=$2',
+      [account, appointmentKeys.event(appointment.id, 1, 'confirmed')])).rows[0].id as string;
+    await handleEventDispatchJob(account, { eventId });
 
     expect(automations.run).toHaveBeenCalledTimes(1);
     const context = (automations.run.mock.calls[0] as unknown as [{ context: { conversation_id?: string } }])[0].context;
