@@ -25,6 +25,7 @@
  * never a phone number, a one-time code or cart contents.
  */
 import { createHmac, hkdfSync, randomInt, randomUUID, timingSafeEqual } from 'node:crypto';
+import { cache } from 'react';
 import { AuthError } from '@/lib/auth/errors';
 import { appOrigin, hashToken } from '@/lib/auth/csrf';
 import { enforceAuthRateLimit } from '@/lib/auth/service';
@@ -42,21 +43,26 @@ import { getNumberConfig, isNumberDisconnected, NoNumberError } from '@/lib/what
 import { parseInternationalPhone } from '@/lib/whatsapp/phone-utils';
 import { assertTemplateOnNumber } from '@/lib/whatsapp/sender-config';
 import type { MessageTemplate } from '@/types';
-import { collectionProductIds } from './catalogue/collections';
+import { collectionProductIds, collectionProductPage } from './catalogue/collections';
 import { COLLECTION_SORTS, readStoredRules, type CollectionKind, type CollectionMatch, type CollectionSort } from './catalogue/collection-rules';
 import { queueAbandonedCartTx } from './cart-followups';
 import { loadShopAccessTx, visitorMayEnterTx } from './shop-access';
 import { STOCK_ALERT_CODE_HOURS, stockAlertMessage } from './stock-alerts';
 import { currencyExponent, minorFromDb } from './money';
-import { loadProductReviews, loadRatingSummaries, type ProductReviews } from './review-data';
-import type { RatingSummary } from './reviews';
+import { loadProductReviews, type ProductReviews } from './review-data';
 import { CART_LIMITS, normaliseCart, type CartLine } from './pricing';
 import { pickSuggestions } from './bought-together';
 import { readShopKey } from './shop-paths';
-import { mediaIdOf, PUBLIC_SHOP_PATH, resolveTheme, SHOP_HANDLE, type ResolvedShopTheme, type ShopImageRef } from './shop-templates';
-import { pagesOn, readShopContent, type ShopContent, type ShopFooter, type ShopMenuLink } from './shop-sections';
+import { PUBLIC_SHOP_PATH, resolveTheme, SHOP_HANDLE, type ResolvedShopTheme } from './shop-templates';
+import { pagesOn, PRODUCT_SORTS, readShopContent, type ShopContent, type ShopFooter, type ShopMenuLink } from './shop-sections';
+import { shopCached } from './shop-cache';
+import { shopImageUrl, themeImageUrl } from './shop-images';
 import {
-  assertStoreOpenTx, issueSessionTx, linkMessageText, loadCatalogue, loadCatalogueCategories, loadVariants, seededUuid,
+  categoryOptionValues, countProducts, LIST_PAGE_SIZE, loadProductPage, loadProductsInOrder, loadProductsWith, pageProductIds, toPublicProduct,
+  type ImageUrlStrategy, type ListSort, type ProductWhere, type PublicProduct,
+} from './shop-products';
+import {
+  assertStoreOpenTx, issueSessionTx, linkMessageText, loadCatalogueCategories, loadVariants, seededUuid,
   sendStorefrontText, STOREFRONT_TTL,
 } from './storefront';
 import { deriveStorefrontToken, isStorefrontTokenFormat, shopCheckoutUrl, storefrontTokenHash } from './storefront-token';
@@ -135,31 +141,7 @@ export interface PublicShop {
   pages: Record<'about' | 'contact' | 'faq', boolean>;
 }
 
-export interface PublicProduct {
-  id: string;
-  /** Store Batch 6: the readable address segment (/p/<slug>); null only for a row without one yet. Build links with productPath(). */
-  slug: string | null;
-  name: string;
-  description: string | null;
-  disclosure: string | null;
-  categoryId: string | null;
-  categoryName: string | null;
-  /** Store Batch 6: the category's slug for categoryPath(); null when there is none. */
-  categorySlug: string | null;
-  images: string[];
-  /** Label and value rows from the product's details (plain text). */
-  details: Array<{ label: string; value: string }>;
-  /** `imageIndex`: the position in `images` this variant shows, or null. */
-  variants: Array<{ id: string; options: Record<string, string>; priceMinor: number; compareAtMinor: number | null; inStock: boolean; imageIndex: number | null;
-    /** Units that can be bought now (shop_variant_availability); null = no limit (not tracked, or not known on this page). */
-    available: number | null;
-    /** Pre-order: ships by this date (YYYY-MM-DD). */
-    shipsBy: string | null }>;
-  /** A digital download: nothing is shipped. */
-  digital: boolean;
-  /** Average and count of the published reviews (store plan Phase 3); null until there is one. */
-  rating: RatingSummary | null;
-}
+export type { PublicProduct } from './shop-products';
 
 interface StorefrontRow {
   handle: string; template: string; theme: unknown; whatsapp_config_id: string | null; whatsapp_phone: string | null;
@@ -174,13 +156,10 @@ async function loadStorefrontRow(tx: TenantTransaction, accountId: string): Prom
   return row ?? null;
 }
 
-export const shopImageUrl = (handle: string, imageId: string) => `/api/public/store/${handle}/images/${imageId}`;
-export const themeImageUrl = (handle: string, ref: ShopImageRef | null): string | null => {
-  if (!ref) return null;
-  const mediaId = mediaIdOf(ref);
-  return mediaId ? `/api/public/store/${handle}/media/${mediaId}` : ref;
-};
+/** A product image of this shop as its public URL (the one image URL helper module: shop-images.ts). */
+const publicImage = (handle: string): ImageUrlStrategy => (image) => shopImageUrl(handle, image.id);
 
+/** The shop row, its settings and published content, read for a visitor (cached with the shop's pages). */
 export async function loadPublicShopTx(tx: TenantTransaction, accountId: string): Promise<PublicShop | null> {
   return (await loadPublicShopWithContent(tx, accountId))?.shop ?? null;
 }
@@ -206,86 +185,36 @@ export async function loadPublicShopWithContent(tx: TenantTransaction, accountId
 }
 
 /** Products a page shows: published, with at least one priced live variant. Images as public URLs. */
-function loadProducts(tx: TenantTransaction, accountId: string, handle: string,
-  where: { productId?: string; productSlug?: string; productIds?: string[]; categoryId?: string; limit: number }): Promise<PublicProduct[]> {
-  return loadProductsWith(tx, accountId, where, (image) => shopImageUrl(handle, image.id));
+function loadProducts(tx: TenantTransaction, accountId: string, handle: string, where: ProductWhere): Promise<PublicProduct[]> {
+  return loadProductsWith(tx, accountId, where, publicImage(handle));
 }
 
-export interface ProductImageRow { id: string; url: string | null; bucket: string | null; object_key: string | null }
+// ---------------------------------------------------------------------------
+// Cached visitor pages (store Batch 6, speed)
 
 /**
- * Published products with a priced live variant, in catalogue order. `imageUrl`
- * turns an image row into a URL: the public image route for visitors, the
- * signed-in media route for the theme editor's preview.
+ * A visitor page's data: the gate first (every request, never cached), then `load` through the shop's data cache (shop-cache.ts:
+ * keyed by name, account, handle and every argument; tag shop:<accountId>; about SHOP_CACHE_SECONDS). `load` must read only what
+ * its arguments name and return plain JSON. null when the shop is not open to this visitor.
  */
-export async function loadProductsWith(tx: TenantTransaction, accountId: string,
-  where: { productId?: string; productSlug?: string; productIds?: string[]; categoryId?: string; limit: number }, imageUrl: (image: ProductImageRow) => string | null): Promise<PublicProduct[]> {
-  const productId = where.productId ?? null;
-  // Store Batch 6: a product page asks by slug (/p/<slug>); always inside this account.
-  const productSlug = where.productSlug ?? null;
-  const productIds = where.productIds ?? null;
-  const categoryId = where.categoryId ?? null;
-  const rows = await tx.$queryRaw<{ id: string; slug: string | null; name: string; description: string | null; disclosure: string | null; details: unknown;
-    category_id: string | null; category: string | null; category_slug: string | null; is_digital: boolean }[]>`
-    SELECT p.id::text AS id, p.slug, p.name, p.description, p.disclosure, p.details, c.id::text AS category_id, c.name AS category,
-      c.slug AS category_slug, p.is_digital FROM shop_products p
-    LEFT JOIN shop_categories c ON c.account_id=p.account_id AND c.id=p.category_id AND c.archived_at IS NULL
-    WHERE p.account_id=${accountId}::uuid AND shop_product_live(p.status, p.publish_at, p.hide_at)
-      AND EXISTS (SELECT 1 FROM shop_variants v WHERE v.account_id=p.account_id AND v.product_id=p.id AND v.archived_at IS NULL AND v.price_minor IS NOT NULL)
-      AND (${productId}::uuid IS NULL OR p.id=${productId}::uuid)
-      AND (${productSlug}::text IS NULL OR p.slug=${productSlug}::text)
-      AND (${productIds}::uuid[] IS NULL OR p.id = ANY(${productIds}::uuid[]))
-      AND (${categoryId}::uuid IS NULL OR c.id=${categoryId}::uuid OR c.parent_id=${categoryId}::uuid)
-    ORDER BY COALESCE(c.position, 2147483647), p.name, p.id LIMIT ${where.limit}`;
-  if (!rows.length) return [];
-  const ids = rows.map((r) => r.id);
-  const variants = await tx.$queryRaw<{ id: string; product_id: string; option_values: Record<string, string>; price_minor: bigint;
-    compare_at_minor: bigint | null; in_stock: boolean; available: number | null; image_id: string | null; ship_date: string | null }[]>`
-    SELECT v.id::text AS id, v.product_id::text AS product_id, v.option_values, v.price_minor, v.compare_at_minor, v.image_id::text AS image_id,
-      COALESCE(a.n, 1) > 0 AS in_stock, a.n AS available,
-      CASE WHEN v.preorder THEN to_char(v.preorder_ship_date, 'YYYY-MM-DD') END AS ship_date
-    FROM shop_variants v CROSS JOIN LATERAL (SELECT shop_variant_availability(v.account_id, v.id) AS n) a
-    WHERE v.account_id=${accountId}::uuid AND v.product_id = ANY(${ids}::uuid[]) AND v.archived_at IS NULL AND v.price_minor IS NOT NULL
-    ORDER BY v.position, v.sku`;
-  const images = await tx.$queryRaw<(ProductImageRow & { product_id: string })[]>`
-    SELECT i.id::text AS id, i.product_id::text AS product_id, i.url, m.bucket, m.object_key FROM shop_product_images i
-    LEFT JOIN media_objects m ON m.account_id=i.account_id AND m.id=i.media_id AND m.deleted_at IS NULL
-    WHERE i.account_id=${accountId}::uuid AND i.product_id = ANY(${ids}::uuid[]) ORDER BY i.position`;
-  // One grouped query for every product on the page.
-  const ratings = await loadRatingSummaries(tx, accountId, ids);
-  return rows.map((p) => {
-    // Only images with a URL are shown; a variant's picture is its place among those.
-    const shown = images.filter((i) => i.product_id === p.id).map((i) => ({ id: i.id, url: imageUrl(i) })).filter((i): i is { id: string; url: string } => !!i.url);
-    return {
-      id: p.id, slug: p.slug, name: p.name, description: p.description, disclosure: p.disclosure, categoryId: p.category_id, categoryName: p.category,
-      categorySlug: p.category_slug, digital: p.is_digital, rating: ratings.get(p.id) ?? null,
-      details: publicDetails(p.details),
-      images: shown.map((i) => i.url),
-      variants: variants.filter((v) => v.product_id === p.id).map((v) => {
-        const at = v.image_id ? shown.findIndex((i) => i.id === v.image_id) : -1;
-        return {
-          id: v.id, options: v.option_values ?? {}, priceMinor: minorFromDb(v.price_minor) ?? 0,
-          compareAtMinor: minorFromDb(v.compare_at_minor), inStock: v.in_stock, available: v.available === null ? null : Number(v.available),
-          imageIndex: at >= 0 ? at : null, shipsBy: v.ship_date,
-        };
-      }),
-    };
-  });
+export async function withPublicShopData<A extends unknown[], R>(handle: string, name: string,
+  load: (tx: TenantTransaction, accountId: string, handle: string, ...args: A) => Promise<R>, ...args: A): Promise<R | null> {
+  const accountId = await visitorShop(handle);
+  if (!accountId) return null;
+  return shopCached(name, accountId, handle, (...a: A) =>
+    withTenant({ accountId, role: 'owner' }, (tx) => load(tx, accountId, handle, ...a), getWorkerPrisma()), ...args);
 }
 
-/** Stored detail rows read back leniently: only plain label/value strings, at most twelve. */
-function publicDetails(value: unknown): Array<{ label: string; value: string }> {
-  if (!Array.isArray(value)) return [];
-  return value.slice(0, 12).flatMap((row) => {
-    const r = row as { label?: unknown; value?: unknown } | null;
-    return r && typeof r.label === 'string' && typeof r.value === 'string' && r.label && r.value ? [{ label: r.label, value: r.value }] : [];
-  });
+/** The shop row alone (the layout's header and theme, the lock screen), cached. */
+function cachedShop(accountId: string, handle: string): Promise<PublicShop | null> {
+  return shopCached('shop', accountId, handle, () => withTenant({ accountId, role: 'owner' }, (tx) => loadPublicShopTx(tx, accountId), getWorkerPrisma()));
 }
 
-/** What the home page's sections draw from: the published content, products in catalogue order and the categories. */
+/** What the home page's sections draw from: the published content, the products its sections show and the categories. */
 export interface ShopHome {
   shop: PublicShop;
   content: ShopContent;
+  /** The products every product section shows (each section's own first `limit`, asked in SQL), in catalogue order. */
   products: PublicProduct[];
   categories: Array<{ id: string; slug?: string | null; name: string }>;
   /** Category rows, for "featured collection" sections (a category and its sub-categories). */
@@ -296,35 +225,59 @@ export interface ShopHome {
   bestSellers: PublicProduct[];
 }
 
-/** The most products the home page's product sections choose from. */
-export const HOME_SCAN_LIMIT = 200;
+/** The most categories the category rows of the home page and the theme editor hold. */
+export const CATEGORY_TREE_LIMIT = 500;
 
 export async function loadCategoryTree(tx: TenantTransaction, accountId: string): Promise<Array<{ id: string; slug: string | null; parentId: string | null }>> {
   const rows = await tx.$queryRaw<{ id: string; slug: string | null; parent_id: string | null }[]>`SELECT id::text AS id, slug, parent_id::text AS parent_id
-    FROM shop_categories WHERE account_id=${accountId}::uuid AND archived_at IS NULL ORDER BY position, name LIMIT 500`;
+    FROM shop_categories WHERE account_id=${accountId}::uuid AND archived_at IS NULL ORDER BY position, name LIMIT ${CATEGORY_TREE_LIMIT}`;
   return rows.map((r) => ({ id: r.id, slug: r.slug, parentId: r.parent_id }));
 }
 
-export function loadShopHome(handle: string): Promise<ShopHome | null> {
-  return withPublicShop(handle, async (tx, accountId) => {
-    const loaded = await loadPublicShopWithContent(tx, accountId);
-    if (!loaded) return null;
-    const visible = loaded.content.sections.filter((s) => !s.hidden);
-    const wantsProducts = visible.some((s) => s.type === 'product_grid' || s.type === 'featured_collection');
-    const [products, categories, tree] = await Promise.all([
-      wantsProducts ? loadProducts(tx, accountId, handle, { limit: HOME_SCAN_LIMIT }) : Promise.resolve([]),
-      visible.some((s) => s.type === 'categories') ? loadCatalogueCategories(tx, accountId) : Promise.resolve([]),
-      visible.some((s) => s.type === 'featured_collection') ? loadCategoryTree(tx, accountId) : Promise.resolve([]),
-    ]);
-    const wanted = [...new Set(visible.filter((s) => s.type === 'featured_collection')
-      .flatMap((s) => (typeof s.settings.collection === 'string' ? [s.settings.collection] : [])))];
-    const collections: ShopHome['collections'] = {};
-    for (const id of wanted) {
-      const found = await loadPublishedCollection(tx, accountId, { id });
-      if (found) collections[id] = { slug: found.slug, title: found.title, productIds: await collectionProductIds(tx, accountId, found.def, HOME_SCAN_LIMIT) };
+/** A section's `limit` setting within its bounds. */
+const sectionLimit = (value: unknown, fallback: number, max: number) => (typeof value === 'number' && Number.isInteger(value) ? Math.min(Math.max(value, 1), max) : fallback);
+
+/**
+ * The products each visible product section shows, asked one section at a time in SQL: a product grid its first `limit` in its
+ * sort; a featured collection its collection's first `limit`, or its category's (with sub-categories) first `limit`. The union is
+ * loaded once, in catalogue order, so the sections' own picking (pickProducts, pickCollectionProducts) finds exactly these.
+ */
+async function homeProductsTx(tx: TenantTransaction, accountId: string, handle: string, visible: ShopContent['sections']) {
+  const wanted = new Set<string>();
+  const collections: ShopHome['collections'] = {};
+  for (const s of visible) {
+    if (s.type === 'product_grid') {
+      const sort = (PRODUCT_SORTS as readonly string[]).includes(s.settings.sort as string) ? s.settings.sort as ListSort : 'featured';
+      for (const id of (await pageProductIds(tx, accountId, { sort }, null, sectionLimit(s.settings.limit, 8, 24))).ids) wanted.add(id);
+    } else if (s.type === 'featured_collection') {
+      const limit = sectionLimit(s.settings.limit, 4, 12);
+      const collectionId = typeof s.settings.collection === 'string' && isUuid(s.settings.collection) ? s.settings.collection : null;
+      if (collectionId) {
+        const found = collections[collectionId] ? null : await loadPublishedCollection(tx, accountId, { id: collectionId });
+        if (found) collections[collectionId] = { slug: found.slug, title: found.title, productIds: await collectionProductIds(tx, accountId, found.def, 12) };
+        for (const id of collections[collectionId]?.productIds.slice(0, limit) ?? []) wanted.add(id);
+      } else if (typeof s.settings.category === 'string' && isUuid(s.settings.category)) {
+        for (const id of (await pageProductIds(tx, accountId, { sort: 'featured', categoryId: s.settings.category, withChildren: true }, null, limit)).ids) wanted.add(id);
+      }
     }
-    return { ...loaded, products, categories, tree, collections, bestSellers: await loadHomeBestSellers(tx, accountId, visible, (ids) => loadProducts(tx, accountId, handle, { productIds: ids, limit: ids.length })) };
-  });
+  }
+  const products = wanted.size ? await loadProducts(tx, accountId, handle, { productIds: [...wanted], limit: wanted.size }) : [];
+  return { products, collections };
+}
+
+async function homeTx(tx: TenantTransaction, accountId: string, handle: string): Promise<ShopHome | null> {
+  const loaded = await loadPublicShopWithContent(tx, accountId);
+  if (!loaded) return null;
+  const visible = loaded.content.sections.filter((s) => !s.hidden);
+  const { products, collections } = await homeProductsTx(tx, accountId, handle, visible);
+  const categories = visible.some((s) => s.type === 'categories') ? await loadCatalogueCategories(tx, accountId) : [];
+  const tree = visible.some((s) => s.type === 'featured_collection') ? await loadCategoryTree(tx, accountId) : [];
+  const bestSellers = await loadHomeBestSellers(tx, accountId, visible, (ids) => loadProducts(tx, accountId, handle, { productIds: ids, limit: ids.length }));
+  return { ...loaded, products, categories, tree, collections, bestSellers };
+}
+
+export function loadShopHome(handle: string): Promise<ShopHome | null> {
+  return withPublicShopData(handle, 'home', homeTx);
 }
 
 /** What the generated policy pages say, from the store settings (no customer data). */
@@ -351,13 +304,15 @@ export async function loadPolicyFacts(tx: TenantTransaction, accountId: string):
   };
 }
 
+async function pageTx(tx: TenantTransaction, accountId: string): Promise<{ shop: PublicShop; content: ShopContent; facts: ShopPolicyFacts } | null> {
+  const loaded = await loadPublicShopWithContent(tx, accountId);
+  if (!loaded) return null;
+  return { ...loaded, facts: await loadPolicyFacts(tx, accountId) };
+}
+
 /** A store page (About, Contact, FAQ or a policy): the shop, its content and the policy facts. */
 export function loadShopPage(handle: string): Promise<{ shop: PublicShop; content: ShopContent; facts: ShopPolicyFacts } | null> {
-  return withPublicShop(handle, async (tx, accountId) => {
-    const loaded = await loadPublicShopWithContent(tx, accountId);
-    if (!loaded) return null;
-    return { ...loaded, facts: await loadPolicyFacts(tx, accountId) };
-  });
+  return withPublicShopData(handle, 'page', pageTx);
 }
 
 export interface ShopProductPage {
@@ -401,6 +356,27 @@ export async function loadBoughtTogether(tx: TenantTransaction, accountId: strin
   return pickSuggestions(ids, await loadProducts(tx, accountId, handle, { productIds: ids, limit: SUGGESTION_CANDIDATES }));
 }
 
+async function productTx(tx: TenantTransaction, accountId: string, handle: string, by: { id: string } | { slug: string }): Promise<ShopProductPage | null> {
+  const shop = await loadPublicShopTx(tx, accountId);
+  const [product] = await loadProducts(tx, accountId, handle, { ...('id' in by ? { productId: by.id } : { productSlug: by.slug }), limit: 1 });
+  if (!shop || !product) return null;
+  const [meta] = await tx.$queryRaw<{ seo_title: string | null; seo_description: string | null; seo_image_id: string | null; sku: string | null; updated_at: Date }[]>`
+    SELECT p.seo_title, p.seo_description, p.seo_image_id::text AS seo_image_id, p.updated_at,
+      (SELECT v.sku FROM shop_variants v WHERE v.account_id=p.account_id AND v.product_id=p.id AND v.archived_at IS NULL AND v.price_minor IS NOT NULL
+        ORDER BY v.position, v.sku LIMIT 1) AS sku
+    FROM shop_products p WHERE p.account_id=${accountId}::uuid AND p.id=${product.id}::uuid`;
+  const seo: ShopProductPage['seo'] = {
+    title: meta?.seo_title ?? null, description: meta?.seo_description ?? null,
+    imageUrl: meta?.seo_image_id ? shopImageUrl(handle, meta.seo_image_id) : null, sku: meta?.sku ?? null,
+    updatedAt: (meta?.updated_at ?? new Date()).toISOString(),
+  };
+  const related = product.categoryId
+    ? (await loadProducts(tx, accountId, handle, { categoryId: product.categoryId, limit: 5 })).filter((p) => p.id !== product.id).slice(0, 4)
+    : [];
+  const together = await loadBoughtTogether(tx, accountId, handle, [product.id]);
+  return { shop, product, related, boughtTogether: together.length >= 2 ? together : related, togetherIsRelated: together.length < 2, reviews: await loadProductReviews(tx, accountId, product.id), seo };
+}
+
 /**
  * A product page by its slug or by its old id link (store Batch 6: `key` is either; the page answers an id with a 308 to the slug).
  * Both lookups run inside the handle's own account, so another shop's slug or id is simply not found.
@@ -408,35 +384,16 @@ export async function loadBoughtTogether(tx: TenantTransaction, accountId: strin
 export function loadShopProduct(handle: string, key: string): Promise<ShopProductPage | null> {
   const by = readShopKey(key);
   if (!by) return Promise.resolve(null);
-  return withPublicShop(handle, async (tx, accountId) => {
-    const shop = await loadPublicShopTx(tx, accountId);
-    const [product] = await loadProducts(tx, accountId, handle, { ...('id' in by ? { productId: by.id } : { productSlug: by.slug }), limit: 1 });
-    if (!shop || !product) return null;
-    const [meta] = await tx.$queryRaw<{ seo_title: string | null; seo_description: string | null; seo_image_id: string | null; sku: string | null; updated_at: Date }[]>`
-      SELECT p.seo_title, p.seo_description, p.seo_image_id::text AS seo_image_id, p.updated_at,
-        (SELECT v.sku FROM shop_variants v WHERE v.account_id=p.account_id AND v.product_id=p.id AND v.archived_at IS NULL AND v.price_minor IS NOT NULL
-          ORDER BY v.position, v.sku LIMIT 1) AS sku
-      FROM shop_products p WHERE p.account_id=${accountId}::uuid AND p.id=${product.id}::uuid`;
-    const seo: ShopProductPage['seo'] = {
-      title: meta?.seo_title ?? null, description: meta?.seo_description ?? null,
-      imageUrl: meta?.seo_image_id ? shopImageUrl(handle, meta.seo_image_id) : null, sku: meta?.sku ?? null,
-      updatedAt: (meta?.updated_at ?? new Date()).toISOString(),
-    };
-    const related = product.categoryId
-      ? (await loadProducts(tx, accountId, handle, { categoryId: product.categoryId, limit: 5 })).filter((p) => p.id !== product.id).slice(0, 4)
-      : [];
-    const together = await loadBoughtTogether(tx, accountId, handle, [product.id]);
-    return { shop, product, related, boughtTogether: together.length >= 2 ? together : related, togetherIsRelated: together.length < 2, reviews: await loadProductReviews(tx, accountId, product.id), seo };
-  });
+  return withPublicShopData(handle, 'product', productTx, by);
 }
 
-/** Products per category page, and the most a category page sorts and filters at once. */
-export const CATEGORY_PAGE_SIZE = 24;
-export const CATEGORY_SCAN_LIMIT = 500;
-export type CategorySort = 'featured' | 'price_asc' | 'price_desc' | 'name';
-export const CATEGORY_SORTS: CategorySort[] = ['featured', 'price_asc', 'price_desc', 'name'];
+/** Products per category page; the sorts a category page offers. */
+export const CATEGORY_PAGE_SIZE = LIST_PAGE_SIZE;
+export const CATEGORY_SORTS = ['featured', 'price_asc', 'price_desc', 'name', 'newest'] as const satisfies readonly ListSort[];
+export type CategorySort = (typeof CATEGORY_SORTS)[number];
 
-export interface CategoryQuery { sort?: unknown; min?: unknown; max?: unknown; option?: unknown; page?: unknown }
+/** A category page's query string: sort, price range in whole currency units, one option ("Size:M") and the keyset cursor. */
+export interface CategoryQuery { sort?: unknown; min?: unknown; max?: unknown; option?: unknown; after?: unknown }
 
 export interface ShopCategoryPage {
   shop: PublicShop;
@@ -447,12 +404,11 @@ export interface ShopCategoryPage {
   /** Option filters on offer: name -> values, from the category's products. */
   options: Record<string, string[]>;
   sort: CategorySort;
-  page: number;
-  pages: number;
+  /** Matching products in all. */
   total: number;
+  /** The cursor of the next page (?after=), or null on the last. */
+  next: string | null;
 }
-
-const lowestPrice = (p: PublicProduct) => Math.min(...p.variants.map((v) => v.priceMinor));
 
 /** Parse "Size:M" into a name and value, or null. */
 function parseOptionFilter(value: unknown): { name: string; value: string } | null {
@@ -467,52 +423,49 @@ const wholeNumber = (value: unknown): number | null => {
   return Number(value);
 };
 
+/** A cursor as the client sent it (decoded and checked by the list loader), or null. */
+const cursorParam = (value: unknown): string | null => (typeof value === 'string' && value.length > 0 && value.length <= 500 ? value : null);
+
+type CategoryArgs = { by: { id: string } | { slug: string }; sort: CategorySort; min: number | null; max: number | null;
+  option: { name: string; value: string } | null; after: string | null };
+
+async function categoryTx(tx: TenantTransaction, accountId: string, handle: string, q: CategoryArgs): Promise<ShopCategoryPage | null> {
+  const shop = await loadPublicShopTx(tx, accountId);
+  const byId = 'id' in q.by ? q.by.id : null, bySlug = 'slug' in q.by ? q.by.slug : null;
+  const [category] = await tx.$queryRaw<{ id: string; slug: string | null; name: string; parent_id: string | null; parent_slug: string | null }[]>`
+    SELECT c.id::text AS id, c.slug, c.name, c.parent_id::text AS parent_id, pc.slug AS parent_slug FROM shop_categories c
+    LEFT JOIN shop_categories pc ON pc.account_id=c.account_id AND pc.id=c.parent_id
+    WHERE c.account_id=${accountId}::uuid AND (${byId}::uuid IS NULL OR c.id=${byId}::uuid) AND (${bySlug}::text IS NULL OR c.slug=${bySlug}::text)
+      AND c.archived_at IS NULL`;
+  if (!shop || !category) return null;
+  const children = await tx.$queryRaw<{ id: string; slug: string | null; name: string }[]>`
+    SELECT id::text AS id, slug, name FROM shop_categories WHERE account_id=${accountId}::uuid AND parent_id=${category.id}::uuid
+      AND archived_at IS NULL ORDER BY position, name LIMIT 50`;
+  // The price filter is in whole currency units (₹500), the prices in minor units.
+  const unit = 10 ** currencyExponent(shop.currency ?? 'INR');
+  const filter = { sort: q.sort, categoryId: category.id, withChildren: true, option: q.option,
+    minMinor: q.min === null ? null : q.min * unit, maxMinor: q.max === null ? null : q.max * unit };
+  const page = await loadProductPage(tx, accountId, filter, q.after, publicImage(handle));
+  return {
+    shop, category: { id: category.id, slug: category.slug, name: category.name, parentId: category.parent_id, parentSlug: category.parent_slug }, children,
+    products: page.products.map(toPublicProduct), options: await categoryOptionValues(tx, accountId, category.id),
+    sort: q.sort, total: await countProducts(tx, accountId, filter), next: page.next,
+  };
+}
+
 /**
- * A category page: its products (and its sub-categories' products), sorted
- * and filtered by price (in major units) and by one option, 24 per page.
+ * A category page: its products (and its sub-categories' products), sorted and filtered by price (in major units) and by one
+ * option, 24 per page, all in SQL with a keyset cursor (?after=).
  */
 export function loadShopCategory(handle: string, key: string, query: CategoryQuery = {}): Promise<ShopCategoryPage | null> {
   // Store Batch 6: `key` is the slug or the old id link (the page answers an id with a 308); both only inside this account.
   const by = readShopKey(key);
   if (!by) return Promise.resolve(null);
-  const byId = 'id' in by ? by.id : null, bySlug = 'slug' in by ? by.slug : null;
-  return withPublicShop(handle, async (tx, accountId) => {
-    const shop = await loadPublicShopTx(tx, accountId);
-    const [category] = await tx.$queryRaw<{ id: string; slug: string | null; name: string; parent_id: string | null; parent_slug: string | null }[]>`
-      SELECT c.id::text AS id, c.slug, c.name, c.parent_id::text AS parent_id, pc.slug AS parent_slug FROM shop_categories c
-      LEFT JOIN shop_categories pc ON pc.account_id=c.account_id AND pc.id=c.parent_id
-      WHERE c.account_id=${accountId}::uuid AND (${byId}::uuid IS NULL OR c.id=${byId}::uuid) AND (${bySlug}::text IS NULL OR c.slug=${bySlug}::text)
-        AND c.archived_at IS NULL`;
-    if (!shop || !category) return null;
-    const categoryId = category.id;
-    const children = await tx.$queryRaw<{ id: string; slug: string | null; name: string }[]>`
-      SELECT id::text AS id, slug, name FROM shop_categories WHERE account_id=${accountId}::uuid AND parent_id=${categoryId}::uuid
-        AND archived_at IS NULL ORDER BY position, name LIMIT 50`;
-    const all = await loadProducts(tx, accountId, handle, { categoryId, limit: CATEGORY_SCAN_LIMIT });
-    const options: Record<string, Set<string>> = {};
-    for (const p of all) for (const v of p.variants) for (const [name, value] of Object.entries(v.options)) (options[name] ??= new Set()).add(value);
-
-    const sort = CATEGORY_SORTS.includes(query.sort as CategorySort) ? query.sort as CategorySort : 'featured';
-    const min = wholeNumber(query.min);
-    const max = wholeNumber(query.max);
-    const option = parseOptionFilter(query.option);
-    // The price filter is in whole currency units (₹500), the prices in minor units.
-    const unit = 10 ** currencyExponent(shop.currency ?? 'INR');
-    let products = all.filter((p) => p.variants.some((v) =>
-      (min === null || v.priceMinor >= min * unit) && (max === null || v.priceMinor <= max * unit)
-      && (!option || v.options[option.name] === option.value)));
-    if (sort === 'price_asc') products = [...products].sort((a, b) => lowestPrice(a) - lowestPrice(b));
-    if (sort === 'price_desc') products = [...products].sort((a, b) => lowestPrice(b) - lowestPrice(a));
-    if (sort === 'name') products = [...products].sort((a, b) => a.name.localeCompare(b.name));
-    const pages = Math.max(1, Math.ceil(products.length / CATEGORY_PAGE_SIZE));
-    const page = Math.min(pages, Math.max(1, wholeNumber(query.page) ?? 1));
-    return {
-      shop, category: { id: category.id, slug: category.slug, name: category.name, parentId: category.parent_id, parentSlug: category.parent_slug }, children,
-      products: products.slice((page - 1) * CATEGORY_PAGE_SIZE, page * CATEGORY_PAGE_SIZE),
-      options: Object.fromEntries(Object.entries(options).map(([k, v]) => [k, [...v].sort()])),
-      sort, page, pages, total: products.length,
-    };
-  });
+  const args: CategoryArgs = {
+    by, sort: (CATEGORY_SORTS as readonly unknown[]).includes(query.sort) ? query.sort as CategorySort : 'featured',
+    min: wholeNumber(query.min), max: wholeNumber(query.max), option: parseOptionFilter(query.option), after: cursorParam(query.after),
+  };
+  return withPublicShopData(handle, 'category', categoryTx, args);
 }
 
 // ---------------------------------------------------------------------------
@@ -545,48 +498,48 @@ export interface ShopCollectionPage {
   total: number;
 }
 
-/** A collection page: its published, sellable products in the collection's order (or ?sort=), 24 per page. */
-export function loadShopCollection(handle: string, slug: string, query: { sort?: unknown; page?: unknown } = {}): Promise<ShopCollectionPage | null> {
-  if (typeof slug !== 'string' || !/^[a-z0-9]+(-[a-z0-9]+)*$/.test(slug) || slug.length > 60) return Promise.resolve(null);
-  return withPublicShop(handle, async (tx, accountId) => {
-    const shop = await loadPublicShopTx(tx, accountId);
-    const found = await loadPublishedCollection(tx, accountId, { slug });
-    if (!shop || !found) return null;
-    const sort = COLLECTION_SORTS.includes(query.sort as CollectionSort) ? query.sort as CollectionSort : found.def.sort;
-    const ids = await collectionProductIds(tx, accountId, { ...found.def, sort });
-    const loaded = ids.length ? await loadProducts(tx, accountId, handle, { productIds: ids, limit: ids.length }) : [];
-    const byId = new Map(loaded.map((p) => [p.id, p]));
-    const all = ids.flatMap((id) => (byId.has(id) ? [byId.get(id)!] : []));
-    const pages = Math.max(1, Math.ceil(all.length / CATEGORY_PAGE_SIZE));
-    const page = Math.min(pages, Math.max(1, wholeNumber(query.page) ?? 1));
-    return {
-      shop, collection: { id: found.id, slug: found.slug, title: found.title, description: found.description },
-      products: all.slice((page - 1) * CATEGORY_PAGE_SIZE, page * CATEGORY_PAGE_SIZE), sort, page, pages, total: all.length,
-    };
-  });
+/** The deepest collection page an address may ask for. */
+const COLLECTION_MAX_PAGE = 500;
+
+async function collectionTx(tx: TenantTransaction, accountId: string, handle: string, slug: string, wantedSort: CollectionSort | null, wantedPage: number):
+  Promise<ShopCollectionPage | null> {
+  const shop = await loadPublicShopTx(tx, accountId);
+  const found = await loadPublishedCollection(tx, accountId, { slug });
+  if (!shop || !found) return null;
+  const sort = wantedSort ?? found.def.sort;
+  // Paged in SQL: only this page's ids are read (an address past the end shows the last page).
+  let page = wantedPage;
+  let slice = await collectionProductPage(tx, accountId, { ...found.def, sort }, (page - 1) * CATEGORY_PAGE_SIZE, CATEGORY_PAGE_SIZE);
+  const pages = Math.max(1, Math.ceil(slice.total / CATEGORY_PAGE_SIZE));
+  if (page > pages) {
+    page = pages;
+    slice = await collectionProductPage(tx, accountId, { ...found.def, sort }, (page - 1) * CATEGORY_PAGE_SIZE, CATEGORY_PAGE_SIZE);
+  }
+  const products = await loadProductsInOrder(tx, accountId, slice.ids, publicImage(handle));
+  return {
+    shop, collection: { id: found.id, slug: found.slug, title: found.title, description: found.description },
+    products: products.map(toPublicProduct), sort, page, pages, total: slice.total,
+  };
 }
 
-/** All listed products for the "all products" page (first page of the catalogue order). */
+/** A collection page: its published, sellable products in the collection's order (or ?sort=), 24 per page, paged in SQL. */
+export function loadShopCollection(handle: string, slug: string, query: { sort?: unknown; page?: unknown } = {}): Promise<ShopCollectionPage | null> {
+  if (typeof slug !== 'string' || !/^[a-z0-9]+(-[a-z0-9]+)*$/.test(slug) || slug.length > 60) return Promise.resolve(null);
+  const sort = COLLECTION_SORTS.includes(query.sort as CollectionSort) ? query.sort as CollectionSort : null;
+  const page = Math.min(COLLECTION_MAX_PAGE, Math.max(1, wholeNumber(query.page) ?? 1));
+  return withPublicShopData(handle, 'collection', collectionTx, slug, sort, page);
+}
+
+async function allTx(tx: TenantTransaction, accountId: string, handle: string, after: string | null) {
+  const shop = await loadPublicShopTx(tx, accountId);
+  if (!shop) return null;
+  const page = await loadProductPage(tx, accountId, { sort: 'featured' }, after, publicImage(handle));
+  return { shop, products: page.products.map(toPublicProduct), next: page.next };
+}
+
+/** The "all products" page: the catalogue order, 24 a page with a keyset cursor (?after=). */
 export function loadShopAll(handle: string, cursor?: string): Promise<{ shop: PublicShop; products: PublicProduct[]; next: string | null } | null> {
-  return withPublicShop(handle, async (tx, accountId) => {
-    const shop = await loadPublicShopTx(tx, accountId);
-    if (!shop) return null;
-    const page = await loadCatalogue(tx, accountId, { cursor });
-    const ids = page.products.map((p) => p.id);
-    const ratings = await loadRatingSummaries(tx, accountId, ids);
-    // Store Batch 6: the page's slugs in one query (the token storefront's catalogue shape stays as it is).
-    const slugs = new Map((ids.length ? await tx.$queryRaw<{ id: string; slug: string | null }[]>`SELECT id::text AS id, slug FROM shop_products
-      WHERE account_id=${accountId}::uuid AND id = ANY(${ids}::uuid[])` : []).map((r) => [r.id, r.slug]));
-    return {
-      shop, next: page.nextCursor,
-      products: page.products.map((p) => ({
-        rating: ratings.get(p.id) ?? null, slug: slugs.get(p.id) ?? null, categorySlug: null,
-        id: p.id, name: p.name, description: p.description, disclosure: p.disclosure, categoryId: null, categoryName: p.categoryName,
-        digital: p.digital, images: p.images.map((id) => shopImageUrl(handle, id)), details: [],
-        variants: p.variants.map((v) => ({ id: v.id, options: v.options, priceMinor: v.priceMinor, compareAtMinor: v.compareAtMinor, inStock: v.inStock, available: null, imageIndex: null, shipsBy: v.shipsBy })),
-      })),
-    };
-  });
+  return withPublicShopData(handle, 'all', allTx, cursorParam(cursor));
 }
 
 // ---------------------------------------------------------------------------
@@ -1163,35 +1116,55 @@ async function replyOnce(send: () => Promise<unknown>, outcome: 'sent' | 'expire
   return { handled: true, outcome };
 }
 
-/** Just the shop (the layout's header and theme). */
-export function loadShopOnly(handle: string): Promise<PublicShop | null> {
-  return withPublicShop(handle, (tx, accountId) => loadPublicShopTx(tx, accountId));
+/** Just the shop (the layout's header and theme), for a visitor who may enter. */
+export async function loadShopOnly(handle: string): Promise<PublicShop | null> {
+  const gate = await loadShopGate(handle);
+  return gate?.state === 'open' ? gate.shop : null;
 }
 
 // ---------------------------------------------------------------------------
 // Shop access (store plan Phase 8, batch 3)
 
 export type ShopGate =
-  | { state: 'open'; shop: PublicShop }
-  | { state: 'password' | 'coming_soon'; shop: PublicShop; message: string | null };
+  | { state: 'open'; shop: PublicShop; accountId: string }
+  | { state: 'password' | 'coming_soon'; shop: PublicShop; accountId: string; message: string | null };
+
+type GateState = { accountId: string } & ({ open: true } | { open: false; mode: 'password' | 'coming_soon'; message: string | null });
 
 /**
- * What the shop layout shows: the shop itself, or its lock screen (a password form, or "coming soon" with the
- * owner's message). Only the name, brand and message of the shop are read here; null when there is no such shop.
+ * The gate, on every request (never cached): the handle resolves (resolve_public_shop), the plan feature and the suspension check
+ * pass, and the visitor may enter (access mode; a password shop needs this visitor's cookie). Once per request (React cache), so
+ * the layout and the page share one check. null when there is no such shop for the public.
  */
-export async function loadShopGate(handle: string): Promise<ShopGate | null> {
+const gateState = cache(async (handle: string): Promise<GateState | null> => {
   const accountId = await resolvePublicShop(handle);
   if (!accountId) return null;
   try {
-    return await inShopTenant(accountId, async (tx): Promise<ShopGate | null> => {
-      const shop = await loadPublicShopTx(tx, accountId);
-      if (!shop) return null;
-      if (await visitorMayEnterTx(tx, accountId)) return { state: 'open', shop };
-      const access = await loadShopAccessTx(tx, accountId);
-      return { state: access?.mode === 'password' ? 'password' : 'coming_soon', shop, message: access?.message ?? null };
+    return await inShopTenant(accountId, async (tx): Promise<GateState> => {
+      if (await visitorMayEnterTx(tx, accountId)) return { accountId, open: true };
+      const row = await loadShopAccessTx(tx, accountId);
+      return { accountId, open: false, mode: row?.mode === 'password' ? 'password' : 'coming_soon', message: row?.message ?? null };
     }, 'none');
   } catch (error) {
     if (isShopHidden(error)) return null;
     throw error;
   }
+});
+
+/** The account of a shop this visitor may enter now, or null. */
+async function visitorShop(handle: string): Promise<string | null> {
+  const gate = await gateState(handle);
+  return gate?.open ? gate.accountId : null;
+}
+
+/**
+ * What the shop layout shows: the shop itself, or its lock screen (a password form, or "coming soon" with the owner's message).
+ * The gate runs on every request; the shop row it shows comes from the shop's data cache. null when there is no such shop.
+ */
+export async function loadShopGate(handle: string): Promise<ShopGate | null> {
+  const gate = await gateState(handle);
+  if (!gate) return null;
+  const shop = await cachedShop(gate.accountId, handle);
+  if (!shop) return null;
+  return gate.open ? { state: 'open', shop, accountId: gate.accountId } : { state: gate.mode, shop, accountId: gate.accountId, message: gate.message };
 }

@@ -12,14 +12,14 @@ export const dynamic = 'force-dynamic';
 type Params = { params: Promise<{ handle: string }> };
 
 export async function GET(request: Request, { params }: Params) {
-  if (!burstAllowed('read', request)) return tooMany();
+  if (!(await burstAllowed('read', request))) return tooMany();
   try {
     const { handle } = await params;
     const origin = shopOrigin();
     if (!isShopHandleFormat(handle) || !origin) return notFound();
     const entries = await loadShopSitemap(handle);
     if (!entries) return notFound();
-    // Not cached: a shop that is locked or unpublished must stop listing at once.
+    // Not cached by browsers or the CDN: a shop that is locked or unpublished must stop listing at once (the gate runs every request).
     return new Response(sitemapXml(entries, origin), {
       headers: { 'Content-Type': 'application/xml; charset=utf-8', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' },
     });

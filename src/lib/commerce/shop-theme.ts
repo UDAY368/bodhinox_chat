@@ -17,7 +17,8 @@ import { withTenant, type TenantContext, type TenantTransaction } from '@/lib/db
 import { mediaObjectUrl } from '@/lib/storage/client';
 import { collectionProductIds, MAX_COLLECTIONS } from './catalogue/collections';
 import { readStoredRules, type CollectionKind, type CollectionMatch, type CollectionSort } from './catalogue/collection-rules';
-import { loadCategoryTree, loadPolicyFacts, loadProductsWith, type PublicProduct, type ShopPolicyFacts } from './public-shop';
+import { loadCategoryTree, loadPolicyFacts, type PublicProduct, type ShopPolicyFacts } from './public-shop';
+import { loadProductsWith } from './shop-products';
 import {
   contentMediaIds, contentOf, parseShopDocument, readShopDocument, type ShopDocument,
 } from './shop-sections';

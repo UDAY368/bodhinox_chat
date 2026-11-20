@@ -5,6 +5,7 @@ export const runtime = 'nodejs';
 
 import { createLocation, listLocations, variantLocations } from '@/lib/commerce/stock-locations';
 import { catalogueErrorResponse, json, mutationLimit, readJson, staffCaller } from '../shop/_lib/http';
+import { revalidateShop } from '@/lib/commerce/shop-cache';
 
 export async function GET(request: Request) {
   try {
@@ -22,7 +23,9 @@ export async function POST(request: Request) {
     const caller = await staffCaller(request, { min: 'admin', mutation: true, permission: 'commerce.inventory' });
     const limited = await mutationLimit(caller);
     if (limited) return limited;
-    return json({ location: await createLocation(caller.tenant, await readJson(request)) }, 201);
+    const location = await createLocation(caller.tenant, await readJson(request));
+    revalidateShop(caller.accountId);
+    return json({ location }, 201);
   } catch (error) {
     return catalogueErrorResponse(error);
   }

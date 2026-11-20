@@ -22,6 +22,7 @@ import { formatShipDate } from '@/lib/commerce/selling-rules';
 import { addToCart } from './cart-store';
 import { PincodeCheck } from './pincode-check';
 import { clampQty, pickValue, qtyCap, valueState, variantFor } from './product-options';
+import { imageSrcSet } from '@/lib/commerce/shop-images';
 import { subscribeWishlist, toggleWishlist, wishlistSnapshot } from './wishlist-store';
 
 export function ProductBuy({ handle, product, currency, canNotify, whatsappPhone = null }: {
@@ -102,7 +103,7 @@ export function ProductBuy({ handle, product, currency, canNotify, whatsappPhone
         <div className="aspect-square overflow-hidden rounded-[var(--shop-radius)] bg-black/5">
           {product.images[image]
             // eslint-disable-next-line @next/next/no-img-element -- shop images come from our own route or the shop's https URL
-            ? <img src={product.images[image]} alt={product.name} className="size-full object-cover" />
+            ? <img src={product.images[image]} srcSet={imageSrcSet(product.images[image])} sizes="(min-width: 768px) 50vw, 100vw" alt={product.name} className="size-full object-cover" />
             : <div className="grid size-full place-items-center text-6xl opacity-30" aria-hidden>{product.name.slice(0, 1)}</div>}
         </div>
         {product.images.length > 1 && (
@@ -111,7 +112,7 @@ export function ProductBuy({ handle, product, currency, canNotify, whatsappPhone
               <button key={src} type="button" onClick={() => setImage(i)} aria-label={t('imageN', { n: i + 1 })} aria-pressed={i === image}
                 className={`size-16 shrink-0 overflow-hidden rounded-[var(--shop-radius)] ring-2 ${i === image ? 'ring-[var(--shop-primary)]' : 'ring-transparent'}`}>
                 {/* eslint-disable-next-line @next/next/no-img-element -- see above */}
-                <img src={src} alt="" className="size-full object-cover" />
+                <img src={imageSrcSet(src) ? `${src}?w=320` : src} alt="" loading="lazy" className="size-full object-cover" />
               </button>
             ))}
           </div>

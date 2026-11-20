@@ -4,7 +4,8 @@ import { absoluteUrl } from '@/lib/commerce/shop-seo';
 import { getLocale, getTranslations } from 'next-intl/server';
 import type { ShopT } from '@/components/shop-public/shop-link';
 import { ShopSectionsView } from '@/components/shop-public/shop-sections';
-import { isShopHandleFormat, loadShopHome, themeImageUrl } from '@/lib/commerce/public-shop';
+import { isShopHandleFormat, loadShopHome } from '@/lib/commerce/public-shop';
+import { themeImageUrl } from '@/lib/commerce/shop-images';
 
 export const dynamic = 'force-dynamic';
 

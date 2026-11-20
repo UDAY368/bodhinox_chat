@@ -30,6 +30,7 @@ import {
   planPlatformRows, type ImportRowsInput, type Platform, type SourceProduct, type WooRaw,
 } from './platform-import';
 import { auditCatalogue, CatalogueError } from './products';
+import { revalidateShop } from '../shop-cache';
 
 export const PLATFORM_IMPORT_JOB = 'commerce.platform_import';
 
@@ -144,6 +145,7 @@ async function finish(accountId: string, id: string, status: 'done' | 'failed' |
   await withTenant(worker(accountId), (tx) => tx.$executeRaw`
     UPDATE shop_platform_imports SET status=${status}, credentials_enc=NULL, cursor=NULL, error_code=${errorCode}, completed_at=now()
     WHERE account_id=${accountId}::uuid AND id=${id}::uuid AND status IN ('queued','running')`, getWorkerPrisma());
+  revalidateShop(accountId);
 }
 
 // ------------------------------------------------------------ HTTP
@@ -324,6 +326,8 @@ export async function handlePlatformImportJob(accountId: string, payload: Record
           if (fin[0]) await auditCatalogue(tx, accountId, job.requested_by, 'commerce.products_platform_imported', id,
             { platform: job.platform, created: fin[0].created_count, updated: fin[0].updated_count, skipped: fin[0].skipped_count, errors: fin[0].error_count });
         }, w);
+        // In the worker there is no Next data cache to reach: a no-op there, and the shop pages' short TTL bounds staleness.
+        revalidateShop(accountId);
         return;
       }
     }

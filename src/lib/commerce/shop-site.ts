@@ -14,6 +14,8 @@ import {
   type ShopTemplateId, type ShopThemeSettings,
 } from './shop-templates';
 import { isUuid, onlinePaymentReady, StoreError } from './store-settings';
+import { SITEMAP_GROUP_LIMIT, SITEMAP_PRODUCT_LIMIT } from './shop-sitemap';
+import { CATALOGUE_CATEGORY_LIMIT } from './storefront';
 
 export interface ShopSiteSettings {
   /** False until the first save: the values are suggestions. */
@@ -37,6 +39,27 @@ export interface ShopSiteView {
   checklist: ChecklistItem[];
   numbers: Array<{ id: string; name: string | null; wabaId: string | null; connected: boolean }>;
   otpTemplates: Array<{ id: string; name: string; language: string | null; wabaId: string | null }>;
+  /** Store Batch 6: the shop's own caps it has reached (each a cheap count with LIMIT cap+1), shown as a notice to the seller. */
+  limits: ShopLimitHit[];
+}
+
+/** A cap of the public shop that this shop has passed: what it is and the number. */
+export interface ShopLimitHit { key: 'sitemap_products' | 'categories' | 'sitemap_collections'; limit: number }
+
+/** Which caps the shop has passed. Runs on the seller's store screen only, never on a public page. */
+async function limitsOf(tx: TenantTransaction, accountId: string): Promise<ShopLimitHit[]> {
+  const [row] = await tx.$queryRaw<{ products: number; categories: number; collections: number }[]>`
+    SELECT
+      (SELECT count(*) FROM (SELECT 1 FROM shop_products p WHERE p.account_id=${accountId}::uuid AND shop_product_live(p.status, p.publish_at, p.hide_at)
+        AND EXISTS (SELECT 1 FROM shop_variants v WHERE v.account_id=p.account_id AND v.product_id=p.id AND v.archived_at IS NULL AND v.price_minor IS NOT NULL)
+        LIMIT ${SITEMAP_PRODUCT_LIMIT + 1}) x)::int AS products,
+      (SELECT count(*) FROM (SELECT 1 FROM shop_categories WHERE account_id=${accountId}::uuid AND archived_at IS NULL LIMIT ${CATALOGUE_CATEGORY_LIMIT + 1}) y)::int AS categories,
+      (SELECT count(*) FROM (SELECT 1 FROM shop_collections WHERE account_id=${accountId}::uuid AND published LIMIT ${SITEMAP_GROUP_LIMIT + 1}) z)::int AS collections`;
+  const hits: ShopLimitHit[] = [];
+  if ((row?.products ?? 0) > SITEMAP_PRODUCT_LIMIT) hits.push({ key: 'sitemap_products', limit: SITEMAP_PRODUCT_LIMIT });
+  if ((row?.categories ?? 0) > CATALOGUE_CATEGORY_LIMIT) hits.push({ key: 'categories', limit: CATALOGUE_CATEGORY_LIMIT });
+  if ((row?.collections ?? 0) > SITEMAP_GROUP_LIMIT) hits.push({ key: 'sitemap_collections', limit: SITEMAP_GROUP_LIMIT });
+  return hits;
 }
 
 interface Row {
@@ -107,6 +130,7 @@ export async function getShopSite(ctx: TenantContext): Promise<ShopSiteView> {
       site, checklist: await checklistOf(tx, ctx.accountId, site),
       numbers: numbers.map((n) => ({ id: n.id, name: n.display_name, wabaId: n.waba_id, connected: n.status !== 'disconnected' })),
       otpTemplates: templates.map((t) => ({ id: t.id, name: t.name, language: t.language, wabaId: t.waba_id })),
+      limits: await limitsOf(tx, ctx.accountId),
     };
   });
 }

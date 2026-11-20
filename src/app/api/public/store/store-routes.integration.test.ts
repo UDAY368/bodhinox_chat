@@ -11,6 +11,27 @@ vi.mock('@/lib/whatsapp/meta-api', async (original) => ({
   sendTextMessage: (...args: unknown[]) => sendText(...args),
 }));
 
+// Store Batch 6: the image routes read and write storage; here storage is a map in memory (the real S3 is not in tests).
+const storage = vi.hoisted(() => ({ objects: new Map<string, Uint8Array>(), puts: [] as Array<{ accountId: string; bucket: string; key: string; type: string }>,
+  record: undefined as undefined | ((accountId: string, bucket: string, key: string, type: string, size: number) => Promise<void>) }));
+vi.mock('@/lib/storage/server', async (original) => ({
+  ...(await original<typeof import('@/lib/storage/server')>()),
+  getMedia: async (_ctx: unknown, bucket: string, key: string) => {
+    const bytes = storage.objects.get(`${bucket}/${key}`);
+    if (!bytes) throw new Error('Media not found');
+    return { contentType: key.endsWith('.webp') ? 'image/webp' : 'image/png', object: { Body: {
+      transformToByteArray: async () => bytes,
+      transformToWebStream: () => new Blob([bytes as BlobPart]).stream(),
+    } } };
+  },
+  putMedia: async (ctx: { accountId: string }, bucket: string, key: string, body: Uint8Array, type: string) => {
+    storage.puts.push({ accountId: ctx.accountId, bucket, key, type });
+    storage.objects.set(`${bucket}/${key}`, body);
+    await storage.record?.(ctx.accountId, bucket, key, type, body.byteLength);
+  },
+}));
+
+import sharp from 'sharp';
 import { disconnectDatabases, getWorkerPrisma } from '@/lib/db/prisma';
 import { withTenant } from '@/lib/db/tenant';
 import { encrypt } from '@/lib/whatsapp/encryption';
@@ -152,6 +173,43 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('public shop on PostgreSQL',
     expect(body.removed.sort()).toEqual([foreignVariant, archived, draftVariant].sort());
     expect(body.subtotalMinor).toBe(50000);
     expect((await previewCart(req({ lines: 'nope' }), at(handle))).status).toBe(400);
+  });
+
+  it('serves fixed-width WebP copies of a live product image, made once and then read from storage, and never for another shop', async () => {
+    const photo = randomUUID(), photoImage = randomUUID();
+    await db.query(`INSERT INTO media_objects(id,account_id,uploaded_by,object_key,bucket,content_type,byte_size,original_name)
+      VALUES($1,$2,$3,$4,'chat-media','image/png',100,'photo.png')`, [photo, account, owner, `account-${account}/products/photo.png`]);
+    await db.query('INSERT INTO shop_product_images(id,account_id,product_id,media_id,position) VALUES($1,$2,$3,$4,5)', [photoImage, account, product, photo]);
+    storage.objects.set(`chat-media/account-${account}/products/photo.png`,
+      new Uint8Array(await sharp({ create: { width: 1600, height: 1200, channels: 3, background: '#2a6' } }).png().toBuffer()));
+    storage.record = async (acct, bucket, key, type, size) => {
+      await db.query(`INSERT INTO media_objects(account_id,object_key,bucket,content_type,byte_size) VALUES($1,$2,$3,$4,$5)`, [acct, key, bucket, type, size]);
+    };
+    const get = (imageId: string, query: string, h = handle) => image(
+      new Request(`${ORIGIN}/api/public/store/${h}/images/${imageId}${query}`, { headers: { 'x-forwarded-for': `198.51.100.${(ip++ % 200) + 1}` } }),
+      { params: Promise.resolve({ handle: h, imageId }) });
+    const first = await get(photoImage, '?w=320');
+    expect(first.status).toBe(200);
+    expect(first.headers.get('content-type')).toBe('image/webp');
+    expect(first.headers.get('cache-control')).toBe('public, max-age=31536000, immutable');
+    expect(first.headers.get('x-content-type-options')).toBe('nosniff');
+    expect(first.headers.get('content-security-policy')).toContain('sandbox');
+    expect((await sharp(Buffer.from(await first.arrayBuffer())).metadata()).width).toBe(320);
+    expect(storage.puts).toEqual([{ accountId: account, bucket: 'chat-media', key: `account-${account}/shop-images/${photo}-w320.webp`, type: 'image/webp' }]);
+    // The second ask reads the stored copy; nothing is made again.
+    const again = await get(photoImage, '?w=320');
+    expect(again.status).toBe(200);
+    expect(storage.puts).toHaveLength(1);
+    // An unknown width is the original, still immutable.
+    const original = await get(photoImage, '?w=999');
+    expect(original.headers.get('content-type')).toBe('image/png');
+    expect(original.headers.get('cache-control')).toBe('public, max-age=31536000, immutable');
+    // The copy is in the workspace's storage, not in its media library.
+    expect((await db.query('SELECT in_library FROM media_objects WHERE account_id=$1 AND object_key LIKE $2', [account, '%-w320.webp'])).rows).toEqual([{ in_library: false }]);
+    // Another shop's handle, or a draft product's image, never answers a width either.
+    expect((await get(photoImage, '?w=320', otherHandle)).status).toBe(404);
+    expect((await get(draftImage, '?w=640')).status).toBe(404);
+    expect(storage.puts).toHaveLength(1);
   });
 
   it('serves only theme media and images of published products', async () => {

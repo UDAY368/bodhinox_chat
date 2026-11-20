@@ -8,6 +8,7 @@ import { requireRole } from '@/lib/auth/account';
 import { tenantOf } from '@/lib/audience/http';
 import { getStoreSettings, parseStoreSettings, saveStoreSettings, storeErrorResponse } from '@/lib/commerce/store-settings';
 import { checkRateLimit, rateLimitResponse, RATE_LIMITS } from '@/lib/rate-limit';
+import { revalidateShop } from '@/lib/commerce/shop-cache';
 
 export async function GET() {
   try {
@@ -24,7 +25,9 @@ export async function PUT(request: Request) {
     const limit = await checkRateLimit(`commerce:settings:${ctx.userId}`, RATE_LIMITS.adminAction);
     if (!limit.success) return rateLimitResponse(limit);
     const input = parseStoreSettings(await request.json().catch(() => null));
-    return NextResponse.json({ settings: await saveStoreSettings({ ...tenantOf(ctx), userId: ctx.userId }, input) });
+    const settings = await saveStoreSettings({ ...tenantOf(ctx), userId: ctx.userId }, input);
+    revalidateShop(ctx.accountId);
+    return NextResponse.json({ settings });
   } catch (error) {
     return storeErrorResponse(error);
   }

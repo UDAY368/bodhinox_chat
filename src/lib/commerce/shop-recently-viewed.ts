@@ -7,7 +7,9 @@
  * data (no description or detail rows). Unknown, foreign or hidden ids are
  * simply missing from the answer.
  */
-import { loadProductsWith, shopImageUrl, withPublicShop, type PublicProduct } from './public-shop';
+import { withPublicShop, type PublicProduct } from './public-shop';
+import { shopImageUrl } from './shop-images';
+import { loadProductsWith } from './shop-products';
 
 export const RECENT_IDS_MAX = 12;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;

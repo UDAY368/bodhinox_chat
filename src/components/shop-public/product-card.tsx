@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import type { PublicProduct } from '@/lib/commerce/public-shop';
+import { CARD_IMAGE_SIZES, imageSrcSet } from '@/lib/commerce/shop-images';
 import { productPath } from '@/lib/commerce/shop-paths';
 import type { ShopLayout } from '@/lib/commerce/shop-templates';
 import { formatMoney } from '@/lib/commerce/money';
@@ -53,7 +54,7 @@ export function ProductCard({ handle, product, currency, layout, locale, labels 
   );
   const picture = (className: string) => (product.images[0]
     // eslint-disable-next-line @next/next/no-img-element -- shop images come from our own route or the shop's https URL
-    ? <img src={product.images[0]} alt={product.name} loading="lazy" className={className} />
+    ? <img src={product.images[0]} srcSet={imageSrcSet(product.images[0])} sizes={card === 'row' ? '80px' : CARD_IMAGE_SIZES} alt={product.name} loading="lazy" className={className} />
     : <div className="grid size-full place-items-center text-3xl opacity-30" aria-hidden>{product.name.slice(0, 1)}</div>);
   const price = (tone: string) => cheapest && (
     <p className="flex flex-wrap items-baseline gap-x-2 text-sm">

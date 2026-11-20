@@ -12076,6 +12076,12 @@
         "pathHint": "Use a path inside your shop, for example /old-oil. A full address starting with {prefix} also works. Other websites are not allowed.",
         "goesTo": "goes to",
         "remove": "Remove the redirect from {from}"
+      },
+      "limits": {
+        "title": "Your shop has passed a limit",
+        "sitemap_products": "More than {limit, number} products are live: the sitemap lists the {limit, number} changed most recently. Every product is still reachable through its category and All products.",
+        "categories": "More than {limit, number} categories: the Categories section and the catalogue filter show the first {limit, number}.",
+        "sitemap_collections": "More than {limit, number} published collections: the sitemap lists the first {limit, number}."
       }
     },
     "storeEditor": {
@@ -19084,6 +19090,7 @@
     "nextPage": "Next page",
     "prevPage": "Previous page",
     "pageOf": "Page {page} of {pages}",
+    "firstPage": "First page",
     "pagination": "Pages",
     "imageN": "Image {n}",
     "pickOptions": "Choose the options above.",
@@ -19102,7 +19109,8 @@
       "price_asc": "Price: low to high",
       "price_desc": "Price: high to low",
       "name": "Name",
-      "newest": "Newest first"
+      "newest": "Newest first",
+      "relevance": "Best match"
     },
     "minPrice": "Min price",
     "maxPrice": "Max price",

@@ -4,6 +4,7 @@ export const runtime = 'nodejs';
 
 import { updateLocation } from '@/lib/commerce/stock-locations';
 import { catalogueErrorResponse, json, mutationLimit, readJson, staffCaller, type IdContext } from '../../shop/_lib/http';
+import { revalidateShop } from '@/lib/commerce/shop-cache';
 
 export async function PATCH(request: Request, context: IdContext) {
   try {
@@ -11,7 +12,9 @@ export async function PATCH(request: Request, context: IdContext) {
     const caller = await staffCaller(request, { min: 'admin', mutation: true, permission: 'commerce.inventory' });
     const limited = await mutationLimit(caller);
     if (limited) return limited;
-    return json({ location: await updateLocation(caller.tenant, id, await readJson(request)) });
+    const location = await updateLocation(caller.tenant, id, await readJson(request));
+    revalidateShop(caller.accountId);
+    return json({ location });
   } catch (error) {
     return catalogueErrorResponse(error);
   }

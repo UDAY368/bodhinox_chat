@@ -28,6 +28,7 @@ import { addToCart, CART_EVENT, readCart, setLineQty, writeCart, type BrowserCar
 import { markReplaceCart, readCheckout, writeCarry } from './checkout-store';
 import { shopErrorKey, shopPostJson as post } from './shop-post';
 import { readRef } from './referral-store';
+import { imageSrcSet } from '@/lib/commerce/shop-images';
 
 export interface CartShopInfo {
   handle: string;
@@ -204,7 +205,7 @@ export function ShopCart({ shop, buyer = null }: { shop: CartShopInfo; buyer?: C
                     <Link href={`/s/${shop.handle}/p/${p.id}`} className="flex min-w-0 flex-1 items-center gap-3">
                       {p.images[0]
                         // eslint-disable-next-line @next/next/no-img-element -- shop images come from our own route or the shop's https URL
-                        ? <img src={p.images[0]} alt="" loading="lazy" className="size-14 shrink-0 rounded-[var(--shop-radius)] object-cover" />
+                        ? <img src={imageSrcSet(p.images[0]) ? `${p.images[0]}?w=320` : p.images[0]} alt="" loading="lazy" className="size-14 shrink-0 rounded-[var(--shop-radius)] object-cover" />
                         : <div className="grid size-14 shrink-0 place-items-center rounded-[var(--shop-radius)] bg-black/5 opacity-40" aria-hidden>{p.name.slice(0, 1)}</div>}
                       <span className="min-w-0">
                         <span className="line-clamp-2 block text-sm font-medium">{p.name}</span>

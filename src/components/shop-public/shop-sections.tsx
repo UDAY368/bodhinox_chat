@@ -16,6 +16,7 @@ import type { ResolvedShopTheme } from '@/lib/commerce/shop-templates';
 import { OfferCountdown } from './offer-countdown';
 import { cardLabels, ProductCard, ProductGrid } from './product-card';
 import { RecentlyViewed } from './recently-viewed';
+import { imageSrcSet } from '@/lib/commerce/shop-images';
 import { ShopLink, type ShopT } from './shop-link';
 
 export interface SectionContext {
@@ -64,7 +65,7 @@ function Empty({ ctx }: { ctx: SectionContext }) {
 
 function Img({ src, className, alt = '' }: { src: string; className: string; alt?: string }) {
   // eslint-disable-next-line @next/next/no-img-element -- shop images come from our own route or the shop's https URL
-  return <img src={src} alt={alt} loading="lazy" className={className} />;
+  return <img src={src} srcSet={imageSrcSet(src)} sizes="100vw" alt={alt} loading="lazy" className={className} />;
 }
 
 function Banner({ s, ctx }: { s: ShopSection; ctx: SectionContext }) {

@@ -12076,6 +12076,12 @@
         "pathHint": "Use um caminho dentro da sua loja, por exemplo /oleo-antigo. Um endereço completo que comece com {prefix} também funciona. Outros sites não são permitidos.",
         "goesTo": "vai para",
         "remove": "Remover o redirecionamento de {from}"
+      },
+      "limits": {
+        "title": "Your shop has passed a limit",
+        "sitemap_products": "More than {limit, number} products are live: the sitemap lists the {limit, number} changed most recently. Every product is still reachable through its category and All products.",
+        "categories": "More than {limit, number} categories: the Categories section and the catalogue filter show the first {limit, number}.",
+        "sitemap_collections": "More than {limit, number} published collections: the sitemap lists the first {limit, number}."
       }
     },
     "storeEditor": {
@@ -19084,6 +19090,7 @@
     "nextPage": "Próxima página",
     "prevPage": "Página anterior",
     "pageOf": "Página {page} de {pages}",
+    "firstPage": "First page",
     "pagination": "Páginas",
     "imageN": "Imagem {n}",
     "pickOptions": "Escolha as opções acima.",
@@ -19102,7 +19109,8 @@
       "price_asc": "Preço: menor para maior",
       "price_desc": "Preço: maior para menor",
       "name": "Nome",
-      "newest": "Mais recentes primeiro"
+      "newest": "Mais recentes primeiro",
+      "relevance": "Best match"
     },
     "minPrice": "Preço mín.",
     "maxPrice": "Preço máx.",

@@ -14,7 +14,7 @@ import { absoluteUrl } from '@/lib/commerce/shop-seo';
 
 export const dynamic = 'force-dynamic';
 
-type Search = { sort?: string; min?: string; max?: string; option?: string; page?: string };
+type Search = { sort?: string; min?: string; max?: string; option?: string; after?: string };
 // `categoryId` is the address segment: the category's slug, or its id from an old link (answered with a 308 to the slug address).
 type Props = { params: Promise<{ handle: string; categoryId: string }>; searchParams: Promise<Search> };
 
@@ -43,13 +43,15 @@ export default async function ShopCategoryPage({ params, searchParams }: Props) 
   }
   const t = await getTranslations('ShopPublic');
   const locale = await getLocale();
-  const pageLink = (n: number) => {
+  // Keyset paging (store Batch 6): the next page is ?after=<cursor> with the same filters; "first page" drops the cursor.
+  const pageLink = (after: string | null) => {
     const qs = new URLSearchParams();
     for (const key of ['sort', 'min', 'max', 'option'] as const) if (typeof query[key] === 'string' && query[key]) qs.set(key, query[key]!);
-    if (n > 1) qs.set('page', String(n));
+    if (after) qs.set('after', after);
     const s = qs.toString();
     return s ? `${base}?${s}` : base;
   };
+  const later = typeof query.after === 'string' && query.after.length > 0;
   const field = 'h-11 rounded-[var(--shop-radius)] border border-black/15 bg-white px-3 text-sm text-black';
   return (
     <div className="flex flex-col gap-5">
@@ -107,11 +109,10 @@ export default async function ShopCategoryPage({ params, searchParams }: Props) 
             layout={page.shop.theme.layout} locale={locale} labels={{ soldOut: t('soldOut'), from: t('from') }} />)}
         </ProductGrid>
       )}
-      {page.pages > 1 && (
+      {(later || page.next) && (
         <nav aria-label={t('pagination')} className="flex items-center justify-center gap-3 text-sm">
-          {page.page > 1 && <Link href={pageLink(page.page - 1)} rel="prev" className="rounded-[var(--shop-radius)] border border-black/15 px-4 py-2">{t('prevPage')}</Link>}
-          <span>{t('pageOf', { page: page.page, pages: page.pages })}</span>
-          {page.page < page.pages && <Link href={pageLink(page.page + 1)} rel="next" className="rounded-[var(--shop-radius)] border border-black/15 px-4 py-2">{t('nextPage')}</Link>}
+          {later && <Link href={pageLink(null)} className="inline-flex h-11 items-center rounded-[var(--shop-radius)] border border-black/15 px-4">{t('firstPage')}</Link>}
+          {page.next && <Link href={pageLink(page.next)} rel="next" className="inline-flex h-11 items-center rounded-[var(--shop-radius)] border border-black/15 px-4">{t('nextPage')}</Link>}
         </nav>
       )}
     </div>

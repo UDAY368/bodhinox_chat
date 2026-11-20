@@ -9,7 +9,7 @@
  * through the category and all-products pages.
  */
 import type { TenantTransaction } from '@/lib/db/tenant';
-import { loadPublicShopWithContent, withPublicShop } from './public-shop';
+import { loadPublicShopWithContent, withPublicShopData } from './public-shop';
 import { categoryPath, productPath } from './shop-paths';
 import { POLICY_SLUGS } from './shop-sections';
 
@@ -52,7 +52,8 @@ async function entriesTx(tx: TenantTransaction, accountId: string, handle: strin
 
 /** The shop's sitemap entries (paths), or null when the shop is not open to visitors. */
 export async function loadShopSitemap(handle: string): Promise<SitemapEntry[] | null> {
-  return (await withPublicShop(handle, (tx, accountId) => entriesTx(tx, accountId, handle))) ?? null;
+  // The gate runs on every request; the entries come from the shop's data cache (shop-cache.ts), dropped on every catalogue change.
+  return (await withPublicShopData(handle, 'sitemap', entriesTx)) ?? null;
 }
 
 const xmlEscape = (value: string) => value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;');

@@ -10,6 +10,7 @@ import { tenantOf } from '@/lib/audience/http';
 import { getShopAccess, parseShopAccessInput, saveShopAccess } from '@/lib/commerce/shop-access';
 import { storeErrorResponse } from '@/lib/commerce/store-settings';
 import { checkRateLimit, rateLimitResponse, RATE_LIMITS } from '@/lib/rate-limit';
+import { revalidateShop } from '@/lib/commerce/shop-cache';
 
 export async function GET() {
   try {
@@ -26,7 +27,9 @@ export async function PUT(request: Request) {
     const limit = await checkRateLimit(`commerce:shop-access:${ctx.userId}`, RATE_LIMITS.adminAction);
     if (!limit.success) return rateLimitResponse(limit);
     const input = parseShopAccessInput(await request.json().catch(() => null));
-    return NextResponse.json({ access: await saveShopAccess({ ...tenantOf(ctx), userId: ctx.userId }, input) });
+    const access = await saveShopAccess({ ...tenantOf(ctx), userId: ctx.userId }, input);
+    revalidateShop(ctx.accountId);
+    return NextResponse.json({ access });
   } catch (error) {
     return storeErrorResponse(error);
   }

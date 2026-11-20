@@ -13,6 +13,7 @@ import { ManualOrderError } from '@/lib/commerce/manual-orders';
 import { getOrder } from '@/lib/commerce/orders';
 import { maskEmbeddedContact, resolvePhoneMask } from '@/lib/inbox/masking-apply';
 import { jsonBody, lifecycleErrorResponse, NO_STORE, staffContext, writeLimit } from '../_lib/http';
+import { revalidateShop } from '@/lib/commerce/shop-cache';
 
 export async function POST(request: Request) {
   try {
@@ -21,6 +22,7 @@ export async function POST(request: Request) {
     if (limited) return limited;
     const input = parseCounterSale(await jsonBody(request));
     const sale = await createCounterSale(ctx, input);
+    revalidateShop(ctx.accountId); // stock went down
     const order = await getOrder(ctx, sale.orderId);
     const mask = await resolvePhoneMask(ctx);
     const paid = sale.paymentError === null;

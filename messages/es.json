@@ -12076,6 +12076,12 @@
         "pathHint": "Usa una ruta dentro de tu tienda, por ejemplo /aceite-viejo. También sirve una dirección completa que empiece por {prefix}. No se permiten otros sitios web.",
         "goesTo": "va a",
         "remove": "Quitar la redirección desde {from}"
+      },
+      "limits": {
+        "title": "Your shop has passed a limit",
+        "sitemap_products": "More than {limit, number} products are live: the sitemap lists the {limit, number} changed most recently. Every product is still reachable through its category and All products.",
+        "categories": "More than {limit, number} categories: the Categories section and the catalogue filter show the first {limit, number}.",
+        "sitemap_collections": "More than {limit, number} published collections: the sitemap lists the first {limit, number}."
       }
     },
     "storeEditor": {
@@ -19084,6 +19090,7 @@
     "nextPage": "Página siguiente",
     "prevPage": "Página anterior",
     "pageOf": "Página {page} de {pages}",
+    "firstPage": "First page",
     "pagination": "Páginas",
     "imageN": "Imagen {n}",
     "pickOptions": "Elige las opciones de arriba.",
@@ -19102,7 +19109,8 @@
       "price_asc": "Precio: de menor a mayor",
       "price_desc": "Precio: de mayor a menor",
       "name": "Nombre",
-      "newest": "Más recientes primero"
+      "newest": "Más recientes primero",
+      "relevance": "Best match"
     },
     "minPrice": "Precio mín.",
     "maxPrice": "Precio máx.",

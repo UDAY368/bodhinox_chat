@@ -7,7 +7,9 @@
 import { withTenant, type TenantContext } from '@/lib/db/tenant';
 import { appOrigin } from '@/lib/auth/csrf';
 import { LINK_PAGE_LIMITS, readStoredLinks, type LinkPageInput, type PageLink } from './link-page-rules';
-import { loadProductsWith, loadPublicShopTx, shopImageUrl, withPublicShop, type PublicProduct, type PublicShop } from './public-shop';
+import { loadPublicShopTx, withPublicShop, type PublicProduct, type PublicShop } from './public-shop';
+import { shopImageUrl } from './shop-images';
+import { loadProductsWith } from './shop-products';
 import { auditStoreChange, StoreError } from './store-settings';
 
 export interface LinkPageView {

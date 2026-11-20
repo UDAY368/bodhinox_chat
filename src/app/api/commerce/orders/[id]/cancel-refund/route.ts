@@ -8,6 +8,7 @@ import { NextResponse } from 'next/server';
 
 import { cancelAndRefund } from '@/lib/commerce/order-lifecycle';
 import { jsonBody, lifecycleErrorResponse, NO_STORE, staffContext, writeLimit } from '../../_lib/http';
+import { revalidateShop } from '@/lib/commerce/shop-cache';
 
 type Context = { params: Promise<{ id: string }> };
 
@@ -21,6 +22,7 @@ export async function POST(request: Request, context: Context) {
     const { refundIds, refundedOutside } = await cancelAndRefund(ctx, id, {
       note: typeof body.note === 'string' ? body.note : null, refundedOutside: body.refunded_outside === true,
     });
+    revalidateShop(ctx.accountId); // stock went back
     return NextResponse.json({ refund_ids: refundIds, refunded_outside: refundedOutside }, { headers: NO_STORE });
   } catch (error) {
     return lifecycleErrorResponse(error);

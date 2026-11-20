@@ -23,6 +23,7 @@ import {
   buildProductCsv, CsvError, IMPORT_CHUNK, INLINE_MAX_ROWS, MAX_CSV_BYTES, MAX_EXPORT_ROWS, MAX_REPORTED_ERRORS, parseProductCsv, planImport,
   validateRow, type ExistingSku, type ImportPlan, type ImportRow, type PlannedRow, type RowError,
 } from './product-csv';
+import { revalidateShop } from '../shop-cache';
 
 export const PRODUCT_IMPORT_JOB = 'commerce.product_import';
 
@@ -280,6 +281,7 @@ export async function importInline(ctx: TenantContext & { userId: string }, csv:
     return { prepared, applied };
   }, getPrisma(), { timeoutMs: 120_000 });
   const stockErrors = await applyStock(ctx.accountId, ctx.userId, out.applied.stock);
+  revalidateShop(ctx.accountId);
   const errors = [...out.prepared.errors, ...out.applied.errors, ...stockErrors].sort((a, b) => a.row - b.row);
   const { created, updated } = out.applied;
   await withTenant(ctx, (tx) => auditCatalogue(tx, ctx.accountId, ctx.userId, 'commerce.products_csv_imported', 'inline',
@@ -338,6 +340,8 @@ async function finishImport(accountId: string, id: string, status: 'done' | 'fai
   await withTenant(worker(accountId), (tx) => tx.$executeRaw`
     UPDATE shop_import_jobs SET status=${status}, csv_text=NULL, error_code=${errorCode}, completed_at=now()
     WHERE account_id=${accountId}::uuid AND id=${id}::uuid AND status IN ('queued','running')`, getWorkerPrisma());
+  // In the worker this is a no-op (no Next data cache there); the shop pages' short TTL bounds staleness.
+  revalidateShop(accountId);
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -404,6 +408,7 @@ export async function handleProductImportJob(accountId: string, payload: Record<
       if (fin[0]) await auditCatalogue(tx, accountId, job.requested_by, 'commerce.products_csv_imported', id,
         { created: fin[0].created_count, updated: fin[0].updated_count, errors: fin[0].error_count });
     }, w);
+    revalidateShop(accountId);
   } catch (error) {
     // A file the parser refuses will never apply; anything else is retried until the attempts run out.
     if (error instanceof CsvError) return void (await finishImport(accountId, id, 'failed', `csv_${error.code}`));

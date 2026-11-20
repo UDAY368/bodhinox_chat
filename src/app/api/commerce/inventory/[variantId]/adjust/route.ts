@@ -6,6 +6,7 @@ export const runtime = 'nodejs';
 
 import { adjustStock, parseAdjustInput } from '@/lib/commerce/catalogue/inventory';
 import { catalogueErrorResponse, json, mutationLimit, readJson, staffCaller } from '../../../shop/_lib/http';
+import { revalidateShop } from '@/lib/commerce/shop-cache';
 
 type Context = { params: Promise<{ variantId: string }> };
 
@@ -16,7 +17,9 @@ export async function POST(request: Request, context: Context) {
     const limited = await mutationLimit(caller);
     if (limited) return limited;
     const input = parseAdjustInput(variantId, await readJson(request));
-    return json({ level: await adjustStock(caller.tenant, input) });
+    const level = await adjustStock(caller.tenant, input);
+    revalidateShop(caller.accountId);
+    return json({ level });
   } catch (error) {
     return catalogueErrorResponse(error);
   }
