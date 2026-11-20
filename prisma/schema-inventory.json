@@ -2855,7 +2855,7 @@
         "nullable": false,
         "default": null,
         "reference": null,
-        "definition": "trigger_type TEXT NOT NULL\n    CHECK (trigger_type IN ('keyword', 'first_inbound_message', 'manual', 'template_reply', 'order_received', 'ad_click', 'default_reply', 'ig_comment', 'ig_story_reply', 'ig_story_mention', 'ig_live_comment', 'ig_ref', 'ig_share_to_story', 'contact_created', 'tag_added', 'outside_hours'))"
+        "definition": "trigger_type TEXT NOT NULL\n    CHECK (trigger_type IN ('keyword', 'first_inbound_message', 'manual', 'template_reply', 'order_received', 'ad_click', 'default_reply', 'ig_comment', 'ig_story_reply', 'ig_story_mention', 'ig_live_comment', 'ig_ref', 'ig_share_to_story', 'contact_created', 'tag_added', 'outside_hours', 'order_created', 'order_paid', 'order_shipped', 'order_delivered', 'order_returned', 'payment_received', 'form_submitted', 'deal_stage_changed', 'cart_abandoned', 'appointment_booked', 'appointment_cancelled', 'appointment_rescheduled', 'appointment_completed', 'appointment_no_show'))"
       },
       {
         "name": "trigger_config",

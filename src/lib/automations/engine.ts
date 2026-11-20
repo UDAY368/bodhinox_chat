@@ -23,15 +23,21 @@ import type {
   Channel,
   FieldChangedTriggerConfig,
   StartFlowStepConfig,
+  MoveDealStageStepConfig,
 } from '@/types'
 import { databaseAdmin } from './admin-client'
-import { canOwnConversations, nextRoundRobinAgent } from './round-robin'
-import { marketingSuppression } from '@/lib/contacts/consent'
-import { addContactTagIfAbsent, ContactTagWriteError, removeContactTag } from '@/lib/contacts/tag-write'
+import { addTag, removeTag } from '@/lib/actions/tags'
+import { assignConversations, resolveAssignee } from '@/lib/actions/assign'
+import { createDeal, dealThatStartedRun, moveDealStage } from '@/lib/actions/deals'
+import { noticeAudience, notifyTeam } from '@/lib/actions/notify'
+import { sendOnChannel as sendCustomerMessage, sendTemplateOnce, templateConsentRefusal } from '@/lib/actions/send'
+import { ApiCallOutcomeUnknown, callApiOnce, type ApiCallOutcome } from '@/lib/actions/webhook'
+import { buildApiRequest, type RequestValues } from '@/lib/flows/api-request'
+import type { ApiRequestNodeConfig } from '@/lib/flows/types'
 import { INSTAGRAM_OPT_OUT_WHILE_WAITING } from '@/lib/contacts/channel-consent'
 import { writeContactField } from '@/lib/contacts/field-write'
-import { MAX_TAG_CHAIN_DEPTH, getTagChainDepth } from '@/lib/contacts/tag-chain'
-import { engineSendText, engineSendTemplate, engineSendInteractive,
+import { getTagChainDepth } from '@/lib/contacts/tag-chain'
+import { engineSendText, engineSendInteractive,
 } from './meta-send'
 import { validateInteractivePayload } from '@/lib/whatsapp/interactive'
 import { isDeliverableUrl } from '@/lib/webhooks/ssrf'
@@ -39,22 +45,15 @@ import { fillWorkspace, workspaceValuesFor } from '@/lib/workspace/attributes'
 import { getT } from '@/lib/i18n/translate'
 import { ContactConversationLookupError, pickContactConversationId } from '@/lib/whatsapp/contact-conversation'
 import type { FlowSend } from '@/lib/flows/channel-send'
-import { safeFetch } from '@/lib/webhooks/safe-fetch'
-import { jsonEscape } from '@/lib/flows/api-request'
-import { notifyAutomationNotice } from '@/lib/notifications/emit'
-import { NOTIFY_TEXT_MAX, automationChannel, webhookHeaderProblem } from './validate'
+import { NOTIFY_TEXT_MAX, WEBHOOK_MAPPINGS_MAX, WEBHOOK_METHODS, automationChannel, webhookHeaderProblem } from './validate'
+import { isEventTriggerType } from '@/lib/events/types'
+import { eventFiltersMatch } from '@/lib/events/trigger-filters'
 
 /** notify_team step config (Phase 12). */
 interface NotifyTeamStepConfig {
   audience?: 'assignee' | 'admins'
   text?: string
 }
-
-/** What a send_webhook dispatch records: an HTTP status, or a definite local refusal. Never the body. */
-type WebhookOutcome = { status: number } | { refused: 'blocked' | 'invalid_url' | 'too_large' }
-
-/** A network error or timeout: the receiver may or may not have the POST. */
-class WebhookOutcomeUnknown extends Error {}
 
 /** Step errors land in automation_logs and are shown on the logs page. */
 const tErr = getT('LibErrors.engine')
@@ -82,8 +81,8 @@ export interface AutomationContext {
   ad_id?: string
   /** Service of the appointment, for appointment_* triggers. */
   service_id?: string
-  /** The event-feed event (src/lib/events) that fired an order_* / payment_* / form_* / deal_* / cart_* trigger: ids and amounts only. */
-  event?: { type: string; data: Record<string, string | number | boolean | null> }
+  /** Batch 5: the domain event that fired an event trigger (src/lib/events); its data feeds the trigger filters. */
+  event?: { type: string; data: Record<string, unknown> }
 }
 
 export interface DispatchInput {
@@ -1025,15 +1024,8 @@ async function runStep(step: AutomationStep, args: ExecuteArgs): Promise<string>
       // Templates are WhatsApp messages; an Instagram automation cannot send one.
       if (automationChannel(args.automation) !== 'whatsapp') throw new Error(unavailableOn(automationChannel(args.automation)))
       if (!cfg.template_name) throw new Error(tErr('needsTemplateName'))
-      // Templates are business-initiated, so an opted-out contact is skipped.
-      const { data: consent, error: consentError } = await db
-        .from('contacts')
-        .select('opted_out_at,blocked_at')
-        .eq('id', args.contactId)
-        .eq('account_id', args.automation.account_id)
-        .maybeSingle()
-      if (consentError) throw new Error('Contact consent lookup failed')
-      const suppressed = marketingSuppression(consent)
+      // Templates are business-initiated, so an opted-out contact is skipped (the shared consent gate).
+      const suppressed = await templateConsentRefusal(db, args.automation.account_id, args.contactId)
       if (suppressed) return `template skipped: ${suppressed.toLowerCase()}`
       const conversationId = await resolveConversationId(args)
       // Meta templates use positional {{1}}, {{2}}, … placeholders, so
@@ -1054,7 +1046,7 @@ async function runStep(step: AutomationStep, args: ExecuteArgs): Promise<string>
             })
             .map((k) => String(cfg.variables![k]))
         : []
-      const { whatsapp_message_id } = await dispatchOnce(args.automation.account_id, `automation:${args.logId}:${step.id}`, () => engineSendTemplate({
+      const { whatsapp_message_id } = await sendTemplateOnce(`automation:${args.logId}:${step.id}`, {
         accountId: args.automation.account_id,
         userId: args.automation.user_id,
         conversationId,
@@ -1063,46 +1055,27 @@ async function runStep(step: AutomationStep, args: ExecuteArgs): Promise<string>
         language: cfg.language,
         params,
         bodyValuesOnly: true,
-      }))
+      })
       return `template sent via Meta (${whatsapp_message_id})`
     }
 
     case 'add_tag': {
       const cfg = step.step_config as TagStepConfig
       if (!args.contactId || !cfg.tag_id) throw new Error(tErr('needsContactAndTag', { step: 'add_tag' }))
-      const added = await addContactTagIfAbsent(db, {
+      // The shared tag action: tag_added rules on this automation's channel (no tag_added flow, as before).
+      const result = await addTag({
+        db,
         accountId: args.automation.account_id,
-        contactId: args.contactId!,
+        contactId: args.contactId,
         tagId: cfg.tag_id,
-      })
-      if (!added) return `tag ${cfg.tag_id} already present`
-
-      const depth = getTagChainDepth(args.context)
-      if (depth >= MAX_TAG_CHAIN_DEPTH) {
-        console.warn('[automations] tag_added chain depth limit reached', {
-          automationId: args.automation.id,
-          contactId: args.contactId!,
-          tagId: cfg.tag_id,
-          depth,
-        })
-        return `tag ${cfg.tag_id} added; tag_added dispatch skipped at depth ${depth}`
-      }
-
-      await runAutomationsForTrigger({
-        accountId: args.automation.account_id,
-        // The tag was added on this automation's channel (its conversation's).
+        context: args.context,
         channel: automationChannel(args.automation),
-        triggerType: 'tag_added',
-        contactId: args.contactId!,
-        context: {
-          ...args.context,
-          tag_id: cfg.tag_id,
-          vars: {
-            ...(args.context.vars ?? {}),
-            _tag_chain_depth: depth + 1,
-          },
-        },
+        startFlows: false,
       })
+      if (!result.added) return `tag ${cfg.tag_id} already present`
+      if (result.reason === 'max_depth') {
+        return `tag ${cfg.tag_id} added; tag_added dispatch skipped at depth ${getTagChainDepth(args.context)}`
+      }
       return `tag ${cfg.tag_id} added and tag_added dispatched`
     }
 
@@ -1112,14 +1085,9 @@ async function runStep(step: AutomationStep, args: ExecuteArgs): Promise<string>
       // own event id goes with it, so this automation cannot start itself again.
       const cfg = step.step_config as TagStepConfig
       if (!args.contactId || !cfg.tag_id) throw new Error(tErr('needsContactAndTag', { step: 'remove_tag' }))
-      try {
-        const removed = await removeContactTag(db, { accountId: args.automation.account_id, contactId: args.contactId,
-          tagId: cfg.tag_id, eventId: contactEventIdOf(args.context) })
-        return removed ? `tag ${cfg.tag_id} removed` : `tag ${cfg.tag_id} not present`
-      } catch (error) {
-        if (error instanceof ContactTagWriteError && error.status === 404) return `tag ${cfg.tag_id} not found`
-        throw error
-      }
+      const removed = await removeTag({ db, accountId: args.automation.account_id, contactId: args.contactId,
+        tagId: cfg.tag_id, eventId: contactEventIdOf(args.context) })
+      return removed === 'removed' ? `tag ${cfg.tag_id} removed` : removed === 'absent' ? `tag ${cfg.tag_id} not present` : `tag ${cfg.tag_id} not found`
     }
 
     case 'start_flow': {
@@ -1146,20 +1114,18 @@ async function runStep(step: AutomationStep, args: ExecuteArgs): Promise<string>
     case 'assign_conversation': {
       const cfg = step.step_config as AssignConversationStepConfig
       if (!args.contactId) throw new Error(tErr('needsContact', { step: 'assign_conversation' }))
-      let agentId = cfg.agent_id
-      if (cfg.mode === 'round_robin') {
-        agentId = (await nextRoundRobinAgent(args.automation.account_id)) ?? undefined
+      const assignee = await resolveAssignee(args.automation.account_id, cfg.mode, cfg.agent_id)
+      if ('refused' in assignee) {
+        // A pinned member removed or demoted to viewer is skipped; routing assigns instead (audit #51).
+        return assignee.refused === 'no_agent' ? 'no agent resolved'
+          : `agent ${assignee.agentId} can no longer own conversations; left to routing`
       }
-      if (!agentId) return 'no agent resolved'
-      // A pinned member removed or demoted to viewer is skipped; routing assigns instead (audit #51).
-      if (cfg.mode !== 'round_robin' && !(await canOwnConversations(args.automation.account_id, agentId))) {
-        return `agent ${agentId} can no longer own conversations; left to routing`
-      }
-      const { error } = await inConversationScope(db
-        .from('conversations')
-        .update({ assigned_agent_id: agentId }), args)
+      const { error } = await assignConversations(db, {
+        accountId: args.automation.account_id, agentId: assignee.agentId, touch: false,
+        scope: { contactId: args.contactId, channel: automationChannel(args.automation), conversationId: conversationScopeId(args) },
+      })
       if (error) throw new Error(tErr('assignFailed'))
-      return `assigned to ${agentId}`
+      return `assigned to ${assignee.agentId}`
     }
 
     case 'update_contact_field': {
@@ -1181,29 +1147,38 @@ async function runStep(step: AutomationStep, args: ExecuteArgs): Promise<string>
     case 'create_deal': {
       const cfg = step.step_config as CreateDealStepConfig
       if (!cfg.pipeline_id || !cfg.stage_id) throw new Error(tErr('needsPipelineStage'))
-      // Match the account's configured default currency rather than
-      // the static `deals.currency` DB default — keeps automation-
-      // created deals consistent with the one-currency-per-account
-      // rule (issue #218). Fall back to USD if the row is somehow
-      // missing the value (pre-021 forks).
-      const { data: acct } = await db
-        .from('accounts')
-        .select('default_currency')
-        .eq('id', args.automation.account_id)
-        .maybeSingle()
-      await db.from('deals').insert({
-        // Tenancy + audit, same split as automation_logs above.
-        account_id: args.automation.account_id,
-        user_id: args.automation.user_id,
-        pipeline_id: cfg.pipeline_id,
-        stage_id: cfg.stage_id,
-        contact_id: args.contactId,
+      // The shared deal action: the workspace's default currency (issue #218), and no second
+      // open deal for the contact in the same pipeline.
+      const created = await createDeal({
+        accountId: args.automation.account_id,
+        // Audit: the automation's author, as on automation_logs.
+        userId: args.automation.user_id,
+        contactId: args.contactId,
+        pipelineId: cfg.pipeline_id,
+        stageId: cfg.stage_id,
         title: interpolate(cfg.title, args, await workspaceValuesFor(args.automation.account_id, cfg.title)),
         value: cfg.value ?? 0,
-        currency: acct?.default_currency ?? 'USD',
-        status: 'open',
       })
-      return 'deal created'
+      if (created === 'stage_invalid') throw new Error(tErr('needsPipelineStage'))
+      return created === 'exists' ? 'deal skipped: the contact already has an open deal in this pipeline' : 'deal created'
+    }
+
+    case 'move_deal_stage': {
+      const cfg = step.step_config as MoveDealStageStepConfig
+      if (!cfg.pipeline_id || !cfg.stage_id) throw new Error(tErr('needsPipelineStage'))
+      if (!args.contactId) throw new Error(tErr('needsContact', { step: 'move_deal_stage' }))
+      const moved = await moveDealStage({
+        accountId: args.automation.account_id,
+        contactId: args.contactId,
+        pipelineId: cfg.pipeline_id,
+        stageId: cfg.stage_id,
+        status: cfg.status ?? null,
+        // A rule started by this deal's own move never moves it again (automation loop guard).
+        startedByDealId: dealThatStartedRun(args.context),
+      })
+      if (moved === 'stage_invalid') throw new Error(tErr('needsPipelineStage'))
+      return moved === 'moved' ? 'deal moved' : moved === 'loop' ? 'deal not moved: this rule was started by its own move'
+        : moved === 'unchanged' ? 'deal already in this stage' : 'no open deal in this pipeline'
     }
 
     case 'send_webhook': {
@@ -1211,53 +1186,56 @@ async function runStep(step: AutomationStep, args: ExecuteArgs): Promise<string>
       if (!cfg.url) throw new Error(tErr('needsUrl'))
       // SSRF guard: the URL and headers are account-controlled and the
       // server makes the request, so refuse any destination that resolves
-      // to a private / loopback / link-local / reserved address. Mirrors
-      // the webhook_endpoints delivery path (see lib/webhooks/deliver.ts).
+      // to a private / loopback / link-local / reserved address. safeFetch
+      // checks again and dials only the address it checked (no DNS rebinding).
       if (!(await isDeliverableUrl(cfg.url))) {
         throw new Error(tErr('destinationNotAllowed'))
       }
       // Secret workspace attributes (API keys) resolve only here, never in customer messages.
       const ws = await workspaceValuesFor(args.automation.account_id, JSON.stringify([cfg.body_template, cfg.headers]), { secrets: true })
-      // Filled values are JSON-escaped, so a customer's text cannot add keys or break the document.
-      const body = cfg.body_template ? interpolate(cfg.body_template, args, ws, jsonEscape) : JSON.stringify(args.context)
-      if (cfg.body_template) {
-        try { JSON.parse(body) } catch { throw new Error(tErr('webhookInvalidBody')) }
-      }
-      const headers: Record<string, string> = { 'content-type': 'application/json' }
       for (const [name, value] of Object.entries(cfg.headers ?? {})) {
-        const filled = fillWorkspace(String(value), ws)
-        if (webhookHeaderProblem(name, filled)) throw new Error(tErr('webhookInvalidHeader'))
-        headers[name.toLowerCase()] = filled
+        if (webhookHeaderProblem(name, fillWorkspace(String(value), ws))) throw new Error(tErr('webhookInvalidHeader'))
       }
-      // safeFetch dials only the address it checked (no DNS rebinding), never
-      // follows redirects, and caps time and size. The intent makes a retry of
-      // this step return the recorded outcome instead of POSTing again; a
-      // network error or timeout stays 'unknown' and is never re-sent.
-      let outcome: WebhookOutcome
+      const request = ruleWebhookRequest(cfg, args, ws)
+      // Filled values are JSON-escaped, so a customer's text cannot add keys or break the document.
+      if (request.config.body) {
+        const built = buildApiRequest(request.config, request.values)
+        try { JSON.parse(built?.body ?? '') } catch { throw new Error(tErr('webhookInvalidBody')) }
+      }
+      // The flow API request runner (shared action). The intent makes a retry of this step
+      // return the recorded outcome instead of calling again; a network error or timeout
+      // stays 'unknown' and is never re-sent.
+      let outcome: ApiCallOutcome
       try {
-        outcome = await dispatchOnce<WebhookOutcome>(args.automation.account_id, `auto-webhook:${args.logId}:${step.id}`, async () => {
-          // The reply body is not used: judge the POST on its status only.
-          const res = await safeFetch(cfg.url, { method: 'POST', headers, body }, { discardBody: true })
-          if (res.ok) return { status: res.status }
-          if (res.error === 'timeout' || res.error === 'network') throw new WebhookOutcomeUnknown()
-          return { refused: res.error }
+        outcome = await callApiOnce({
+          accountId: args.automation.account_id,
+          key: `auto-webhook:${args.logId}:${step.id}`,
+          config: request.config,
+          values: request.values,
+          rawBody: request.rawBody,
+          uncertainIsUnknown: true,
         })
       } catch (err) {
-        if (err instanceof WebhookOutcomeUnknown || (err instanceof Error && err.name === 'UncertainDispatchError')) {
+        if (err instanceof ApiCallOutcomeUnknown || (err instanceof Error && err.name === 'UncertainDispatchError')) {
           throw new Error(tErr('webhookUncertain'))
         }
         throw err
       }
-      if ('refused' in outcome) {
-        throw new Error(outcome.refused === 'blocked' ? tErr('destinationNotAllowed') : tErr('webhookRefused'))
+      // An outcome recorded before the shared runner was { status } or { refused }.
+      const refused = outcome.error ?? (outcome as { refused?: string }).refused ?? null
+      if (refused || typeof outcome.status !== 'number') {
+        throw new Error(refused === 'blocked' ? tErr('destinationNotAllowed') : tErr('webhookRefused'))
       }
       if (outcome.status < 200 || outcome.status >= 300) throw new Error(tErr('webhookStatus', { status: String(outcome.status) }))
+      // The mapped reply values become variables for the steps after this one (as in a flow).
+      const mapped = outcome.mapped ?? {}
+      if (Object.keys(mapped).length) args.context.vars = { ...(args.context.vars ?? {}), ...mapped }
       return `webhook ${outcome.status}`
     }
 
     case 'notify_team': {
       const cfg = step.step_config as unknown as NotifyTeamStepConfig
-      const audience = cfg.audience === 'admins' ? 'admins' : cfg.audience === 'assignee' ? 'assignee' : null
+      const audience = noticeAudience(cfg.audience)
       if (!audience || typeof cfg.text !== 'string' || !cfg.text.trim()) throw new Error(tErr('notifyInvalid'))
       let contactName = ''
       if (args.contactId) {
@@ -1288,9 +1266,9 @@ async function runStep(step: AutomationStep, args: ExecuteArgs): Promise<string>
         conversationId = (await pickContactConversationId(db, args.automation.account_id, args.contactId).catch(() => undefined)) ?? null
       }
       if (audience === 'assignee' && !conversationId) return 'no conversation to notify about'
-      const notified = await notifyAutomationNotice({
+      const notified = await notifyTeam({
         accountId: args.automation.account_id,
-        automationId: args.automation.id,
+        sourceId: args.automation.id,
         audience,
         title: title.trim() || String(args.automation.name ?? ''),
         conversationId,
@@ -1325,6 +1303,12 @@ async function runStep(step: AutomationStep, args: ExecuteArgs): Promise<string>
  * or the reverse (conversations.channel is NOT NULL, so a WhatsApp-only
  * workspace matches exactly the rows it did before).
  */
+/** The triggering conversation, when the run has it: assign and close act on it alone. */
+function conversationScopeId(args: ExecuteArgs): string | undefined {
+  const fromCtx = args.context.conversation_id
+  return typeof fromCtx === 'string' && fromCtx ? fromCtx : undefined
+}
+
 function inConversationScope<Q extends { eq(field: string, value: unknown): Q }>(query: Q, args: ExecuteArgs): Q {
   const scoped = query.eq('account_id', args.automation.account_id).eq('contact_id', args.contactId)
     .eq('channel', automationChannel(args.automation))
@@ -1418,13 +1402,13 @@ async function sendOnChannel(
   instagram: FlowSend,
   whatsapp: () => Promise<{ whatsapp_message_id: string }>
 ): Promise<{ whatsapp_message_id: string }> {
-  const key = `automation:${args.logId}:${step.id}`
-  if (automationChannel(args.automation) === 'instagram') {
-    // Loaded only for Instagram, so the WhatsApp path's module graph is unchanged.
-    const { flowSend } = await import('@/lib/flows/channel-send')
-    return flowSend({ account_id: args.automation.account_id, conversation_id: conversationId }, key, instagram)
-  }
-  return dispatchOnce(args.automation.account_id, key, whatsapp)
+  return sendCustomerMessage({
+    ref: { account_id: args.automation.account_id, conversation_id: conversationId },
+    key: `automation:${args.logId}:${step.id}`,
+    send: instagram,
+    channel: automationChannel(args.automation),
+    whatsapp,
+  })
 }
 
 /** An interactive step as a channel send (sent on Instagram as quick replies). */
@@ -1524,6 +1508,12 @@ export function triggerMatches(automation: Automation, ctx: AutomationContext | 
     if (typeof serviceId !== 'string') return false
     const ids = (automation.trigger_config as { service_ids?: unknown } | null)?.service_ids
     return !Array.isArray(ids) || ids.length === 0 || ids.includes(serviceId)
+  }
+
+  // Batch 5: an event-feed trigger (orders, payments, forms, deals, carts): its optional filters against the event.
+  if (isEventTriggerType(automation.trigger_type)) {
+    if (!ctx?.event) return false
+    return eventFiltersMatch(automation.trigger_type, automation.trigger_config, ctx.event.data)
   }
 
   if (automation.trigger_type === 'tag_added' || automation.trigger_type === 'tag_removed') {
@@ -1637,6 +1627,37 @@ async function evaluateCondition(cfg: ConditionStepConfig, args: ExecuteArgs): P
 function waitMs(cfg: WaitStepConfig): number {
   const unitMs = cfg.unit === 'days' ? 86_400_000 : cfg.unit === 'hours' ? 3_600_000 : 60_000
   return Math.max(1_000, cfg.amount * unitMs)
+}
+
+/**
+ * A send_webhook step as an API request for the shared runner. Placeholders keep the rule's
+ * syntax: {{vars.*}}, {{workspace.*}} and {{message.text}} (passed as a variable). Without a
+ * body template the trigger context goes as JSON, sent as it is (never filled).
+ */
+function ruleWebhookRequest(cfg: SendWebhookStepConfig, args: ExecuteArgs, workspace: Record<string, string>): {
+  config: ApiRequestNodeConfig; values: RequestValues; rawBody?: string
+} {
+  const method = cfg.method && (WEBHOOK_METHODS as readonly string[]).includes(cfg.method) ? cfg.method : 'POST'
+  const body = cfg.body_template?.trim() ? cfg.body_template.replace(/\{\{\s*message\.text\s*\}\}/g, '{{vars.__message_text}}') : undefined
+  return {
+    config: {
+      method,
+      url: cfg.url,
+      headers: Object.entries(cfg.headers ?? {}).map(([key, value]) => ({ key, value: String(value) })),
+      body,
+      mappings: (cfg.mappings ?? []).slice(0, WEBHOOK_MAPPINGS_MAX),
+      routes: [],
+      fallback_next: '',
+    },
+    values: {
+      vars: { ...(args.context.vars ?? {}), __message_text: String(args.context.message_text ?? '') },
+      contact: {},
+      workspace,
+      // The URL is sent as written (validation refuses workspace placeholders there).
+      publicWorkspace: {},
+    },
+    rawBody: body || method === 'GET' || method === 'DELETE' ? undefined : JSON.stringify(args.context),
+  }
 }
 
 function interpolate(

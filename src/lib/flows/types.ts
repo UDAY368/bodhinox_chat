@@ -723,6 +723,8 @@ export const FLOW_ACTION_TYPES = [
   "log_conversion",
   "set_conversation_status",
   "notify_team",
+  "create_deal",
+  "move_deal_stage",
 ] as const;
 export type FlowActionType = (typeof FLOW_ACTION_TYPES)[number];
 
@@ -742,6 +744,9 @@ export const FLOW_ACTION_GROUPS = {
   set_conversation_status: "inbox",
   notify_team: "inbox",
   log_conversion: "ads",
+  // Batch 5: the deal actions rules have (src/lib/actions/deals.ts).
+  create_deal: "contact",
+  move_deal_stage: "contact",
 } as const satisfies Record<FlowActionType, "contact" | "automation" | "inbox" | "ads">;
 export type FlowActionGroup = (typeof FLOW_ACTION_GROUPS)[FlowActionType];
 
@@ -769,7 +774,11 @@ export type FlowAction =
   | { type: "log_conversion"; event_type_id: string }
   | { type: "set_conversation_status"; status: "open" | "closed" }
   /** An in-app notice: fixed text plus the author's note, never the customer's message. */
-  | { type: "notify_team"; target: "assignee" | "admins"; note?: string };
+  | { type: "notify_team"; target: "assignee" | "admins"; note?: string }
+  /** An open deal for the contact in the pipeline's stage; skipped when the contact already has one there. Title may use placeholders. */
+  | { type: "create_deal"; pipeline_id: string; stage_id: string; title: string; value?: number }
+  /** The contact's newest open deal in the pipeline goes to the stage; `status` also marks it won or lost. */
+  | { type: "move_deal_stage"; pipeline_id: string; stage_id: string; status?: "won" | "lost" };
 
 /** Pause lengths an action or the inbox may choose, in minutes (null = until resumed). */
 export const PAUSE_MINUTES_CHOICES = [30, 60, 180, 360, 720, 1440, null] as const;
@@ -1137,7 +1146,36 @@ export const IG_TRIGGER_LIMITS = {
   refs: 20,
 } as const;
 
+// ------------------------------------------------------------ Batch 5 event triggers
+
+/**
+ * A business event from the event feed (src/lib/events): an order, payment,
+ * form answer, deal move, abandoned cart or appointment. Not an inbound
+ * message: the events.dispatch job starts the run (flows/event-start.ts) on
+ * the contact's WhatsApp conversation, with the event's values as variables.
+ * Every filter is optional (src/lib/events/trigger-filters.ts).
+ */
+export interface OrderEventTriggerConfig { source?: string }
+export interface FormSubmittedTriggerConfig { form_id?: string }
+export interface DealStageChangedTriggerConfig { pipeline_id?: string; to_stage_id?: string }
+export interface AppointmentEventTriggerConfig { service_ids?: string[] }
+export type NoFilterEventTriggerConfig = Record<string, never>;
+
 export type FlowTriggerConfig =
+  | { trigger_type: "order_created"; config: OrderEventTriggerConfig }
+  | { trigger_type: "order_paid"; config: OrderEventTriggerConfig }
+  | { trigger_type: "order_shipped"; config: OrderEventTriggerConfig }
+  | { trigger_type: "order_delivered"; config: OrderEventTriggerConfig }
+  | { trigger_type: "order_returned"; config: NoFilterEventTriggerConfig }
+  | { trigger_type: "payment_received"; config: NoFilterEventTriggerConfig }
+  | { trigger_type: "form_submitted"; config: FormSubmittedTriggerConfig }
+  | { trigger_type: "deal_stage_changed"; config: DealStageChangedTriggerConfig }
+  | { trigger_type: "cart_abandoned"; config: NoFilterEventTriggerConfig }
+  | { trigger_type: "appointment_booked"; config: AppointmentEventTriggerConfig }
+  | { trigger_type: "appointment_cancelled"; config: AppointmentEventTriggerConfig }
+  | { trigger_type: "appointment_rescheduled"; config: AppointmentEventTriggerConfig }
+  | { trigger_type: "appointment_completed"; config: AppointmentEventTriggerConfig }
+  | { trigger_type: "appointment_no_show"; config: AppointmentEventTriggerConfig }
   | { trigger_type: "order_received"; config: OrderReceivedTriggerConfig }
   | { trigger_type: "keyword"; config: KeywordTriggerConfig }
   | { trigger_type: "first_inbound_message"; config: FirstInboundTriggerConfig }
@@ -1175,6 +1213,20 @@ export const FLOW_TRIGGER_TYPES = Object.keys({
   contact_created: true,
   tag_added: true,
   outside_hours: true,
+  order_created: true,
+  order_paid: true,
+  order_shipped: true,
+  order_delivered: true,
+  order_returned: true,
+  payment_received: true,
+  form_submitted: true,
+  deal_stage_changed: true,
+  cart_abandoned: true,
+  appointment_booked: true,
+  appointment_cancelled: true,
+  appointment_rescheduled: true,
+  appointment_completed: true,
+  appointment_no_show: true,
 } satisfies Record<FlowTriggerType, true>) as FlowTriggerType[];
 
 /**

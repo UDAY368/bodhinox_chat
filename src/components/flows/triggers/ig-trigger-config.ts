@@ -58,6 +58,9 @@ export function defaultTriggerConfig(type: FlowTriggerType): Config {
     case "ad_click":
     case "manual":
       return {};
+    default:
+      // Batch 5 event triggers: every filter is optional.
+      return {};
   }
 }
 

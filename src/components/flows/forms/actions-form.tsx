@@ -31,7 +31,7 @@ import {
 import { useFlowEditor } from "../flow-editor-state";
 import type { BuilderNode } from "../shared";
 import { NextNodeRow, TextRow } from "./fields";
-import { useConversionEventTypes, useCustomFields, useFlowList, useSequences, useUserTags } from "./use-pickers";
+import { useConversionEventTypes, useCustomFields, useFlowList, usePipelines, usePipelineStages, useSequences, useUserTags } from "./use-pickers";
 import { useWorkspaceFields } from "./variable-picker";
 
 type Patch = (patch: Record<string, unknown>) => void;
@@ -68,6 +68,10 @@ export function defaultAction(type: FlowActionType): FlowAction {
       return { type, status: "closed" };
     case "notify_team":
       return { type, target: "assignee" };
+    case "create_deal":
+      return { type, pipeline_id: "", stage_id: "", title: "" };
+    case "move_deal_stage":
+      return { type, pipeline_id: "", stage_id: "" };
   }
 }
 
@@ -175,6 +179,8 @@ function ActionFields({ id, action, onChange, allNodes, currentKey }: {
   const sequences = useSequences();
   const eventTypes = useConversionEventTypes();
   const workspaceFields = useWorkspaceFields();
+  const pipelines = usePipelines();
+  const stages = usePipelineStages();
   const { flow } = useFlowEditor();
   const picker = (value: string, options: Array<{ id: string; name: string }>, onPick: (v: string) => void, placeholder: string) => (
     <Select value={value} onValueChange={(v) => onPick(v ?? "")}>
@@ -281,6 +287,42 @@ function ActionFields({ id, action, onChange, allNodes, currentKey }: {
           </SelectContent>
         </Select>
       );
+    case "create_deal":
+    case "move_deal_stage": {
+      const stageOptions = stages.filter((s) => s.pipeline_id === action.pipeline_id).map((s) => ({ id: s.id, name: s.name }));
+      return (
+        <div className="space-y-2">
+          <div className="grid grid-cols-2 gap-2">
+            {picker(action.pipeline_id, pipelines, (pipeline_id) => onChange({ ...action, pipeline_id, stage_id: "" }), t("pipeline"))}
+            {picker(action.stage_id, stageOptions, (stage_id) => onChange({ ...action, stage_id }), t("stage"))}
+          </div>
+          {action.type === "create_deal" ? (
+            <>
+              <TextRow id={`${id}-title`} label={t("dealTitle")} value={action.title} onChange={(title) => onChange({ ...action, title })}
+                variables={{ nodes: allNodes, currentKey }} />
+              <div>
+                <label htmlFor={`${id}-deal-value`} className={label}>{t("dealValue")}</label>
+                <Input id={`${id}-deal-value`} type="number" min={0} inputMode="decimal" value={action.value ?? 0}
+                  onChange={(e) => onChange({ ...action, value: Math.max(0, Number(e.target.value) || 0) })} className="bg-muted" />
+              </div>
+              <p className={help}>{t("createDealHelp")}</p>
+            </>
+          ) : (
+            <>
+              <Select value={action.status ?? "open"} onValueChange={(v) => onChange({ ...action, status: v === "won" || v === "lost" ? v : undefined })}>
+                <SelectTrigger aria-label={t("dealStatus")} className="bg-muted"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="open">{t("dealKeepOpen")}</SelectItem>
+                  <SelectItem value="won">{t("dealWon")}</SelectItem>
+                  <SelectItem value="lost">{t("dealLost")}</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className={help}>{t("moveDealHelp")}</p>
+            </>
+          )}
+        </div>
+      );
+    }
     case "notify_team":
       return (
         <div className="space-y-2">

@@ -77,6 +77,7 @@ import {
 import { duplicateRule, removeItem, rename, setLive } from "@/components/automation/automation-actions";
 import { ChannelDotMark, KIND_ICON, NewAutomationDialog, type NewAutomationInput } from "@/components/automation/new-automation-dialog";
 import { RenameDialog } from "@/components/automation/rename-dialog";
+import { isEventTriggerType } from "@/lib/events/types";
 import { sequenceApi, sequenceErrorKey } from "@/components/sequences/sequence-api";
 
 /**
@@ -1284,6 +1285,7 @@ export function describeTrigger(trigger: FlowTriggerConfig | { trigger_type: str
   if (type === "contact_created") return t("triggerContactCreated");
   if (type === "tag_added") return t("triggerTagAdded");
   if (type === "outside_hours") return t("triggerOutsideHours");
+  if (isEventTriggerType(type)) return t(`triggerEvents.${type}`);
   if (type === "ad_click") {
     const ids = Array.isArray(cfg.ad_ids) ? cfg.ad_ids.length : 0;
     return ids ? t("triggerAdClick", { count: ids }) : t("triggerAdClickAny");

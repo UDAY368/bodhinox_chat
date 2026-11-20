@@ -2600,7 +2600,8 @@
         "send_webhook": "웹훅 보내기",
         "close_conversation": "대화 해결",
         "notify_team": "팀에 알림",
-        "start_flow": "플로 시작"
+        "start_flow": "플로 시작",
+        "move_deal_stage": "거래 단계 이동"
       },
       "triggers": {
         "new_message_received": {
@@ -2666,6 +2667,42 @@
         "field_changed": {
           "label": "필드 변경됨",
           "hint": "연락처 필드가 변경될 때"
+        },
+        "order_created": {
+          "label": "주문 생성",
+          "hint": "새 주문이 들어올 때"
+        },
+        "order_paid": {
+          "label": "주문 결제",
+          "hint": "주문이 결제될 때"
+        },
+        "order_shipped": {
+          "label": "주문 발송",
+          "hint": "주문이 발송될 때"
+        },
+        "order_delivered": {
+          "label": "주문 배송 완료",
+          "hint": "주문이 배송 완료될 때"
+        },
+        "order_returned": {
+          "label": "주문 반품",
+          "hint": "반품된 주문을 돌려받을 때"
+        },
+        "payment_received": {
+          "label": "결제 수신",
+          "hint": "고객 결제가 완료될 때"
+        },
+        "form_submitted": {
+          "label": "양식 제출",
+          "hint": "고객이 WhatsApp 양식을 제출할 때"
+        },
+        "deal_stage_changed": {
+          "label": "거래 단계 변경",
+          "hint": "거래가 다른 단계로 이동할 때"
+        },
+        "cart_abandoned": {
+          "label": "장바구니 이탈",
+          "hint": "고객이 주문 없이 장바구니를 떠날 때"
         }
       },
       "trigger": "트리거",
@@ -2790,7 +2827,19 @@
         "notifyTextLabel": "알림 내용",
         "notifyTextPlaceholder": "{name}님의 새 리드",
         "notifyTextHint": "앱 내 알림, 최대 200자. {contact}와 {automation}을 사용할 수 있으며 메시지 내용은 포함되지 않습니다.",
-        "bodyTemplateHint": "JSON. 자리표시자는 따옴표로 묶은 문자열 안에서 안전하게 채워집니다. 예: {example}"
+        "bodyTemplateHint": "JSON. 자리표시자는 따옴표로 묶은 문자열 안에서 안전하게 채워집니다. 예: {example}",
+        "dealStatusLabel": "이후 거래 상태",
+        "dealStatusOpen": "열린 상태 유지",
+        "dealStatusWon": "성사",
+        "dealStatusLost": "실패",
+        "moveDealHint": "이 파이프라인에서 연락처의 가장 최근 열린 거래를 이동합니다. 해당 거래의 이동으로 시작된 규칙은 그 거래를 다시 이동하지 않습니다.",
+        "methodLabel": "메서드",
+        "mappingsLabel": "응답 값 저장",
+        "mappingPath": "응답 필드 (예: data.id)",
+        "mappingVar": "변수 이름",
+        "mappingRemove": "삭제",
+        "mappingAdd": "값 추가",
+        "mappingsHint": "다음 단계에서 {example}(으)로 사용하세요."
       },
       "preview": {
         "noText": "아직 텍스트 없음",
@@ -2856,6 +2905,26 @@
       "basics": "기본",
       "sequences": "시퀀스",
       "templates": "템플릿"
+    },
+    "eventTriggers": {
+      "help": "선택 사항: 필터를 '모두'로 두면 모든 이벤트에서 실행됩니다.",
+      "source": "주문 경로",
+      "anySource": "모든 경로",
+      "form": "양식",
+      "anyForm": "모든 양식",
+      "pipeline": "파이프라인",
+      "anyPipeline": "모든 파이프라인",
+      "stage": "이동한 단계",
+      "anyStage": "모든 단계",
+      "missing": "찾을 수 없음",
+      "vars": "메시지에 사용할 수 있는 값",
+      "sources": {
+        "whatsapp": "WhatsApp",
+        "shopify": "Shopify",
+        "woocommerce": "WooCommerce",
+        "manual": "수동",
+        "storefront": "스토어"
+      }
     }
   },
   "Flows": {
@@ -2946,7 +3015,23 @@
       "chooseChannel": "새 자동화의 채널",
       "triggerContactCreated": "트리거: 새 연락처의 첫 메시지",
       "triggerTagAdded": "트리거: 태그가 추가됨",
-      "triggerOutsideHours": "트리거: 근무 시간 외 메시지"
+      "triggerOutsideHours": "트리거: 근무 시간 외 메시지",
+      "triggerEvents": {
+        "order_created": "주문 생성",
+        "order_paid": "주문 결제",
+        "order_shipped": "주문 발송",
+        "order_delivered": "주문 배송 완료",
+        "order_returned": "주문 반품",
+        "payment_received": "결제 수신",
+        "form_submitted": "양식 제출",
+        "deal_stage_changed": "거래 단계 변경",
+        "cart_abandoned": "장바구니 이탈",
+        "appointment_booked": "예약 접수",
+        "appointment_cancelled": "예약 취소",
+        "appointment_rescheduled": "예약 변경",
+        "appointment_completed": "예약 완료",
+        "appointment_no_show": "예약 노쇼"
+      }
     },
     "edit": {
       "notFound": "플로우를 찾을 수 없습니다.",
@@ -3633,7 +3718,21 @@
       },
       "triggerContactCreatedTitle": "새 연락처가 생성됨",
       "triggerTagAddedTitle": "태그가 추가됨",
-      "triggerOutsideHoursTitle": "근무 시간 외 메시지"
+      "triggerOutsideHoursTitle": "근무 시간 외 메시지",
+      "triggerOrderCreatedTitle": "주문 생성",
+      "triggerOrderPaidTitle": "주문 결제",
+      "triggerOrderShippedTitle": "주문 발송",
+      "triggerOrderDeliveredTitle": "주문 배송 완료",
+      "triggerOrderReturnedTitle": "주문 반품",
+      "triggerPaymentReceivedTitle": "결제 수신",
+      "triggerFormSubmittedTitle": "양식 제출",
+      "triggerDealStageChangedTitle": "거래 단계 변경",
+      "triggerCartAbandonedTitle": "장바구니 이탈",
+      "triggerAppointmentBookedTitle": "예약 접수",
+      "triggerAppointmentCancelledTitle": "예약 취소",
+      "triggerAppointmentRescheduledTitle": "예약 변경",
+      "triggerAppointmentCompletedTitle": "예약 완료",
+      "triggerAppointmentNoShowTitle": "예약 노쇼"
     },
     "validation": {
       "noIssues": "문제가 없습니다. 활성화할 준비가 되었습니다.",
@@ -4156,7 +4255,9 @@
           "resume_automations": "자동화 다시 시작",
           "log_conversion": "전환 이벤트 기록",
           "set_conversation_status": "대화를 열림 또는 해결됨으로 표시",
-          "notify_team": "팀에 알림"
+          "notify_team": "팀에 알림",
+          "create_deal": "거래 생성",
+          "move_deal_stage": "거래 단계 이동"
         },
         "increment": "숫자에 더하기",
         "set": "다음으로 설정",
@@ -4169,7 +4270,19 @@
         "note": "팀을 위한 메모",
         "selfFlow": "자동화는 자기 자신을 시작하거나 중지할 수 없습니다.",
         "invalid": "이 작업의 설정을 완료하세요.",
-        "onSuccess": "올바른 답변 후 이 작업도 실행"
+        "onSuccess": "올바른 답변 후 이 작업도 실행",
+        "pipeline": "파이프라인",
+        "stage": "단계",
+        "dealTitle": "거래 제목",
+        "dealValue": "금액",
+        "createDealHelp": "연락처에 이 파이프라인의 열린 거래가 이미 있으면 건너뜁니다.",
+        "dealStatus": "이후 거래 상태",
+        "dealKeepOpen": "열린 상태 유지",
+        "dealWon": "성사",
+        "dealLost": "실패",
+        "moveDealHelp": "이 파이프라인에서 연락처의 가장 최근 열린 거래를 이동합니다. 해당 거래의 이동으로 시작된 플로우는 그 거래를 다시 이동하지 않습니다.",
+        "dealNeedsStage": "파이프라인과 단계를 선택하세요",
+        "dealNeedsTitle": "거래 제목을 입력하세요 (최대 200자)"
       },
       "randomizer": {
         "title": "트래픽 나누기",
@@ -4451,7 +4564,21 @@
         "ig_share_to_story": "스토리에 공유",
         "contact_created": "새 연락처",
         "tag_added": "태그 추가",
-        "outside_hours": "근무 시간 외"
+        "outside_hours": "근무 시간 외",
+        "order_created": "주문 생성",
+        "order_paid": "주문 결제",
+        "order_shipped": "주문 발송",
+        "order_delivered": "주문 배송 완료",
+        "order_returned": "주문 반품",
+        "payment_received": "결제 수신",
+        "form_submitted": "양식 제출",
+        "deal_stage_changed": "거래 단계 변경",
+        "cart_abandoned": "장바구니 이탈",
+        "appointment_booked": "예약 접수",
+        "appointment_cancelled": "예약 취소",
+        "appointment_rescheduled": "예약 변경",
+        "appointment_completed": "예약 완료",
+        "appointment_no_show": "예약 노쇼"
       }
     },
     "canvas": {
@@ -7963,7 +8090,8 @@
       "stage5Pending": "이 단계나 설정은 아직 사용할 수 없습니다. 플로를 게시하려면 제거하세요.",
       "triggerTagRequired": "이 플로우를 시작할 태그를 선택하세요.",
       "triggerBadFrequency": "한 사람에게 얼마나 자주 시작할 수 있는지 선택하세요.",
-      "appointmentPaidNotReady": "{count, plural, one {A picked service takes} other {# picked services take}} payment, and online payments are not set up. Turn on the store and connect Razorpay, or untick {count, plural, one {it} other {them}}."
+      "appointmentPaidNotReady": "{count, plural, one {A picked service takes} other {# picked services take}} payment, and online payments are not set up. Turn on the store and connect Razorpay, or untick {count, plural, one {it} other {them}}.",
+      "triggerEventFilterInvalid": "올바른 필터를 선택하거나 '모두'로 두세요"
     },
     "automations": {
       "needsStep": "활성 자동화에는 단계가 하나 이상 필요합니다",
@@ -8009,7 +8137,11 @@
       "webhookUrlNotAllowed": "웹훅 URL이 사설 또는 예약된 주소를 가리킵니다. 공개 주소를 사용하세요.",
       "oncePerContactInvalid": "연락처당 한 번은 켜거나 꺼야 합니다.",
       "segmentUnavailable": "선택한 세그먼트를 이 워크스페이스에서 사용할 수 없습니다.",
-      "stage5Pending": "이 트리거나 단계는 아직 사용할 수 없습니다. 자동화를 켜려면 다른 항목을 선택하세요."
+      "stage5Pending": "이 트리거나 단계는 아직 사용할 수 없습니다. 자동화를 켜려면 다른 항목을 선택하세요.",
+      "eventFilterInvalid": "올바른 필터를 선택하거나 '모두'로 두세요",
+      "dealStatusInvalid": "성사, 실패 또는 열린 상태 유지를 선택하세요",
+      "webhookMethodInvalid": "GET, POST, PUT, PATCH 또는 DELETE를 선택하세요",
+      "webhookMappingsInvalid": "저장할 값마다 응답 필드와 변수 이름(문자, 숫자, _)이 필요합니다. 최대 {max}개"
     },
     "templates": {
       "nameRequired": "템플릿 이름은 필수입니다.",

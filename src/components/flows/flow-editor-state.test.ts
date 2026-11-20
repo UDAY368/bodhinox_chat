@@ -223,7 +223,11 @@ describe("channel palettes (Stage 1)", () => {
     expect(nodeTypesForScope(undefined)).toEqual(whatsappSteps);
     // The automation list's event triggers sit after first_inbound_message.
     expect(triggerTypesForScope("whatsapp")).toEqual(["keyword", "template_reply", "first_inbound_message", "contact_created", "tag_added",
-      "outside_hours", "order_received", "ad_click", "default_reply", "manual"]);
+      "outside_hours", "order_received", "ad_click", "default_reply", "manual",
+      // Batch 5: the event feed's triggers (WhatsApp only).
+      "order_created", "order_paid", "order_shipped", "order_delivered", "order_returned", "payment_received", "form_submitted",
+      "deal_stage_changed", "cart_abandoned", "appointment_booked", "appointment_cancelled", "appointment_rescheduled",
+      "appointment_completed", "appointment_no_show"]);
   });
 
   it("offers an Instagram flow only what Instagram runs", () => {

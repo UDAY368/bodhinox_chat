@@ -88,6 +88,8 @@ import type { ScheduledAudience } from '@/lib/automations/scheduled-contract';
 import { automationStepsFor, automationTriggersFor } from '@/lib/channels/capabilities';
 import { channelPath } from '@/lib/channels/routes';
 import { RulePhonePreview } from './rule-phone-preview';
+import { EventTriggerFilters } from './event-trigger-filters';
+import { isEventTriggerType } from '@/lib/events/types';
 
 // ------------------------------------------------------------
 // Types (builder-local — mirror the flattened rows we POST)
@@ -161,6 +163,11 @@ const STEP_META: Record<AutomationStepType, StepMeta> = {
     icon: Briefcase,
     border: 'border-l-primary',
   },
+  move_deal_stage: {
+    label: 'move_deal_stage',
+    icon: Briefcase,
+    border: 'border-l-primary',
+  },
   wait: { label: 'wait', icon: Hourglass, border: 'border-l-border' },
   condition: {
     label: 'condition',
@@ -197,6 +204,7 @@ const ADDABLE_STEPS: AutomationStepType[] = [
   'assign_conversation',
   'update_contact_field',
   'create_deal',
+  'move_deal_stage',
   'wait',
   'condition',
   'send_webhook',
@@ -223,6 +231,15 @@ const TRIGGER_OPTIONS: { value: AutomationTriggerType }[] = [
   { value: 'appointment_rescheduled' },
   { value: 'appointment_completed' },
   { value: 'appointment_no_show' },
+  { value: 'order_created' },
+  { value: 'order_paid' },
+  { value: 'order_shipped' },
+  { value: 'order_delivered' },
+  { value: 'order_returned' },
+  { value: 'payment_received' },
+  { value: 'form_submitted' },
+  { value: 'deal_stage_changed' },
+  { value: 'cart_abandoned' },
 ];
 
 /** The steps a channel's builder offers, in menu order. */
@@ -293,12 +310,14 @@ function blankConfig(type: AutomationStepType): Record<string, unknown> {
       return { field: 'name', value: '' };
     case 'create_deal':
       return { pipeline_id: '', stage_id: '', title: '', value: 0 };
+    case 'move_deal_stage':
+      return { pipeline_id: '', stage_id: '' };
     case 'wait':
       return { amount: 1, unit: 'hours' };
     case 'condition':
       return { subject: 'tag_presence', operand: '', value: '' };
     case 'send_webhook':
-      return { url: '', headers: {}, body_template: '' };
+      return { url: '', method: 'POST', headers: {}, body_template: '' };
     case 'close_conversation':
       return {};
     case 'notify_team':
@@ -745,6 +764,55 @@ function DealPipelineFields({
   );
 }
 
+/** Reply values a webhook keeps as variables: one "path = variable" row each, at most 10. */
+function WebhookMappingsField({
+  value,
+  onChange,
+  t,
+}: {
+  value: { path: string; var_key: string }[];
+  onChange: (next: { path: string; var_key: string }[]) => void;
+  t: ReturnType<typeof useTranslations>;
+}) {
+  const update = (i: number, patch: Partial<{ path: string; var_key: string }>) =>
+    onChange(value.map((m, j) => (j === i ? { ...m, ...patch } : m)));
+  return (
+    <FieldBlock label={t('config.mappingsLabel')}>
+      <div className="space-y-2">
+        {value.map((m, i) => (
+          <div key={i} className="flex items-center gap-2">
+            <Input
+              aria-label={t('config.mappingPath')}
+              placeholder="data.id"
+              value={m.path}
+              onChange={(e) => update(i, { path: e.target.value })}
+              className="bg-muted text-foreground font-mono text-xs"
+            />
+            <Input
+              aria-label={t('config.mappingVar')}
+              placeholder="order_ref"
+              value={m.var_key}
+              onChange={(e) => update(i, { var_key: e.target.value })}
+              className="bg-muted text-foreground font-mono text-xs"
+            />
+            <Button type="button" variant="ghost" size="sm" aria-label={t('config.mappingRemove')}
+              onClick={() => onChange(value.filter((_, j) => j !== i))}>
+              <Trash2 className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        ))}
+        {value.length < 10 && (
+          <Button type="button" variant="outline" size="sm" onClick={() => onChange([...value, { path: '', var_key: '' }])}>
+            <Plus className="mr-1 h-3.5 w-3.5" />
+            {t('config.mappingAdd')}
+          </Button>
+        )}
+        <p className="text-muted-foreground text-[11px]">{t('config.mappingsHint', { example: '{{vars.order_ref}}' })}</p>
+      </div>
+    </FieldBlock>
+  );
+}
+
 /** Template dropdown showing approved templates by name + language,
  *  storing both template_name and language. Falls back to manual name +
  *  language inputs when no approved templates are synced yet. */
@@ -1172,6 +1240,9 @@ function TriggerCard({
                 />
                 <p className="text-muted-foreground mt-1 text-[11px]">{tEvents('fieldChanged.help')}</p>
               </div>
+            )}
+            {isEventTriggerType(type) && !type.startsWith('appointment_') && (
+              <EventTriggerFilters trigger={type} config={config} onChange={onConfigChange} />
             )}
             {type === 'time_based' && (
               <div className="space-y-3">
@@ -2138,9 +2209,43 @@ function StepEditor({
           )}
         </>
       );
+    case 'move_deal_stage':
+      return (
+        <>
+          <DealPipelineFields
+            pipelineId={(cfg.pipeline_id as string) ?? ''}
+            stageId={(cfg.stage_id as string) ?? ''}
+            onChange={(patch) => set(patch)}
+            t={t}
+          />
+          <FieldBlock label={t('config.dealStatusLabel')}>
+            <select
+              className={SELECT_CLASS}
+              value={(cfg.status as string) ?? ''}
+              onChange={(e) => set({ status: e.target.value || undefined })}
+            >
+              <option value="">{t('config.dealStatusOpen')}</option>
+              <option value="won">{t('config.dealStatusWon')}</option>
+              <option value="lost">{t('config.dealStatusLost')}</option>
+            </select>
+            <p className="text-muted-foreground mt-1 text-[11px]">{t('config.moveDealHint')}</p>
+          </FieldBlock>
+        </>
+      );
     case 'send_webhook':
       return (
         <>
+          <FieldBlock label={t('config.methodLabel')}>
+            <select
+              className={SELECT_CLASS}
+              value={(cfg.method as string) ?? 'POST'}
+              onChange={(e) => set({ method: e.target.value })}
+            >
+              {(['GET', 'POST', 'PUT', 'PATCH', 'DELETE'] as const).map((m) => (
+                <option key={m} value={m}>{m}</option>
+              ))}
+            </select>
+          </FieldBlock>
           <FieldBlock label={t('config.urlLabel')}>
             <Input
               value={(cfg.url as string) ?? ''}
@@ -2158,6 +2263,11 @@ function StepEditor({
               {t('config.bodyTemplateHint', { example: '{"text": "{{message.text}}"}' })}
             </p>
           </FieldBlock>
+          <WebhookMappingsField
+            value={Array.isArray(cfg.mappings) ? (cfg.mappings as { path: string; var_key: string }[]) : []}
+            onChange={(mappings) => set({ mappings: mappings.length ? mappings : undefined })}
+            t={t}
+          />
         </>
       );
     case 'notify_team':

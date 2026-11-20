@@ -869,6 +869,18 @@ export type AutomationTriggerType =
   | 'appointment_rescheduled'
   | 'appointment_completed'
   | 'appointment_no_show'
+  /** Batch 5: the event feed (src/lib/events), fired by the events.dispatch job on WhatsApp.
+   *  trigger_config filters (src/lib/events/trigger-filters.ts): order_* (not returned) source;
+   *  form_submitted form_id; deal_stage_changed pipeline_id and to_stage_id. */
+  | 'order_created'
+  | 'order_paid'
+  | 'order_shipped'
+  | 'order_delivered'
+  | 'order_returned'
+  | 'payment_received'
+  | 'form_submitted'
+  | 'deal_stage_changed'
+  | 'cart_abandoned'
   /** Stage 5 (5D): a tag was removed from the contact; trigger_config.tag_id as tag_added. */
   | 'tag_removed'
   /** Stage 5 (5D): a contact field changed; trigger_config.field as UpdateContactFieldStepConfig.field. */
@@ -891,7 +903,9 @@ export type AutomationStepType =
   /** Phase 12: an in-app notice to the assignee or the admins (no message content). */
   | 'notify_team'
   /** Stage 5 (5D): starts an active canvas flow for the contact (startFlowById). */
-  | 'start_flow';
+  | 'start_flow'
+  /** Batch 5: moves the contact's newest open deal in a pipeline to a stage (src/lib/actions/deals.ts). */
+  | 'move_deal_stage';
 
 /** The automation trigger and step types added in Stage 5 (activation refused until 5D implements them). */
 export const STAGE5_AUTOMATION_TRIGGERS = ['tag_removed', 'field_changed'] as const;
@@ -1012,6 +1026,13 @@ export interface CreateDealStepConfig {
   value?: number;
 }
 
+/** `move_deal_stage`: the contact's newest open deal in the pipeline goes to the stage; `status` also closes it. */
+export interface MoveDealStageStepConfig {
+  pipeline_id: string;
+  stage_id: string;
+  status?: 'won' | 'lost';
+}
+
 export interface WaitStepConfig {
   amount: number;
   unit: 'minutes' | 'hours' | 'days';
@@ -1031,8 +1052,12 @@ export interface ConditionStepConfig {
 
 export interface SendWebhookStepConfig {
   url: string;
+  /** Batch 5: the HTTP method (POST when absent). GET and DELETE send no body. */
+  method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
   headers?: Record<string, string>;
   body_template?: string;
+  /** Batch 5: values from the JSON reply kept as variables for the next steps ({{vars.<var_key>}}). */
+  mappings?: Array<{ path: string; var_key: string }>;
 }
 
 export type AutomationStepConfig =
@@ -1048,6 +1073,7 @@ export type AutomationStepConfig =
   | ConditionStepConfig
   | SendWebhookStepConfig
   | StartFlowStepConfig
+  | MoveDealStageStepConfig
   | Record<string, never>
   | Record<string, unknown>;
 

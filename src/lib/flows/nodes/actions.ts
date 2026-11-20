@@ -18,13 +18,13 @@ import { Prisma } from '@prisma/client';
 import { getWorkerPrisma } from '@/lib/db/prisma';
 import { withTenant, type TenantTransaction } from '@/lib/db/tenant';
 import type { DataClient } from '@/lib/data/types';
-import { addContactTagAndDispatch } from '@/lib/contacts/tag-events';
-import { ContactTagWriteError, removeContactTag } from '@/lib/contacts/tag-write';
+import { addTag, ContactTagWriteError, removeTag } from '@/lib/actions/tags';
+import { createDeal, dealThatStartedRun, moveDealStage } from '@/lib/actions/deals';
+import { noticeAudience, notifyTeam } from '@/lib/actions/notify';
 import { writeContactField } from '@/lib/contacts/field-write';
 import { setChannelConsent } from '@/lib/contacts/channel-consent';
 import { pauseAutomations, resumeAutomations } from '@/lib/inbox/automation-pause';
 import { logConversion } from '@/lib/analytics/conversion-log';
-import { notifyAutomationNotice } from '@/lib/notifications/emit';
 import { writeWorkspaceAttribute } from '@/lib/workspace/attribute-write';
 import type { Channel } from '@/lib/channels/capabilities';
 import { FLOW_ACTION_TYPES, FLOW_STEP_LIMITS, PAUSE_MINUTES_CHOICES, type FlowAction, type FlowRunRow } from '../types';
@@ -209,16 +209,15 @@ async function runOne(ctx: ActionsContext, action: FlowAction, index: number): P
     case 'add_tag':
     case 'remove_tag': {
       if (!contactId || !UUID.test(action.tag_id ?? '')) return skip('tag_invalid');
+      // A tag or contact that is not this workspace's (or was deleted) is skipped; anything else retries.
+      if (action.type === 'remove_tag') {
+        return (await removeTag({ db, accountId, contactId, tagId: action.tag_id })) === 'not_found' ? skip('tag_unavailable') : ok;
+      }
       try {
-        if (action.type === 'add_tag') {
-          await addContactTagAndDispatch({ db, accountId, contactId, tagId: action.tag_id,
-            context: { conversation_id: run.conversation_id ?? undefined, vars: run.vars } });
-        } else {
-          await removeContactTag(db, { accountId, contactId, tagId: action.tag_id });
-        }
+        await addTag({ db, accountId, contactId, tagId: action.tag_id,
+          context: { conversation_id: run.conversation_id ?? undefined, vars: run.vars } });
         return ok;
       } catch (err) {
-        // A tag or contact that is not this workspace's (or was deleted) is skipped; anything else retries.
         if (err instanceof ContactTagWriteError && err.status === 404) return skip('tag_unavailable');
         throw err;
       }
@@ -281,13 +280,30 @@ async function runOne(ctx: ActionsContext, action: FlowAction, index: number): P
         WHERE account_id=${accountId}::uuid AND id=${run.conversation_id}::uuid`));
       return ok;
     }
+    case 'create_deal': {
+      if (!contactId) return skip('deal_invalid');
+      const title = (await ctx.interpolate(typeof action.title === 'string' ? action.title : '')).trim();
+      if (!title) return skip('deal_invalid');
+      const created = await createDeal({ accountId, userId: run.user_id, contactId, pipelineId: action.pipeline_id,
+        stageId: action.stage_id, title, value: typeof action.value === 'number' ? action.value : 0 });
+      return created === 'created' ? ok : skip(created === 'exists' ? 'deal_exists' : 'deal_stage_invalid');
+    }
+    case 'move_deal_stage': {
+      if (!contactId) return skip('deal_invalid');
+      const moved = await moveDealStage({ accountId, contactId, pipelineId: action.pipeline_id, stageId: action.stage_id,
+        status: action.status ?? null,
+        // A flow started by this deal's own move never moves it again (automation loop guard).
+        startedByDealId: dealThatStartedRun({ vars: run.vars }) });
+      return moved === 'moved' ? ok : skip(`deal_${moved}`);
+    }
     case 'notify_team': {
-      if (action.target !== 'assignee' && action.target !== 'admins') return skip('notify_invalid');
+      const audience = noticeAudience(action.target);
+      if (!audience) return skip('notify_invalid');
       // Fixed text (the flow's name) plus the author's note; never the customer's message, never interpolated.
       const note = typeof action.note === 'string' ? action.note.trim().slice(0, FLOW_STEP_LIMITS.notifyNoteChars) : '';
       const title = note ? `${ctx.flowName}: ${note}` : ctx.flowName;
-      const notified = await notifyAutomationNotice({
-        accountId, automationId: run.flow_id, audience: action.target, title: title || 'Flow',
+      const notified = await notifyTeam({
+        accountId, sourceId: run.flow_id, audience, title: title || 'Flow',
         conversationId: run.conversation_id, contactId,
         dedupeKey: `flow-notice:${run.id}:${ctx.nodeKey}:${run.transition_seq ?? 0}:${index}`,
       });

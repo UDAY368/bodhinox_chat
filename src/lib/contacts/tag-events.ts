@@ -16,6 +16,10 @@ interface AddContactTagAndDispatchInput {
   contactId: string;
   tagId: string;
   context?: AutomationContext;
+  /** The channel of the tag_added event when the caller knows it (a rule's own channel); else read from the conversation. */
+  channel?: Channel;
+  /** Also start a tag_added flow (default). A rule's add_tag step dispatches rules only, as it always did. */
+  startFlows?: boolean;
 }
 
 export interface AddContactTagResult {
@@ -78,7 +82,7 @@ export async function addContactTagAndDispatch(
 
   await runAutomationsForTrigger({
     accountId: input.accountId,
-    channel: await tagEventChannel(input),
+    channel: input.channel ?? await tagEventChannel(input),
     triggerType: 'tag_added',
     contactId: input.contactId,
     context: {
@@ -91,7 +95,7 @@ export async function addContactTagAndDispatch(
     },
   });
 
-  await startTagFlow(input, depth + 1);
+  if (input.startFlows !== false) await startTagFlow(input, depth + 1);
 
   return { added: true, dispatched: true };
 }
