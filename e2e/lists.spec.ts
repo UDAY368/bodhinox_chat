@@ -7,7 +7,8 @@ test.describe('static lists, tag categories and workspace attributes', () => {
     await login(page, fixtures().users.agent);
     await page.goto('/contacts');
 
-    await page.getByRole('button', { name: 'New list' }).click();
+    await page.getByRole('button', { name: 'More', exact: true }).click();
+    await page.getByRole('menuitem', { name: 'New list' }).click();
     const dialog = page.getByRole('dialog');
     await dialog.getByLabel('Name', { exact: true }).fill(`Event ${runId}`);
     await dialog.getByRole('button', { name: 'Create list' }).click();
