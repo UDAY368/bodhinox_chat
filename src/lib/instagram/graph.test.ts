@@ -30,7 +30,7 @@ const h = vi.hoisted(() => ({
       const key = values[1] as string;
       if (sql.includes('INSERT INTO outbound_intents')) {
         const status = h.intents.get(key);
-        if (status === undefined || (status === 'failed' && values[2] === true)) { h.intents.set(key, 'dispatching'); return [{ id: key }]; }
+        if (status === undefined || (status === 'failed' && values[3] === true)) { h.intents.set(key, 'dispatching'); return [{ id: key }]; }
         return [];
       }
       return [{ status: h.intents.get(values[1] as string), result: null }];

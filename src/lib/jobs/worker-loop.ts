@@ -88,7 +88,7 @@ async function runJob(job: Job, handleJob: JobHandler): Promise<void> {
   try {
     const assertLease = () => { if (leaseLost) throw new Error('Job lease lost'); };
     // A keyed job (one conversation) runs under its key's advisory lock.
-    await withLaneLock(job.lane_key, () => withLeaseScope(assertLease, () => handleJob(job, assertLease)));
+    await withLaneLock(job.lane_key, () => withLeaseScope(assertLease, () => handleJob(job, assertLease), job.id));
     await finishJob(job);
   } catch (error) {
     console.error('[worker] job failed', { id: job.id, type: job.type, category: error instanceof Error ? error.name : 'Error' });

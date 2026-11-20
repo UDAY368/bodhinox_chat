@@ -24,6 +24,8 @@ export interface RailExtraItem {
   label: string;
   icon: LucideIcon;
   group: SectionMeta['group'];
+  /** A count shown at the row's end (e.g. sends that need review). */
+  badge?: ReactNode;
 }
 
 // Width at/above which the rail is a vertical column (already in view, so
@@ -163,6 +165,11 @@ export function SettingsRail({
                   >
                     <Icon className={iconClass(isActive)} />
                     <span className="flex-1">{item.label}</span>
+                    {item.badge != null ? (
+                      <span className="min-w-5 shrink-0 rounded-full bg-destructive px-1.5 text-center text-xs font-semibold tabular-nums text-white">
+                        {item.badge}
+                      </span>
+                    ) : null}
                   </button>
                 );
               })}

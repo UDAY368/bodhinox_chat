@@ -2011,6 +2011,38 @@
         },
         "fieldsRejected": "{count, plural, one {# valor personalizado não combinava com o campo e foi ignorado} other {# valores personalizados não combinavam com os campos e foram ignorados}}"
       }
+    },
+    "activity": {
+      "title": "Atividade",
+      "empty": "Nada ainda. Pedidos, pagamentos, reservas, formulários e mudanças de etapa aparecem aqui.",
+      "failed": "Não foi possível carregar a atividade.",
+      "retry": "Tentar novamente",
+      "loadMore": "Ver mais",
+      "events": {
+        "order_created": "Fez um pedido",
+        "order_created_amount": "Fez um pedido de {amount}",
+        "order_paid": "Pedido pago",
+        "order_shipped": "Pedido enviado",
+        "order_delivered": "Pedido entregue",
+        "order_returned": "Devolução recebida",
+        "payment_received": "Pagamento recebido",
+        "payment_received_amount": "Pagou {amount}",
+        "form_submitted": "Preencheu um formulário",
+        "deal_stage_changed": "Negócio movido",
+        "deal_stage_changed_named": "Negócio movido para {stage}",
+        "deal_stage_changed_value": "Negócio movido para {stage} ({value})",
+        "cart_abandoned": "Deixou itens no carrinho",
+        "appointment_booked": "Reserva feita",
+        "appointment_booked_named": "Reservou {service}",
+        "appointment_cancelled": "Reserva cancelada",
+        "appointment_cancelled_named": "{service} cancelada",
+        "appointment_rescheduled": "Reserva remarcada",
+        "appointment_rescheduled_named": "{service} remarcada",
+        "appointment_completed": "Reserva concluída",
+        "appointment_completed_named": "{service} concluída",
+        "appointment_no_show": "Faltou a uma reserva",
+        "appointment_no_show_named": "Faltou a {service}"
+      }
     }
   },
   "Pipelines": {
@@ -19139,5 +19171,44 @@
     "error": "Não foi possível carregar os contatos.",
     "retry": "Tentar novamente",
     "loadMore": "Carregar mais"
+  },
+  "NeedsReview": {
+    "railLabel": "Para revisar",
+    "title": "Para revisar",
+    "subtitle": "Mensagens cuja entrega não conseguimos confirmar. Confira o chat e marque cada uma.",
+    "count": "{count, plural, one {# para conferir} other {# para conferir}}",
+    "empty": "Nada para revisar",
+    "emptyBody": "Todas as mensagens têm um resultado confirmado.",
+    "failed": "Não foi possível carregar a lista.",
+    "loadMore": "Ver mais",
+    "unnamed": "Contato sem nome",
+    "openChat": "Abrir chat",
+    "wasSent": "Foi enviada",
+    "sendAgain": "Enviar de novo",
+    "markNotSent": "Marcar não enviada",
+    "confirmSendTitle": "Enviar esta mensagem de novo?",
+    "confirmSendBody": "Faça isso só depois de conferir o chat. Se a primeira mensagem chegou, o cliente a recebe duas vezes.",
+    "confirmNotSentTitle": "Marcar como não enviada?",
+    "confirmNotSentBody": "Ela sai desta lista. Envie de novo pelo chat se ainda for preciso.",
+    "doneSent": "Marcada como enviada",
+    "doneQueued": "Na fila para enviar de novo",
+    "doneCampaign": "Marcada não enviada. Use Tentar falhas na campanha para enviá-la.",
+    "doneCleared": "Marcada não enviada",
+    "actionFailed": "Não foi possível salvar. Tente de novo.",
+    "gone": "Já resolvida",
+    "kinds": {
+      "order": "Mensagem de pedido",
+      "appointment": "Mensagem de reserva",
+      "store_event": "Mensagem da loja",
+      "flow": "Mensagem de fluxo",
+      "rule": "Mensagem de regra",
+      "campaign": "Mensagem de campanha",
+      "scheduled_reply": "Resposta agendada",
+      "other": "Mensagem"
+    },
+    "reasons": {
+      "outcome_unknown": "Sem resposta do provedor",
+      "stuck_sending": "O envio não terminou"
+    }
   }
 }
