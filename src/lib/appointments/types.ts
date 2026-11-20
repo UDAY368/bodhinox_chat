@@ -290,6 +290,8 @@ export const APPOINTMENT_JOB_TYPES = {
   event: 'appointments.event',
   holdExpire: 'appointments.hold_expire',
   followup: 'appointments.followup',
+  /** Batch 3: the service's intake form, once per confirmed booking (intake-form.ts). */
+  intakeForm: 'appointments.intake_form',
 } as const;
 export type AppointmentJobType = (typeof APPOINTMENT_JOB_TYPES)[keyof typeof APPOINTMENT_JOB_TYPES];
 
@@ -319,6 +321,7 @@ export interface NotifyJobPayload {
 export interface EventJobPayload { appointmentId: string; version: number; kind: AppointmentEventKind }
 export interface HoldExpireJobPayload { appointmentId: string; version: number }
 export interface FollowupJobPayload { appointmentId: string; version: number; kind: 'feedback' | 'rebook' }
+export interface IntakeFormJobPayload { appointmentId: string; version: number }
 
 // ------------------------------------------------------------ triggers and webhooks
 

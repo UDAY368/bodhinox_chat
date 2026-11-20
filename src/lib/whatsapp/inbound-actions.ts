@@ -22,6 +22,7 @@ import { applyInboundLifecycle } from "@/lib/inbox/lifecycle";
 import { sendAwayMessage } from "@/lib/inbox/away-message";
 import { parseHoldCodeMessage } from "@/lib/appointments/types";
 import { handleBookingCode } from "@/lib/appointments/inbound";
+import { handleReminderAction, parseReminderActionId } from "@/lib/appointments/reminder-actions";
 import { handleShopCartCode, parseShopOrderMessage } from "@/lib/commerce/public-shop";
 import { parseCodConfirmReply } from "@/lib/commerce/cart-followups";
 import { handleCodConfirmReply } from "@/lib/commerce/cart-followup-jobs";
@@ -158,7 +159,12 @@ export async function processInboundActions(input: InboundActionsPayload, assert
         ? await handleReviewText({accountId:input.accountId,contactId:input.contactId,conversationId:input.conversationId,
           messageId:input.messageId,text},send=>stage("review_text_ack",send)) : {handled:false};
       const review=reviewTap.handled||reviewText.handled;
-      if(!booking.handled&&!shopOrder.handled&&!stockAlert.handled&&!codConfirm.handled&&!review) await respondAutomatically(db,input,text,stage,Boolean(form)||Boolean(order));
+      // A tap on a reminder's Confirm / Reschedule / Cancel (appt:c|r|x:<appointment>:<version>) from the booking's own
+      // contact: the change is replay-safe outside the stage, the one reply is a stage checkpoint. Any other id is ordinary.
+      const reminderTap=!holdCode&&input.interactiveReplyId&&parseReminderActionId(input.interactiveReplyId)
+        ? await handleReminderAction({accountId:input.accountId,contactId:input.contactId,conversationId:input.conversationId,
+          messageId:input.messageId,replyId:input.interactiveReplyId},send=>stage("appointment_reminder_reply",send)) : {handled:false};
+      if(!booking.handled&&!reminderTap.handled&&!shopOrder.handled&&!stockAlert.handled&&!codConfirm.handled&&!review) await respondAutomatically(db,input,text,stage,Boolean(form)||Boolean(order));
       // After the flow and automations, so an unresolved confirmation never holds them back.
       if(order) await stage("order_confirmation",()=>sendOrderConfirmation({accountId:input.accountId,userId:input.userId,
         conversationId:input.conversationId,contactId:input.contactId,order}));
@@ -167,7 +173,7 @@ export async function processInboundActions(input: InboundActionsPayload, assert
       const lifecycle=await applyInboundLifecycle({accountId:input.accountId,conversationId:input.conversationId,
         contactId:input.contactId,messageId:input.messageId,text});
       // Out of hours and nobody automatic answered: the away message, once per window.
-      if(!booking.handled&&!shopOrder.handled&&!stockAlert.handled&&!codConfirm.handled&&!review&&!lifecycle.botOwned&&!lifecycle.botReplied) await stage("away_message",()=>sendAwayMessage({accountId:input.accountId,
+      if(!booking.handled&&!reminderTap.handled&&!shopOrder.handled&&!stockAlert.handled&&!codConfirm.handled&&!review&&!lifecycle.botOwned&&!lifecycle.botReplied) await stage("away_message",()=>sendAwayMessage({accountId:input.accountId,
         userId:input.userId,conversationId:input.conversationId,contactId:input.contactId,messageId:input.messageId}));
     }
     await stage("message_webhook",()=>dispatchWebhookEvent(db,input.accountId,"message.received",{

@@ -89,6 +89,10 @@ const SPECS: Spec[] = [
   // Phase 7 appointment reminders: the URL button must become `${APP_URL}/my-booking/{{1}}`
   // (src/lib/appointments/template-check.ts manageButtonUrl); the job fills {{1}} with the manage token.
   { slug: 'appointment_reminder_manage', industry: 'health', category: 'Utility', header: true, buttons: ['URL'] },
+  // Batch 3 reminder buttons: submitted as is from appointment settings (reminder-template-card.tsx). The
+  // reminder job fills the three quick-reply payloads with appt:c|r|x:<appointment>:<version> (reminder-actions.ts).
+  { slug: 'appointment_reminder_actions', industry: 'health', category: 'Utility', header: true,
+    buttons: ['QUICK_REPLY', 'QUICK_REPLY', 'QUICK_REPLY'] },
   // finance
   { slug: 'payment_reminder', industry: 'finance', category: 'Utility', buttons: ['URL'] },
   { slug: 'payment_received', industry: 'finance', category: 'Utility', header: true, footer: true },
