@@ -188,7 +188,8 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('public shop on PostgreSQL',
     const ok = await otpVerify(req({ challengeId, code }), at(handle));
     expect(ok.status).toBe(200);
     const { url } = await ok.json();
-    expect(url).toMatch(/\/shop\/[A-Za-z0-9_-]{43}$/);
+    // The public shop's own themed checkout, not the staff /shop/ link.
+    expect(url).toMatch(new RegExp(`/s/${handle}/checkout/[A-Za-z0-9_-]{43}$`));
     const session = (await db.query(`SELECT s.cart, s.purpose, c.phone FROM storefront_sessions s JOIN contacts c ON c.id=s.contact_id
       WHERE s.account_id=$1 AND s.id=(SELECT session_id FROM shop_otp_challenges WHERE id=$2)`, [account, challengeId])).rows[0];
     expect(session).toMatchObject({ purpose: 'shop', phone: '919811122233', cart: [{ variant_id: variant, qty: 3 }] });
@@ -228,7 +229,7 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('public shop on PostgreSQL',
     const first = await handleShopCartCode({ accountId: account, contactId: buyer, conversationId: conversation, whatsappConfigId: number, code });
     expect(first).toEqual({ handled: true, outcome: 'sent' });
     expect(sendText).toHaveBeenCalledTimes(1);
-    expect(String((sendText.mock.calls[0][0] as { text: string }).text)).toMatch(/\/shop\/[A-Za-z0-9_-]{43}/);
+    expect(String((sendText.mock.calls[0][0] as { text: string }).text)).toMatch(new RegExp(`/s/${handle}/checkout/[A-Za-z0-9_-]{43}`));
     const claimed = (await db.query(`SELECT c.contact_id, s.cart FROM shop_cart_codes c JOIN storefront_sessions s ON s.id=c.session_id
       WHERE c.account_id=$1 AND c.code=$2`, [account, code])).rows[0];
     expect(claimed).toMatchObject({ contact_id: buyer, cart: [{ variant_id: variant, qty: 1 }] });

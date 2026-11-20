@@ -29,6 +29,7 @@ import {
   ACCOUNT_ORDERS_PAGE_SIZE, CUSTOMER_SESSION_DAYS, CUSTOMER_TOKEN, MAX_SAVED_ADDRESSES, maskPhone,
 } from './shop-customer-cookie';
 import { isUuid, StoreError } from './store-settings';
+import { shopCheckoutUrl } from './storefront-token';
 import {
   issueSessionTx, loadOrderView, loadVariants, orderReference, parseAddress, STOREFRONT_TTL, type StorefrontAddress, type StorefrontOrderView,
 } from './storefront';
@@ -286,6 +287,7 @@ export function checkoutAsCustomer(handle: string, token: unknown, input: { cart
       await tx.$executeRaw`UPDATE storefront_sessions SET address=${JSON.stringify(parseAddress(fields))}::jsonb
         WHERE account_id=${accountId}::uuid AND id=${sessionId}::uuid AND order_id IS NULL`;
     }
-    return { url: issued.url };
+    // The shop's own themed checkout (the handle resolved to this workspace in withCustomer).
+    return { url: shopCheckoutUrl(handle, issued.token) };
   }, { mutate: true });
 }

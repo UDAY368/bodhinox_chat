@@ -16,20 +16,39 @@ export const isShopTemplateId = (value: unknown): value is ShopTemplateId =>
   typeof value === 'string' && (SHOP_TEMPLATE_IDS as readonly string[]).includes(value);
 
 /**
- * Font choices as local font stacks. The app's CSP allows fonts only from
- * our own origin, so a shop never loads a web font from another site.
+ * Font choices. Ten open-licence (SIL OFL 1.1) families, served as woff2 from
+ * our own origin (src/app/fonts/shop, loaded by components/shop-public/shop-fonts.ts
+ * on the public shop and the theme editor only). The app's CSP allows fonts
+ * only from our own origin, so a shop never loads a web font from another
+ * site. Each stack names the self-hosted family first, then system fallbacks.
  */
+const SANS = 'ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
+const SERIF = 'Georgia, Cambria, "Times New Roman", Times, ui-serif, serif';
+const MONO = 'ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace';
 export const SHOP_FONTS = {
-  modern: 'ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
-  humanist: '"Avenir Next", Avenir, "Segoe UI", "Trebuchet MS", "Gill Sans", ui-sans-serif, sans-serif',
-  rounded: 'ui-rounded, "SF Pro Rounded", "Arial Rounded MT Bold", "Varela Round", ui-sans-serif, system-ui, sans-serif',
-  classic: 'Georgia, Cambria, "Times New Roman", Times, ui-serif, serif',
-  elegant: '"Didot", "Bodoni MT", "Playfair Display", "Book Antiqua", Palatino, Georgia, ui-serif, serif',
-  technical: 'ui-monospace, "SF Mono", "Cascadia Mono", "Roboto Mono", Menlo, Consolas, monospace',
+  inter: `ShopInter, ${SANS}`,
+  manrope: `ShopManrope, ${SANS}`,
+  dm_sans: `ShopDmSans, ${SANS}`,
+  poppins: `ShopPoppins, ${SANS}`,
+  nunito: `ShopNunito, ui-rounded, ${SANS}`,
+  space_grotesk: `ShopSpaceGrotesk, ${SANS}`,
+  playfair: `ShopPlayfair, ${SERIF}`,
+  lora: `ShopLora, ${SERIF}`,
+  cormorant: `ShopCormorant, ${SERIF}`,
+  jetbrains_mono: `ShopJetBrainsMono, ${MONO}`,
+  // Ids saved before the self-hosted fonts: still valid, drawn with the nearest new family, not offered in the picker.
+  modern: `ShopInter, ${SANS}`,
+  humanist: `ShopManrope, ${SANS}`,
+  rounded: `ShopNunito, ui-rounded, ${SANS}`,
+  classic: `ShopLora, ${SERIF}`,
+  elegant: `ShopPlayfair, ${SERIF}`,
+  technical: `ShopJetBrainsMono, ${MONO}`,
 } as const;
 export type ShopFontId = keyof typeof SHOP_FONTS;
-export const SHOP_FONT_IDS = Object.keys(SHOP_FONTS) as ShopFontId[];
-const isFontId = (value: unknown): value is ShopFontId => typeof value === 'string' && value in SHOP_FONTS;
+const LEGACY_FONT_IDS: readonly ShopFontId[] = ['modern', 'humanist', 'rounded', 'classic', 'elegant', 'technical'];
+/** The fonts the editor offers (legacy ids stay valid but are not offered). */
+export const SHOP_FONT_IDS = (Object.keys(SHOP_FONTS) as ShopFontId[]).filter((id) => !LEGACY_FONT_IDS.includes(id));
+export const isFontId = (value: unknown): value is ShopFontId => typeof value === 'string' && Object.hasOwn(SHOP_FONTS, value);
 
 export interface ShopColors {
   primary: string;
@@ -51,6 +70,23 @@ export interface ShopLayout {
   categories: 'chips' | 'tiles';
   /** Corner radius in px for cards and buttons. */
   radius: number;
+  /**
+   * Header: logo centred with the menu below, logo left with the menu inline,
+   * minimal with the search first, or a bold color band.
+   */
+  header: 'centered' | 'inline' | 'minimal' | 'band';
+  /**
+   * Product card: image with the name below, a bordered card with quick add,
+   * name and price over the image, or a compact row with a + button.
+   */
+  card: 'plain' | 'bordered' | 'overlay' | 'row';
+  /**
+   * Product page: gallery left and details right, a full-width gallery with
+   * details below, details that stay in view while the gallery scrolls, or a compact page.
+   */
+  product: 'split' | 'stacked' | 'sticky' | 'compact';
+  /** Footer: link columns, a centred minimal footer, or a dark band. */
+  footer: 'columns' | 'centered' | 'dark';
 }
 
 export interface ShopTemplate {
@@ -64,38 +100,38 @@ export const SHOP_TEMPLATES: Record<ShopTemplateId, ShopTemplate> = {
   wellness: {
     id: 'wellness',
     colors: { primary: '#2f5d3a', accent: '#c8963e', background: '#f7f3ea', surface: '#ffffff', text: '#1f2a22' },
-    font: { heading: 'classic', body: 'humanist' },
-    layout: { hero: 'split', columns: 3, image: 'square', categories: 'tiles', radius: 14 },
+    font: { heading: 'lora', body: 'manrope' },
+    layout: { hero: 'split', columns: 3, image: 'square', categories: 'tiles', radius: 14, header: 'inline', card: 'plain', product: 'split', footer: 'columns' },
   },
   fashion: {
     id: 'fashion',
     colors: { primary: '#111111', accent: '#b4232c', background: '#ffffff', surface: '#f5f5f4', text: '#111111' },
-    font: { heading: 'elegant', body: 'modern' },
-    layout: { hero: 'full', columns: 4, image: 'portrait', categories: 'chips', radius: 0 },
+    font: { heading: 'playfair', body: 'inter' },
+    layout: { hero: 'full', columns: 4, image: 'portrait', categories: 'chips', radius: 0, header: 'centered', card: 'overlay', product: 'sticky', footer: 'centered' },
   },
   beauty: {
     id: 'beauty',
     colors: { primary: '#9d3c62', accent: '#e8b4a0', background: '#fdf6f4', surface: '#ffffff', text: '#3a2230' },
-    font: { heading: 'elegant', body: 'humanist' },
-    layout: { hero: 'split', columns: 4, image: 'portrait', categories: 'chips', radius: 20 },
+    font: { heading: 'cormorant', body: 'dm_sans' },
+    layout: { hero: 'split', columns: 4, image: 'portrait', categories: 'chips', radius: 20, header: 'centered', card: 'plain', product: 'stacked', footer: 'columns' },
   },
   food: {
     id: 'food',
     colors: { primary: '#a4471c', accent: '#f2b33d', background: '#fff8ef', surface: '#ffffff', text: '#3b2414' },
-    font: { heading: 'rounded', body: 'rounded' },
-    layout: { hero: 'full', columns: 3, image: 'square', categories: 'tiles', radius: 18 },
+    font: { heading: 'poppins', body: 'nunito' },
+    layout: { hero: 'full', columns: 3, image: 'square', categories: 'tiles', radius: 18, header: 'band', card: 'bordered', product: 'stacked', footer: 'dark' },
   },
   grocery: {
     id: 'grocery',
     colors: { primary: '#1d7a3e', accent: '#f6c445', background: '#f4f8f2', surface: '#ffffff', text: '#16261b' },
-    font: { heading: 'modern', body: 'modern' },
-    layout: { hero: 'band', columns: 4, image: 'square', categories: 'tiles', radius: 10 },
+    font: { heading: 'poppins', body: 'inter' },
+    layout: { hero: 'band', columns: 4, image: 'square', categories: 'tiles', radius: 10, header: 'minimal', card: 'row', product: 'compact', footer: 'columns' },
   },
   electronics: {
     id: 'electronics',
     colors: { primary: '#1f4fd8', accent: '#00b3a4', background: '#f3f5f9', surface: '#ffffff', text: '#0f172a' },
-    font: { heading: 'technical', body: 'modern' },
-    layout: { hero: 'band', columns: 4, image: 'square', categories: 'chips', radius: 8 },
+    font: { heading: 'space_grotesk', body: 'inter' },
+    layout: { hero: 'band', columns: 4, image: 'square', categories: 'chips', radius: 8, header: 'inline', card: 'bordered', product: 'sticky', footer: 'dark' },
   },
 };
 

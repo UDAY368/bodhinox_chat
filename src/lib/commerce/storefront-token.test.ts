@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { deriveManageToken } from '../appointments/tokens';
-import { deriveStorefrontToken, isStorefrontTokenFormat, storefrontTokenHash, storefrontUrl } from './storefront-token';
+import { deriveStorefrontToken, isStorefrontTokenFormat, shopCheckoutUrl, storefrontTokenHash, storefrontUrl } from './storefront-token';
 
 const ID = '11111111-1111-4111-8111-111111111111';
 let saved: Record<string, string | undefined>;
@@ -33,6 +33,7 @@ describe('storefront tokens', () => {
     const token = deriveStorefrontToken(ID, 1);
     expect(storefrontTokenHash(token)).toMatch(/^[0-9a-f]{64}$/);
     expect(storefrontUrl(token)).toBe(`https://app.example.test/shop/${token}`);
+    expect(shopCheckoutUrl('kumar-ayurveda', token)).toBe(`https://app.example.test/s/kumar-ayurveda/checkout/${token}`);
   });
 
   it('refuses a bad epoch, a missing key and malformed tokens', () => {

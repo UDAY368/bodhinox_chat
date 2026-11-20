@@ -107,6 +107,8 @@ export async function loadSession(tx: TenantTransaction, accountId: string, sess
 export interface IssuedSession {
   sessionId: string;
   url: string;
+  /** The raw link token (never stored), for the public shop's own checkout URL (shopCheckoutUrl). */
+  token: string;
   expiresAt: string;
   purpose: StorefrontPurpose;
   orderId: string | null;
@@ -145,8 +147,9 @@ export async function issueSessionTx(tx: TenantTransaction, accountId: string, i
   if (!inserted[0]) {
     const existing = await loadSession(tx, accountId, input.sessionId);
     if (!existing || existing.contact_id !== input.contactId) throw new StoreError('conflict');
+    const existingToken = deriveStorefrontToken(existing.id, existing.token_epoch);
     return {
-      sessionId: existing.id, url: storefrontUrl(deriveStorefrontToken(existing.id, existing.token_epoch)),
+      sessionId: existing.id, url: storefrontUrl(existingToken), token: existingToken,
       expiresAt: existing.expires_at.toISOString(), purpose: existing.purpose, orderId: existing.order_id, created: false,
     };
   }
@@ -155,7 +158,7 @@ export async function issueSessionTx(tx: TenantTransaction, accountId: string, i
       WHERE account_id=${accountId}::uuid AND contact_id=${input.contactId}::uuid AND purpose='shop' AND revoked_at IS NULL
         AND order_id IS NULL AND id<>${input.sessionId}::uuid`;
   return {
-    sessionId: input.sessionId, url: storefrontUrl(token), expiresAt: inserted[0].expires_at.toISOString(),
+    sessionId: input.sessionId, url: storefrontUrl(token), token, expiresAt: inserted[0].expires_at.toISOString(),
     purpose: input.purpose, orderId: input.orderId, created: true,
   };
 }
@@ -1006,9 +1009,10 @@ export async function loadCatalogue(tx: TenantTransaction, accountId: string, fi
 }
 
 /** The live categories that hold at least one product the catalogue lists, in their order (the storefront's filter chips). */
-export async function loadCatalogueCategories(tx: TenantTransaction, accountId: string): Promise<Array<{ id: string; name: string }>> {
-  return tx.$queryRaw<{ id: string; name: string }[]>`
-    SELECT c.id::text AS id, c.name FROM shop_categories c
+export async function loadCatalogueCategories(tx: TenantTransaction, accountId: string): Promise<Array<{ id: string; name: string; slug: string | null }>> {
+  // slug (store Batch 6): the public shop links a category by it.
+  return tx.$queryRaw<{ id: string; name: string; slug: string | null }[]>`
+    SELECT c.id::text AS id, c.name, c.slug FROM shop_categories c
     WHERE c.account_id=${accountId}::uuid AND c.archived_at IS NULL
       AND EXISTS (SELECT 1 FROM shop_products p WHERE p.account_id=c.account_id AND p.category_id=c.id
         AND shop_product_live(p.status, p.publish_at, p.hide_at) AND EXISTS (SELECT 1 FROM shop_variants v WHERE v.account_id=p.account_id AND v.product_id=p.id AND v.archived_at IS NULL AND v.price_minor IS NOT NULL))

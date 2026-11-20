@@ -9,13 +9,14 @@ import type { TenantTransaction } from '@/lib/db/tenant';
 import { likeContains, likePrefix, searchTerms, SEARCH_RESULTS, SEARCH_SUGGESTIONS } from './shop-insights-rules';
 import { loadProductsWith, shopImageUrl, withPublicShop, type PublicProduct } from './public-shop';
 
-export interface Suggestion { id: string; name: string; category: string | null }
+/** `slug` (store Batch 6) builds the link with productPath(). */
+export interface Suggestion { id: string; slug: string | null; name: string; category: string | null }
 
 async function matchProducts(tx: TenantTransaction, accountId: string, terms: string[], limit: number): Promise<Suggestion[]> {
   const contains = terms.map(likeContains);
   const first = likePrefix(terms[0]);
   return tx.$queryRaw<Suggestion[]>`
-    SELECT p.id::text AS id, p.name, c.name AS category
+    SELECT p.id::text AS id, p.slug, p.name, c.name AS category
     FROM shop_products p
     LEFT JOIN shop_categories c ON c.account_id=p.account_id AND c.id=p.category_id AND c.archived_at IS NULL
     WHERE p.account_id=${accountId}::uuid AND shop_product_live(p.status, p.publish_at, p.hide_at)

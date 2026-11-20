@@ -47,8 +47,16 @@ export function writeCart(handle: string, lines: BrowserCartLine[]): void {
   window.dispatchEvent(new CustomEvent(CART_EVENT, { detail: handle }));
 }
 
-export function addToCart(handle: string, variantId: string, qty: number): void {
-  writeCart(handle, [...readCart(handle), { variantId, qty }]);
+/** Add to the line; with `available` (the stock left, null = no limit) the line never holds more than can be bought. */
+export function addToCart(handle: string, variantId: string, qty: number, available: number | null = null): void {
+  const lines = readCart(handle);
+  const current = lines.find((l) => l.variantId === variantId)?.qty ?? 0;
+  const cap = available === null ? MAX_QTY : Math.max(0, Math.min(MAX_QTY, Math.floor(available)));
+  const next = Math.min(cap, current + qty);
+  if (next <= current) return;
+  writeCart(handle, lines.some((l) => l.variantId === variantId)
+    ? lines.map((l) => (l.variantId === variantId ? { variantId, qty: next } : l))
+    : [...lines, { variantId, qty: next }]);
 }
 
 export function setLineQty(handle: string, variantId: string, qty: number): void {

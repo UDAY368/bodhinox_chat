@@ -9,6 +9,7 @@ import { getLocale, getTranslations } from 'next-intl/server';
 import { ProductCard, ProductGrid } from '@/components/shop-public/product-card';
 import { COLLECTION_SORTS } from '@/lib/commerce/catalogue/collection-rules';
 import { loadShopCollection } from '@/lib/commerce/public-shop';
+import { absoluteUrl } from '@/lib/commerce/shop-seo';
 
 export const dynamic = 'force-dynamic';
 
@@ -21,7 +22,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   if (!page) return { robots: { index: false, follow: false } };
   return {
     title: page.collection.title, description: page.collection.description?.slice(0, 160) ?? undefined,
-    alternates: { canonical: `/s/${handle}/collections/${slug}` },
+    // Store Batch 6: absolute canonical and og:url.
+    alternates: { canonical: absoluteUrl(`/s/${handle}/collections/${slug}`) },
+    openGraph: { type: 'website', url: absoluteUrl(`/s/${handle}/collections/${slug}`), siteName: page.shop.name, title: page.collection.title },
   };
 }
 

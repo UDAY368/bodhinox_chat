@@ -15,6 +15,7 @@ import { createHash } from 'node:crypto';
 import { MetaApiError, type MetaBatchStatus, type MetaCatalogItemData, type MetaUsage } from '@/lib/whatsapp/meta-api';
 import type { TenantTransaction } from '@/lib/db/tenant';
 import { minorToDecimalString } from '../money';
+import { productPath } from '../shop-paths';
 
 export const META_SYNC_JOB = 'commerce.meta_catalogue_sync';
 
@@ -55,6 +56,8 @@ export type LocalRefusal = 'missing_price' | 'missing_image' | 'missing_link';
 export interface SyncVariant {
   variant_id: string;
   product_id: string;
+  /** Store Batch 6: the product's slug for its shop link (the id link when absent). */
+  slug?: string | null;
   sku: string;
   name: string;
   description: string | null;
@@ -106,7 +109,7 @@ export function buildMetaItem(v: SyncVariant, ctx: SyncContext): ItemBuild {
     availability: v.sellable ? 'in stock' : 'out of stock',
     condition: 'new',
     price: `${minorToDecimalString(v.price_minor, v.currency)} ${v.currency}`,
-    link: `${ctx.origin}/s/${ctx.handle}/p/${v.product_id}`,
+    link: `${ctx.origin}${productPath(ctx.handle, { id: v.product_id, slug: v.slug })}`,
     image_link: direct ?? `${ctx.origin}/api/public/store/${ctx.handle}/images/${v.image.id}`,
     ...(brand ? { brand: clip(brand, 100) } : {}),
     item_group_id: v.product_id,

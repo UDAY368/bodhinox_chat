@@ -10534,7 +10534,7 @@
         "forbidden": "Your role cannot do this.",
         "rate_limited": "Too many changes at once. Wait a moment and try again.",
         "generic": "Something went wrong. Try again.",
-        "slug_taken": "Another collection already uses that web address.",
+        "slug_taken": "Something else already uses that web address. Pick another.",
         "import_running": "Another import is still queued or running. Wait for it to finish.",
         "csv_empty": "The file has no product rows.",
         "csv_too_large": "The file is larger than 5 MB.",
@@ -10674,6 +10674,20 @@
         "restored": "Product restored as a draft",
         "noCategory": "No category",
         "rereviewHint": "Saving changed text on a live product records you as its reviewer.",
+        "searchListing": {
+          "title": "Search engine listing",
+          "hint": "How this product shows in Google and in shared links. Leave a field empty to use the product's name, description and first image.",
+          "address": "Web address",
+          "addressPlaceholder": "neem-oil-200ml",
+          "addressHint": "Lower-case letters, numbers and hyphens. Changing it keeps the old link working.",
+          "addressInvalid": "Use only lower-case letters, numbers and single hyphens (at most 60).",
+          "seoTitle": "Search title",
+          "seoDescription": "Search description",
+          "count": "{count} of {max}",
+          "shareImage": "Share image",
+          "firstImage": "First image",
+          "imageN": "Image {n}"
+        },
         "currencyMissing": "Set the store currency in Store settings to add prices.",
         "writer": {
           "open": "Write description",
@@ -11947,7 +11961,17 @@
         "rounded": "Rounded",
         "classic": "Classic serif",
         "elegant": "Elegant serif",
-        "technical": "Technical"
+        "technical": "Technical",
+        "inter": "Inter",
+        "manrope": "Manrope",
+        "dm_sans": "DM Sans",
+        "poppins": "Poppins",
+        "nunito": "Nunito",
+        "space_grotesk": "Space Grotesk",
+        "playfair": "Playfair Display",
+        "lora": "Lora",
+        "cormorant": "Cormorant Garamond",
+        "jetbrains_mono": "JetBrains Mono"
       },
       "headline": "Banner headline",
       "subheadline": "Banner text",
@@ -12138,7 +12162,14 @@
         "faq": "FAQ",
         "video": "Video",
         "text": "Text",
-        "whatsapp": "WhatsApp button"
+        "whatsapp": "WhatsApp button",
+        "offer": "Offer with countdown",
+        "trust_badges": "Trust badges",
+        "logo_strip": "Logo strip",
+        "gallery": "Gallery",
+        "signup": "Sign up",
+        "best_sellers": "Best sellers",
+        "recently_viewed": "Recently viewed"
       },
       "fields": {
         "text": "Text",
@@ -12161,7 +12192,10 @@
         "caption": "Caption",
         "align": "Alignment",
         "message": "Message the buyer starts with",
-        "collection": "Collection"
+        "collection": "Collection",
+        "endsAt": "Ends",
+        "icon": "Icon",
+        "days": "Sales from the last (days)"
       },
       "choices": {
         "style": {
@@ -12183,17 +12217,41 @@
         "align": {
           "left": "Left",
           "center": "Center"
+        },
+        "icon": {
+          "truck": "Delivery",
+          "shield": "Secure",
+          "returns": "Returns",
+          "cash": "Cash on delivery",
+          "leaf": "Natural",
+          "star": "Top rated",
+          "support": "Support",
+          "badge": "Genuine"
         }
       },
       "items": {
         "slideshow": "Slide {n}",
         "testimonials": "Review {n}",
-        "faq": "Question {n}"
+        "faq": "Question {n}",
+        "trust_badges": "Badge {n}",
+        "logo_strip": "Logo {n}",
+        "gallery": "Picture {n}"
       },
       "collectionPrefix": "Collection",
       "collectionHint": "A collection replaces the category when both are set.",
       "noCollection": "No collection",
-      "unpublished": "not published"
+      "unpublished": "not published",
+      "endsAtHint": "Shown in your time zone. The offer hides itself when it ends.",
+      "useTemplate": "Use template",
+      "templateInUse": "In use",
+      "samples": {
+        "p1": "Herbal oil",
+        "p2": "Face cream",
+        "p3": "Tote bag",
+        "p4": "Gift box",
+        "p5": "Snack mix",
+        "p6": "Green tea"
+      }
     },
     "reviews": {
       "title": "Reviews",
@@ -15984,6 +16042,8 @@
     "staffNoShow": "No-show: {service} at {time}"
   },
   "Storefront": {
+    "retry": "Retry",
+    "remove": "Remove",
     "metaTitle": "Your order",
     "loading": "Loading",
     "notFoundTitle": "This link is not available",
@@ -18969,6 +19029,46 @@
     }
   },
   "ShopPublic": {
+    "checkout": {
+      "title": "Checkout",
+      "empty": "Your bag is empty.",
+      "browse": "Browse the shop",
+      "backToCart": "Back to bag"
+    },
+    "estimate": {
+      "pincode": "Pincode for shipping",
+      "coupon": "Coupon code",
+      "apply": "Apply",
+      "couponLine": "Coupon {code}",
+      "shipping": "Shipping",
+      "shippingState": {
+        "needs_pincode": "Add pincode",
+        "unknown": "At address step",
+        "unavailable": "Not delivered here"
+      },
+      "tax": "Tax",
+      "taxIncluded": "Tax included",
+      "total": "Estimated total",
+      "note": "An estimate. Shipping and tax are confirmed at the address step, and coupon limits per buyer are checked at checkout.",
+      "checkout": "Checkout",
+      "couponErrors": {
+        "coupon_not_found": "That coupon code is not valid.",
+        "coupon_inactive": "That coupon is not active.",
+        "coupon_not_started": "That coupon has not started yet.",
+        "coupon_expired": "That coupon has expired.",
+        "coupon_min_subtotal": "Add more to your bag to use that coupon.",
+        "other": "That coupon cannot be used."
+      }
+    },
+    "buy": {
+      "share": "Share",
+      "linkCopied": "Link copied",
+      "ask": "Ask about this product on WhatsApp",
+      "askText": "Hi, I have a question about {product}: {url}",
+      "soldOutOption": "{value}, sold out",
+      "maxReached": "Only {count} left",
+      "buyBar": "Buy"
+    },
     "home": "Home",
     "allProducts": "All products",
     "cart": "Cart",
@@ -19271,7 +19371,28 @@
       "deliverTo": "Deliver to",
       "enterAtCheckout": "Enter another address at checkout",
       "otherNumber": "Use a different number"
-    }
+    },
+    "card": {
+      "sale": "{percent}% off",
+      "added": "Added"
+    },
+    "offer": {
+      "endsIn": "Ends in",
+      "ended": "This offer has ended and is hidden on your shop.",
+      "days": "days",
+      "hours": "hours",
+      "minutes": "min",
+      "seconds": "sec"
+    },
+    "signup": {
+      "heading": "Get offers on WhatsApp",
+      "text": "Be the first to hear about new arrivals and offers.",
+      "button": "Subscribe on WhatsApp",
+      "message": "Subscribe",
+      "note": "Opens WhatsApp with \"Subscribe\" typed in. Send it to join."
+    },
+    "bestSellers": "Best sellers",
+    "recentlyViewed": "Recently viewed"
   },
   "ShopMarketing": {
     "email": {

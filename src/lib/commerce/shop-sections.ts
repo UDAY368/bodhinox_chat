@@ -27,7 +27,9 @@ export type ShopField =
   | { key: string; kind: 'category' }
   | { key: string; kind: 'collection' }
   | { key: string; kind: 'choice'; options: readonly string[] }
-  | { key: string; kind: 'number'; min: number; max: number; default: number };
+  | { key: string; kind: 'number'; min: number; max: number; default: number }
+  /** A moment in time, stored as an ISO string in UTC (the offer countdown's end). */
+  | { key: string; kind: 'datetime' };
 
 export type FieldValue = string | number | null;
 export type FieldValues = Record<string, FieldValue>;
@@ -40,6 +42,7 @@ const button: ShopField[] = [line('buttonLabel', 30), { key: 'buttonLink', kind:
 export const SHOP_SECTION_TYPES = [
   'announcement', 'banner', 'slideshow', 'categories', 'featured_collection', 'product_grid', 'image_text', 'testimonials',
   'faq', 'video', 'text', 'whatsapp',
+  'offer', 'trust_badges', 'logo_strip', 'gallery', 'signup', 'best_sellers', 'recently_viewed',
 ] as const;
 export type ShopSectionType = (typeof SHOP_SECTION_TYPES)[number];
 export const isSectionType = (value: unknown): value is ShopSectionType =>
@@ -53,6 +56,10 @@ export interface SectionSpec {
 
 export const PRODUCT_SORTS = ['featured', 'price_asc', 'price_desc', 'name'] as const;
 export type ProductSort = (typeof PRODUCT_SORTS)[number];
+
+/** The fixed icons a trust badge may show (drawn by our own icon set, never an uploaded file). */
+export const TRUST_ICONS = ['truck', 'shield', 'returns', 'cash', 'leaf', 'star', 'support', 'badge'] as const;
+export type TrustIcon = (typeof TRUST_ICONS)[number];
 
 export const SECTION_SPECS: Record<ShopSectionType, SectionSpec> = {
   announcement: { fields: [line('text', 120), { key: 'link', kind: 'link' }] },
@@ -78,6 +85,17 @@ export const SECTION_SPECS: Record<ShopSectionType, SectionSpec> = {
   video: { fields: [line('title', 60), { key: 'video', kind: 'video' }, line('caption', 200)] },
   text: { fields: [line('heading', 80), text('text', 2000), { key: 'align', kind: 'choice', options: ['left', 'center'] }] },
   whatsapp: { fields: [line('heading', 80), line('text', 200), line('buttonLabel', 30), line('message', 200)] },
+  /** An offer with a countdown; it hides itself once `endsAt` has passed. */
+  offer: { fields: [line('heading', 80), line('text', 200), { key: 'endsAt', kind: 'datetime' }, ...button] },
+  trust_badges: { fields: [line('title', 60)], items: { fields: [{ key: 'icon', kind: 'choice', options: TRUST_ICONS }, line('text', 60)], min: 1, max: 4 } },
+  logo_strip: { fields: [line('title', 60)], items: { fields: [image, line('name', 60)], min: 1, max: 8 } },
+  gallery: { fields: [line('title', 60)], items: { fields: [image, { key: 'link', kind: 'link' }], min: 1, max: 12 } },
+  /** Sign-up: opens the shop's WhatsApp chat with "Subscribe" typed in (there is no anonymous subscriber list to write to). */
+  signup: { fields: [line('heading', 80), line('text', 200), line('buttonLabel', 30)] },
+  /** Ranked by real sales (paid or confirmed cash on delivery) in the last `days` days. */
+  best_sellers: { fields: [line('title', 60), { key: 'days', kind: 'number', min: 7, max: 365, default: 30 }, { key: 'limit', kind: 'number', min: 2, max: 12, default: 4 }] },
+  /** The visitor's own recently opened products, from their browser only. */
+  recently_viewed: { fields: [line('title', 60), { key: 'limit', kind: 'number', min: 2, max: 12, default: 4 }] },
 };
 
 export interface ShopSection {
@@ -160,6 +178,18 @@ function paragraphs(value: unknown, max: number, field: string): string | null {
   return cleaned || null;
 }
 
+/** Earliest and latest moments a datetime field accepts. */
+export const MOMENT_RANGE = { min: Date.UTC(2020, 0, 1), max: Date.UTC(2100, 0, 1) } as const;
+
+/** An ISO date-time (with a zone) between 2020 and 2100, normalised to UTC, or null. */
+export function parseMoment(value: unknown, field: string): string | null {
+  if (value === null || value === undefined || value === '') return null;
+  if (typeof value !== 'string' || value.length > 40 || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d{1,3})?)?(Z|[+-]\d{2}:\d{2})$/.test(value)) throw new ShopThemeError(field);
+  const at = Date.parse(value);
+  if (!Number.isFinite(at) || at < MOMENT_RANGE.min || at > MOMENT_RANGE.max) throw new ShopThemeError(field);
+  return new Date(at).toISOString();
+}
+
 function parseField(field: ShopField, value: unknown, path: string): FieldValue {
   const at = `${path}.${field.key}`;
   switch (field.kind) {
@@ -193,6 +223,7 @@ function parseField(field: ShopField, value: unknown, path: string): FieldValue 
       if (!Number.isInteger(value) || (value as number) < field.min || (value as number) > field.max) throw new ShopThemeError(at);
       return value as number;
     }
+    case 'datetime': return parseMoment(value, at);
   }
 }
 

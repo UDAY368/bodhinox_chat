@@ -6,19 +6,26 @@
  * changes. Ordering needs a known buyer, by either path the shop turned on:
  * a WhatsApp one-time code (then checkout opens with this cart), or "Order on
  * WhatsApp" (the buyer sends the cart's code to the shop's number and gets
- * the checkout link back in the chat). Checkout itself is the existing
- * private storefront page, where address, coupon, shipping, tax and payment
- * are worked out on the server.
+ * the checkout link back in the chat). Before that step the page shows an
+ * estimate from the server (pincode, coupon, shipping, tax, total) for the
+ * cart as it is: nothing is stored or reserved. Checkout itself is the shop's
+ * themed checkout page (/s/<handle>/checkout/<token>); the pincode and coupon
+ * carry over to it, and while its link is still valid the Checkout button
+ * goes straight back there.
  */
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
 import { Loader2, MessageCircle, Minus, Plus, Trash2 } from 'lucide-react';
 import { formatMoney } from '@/lib/commerce/money';
 import { formatShipDate } from '@/lib/commerce/selling-rules';
+import type { CartEstimate } from '@/lib/commerce/cart-estimate';
+import { parsePincode } from '@/lib/commerce/pincode';
 import type { CartPreview } from '@/lib/commerce/public-shop';
 import { accountApiPath } from '@/lib/commerce/shop-customer-cookie';
 import { addToCart, CART_EVENT, readCart, setLineQty, writeCart, type BrowserCartLine } from './cart-store';
+import { markReplaceCart, readCheckout, writeCarry } from './checkout-store';
 import { shopErrorKey, shopPostJson as post } from './shop-post';
 import { readRef } from './referral-store';
 
@@ -35,6 +42,7 @@ export interface CartBuyer { phoneMasked: string; addresses: Array<{ id: string;
 
 export function ShopCart({ shop, buyer = null }: { shop: CartShopInfo; buyer?: CartBuyer | null }) {
   const t = useTranslations('ShopPublic');
+  const router = useRouter();
   const locale = useLocale();
   const api = `/api/public/store/${shop.handle}`;
   const [lines, setLines] = useState<BrowserCartLine[] | null>(null);
@@ -48,11 +56,20 @@ export function ShopCart({ shop, buyer = null }: { shop: CartShopInfo; buyer?: C
   // Signed in: "Check out as <number>" replaces the code form until the buyer asks for another number.
   const [asBuyer, setAsBuyer] = useState(buyer !== null);
   const [addressId, setAddressId] = useState(buyer?.addresses[0]?.id ?? '');
+  // The estimate's pincode and coupon: typed here, sent with every cart refresh once applied.
+  const [pincodeInput, setPincodeInput] = useState('');
+  const [couponInput, setCouponInput] = useState('');
+  const [pincodeError, setPincodeError] = useState(false);
+  const applied = useRef<{ pincode: string | null; coupon: string | null }>({ pincode: null, coupon: null });
+  // A checkout link opened before in this browser and still valid: the Checkout button goes back to it (no new code).
+  const openCheckout = useSyncExternalStore(subscribeStorage, () => readCheckout(shop.handle)?.token ?? null, () => null);
+  const [otherWay, setOtherWay] = useState(false);
 
   const refresh = useCallback(async (current: BrowserCartLine[]) => {
     if (!current.length) { setPreview(null); setLoading(false); return; }
     setLoading(true);
-    const result = await post<CartPreview>(`${api}/cart`, { lines: current });
+    const { pincode, coupon } = applied.current;
+    const result = await post<CartPreview>(`${api}/cart`, { lines: current, ...(pincode ? { pincode } : {}), ...(coupon ? { coupon } : {}) });
     setLoading(false);
     if (!result.ok) { setError(result.code); return; }
     setPreview(result.data);
@@ -70,6 +87,29 @@ export function ShopCart({ shop, buyer = null }: { shop: CartShopInfo; buyer?: C
   const money = (minor: number) => (preview?.currency ? formatMoney(minor, preview.currency, locale) : '');
   const message = (c: string) => t(shopErrorKey(c));
   const cart = (lines ?? []).map((l) => ({ variantId: l.variantId, qty: l.qty }));
+  const estimate: CartEstimate | null = preview?.estimate ?? null;
+  const applyPincode = () => {
+    const typed = pincodeInput.trim() !== '';
+    const pincode = typed ? parsePincode(pincodeInput) : null;
+    setPincodeError(typed && !pincode);
+    if (typed && !pincode) return;
+    applied.current = { ...applied.current, pincode };
+    void refresh(lines ?? []);
+  };
+  const applyCoupon = () => {
+    applied.current = { ...applied.current, coupon: couponInput.trim().toUpperCase() || null };
+    void refresh(lines ?? []);
+  };
+  // What the checkout takes over: the pincode, and the coupon only when it applies to this cart.
+  const carry = () => writeCarry(shop.handle, {
+    pincode: applied.current.pincode, coupon: estimate?.couponCode && !estimate.couponError ? estimate.couponCode : null,
+  });
+  const goToCheckout = () => {
+    if (!openCheckout) return;
+    carry();
+    markReplaceCart(shop.handle);
+    router.push(`/s/${shop.handle}/checkout/${openCheckout}`);
+  };
 
   const sendCode = async () => {
     setBusy('otp'); setError(null);
@@ -83,6 +123,7 @@ export function ShopCart({ shop, buyer = null }: { shop: CartShopInfo; buyer?: C
     setBusy('verify'); setError(null);
     const result = await post<{ url: string }>(`${api}/otp/verify`, { challengeId: challenge, code: code.trim() });
     if (!result.ok) { setBusy(null); setError(result.code); return; }
+    carry();
     writeCart(shop.handle, []);
     window.location.assign(result.data.url);
   };
@@ -95,6 +136,7 @@ export function ShopCart({ shop, buyer = null }: { shop: CartShopInfo; buyer?: C
       if (result.code === 'signed_out') setAsBuyer(false);
       return;
     }
+    carry();
     writeCart(shop.handle, []);
     window.location.assign(result.data.url);
   };
@@ -103,6 +145,7 @@ export function ShopCart({ shop, buyer = null }: { shop: CartShopInfo; buyer?: C
     const result = await post<{ whatsappUrl: string }>(`${api}/whatsapp`, { cart, ref: readRef(shop.handle) });
     setBusy(null);
     if (!result.ok) { setError(result.code); return; }
+    carry();
     window.location.assign(result.data.whatsappUrl);
   };
 
@@ -139,7 +182,8 @@ export function ShopCart({ shop, buyer = null }: { shop: CartShopInfo; buyer?: C
                   <button type="button" className="grid size-11 place-items-center rounded-full hover:bg-black/5" aria-label={t('decrease')}
                     onClick={() => setLineQty(shop.handle, line.variantId, line.qty - 1)}><Minus className="size-4" aria-hidden /></button>
                   <span className="w-6 text-center tabular-nums">{line.qty}</span>
-                  <button type="button" className="grid size-11 place-items-center rounded-full hover:bg-black/5" aria-label={t('increase')}
+                  <button type="button" className="grid size-11 place-items-center rounded-full hover:bg-black/5 disabled:opacity-30" aria-label={t('increase')}
+                    disabled={line.available !== null && line.qty >= line.available}
                     onClick={() => setLineQty(shop.handle, line.variantId, line.qty + 1)}><Plus className="size-4" aria-hidden /></button>
                   <button type="button" className="grid size-11 place-items-center rounded-full hover:bg-black/5" aria-label={t('remove')}
                     onClick={() => setLineQty(shop.handle, line.variantId, 0)}><Trash2 className="size-4" aria-hidden /></button>
@@ -180,14 +224,60 @@ export function ShopCart({ shop, buyer = null }: { shop: CartShopInfo; buyer?: C
       </section>
 
       <aside className="flex h-fit flex-col gap-4 rounded-[var(--shop-radius)] bg-[var(--shop-surface)] p-4 ring-1 ring-black/5 @5xl:sticky @5xl:top-20">
-        <div className="flex items-baseline justify-between">
-          <span>{t('subtotal')}</span>
-          <span className="text-lg font-semibold">{preview ? money(preview.subtotalMinor) : '…'}</span>
-        </div>
-        <p className="text-xs opacity-70">{shop.pricesIncludeTax ? t('taxIncludedNote') : t('taxExtraNote')}</p>
+        <form className="flex flex-col gap-1" onSubmit={(e) => { e.preventDefault(); applyPincode(); }}>
+          <label htmlFor="cart-pincode" className="text-xs opacity-70">{t('estimate.pincode')}</label>
+          <div className="flex gap-2">
+            <input id="cart-pincode" inputMode="numeric" autoComplete="postal-code" maxLength={7} value={pincodeInput} placeholder={t('pincode.placeholder')}
+              onChange={(e) => { setPincodeInput(e.target.value.replace(/[^0-9 ]/g, '')); setPincodeError(false); }}
+              className="h-11 min-w-0 flex-1 rounded-[var(--shop-radius)] border border-black/15 bg-white px-3 text-base text-black" />
+            <button type="submit" disabled={loading}
+              className="h-11 rounded-[var(--shop-radius)] border border-[var(--shop-primary)] px-4 text-sm font-semibold text-[var(--shop-primary)] disabled:opacity-40">
+              {t('pincode.button')}
+            </button>
+          </div>
+          {pincodeError && <p role="alert" className="text-xs text-red-700">{t('pincode.invalid')}</p>}
+        </form>
+        <form className="flex flex-col gap-1" onSubmit={(e) => { e.preventDefault(); applyCoupon(); }}>
+          <label htmlFor="cart-coupon" className="text-xs opacity-70">{t('estimate.coupon')}</label>
+          <div className="flex gap-2">
+            <input id="cart-coupon" autoCapitalize="characters" autoComplete="off" maxLength={32} value={couponInput}
+              onChange={(e) => setCouponInput(e.target.value.toUpperCase())}
+              className="h-11 min-w-0 flex-1 rounded-[var(--shop-radius)] border border-black/15 bg-white px-3 text-base uppercase text-black" />
+            <button type="submit" disabled={loading}
+              className="h-11 rounded-[var(--shop-radius)] border border-[var(--shop-primary)] px-4 text-sm font-semibold text-[var(--shop-primary)] disabled:opacity-40">
+              {t('estimate.apply')}
+            </button>
+          </div>
+          {estimate?.couponError && (
+            <p role="alert" className="text-xs text-red-700">{t(`estimate.couponErrors.${COUPON_ERRORS.has(estimate.couponError) ? estimate.couponError : 'other'}`)}</p>
+          )}
+        </form>
+        <dl className="flex flex-col gap-1 text-sm" aria-live="polite">
+          <EstimateRow label={t('subtotal')} value={preview ? money(estimate?.subtotalMinor ?? preview.subtotalMinor) : '…'} />
+          {estimate?.autoDiscounts.map((d, i) => (
+            <EstimateRow key={i} label={d.name} value={d.kind === 'free_shipping_over' ? t('pincode.freeShipping') : `−${money(d.savingMinor)}`} />
+          ))}
+          {estimate && estimate.couponMinor > 0 && <EstimateRow label={t('estimate.couponLine', { code: estimate.couponCode ?? '' })} value={`−${money(estimate.couponMinor)}`} />}
+          {estimate && estimate.shipping !== 'not_needed' && (
+            <EstimateRow label={t('estimate.shipping')} value={estimate.shipping === 'priced'
+              ? (estimate.shippingMinor > 0 ? money(estimate.shippingMinor) : t('pincode.freeShipping'))
+              : t(`estimate.shippingState.${estimate.shipping}`)} />
+          )}
+          {estimate && <EstimateRow label={estimate.taxInclusive ? t('estimate.taxIncluded') : t('estimate.tax')} value={money(estimate.taxMinor)} />}
+          {estimate && <EstimateRow strong label={t('estimate.total')} value={money(estimate.totalMinor)} />}
+        </dl>
+        <p className="text-xs opacity-70">{estimate ? t('estimate.note') : shop.pricesIncludeTax ? t('taxIncludedNote') : t('taxExtraNote')}</p>
         {error && <p role="alert" className="rounded-[var(--shop-radius)] bg-red-50 p-3 text-sm text-red-800">{message(error)}</p>}
 
-        {!shop.checkoutOpen || (!shop.ordering.otp && !shop.ordering.whatsapp && !buyer) ? (
+        {shop.checkoutOpen && openCheckout && !otherWay ? (
+          <div className="flex flex-col gap-2">
+            <button type="button" onClick={goToCheckout} disabled={!preview?.lines.length}
+              className="min-h-11 rounded-[var(--shop-radius)] bg-[var(--shop-primary)] px-3 py-2 font-semibold text-[var(--shop-on-primary)] disabled:opacity-40">
+              {t('estimate.checkout')}
+            </button>
+            <button type="button" className="min-h-11 text-sm underline" onClick={() => setOtherWay(true)}>{t('account.otherNumber')}</button>
+          </div>
+        ) : !shop.checkoutOpen || (!shop.ordering.otp && !shop.ordering.whatsapp && !buyer) ? (
           <p className="text-sm">{t('orderingClosed')}</p>
         ) : (
           <>
@@ -251,4 +341,21 @@ export function ShopCart({ shop, buyer = null }: { shop: CartShopInfo; buyer?: C
       </aside>
     </div>
   );
+}
+
+const COUPON_ERRORS = new Set(['coupon_not_found', 'coupon_inactive', 'coupon_not_started', 'coupon_expired', 'coupon_min_subtotal']);
+
+function EstimateRow({ label, value, strong = false }: { label: string; value: string; strong?: boolean }) {
+  return (
+    <div className={`flex items-baseline justify-between gap-3 ${strong ? 'text-lg font-semibold' : ''}`}>
+      <dt className={strong ? '' : 'opacity-80'}>{label}</dt>
+      <dd className="tabular-nums">{value}</dd>
+    </div>
+  );
+}
+
+/** Another tab opening or ending a checkout changes the remembered link. */
+function subscribeStorage(onChange: () => void): () => void {
+  window.addEventListener('storage', onChange);
+  return () => window.removeEventListener('storage', onChange);
 }

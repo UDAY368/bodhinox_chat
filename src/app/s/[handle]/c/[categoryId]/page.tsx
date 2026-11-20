@@ -4,21 +4,30 @@
 
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { permanentRedirect } from 'next/navigation';
 import { getLocale, getTranslations } from 'next-intl/server';
 import { ProductCard, ProductGrid } from '@/components/shop-public/product-card';
 import { CATEGORY_SORTS, loadShopCategory } from '@/lib/commerce/public-shop';
 import { notFoundOrRedirect } from '@/lib/commerce/shop-not-found';
+import { categoryPath, isUuidShaped } from '@/lib/commerce/shop-paths';
+import { absoluteUrl } from '@/lib/commerce/shop-seo';
 
 export const dynamic = 'force-dynamic';
 
 type Search = { sort?: string; min?: string; max?: string; option?: string; page?: string };
+// `categoryId` is the address segment: the category's slug, or its id from an old link (answered with a 308 to the slug address).
 type Props = { params: Promise<{ handle: string; categoryId: string }>; searchParams: Promise<Search> };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { handle, categoryId } = await params;
   const page = await loadShopCategory(handle, categoryId);
   if (!page) return { robots: { index: false, follow: false } };
-  return { title: page.category.name, alternates: { canonical: `/s/${handle}/c/${categoryId}` } };
+  const url = absoluteUrl(categoryPath(handle, page.category));
+  return {
+    title: page.category.name, alternates: { canonical: url },
+    openGraph: { type: 'website', url, siteName: page.shop.name, title: page.category.name },
+    twitter: { card: 'summary', title: page.category.name },
+  };
 }
 
 export default async function ShopCategoryPage({ params, searchParams }: Props) {
@@ -26,9 +35,14 @@ export default async function ShopCategoryPage({ params, searchParams }: Props) 
   const query = await searchParams;
   const page = await loadShopCategory(handle, categoryId, query);
   if (!page) return notFoundOrRedirect(handle, `/c/${categoryId}`);
+  const base = categoryPath(handle, page.category);
+  // An old id link moves for good to the readable address (308), keeping its filters.
+  if (isUuidShaped(categoryId) && page.category.slug) {
+    const qs = new URLSearchParams(Object.entries(query).filter((e): e is [string, string] => typeof e[1] === 'string')).toString();
+    permanentRedirect(qs ? `${base}?${qs}` : base);
+  }
   const t = await getTranslations('ShopPublic');
   const locale = await getLocale();
-  const base = `/s/${handle}/c/${categoryId}`;
   const pageLink = (n: number) => {
     const qs = new URLSearchParams();
     for (const key of ['sort', 'min', 'max', 'option'] as const) if (typeof query[key] === 'string' && query[key]) qs.set(key, query[key]!);
@@ -41,13 +55,13 @@ export default async function ShopCategoryPage({ params, searchParams }: Props) 
     <div className="flex flex-col gap-5">
       <nav aria-label={t('breadcrumb')} className="text-sm opacity-70">
         <Link href={`/s/${handle}`} className="hover:underline">{t('home')}</Link>
-        {page.category.parentId && <> {' / '}<Link href={`/s/${handle}/c/${page.category.parentId}`} className="hover:underline">{t('up')}</Link></>}
+        {page.category.parentId && <> {' / '}<Link href={categoryPath(handle, { id: page.category.parentId, slug: page.category.parentSlug })} className="hover:underline">{t('up')}</Link></>}
       </nav>
       <h1 className="text-2xl font-semibold @2xl:text-3xl" style={{ fontFamily: 'var(--shop-font-heading)' }}>{page.category.name}</h1>
       {page.children.length > 0 && (
         <div className="-mx-4 flex gap-2 overflow-x-auto px-4">
           {page.children.map((c) => (
-            <Link key={c.id} href={`/s/${handle}/c/${c.id}`}
+            <Link key={c.id} href={categoryPath(handle, c)}
               className="inline-flex h-11 shrink-0 items-center rounded-full border border-black/15 bg-[var(--shop-surface)] px-4 text-sm">{c.name}</Link>
           ))}
         </div>
