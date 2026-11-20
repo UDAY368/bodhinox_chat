@@ -2,6 +2,7 @@ import { getWorkerPrisma } from "@/lib/db/prisma";
 import { withTenant } from "@/lib/db/tenant";
 import { NotDispatchedError, UncertainDispatchError } from "@/lib/jobs/dispatch";
 import { LONG_RETRY_ATTEMPTS } from "@/lib/jobs/retry";
+import { conversationLaneKey } from "@/lib/jobs/lanes";
 import { formSummaryText, recordFormResponse, type FormAnswers } from "@/lib/whatsapp/forms/responses";
 import type { InboundFormPayload } from "@/lib/whatsapp/inbound-structured";
 import { randomUUID } from "node:crypto";
@@ -117,8 +118,9 @@ export async function ingestInboundMessage(input: IngestInboundInput): Promise<{
       last_message_text=${input.contentText || `[${input.contentType}]`},last_message_at=NOW(),
       status=CASE WHEN status='closed' THEN 'open' ELSE status END,updated_at=NOW()
       WHERE account_id=${input.accountId}::uuid AND id=${input.conversationId}::uuid`;
-    await tx.$executeRaw`INSERT INTO jobs(type,tenant_id,payload,dedupe_key,max_attempts)
-      VALUES('inbound.actions',${input.accountId}::uuid,${JSON.stringify(payload)}::jsonb,${`inbound:${inserted[0].id}`},${LONG_RETRY_ATTEMPTS})
+    // Keyed by conversation: the worker runs one conversation's actions one at a time, oldest first.
+    await tx.$executeRaw`INSERT INTO jobs(type,tenant_id,payload,dedupe_key,max_attempts,lane_key)
+      VALUES('inbound.actions',${input.accountId}::uuid,${JSON.stringify(payload)}::jsonb,${`inbound:${inserted[0].id}`},${LONG_RETRY_ATTEMPTS},${conversationLaneKey(input.conversationId)})
       ON CONFLICT(dedupe_key) DO NOTHING`;
     // The assignee's "new message" alert commits with the message (debounced per conversation).
     await notifyAssignedMessage(tx, { accountId: input.accountId, conversationId: input.conversationId,
@@ -192,8 +194,8 @@ export async function applyProviderStatus(accountId: string, event: ProviderStat
     for (const row of updated) {
       const payload: StatusActionsPayload = { kind: "status", messageId: row.id, accountId,
         conversationId: row.conversation_id, metaMessageId: event.id, status: event.status };
-      await tx.$executeRaw`INSERT INTO jobs(type,tenant_id,payload,dedupe_key,max_attempts)
-        VALUES('inbound.actions',${accountId}::uuid,${JSON.stringify(payload)}::jsonb,${`status:${row.id}:${event.status}`},${LONG_RETRY_ATTEMPTS})
+      await tx.$executeRaw`INSERT INTO jobs(type,tenant_id,payload,dedupe_key,max_attempts,lane_key)
+        VALUES('inbound.actions',${accountId}::uuid,${JSON.stringify(payload)}::jsonb,${`status:${row.id}:${event.status}`},${LONG_RETRY_ATTEMPTS},${conversationLaneKey(row.conversation_id)})
         ON CONFLICT(dedupe_key) DO NOTHING`;
     }
   }, getWorkerPrisma());

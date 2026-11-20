@@ -861,6 +861,7 @@ model jobs {
   created_at DateTime @db.Timestamptz(6) @default(now())
   updated_at DateTime @db.Timestamptz(6) @default(now())
   lease_token String? @db.Uuid
+  lane_key String?
 }
 
 model webhook_receipts {

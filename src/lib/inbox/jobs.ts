@@ -1,4 +1,5 @@
 import { getWorkerPrisma } from '@/lib/db/prisma';
+import { enqueueTenantJobs } from '@/lib/jobs/queue';
 import { AUTO_RESOLVE_JOB, runAutoResolve } from './lifecycle';
 import { REASSIGN_JOB, runReassign } from './routing';
 import { runSlaCheck, SLA_CHECK_JOB } from './sla';
@@ -32,16 +33,11 @@ export async function scheduleInboxSweeps(now: number = Date.now(), force = fals
   const accounts = await getWorkerPrisma().$queryRaw<{ account_id: string }[]>`SELECT * FROM crm_accounts_for_inbox_sweep()`;
   const slaSlot = Math.floor(now / SLA_CHECK_INTERVAL_MS);
   const resolveSlot = Math.floor(now / AUTO_RESOLVE_INTERVAL_MS);
-  let offered = 0;
-  for (const { account_id } of accounts) {
-    await getWorkerPrisma().$executeRaw`INSERT INTO jobs(type,tenant_id,payload,dedupe_key,max_attempts)
-      VALUES(${SLA_CHECK_JOB},${account_id}::uuid,'{}'::jsonb,${`inbox-sla:${account_id}:${slaSlot}`},2),
-        (${AUTO_RESOLVE_JOB},${account_id}::uuid,'{}'::jsonb,${`inbox-resolve:${account_id}:${resolveSlot}`},2)
-      ON CONFLICT(dedupe_key) DO NOTHING`;
-    offered += 2;
-  }
+  // One statement per job type for every workspace (same dedupe keys as one insert per workspace).
+  await enqueueTenantJobs(SLA_CHECK_JOB, {}, accounts.map(({ account_id }) => ({ tenantId: account_id, dedupeKey: `inbox-sla:${account_id}:${slaSlot}` })), 2);
+  await enqueueTenantJobs(AUTO_RESOLVE_JOB, {}, accounts.map(({ account_id }) => ({ tenantId: account_id, dedupeKey: `inbox-resolve:${account_id}:${resolveSlot}` })), 2);
   lastSchedule = now;
-  return offered;
+  return accounts.length * 2;
 }
 
 /** Test hook: forget when the scheduler last ran. */

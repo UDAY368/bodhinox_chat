@@ -1,14 +1,17 @@
 import { withLeaseScope } from './lease';
-import { claimJob, finishJob, heartbeat as extendLease, type Job, type JobLane } from './queue';
+import { claimJob, finishJob, heartbeat as extendLease, withLaneLock, type Job } from './queue';
+import { idleDelayMs, laneIdleMaxMs, laneSlots, workerConnections, workerLanes, type JobLane } from './lanes';
 import { startWorkerHeartbeat, type HeartbeatHandle, type HeartbeatState } from './heartbeat';
 
 /**
  * The worker's claim/handle/finish loops (Phase 15: extracted from worker.ts, which keeps the dotenv
- * bootstrap and the process signal wiring). WORKER_CONCURRENCY job slots run side by side: one
- * 'main' slot takes every short job one at a time, in run_at order as before (so inbound messages of
- * a conversation are still handled in order), and the other slots take only the long-running
- * BULK_JOB_TYPES, so a campaign pass never holds up inbound work. WORKER_CONCURRENCY=1 is the old
- * single lane. Scheduling runs on its own timer, not between jobs.
+ * bootstrap and the process signal wiring). Job slots run side by side, each claiming from one lane
+ * (src/lib/jobs/lanes.ts): 'inbound' (messages, AI replies, event fan-out, webhooks), 'timers'
+ * (periodic sweeps, flow timers, reminders) and 'bulk' (campaign passes, exports, Graph batches),
+ * so no kind of work holds up another. One conversation's jobs still run one at a time and in order
+ * (lane_key: the claim skips a busy key, the run holds the key's advisory lock). WORKER_CONCURRENCY=1
+ * is the old single lane. An idle slot polls less often (250 ms growing to 2 s inbound, 5 s
+ * otherwise) and polls at once again after a job. Scheduling runs on its own timer, not between jobs.
  *
  * Stopping is cooperative: once `signal` aborts, no new job is claimed, in-flight jobs are given up
  * to `drainMs` to finish, and if one does not, the loop returns and that job's 90 s lease covers the
@@ -17,14 +20,16 @@ import { startWorkerHeartbeat, type HeartbeatHandle, type HeartbeatState } from 
 export type JobHandler = (job: Job, assertLease: () => void) => Promise<void>;
 export interface WorkerLoopOptions {
   signal: AbortSignal;
-  /** Wait when no job is due. Default 1000 ms; an abort ends the wait at once. */
+  /** First wait when no job is due, doubling per empty claim up to the lane's maximum. Default 250 ms; an abort ends the wait at once. */
   idleMs?: number;
+  /** Cap for the idle wait. Default 2 000 ms for inbound and 'all', 5 000 ms for timers and bulk. */
+  idleMaxMs?: number;
   /** Upper bound for the in-flight job after abort. Default WORKER_DRAIN_MS or 25 000 ms. */
   drainMs?: number;
   /** Default 30 000 ms, as before. */
   scheduleEveryMs?: number;
-  /** Job slots. Default WORKER_CONCURRENCY or 3; 1 is a single lane taking every job type. */
-  concurrency?: number;
+  /** One entry per slot. Default workerLanes(): ['all'] when WORKER_CONCURRENCY=1, else the per-lane slot counts. */
+  lanes?: JobLane[];
   /** Default: handleJob from ./handlers, imported lazily (after the caller's dotenv load). */
   handleJob?: JobHandler;
   /** Default: scheduleWork from ./handlers. null skips scheduling (tests). */
@@ -44,8 +49,6 @@ export interface WorkerLoopResult {
 }
 
 const DEFAULT_DRAIN_MS = 25_000;
-const DEFAULT_CONCURRENCY = 3;
-const MAX_CONCURRENCY = 16;
 const LEASE_EXTEND_MS = 20_000;
 
 /** WORKER_DRAIN_MS when it is a positive integer up to 10 minutes, else 25 s. */
@@ -53,23 +56,6 @@ export function workerDrainMs(env: Record<string, string | undefined> = process.
   const raw = env.WORKER_DRAIN_MS?.trim();
   const value = raw && /^\d+$/.test(raw) ? Number(raw) : NaN;
   return value > 0 && value <= 600_000 ? value : DEFAULT_DRAIN_MS;
-}
-
-/**
- * WORKER_CONCURRENCY when it is an integer from 1 to 16, else 3: one main slot plus two for
- * long-running jobs. Each slot holds at most one database connection at a time, so keep it below
- * DB_POOL_SIZE (default 10).
- */
-export function workerConcurrency(env: Record<string, string | undefined> = process.env): number {
-  const raw = env.WORKER_CONCURRENCY?.trim();
-  const value = raw && /^\d+$/.test(raw) ? Number(raw) : NaN;
-  return value >= 1 && value <= MAX_CONCURRENCY ? value : DEFAULT_CONCURRENCY;
-}
-
-/** One lane for every job at concurrency 1; otherwise one main slot and the rest for bulk jobs. */
-export function workerLanes(concurrency: number): JobLane[] {
-  if (concurrency <= 1) return ['all'];
-  return ['main', ...Array.from({ length: concurrency - 1 }, () => 'bulk' as const)];
 }
 
 function abortableDelay(ms: number, signal: AbortSignal): Promise<void> {
@@ -101,7 +87,8 @@ async function runJob(job: Job, handleJob: JobHandler): Promise<void> {
   }, LEASE_EXTEND_MS);
   try {
     const assertLease = () => { if (leaseLost) throw new Error('Job lease lost'); };
-    await withLeaseScope(assertLease, () => handleJob(job, assertLease));
+    // A keyed job (one conversation) runs under its key's advisory lock.
+    await withLaneLock(job.lane_key, () => withLeaseScope(assertLease, () => handleJob(job, assertLease)));
     await finishJob(job);
   } catch (error) {
     console.error('[worker] job failed', { id: job.id, type: job.type, category: error instanceof Error ? error.name : 'Error' });
@@ -110,7 +97,7 @@ async function runJob(job: Job, handleJob: JobHandler): Promise<void> {
 }
 
 export async function runWorkerLoop(options: WorkerLoopOptions): Promise<WorkerLoopResult> {
-  const idleMs = options.idleMs ?? 1000;
+  const idleMs = options.idleMs ?? 250;
   const drainMs = options.drainMs ?? workerDrainMs();
   const scheduleEveryMs = options.scheduleEveryMs ?? 30_000;
   let handleJob = options.handleJob;
@@ -128,9 +115,10 @@ export async function runWorkerLoop(options: WorkerLoopOptions): Promise<WorkerL
   const forward = () => stop.abort();
   if (options.signal.aborted) stop.abort(); else options.signal.addEventListener('abort', forward, { once: true });
 
-  const running = new Map<number, string>();
+  const running = new Map<number, { lane: JobLane; type: string }>();
   const state: HeartbeatState = { currentJobType: null, scheduleFailures: 0 };
-  const showRunning = () => { state.currentJobType = running.size ? [...new Set(running.values())].join(',').slice(0, 200) : null; };
+  // Per lane, e.g. "inbound:inbound.actions,whatsapp.webhook bulk:broadcast.dispatch".
+  const showRunning = () => { state.currentJobType = runningByLane(running.values()); };
   const beat: HeartbeatHandle | null = options.heartbeat === false ? null
     : startWorkerHeartbeat({ workerId: options.workerId, everyMs: options.heartbeatEveryMs, state: () => state });
   let processed = 0;
@@ -146,10 +134,13 @@ export async function runWorkerLoop(options: WorkerLoopOptions): Promise<WorkerL
 
   /** Resolves false when the drain bound passed with a job still running. */
   const slot = async (lane: JobLane, index: number): Promise<boolean> => {
+    let misses = 0;
+    const maxIdle = options.idleMaxMs ?? laneIdleMaxMs(lane);
     while (!signal.aborted) {
       const job = await claimJob(lane);
-      if (!job) { await abortableDelay(idleMs, signal); continue; }
-      running.set(index, job.type); showRunning();
+      if (!job) { misses += 1; await abortableDelay(idleDelayMs(misses, idleMs, Math.max(idleMs, maxIdle)), signal); continue; }
+      misses = 0;
+      running.set(index, { lane, type: job.type }); showRunning();
       const work = runJob(job, handle);
       const settled = await settleWithinDrain(work, signal, drainMs);
       if (!settled) {
@@ -165,7 +156,12 @@ export async function runWorkerLoop(options: WorkerLoopOptions): Promise<WorkerL
   };
 
   try {
-    const lanes = workerLanes(options.concurrency ?? workerConcurrency());
+    const lanes = options.lanes ?? workerLanes();
+    if (!options.lanes && lanes.length > 1) {
+      const needed = workerConnections(laneSlots());
+      const pool = Number(process.env.DB_POOL_SIZE || '10');
+      if (needed > pool) console.error('[worker] lane slots may need more connections than DB_POOL_SIZE', { needed, pool });
+    }
     // A scheduling pass in flight shares the same drain bound as the jobs (measured from the abort,
     // not after the slots), and counts toward `drained`: the caller must not wait on the pool for it.
     const scheduler = settleWithinDrain(schedule(), signal, drainMs);
@@ -179,4 +175,15 @@ export async function runWorkerLoop(options: WorkerLoopOptions): Promise<WorkerL
     options.signal.removeEventListener('abort', forward);
     await beat?.stop();
   }
+}
+
+/** The running job types per lane for the heartbeat row, at most 200 characters. */
+export function runningByLane(jobs: Iterable<{ lane: JobLane; type: string }>): string | null {
+  const byLane = new Map<JobLane, Set<string>>();
+  for (const { lane, type } of jobs) {
+    if (!byLane.has(lane)) byLane.set(lane, new Set());
+    byLane.get(lane)!.add(type);
+  }
+  if (!byLane.size) return null;
+  return [...byLane].map(([lane, types]) => `${lane}:${[...types].sort().join(',')}`).join(' ').slice(0, 200);
 }

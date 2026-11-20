@@ -401,8 +401,13 @@ export async function deliverBroadcast(
     accountId: string; assertLease: () => void; headerMediaUrl?: string; attemptId: string; retryRejected?: boolean;
     /** Checked between recipients; true (a member paused the campaign) ends the pass with the rest left pending. */
     shouldStop?: () => Promise<boolean>;
+    /**
+     * Epoch ms. Checked before each recipient: once passed, the pass ends with `timedOut` and the
+     * rest of the plan left pending (status not settled) for the next pass the caller queues.
+     */
+    deadline?: number;
   }
-): Promise<{ throttled: boolean; sent: number; stopped?: boolean }> {
+): Promise<{ throttled: boolean; sent: number; stopped?: boolean; timedOut?: boolean }> {
   let sent = 0;
   let index = 0;
   const tracked = trackedButtonIndex(plan.templateRow);
@@ -413,6 +418,9 @@ export async function deliverBroadcast(
   for (const recipient of plan.planned) {
     // Pause is read every STOP_CHECK_EVERY recipients (and before the first), so it takes effect within seconds.
     if (options?.shouldStop && index % STOP_CHECK_EVERY === 0 && await options.shouldStop()) return { throttled: false, sent, stopped: true };
+    // Out of time: this recipient and the rest stay pending, untouched, for the next pass. Never
+    // before the first recipient, so every pass makes progress.
+    if (index > 0 && options?.deadline !== undefined && Date.now() >= options.deadline) return { throttled: false, sent, timedOut: true };
     index++;
     // shortcut: fixed ~6 sends/s; pace by the number's messaging tier once the health job (Phase 2c) reports it.
     if (options) await new Promise(resolve => setTimeout(resolve, 150));
