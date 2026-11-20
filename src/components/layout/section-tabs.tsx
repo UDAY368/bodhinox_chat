@@ -2,7 +2,8 @@
 
 /**
  * The current section's pages as tabs above the page (Campaigns: Broadcasts · Templates · Forms ·
- * Ads). Nothing for a section with one page. Links, not buttons: every tab is its own URL.
+ * Ads). Nothing for a section with fewer than two tabs or for a page outside every section. Links,
+ * not buttons: every tab is its own URL.
  */
 
 import Link from 'next/link';
