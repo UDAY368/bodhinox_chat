@@ -248,8 +248,15 @@ export async function GET(request: Request) {
         schedule(lastTickAt + WAKE_MIN_GAP_MS - Date.now());
       });
       heartbeat = setInterval(() => {
-        if (!stopped) controller.enqueue(encoder.encode(': heartbeat\n\n'));
+        if (stopped) return;
+        // A timer callback must never throw: a stream the client already left is just closed.
+        try {
+          controller.enqueue(encoder.encode(': heartbeat\n\n'));
+        } catch {
+          close();
+        }
       }, HEARTBEAT_MS);
+      if (request.signal.aborted) return close();
       request.signal.addEventListener('abort', close, { once: true });
       await tick();
     },
