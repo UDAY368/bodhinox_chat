@@ -10675,7 +10675,6 @@
         "noCategory": "Sem categoria",
         "rereviewHint": "Salvar texto alterado em um produto visível registra você como revisor.",
         "searchListing": {
-          "title": "Search engine listing",
           "hint": "How this product shows in Google and in shared links. Leave a field empty to use the product's name, description and first image.",
           "address": "Web address",
           "addressPlaceholder": "neem-oil-200ml",
@@ -11048,7 +11047,8 @@
           "digital": "Download digital",
           "bundle": "Kit",
           "preorder": "Pré-venda",
-          "stockHistory": "Histórico de estoque"
+          "stockHistory": "Histórico de estoque",
+          "searchListing": "Search engine listing"
         },
         "invalid": {
           "sku": "Letras, dígitos, ponto, hífen ou sublinhado (até 64).",

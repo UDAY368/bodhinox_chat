@@ -10675,7 +10675,6 @@
         "noCategory": "No category",
         "rereviewHint": "Saving changed text on a live product records you as its reviewer.",
         "searchListing": {
-          "title": "Search engine listing",
           "hint": "How this product shows in Google and in shared links. Leave a field empty to use the product's name, description and first image.",
           "address": "Web address",
           "addressPlaceholder": "neem-oil-200ml",
@@ -11048,7 +11047,8 @@
           "digital": "Digital download",
           "bundle": "Bundle",
           "preorder": "Pre-order",
-          "stockHistory": "Stock history"
+          "stockHistory": "Stock history",
+          "searchListing": "Search engine listing"
         },
         "invalid": {
           "sku": "Letters, digits, dot, dash or underscore (up to 64).",

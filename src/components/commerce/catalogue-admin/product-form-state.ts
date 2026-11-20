@@ -4,6 +4,7 @@
 
 import { cleanOptions, optionsOf, type ProductOption } from "@/lib/commerce/catalogue/variant-matrix";
 import type { ProductFormBody, ShopProduct, VariantRowBody } from "./catalogue-api";
+import { searchListingPayload, searchListingValid, searchListingValues, type SearchListingValues } from "./search-listing-fields";
 import { bpsToPercent, moneyInput, moneyText, percentToBps } from "./catalogue-format";
 
 export type FormImage = ({ url: string } | { media_id: string }) & { display: string | null };
@@ -63,6 +64,8 @@ export interface ProductFormState {
   images: FormImage[];
   options: ProductOption[];
   rows: VariantRow[];
+  /** Search engine listing: web address, search title and description, share image. */
+  listing: SearchListingValues;
 }
 
 let localKey = 0;
@@ -111,6 +114,7 @@ export function emptyForm(categoryId = ""): ProductFormState {
     follow_up_template: "", follow_up_template_language: "", follow_up_after_days: "", repurchase_after_days: "", cod_available: true,
     publishAt: "", hideAt: "", digital: false, digitalUrl: "", digitalMediaId: null, bundle: false, parts: [],
     images: [], options: [], rows: [freshRow({})],
+    listing: { slug: "", seoTitle: "", seoDescription: "", seoImageId: "" },
   };
 }
 
@@ -129,6 +133,7 @@ export function formOf(p: ShopProduct): ProductFormState {
     images: p.images.map((i) => (i.media_id ? { media_id: i.media_id, display: i.display_url } : { url: i.url ?? "", display: i.url })),
     options: optionsOf(active),
     rows: active.length ? active.map((v) => rowOf(v, p.currency, p.images)) : [freshRow({})],
+    listing: searchListingValues(p),
   };
 }
 
@@ -148,6 +153,7 @@ export interface FormErrors {
   digital: boolean;
   bundle: boolean;
   options: boolean;
+  listing: boolean;
   /** Per row key: the fields with a problem. */
   rows: Record<string, RowErrorKey[]>;
 }
@@ -188,12 +194,13 @@ export function validate(f: ProductFormState, currency: string | null): FormErro
     digital: f.digital && (!urlOk || (f.digitalMediaId !== null ? f.digitalUrl.trim() !== "" : f.digitalUrl.trim() === "")),
     bundle: f.bundle && (f.digital || !f.parts.length || !f.parts.every((p) => /^\d+$/.test(p.quantity) && Number(p.quantity) >= 1 && Number(p.quantity) <= 99)),
     options: f.rows.length < 1 || f.rows.length > 100,
+    listing: !searchListingValid(f.listing),
     rows,
   };
 }
 
 export const hasErrors = (e: FormErrors) =>
-  e.name || e.tags || e.details || e.followUp || e.schedule || e.digital || e.bundle || e.options || Object.keys(e.rows).length > 0;
+  e.name || e.tags || e.details || e.followUp || e.schedule || e.digital || e.bundle || e.options || e.listing || Object.keys(e.rows).length > 0;
 
 // ------------------------------------------------------------ the Save body
 
@@ -229,6 +236,7 @@ export function bodyOf(f: ProductFormState, currency: string | null, base: Produ
     publish_at: fromLocalInput(f.publishAt), hide_at: fromLocalInput(f.hideAt), is_digital: f.digital, is_bundle: f.bundle,
     digital_media_id: f.digital ? f.digitalMediaId : null, digital_url: f.digital && f.digitalMediaId === null ? f.digitalUrl.trim() || null : null,
     ...(imagesChanged ? { images: f.images.map(imageRef) } : {}),
+    ...searchListingPayload(f.listing, base?.listing),
     variants,
     ...(f.bundle ? { parts: f.parts.map((p) => ({ variant_id: p.variantId, quantity: Number(p.quantity) })) } : {}),
   };

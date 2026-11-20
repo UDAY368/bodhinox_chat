@@ -23,6 +23,7 @@ import { fetchInventory, type InventoryRow, type ShopProduct } from "./catalogue
 import { selectClass } from "./catalogue-admin";
 import { MovementsList } from "./inventory-panel";
 import { PreorderFields } from "./product-options";
+import { SearchListingFields } from "./search-listing-fields";
 import { tagList, type FormErrors, type ProductFormState, type RowErrorKey, type VariantRow } from "./product-form-state";
 
 /** What every section gets: the shared form state, a patch function and read-only context. */
@@ -116,6 +117,11 @@ function TagsSection({ form, update, ctx }: SectionProps) {
       </div>
     </div>
   );
+}
+
+/** Saved images only: a share image must already be one of the product's own image rows. */
+function SearchListingSection({ form, update, ctx }: SectionProps) {
+  return <SearchListingFields value={form.listing} onChange={(listing) => update(() => ({ listing }))} images={ctx.product?.images ?? []} readOnly={ctx.readOnly} />;
 }
 
 function DetailsSection({ form, update, ctx }: SectionProps) {
@@ -366,7 +372,7 @@ export const PRODUCT_SECTIONS: SectionDef[] = [
   { key: "tax", Component: TaxSection, invalid: (p) => rowsHave(p.form, p.ctx.errors, ["tax", "hsn"]) },
   { key: "shipping", Component: ShippingSection, invalid: (p) => rowsHave(p.form, p.ctx.errors, ["weight"]) },
   { key: "tags", Component: TagsSection, invalid: (p) => p.ctx.errors.tags },
-  /* b6: search engine listing section */
+  { key: "searchListing", Component: SearchListingSection, invalid: (p) => p.ctx.errors.listing },
   { key: "details", Component: DetailsSection, invalid: (p) => p.ctx.errors.details },
   { key: "disclosure", Component: DisclosureSection },
   { key: "followUp", Component: FollowUpSection, invalid: (p) => p.ctx.errors.followUp },

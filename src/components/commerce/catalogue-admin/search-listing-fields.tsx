@@ -48,9 +48,7 @@ export function SearchListingFields({ value, onChange, images, readOnly }: {
   const slug = value.slug.trim();
   const slugBad = !!slug && !isShopSlug(slug.toLowerCase());
   return (
-    <details className="rounded-lg border border-border">
-      <summary className="flex min-h-11 cursor-pointer items-center px-3 text-sm font-medium text-foreground">{t("title")}</summary>
-      <div className="space-y-3 border-t border-border p-3">
+    <div className="space-y-3">
         <p className="text-xs text-muted-foreground">{t("hint")}</p>
         <div className="space-y-1">
           <Label htmlFor="p-slug">{t("address")}</Label>
@@ -78,7 +76,6 @@ export function SearchListingFields({ value, onChange, images, readOnly }: {
             </select>
           </div>
         )}
-      </div>
-    </details>
+    </div>
   );
 }
