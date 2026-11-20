@@ -15119,7 +15119,18 @@
       "copyLink": "Copiar enlace",
       "copied": "Enlace copiado",
       "empty": "Aún no hay páginas de reserva.",
-      "inactive": "Oculta"
+      "inactive": "Oculta",
+      "links": "Links",
+      "linksTitle": "Links for {title}",
+      "linksHelp": "Share a link that opens the page with a service or practitioner already chosen.",
+      "linkGroup": {
+        "page": "Booking page",
+        "service": "Services",
+        "staff": "Practitioners"
+      },
+      "wholePage": "All services",
+      "copy": "Copy",
+      "copyNamed": "Copy link for {name}"
     },
     "tasks": {
       "title": "Tareas",
@@ -15301,7 +15312,25 @@
     "payInAdvance": "Pago por adelantado",
     "paymentNotice": "Este servicio se paga por adelantado. Después de enviar el código por WhatsApp, te enviamos un enlace de pago seguro; la reserva se confirma cuando se recibe el pago.",
     "paymentAfterCode": "Después de enviar el código, te responderemos con un enlace de pago seguro. Tu reserva se confirma cuando se recibe el pago.",
-    "meetingLinkPending": "El enlace de tu reunión aparecerá aquí en breve."
+    "meetingLinkPending": "El enlace de tu reunión aparecerá aquí en breve.",
+    "stepOf": "Step {step} of {total}",
+    "confirmTitle": "Confirm",
+    "summaryService": "Service",
+    "summaryWhen": "When",
+    "summaryWhere": "Where",
+    "summaryWith": "With",
+    "summaryPrice": "Price",
+    "retry": "Retry",
+    "bookedTitle": "Booked",
+    "bookedHelp": "You are booked. We sent the details on WhatsApp.",
+    "viewBooking": "View or change booking",
+    "expiredTitle": "Hold expired",
+    "waitingPaymentTitle": "Waiting for payment",
+    "waitingPaymentHelp": "We sent you a secure payment link on WhatsApp. Your booking is confirmed once it is paid.",
+    "waitingForPayment": "Waiting for your payment…",
+    "waitingForCode": "Waiting for your WhatsApp message…",
+    "addToCalendar": "Add to calendar",
+    "googleCalendar": "Google Calendar"
   },
   "BookingManage": {
     "metaTitle": "Tu reserva",
@@ -15325,7 +15354,9 @@
     "notFound": "Este enlace de reserva no es válido.",
     "error": "Algo salió mal. Inténtalo de nuevo.",
     "loading": "Cargando…",
-    "saveTime": "Cambiar a esta hora"
+    "saveTime": "Cambiar a esta hora",
+    "status": "Status",
+    "cancelHelp": "The time is released for someone else."
   },
   "AppointmentNotices": {
     "confirmation": "Tu cita de {service} está confirmada para el {time} ({location}). Puedes verla, cambiarla o cancelarla aquí: {link}",

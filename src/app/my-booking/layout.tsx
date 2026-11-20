@@ -18,5 +18,5 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default function MyBookingLayout({ children }: { children: ReactNode }) {
-  return <div className="flex min-h-screen justify-center bg-background px-4 py-10">{children}</div>;
+  return <div className="flex min-h-screen justify-center bg-background px-4 pt-6 pb-10 sm:items-start sm:py-12">{children}</div>;
 }

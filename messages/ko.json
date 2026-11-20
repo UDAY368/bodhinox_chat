@@ -15119,7 +15119,18 @@
       "copyLink": "링크 복사",
       "copied": "링크를 복사했습니다",
       "empty": "아직 예약 페이지가 없습니다.",
-      "inactive": "숨김"
+      "inactive": "숨김",
+      "links": "Links",
+      "linksTitle": "Links for {title}",
+      "linksHelp": "Share a link that opens the page with a service or practitioner already chosen.",
+      "linkGroup": {
+        "page": "Booking page",
+        "service": "Services",
+        "staff": "Practitioners"
+      },
+      "wholePage": "All services",
+      "copy": "Copy",
+      "copyNamed": "Copy link for {name}"
     },
     "tasks": {
       "title": "할 일",
@@ -15301,7 +15312,25 @@
     "payInAdvance": "선결제",
     "paymentNotice": "이 서비스는 선결제입니다. WhatsApp으로 코드를 보내면 안전한 결제 링크를 보내 드리며, 결제가 확인되면 예약이 확정됩니다.",
     "paymentAfterCode": "코드를 보내면 안전한 결제 링크로 답장해 드립니다. 결제가 확인되면 예약이 확정됩니다.",
-    "meetingLinkPending": "회의 링크가 곧 여기에 표시됩니다."
+    "meetingLinkPending": "회의 링크가 곧 여기에 표시됩니다.",
+    "stepOf": "Step {step} of {total}",
+    "confirmTitle": "Confirm",
+    "summaryService": "Service",
+    "summaryWhen": "When",
+    "summaryWhere": "Where",
+    "summaryWith": "With",
+    "summaryPrice": "Price",
+    "retry": "Retry",
+    "bookedTitle": "Booked",
+    "bookedHelp": "You are booked. We sent the details on WhatsApp.",
+    "viewBooking": "View or change booking",
+    "expiredTitle": "Hold expired",
+    "waitingPaymentTitle": "Waiting for payment",
+    "waitingPaymentHelp": "We sent you a secure payment link on WhatsApp. Your booking is confirmed once it is paid.",
+    "waitingForPayment": "Waiting for your payment…",
+    "waitingForCode": "Waiting for your WhatsApp message…",
+    "addToCalendar": "Add to calendar",
+    "googleCalendar": "Google Calendar"
   },
   "BookingManage": {
     "metaTitle": "내 예약",
@@ -15325,7 +15354,9 @@
     "notFound": "올바르지 않은 예약 링크입니다.",
     "error": "문제가 생겼습니다. 다시 시도하세요.",
     "loading": "불러오는 중…",
-    "saveTime": "이 시간으로 변경"
+    "saveTime": "이 시간으로 변경",
+    "status": "Status",
+    "cancelHelp": "The time is released for someone else."
   },
   "AppointmentNotices": {
     "confirmation": "{service} 예약이 {time}({location})으로 확정되었습니다. 여기에서 확인, 변경 또는 취소할 수 있습니다: {link}",

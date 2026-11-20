@@ -5,6 +5,7 @@
  */
 import { addDays, localParts } from '@/lib/appointments/time';
 import type { AppointmentStatus, LocationKind, ServiceMode } from '@/lib/appointments/types';
+import type { HoldState } from './flow-helpers';
 
 export class PublicApiError extends Error {
   constructor(readonly code: string, readonly status: number) {
@@ -55,6 +56,8 @@ export interface HoldResponse {
   holdCode: string; holdExpiresAt: string; startAt: string; endAt: string; timezone: string; whatsappUrl: string | null;
 }
 
+export interface HoldStatus { status: HoldState; managePath?: string }
+
 export interface ManageView {
   businessName: string;
   status: AppointmentStatus;
@@ -83,6 +86,9 @@ export const bookingApi = {
   hold: (slug: string, body: { serviceId: string; locationId: string; staffId?: string; startAt: string; requestId: string;
     intake?: { name?: string; city?: string; state?: string } }) =>
     publicFetch<HoldResponse>(`/api/public/booking/${encodeURIComponent(slug)}`, body),
+  /** The state of this browser's own hold (polled while waiting for the WhatsApp code). */
+  holdStatus: (slug: string, requestId: string) =>
+    publicFetch<HoldStatus>(`/api/public/booking/${encodeURIComponent(slug)}/hold/${encodeURIComponent(requestId)}`),
   manage: (token: string) => publicFetch<ManageView>(`/api/public/booking/manage/${encodeURIComponent(token)}`),
   manageSlots: (token: string, q: { from: string; days: number }) =>
     publicFetch<SlotsResponse>(`/api/public/booking/manage/${encodeURIComponent(token)}/slots?${new URLSearchParams({ from: q.from, days: String(q.days) })}`),

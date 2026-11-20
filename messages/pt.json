@@ -15119,7 +15119,18 @@
       "copyLink": "Copiar link",
       "copied": "Link copiado",
       "empty": "Ainda não há páginas de agendamento.",
-      "inactive": "Oculta"
+      "inactive": "Oculta",
+      "links": "Links",
+      "linksTitle": "Links for {title}",
+      "linksHelp": "Share a link that opens the page with a service or practitioner already chosen.",
+      "linkGroup": {
+        "page": "Booking page",
+        "service": "Services",
+        "staff": "Practitioners"
+      },
+      "wholePage": "All services",
+      "copy": "Copy",
+      "copyNamed": "Copy link for {name}"
     },
     "tasks": {
       "title": "Tarefas",
@@ -15301,7 +15312,25 @@
     "payInAdvance": "Pagamento antecipado",
     "paymentNotice": "Este serviço é pago antecipadamente. Depois de enviar o código pelo WhatsApp, enviamos um link de pagamento seguro; a reserva é confirmada quando o pagamento for recebido.",
     "paymentAfterCode": "Depois de enviar o código, responderemos com um link de pagamento seguro. Sua reserva é confirmada quando o pagamento for recebido.",
-    "meetingLinkPending": "O link da sua reunião aparecerá aqui em breve."
+    "meetingLinkPending": "O link da sua reunião aparecerá aqui em breve.",
+    "stepOf": "Step {step} of {total}",
+    "confirmTitle": "Confirm",
+    "summaryService": "Service",
+    "summaryWhen": "When",
+    "summaryWhere": "Where",
+    "summaryWith": "With",
+    "summaryPrice": "Price",
+    "retry": "Retry",
+    "bookedTitle": "Booked",
+    "bookedHelp": "You are booked. We sent the details on WhatsApp.",
+    "viewBooking": "View or change booking",
+    "expiredTitle": "Hold expired",
+    "waitingPaymentTitle": "Waiting for payment",
+    "waitingPaymentHelp": "We sent you a secure payment link on WhatsApp. Your booking is confirmed once it is paid.",
+    "waitingForPayment": "Waiting for your payment…",
+    "waitingForCode": "Waiting for your WhatsApp message…",
+    "addToCalendar": "Add to calendar",
+    "googleCalendar": "Google Calendar"
   },
   "BookingManage": {
     "metaTitle": "Seu agendamento",
@@ -15325,7 +15354,9 @@
     "notFound": "Este link de agendamento não é válido.",
     "error": "Algo deu errado. Tente de novo.",
     "loading": "Carregando…",
-    "saveTime": "Mudar para este horário"
+    "saveTime": "Mudar para este horário",
+    "status": "Status",
+    "cancelHelp": "The time is released for someone else."
   },
   "AppointmentNotices": {
     "confirmation": "Seu atendimento de {service} está confirmado para {time} ({location}). Veja, altere ou cancele aqui: {link}",

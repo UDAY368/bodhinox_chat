@@ -74,6 +74,9 @@ export function holdClientHash(request: Request): string {
   return createHmac('sha256', key).update(clientIp(request).toLowerCase()).digest('hex');
 }
 
+/** Hold-status polling, per IP: the page polls every 3 s at most, so 40 a minute leaves room for two tabs. */
+export const HOLD_STATUS_LIMIT: RateLimitOptions = { limit: 40, windowMs: 60_000 };
+
 /** In-memory burst limit; true when allowed. */
 export function burstAllowed(scope: string, request: Request, options: RateLimitOptions): boolean {
   return checkRateLimit(`booking:${scope}:${clientIp(request)}`, options).success;

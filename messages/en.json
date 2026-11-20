@@ -15119,7 +15119,18 @@
       "copyLink": "Copy link",
       "copied": "Link copied",
       "empty": "No booking pages yet.",
-      "inactive": "Hidden"
+      "inactive": "Hidden",
+      "links": "Links",
+      "linksTitle": "Links for {title}",
+      "linksHelp": "Share a link that opens the page with a service or practitioner already chosen.",
+      "linkGroup": {
+        "page": "Booking page",
+        "service": "Services",
+        "staff": "Practitioners"
+      },
+      "wholePage": "All services",
+      "copy": "Copy",
+      "copyNamed": "Copy link for {name}"
     },
     "tasks": {
       "title": "Tasks",
@@ -15301,7 +15312,25 @@
     "payInAdvance": "Pay in advance",
     "paymentNotice": "This service is paid in advance. After you send the WhatsApp code, we send you a secure payment link; the booking is confirmed once the payment is received.",
     "paymentAfterCode": "After you send the code, we will reply with a secure payment link. Your booking is confirmed once the payment is received.",
-    "meetingLinkPending": "Your meeting link will appear here shortly."
+    "meetingLinkPending": "Your meeting link will appear here shortly.",
+    "stepOf": "Step {step} of {total}",
+    "confirmTitle": "Confirm",
+    "summaryService": "Service",
+    "summaryWhen": "When",
+    "summaryWhere": "Where",
+    "summaryWith": "With",
+    "summaryPrice": "Price",
+    "retry": "Retry",
+    "bookedTitle": "Booked",
+    "bookedHelp": "You are booked. We sent the details on WhatsApp.",
+    "viewBooking": "View or change booking",
+    "expiredTitle": "Hold expired",
+    "waitingPaymentTitle": "Waiting for payment",
+    "waitingPaymentHelp": "We sent you a secure payment link on WhatsApp. Your booking is confirmed once it is paid.",
+    "waitingForPayment": "Waiting for your payment…",
+    "waitingForCode": "Waiting for your WhatsApp message…",
+    "addToCalendar": "Add to calendar",
+    "googleCalendar": "Google Calendar"
   },
   "BookingManage": {
     "metaTitle": "Your booking",
@@ -15325,7 +15354,9 @@
     "notFound": "This booking link is not valid.",
     "error": "Something went wrong. Try again.",
     "loading": "Loading…",
-    "saveTime": "Move to this time"
+    "saveTime": "Move to this time",
+    "status": "Status",
+    "cancelHelp": "The time is released for someone else."
   },
   "AppointmentNotices": {
     "confirmation": "Your {service} appointment is confirmed for {time} ({location}). View, change or cancel it here: {link}",
