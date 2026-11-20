@@ -24,13 +24,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useCan } from "@/hooks/use-can";
 import { authFetch } from "@/lib/auth/client";
+import type { OrderStatus } from "@/lib/commerce/order-format";
 import { isReadyToShip } from "@/lib/commerce/order-state";
 import { shipmentTrackingUrl, type OrderShipmentView } from "@/lib/fulfilment/types";
 
 export interface ShipmentCardProps {
   orderId: string;
   /** The order status (a shipment can be created for a paid or partially shipped order, or an unpaid cash-on-delivery order still confirmed). */
-  orderStatus: string;
+  orderStatus: OrderStatus;
   /** A cash-on-delivery order whose cash is not recorded: it ships unpaid. */
   unpaidCod?: boolean;
   /** Refunded in full before it left: no shipment may be created. */

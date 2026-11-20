@@ -3,7 +3,7 @@
 import { useTranslations } from "next-intl";
 
 import type { OrderListItem } from "./order-api";
-import type { Tone } from "./order-state";
+import type { Tone } from "@/lib/commerce/order-state";
 import { StateBadge } from "./state-badge";
 
 const RISK_TONE: Record<NonNullable<OrderListItem["risk"]>["level"], Tone> = { low: "ok", medium: "warn", high: "bad" };

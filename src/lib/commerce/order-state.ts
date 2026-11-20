@@ -284,3 +284,13 @@ export const STATE_LABELS = {
   payment: 'Sales.orders.pay',
   fulfilment: 'Sales.orders.ful',
 } as const;
+
+/** The visible order reference: the store's own number, or the id's first eight characters. */
+export const orderRef = (o: { id: string; external_id: string | null }): string =>
+  o.external_id ? `#${o.external_id}` : o.id.slice(0, 8).toUpperCase();
+
+/** The key under Sales.orders.updateText for the customer update the order's status suggests. */
+export function updateTextKey(status: OrderStatus): 'confirmed' | 'paid' | 'dispatched' | 'fulfilled' | 'cancelled' | 'other' {
+  if (status === 'confirmed' || status === 'paid' || status === 'dispatched' || status === 'fulfilled' || status === 'cancelled') return status;
+  return 'other';
+}

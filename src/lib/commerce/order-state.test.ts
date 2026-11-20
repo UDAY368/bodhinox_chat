@@ -3,7 +3,7 @@ import { ORDER_STATUSES, type OrderStatus } from './order-format';
 import {
   allowedActions, amountDue, amountRefundable, canCancelAndRefund, canCancelUnpaid, canChangeStatusByHand, canDeliver, canRecordPayment,
   canShip, canStartReturn, canTakeLinkPayment, canTransition, fulfilmentState, FULFILMENT_TONE, isReadyToShip, nextStep, nextStepAction,
-  ORDER_TRANSITIONS, PAYMENT_TONE, paymentState, refundedBeforeShipping, selectableStatuses, STATUS_TONE, WORKER_ONLY_STATUSES,
+  ORDER_TRANSITIONS, orderRef, PAYMENT_TONE, paymentState, updateTextKey, refundedBeforeShipping, selectableStatuses, STATUS_TONE, WORKER_ONLY_STATUSES,
   type NextStep, type OrderAction, type OrderFacts,
 } from './order-state';
 
@@ -197,5 +197,14 @@ describe('display states', () => {
       expect(FULFILMENT_TONE[fulfilmentState(s)]).toBeDefined();
     }
     expect(Object.keys(PAYMENT_TONE).sort()).toEqual(['cod', 'paid', 'partlyRefunded', 'pending', 'refunded']);
+  });
+});
+
+describe('orderRef and updateTextKey', () => {
+  it('picks the visible reference and the update text', () => {
+    expect(orderRef({ id: 'abcdef12-0000', external_id: '1042' })).toBe('#1042');
+    expect(orderRef({ id: 'abcdef12-0000', external_id: null })).toBe('ABCDEF12');
+    expect(updateTextKey('dispatched')).toBe('dispatched');
+    expect(updateTextKey('awaiting_payment')).toBe('other');
   });
 });

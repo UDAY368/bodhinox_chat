@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import type { Tone } from "./order-state";
+import type { Tone } from "@/lib/commerce/order-state";
 
 const TONES: Record<Tone, string> = {
   ok: "bg-emerald-500/12 text-emerald-700 dark:text-emerald-400",

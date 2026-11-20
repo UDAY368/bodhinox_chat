@@ -36,7 +36,7 @@ import { formatMoney } from "@/lib/commerce/money";
 import { ORDER_LIMITS, type OrderStatus } from "@/lib/commerce/order-format";
 import {
   allowedActions, amountDue, amountRefundable, canStartReturn, COD_CONFIRM_TONE, isUnpaidCodOrder, nextStep, nextStepAction,
-  PAYMENT_TONE, paymentState, selectableStatuses, STATE_LABELS, STATUS_TONE, type OrderAction,
+  orderRef, PAYMENT_TONE, paymentState, selectableStatuses, STATE_LABELS, STATUS_TONE, updateTextKey, type OrderAction,
 } from "@/lib/commerce/order-state";
 import { formatShipDate } from "@/lib/commerce/selling-rules";
 import { cn } from "@/lib/utils";
@@ -49,7 +49,6 @@ import { OrderEditPanel } from "./order-edit-panel";
 import { OrderFulfilmentPanel } from "./order-fulfilment-panel";
 import { OrderReturnsPanel } from "./order-returns-panel";
 import { OrderRiskBadge } from "./order-risk-badge";
-import { orderRef, updateTextKey } from "./order-state";
 import { OrderTags } from "./order-tags";
 import { OrderTaxInvoicePanel } from "./order-tax-invoice-panel";
 import { OrderTimelinePanel } from "./order-timeline";
@@ -124,10 +123,8 @@ export function OrderView({ orderId, onChanged, variant = "page", intent = null 
   }, [orderId]);
 
   useEffect(() => {
+    // Mounted per order (callers key it by id), so the first load starts from the loading state.
     let cancelled = false;
-    setOrder(null);
-    setState("loading");
-    handledIntent.current = null;
     Promise.all([
       getOrder(orderId), getOrderTimeline(orderId).catch(() => null), listOrderReturns(orderId).catch(() => [] as OrderReturn[]),
     ])
