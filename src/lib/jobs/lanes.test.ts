@@ -18,6 +18,10 @@ describe('worker lanes', () => {
 
   it('reads per-lane slot counts (1 to 8) and keeps the defaults inside a pool of 10', () => {
     expect(laneSlots({})).toEqual(DEFAULT_LANE_SLOTS);
+    // A small pool with no slot counts set: one slot per lane; counts that are set are honoured.
+    expect(laneSlots({ DB_POOL_SIZE: '5' })).toEqual({ inbound: 1, timers: 1, bulk: 1 });
+    expect(laneSlots({ DB_POOL_SIZE: '5', WORKER_INBOUND_SLOTS: '2' })).toEqual({ inbound: 2, timers: 1, bulk: 2 });
+    expect(laneSlots({ DB_POOL_SIZE: '9' })).toEqual(DEFAULT_LANE_SLOTS);
     expect(workerConnections(DEFAULT_LANE_SLOTS)).toBeLessThanOrEqual(10);
     expect(laneSlots({ WORKER_INBOUND_SLOTS: '4', WORKER_TIMER_SLOTS: ' 2 ', WORKER_BULK_SLOTS: '1' })).toEqual({ inbound: 4, timers: 2, bulk: 1 });
     for (const bad of ['0', '9', '-1', '1.5', 'x', '']) expect(laneSlots({ WORKER_INBOUND_SLOTS: bad }).inbound).toBe(2);

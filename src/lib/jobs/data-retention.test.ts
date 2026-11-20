@@ -5,6 +5,7 @@ const h = vi.hoisted(() => ({
   results: new Map<string, number[]>(),
   accounts: [] as { account_id: string }[],
   contexts: [] as unknown[],
+  failKind: null as string | null,
 }));
 
 const KINDS: [string, string][] = [['outbox_events', 'outbox'], ['outbound_intents', 'intents'], ['domain_events', 'events'],
@@ -14,6 +15,7 @@ const kind = (sql: string) => KINDS.find(([needle]) => sql.includes(needle))?.[1
 const exec = async (s: TemplateStringsArray, ...values: unknown[]) => {
   const sql = s.join('?');
   h.statements.push({ sql, values });
+  if (h.failKind && kind(sql) === h.failKind) throw Object.assign(new Error('permission denied for table'), { code: '42501' });
   return h.results.get(kind(sql))?.shift() ?? (kind(sql) === 'schedule' ? 1 : 0);
 };
 vi.mock('@/lib/db/prisma', () => ({
@@ -38,10 +40,23 @@ beforeEach(() => {
   h.results = new Map();
   h.accounts = [];
   h.contexts = [];
+  h.failKind = null;
   vi.spyOn(console, 'info').mockImplementation(() => undefined);
 });
 
 describe('[SEC-01] data retention sweep', () => {
+  it('runs every other step when one fails, logs only the step and its code, and still fails the job', async () => {
+    const errors = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    h.failKind = 'sessions';
+    h.results.set('rateLimits', [4]);
+    h.results.set('failed', [3]);
+    await expect(runDataRetentionSweep()).rejects.toMatchObject({ name: 'RetentionStepsFailedError', steps: ['auth_sessions'] });
+    // Steps after the failing one still ran.
+    expect(h.statements.some((st) => st.sql.includes('auth_rate_limits'))).toBe(true);
+    expect(errors).toHaveBeenCalledWith('[data-retention] step failed', { step: 'auth_sessions', category: 'Error', code: '42501' });
+    expect(JSON.stringify(errors.mock.calls)).not.toContain('permission denied');
+  });
+
   it('queues one tenantless sweep per hour', async () => {
     const now = Date.parse('2026-11-20T06:42:00Z');
     expect(await scheduleDataRetention(now)).toBe(1);

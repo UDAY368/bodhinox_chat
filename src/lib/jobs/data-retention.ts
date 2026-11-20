@@ -73,19 +73,41 @@ export interface RetentionResult {
   outboundIntents: number; domainEvents: number; authSessions: number; rateLimits: number;
 }
 
+/** A clean-up step that failed: its name and the PostgreSQL error code only (never row content). */
+export class RetentionStepsFailedError extends Error {
+  constructor(readonly steps: string[]) { super(`Data retention steps failed: ${steps.join(', ')}`); this.name = 'RetentionStepsFailedError'; }
+}
+
+/**
+ * Runs one clean-up step; a failure is logged with the step's name and error code and does not
+ * stop the other steps. The sweep throws at the end if any step failed, so the job still fails.
+ */
+async function step(name: string, failed: string[], work: () => Promise<number>): Promise<number> {
+  try {
+    return await work();
+  } catch (error) {
+    const code = (error as { code?: unknown; meta?: { code?: unknown } })?.meta?.code ?? (error as { code?: unknown })?.code;
+    console.error('[data-retention] step failed', { step: name, category: error instanceof Error ? error.name : 'Error',
+      code: typeof code === 'string' ? code.slice(0, 16) : null });
+    failed.push(name);
+    return 0;
+  }
+}
+
 /** The data.retention_sweep job. Returns rows removed (counts only are logged). */
 export async function runDataRetentionSweep(): Promise<RetentionResult> {
   const db = getWorkerPrisma();
   const { batchSize } = DATA_RETENTION;
-  const scheduleJobs = await inBatches(() => db.$executeRaw`DELETE FROM jobs WHERE id IN (
+  const failed: string[] = [];
+  const scheduleJobs = await step('schedule_jobs', failed, () => inBatches(() => db.$executeRaw`DELETE FROM jobs WHERE id IN (
     SELECT id FROM jobs WHERE status='done' AND type = ANY(${SCHEDULE_JOB_TYPES}::text[])
-      AND updated_at < now() - make_interval(days => ${DATA_RETENTION.scheduleJobDays}::int) LIMIT ${batchSize})`);
-  const doneJobs = await inBatches(() => db.$executeRaw`DELETE FROM jobs WHERE id IN (
-    SELECT id FROM jobs WHERE status='done' AND updated_at < now() - make_interval(days => ${DATA_RETENTION.doneJobDays}::int) LIMIT ${batchSize})`);
-  const failedJobs = await inBatches(() => db.$executeRaw`DELETE FROM jobs WHERE id IN (
-    SELECT id FROM jobs WHERE status='failed' AND updated_at < now() - make_interval(days => ${DATA_RETENTION.failedJobDays}::int) LIMIT ${batchSize})`);
-  const webhookReceipts = await inBatches(() => db.$executeRaw`DELETE FROM webhook_receipts WHERE id IN (
-    SELECT id FROM webhook_receipts WHERE status='processed' AND created_at < now() - make_interval(days => ${DATA_RETENTION.webhookReceiptDays}::int) LIMIT ${batchSize})`);
+      AND updated_at < now() - make_interval(days => ${DATA_RETENTION.scheduleJobDays}::int) LIMIT ${batchSize})`));
+  const doneJobs = await step('done_jobs', failed, () => inBatches(() => db.$executeRaw`DELETE FROM jobs WHERE id IN (
+    SELECT id FROM jobs WHERE status='done' AND updated_at < now() - make_interval(days => ${DATA_RETENTION.doneJobDays}::int) LIMIT ${batchSize})`));
+  const failedJobs = await step('failed_jobs', failed, () => inBatches(() => db.$executeRaw`DELETE FROM jobs WHERE id IN (
+    SELECT id FROM jobs WHERE status='failed' AND updated_at < now() - make_interval(days => ${DATA_RETENTION.failedJobDays}::int) LIMIT ${batchSize})`));
+  const webhookReceipts = await step('webhook_receipts', failed, () => inBatches(() => db.$executeRaw`DELETE FROM webhook_receipts WHERE id IN (
+    SELECT id FROM webhook_receipts WHERE status='processed' AND created_at < now() - make_interval(days => ${DATA_RETENTION.webhookReceiptDays}::int) LIMIT ${batchSize})`));
   let outboxEvents = 0;
   let outboundIntents = 0;
   let domainEvents = 0;
@@ -93,29 +115,29 @@ export async function runDataRetentionSweep(): Promise<RetentionResult> {
   for (const { account_id: accountId } of accounts) {
     if (!UUID.test(accountId)) continue;
     const scope = { accountId, role: 'owner' } as const;
-    outboxEvents += await inBatches(() => withTenant(scope, async (tx) => {
+    outboxEvents += await step('outbox_events', failed, () => inBatches(() => withTenant(scope, async (tx) => {
       // The shop's live-view counters (aggregate page hits per minute, no visitor data) are kept for two hours.
       await tx.$executeRaw`DELETE FROM shop_live_hits WHERE account_id=${accountId}::uuid AND minute < now() - interval '2 hours'`;
       return tx.$executeRaw`DELETE FROM outbox_events WHERE id IN (
         SELECT id FROM outbox_events WHERE account_id=${accountId}::uuid
           AND created_at < now() - make_interval(days => ${DATA_RETENTION.outboxEventDays}::int) LIMIT ${batchSize})`;
-    }, db));
+    }, db)));
     // Final states only: 'dispatching' and 'unknown' are uncertain sends that wait for a person.
-    outboundIntents += await inBatches(() => withTenant(scope, (tx) => tx.$executeRaw`DELETE FROM outbound_intents WHERE id IN (
+    outboundIntents += await step('outbound_intents', failed, () => inBatches(() => withTenant(scope, (tx) => tx.$executeRaw`DELETE FROM outbound_intents WHERE id IN (
       SELECT id FROM outbound_intents WHERE account_id=${accountId}::uuid AND status IN ('accepted','failed')
-        AND updated_at < now() - make_interval(days => ${DATA_RETENTION.outboundIntentDays}::int) LIMIT ${batchSize})`, db));
-    domainEvents += await inBatches(() => withTenant(scope, (tx) => tx.$executeRaw`DELETE FROM domain_events WHERE id IN (
+        AND updated_at < now() - make_interval(days => ${DATA_RETENTION.outboundIntentDays}::int) LIMIT ${batchSize})`, db)));
+    domainEvents += await step('domain_events', failed, () => inBatches(() => withTenant(scope, (tx) => tx.$executeRaw`DELETE FROM domain_events WHERE id IN (
       SELECT id FROM domain_events WHERE account_id=${accountId}::uuid
-        AND occurred_at < now() - make_interval(days => ${DATA_RETENTION.domainEventDays}::int) LIMIT ${batchSize})`, db));
+        AND occurred_at < now() - make_interval(days => ${DATA_RETENTION.domainEventDays}::int) LIMIT ${batchSize})`, db)));
   }
   // Identity tables: the auth role. A session past expires_at can never be used or refreshed again.
-  const auth = getAuthPrisma();
-  const authSessions = await inBatches(() => auth.$executeRaw`DELETE FROM auth_sessions WHERE id IN (
-    SELECT id FROM auth_sessions WHERE expires_at < now() LIMIT ${batchSize})`);
+  const authSessions = await step('auth_sessions', failed, () => inBatches(() => getAuthPrisma().$executeRaw`DELETE FROM auth_sessions WHERE id IN (
+    SELECT id FROM auth_sessions WHERE expires_at < now() LIMIT ${batchSize})`));
   // Login and request limit rows past their window (a new request starts a fresh window anyway).
-  const rateLimits = await inBatches(() => auth.$executeRaw`DELETE FROM auth_rate_limits WHERE key IN (
-    SELECT key FROM auth_rate_limits WHERE reset_at < now() LIMIT ${batchSize})`);
+  const rateLimits = await step('rate_limits', failed, () => inBatches(() => getAuthPrisma().$executeRaw`DELETE FROM auth_rate_limits WHERE key IN (
+    SELECT key FROM auth_rate_limits WHERE reset_at < now() LIMIT ${batchSize})`));
   const result = { doneJobs, scheduleJobs, failedJobs, webhookReceipts, outboxEvents, outboundIntents, domainEvents, authSessions, rateLimits };
   console.info('[data-retention] sweep', JSON.stringify(result));
+  if (failed.length) throw new RetentionStepsFailedError([...new Set(failed)]);
   return result;
 }
