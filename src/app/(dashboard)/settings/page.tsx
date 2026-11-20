@@ -1,9 +1,9 @@
 'use client';
 
-import { Suspense, useEffect, useMemo, type ReactNode } from 'react';
+import { Suspense, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
-import { Sparkles } from 'lucide-react';
+import { ClipboardCheck, Sparkles } from 'lucide-react';
 
 import { useAuth } from '@/hooks/use-auth';
 import { useTheme } from '@/hooks/use-theme';
@@ -40,6 +40,8 @@ import { RateCardEditor } from '@/components/settings/rate-card-editor';
 import { AiAssistantSettings } from '@/components/settings/ai-assistant-settings';
 import { AiQuality } from '@/components/settings/ai-quality';
 import { PrivacySection } from '@/components/settings/privacy/privacy-section';
+import { NeedsReviewPanel } from '@/components/settings/needs-review-panel';
+import { authFetch } from '@/lib/auth/client';
 import { HelpLink } from '@/components/help/help-link';
 import {
   hiddenSections,
@@ -52,6 +54,9 @@ import {
 
 /** The admin-only AI assistant section (`?tab=ai`). */
 const AI_SECTION = 'ai';
+/** Admins' and owners' list of sends whose outcome is uncertain (`?tab=needs-review`). */
+const REVIEW_SECTION = 'needs-review';
+type ExtraSection = typeof AI_SECTION | typeof REVIEW_SECTION;
 
 // `useSearchParams` opts this page out of static prerendering unless it
 // sits under a Suspense boundary. Without one, the production build hits
@@ -80,6 +85,7 @@ function SettingsPageInner() {
   const { mode } = useTheme();
   const t = useTranslations('Settings');
   const tAi = useTranslations('AiAssistantSettings');
+  const tReview = useTranslations('NeedsReview');
 
   // The URL (`?tab=`) is the single source of truth for the active
   // section — deep-linkable, and it keeps the existing links in the
@@ -89,6 +95,18 @@ function SettingsPageInner() {
   // the shared section list.
   const rawTab = searchParams.get('tab');
   const showAi = rawTab === AI_SECTION && canEditSettings;
+  const showReview = rawTab === REVIEW_SECTION && canManageMembers;
+  // The rail's count of sends to review: read once here, then kept current by the panel.
+  const [reviewCount, setReviewCount] = useState<number | null>(null);
+  useEffect(() => {
+    if (!canManageMembers) return;
+    let live = true;
+    void authFetch('/api/needs-review?count=1', { cache: 'no-store' })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: { total?: number } | null) => { if (live && typeof data?.total === 'number') setReviewCount(data.total); })
+      .catch(() => {});
+    return () => { live = false; };
+  }, [canManageMembers, accountId]);
   // A channel the workspace does not use has no tabs here (its connection,
   // and WhatsApp's templates); an old link to one opens Settings › Channels,
   // where it is turned on. Until the channel state loads nothing is hidden.
@@ -103,16 +121,19 @@ function SettingsPageInner() {
   // Connecting or removing a number or account here changes a channel's
   // state; reload it when leaving a section so the nav and banners agree.
   useEffect(() => () => { void refreshChannels(); }, [section, refreshChannels]);
-  const aiItems: RailExtraItem[] = canEditSettings
-    ? [{ id: AI_SECTION, label: tAi('railLabel'), icon: Sparkles, group: 'workspace' }]
-    : [];
+  const extraItems: RailExtraItem[] = [
+    ...(canEditSettings ? [{ id: AI_SECTION, label: tAi('railLabel'), icon: Sparkles, group: 'workspace' as const }] : []),
+    ...(canManageMembers ? [{ id: REVIEW_SECTION, label: tReview('railLabel'), icon: ClipboardCheck, group: 'billing' as const,
+      badge: reviewCount ? reviewCount : undefined }] : []),
+  ];
+  const extra: ExtraSection | null = showAi ? AI_SECTION : showReview ? REVIEW_SECTION : null;
 
-  const go = (next: SettingsSection | typeof AI_SECTION) => {
+  const go = (next: SettingsSection | ExtraSection) => {
     // Leaving a section with unsaved changes drops them; ask first.
-    const current = showAi ? AI_SECTION : section;
+    const current = extra ?? section;
     if (next !== current && unsaved.size > 0 && !window.confirm(tLeave('leaveConfirm'))) return;
     // A section that lives on its own page (Templates) opens that page.
-    const href = next === AI_SECTION ? undefined : SECTION_META[next].href;
+    const href = next === AI_SECTION || next === REVIEW_SECTION ? undefined : SECTION_META[next].href;
     if (href) { router.push(href); return; }
     const params = new URLSearchParams(searchParams.toString());
     params.set('tab', next);
@@ -199,8 +220,9 @@ function SettingsPageInner() {
 
       <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-[224px_minmax(0,1fr)] lg:items-start lg:gap-8 xl:grid-cols-[232px_minmax(0,1fr)]">
         <div className="min-w-0 lg:sticky lg:top-0 lg:self-start lg:border-r lg:border-border lg:pr-3">
-          <SettingsRail active={showAi ? AI_SECTION : railSection(section)} onSelect={go} hints={hints}
-            extraItems={aiItems} onSelectExtra={() => go(AI_SECTION)} hidden={hidden} unsaved={unsaved} />
+          <SettingsRail active={extra ?? railSection(section)} onSelect={go} hints={hints}
+            extraItems={extraItems} onSelectExtra={(id) => go(id === REVIEW_SECTION ? REVIEW_SECTION : AI_SECTION)}
+            hidden={hidden} unsaved={unsaved} />
         </div>
         <div className="mx-auto w-full min-w-0 max-w-[880px] pb-16">
           {showAi ? (
@@ -208,6 +230,8 @@ function SettingsPageInner() {
               <AiAssistantSettings />
               <AiQuality />
             </div>
+          ) : showReview ? (
+            <NeedsReviewPanel key={accountId} onCountChange={setReviewCount} />
           ) : panel[section]}
           <SettingsSaveBar />
         </div>

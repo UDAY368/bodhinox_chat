@@ -82,21 +82,25 @@ export function parseResolution(body: unknown): CommerceEventResolution | null {
  * left as it is, so the job can never send this event again.
  */
 export async function resolveCommerceEvent(tenant: TenantContext, eventId: string, resolution: CommerceEventResolution): Promise<AttentionEvent> {
+  return withTenant(tenant, (tx) => resolveCommerceEventTx(tx, tenant, eventId, resolution));
+}
+
+/** resolveCommerceEvent inside the caller's tenant transaction (the "needs review" list). */
+export async function resolveCommerceEventTx(tx: TenantTransaction, tenant: TenantContext, eventId: string,
+  resolution: CommerceEventResolution): Promise<AttentionEvent> {
   if (!UUID.test(eventId)) throw new AttentionError('not_found', 404);
   if (!tenant.userId) throw new Error('Resolution needs the acting user');
-  return withTenant(tenant, async (tx) => {
-    const [open] = await selectEvents(tx, tenant.accountId, eventId, 1);
-    if (!open) {
-      const seen = await tx.$queryRaw<{ id: string }[]>`
-        SELECT id FROM commerce_events WHERE id = ${eventId}::uuid AND account_id = ${tenant.accountId}::uuid`;
-      throw seen.length ? new AttentionError('not_open', 409) : new AttentionError('not_found', 404);
-    }
-    const status: CommerceEventStatus = resolution === 'sent' ? 'sent' : 'failed';
-    const updated = await tx.$executeRaw`
-      UPDATE commerce_events SET status = ${status}, resolution = ${resolution}, resolved_at = now(), resolved_by = ${tenant.userId}::uuid
-      WHERE id = ${eventId}::uuid AND account_id = ${tenant.accountId}::uuid AND resolved_at IS NULL
-        AND (status = 'failed' OR (status = 'scheduled' AND reason = 'outcome_unknown'))`;
-    if (updated !== 1) throw new AttentionError('not_open', 409);
-    return toEvent({ ...open, status });
-  });
+  const [open] = await selectEvents(tx, tenant.accountId, eventId, 1);
+  if (!open) {
+    const seen = await tx.$queryRaw<{ id: string }[]>`
+      SELECT id FROM commerce_events WHERE id = ${eventId}::uuid AND account_id = ${tenant.accountId}::uuid`;
+    throw seen.length ? new AttentionError('not_open', 409) : new AttentionError('not_found', 404);
+  }
+  const status: CommerceEventStatus = resolution === 'sent' ? 'sent' : 'failed';
+  const updated = await tx.$executeRaw`
+    UPDATE commerce_events SET status = ${status}, resolution = ${resolution}, resolved_at = now(), resolved_by = ${tenant.userId}::uuid
+    WHERE id = ${eventId}::uuid AND account_id = ${tenant.accountId}::uuid AND resolved_at IS NULL
+      AND (status = 'failed' OR (status = 'scheduled' AND reason = 'outcome_unknown'))`;
+  if (updated !== 1) throw new AttentionError('not_open', 409);
+  return toEvent({ ...open, status });
 }

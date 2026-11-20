@@ -19130,5 +19130,44 @@
     "error": "Não foi possível carregar os contatos.",
     "retry": "Tentar novamente",
     "loadMore": "Carregar mais"
+  },
+  "NeedsReview": {
+    "railLabel": "Para revisar",
+    "title": "Para revisar",
+    "subtitle": "Mensagens cuja entrega não conseguimos confirmar. Confira o chat e marque cada uma.",
+    "count": "{count, plural, one {# para conferir} other {# para conferir}}",
+    "empty": "Nada para revisar",
+    "emptyBody": "Todas as mensagens têm um resultado confirmado.",
+    "failed": "Não foi possível carregar a lista.",
+    "loadMore": "Ver mais",
+    "unnamed": "Contato sem nome",
+    "openChat": "Abrir chat",
+    "wasSent": "Foi enviada",
+    "sendAgain": "Enviar de novo",
+    "markNotSent": "Marcar não enviada",
+    "confirmSendTitle": "Enviar esta mensagem de novo?",
+    "confirmSendBody": "Faça isso só depois de conferir o chat. Se a primeira mensagem chegou, o cliente a recebe duas vezes.",
+    "confirmNotSentTitle": "Marcar como não enviada?",
+    "confirmNotSentBody": "Ela sai desta lista. Envie de novo pelo chat se ainda for preciso.",
+    "doneSent": "Marcada como enviada",
+    "doneQueued": "Na fila para enviar de novo",
+    "doneCampaign": "Marcada não enviada. Use Tentar falhas na campanha para enviá-la.",
+    "doneCleared": "Marcada não enviada",
+    "actionFailed": "Não foi possível salvar. Tente de novo.",
+    "gone": "Já resolvida",
+    "kinds": {
+      "order": "Mensagem de pedido",
+      "appointment": "Mensagem de reserva",
+      "store_event": "Mensagem da loja",
+      "flow": "Mensagem de fluxo",
+      "rule": "Mensagem de regra",
+      "campaign": "Mensagem de campanha",
+      "scheduled_reply": "Resposta agendada",
+      "other": "Mensagem"
+    },
+    "reasons": {
+      "outcome_unknown": "Sem resposta do provedor",
+      "stuck_sending": "O envio não terminou"
+    }
   }
 }

@@ -3,6 +3,7 @@ import { getWorkerPrisma } from '@/lib/db/prisma';
 import { MetaApiError } from '@/lib/whatsapp/meta-api';
 import { NoNumberError } from '@/lib/whatsapp/numbers';
 import { assertLiveEffects } from '@/lib/runtime/dry-run-guard';
+import { currentJobId } from './lease';
 export class UncertainDispatchError extends Error { constructor() { super('Provider outcome needs reconciliation before another send'); this.name = 'UncertainDispatchError'; } }
 /**
  * Thrown by a checkpointed stage that failed before it could have sent or queued anything (a pure
@@ -31,9 +32,11 @@ export async function dispatchOnce<T>(accountId: string, key: string, send: () =
   assertLiveEffects('dispatch');
   const context = { accountId, role: 'owner' as const };
   const idempotencyKey = `${accountId}:${key}`;
+  // The claiming job, so the "needs review" list can queue it again after an admin's "send again".
+  const jobId = currentJobId() ?? null;
   const claim = await withTenant(context, tx => tx.$queryRaw<{ id: string }[]>`
-    INSERT INTO outbound_intents(account_id,idempotency_key,status) VALUES(${accountId}::uuid,${idempotencyKey},'dispatching')
-    ON CONFLICT(idempotency_key) DO UPDATE SET status='dispatching',last_error=NULL,updated_at=NOW()
+    INSERT INTO outbound_intents(account_id,idempotency_key,status,job_id) VALUES(${accountId}::uuid,${idempotencyKey},'dispatching',${jobId}::uuid)
+    ON CONFLICT(idempotency_key) DO UPDATE SET status='dispatching',last_error=NULL,updated_at=NOW(),job_id=EXCLUDED.job_id
       WHERE outbound_intents.status='failed' AND ${options.retryRejected === true}
     RETURNING id`, getWorkerPrisma());
   if (!claim.length) {

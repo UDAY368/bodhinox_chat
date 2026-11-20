@@ -79,6 +79,7 @@ vi.mock('@/lib/jobs/lease', () => ({
   leaseFetch: (input: RequestInfo | URL, init?: RequestInit) => fakeZoom(input, init),
   assertJobLease: () => {},
   withLeaseScope: <T>(_g: () => void, work: () => T) => work(),
+  currentJobId: () => undefined,
 }));
 
 import { disconnectDatabases, getPrisma, getWorkerPrisma } from '@/lib/db/prisma';

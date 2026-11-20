@@ -19130,5 +19130,44 @@
     "error": "연락처를 불러오지 못했습니다.",
     "retry": "다시 시도",
     "loadMore": "더 보기"
+  },
+  "NeedsReview": {
+    "railLabel": "검토 필요",
+    "title": "검토 필요",
+    "subtitle": "전달을 확인하지 못한 메시지입니다. 채팅을 확인한 뒤 각각 표시하세요.",
+    "count": "{count, plural, other {확인할 항목 #개}}",
+    "empty": "검토할 항목이 없습니다",
+    "emptyBody": "모든 메시지의 결과가 확인되었습니다.",
+    "failed": "목록을 불러오지 못했습니다.",
+    "loadMore": "더 보기",
+    "unnamed": "이름 없는 연락처",
+    "openChat": "채팅 열기",
+    "wasSent": "전송됨",
+    "sendAgain": "다시 보내기",
+    "markNotSent": "전송 안 됨으로 표시",
+    "confirmSendTitle": "이 메시지를 다시 보낼까요?",
+    "confirmSendBody": "채팅을 확인한 후에만 하세요. 첫 메시지가 도착했다면 고객이 두 번 받습니다.",
+    "confirmNotSentTitle": "전송 안 됨으로 표시할까요?",
+    "confirmNotSentBody": "이 목록에서 사라집니다. 아직 필요하면 채팅에서 다시 보내세요.",
+    "doneSent": "전송됨으로 표시함",
+    "doneQueued": "다시 보내도록 대기열에 넣음",
+    "doneCampaign": "전송 안 됨으로 표시함. 캠페인에서 실패 항목 재시도로 보내세요.",
+    "doneCleared": "전송 안 됨으로 표시함",
+    "actionFailed": "저장하지 못했습니다. 다시 시도하세요.",
+    "gone": "이미 처리됨",
+    "kinds": {
+      "order": "주문 메시지",
+      "appointment": "예약 메시지",
+      "store_event": "스토어 메시지",
+      "flow": "플로우 메시지",
+      "rule": "규칙 메시지",
+      "campaign": "캠페인 메시지",
+      "scheduled_reply": "예약된 답장",
+      "other": "메시지"
+    },
+    "reasons": {
+      "outcome_unknown": "제공업체 응답 없음",
+      "stuck_sending": "전송이 끝나지 않음"
+    }
   }
 }

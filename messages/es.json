@@ -19130,5 +19130,44 @@
     "error": "No se pudieron cargar los contactos.",
     "retry": "Reintentar",
     "loadMore": "Cargar más"
+  },
+  "NeedsReview": {
+    "railLabel": "Por revisar",
+    "title": "Por revisar",
+    "subtitle": "Mensajes cuya entrega no pudimos confirmar. Revisa el chat y marca cada uno.",
+    "count": "{count, plural, one {# por revisar} other {# por revisar}}",
+    "empty": "Nada por revisar",
+    "emptyBody": "Todos los mensajes tienen un resultado confirmado.",
+    "failed": "No se pudo cargar la lista.",
+    "loadMore": "Ver más",
+    "unnamed": "Contacto sin nombre",
+    "openChat": "Abrir chat",
+    "wasSent": "Se envió",
+    "sendAgain": "Enviar de nuevo",
+    "markNotSent": "Marcar no enviado",
+    "confirmSendTitle": "¿Enviar este mensaje de nuevo?",
+    "confirmSendBody": "Hazlo solo después de revisar el chat. Si el primer mensaje llegó, el cliente lo recibirá dos veces.",
+    "confirmNotSentTitle": "¿Marcar como no enviado?",
+    "confirmNotSentBody": "Sale de esta lista. Envíalo de nuevo desde el chat si todavía hace falta.",
+    "doneSent": "Marcado como enviado",
+    "doneQueued": "En cola para enviar de nuevo",
+    "doneCampaign": "Marcado no enviado. Usa Reintentar fallidos en la campaña para enviarlo.",
+    "doneCleared": "Marcado no enviado",
+    "actionFailed": "No se pudo guardar. Inténtalo de nuevo.",
+    "gone": "Ya resuelto",
+    "kinds": {
+      "order": "Mensaje de pedido",
+      "appointment": "Mensaje de reserva",
+      "store_event": "Mensaje de tienda",
+      "flow": "Mensaje de flujo",
+      "rule": "Mensaje de regla",
+      "campaign": "Mensaje de campaña",
+      "scheduled_reply": "Respuesta programada",
+      "other": "Mensaje"
+    },
+    "reasons": {
+      "outcome_unknown": "Sin respuesta del proveedor",
+      "stuck_sending": "El envío no terminó"
+    }
   }
 }

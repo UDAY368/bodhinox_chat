@@ -929,6 +929,8 @@ model outbound_intents {
   updated_at DateTime @db.Timestamptz(6) @default(now())
   last_error String?
   result Json? @db.JsonB
+  /// The job that claimed the send (null outside a job and before 20261205003000).
+  job_id String? @db.Uuid
   @@unique([account_id, id])
 }
 

@@ -101,7 +101,7 @@ async function runJob(job: Job, handleJob: JobHandler): Promise<void> {
   }, LEASE_EXTEND_MS);
   try {
     const assertLease = () => { if (leaseLost) throw new Error('Job lease lost'); };
-    await withLeaseScope(assertLease, () => handleJob(job, assertLease));
+    await withLeaseScope(assertLease, () => handleJob(job, assertLease), job.id);
     await finishJob(job);
   } catch (error) {
     console.error('[worker] job failed', { id: job.id, type: job.type, category: error instanceof Error ? error.name : 'Error' });

@@ -19130,5 +19130,44 @@
     "error": "Contacts didn't load.",
     "retry": "Retry",
     "loadMore": "Load more"
+  },
+  "NeedsReview": {
+    "railLabel": "Needs review",
+    "title": "Needs review",
+    "subtitle": "Messages we could not confirm were delivered. Check the chat, then mark each one.",
+    "count": "{count, plural, one {# to check} other {# to check}}",
+    "empty": "Nothing to review",
+    "emptyBody": "Every message has a confirmed outcome.",
+    "failed": "Could not load the list.",
+    "loadMore": "Show more",
+    "unnamed": "Unnamed contact",
+    "openChat": "Open chat",
+    "wasSent": "Was sent",
+    "sendAgain": "Send again",
+    "markNotSent": "Mark not sent",
+    "confirmSendTitle": "Send this message again?",
+    "confirmSendBody": "Do this only after checking the chat. If the first message did arrive, the customer gets it twice.",
+    "confirmNotSentTitle": "Mark as not sent?",
+    "confirmNotSentBody": "It leaves this list. Send it again from the chat if it is still needed.",
+    "doneSent": "Marked as sent",
+    "doneQueued": "Queued to send again",
+    "doneCampaign": "Marked not sent. Use Retry failed on the campaign to send it.",
+    "doneCleared": "Marked not sent",
+    "actionFailed": "Could not save. Try again.",
+    "gone": "Already handled",
+    "kinds": {
+      "order": "Order message",
+      "appointment": "Booking message",
+      "store_event": "Store message",
+      "flow": "Flow message",
+      "rule": "Rule message",
+      "campaign": "Campaign message",
+      "scheduled_reply": "Scheduled reply",
+      "other": "Message"
+    },
+    "reasons": {
+      "outcome_unknown": "No answer from the provider",
+      "stuck_sending": "Sending did not finish"
+    }
   }
 }

@@ -23,7 +23,7 @@ type Extra = Record<'list' | 'segment' | 'team' | 'paymentLink' | 'media' | 'not
   | 'savedFilter' | 'form' | 'mediaKey' | 'igTemplate' | 'customField' | 'dealNote' | 'shopProduct' | 'aiAgent' | 'aiSource' | 'savedReport' | 'autoDiscount' | 'review' | 'collection'
   | 'platformImport' | 'metaSyncVariant'
   | 'variant' | 'customerGroup' | 'priceList' | 'discountRule' | 'giftRule' | 'emailCampaign' | 'purchaseOrder' | 'purchaseOrderLine'
-  | 'redirect' | 'referral' | 'stockLocation', string>;
+  | 'redirect' | 'referral' | 'stockLocation' | 'reviewIntent', string>;
 type Ids = TenantFixture & { extra: Extra };
 
 type Case = {
@@ -89,6 +89,9 @@ export const CASES: Case[] = [
   { route: 'pipelines/[id]/deals', method: 'GET', params: rid('pipelines'), query: (b) => `stage=${b.ids.pipeline_stages}` },
   { route: 'contacts/[id]/summary', method: 'GET', params: id('contactId') },
   { route: 'contacts/[id]/payments', method: 'GET', params: id('contactId') },
+  // Needs review: another workspace's uncertain send can be neither marked sent nor sent again.
+  { route: 'needs-review/[id]/resolve', method: 'POST', params: extra('reviewIntent'), body: () => ({ action: 'was_sent' }) },
+  { route: 'needs-review/[id]/resolve', method: 'POST', params: extra('reviewIntent'), body: () => ({ action: 'send_again' }) },
   { route: 'deals/[id]/notes', method: 'GET', params: rid('deals') },
   { route: 'deals/[id]/notes', method: 'POST', params: rid('deals'), body: () => ({ body: 'p15 cross-tenant deal note' }) },
   { route: 'deals/[id]/notes', method: 'POST', params: rid('deals'), body: () => ({ body: 'p15 cross-tenant deal note' }), as: 'agent' },
@@ -495,6 +498,8 @@ async function addExtras(t: TenantFixture, tag: string): Promise<Extra> {
     redirect: await one("INSERT INTO shop_redirects(account_id,from_path,to_path,created_by) VALUES($1,'/p15-old','/p15-new',$2)", [a, u]),
     referral: await one("INSERT INTO shop_referral_codes(account_id,code,kind,name,created_by) VALUES($1,'AAAAAA22','affiliate','p15 affiliate',$2)", [a, u]),
     stockLocation: await one('INSERT INTO stock_locations(account_id,name,created_by) VALUES($1,$2,$3)', [a, `p15 location ${tag}`, u]),
+    // An uncertain send outside any job: "send again" only retires it, nothing is queued or sent.
+    reviewIntent: await one("INSERT INTO outbound_intents(account_id,idempotency_key,status) VALUES($1,$2,'unknown')", [a, `${a}:p15-review:${randomUUID()}`]),
   };
 }
 
