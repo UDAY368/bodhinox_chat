@@ -82,7 +82,7 @@ export function mapRows<R extends { option_values: Record<string, string> }>(com
 
 /** A readable SKU base from the product name and option values: "Cotton Kurta" + {Size: M} -> "COTTON-KURTA-M". */
 export function skuBase(name: string, values: Record<string, string> = {}): string {
-  const part = (text: string, max: number) => text.normalize('NFKD').replace(/[^A-Za-z0-9]+/g, '-').replace(/^-+|-+$/g, '').toUpperCase().slice(0, max).replace(/-+$/, '');
+  const part = (text: string, max: number) => text.normalize('NFKD').replace(/\p{M}+/gu, '').replace(/[^A-Za-z0-9]+/g, '-').replace(/^-+|-+$/g, '').toUpperCase().slice(0, max).replace(/-+$/, '');
   const stem = part(name, 24) || 'ITEM';
   const tail = Object.values(values).map((v) => part(v, 10)).filter(Boolean);
   return [stem, ...tail].join('-').slice(0, 56).replace(/-+$/, '');

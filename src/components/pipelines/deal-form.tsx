@@ -63,8 +63,8 @@ import { useTranslations } from "next-intl";
 
 export interface DealContactChoice {
   id: string;
-  name: string | null;
-  phone: string | null;
+  name?: string | null;
+  phone?: string | null;
 }
 
 interface DealFormProps {

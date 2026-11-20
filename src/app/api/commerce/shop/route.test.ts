@@ -7,7 +7,7 @@ const VARIANT = '44444444-4444-4444-8444-444444444444';
 const h = vi.hoisted(() => ({
   role: 'admin', limited: false, permitted: true, csrfOk: true,
   listShopProducts: vi.fn(), upsertProduct: vi.fn(), getShopProduct: vi.fn(), publishProduct: vi.fn(), upsertVariant: vi.fn(),
-  importFromMeta: vi.fn(), adjustStock: vi.fn(), requirePermission: vi.fn(),
+  importFromMeta: vi.fn(), adjustStock: vi.fn(), requirePermission: vi.fn(), saveProductForm: vi.fn(), bulkUpdateProducts: vi.fn(), setStockLevels: vi.fn(),
 }));
 
 vi.mock('@/lib/auth/session', () => ({
@@ -32,8 +32,9 @@ vi.mock('@/lib/commerce/catalogue/products', async (original) => ({
 }));
 vi.mock('@/lib/commerce/catalogue/inventory', async (original) => ({
   ...(await original<typeof import('@/lib/commerce/catalogue/inventory')>()),
-  adjustStock: h.adjustStock,
+  adjustStock: h.adjustStock, setStockLevels: h.setStockLevels,
 }));
+vi.mock('@/lib/commerce/catalogue/product-form', () => ({ saveProductForm: h.saveProductForm, bulkUpdateProducts: h.bulkUpdateProducts }));
 
 import { CatalogueError } from '@/lib/commerce/catalogue/products';
 import { GET, POST } from './products/route';
@@ -42,6 +43,7 @@ import { POST as PUBLISH } from './products/[id]/publish/route';
 import { PATCH as PATCH_VARIANT } from './products/[id]/variants/[variantId]/route';
 import { POST as IMPORT } from './import/route';
 import { POST as ADJUST } from '../inventory/[variantId]/adjust/route';
+import { POST as BULK } from './products/bulk/route';
 
 const req = (body?: unknown, method = 'POST', url = 'http://localhost/x') =>
   new Request(url, { method, body: body === undefined ? undefined : JSON.stringify(body), headers: { 'Content-Type': 'application/json' } });
@@ -57,6 +59,9 @@ beforeEach(() => {
   h.upsertVariant.mockResolvedValue({ id: PRODUCT });
   h.importFromMeta.mockResolvedValue({ created: [], skipped: [] });
   h.adjustStock.mockResolvedValue({ variantId: VARIANT, onHand: 5, reserved: 0 });
+  h.saveProductForm.mockResolvedValue({ product: { id: PRODUCT }, stock: [] });
+  h.bulkUpdateProducts.mockResolvedValue({ changed: 1, skipped: 0 });
+  h.setStockLevels.mockResolvedValue(undefined);
 });
 
 describe('catalogue routes', () => {
@@ -77,7 +82,9 @@ describe('catalogue routes', () => {
     expect((await PATCH(req({ name: 'Ash' }, 'PATCH'), params)).status).toBe(403);
     expect((await PUBLISH(req({}), params)).status).toBe(403);
     expect((await IMPORT(req({ meta_product_ids: [] }))).status).toBe(403);
-    expect(h.upsertProduct).not.toHaveBeenCalled();
+    expect((await BULK(req({ action: 'live', ids: [PRODUCT] }))).status).toBe(403);
+    expect(h.saveProductForm).not.toHaveBeenCalled();
+    expect(h.bulkUpdateProducts).not.toHaveBeenCalled();
     h.role = 'admin';
     h.csrfOk = false;
     expect((await POST(req({ name: 'Ash' }))).status).toBe(403);
@@ -87,7 +94,12 @@ describe('catalogue routes', () => {
     h.limited = false;
     const res = await POST(req({ name: 'Ash' }));
     expect(res.status).toBe(201);
-    expect(h.upsertProduct).toHaveBeenCalledWith({ tx: true }, ACCOUNT, USER, null, { name: 'Ash' });
+    expect(h.saveProductForm).toHaveBeenCalledWith({ tx: true }, ACCOUNT, USER, null, { name: 'Ash' });
+    expect(h.setStockLevels).not.toHaveBeenCalled();
+    const bulk = await BULK(req({ action: 'live', ids: [PRODUCT] }));
+    expect(bulk.status).toBe(200);
+    expect(await bulk.json()).toEqual({ changed: 1, skipped: 0 });
+    expect(h.bulkUpdateProducts).toHaveBeenCalledWith({ tx: true }, ACCOUNT, USER, { action: 'live', ids: [PRODUCT] });
   });
 
   it('returns refusals as codes with the field, never the input', async () => {
@@ -123,5 +135,18 @@ describe('catalogue routes', () => {
       { variantId: VARIANT, kind: 'receipt', delta: 5, reason: null, expectedOnHand: 0 });
     h.adjustStock.mockRejectedValue(new CatalogueError('stock_changed'));
     expect(await (await ADJUST(req(body), ctx)).json()).toMatchObject({ code: 'stock_changed' });
+  });
+  it('saves the form, then applies the typed stock and says when the stock step was refused', async () => {
+    const target = { variantId: VARIANT, expectedOnHand: 2, onHand: 7 };
+    h.saveProductForm.mockResolvedValue({ product: { id: PRODUCT }, stock: [target] });
+    const ok = await PATCH(req({ version: 3, variants: [{ id: VARIANT, stock: 7, expected_on_hand: 2 }] }, 'PATCH'), params);
+    expect(ok.status).toBe(200);
+    expect(h.saveProductForm).toHaveBeenCalledWith({ tx: true }, ACCOUNT, USER, PRODUCT, expect.objectContaining({ version: 3 }));
+    expect(h.setStockLevels).toHaveBeenCalledWith(expect.objectContaining({ accountId: ACCOUNT, userId: USER }), [target]);
+    expect(await ok.json()).toEqual({ product: { id: PRODUCT } });
+    h.setStockLevels.mockRejectedValue(new CatalogueError('stock_changed'));
+    const stale = await PATCH(req({ variants: [] }, 'PATCH'), params);
+    expect(stale.status).toBe(200);
+    expect(await stale.json()).toEqual({ product: { id: PRODUCT }, stock_error: 'stock_changed' });
   });
 });

@@ -117,7 +117,7 @@ export async function saveProductForm(tx: TenantTransaction, accountId: string, 
       const before: VariantCurrent | undefined = row.id ? byId.get(row.id) : undefined;
       const imageId = row.imageIndex === undefined ? undefined : row.imageIndex === null ? null : saved.images[row.imageIndex]?.id;
       if (imageId === undefined && row.imageIndex !== undefined) throw new CatalogueError('invalid', 'image_index');
-      const body = { ...row.body, sku: row.sku ?? before?.sku, position, archived: false, ...(imageId !== undefined ? { image_id: imageId } : {}) };
+      const body: Record<string, unknown> = { ...row.body, sku: row.sku ?? before?.sku, position, archived: false, ...(imageId !== undefined ? { image_id: imageId } : {}) };
       const variantId = await applyVariant(tx, accountId, userId, product, before, body, { checkPriced: false, cache });
       const track = typeof body.track_inventory === 'boolean' ? body.track_inventory : before?.track_inventory ?? true;
       if (track && row.stock !== null) {
