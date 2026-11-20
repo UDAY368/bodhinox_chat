@@ -15292,6 +15292,16 @@
       "label": "Use a booking page",
       "help": "Send clicks to one of your booking pages. Bookings made within 7 days of a click count for this campaign.",
       "none": "No active booking pages yet."
+    },
+    "contactCard": {
+      "title": "Bookings",
+      "upcoming": "Upcoming",
+      "past": "Past and cancelled",
+      "newBooking": "New booking",
+      "empty": "No bookings yet",
+      "loadFailed": "Couldn't load bookings.",
+      "showMore": "Show more",
+      "waitingForPayment": "Waiting for payment"
     }
   },
   "AppointmentSettings": {

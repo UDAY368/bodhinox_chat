@@ -33,11 +33,13 @@ export function offeringChoices(config: Pick<AppointmentConfig, 'offerings' | 'l
 }
 
 export function NewAppointmentDialog({
-  open, onOpenChange, config, onBooked, preferred,
+  open, onOpenChange, config, onBooked, preferred, initialContact,
 }: {
   open: boolean; onOpenChange: (open: boolean) => void; config: AppointmentConfig; onBooked: (id: string) => void;
   /** A day and time clicked on the week calendar: offered first once a service and location are chosen. */
   preferred?: { date: string; time: string } | null;
+  /** Opened from a contact (card, chat): that contact is chosen and stays in the list. */
+  initialContact?: { id: string; name: string | null } | null;
 }) {
   const t = useTranslations('Appointments');
   const ts = useTranslations('Sales.appointments');
@@ -45,7 +47,10 @@ export function NewAppointmentDialog({
   const failureText = useFailureText();
   const [search, setSearch] = useState('');
   const [contacts, setContacts] = useState<ContactOption[]>([]);
-  const [contactId, setContactId] = useState('');
+  const [contactId, setContactId] = useState(initialContact?.id ?? '');
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => { if (open && initialContact) setContactId(initialContact.id); }, [open, initialContact]);
+  const contactOptions = initialContact && !contacts.some((c) => c.id === initialContact.id) ? [initialContact, ...contacts] : contacts;
   const services = useMemo(() => config.services.filter((s) => !s.archived_at), [config.services]);
   const [serviceId, setServiceId] = useState('');
   const [locationId, setLocationId] = useState('');
@@ -112,7 +117,7 @@ export function NewAppointmentDialog({
             <Input id="appt-contact-search" placeholder={t('create.contactSearch')} value={search} onChange={(e) => setSearch(e.target.value)} />
             <select aria-label={t('create.contact')} className={selectClass} value={contactId} onChange={(e) => setContactId(e.target.value)}>
               <option value="">—</option>
-              {contacts.map((c) => <option key={c.id} value={c.id}>{c.name || c.id.slice(0, 8)}</option>)}
+              {contactOptions.map((c) => <option key={c.id} value={c.id}>{c.name || c.id.slice(0, 8)}</option>)}
             </select>
           </div>
           <div className="grid gap-3 sm:grid-cols-3">
