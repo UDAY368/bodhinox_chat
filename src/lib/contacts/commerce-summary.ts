@@ -137,6 +137,7 @@ export async function contactPaymentsPage(ctx: TenantContext, contactId: string,
       : offset === 0
         ? 0
         : Number((await tx.$queryRaw<{ n: number }[]>`SELECT count(*)::int AS n FROM customer_payments p WHERE ${paymentsOf(a, contactId)}`)[0].n);
-    return { total, pageSize: PAYMENTS_PAGE_SIZE, payments: rows.map(({ total: _total, ...r }) => toPayment(r)) };
+    return { total, pageSize: PAYMENTS_PAGE_SIZE, // The window total is a page field, not part of each payment.
+      payments: rows.map(({ total: windowTotal, ...r }) => { void windowTotal; return toPayment(r); }) };
   });
 }

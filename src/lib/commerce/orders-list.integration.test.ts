@@ -160,8 +160,9 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('orders list on PostgreSQL',
     it('lists returns with their order, by status, in the caller workspace only', async () => {
       const item = randomUUID();
       const lines = JSON.stringify([{ order_item_id: item, qty: 2 }]);
-      const requested = (await one(`INSERT INTO order_returns(account_id,order_id,items,status,source) VALUES($1,$2,$3::jsonb,'requested','buyer') RETURNING id`,
-        [accountA, o.codDelivered, lines])).id;
+      const requested = (await one(`INSERT INTO order_returns(account_id,order_id,items,status,source,client_request_id,reason)
+        VALUES($1,$2,$3::jsonb,'requested','buyer',$4,'damaged') RETURNING id`,
+        [accountA, o.codDelivered, lines, randomUUID()])).id;
       const closed = (await one(`INSERT INTO order_returns(account_id,order_id,items,status) VALUES($1,$2,$3::jsonb,'closed') RETURNING id`,
         [accountA, o.partly, lines])).id;
       const other = (await one(`INSERT INTO order_returns(account_id,order_id,items,status) VALUES($1,$2,$3::jsonb,'requested') RETURNING id`,
