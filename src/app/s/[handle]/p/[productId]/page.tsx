@@ -5,6 +5,7 @@ import { getLocale, getTranslations } from 'next-intl/server';
 import { ProductBuy } from '@/components/shop-public/product-buy';
 import { ProductCard, ProductGrid } from '@/components/shop-public/product-card';
 import { ProductReviewsSection } from '@/components/shop-public/product-reviews';
+import { RecordRecentlyViewed } from '@/components/shop-public/recently-viewed';
 import { loadShopProduct } from '@/lib/commerce/public-shop';
 import { notFoundOrRedirect } from '@/lib/commerce/shop-not-found';
 import { categoryPath, isUuidShaped, jsonLdScript, productPath } from '@/lib/commerce/shop-paths';
@@ -56,7 +57,8 @@ export default async function ShopProductPage({ params }: Props) {
         )}
       </nav>
       <ProductBuy handle={handle} product={product} currency={page.shop.currency} canNotify={page.shop.ordering.whatsapp}
-        whatsappPhone={page.shop.whatsappPhone} />
+        layout={page.shop.theme.layout} whatsappPhone={page.shop.whatsappPhone} />
+      <RecordRecentlyViewed handle={handle} productId={product.id} />
       <ProductReviewsSection reviews={reviews} locale={locale} labels={{
         title: t('reviews.title'), customer: t('reviews.customer'), stars: (rating) => t('reviews.stars', { rating }),
         average: summary ? t('reviews.average', { average: summary.average }) : '', count: summary ? t('reviews.count', { count: summary.count }) : '',

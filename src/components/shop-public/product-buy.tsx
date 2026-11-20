@@ -17,16 +17,20 @@ import Link from 'next/link';
 import { useLocale, useTranslations } from 'next-intl';
 import { Bell, Check, Heart, Loader2, MessageCircle, Minus, Plus, Share2 } from 'lucide-react';
 import type { PublicProduct } from '@/lib/commerce/public-shop';
+import type { ShopLayout } from '@/lib/commerce/shop-templates';
 import { formatMoney } from '@/lib/commerce/money';
 import { formatShipDate } from '@/lib/commerce/selling-rules';
 import { addToCart } from './cart-store';
 import { PincodeCheck } from './pincode-check';
+import { PRODUCT_LAYOUT_CLASSES } from './product-layout';
 import { clampQty, pickValue, qtyCap, valueState, variantFor } from './product-options';
 import { imageSrcSet } from '@/lib/commerce/shop-images';
 import { subscribeWishlist, toggleWishlist, wishlistSnapshot } from './wishlist-store';
 
-export function ProductBuy({ handle, product, currency, canNotify, whatsappPhone = null }: {
+export function ProductBuy({ handle, product, currency, canNotify, layout, whatsappPhone = null }: {
   handle: string; product: PublicProduct; currency: string | null; canNotify: boolean;
+  /** The template's layout: the page arrangement (layout.product) and the image shape (layout.image). */
+  layout: Pick<ShopLayout, 'product' | 'image'>;
   /** The shop's WhatsApp number (wa.me digits) for "Ask about this product"; null hides it. */
   whatsappPhone?: string | null;
 }) {
@@ -95,15 +99,16 @@ export function ProductBuy({ handle, product, currency, canNotify, whatsappPhone
     }
     setNotifying(false);
   };
+  const arrangement = PRODUCT_LAYOUT_CLASSES[layout.product];
   const valuesOf = (name: string) => [...new Set(product.variants.map((v) => v.options[name]).filter(Boolean))];
 
   return (
-    <div className="grid gap-6 @3xl:grid-cols-2 @3xl:gap-10">
-      <div className="flex flex-col gap-3">
-        <div className="aspect-square overflow-hidden rounded-[var(--shop-radius)] bg-black/5">
+    <div className={arrangement.grid} data-product-layout={layout.product}>
+      <div className={`flex flex-col gap-3 ${arrangement.gallery}`}>
+        <div className={`${layout.image === 'portrait' ? 'aspect-[3/4]' : 'aspect-square'} overflow-hidden rounded-[var(--shop-radius)] bg-black/5`}>
           {product.images[image]
             // eslint-disable-next-line @next/next/no-img-element -- shop images come from our own route or the shop's https URL
-            ? <img src={product.images[image]} srcSet={imageSrcSet(product.images[image])} sizes="(min-width: 768px) 50vw, 100vw" alt={product.name} className="size-full object-cover" />
+            ? <img src={product.images[image]} srcSet={imageSrcSet(product.images[image])} sizes={layout.product === 'stacked' ? '(min-width: 896px) 896px, 100vw' : '(min-width: 768px) 50vw, 100vw'} alt={product.name} className="size-full object-cover" />
             : <div className="grid size-full place-items-center text-6xl opacity-30" aria-hidden>{product.name.slice(0, 1)}</div>}
         </div>
         {product.images.length > 1 && (
@@ -119,7 +124,7 @@ export function ProductBuy({ handle, product, currency, canNotify, whatsappPhone
         )}
       </div>
 
-      <div className="flex flex-col gap-5">
+      <div className={`flex flex-col gap-5 ${arrangement.details}`}>
         <div>
           {product.categoryName && <p className="text-xs uppercase tracking-wide opacity-60">{product.categoryName}</p>}
           <h1 className="mt-1 text-2xl font-semibold @2xl:text-3xl" style={{ fontFamily: 'var(--shop-font-heading)' }}>{product.name}</h1>

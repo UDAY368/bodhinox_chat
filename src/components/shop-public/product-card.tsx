@@ -40,7 +40,7 @@ export function ProductCard({ handle, product, currency, layout, locale, labels 
   const percent = onSale ? Math.round((1 - cheapest.priceMinor / cheapest.compareAtMinor!) * 100) : 0;
   // Quick add only when there is nothing to choose: one variant, in stock.
   const only = product.variants.length === 1 && product.variants[0].inStock ? product.variants[0] : null;
-  const quick = only && labels.add ? { variantId: only.id, label: labels.add, added: labels.added ?? labels.add } : null;
+  const quick = only && labels.add ? { variantId: only.id, available: only.available, label: labels.add, added: labels.added ?? labels.add } : null;
   const href = productHref(handle, product);
   const card = layout.card;
 
@@ -81,7 +81,7 @@ export function ProductCard({ handle, product, currency, layout, locale, labels 
             : onSale && percent > 0 && labels.sale && <span className="text-xs font-semibold text-[var(--shop-primary)]">{labels.sale(percent)}</span>}
         </div>
       </Link>
-      {quick && <QuickAdd handle={handle} variantId={quick.variantId} label={`${quick.label}: ${product.name}`} addedLabel={quick.added} round />}
+      {quick && <QuickAdd handle={handle} variantId={quick.variantId} available={quick.available} label={`${quick.label}: ${product.name}`} addedLabel={quick.added} round />}
     </div>
   );
 
@@ -112,7 +112,7 @@ export function ProductCard({ handle, product, currency, layout, locale, labels 
           <div className="mt-auto">{price('text-[var(--shop-primary)]')}</div>
         </div>
       </Link>
-      {bordered && quick && <div className="px-3 pb-3"><QuickAdd handle={handle} variantId={quick.variantId} label={quick.label} addedLabel={quick.added} /></div>}
+      {bordered && quick && <div className="px-3 pb-3"><QuickAdd handle={handle} variantId={quick.variantId} available={quick.available} label={quick.label} addedLabel={quick.added} /></div>}
     </div>
   );
 }

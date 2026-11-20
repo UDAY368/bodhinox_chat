@@ -35,8 +35,12 @@ export interface CartEstimate {
   /** The applied coupon and what it saves; null when none applies. */
   couponCode: string | null;
   couponMinor: number;
-  /** Why the typed code does not apply (coupon_not_found, coupon_expired, coupon_min_subtotal …); null when it does or none was typed. */
-  couponError: string | null;
+  /**
+   * The typed code does not apply: always the one code `coupon_not_applicable`, whatever the reason (missing, expired, below
+   * its minimum ...), so an anonymous visitor cannot tell existing codes from missing ones. The detailed reasons stay inside a
+   * checkout session (OTP or WhatsApp). null when it applies or none was typed.
+   */
+  couponError: typeof COUPON_NOT_APPLICABLE | null;
   pincode: string | null;
   shipping: EstimateShipping;
   shippingMinor: number;
@@ -44,9 +48,12 @@ export interface CartEstimate {
   totalMinor: number;
 }
 
+/** The one coupon failure an anonymous estimate reports. */
+export const COUPON_NOT_APPLICABLE = 'coupon_not_applicable';
+
 export interface EstimateInput { pincode: string | null; couponCode: string | null; couponTyped: boolean }
 
-/** The optional pincode and coupon of a cart request. A malformed pincode is ignored; a malformed code is "not found". */
+/** The optional pincode and coupon of a cart request. A malformed pincode is ignored; a malformed code does not apply. */
 export function parseEstimateInput(body: Record<string, unknown>): EstimateInput {
   const typed = typeof body.coupon === 'string' && body.coupon.trim() !== '';
   return { pincode: parsePincode(body.pincode), couponCode: typed ? normaliseCouponCode(body.coupon) : null, couponTyped: typed };
@@ -59,13 +66,13 @@ export function parseEstimateInput(body: Record<string, unknown>): EstimateInput
  */
 export function buildEstimate(price: (withCoupon: boolean, withAddress: boolean) => PricingResult,
   input: EstimateInput & { couponFound: boolean; stateOnlyRates: boolean }): CartEstimate | null {
-  let couponError: string | null = input.couponTyped && (!input.couponCode || !input.couponFound) ? 'coupon_not_found' : null;
+  let couponError: typeof COUPON_NOT_APPLICABLE | null = input.couponTyped && (!input.couponCode || !input.couponFound) ? COUPON_NOT_APPLICABLE : null;
   let useCoupon = input.couponFound && couponError === null;
   let useAddress = input.pincode !== null;
   let shipping: EstimateShipping | null = null;
   let result = price(useCoupon, useAddress);
   if (!result.ok && result.code.startsWith('coupon_') && useCoupon) {
-    couponError = result.code;
+    couponError = COUPON_NOT_APPLICABLE;
     useCoupon = false;
     result = price(useCoupon, useAddress);
   }

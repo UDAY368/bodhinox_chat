@@ -1083,8 +1083,10 @@ export async function handleShopCartCode(input: ShopCartCodeInput,
       await tx.$executeRaw`UPDATE shop_cart_codes SET claimed_at=COALESCE(claimed_at, now()), contact_id=${input.contactId}::uuid,
         session_id=${sessionId}::uuid WHERE account_id=${accountId}::uuid AND id=${hit.id}::uuid
           AND (contact_id IS NULL OR contact_id=${input.contactId}::uuid)`;
-      // The shop is published (the code was made on it): the link opens its own themed checkout.
-      return shopCheckoutUrl(scope.row.handle, issued.token);
+      // An open shop: the link opens its own themed checkout. A password or coming-soon shop would show its lock screen to the
+      // buyer's cookieless WhatsApp browser, so it gets the plain /shop/<token> link instead.
+      const access = await loadShopAccessTx(tx, accountId);
+      return access?.mode === 'open' ? shopCheckoutUrl(scope.row.handle, issued.token) : issued.url;
     }, 'inbound');
   } catch (error) {
     // The store closed (checkout off, plan, suspension) since the code was made: ordinary text.

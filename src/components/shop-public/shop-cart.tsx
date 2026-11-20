@@ -250,7 +250,7 @@ export function ShopCart({ shop, buyer = null }: { shop: CartShopInfo; buyer?: C
             </button>
           </div>
           {estimate?.couponError && (
-            <p role="alert" className="text-xs text-red-700">{t(`estimate.couponErrors.${COUPON_ERRORS.has(estimate.couponError) ? estimate.couponError : 'other'}`)}</p>
+            <p role="alert" className="text-xs text-red-700">{t('estimate.couponNotApplicable')}</p>
           )}
         </form>
         <dl className="flex flex-col gap-1 text-sm" aria-live="polite">
@@ -343,8 +343,6 @@ export function ShopCart({ shop, buyer = null }: { shop: CartShopInfo; buyer?: C
     </div>
   );
 }
-
-const COUPON_ERRORS = new Set(['coupon_not_found', 'coupon_inactive', 'coupon_not_started', 'coupon_expired', 'coupon_min_subtotal']);
 
 function EstimateRow({ label, value, strong = false }: { label: string; value: string; strong?: boolean }) {
   return (

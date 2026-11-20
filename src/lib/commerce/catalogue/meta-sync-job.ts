@@ -157,12 +157,12 @@ interface Candidate extends SyncVariant { mirrored: boolean; row: (ItemState & {
 
 async function loadCandidates(tx: TenantTransaction, accountId: string, target: Target, scope: string, productIds: string[]): Promise<Candidate[]> {
   const rows = await tx.$queryRaw<{
-    variant_id: string; product_id: string; slug: string | null; sku: string; name: string; description: string | null; brand: string | null;
+    variant_id: string; product_id: string; sku: string; name: string; description: string | null; brand: string | null;
     option_values: unknown; price: bigint | null; currency: string | null; sellable: boolean; image_id: string | null; image_url: string | null;
     mirrored: boolean; status: MetaSyncStatus | null; catalog_id: string | null; retailer_id: string | null; pushed_hash: string | null;
     in_meta: boolean | null; error_code: string | null; attempts: number | null;
   }[]>`
-    SELECT v.id::text AS variant_id, p.id::text AS product_id, p.slug, v.sku, p.name, p.description, p.brand, v.option_values,
+    SELECT v.id::text AS variant_id, p.id::text AS product_id, v.sku, p.name, p.description, p.brand, v.option_values,
       v.price_minor AS price, st.currency,
       (p.status='published' AND v.archived_at IS NULL AND (NOT v.track_inventory OR COALESCE(l.on_hand - l.reserved, 0) > 0)) AS sellable,
       img.id::text AS image_id, img.url AS image_url,
@@ -183,7 +183,7 @@ async function loadCandidates(tx: TenantTransaction, accountId: string, target: 
       AND ((p.status='published' AND v.archived_at IS NULL) OR (i.in_meta AND i.catalog_id=${target.catalogId}))
     ORDER BY v.id LIMIT ${PLAN_CAP}`;
   return rows.map((r) => ({
-    variant_id: r.variant_id, product_id: r.product_id, slug: r.slug, sku: r.sku, name: r.name, description: r.description, brand: r.brand,
+    variant_id: r.variant_id, product_id: r.product_id, sku: r.sku, name: r.name, description: r.description, brand: r.brand,
     option_values: (r.option_values && typeof r.option_values === 'object' ? r.option_values : {}) as Record<string, string>,
     price_minor: minorFromDb(r.price), currency: r.currency, sellable: r.sellable,
     image: r.image_id ? { id: r.image_id, url: r.image_url } : null,

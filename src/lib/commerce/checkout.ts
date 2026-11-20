@@ -51,6 +51,7 @@ import {
   quoteSessionTx, seededUuid, sendStorefrontText, STOREFRONT_TTL,
 } from './storefront';
 import { deriveStorefrontToken, storefrontUrl } from './storefront-token';
+import { sessionLinkTx, type LinkedSession } from './shop-session-link';
 import { isUuid, loadPricingSettings, StoreError } from './store-settings';
 import { parseBuyerTaxIdentity } from './tax-invoice';
 
@@ -410,11 +411,14 @@ async function cancelLiveLinksTx(tx: TenantTransaction, accountId: string, order
     ON CONFLICT (dedupe_key) DO NOTHING`;
 }
 
-/** The storefront token of the session that placed (or is bound to) an order, or null. */
-async function orderSessionToken(tx: TenantTransaction, accountId: string, orderId: string): Promise<string | null> {
-  const [row] = await tx.$queryRaw<{ id: string; token_epoch: number }[]>`SELECT id::text AS id, token_epoch FROM storefront_sessions
-    WHERE account_id=${accountId}::uuid AND order_id=${orderId}::uuid AND purpose<>'status' AND revoked_at IS NULL LIMIT 1`;
-  return row ? deriveStorefrontToken(row.id, row.token_epoch) : null;
+/**
+ * Where Razorpay returns the buyer of the session that placed (or is bound to) an order, or null: the public shop's
+ * themed done page for a shop session of an open, published shop, else /shop/<token>/done (shop-session-link.ts).
+ */
+async function orderReturnUrl(tx: TenantTransaction, accountId: string, orderId: string): Promise<string | null> {
+  const [row] = await tx.$queryRaw<LinkedSession[]>`SELECT id::text AS id, token_epoch, purpose, is_quote, created_by::text AS created_by
+    FROM storefront_sessions WHERE account_id=${accountId}::uuid AND order_id=${orderId}::uuid AND purpose<>'status' AND revoked_at IS NULL LIMIT 1`;
+  return row ? sessionLinkTx(tx, accountId, row, 'done') : null;
 }
 
 /**
@@ -435,11 +439,11 @@ export async function createCheckoutLinkJob(accountId: string, payload: Checkout
     if (!order || order.status !== 'awaiting_payment' || order.checkout_attempt !== payload.attempt || !order.priced_at) return null;
     const due = (minorFromDb(order.total_minor) ?? 0) - (minorFromDb(order.amount_paid_minor) ?? 0);
     if (due <= 0) return null;
-    const token = await orderSessionToken(tx, accountId, order.id);
+    const callbackUrl = await orderReturnUrl(tx, accountId, order.id);
     const holdEnd = order.reservation_expires_at?.getTime() ?? 0;
     return {
       order, due, expireBy: new Date(Math.max(holdEnd, Date.now() + MIN_LINK_MINUTES * 60_000)),
-      callbackUrl: token ? `${storefrontUrl(token)}/done` : null,
+      callbackUrl,
     };
   });
   if (!plan) return;

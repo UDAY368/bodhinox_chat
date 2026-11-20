@@ -299,6 +299,21 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('public shop on PostgreSQL',
       .toMatchObject({ handled: false, outcome: 'code_unknown' });
   });
 
+  it('sends the plain /shop/<token> link, not the themed checkout, when the shop is behind a password', async () => {
+    const res = await waOrder(req({ cart: [{ variantId: variant, qty: 1 }] }), at(handle));
+    const { code } = await res.json();
+    await db.query("UPDATE shop_storefronts SET access_mode='password' WHERE account_id=$1", [account]);
+    try {
+      expect(await handleShopCartCode({ accountId: account, contactId: buyer, conversationId: conversation, whatsappConfigId: number, code }))
+        .toEqual({ handled: true, outcome: 'sent' });
+      const text = String((sendText.mock.calls[0][0] as { text: string }).text);
+      expect(text).toMatch(/\/shop\/[A-Za-z0-9_-]{43}/);
+      expect(text).not.toContain(`/s/${handle}/`);
+    } finally {
+      await db.query("UPDATE shop_storefronts SET access_mode='open' WHERE account_id=$1", [account]);
+    }
+  });
+
   it('keeps one-time codes away from browser sessions and settings writes to admins', async () => {
     // The app role (a staff browser session) has no access to one-time code challenges at all.
     await expect(withTenant({ accountId: account, userId: owner, role: 'owner' }, (tx) =>

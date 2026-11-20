@@ -19057,14 +19057,7 @@
       "total": "Estimated total",
       "note": "An estimate. Shipping and tax are confirmed at the address step, and coupon limits per buyer are checked at checkout.",
       "checkout": "Checkout",
-      "couponErrors": {
-        "coupon_not_found": "That coupon code is not valid.",
-        "coupon_inactive": "That coupon is not active.",
-        "coupon_not_started": "That coupon has not started yet.",
-        "coupon_expired": "That coupon has expired.",
-        "coupon_min_subtotal": "Add more to your bag to use that coupon.",
-        "other": "That coupon cannot be used."
-      }
+      "couponNotApplicable": "That coupon cannot be used on this bag."
     },
     "buy": {
       "share": "Share",

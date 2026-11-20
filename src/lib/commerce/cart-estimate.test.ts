@@ -41,8 +41,8 @@ describe('cart page estimate', () => {
     expect(fits).toMatchObject({ couponCode: 'SAVE10', couponMinor: 10000, couponError: null, totalMinor: 90000 });
     const expired = buildEstimate((coupon) => (coupon ? { ok: false, code: 'coupon_expired' } : quote({})),
       { ...base, couponCode: 'OLD', couponTyped: true, couponFound: true });
-    expect(expired).toMatchObject({ couponCode: null, couponMinor: 0, couponError: 'coupon_expired', totalMinor: 100000 });
-    expect(buildEstimate(() => quote({}), { ...base, couponCode: 'NOPE', couponTyped: true })).toMatchObject({ couponError: 'coupon_not_found' });
+    expect(expired).toMatchObject({ couponCode: null, couponMinor: 0, couponError: 'coupon_not_applicable', totalMinor: 100000 });
+    expect(buildEstimate(() => quote({}), { ...base, couponCode: 'NOPE', couponTyped: true })).toMatchObject({ couponError: 'coupon_not_applicable' });
   });
 
   it('needs no shipping for downloads, and gives up when the cart cannot be priced', () => {

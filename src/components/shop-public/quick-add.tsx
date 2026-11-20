@@ -9,8 +9,11 @@ import { addToCart } from './cart-store';
  * in the browser cart (names and prices still come from the server at the
  * cart). Shown only for an in-stock product without options to choose.
  */
-export function QuickAdd({ handle, variantId, label, addedLabel, round = false }: {
-  handle: string; variantId: string; label: string; addedLabel: string; round?: boolean;
+export function QuickAdd({ handle, variantId, available, label, addedLabel, round = false }: {
+  handle: string; variantId: string;
+  /** Stock left for the variant (null = not tracked): the cart never holds more, as on the product page. */
+  available: number | null;
+  label: string; addedLabel: string; round?: boolean;
 }) {
   const [added, setAdded] = useState(false);
   useEffect(() => {
@@ -20,7 +23,7 @@ export function QuickAdd({ handle, variantId, label, addedLabel, round = false }
   }, [added]);
   const Icon = added ? Check : Plus;
   return (
-    <button type="button" onClick={() => { addToCart(handle, variantId, 1); setAdded(true); }}
+    <button type="button" onClick={() => { addToCart(handle, variantId, 1, available); setAdded(true); }}
       aria-label={added ? addedLabel : label}
       className={round
         ? 'grid size-11 shrink-0 place-items-center rounded-full bg-[var(--shop-primary)] text-[var(--shop-on-primary)]'

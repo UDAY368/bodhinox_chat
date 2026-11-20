@@ -16,6 +16,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties }
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 import { shopApi, type StorefrontProduct, type StorefrontView } from '@/components/storefront/api';
+import { CheckoutDone } from '@/components/storefront/checkout-done';
 import { CheckoutLoadState, CheckoutPanel, useCheckoutSession } from '@/components/storefront/checkout-panel';
 import { readCart, writeCart } from './cart-store';
 import { forgetCheckout, rememberCheckout, takeCarry, takeReplaceCart } from './checkout-store';
@@ -29,6 +30,15 @@ const THEMED = {
   '--border': 'color-mix(in srgb, var(--shop-text) 14%, transparent)', '--input': 'color-mix(in srgb, var(--shop-text) 18%, transparent)',
   '--radius': 'var(--shop-radius)',
 } as CSSProperties;
+
+/** Where Razorpay returns a buyer of the public shop (/s/<handle>/checkout/<token>/done): the order's status, in the shop's theme. */
+export function ShopCheckoutDone({ handle, token }: { handle: string; token: string }) {
+  return (
+    <div style={THEMED} className="mx-auto flex w-full max-w-2xl flex-col gap-6 text-[var(--shop-text)]">
+      <CheckoutDone token={token} backHref={`/s/${handle}/checkout/${encodeURIComponent(token)}`} />
+    </div>
+  );
+}
 
 export function ShopCheckout({ handle, token }: { handle: string; token: string }) {
   const t = useTranslations('ShopPublic.checkout');

@@ -112,7 +112,15 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('themed checkout and cart es
 
     // A pincode no rate reaches, and another shop's coupon, are reported; the cart is still totalled.
     const far = await (await previewCart(req({ lines: [{ variantId: loose, qty: 1 }], pincode: '110001', coupon: 'BONLY' }), at(handleA))).json();
-    expect(far.estimate).toMatchObject({ shipping: 'unavailable', couponCode: null, couponError: 'coupon_not_found', totalMinor: 100000 });
+    expect(far.estimate).toMatchObject({ shipping: 'unavailable', couponCode: null, couponError: 'coupon_not_applicable', totalMinor: 100000 });
+    // An existing code that does not apply (expired, below its minimum) answers exactly like a missing one: no anonymous probing.
+    await db.query(`INSERT INTO coupons(account_id,code,kind,value,ends_at) VALUES($1,'OLD5','percent',500,now()-interval '1 day'),
+      ($1,'BIG5','percent',500,NULL)`, [A]);
+    await db.query("UPDATE coupons SET min_subtotal_minor=99999999 WHERE account_id=$1 AND code='BIG5'", [A]);
+    for (const coupon of ['OLD5', 'BIG5', 'NOSUCH']) {
+      const probe = await (await previewCart(req({ lines: [{ variantId: loose, qty: 1 }], coupon }), at(handleA))).json();
+      expect(probe.estimate).toMatchObject({ couponCode: null, couponMinor: 0, couponError: 'coupon_not_applicable' });
+    }
     // Without a pincode, shipping waits for it.
     const plain = await (await previewCart(req({ lines: [{ variantId: loose, qty: 1 }] }), at(handleA))).json();
     expect(plain.estimate).toMatchObject({ shipping: 'needs_pincode', shippingMinor: 0, couponError: null });

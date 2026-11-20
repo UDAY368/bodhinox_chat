@@ -32,7 +32,7 @@ import {
   consentRefusal, followupBodyValues, loadTemplate, noticeTemplate, NOTICE_TEMPLATE_CATEGORY, orderTemplateOutcome, worker, type TemplateRow,
 } from './order-followup';
 import { CART_CODE, codeLimitReached, countMiss } from './public-shop';
-import { productPath } from './shop-paths';
+import { PUBLIC_SHOP_PATH } from './shop-templates';
 import { BACK_IN_STOCK_BATCH, BACK_IN_STOCK_JOB, queueBackInStockTx, STOCK_ALERT_CLAIM_DAYS } from './stock-alerts';
 import { linkMessageText, sendStorefrontText } from './storefront';
 import { StoreError } from './store-settings';
@@ -136,7 +136,7 @@ export interface BackInStockJobPayload {
   afterId?: string;
 }
 
-interface VariantFacts { productId: string; slug: string | null; productName: string; options: Record<string, string>; handle: string }
+interface VariantFacts { productId: string; productName: string; options: Record<string, string>; handle: string }
 
 type AlertPlan =
   | { kind: 'close'; reason: string }
@@ -151,13 +151,13 @@ const optionText = (options: Record<string, string>) => Object.values(options).f
 /** The variant's product, when the shop can sell it right now and a published shop links to it; else null. */
 function loadSellable(accountId: string, variantId: string): Promise<VariantFacts | null> {
   return worker(accountId, async (tx) => {
-    const [row] = await tx.$queryRaw<{ product_id: string; slug: string | null; name: string; option_values: Record<string, string> | null; handle: string }[]>`
-      SELECT p.id::text AS product_id, p.slug, p.name, v.option_values, s.handle
+    const [row] = await tx.$queryRaw<{ product_id: string; name: string; option_values: Record<string, string> | null; handle: string }[]>`
+      SELECT p.id::text AS product_id, p.name, v.option_values, s.handle
       FROM shop_variants v JOIN shop_products p ON p.account_id=v.account_id AND p.id=v.product_id
       JOIN shop_storefronts s ON s.account_id=v.account_id AND s.published
       WHERE v.account_id=${accountId}::uuid AND v.id=${variantId}::uuid AND shop_product_live(p.status, p.publish_at, p.hide_at)
         AND v.archived_at IS NULL AND v.price_minor IS NOT NULL AND COALESCE(shop_variant_availability(v.account_id, v.id), 1) > 0`;
-    return row ? { productId: row.product_id, slug: row.slug, productName: row.name, options: row.option_values ?? {}, handle: row.handle } : null;
+    return row ? { productId: row.product_id, productName: row.name, options: row.option_values ?? {}, handle: row.handle } : null;
   });
 }
 
@@ -195,7 +195,8 @@ function planAlert(accountId: string, alert: AlertRow, facts: VariantFacts, now:
 
     const options = optionText(facts.options);
     const name = options ? `${facts.productName} (${options})` : facts.productName;
-    const url = `${appOrigin()}${productPath(facts.handle, { id: facts.productId, slug: facts.slug })}`;
+    // A long-lived link: the id address on purpose, which 308s to the product's current slug.
+    const url = `${appOrigin()}${PUBLIC_SHOP_PATH}${facts.handle}/p/${facts.productId}`;
     if (windowOpen(conversation, now))
       return { kind: 'send', contactId: contact.id, conversationId: conversation.id, template: null, values: [],
         text: linkMessageText(getT('ShopPublic.stockAlert')('back', { product: name }), url) };

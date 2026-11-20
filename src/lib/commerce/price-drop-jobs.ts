@@ -31,17 +31,17 @@ import {
   type TemplateRow,
 } from './order-followup';
 import { dropStillHolds, inCooldown, isNudgeWorthyDrop, PRICE_DROP_BATCH, PRICE_DROP_JOB, priceNudgeIntentKey, type PriceDropPayload } from './price-drops';
-import { productPath } from './shop-paths';
+import { PUBLIC_SHOP_PATH } from './shop-templates';
 import { linkMessageText } from './storefront';
 
-interface Facts { productId: string; slug: string | null; name: string; handle: string; currency: string; priceMinor: number }
+interface Facts { productId: string; name: string; handle: string; currency: string; priceMinor: number }
 
 /** The variant, when the shop can sell it now and a published shop links to it; else null. */
 function loadFacts(accountId: string, variantId: string): Promise<Facts | null> {
   return worker(accountId, async (tx) => {
-    const [row] = await tx.$queryRaw<{ product_id: string; slug: string | null; name: string; option_values: Record<string, string> | null; handle: string;
+    const [row] = await tx.$queryRaw<{ product_id: string; name: string; option_values: Record<string, string> | null; handle: string;
       currency: string | null; price_minor: bigint }[]>`
-      SELECT p.id::text AS product_id, p.slug, p.name, v.option_values, s.handle, c.currency, v.price_minor
+      SELECT p.id::text AS product_id, p.name, v.option_values, s.handle, c.currency, v.price_minor
       FROM shop_variants v JOIN shop_products p ON p.account_id=v.account_id AND p.id=v.product_id
       JOIN shop_storefronts s ON s.account_id=v.account_id AND s.published
       JOIN commerce_settings c ON c.account_id=v.account_id
@@ -50,7 +50,7 @@ function loadFacts(accountId: string, variantId: string): Promise<Facts | null> 
         AND NOT p.is_digital`;
     if (!row || !row.currency) return null;
     const options = Object.values(row.option_values ?? {}).filter(Boolean).join(', ');
-    return { productId: row.product_id, slug: row.slug, name: options ? `${row.name} (${options})` : row.name, handle: row.handle, currency: row.currency, priceMinor: Number(row.price_minor) };
+    return { productId: row.product_id, name: options ? `${row.name} (${options})` : row.name, handle: row.handle, currency: row.currency, priceMinor: Number(row.price_minor) };
   });
 }
 
@@ -95,7 +95,8 @@ function plan(accountId: string, dropId: string, contactId: string, variantId: s
       throw error;
     }
     if (isNumberDisconnected(config)) return { kind: 'close', reason: 'number_unavailable' };
-    const url = `${appOrigin()}${productPath(facts.handle, { id: facts.productId, slug: facts.slug })}`;
+    // A long-lived link: the id address on purpose, which 308s to the product's current slug.
+    const url = `${appOrigin()}${PUBLIC_SHOP_PATH}${facts.handle}/p/${facts.productId}`;
     const priceNow = priceText(facts.priceMinor, facts.currency);
     if (windowOpen(conversation, now))
       return { kind: 'send', contactId: contact.id, conversationId: conversation.id, template: null, values: [],

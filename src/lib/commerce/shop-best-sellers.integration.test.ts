@@ -91,8 +91,8 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('best sellers and recently v
   it('ranks by real sales in the window, ignoring cancelled, unconfirmed, old, unpublished and foreign orders', async () => {
     expect(await inShopTenant(account, (tx) => loadBestSellerIds(tx, account, 12, 30))).toEqual([ids.b, ids.a, ids.c]);
     expect(await inShopTenant(account, (tx) => loadBestSellerIds(tx, account, 2, 30))).toEqual([ids.b, ids.a]);
-    // A longer window counts the older sale of d.
-    expect(await inShopTenant(account, (tx) => loadBestSellerIds(tx, account, 12, 90))).toEqual([ids.b, ids.a, ids.c, ids.d]);
+    // A longer window counts the older sale of d; d and c then tie on one sale each and go by name (Delta before Gamma), then id.
+    expect(await inShopTenant(account, (tx) => loadBestSellerIds(tx, account, 12, 90))).toEqual([ids.b, ids.a, ids.d, ids.c]);
     // The other workspace sees only its own sales, never this shop's.
     expect(await inShopTenant(other, (tx) => loadBestSellerIds(tx, other, 12, 30))).toEqual([ids.foreign]);
   });
