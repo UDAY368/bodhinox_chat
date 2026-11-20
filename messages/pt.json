@@ -2561,7 +2561,8 @@
         "send_webhook": "Enviar webhook",
         "close_conversation": "Resolver conversa",
         "notify_team": "Avisar a equipe",
-        "start_flow": "Iniciar um fluxo"
+        "start_flow": "Iniciar um fluxo",
+        "move_deal_stage": "Mover etapa do negócio"
       },
       "triggers": {
         "new_message_received": {
@@ -2627,6 +2628,42 @@
         "field_changed": {
           "label": "Campo alterado",
           "hint": "Quando um campo do contato muda"
+        },
+        "order_created": {
+          "label": "Pedido criado",
+          "hint": "Um novo pedido é feito"
+        },
+        "order_paid": {
+          "label": "Pedido pago",
+          "hint": "Um pedido é pago"
+        },
+        "order_shipped": {
+          "label": "Pedido enviado",
+          "hint": "Um pedido é despachado"
+        },
+        "order_delivered": {
+          "label": "Pedido entregue",
+          "hint": "Um pedido é entregue"
+        },
+        "order_returned": {
+          "label": "Pedido devolvido",
+          "hint": "A devolução de um pedido é recebida"
+        },
+        "payment_received": {
+          "label": "Pagamento recebido",
+          "hint": "Um pagamento do cliente é capturado"
+        },
+        "form_submitted": {
+          "label": "Formulário enviado",
+          "hint": "Um cliente envia um formulário do WhatsApp"
+        },
+        "deal_stage_changed": {
+          "label": "Etapa do negócio alterada",
+          "hint": "Um negócio muda de etapa"
+        },
+        "cart_abandoned": {
+          "label": "Carrinho abandonado",
+          "hint": "Um cliente deixa um carrinho sem pedir"
         }
       },
       "trigger": "Gatilho",
@@ -2751,7 +2788,19 @@
         "notifyTextLabel": "Texto do aviso",
         "notifyTextPlaceholder": "Novo lead de {name}",
         "notifyTextHint": "Aviso no app, com até 200 caracteres. Você pode usar {contact} e {automation}; o conteúdo das mensagens nunca é incluído.",
-        "bodyTemplateHint": "JSON. Os marcadores são preenchidos com segurança dentro de textos entre aspas, por exemplo {example}."
+        "bodyTemplateHint": "JSON. Os marcadores são preenchidos com segurança dentro de textos entre aspas, por exemplo {example}.",
+        "dealStatusLabel": "Depois marcar o negócio",
+        "dealStatusOpen": "Manter aberto",
+        "dealStatusWon": "Ganho",
+        "dealStatusLost": "Perdido",
+        "moveDealHint": "Move o negócio aberto mais recente do contato neste funil. Uma regra iniciada pela própria mudança desse negócio nunca o move de novo.",
+        "methodLabel": "Método",
+        "mappingsLabel": "Guardar valores da resposta",
+        "mappingPath": "Campo da resposta (ex.: data.id)",
+        "mappingVar": "Nome da variável",
+        "mappingRemove": "Remover",
+        "mappingAdd": "Adicionar valor",
+        "mappingsHint": "Use-os nas etapas seguintes como {example}."
       },
       "preview": {
         "noText": "sem texto ainda",
@@ -2817,6 +2866,26 @@
       "basics": "Básicos",
       "sequences": "Sequências",
       "templates": "Modelos"
+    },
+    "eventTriggers": {
+      "help": "Opcional: deixe um filtro em Qualquer para executar em todo evento.",
+      "source": "Origem do pedido",
+      "anySource": "Qualquer origem",
+      "form": "Formulário",
+      "anyForm": "Qualquer formulário",
+      "pipeline": "Funil",
+      "anyPipeline": "Qualquer funil",
+      "stage": "Movido para a etapa",
+      "anyStage": "Qualquer etapa",
+      "missing": "Não encontrado",
+      "vars": "Valores que você pode usar nas mensagens",
+      "sources": {
+        "whatsapp": "WhatsApp",
+        "shopify": "Shopify",
+        "woocommerce": "WooCommerce",
+        "manual": "Manual",
+        "storefront": "Loja"
+      }
     }
   },
   "Flows": {
@@ -2907,7 +2976,23 @@
       "chooseChannel": "Canal da nova automação",
       "triggerContactCreated": "Dispara com: a primeira mensagem de um novo contato",
       "triggerTagAdded": "Dispara com: uma tag é adicionada",
-      "triggerOutsideHours": "Dispara com: uma mensagem fora do horário de atendimento"
+      "triggerOutsideHours": "Dispara com: uma mensagem fora do horário de atendimento",
+      "triggerEvents": {
+        "order_created": "Pedido criado",
+        "order_paid": "Pedido pago",
+        "order_shipped": "Pedido enviado",
+        "order_delivered": "Pedido entregue",
+        "order_returned": "Pedido devolvido",
+        "payment_received": "Pagamento recebido",
+        "form_submitted": "Formulário enviado",
+        "deal_stage_changed": "Etapa do negócio alterada",
+        "cart_abandoned": "Carrinho abandonado",
+        "appointment_booked": "Agendamento criado",
+        "appointment_cancelled": "Agendamento cancelado",
+        "appointment_rescheduled": "Agendamento remarcado",
+        "appointment_completed": "Agendamento concluído",
+        "appointment_no_show": "Não comparecimento"
+      }
     },
     "edit": {
       "notFound": "Fluxo não encontrado.",
@@ -3594,7 +3679,21 @@
       },
       "triggerContactCreatedTitle": "Um novo contato é criado",
       "triggerTagAddedTitle": "Uma tag é adicionada",
-      "triggerOutsideHoursTitle": "Mensagem fora do horário de atendimento"
+      "triggerOutsideHoursTitle": "Mensagem fora do horário de atendimento",
+      "triggerOrderCreatedTitle": "Pedido criado",
+      "triggerOrderPaidTitle": "Pedido pago",
+      "triggerOrderShippedTitle": "Pedido enviado",
+      "triggerOrderDeliveredTitle": "Pedido entregue",
+      "triggerOrderReturnedTitle": "Pedido devolvido",
+      "triggerPaymentReceivedTitle": "Pagamento recebido",
+      "triggerFormSubmittedTitle": "Formulário enviado",
+      "triggerDealStageChangedTitle": "Etapa do negócio alterada",
+      "triggerCartAbandonedTitle": "Carrinho abandonado",
+      "triggerAppointmentBookedTitle": "Agendamento criado",
+      "triggerAppointmentCancelledTitle": "Agendamento cancelado",
+      "triggerAppointmentRescheduledTitle": "Agendamento remarcado",
+      "triggerAppointmentCompletedTitle": "Agendamento concluído",
+      "triggerAppointmentNoShowTitle": "Não comparecimento"
     },
     "validation": {
       "noIssues": "Nenhum problema. Pronto para ativar.",
@@ -4117,7 +4216,9 @@
           "resume_automations": "Retomar automações",
           "log_conversion": "Registrar evento de conversão",
           "set_conversation_status": "Marcar conversa como aberta ou resolvida",
-          "notify_team": "Avisar a equipe"
+          "notify_team": "Avisar a equipe",
+          "create_deal": "Criar negócio",
+          "move_deal_stage": "Mover etapa do negócio"
         },
         "increment": "Somar ao número",
         "set": "Definir como",
@@ -4130,7 +4231,19 @@
         "note": "Nota para a equipe",
         "selfFlow": "Uma automação não pode iniciar nem parar a si mesma.",
         "invalid": "Conclua as configurações desta ação.",
-        "onSuccess": "Depois de uma resposta válida, faça também isto"
+        "onSuccess": "Depois de uma resposta válida, faça também isto",
+        "pipeline": "Funil",
+        "stage": "Etapa",
+        "dealTitle": "Título do negócio",
+        "dealValue": "Valor",
+        "createDealHelp": "Ignorado quando o contato já tem um negócio aberto neste funil.",
+        "dealStatus": "Depois marcar o negócio",
+        "dealKeepOpen": "Manter aberto",
+        "dealWon": "Ganho",
+        "dealLost": "Perdido",
+        "moveDealHelp": "Move o negócio aberto mais recente do contato neste funil. Um fluxo iniciado pela própria mudança desse negócio nunca o move de novo.",
+        "dealNeedsStage": "Escolha um funil e uma etapa",
+        "dealNeedsTitle": "Dê um título ao negócio (no máximo 200 caracteres)"
       },
       "randomizer": {
         "title": "Dividir o tráfego",
@@ -4412,7 +4525,21 @@
         "ig_share_to_story": "Compartilhar no story",
         "contact_created": "Novo contato",
         "tag_added": "Tag adicionada",
-        "outside_hours": "Fora do horário"
+        "outside_hours": "Fora do horário",
+        "order_created": "Pedido criado",
+        "order_paid": "Pedido pago",
+        "order_shipped": "Pedido enviado",
+        "order_delivered": "Pedido entregue",
+        "order_returned": "Pedido devolvido",
+        "payment_received": "Pagamento recebido",
+        "form_submitted": "Formulário enviado",
+        "deal_stage_changed": "Etapa do negócio alterada",
+        "cart_abandoned": "Carrinho abandonado",
+        "appointment_booked": "Agendamento criado",
+        "appointment_cancelled": "Agendamento cancelado",
+        "appointment_rescheduled": "Agendamento remarcado",
+        "appointment_completed": "Agendamento concluído",
+        "appointment_no_show": "Não comparecimento"
       }
     },
     "canvas": {
@@ -7924,7 +8051,8 @@
       "stage5Pending": "Esta etapa ou configuração ainda não está disponível. Remova-a para publicar o fluxo.",
       "triggerTagRequired": "Escolha a tag que inicia este fluxo.",
       "triggerBadFrequency": "Escolha com que frequência isso pode começar para a mesma pessoa.",
-      "appointmentPaidNotReady": "{count, plural, one {A picked service takes} other {# picked services take}} payment, and online payments are not set up. Turn on the store and connect Razorpay, or untick {count, plural, one {it} other {them}}."
+      "appointmentPaidNotReady": "{count, plural, one {A picked service takes} other {# picked services take}} payment, and online payments are not set up. Turn on the store and connect Razorpay, or untick {count, plural, one {it} other {them}}.",
+      "triggerEventFilterInvalid": "Escolha um filtro válido ou deixe em Qualquer"
     },
     "automations": {
       "needsStep": "automações ativas precisam de pelo menos uma etapa",
@@ -7970,7 +8098,11 @@
       "webhookUrlNotAllowed": "A URL do webhook aponta para um endereço privado ou reservado. Use um endereço público.",
       "oncePerContactInvalid": "Uma vez por contato deve estar ligado ou desligado.",
       "segmentUnavailable": "O segmento escolhido não está disponível neste espaço de trabalho.",
-      "stage5Pending": "Este gatilho ou etapa ainda não está disponível. Escolha outro para ativar a automação."
+      "stage5Pending": "Este gatilho ou etapa ainda não está disponível. Escolha outro para ativar a automação.",
+      "eventFilterInvalid": "Escolha um filtro válido ou deixe em Qualquer",
+      "dealStatusInvalid": "Escolha ganho, perdido ou manter o negócio aberto",
+      "webhookMethodInvalid": "Escolha GET, POST, PUT, PATCH ou DELETE",
+      "webhookMappingsInvalid": "Cada valor guardado precisa de um campo da resposta e um nome de variável (letras, dígitos, _), no máximo {max}"
     },
     "templates": {
       "nameRequired": "O nome do modelo é obrigatório.",

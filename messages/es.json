@@ -2561,7 +2561,8 @@
         "send_webhook": "Enviar webhook",
         "close_conversation": "Resolver conversación",
         "notify_team": "Avisar al equipo",
-        "start_flow": "Iniciar un flujo"
+        "start_flow": "Iniciar un flujo",
+        "move_deal_stage": "Mover etapa del trato"
       },
       "triggers": {
         "new_message_received": {
@@ -2627,6 +2628,42 @@
         "field_changed": {
           "label": "Campo cambiado",
           "hint": "Cuando cambia un campo del contacto"
+        },
+        "order_created": {
+          "label": "Pedido creado",
+          "hint": "Se crea un pedido nuevo"
+        },
+        "order_paid": {
+          "label": "Pedido pagado",
+          "hint": "Se paga un pedido"
+        },
+        "order_shipped": {
+          "label": "Pedido enviado",
+          "hint": "Se despacha un pedido"
+        },
+        "order_delivered": {
+          "label": "Pedido entregado",
+          "hint": "Se entrega un pedido"
+        },
+        "order_returned": {
+          "label": "Pedido devuelto",
+          "hint": "Se recibe la devolución de un pedido"
+        },
+        "payment_received": {
+          "label": "Pago recibido",
+          "hint": "Se cobra un pago del cliente"
+        },
+        "form_submitted": {
+          "label": "Formulario enviado",
+          "hint": "Un cliente envía un formulario de WhatsApp"
+        },
+        "deal_stage_changed": {
+          "label": "Etapa del trato cambiada",
+          "hint": "Un trato pasa a otra etapa"
+        },
+        "cart_abandoned": {
+          "label": "Carrito abandonado",
+          "hint": "Un cliente deja un carrito sin pedir"
         }
       },
       "trigger": "Disparador",
@@ -2751,7 +2788,19 @@
         "notifyTextLabel": "Texto del aviso",
         "notifyTextPlaceholder": "Nuevo cliente potencial de {name}",
         "notifyTextHint": "Aviso dentro de la app, hasta 200 caracteres. Puedes usar {contact} y {automation}; nunca incluye el contenido de los mensajes.",
-        "bodyTemplateHint": "JSON. Los marcadores se completan de forma segura dentro de cadenas entre comillas, por ejemplo {example}."
+        "bodyTemplateHint": "JSON. Los marcadores se completan de forma segura dentro de cadenas entre comillas, por ejemplo {example}.",
+        "dealStatusLabel": "Después marcar el trato",
+        "dealStatusOpen": "Dejarlo abierto",
+        "dealStatusWon": "Ganado",
+        "dealStatusLost": "Perdido",
+        "moveDealHint": "Mueve el trato abierto más reciente del contacto en este embudo. Una regla iniciada por el propio movimiento de ese trato nunca lo vuelve a mover.",
+        "methodLabel": "Método",
+        "mappingsLabel": "Guardar valores de la respuesta",
+        "mappingPath": "Campo de la respuesta (p. ej. data.id)",
+        "mappingVar": "Nombre de la variable",
+        "mappingRemove": "Quitar",
+        "mappingAdd": "Añadir valor",
+        "mappingsHint": "Úsalos en los pasos siguientes como {example}."
       },
       "preview": {
         "noText": "sin texto aún",
@@ -2817,6 +2866,26 @@
       "basics": "Básicos",
       "sequences": "Secuencias",
       "templates": "Plantillas"
+    },
+    "eventTriggers": {
+      "help": "Opcional: deja un filtro en Cualquiera para que se ejecute con cada evento.",
+      "source": "Origen del pedido",
+      "anySource": "Cualquier origen",
+      "form": "Formulario",
+      "anyForm": "Cualquier formulario",
+      "pipeline": "Embudo",
+      "anyPipeline": "Cualquier embudo",
+      "stage": "Movido a la etapa",
+      "anyStage": "Cualquier etapa",
+      "missing": "No encontrado",
+      "vars": "Valores que puedes usar en los mensajes",
+      "sources": {
+        "whatsapp": "WhatsApp",
+        "shopify": "Shopify",
+        "woocommerce": "WooCommerce",
+        "manual": "Manual",
+        "storefront": "Tienda"
+      }
     }
   },
   "Flows": {
@@ -2907,7 +2976,23 @@
       "chooseChannel": "Canal de la nueva automatización",
       "triggerContactCreated": "Se activa con: el primer mensaje de un contacto nuevo",
       "triggerTagAdded": "Se activa con: se agrega una etiqueta",
-      "triggerOutsideHours": "Se activa con: un mensaje fuera del horario laboral"
+      "triggerOutsideHours": "Se activa con: un mensaje fuera del horario laboral",
+      "triggerEvents": {
+        "order_created": "Pedido creado",
+        "order_paid": "Pedido pagado",
+        "order_shipped": "Pedido enviado",
+        "order_delivered": "Pedido entregado",
+        "order_returned": "Pedido devuelto",
+        "payment_received": "Pago recibido",
+        "form_submitted": "Formulario enviado",
+        "deal_stage_changed": "Etapa del trato cambiada",
+        "cart_abandoned": "Carrito abandonado",
+        "appointment_booked": "Cita reservada",
+        "appointment_cancelled": "Cita cancelada",
+        "appointment_rescheduled": "Cita reprogramada",
+        "appointment_completed": "Cita completada",
+        "appointment_no_show": "Cita no presentada"
+      }
     },
     "edit": {
       "notFound": "Flujo no encontrado.",
@@ -3594,7 +3679,21 @@
       },
       "triggerContactCreatedTitle": "Se crea un contacto nuevo",
       "triggerTagAddedTitle": "Se agrega una etiqueta",
-      "triggerOutsideHoursTitle": "Mensaje fuera del horario laboral"
+      "triggerOutsideHoursTitle": "Mensaje fuera del horario laboral",
+      "triggerOrderCreatedTitle": "Pedido creado",
+      "triggerOrderPaidTitle": "Pedido pagado",
+      "triggerOrderShippedTitle": "Pedido enviado",
+      "triggerOrderDeliveredTitle": "Pedido entregado",
+      "triggerOrderReturnedTitle": "Pedido devuelto",
+      "triggerPaymentReceivedTitle": "Pago recibido",
+      "triggerFormSubmittedTitle": "Formulario enviado",
+      "triggerDealStageChangedTitle": "Etapa del trato cambiada",
+      "triggerCartAbandonedTitle": "Carrito abandonado",
+      "triggerAppointmentBookedTitle": "Cita reservada",
+      "triggerAppointmentCancelledTitle": "Cita cancelada",
+      "triggerAppointmentRescheduledTitle": "Cita reprogramada",
+      "triggerAppointmentCompletedTitle": "Cita completada",
+      "triggerAppointmentNoShowTitle": "Cita no presentada"
     },
     "validation": {
       "noIssues": "Sin problemas. Listo para activar.",
@@ -4117,7 +4216,9 @@
           "resume_automations": "Reanudar automatizaciones",
           "log_conversion": "Registrar evento de conversión",
           "set_conversation_status": "Marcar conversación abierta o resuelta",
-          "notify_team": "Avisar al equipo"
+          "notify_team": "Avisar al equipo",
+          "create_deal": "Crear trato",
+          "move_deal_stage": "Mover etapa del trato"
         },
         "increment": "Sumar al número",
         "set": "Definir como",
@@ -4130,7 +4231,19 @@
         "note": "Nota para el equipo",
         "selfFlow": "Una automatización no puede iniciarse ni detenerse a sí misma.",
         "invalid": "Completa la configuración de esta acción.",
-        "onSuccess": "Tras una respuesta válida, haz también esto"
+        "onSuccess": "Tras una respuesta válida, haz también esto",
+        "pipeline": "Embudo",
+        "stage": "Etapa",
+        "dealTitle": "Título del trato",
+        "dealValue": "Valor",
+        "createDealHelp": "Se omite si el contacto ya tiene un trato abierto en este embudo.",
+        "dealStatus": "Después marcar el trato",
+        "dealKeepOpen": "Dejarlo abierto",
+        "dealWon": "Ganado",
+        "dealLost": "Perdido",
+        "moveDealHelp": "Mueve el trato abierto más reciente del contacto en este embudo. Un flujo iniciado por el propio movimiento de ese trato nunca lo vuelve a mover.",
+        "dealNeedsStage": "Elige un embudo y una etapa",
+        "dealNeedsTitle": "Ponle un título al trato (máximo 200 caracteres)"
       },
       "randomizer": {
         "title": "Repartir el tráfico",
@@ -4412,7 +4525,21 @@
         "ig_share_to_story": "Compartir en historia",
         "contact_created": "Contacto nuevo",
         "tag_added": "Etiqueta agregada",
-        "outside_hours": "Fuera de horario"
+        "outside_hours": "Fuera de horario",
+        "order_created": "Pedido creado",
+        "order_paid": "Pedido pagado",
+        "order_shipped": "Pedido enviado",
+        "order_delivered": "Pedido entregado",
+        "order_returned": "Pedido devuelto",
+        "payment_received": "Pago recibido",
+        "form_submitted": "Formulario enviado",
+        "deal_stage_changed": "Etapa del trato cambiada",
+        "cart_abandoned": "Carrito abandonado",
+        "appointment_booked": "Cita reservada",
+        "appointment_cancelled": "Cita cancelada",
+        "appointment_rescheduled": "Cita reprogramada",
+        "appointment_completed": "Cita completada",
+        "appointment_no_show": "Cita no presentada"
       }
     },
     "canvas": {
@@ -7924,7 +8051,8 @@
       "stage5Pending": "Este paso o ajuste aún no está disponible. Quítalo para publicar el flujo.",
       "triggerTagRequired": "Elige la etiqueta que inicia este flujo.",
       "triggerBadFrequency": "Elige con qué frecuencia puede empezar para una misma persona.",
-      "appointmentPaidNotReady": "{count, plural, one {A picked service takes} other {# picked services take}} payment, and online payments are not set up. Turn on the store and connect Razorpay, or untick {count, plural, one {it} other {them}}."
+      "appointmentPaidNotReady": "{count, plural, one {A picked service takes} other {# picked services take}} payment, and online payments are not set up. Turn on the store and connect Razorpay, or untick {count, plural, one {it} other {them}}.",
+      "triggerEventFilterInvalid": "Elige un filtro válido o déjalo en Cualquiera"
     },
     "automations": {
       "needsStep": "las automatizaciones activas necesitan al menos un paso",
@@ -7970,7 +8098,11 @@
       "webhookUrlNotAllowed": "La URL del webhook apunta a una dirección privada o reservada. Usa una dirección pública.",
       "oncePerContactInvalid": "Una vez por contacto debe estar activado o desactivado.",
       "segmentUnavailable": "El segmento elegido no está disponible en este espacio de trabajo.",
-      "stage5Pending": "Este disparador o paso aún no está disponible. Elige otro para activar la automatización."
+      "stage5Pending": "Este disparador o paso aún no está disponible. Elige otro para activar la automatización.",
+      "eventFilterInvalid": "Elige un filtro válido o déjalo en Cualquiera",
+      "dealStatusInvalid": "Elige ganado, perdido o dejar el trato abierto",
+      "webhookMethodInvalid": "Elige GET, POST, PUT, PATCH o DELETE",
+      "webhookMappingsInvalid": "Cada valor guardado necesita un campo de la respuesta y un nombre de variable (letras, dígitos, _), máximo {max}"
     },
     "templates": {
       "nameRequired": "El nombre de la plantilla es obligatorio.",

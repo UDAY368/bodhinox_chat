@@ -151,6 +151,37 @@ export function useFlowList(): FlowSummary[] {
   return useLoaded(loadFlows);
 }
 
+/** A pipeline stage, with its pipeline, for the deal actions. */
+export interface FlowPipelineStage { id: string; name: string; pipeline_id: string }
+
+async function loadPipelines(): Promise<NamedItem[]> {
+  try {
+    const { data, error } = await createClient().from<NamedItem>("pipelines").select("id,name").order("name");
+    return error ? [] : data ?? [];
+  } catch {
+    return [];
+  }
+}
+
+async function loadPipelineStages(): Promise<FlowPipelineStage[]> {
+  try {
+    const { data, error } = await createClient().from<FlowPipelineStage>("pipeline_stages").select("id,name,pipeline_id").order("position");
+    return error ? [] : data ?? [];
+  } catch {
+    return [];
+  }
+}
+
+/** The workspace's pipelines (Create deal / Move deal stage). */
+export function usePipelines(): NamedItem[] {
+  return useLoaded(loadPipelines);
+}
+
+/** Every pipeline stage of the workspace, in board order. */
+export function usePipelineStages(): FlowPipelineStage[] {
+  return useLoaded(loadPipelineStages);
+}
+
 /** Members who can own a conversation (viewers cannot). */
 export function useAssignableMembers(): FlowMember[] {
   return useLoaded(loadMembers);

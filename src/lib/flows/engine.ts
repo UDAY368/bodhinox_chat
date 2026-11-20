@@ -1,7 +1,6 @@
 import { checkRunTimeout, markRunTimedOut, type RunTimeoutCheck } from "./timeout";
 import { botRepliesPaused } from '@/lib/whatsapp/bot-pause';
 import { normalizeCollectedInput } from './input-validation';
-import { dispatchOnce } from '@/lib/jobs/dispatch';
 import { NoNumberError } from '@/lib/whatsapp/numbers';
 import { enqueueJob } from '@/lib/jobs/queue';
 import { writeContactField } from '@/lib/contacts/field-write';
@@ -20,9 +19,11 @@ import { instagramAutomatedWindowOpen } from '@/lib/channels/sender';
 import { needsMessagingWindow } from './instagram-validation';
 import { conversionValue, isConversionEventName } from './conversion-node';
 import { queueConversionEvent } from '@/lib/meta-ads/capi';
-import { runApiRequest } from './api-request';
-import { engineSendTemplate } from '@/lib/automations/meta-send';
-import { canOwnConversations, nextRoundRobinAgent } from '@/lib/automations/round-robin';
+import { callApiOnce } from '@/lib/actions/webhook';
+import { sendOnChannel, sendTemplateOnce, templateConsentRefusal } from '@/lib/actions/send';
+import { assignConversations, resolveAssignee } from '@/lib/actions/assign';
+import { canOwnConversations } from '@/lib/automations/round-robin';
+import { addTag, removeTag } from '@/lib/actions/tags';
 import { sendForm, templateFlowTokens } from '@/lib/whatsapp/forms/send';
 import { CommerceSendError, commerceMessageFromNode, isCommerceNodeType, sendCommerceMessage } from '@/lib/commerce/catalog-send';
 import { isCurrencyCode, minorFromDb, parseMoney } from '@/lib/commerce/money';
@@ -119,9 +120,6 @@ import { dispatchWebhookEvent } from "@/lib/webhooks/deliver";
 import { flowSend, runChannel } from "./channel-send";
 import { nodeAvailableOn, scopeIncludes, triggerAvailableOn, type Channel } from "@/lib/channels/capabilities";
 import { decideFallback, resolveFallbackPolicy } from "./fallback";
-import { addContactTagAndDispatch } from "@/lib/contacts/tag-events";
-import { removeContactTag } from "@/lib/contacts/tag-write";
-import { marketingSuppression } from "@/lib/contacts/consent";
 import { workspaceValuesFor } from "@/lib/workspace/attributes";
 import { flowTemplateSendExtras } from "@/lib/whatsapp/template-send-params";
 import {
@@ -1214,7 +1212,7 @@ async function sendTemplateNode(db: AdminClient, run: FlowRunRow, node: FlowNode
   const ws = await textValues(run, JSON.stringify([raw, cfg.card_params ?? [], cfg.coupon_code ?? ""]));
   const params = raw.map((p) => interpolateVars(p, run.vars, ws).trim() || "-");
   const buttonParams = Object.fromEntries((cfg.buttons ?? []).map((b) => [b.index, b.reply_id]));
-  const { whatsapp_message_id } = await dispatchOnce(run.account_id, `flow:${run.id}:${node.node_key}:${run.transition_seq ?? 0}:${run.reprompt_count}`, async () => engineSendTemplate({
+  const { whatsapp_message_id } = await sendTemplateOnce(`flow:${run.id}:${node.node_key}:${run.transition_seq ?? 0}:${run.reprompt_count}`, {
     accountId: run.account_id,
     userId: run.user_id,
     conversationId: run.conversation_id!,
@@ -1228,7 +1226,7 @@ async function sendTemplateNode(db: AdminClient, run: FlowRunRow, node: FlowNode
       ...flowTemplateSendExtras(cfg, (s) => interpolateVars(s, run.vars, ws)),
       flowTokens: await templateFormTokens(db, run, cfg),
     },
-  }));
+  });
   await logEvent(db, run.id, "message_sent", node.node_key, { node_type: "send_template", whatsapp_message_id });
   if (!templateWaits(node.config)) return;
   const { data: msg } = await db.from("messages").select("id").eq("message_id", whatsapp_message_id).maybeSingle();
@@ -1242,12 +1240,8 @@ async function sendTemplateNode(db: AdminClient, run: FlowRunRow, node: FlowNode
  * Why the run's contact must not get a template (opted out or blocked), or
  * null. Read fresh each time: a STOP can arrive while the run waits.
  */
-async function templateSuppression(db: AdminClient, run: FlowRunRow): Promise<string | null> {
-  if (!run.contact_id) return null;
-  const { data, error } = await db.from("contacts").select("opted_out_at,blocked_at")
-    .eq("account_id", run.account_id).eq("id", run.contact_id).maybeSingle();
-  if (error) throw new Error("Contact consent lookup failed");
-  return marketingSuppression(data as { opted_out_at?: string | null; blocked_at?: string | null } | null);
+function templateSuppression(db: AdminClient, run: FlowRunRow): Promise<string | null> {
+  return templateConsentRefusal(db, run.account_id, run.contact_id);
 }
 
 /** Form sessions for the template's FLOW buttons, if it has any (see templateFlowTokens). */
@@ -1283,15 +1277,11 @@ async function executeApiRequest(db: AdminClient, run: FlowRunRow, node: FlowNod
     ]);
     // Recorded like a send, so a replayed step (worker restart) reuses this
     // outcome instead of repeating a POST; an unknown outcome is never retried.
-    const outcome = await dispatchOnce(run.account_id, `flow-api:${run.id}:${node.node_key}:${run.transition_seq ?? 0}:${run.reprompt_count}`, async () => {
-      const o = await runApiRequest(cfg, { vars: run.vars, contact: contactValues, workspace, publicWorkspace });
-      return {
-        status: o.result.ok ? o.result.status : null,
-        error: o.result.ok ? null : o.result.error,
-        mapped: o.mapped,
-        next: o.next,
-        durationMs: o.durationMs,
-      };
+    const outcome = await callApiOnce({
+      accountId: run.account_id,
+      key: `flow-api:${run.id}:${node.node_key}:${run.transition_seq ?? 0}:${run.reprompt_count}`,
+      config: cfg,
+      values: { vars: run.vars, contact: contactValues, workspace, publicWorkspace },
     });
     if (Object.keys(outcome.mapped).length) {
       const vars = { ...run.vars, ...outcome.mapped };
@@ -1332,18 +1322,16 @@ async function executeAssignAgent(db: AdminClient, run: FlowRunRow, node: FlowNo
       .filter("payload->>seq", "eq", seq)
       .limit(1);
     const already = (prior as Array<{ payload: { agent_id?: string } }> | null)?.[0]?.payload.agent_id;
-    const agentId = already ?? (cfg.mode === "round_robin" ? await nextRoundRobinAgent(run.account_id) : cfg.agent_id ?? null);
-    if (!agentId || !run.conversation_id) throw new Error("no agent to assign");
-    // A pinned member removed or demoted to viewer since the flow was built is skipped.
-    if (cfg.mode !== "round_robin" && !(await canOwnConversations(run.account_id, agentId))) {
-      throw new Error("pinned member can no longer own conversations");
+    if (!run.conversation_id) throw new Error("no agent to assign");
+    // A pinned member removed or demoted to viewer since the flow was built is skipped (shared assign action).
+    const assignee = already ? { agentId: already } : await resolveAssignee(run.account_id, cfg.mode, cfg.agent_id);
+    if ("refused" in assignee) {
+      throw new Error(assignee.refused === "no_agent" ? "no agent to assign" : "pinned member can no longer own conversations");
     }
-    // The (account_id, assigned_agent_id) membership key rejects anyone outside the workspace.
-    const { error } = await db
-      .from("conversations")
-      .update({ assigned_agent_id: agentId, updated_at: new Date().toISOString() })
-      .eq("account_id", run.account_id)
-      .eq("id", run.conversation_id);
+    const agentId = assignee.agentId;
+    const { error } = await assignConversations(db, {
+      accountId: run.account_id, agentId, touch: true, scope: { conversationId: run.conversation_id },
+    });
     if (error) throw new Error("conversation assignment failed");
     if (!already) await logEvent(db, run.id, "agent_assigned", node.node_key, { agent_id: agentId, mode: cfg.mode, seq });
   } catch (err) {
@@ -2957,13 +2945,13 @@ async function advanceFromNodeKey(
       const cfg = node.config as unknown as SendMessageNodeConfig;
       try {
         const ws = await textValues(run, cfg.text);
-        const { whatsapp_message_id } = await flowSend(run, `flow:${run.id}:${node.node_key}:${run.transition_seq ?? 0}:${run.reprompt_count}`, { kind: "text", args: {
+        const { whatsapp_message_id } = await sendOnChannel({ ref: run, key: `flow:${run.id}:${node.node_key}:${run.transition_seq ?? 0}:${run.reprompt_count}`, send: { kind: "text", args: {
           accountId: run.account_id,
-    userId: run.user_id,
+          userId: run.user_id,
           conversationId: run.conversation_id!,
           contactId: run.contact_id!,
           text: interpolateVars(cfg.text, run.vars, ws),
-        } });
+        } } });
         await logEvent(db, run.id, "message_sent", node.node_key, {
           node_type: "send_message",
           whatsapp_message_id,
@@ -3339,7 +3327,7 @@ async function advanceFromNodeKey(
       const cfg = node.config as unknown as SetTagNodeConfig;
       try {
         if (cfg.mode === "add") {
-          await addContactTagAndDispatch({
+          await addTag({
             db,
             accountId: run.account_id,
             contactId: run.contact_id!,
@@ -3349,12 +3337,8 @@ async function advanceFromNodeKey(
               vars: run.vars,
             },
           });
-        } else {
-          await removeContactTag(db, {
-            accountId: run.account_id,
-            contactId: run.contact_id!,
-            tagId: cfg.tag_id,
-          });
+        } else if (await removeTag({ db, accountId: run.account_id, contactId: run.contact_id!, tagId: cfg.tag_id }) === "not_found") {
+          throw new Error("tag not found");
         }
       } catch (err) {
         // Non-fatal — log + advance. A tag-write failure shouldn't

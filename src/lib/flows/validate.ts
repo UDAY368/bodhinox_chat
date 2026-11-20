@@ -37,6 +37,8 @@ import { conversionEdges, conversionIssues } from "./conversion-node";
 import { storefrontLinkEdges, storefrontLinkIssues } from "./storefront-link-validation";
 import { parseDateInput } from "./input-formats";
 import { nodeAvailableOn, scopeChannels, triggerAvailableOn } from "@/lib/channels/capabilities";
+import { isEventTriggerType } from "@/lib/events/types";
+import { eventFilterProblems } from "@/lib/events/trigger-filters";
 import { FLOW_CHANNEL_SCOPES, FLOW_TRIGGER_LIMITS, FLOW_TRIGGER_TYPES, STAGE5_CONDITION_SUBJECTS, isCombinableTrigger, type ConditionRule, type FlowChannelScope, type FlowNodeType, type FlowTriggerType, type NodeTiming } from "./types";
 import { buyButtonIssues, stage5NodeIssues, stage5SubjectProblem } from "./stage5-validation";
 import { nodeCapabilityBlock, type WorkspaceCapabilities } from "./node-registry";
@@ -587,6 +589,9 @@ function validateTrigger(
   } else if (trigger_type === "tag_added") {
     // Which tag starts it: a tag id of this workspace (the editor lists only those).
     if (typeof trigger_config.tag_id !== "string" || !UUID.test(trigger_config.tag_id)) at("trigger_config.tag_id", "triggerTagRequired");
+  } else if (isEventTriggerType(trigger_type)) {
+    // Batch 5: the event feed's optional filters (src/lib/events/trigger-filters.ts).
+    for (const field of eventFilterProblems(trigger_type, trigger_config)) at(`trigger_config.${field}`, "triggerEventFilterInvalid");
   } else if (trigger_type === "outside_hours") {
     if (trigger_config.frequency !== "every_time" && trigger_config.frequency !== "once_per_24h") at("trigger_config.frequency", "triggerBadFrequency");
   } else if (trigger_type === "ad_click") {
