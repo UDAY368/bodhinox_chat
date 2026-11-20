@@ -47,10 +47,11 @@ export default function AppointmentsPage() {
   );
 }
 
-function Section({ id, title, children }: { id: string; title: string; children: React.ReactNode }) {
+/** A scroll target for old ?tab= links. The title is left out where the panel inside has its own heading. */
+function Section({ id, title, children }: { id: string; title?: string; children: React.ReactNode }) {
   return (
     <section id={`appt-section-${id}`} className="scroll-mt-20 space-y-3">
-      <h2 className="text-title-3 font-semibold">{title}</h2>
+      {title && <h2 className="text-title-3 font-semibold">{title}</h2>}
       {children}
     </section>
   );
@@ -149,18 +150,18 @@ function AppointmentsContent() {
               <ServicesPanel config={config.config} canEdit={abilities.settings} onChanged={configChanged} />
             </TabsContent>
             <TabsContent value="team" className="space-y-8 pt-4">
-              <Section id="staff" title={t('screen.teamStaff')}>
+              <Section id="staff">
                 <StaffPanel config={config.config} canEdit={abilities.settings} onChanged={configChanged} />
               </Section>
-              <Section id="exceptions" title={t('screen.teamHolidays')}>
+              <Section id="exceptions">
                 <ExceptionsPanel config={config.config} canEdit={abilities.settings} />
               </Section>
-              <Section id="locations" title={t('screen.teamLocations')}>
+              <Section id="locations">
                 <LocationsPanel config={config.config} canEdit={abilities.settings} onChanged={configChanged} />
               </Section>
             </TabsContent>
             <TabsContent value="settings" className="space-y-8 pt-4">
-              <Section id="pages" title={t('screen.settingsPages')}>
+              <Section id="pages">
                 <BookingPagesPanel config={config.config} canEdit={abilities.settings} />
               </Section>
               <Section id="messages" title={t('screen.settingsMessages')}>

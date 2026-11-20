@@ -15321,10 +15321,6 @@
       "taskDue": "Task",
       "noBookingsToday": "No bookings today",
       "noBookings": "No bookings in these dates",
-      "teamStaff": "Staff and hours",
-      "teamHolidays": "Holidays and exceptions",
-      "teamLocations": "Locations",
-      "settingsPages": "Booking pages",
       "settingsMessages": "Messages and reminders",
       "settingsDeals": "Deals"
     },
