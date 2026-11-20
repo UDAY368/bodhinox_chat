@@ -2254,7 +2254,14 @@
       "clicks": "{count, number} de {sent, number} destinatarios hicieron clic en el enlace",
       "trackedTo": "El enlace abre {url}",
       "apiTitle": "Añade destinatarios por la API",
-      "apiHint": "Usa una clave de API con el permiso broadcasts:send. Hasta 1.000 destinatarios por solicitud; params rellena las variables de la plantilla en orden."
+      "apiHint": "Usa una clave de API con el permiso broadcasts:send. Hasta 1.000 destinatarios por solicitud; params rellena las variables de la plantilla en orden.",
+      "sales": {
+        "title": "Ventas de esta campaña",
+        "orders": "{count, plural, =1 {# pedido} other {# pedidos}}",
+        "revenue": "Ingresos",
+        "hint": "Pedidos pagados de personas que recibieron esta campaña en los 7 días anteriores a la compra, cuando fue la última campaña que recibieron. Se descuentan los reembolsos.",
+        "none": "Aún no hay pedidos"
+      }
     },
     "new": {
       "title": "Nueva difusión",
@@ -17659,7 +17666,9 @@
       "sent": "Enviados",
       "delivered": "Entregados",
       "read": "Leídos",
-      "replied": "Respondidos"
+      "replied": "Respondidos",
+      "orders": "Pedidos",
+      "revenue": "Ingresos"
     },
     "when": {
       "draft": "Aún sin enviar",

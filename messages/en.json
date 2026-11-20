@@ -2254,7 +2254,14 @@
       "clicks": "{count, number} of {sent, number} recipients clicked the link",
       "trackedTo": "Link opens {url}",
       "apiTitle": "Add recipients through the API",
-      "apiHint": "Use an API key with the broadcasts:send scope. Up to 1,000 recipients per request; params fill the template variables in order."
+      "apiHint": "Use an API key with the broadcasts:send scope. Up to 1,000 recipients per request; params fill the template variables in order.",
+      "sales": {
+        "title": "Sales from this campaign",
+        "orders": "{count, plural, =1 {# order} other {# orders}}",
+        "revenue": "Revenue",
+        "hint": "Paid orders from people who got this campaign in the 7 days before buying, when it was the last campaign they got. Refunds are taken off.",
+        "none": "No orders yet"
+      }
     },
     "new": {
       "title": "New Broadcast",
@@ -17659,7 +17666,9 @@
       "sent": "Sent",
       "delivered": "Delivered",
       "read": "Read",
-      "replied": "Replied"
+      "replied": "Replied",
+      "orders": "Orders",
+      "revenue": "Revenue"
     },
     "when": {
       "draft": "Not sent yet",

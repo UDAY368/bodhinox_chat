@@ -29,6 +29,7 @@ import {
   RotateCcw,
   MousePointerClick,
   HelpCircle,
+  ShoppingBag,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
@@ -42,7 +43,8 @@ import { CampaignCostCard } from '@/components/broadcasts/campaign-cost';
 import { BROADCAST_STATUS_TONE as STATUS_TONE, SearchField, StatusPill } from '@/components/broadcasts/campaign-ui';
 import { BroadcastActionsMenu, primaryAction, useBroadcastActions } from '@/components/broadcasts/broadcast-actions';
 import { BroadcastMessageCard } from '@/components/broadcasts/broadcast-message-card';
-import { ChannelDot } from '@/components/broadcasts/broadcast-display';
+import { ChannelDot, broadcastStarted } from '@/components/broadcasts/broadcast-display';
+import { revenueText, useCampaignSales } from '@/components/broadcasts/campaign-sales';
 import { cn } from '@/lib/utils';
 
 interface StatCardProps {
@@ -392,6 +394,9 @@ export default function BroadcastDetailPage() {
     }
   }
 
+  const salesIds = useMemo(() => [broadcastId], [broadcastId]);
+  const sales = useCampaignSales(salesIds)[broadcastId];
+
   if (loading) {
     return (
       <div className="flex h-64 items-center justify-center">
@@ -698,6 +703,24 @@ export default function BroadcastDetailPage() {
           color="text-red-600 dark:text-red-400"
         />
       </div>
+
+      {broadcastStarted(broadcast.status) && sales && (
+        <div className="space-y-1 rounded-xl border border-border bg-card p-4 text-sm" data-testid="campaign-sales">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <span className="flex items-center gap-2 font-medium text-foreground">
+              <ShoppingBag className="h-4 w-4 text-primary" />
+              {t('sales.title')}
+            </span>
+            <span className="flex items-baseline gap-4 tabular-nums">
+              <span className="text-muted-foreground">{sales.orders ? t('sales.orders', { count: sales.orders }) : t('sales.none')}</span>
+              {sales.orders > 0 && (
+                <span className="text-lg font-semibold text-foreground" aria-label={t('sales.revenue')}>{revenueText(sales)}</span>
+              )}
+            </span>
+          </div>
+          <p className="text-xs text-muted-foreground">{t('sales.hint')}</p>
+        </div>
+      )}
 
       {broadcast.tracked_url && (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card p-4 text-sm">
