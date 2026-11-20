@@ -31,7 +31,6 @@ import {
   useRef,
   type ReactNode,
 } from 'react';
-import { createPortal } from 'react-dom';
 import { createClient } from '@/lib/data/client';
 import {
   INBOX_FULL_RELOAD_MS,
@@ -42,7 +41,6 @@ import {
 } from '@/lib/inbox/conversations';
 import { getSessionWindow, matchesSessionFilter, type SessionFilter } from '@/lib/inbox/session';
 import { useSessionClock } from '@/hooks/use-session-clock';
-import { useMatchMedia } from '@/hooks/use-match-media';
 import { cn } from '@/lib/utils';
 import type { Conversation, Tag } from '@/types';
 import { authFetch } from '@/lib/auth/client';
@@ -74,6 +72,7 @@ import { InboxFilterPicker, type FilterCategory } from '@/components/inbox/inbox
 import { formatDistanceToNow } from 'date-fns';
 import { useFormatter, useTranslations } from 'next-intl';
 import { InlineError } from '@/components/ui/inline-error';
+import { PageLoading } from '@/components/ui/page-loading';
 import { Input } from '@/components/ui/input';
 import {
   DropdownMenu,
@@ -737,17 +736,6 @@ export function ConversationList({
     return map;
   }, [folders?.reminders]);
 
-  // Like AiSensy, the open-window strip lives in the page's top bar (the header's center slot).
-  // isWide reads false on the server and during hydration, so document is only touched in the browser.
-  const isWide = useMatchMedia('(min-width: 768px)');
-  const headerSlot = isWide ? document.getElementById('studio-header-center') : null;
-  // The header can mount after this list; look again next frame until its slot exists.
-  const [, lookAgain] = useState(0);
-  useEffect(() => {
-    if (!isWide || headerSlot) return;
-    const id = requestAnimationFrame(() => lookAgain((n) => n + 1));
-    return () => cancelAnimationFrame(id);
-  }, [isWide, headerSlot]);
   const windowStrip = (
     <WindowStrip conversations={baseFiltered} now={now} activeConversationId={activeConversationId} onSelect={handleSelect} />
   );
@@ -986,34 +974,16 @@ export function ConversationList({
     </div>
   );
 
-  // Tablets and up, like AiSensy: search, filter and the open-window avatars share the page's top bar;
-  // the list starts with the channel toggle and the status tabs. Phones keep everything in the list.
-  const inTopBar = isWide && headerSlot !== null;
-  const topBar = (
-    <div data-inbox-toolbar className="studio-inbox-topbar flex min-w-0 flex-1 items-center gap-2 px-3">
-      {/* Compact until used, then it widens so the avatars keep the room the rest of the time. */}
-      <div className={cn('w-44 shrink-0 transition-[width] duration-200 focus-within:w-80 motion-reduce:transition-none', search && 'w-80')}>{searchBox}</div>
-      <div className="flex shrink-0 items-center gap-0.5">
-        {tools}
-        {moreViews}
-      </div>
-      <div className="flex min-w-0 flex-1 items-center pl-2">{windowStrip}</div>
-    </div>
-  );
-
+  // Search, filters and the open-window avatars head the list at every width; the top bar is only the breadcrumb.
   const listHead = (
     <div data-inbox-list-head className="studio-chat-filters bg-card flex flex-col">
       <div className="flex flex-col gap-2 px-3 pt-3 pb-2">
-        {!inTopBar && (
-          <>
-            <div className="flex min-w-0 items-center justify-end gap-0.5">
-              {moreViews}
-              {tools}
-            </div>
-            {windowStrip}
-            {searchBox}
-          </>
-        )}
+        <div className="flex min-w-0 items-center justify-end gap-0.5">
+          {moreViews}
+          {tools}
+        </div>
+        {windowStrip}
+        {searchBox}
         {channelTabs}
         <SavedFilterChips store={savedStore} current={currentFilters} onApply={applySavedFilters} scope={scope} />
         {hasPickedChips && (
@@ -1027,7 +997,6 @@ export function ConversationList({
   return (
     <div className="studio-conversation-list border-border bg-card flex h-full w-full min-w-0 flex-col border-r lg:w-72 xl:w-80 2xl:w-[340px]">
       {listHead}
-      {inTopBar && createPortal(topBar, headerSlot)}
 
       {/* Conversation Items.
           `min-h-0` is load-bearing: a flex child defaults to
@@ -1037,9 +1006,7 @@ export function ConversationList({
           parent's overflow-hidden with no scrollbar (issue #229). */}
       <ScrollArea className="min-h-0 flex-1">
         {loading ? (
-          <div className="flex items-center justify-center py-12">
-            <div className="border-primary h-5 w-5 animate-spin rounded-full border-2 border-t-transparent" />
-          </div>
+          <PageLoading rows={8} />
         ) : loadError && conversations.length === 0 ? (
           <InlineError
             message={t('loadFailed')}

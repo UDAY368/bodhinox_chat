@@ -28,7 +28,10 @@ test.describe('segments and export', () => {
     const selector = page.getByLabel('Segment', { exact: true });
     await expect(selector).toHaveValue(/.+/);
     await expect(page.getByRole('cell', { name: contact.name, exact: true })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Export segment' })).toHaveCount(0);
+    await page.getByRole('button', { name: 'More', exact: true }).click();
+    await expect(page.getByRole('menuitem', { name: 'Import' })).toBeVisible();
+    await expect(page.getByRole('menuitem', { name: 'Export segment' })).toHaveCount(0);
+    await page.keyboard.press('Escape');
 
     await page.getByRole('button', { name: 'Delete segment' }).click();
     await expect(selector).toHaveValue('');
@@ -48,7 +51,8 @@ test.describe('segments and export', () => {
     await login(page, fixtures().users.admin);
     await page.goto('/contacts');
     const download = page.waitForEvent('download');
-    await page.getByRole('button', { name: 'Export CSV' }).click();
+    await page.getByRole('button', { name: 'More', exact: true }).click();
+    await page.getByRole('menuitem', { name: 'Export CSV' }).click();
     const file = await download;
     expect(file.suggestedFilename()).toMatch(/^contacts-\d{4}-\d{2}-\d{2}\.csv$/);
     const csv = fs.readFileSync((await file.path())!, 'utf8');

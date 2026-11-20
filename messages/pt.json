@@ -124,7 +124,16 @@
     "shopReports": "Relatórios da loja",
     "people": "Pessoas",
     "segments": "Segmentos",
-    "customFields": "Campos personalizados"
+    "customFields": "Campos personalizados",
+    "whatsappSync": "Sincronização com WhatsApp",
+    "analyticsOverview": "Visão geral",
+    "campaignResults": "Resultados das campanhas",
+    "productsSection": "Produtos",
+    "store": "Loja",
+    "groupGrow": "Crescer",
+    "groupSell": "Vender",
+    "groupInsights": "Análises",
+    "breadcrumb": "Trilha de navegação"
   },
   "Header": {
     "notificationsUnread": "{count, plural, =1 {Notificações, 1 não lida} other {Notificações, # não lidas}}",
@@ -337,7 +346,7 @@
       "setup": "Configuração do espaço",
       "setupHint": "WhatsApp indica configuração salva. Confira a conexão nas configurações do WhatsApp.",
       "done": "Concluído",
-      "pending": "Pendente",
+      "pending": "A fazer",
       "setupItems": {
         "whatsapp": "Configurar WhatsApp",
         "contacts": "Adicionar contatos",
@@ -419,7 +428,7 @@
       "unknown": "Desconhecido",
       "studioEyebrow": "01 / Estúdio de conversas",
       "studioTitle": "Cada conversa, com atenção.",
-      "filterWaiting": "Aguardando resposta",
+      "filterWaiting": "Aguardando",
       "filterUnassigned": "Não atribuídas",
       "filterExpiringSoon": "Expiram em breve",
       "chats": "Conversas",
@@ -2145,7 +2154,7 @@
       "sending": "Enviando",
       "sent": "Enviado",
       "failed": "Falhou",
-      "pending": "Pendente",
+      "pending": "Ainda não enviada",
       "delivered": "Entregue",
       "read": "Lida",
       "replied": "Respondida",
@@ -4750,7 +4759,7 @@
       "tabs": {
         "all": "Todos",
         "approved": "Aprovados",
-        "pending": "Pendentes",
+        "pending": "Em análise",
         "rejected": "Rejeitados",
         "drafts": "Rascunhos",
         "paused": "Pausados ou desativados"
@@ -5777,13 +5786,13 @@
       "status": {
         "pending": "Confirmando",
         "active": "Ativo",
-        "cancelled": "Interrompido",
+        "cancelled": "Cancelado",
         "failed": "Recusado"
       },
       "until": "Até {date}",
       "cancel": "Interromper",
       "cancelConfirm": "Interromper este complemento agora? A cobrança já adicionada à próxima fatura não é reembolsada.",
-      "cancelled": "Complemento interrompido",
+      "cancelled": "Complemento cancelado",
       "cancelFailed": "Não foi possível interromper o complemento",
       "purchased": "Complemento ativo",
       "purchasePending": "Compra enviada. Ela será ativada quando o provedor de pagamento confirmar.",
@@ -6724,7 +6733,7 @@
   },
   "TemplateStatus": {
     "DRAFT": "Rascunho",
-    "PENDING": "Pendente",
+    "PENDING": "Em análise",
     "APPROVED": "Aprovado",
     "REJECTED": "Rejeitado",
     "PAUSED": "Pausado",
@@ -8784,12 +8793,31 @@
     }
   },
   "PageSearch": {
-    "title": "Encontre seu caminho",
-    "description": "Abra uma página do seu espaço de trabalho.",
-    "placeholder": "Buscar páginas…",
-    "trigger": "Buscar páginas",
-    "empty": "Nenhuma página encontrada.",
-    "results": "Páginas"
+    "title": "Pesquisar",
+    "description": "Encontre páginas, contatos, pedidos, produtos e agendamentos.",
+    "placeholder": "Pesquise páginas, contatos, pedidos…",
+    "trigger": "Pesquisar",
+    "empty": "Nenhum resultado.",
+    "results": "Resultados da pesquisa",
+    "searching": "Pesquisando…",
+    "error": "Não foi possível carregar a pesquisa.",
+    "retry": "Tentar novamente",
+    "noName": "Sem nome",
+    "groups": {
+      "pages": "Páginas",
+      "contacts": "Contatos",
+      "orders": "Pedidos",
+      "products": "Produtos",
+      "bookings": "Agendamentos",
+      "create": "Criar"
+    },
+    "create": {
+      "contact": "Novo contato",
+      "order": "Novo pedido",
+      "product": "Novo produto",
+      "booking": "Novo agendamento",
+      "broadcast": "Nova transmissão"
+    }
   },
   "inboxSettings": {
     "title": "Caixa de entrada",
@@ -10468,7 +10496,7 @@
         "edit": "Editar",
         "view": "Ver",
         "published": "Publicada",
-        "draft": "Rascunho",
+        "draft": "Oculta",
         "products": "{count, plural, one {# produto} other {# produtos}}",
         "kinds": {
           "manual": "Escolhida à mão",
@@ -10569,7 +10597,7 @@
           "queued": "Aguardando para começar",
           "running": "Importando",
           "done": "Concluída",
-          "failed": "Interrompida"
+          "failed": "Falhou"
         },
         "jobErrors": {
           "not_allowed": "Quem iniciou esta importação não é mais administrador, então nada mais foi aplicado.",
@@ -10641,7 +10669,7 @@
           "queued": "Aguardando início",
           "running": "Importando",
           "done": "Concluída",
-          "failed": "Interrompida",
+          "failed": "Falhou",
           "canceled": "Cancelada"
         },
         "stats": {
@@ -10871,7 +10899,7 @@
       "edit": "Editar",
       "delete": "Excluir",
       "active": "Ativo",
-      "inactive": "inativo",
+      "inactive": "desativada",
       "shippingTitle": "Tarifas de frete",
       "shippingHelp": "O checkout recusa um endereço que nenhuma tarifa ativa cobre. Vence o prefixo postal correspondente mais longo.",
       "noShipping": "Ainda não há tarifas de frete.",
@@ -11689,12 +11717,12 @@
       "filter": "Filtrar por status",
       "filters": {
         "all": "Todas",
-        "pending": "Pendentes",
+        "pending": "Aguardando aprovação",
         "published": "Publicadas",
         "hidden": "Ocultas"
       },
       "status": {
-        "pending": "Pendente",
+        "pending": "Aguardando aprovação",
         "published": "Publicada",
         "hidden": "Oculta"
       },
@@ -14611,8 +14639,8 @@
       "lastChecked": "Verificada {at}",
       "enabled": "Ligar ou desligar {name}",
       "delete": "Excluir {name}",
-      "on": "Ligada",
-      "off": "Desligada",
+      "on": "Ativada",
+      "off": "Desativada",
       "recent": "O que as regras fizeram recentemente",
       "failed": "Não deu certo. Tente de novo.",
       "created": "Regra criada.",
@@ -15091,7 +15119,7 @@
       "copyLink": "Copiar link",
       "copied": "Link copiado",
       "empty": "Ainda não há páginas de agendamento.",
-      "inactive": "Inativa"
+      "inactive": "Oculta"
     },
     "tasks": {
       "title": "Tarefas",
@@ -16092,7 +16120,7 @@
       "supportTitle": "Acesso do suporte",
       "supportHelp": "Peça ao espaço de trabalho acesso aos diagnósticos. Os proprietários e administradores decidem; você vê apenas status, contagens e códigos de erro.",
       "grantStatus": {
-        "requested": "Aguardando",
+        "requested": "Aguardando aprovação",
         "approved": "Ativo",
         "denied": "Recusado",
         "revoked": "Revogado",
@@ -16119,7 +16147,7 @@
       "loadFailed": "Não foi possível carregar suas solicitações.",
       "empty": "Você não tem solicitações.",
       "status": {
-        "requested": "Aguardando",
+        "requested": "Aguardando aprovação",
         "approved": "Ativo",
         "denied": "Recusado",
         "revoked": "Revogado",
@@ -17382,7 +17410,7 @@
       "colFulfilment": "Entrega",
       "pay": {
         "paid": "Pago",
-        "pending": "Pendente",
+        "pending": "Não pago",
         "refunded": "Reembolsado",
         "partlyRefunded": "Reembolso parcial",
         "cod": "Pagamento na entrega"
@@ -17548,7 +17576,7 @@
       "sentAgain": "Um novo link foi criado e enviado",
       "madeAgain": "Um novo link foi criado",
       "all": "Todos",
-      "pending": "Pendentes",
+      "pending": "Aguardando pagamento",
       "moreStatuses": "Mais status",
       "search": "Buscar links de pagamento",
       "noMatches": "Nenhum link de pagamento encontrado.",
@@ -17589,8 +17617,8 @@
     },
     "agents": {
       "filterAll": "Todos",
-      "filterOn": "Ligados",
-      "filterOff": "Desligados",
+      "filterOn": "Ativados",
+      "filterOff": "Desativados",
       "filterLabel": "Mostrar agentes",
       "search": "Buscar agentes",
       "orderHint": "Cada conversa é respondida por um único agente: o que já respondeu nela ou, se não houver, o primeiro agente desta lista que esteja ligado para o canal naquele horário.",
@@ -17630,8 +17658,8 @@
       "solved": "resolvidas sem uma pessoa",
       "newLabel": "Novo",
       "noChats": "ainda sem conversas",
-      "statusOn": "Ligado",
-      "statusOff": "Desligado",
+      "statusOn": "Ativado",
+      "statusOff": "Desativado",
       "test": "Testar agente",
       "edit": "Editar",
       "more": "Mais opções de {name}",
@@ -17785,11 +17813,11 @@
         "learning": "Respostas aprendidas"
       },
       "status": {
-        "queued": "Aguardando",
+        "queued": "Na fila",
         "crawling": "Sincronizando",
         "ready": "Sincronizada",
         "failed": "Falhou",
-        "disabled": "Desligada"
+        "disabled": "Desativada"
       },
       "progressLabel": "Progresso da sincronização de {title}",
       "size": {
@@ -18584,5 +18612,23 @@
       "cod": "Você paga na entrega.",
       "thanks": "Obrigado por comprar em {shop}."
     }
+  },
+  "UiKit": {
+    "more": "Mais",
+    "cancel": "Cancelar",
+    "confirm": "Confirmar",
+    "working": "Processando…"
+  },
+  "ContactPicker": {
+    "label": "Contato",
+    "placeholder": "Pesquise por nome ou número…",
+    "results": "Contatos",
+    "clear": "Remover contato",
+    "noName": "Sem nome",
+    "loading": "Pesquisando…",
+    "empty": "Nenhum contato encontrado.",
+    "error": "Não foi possível carregar os contatos.",
+    "retry": "Tentar novamente",
+    "loadMore": "Carregar mais"
   }
 }

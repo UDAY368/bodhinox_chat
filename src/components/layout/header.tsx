@@ -22,7 +22,9 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { ModeToggle } from '@/components/layout/mode-toggle';
 import { PageSearch } from '@/components/layout/page-search';
-import { getPageGroup, getPageTitleKey } from '@/components/layout/page-search-navigation';
+import { breadcrumbFor, buildSections } from '@/components/layout/sections';
+import { useWorkspaceChannels } from '@/hooks/use-workspace-channels';
+import { cn } from '@/lib/utils';
 
 interface HeaderProps {
   showMenuToggle?: boolean;
@@ -36,14 +38,13 @@ import { useTranslations } from 'next-intl';
 
 export function Header({ onOpenSidebar, showMenuToggle = false, menuExpanded }: HeaderProps) {
   const t = useTranslations('Header');
-  const groups = useTranslations('Sidebar.groups');
+  const nav = useTranslations('Sidebar');
   const pathname = usePathname();
   const { profile, signOut } = useAuth();
   const unreadNotifications = useUnreadNotifications();
-  const titleKey = getPageTitleKey(pathname);
-  // The breadcrumb names the page's nav group: its channel for a channel
-  // section or tool (WhatsApp › Inbox, WhatsApp › Broadcasts), else Workspace.
-  const group = getPageGroup(pathname);
+  const { data: channels } = useWorkspaceChannels();
+  // Where the page sits (Sales › Orders); the page itself shows the one large title.
+  const crumbs = breadcrumbFor(pathname, buildSections(channels?.enabled));
 
   const initial =
     profile?.full_name?.charAt(0)?.toUpperCase() ??
@@ -51,7 +52,7 @@ export function Header({ onOpenSidebar, showMenuToggle = false, menuExpanded }: 
     'U';
 
   return (
-    <header className="studio-header border-border flex h-[60px] shrink-0 items-center justify-between gap-3 border-b px-4 lg:px-6">
+    <header className="studio-header material-chrome border-border flex h-[60px] shrink-0 items-center justify-between gap-3 border-b px-4 lg:px-6">
       <div className="flex min-w-0 items-center gap-2">
         {/* Menu: phones only (and the full-screen flow editor). 44×44 hit target per Apple HIG. */}
         <button
@@ -63,20 +64,30 @@ export function Header({ onOpenSidebar, showMenuToggle = false, menuExpanded }: 
         >
           <Menu className="h-5 w-5" />
         </button>
-        {/* The channel only when the page belongs to one (WhatsApp › Broadcasts). */}
-        {group !== 'workspace' && (
-          <>
-            <span className="text-muted-foreground hidden text-[13px] sm:inline">{groups(group)}</span>
-            <ChevronRight className="text-muted-foreground/60 hidden size-3.5 sm:block" />
-          </>
+        {crumbs.length > 0 && (
+          <nav aria-label={nav('breadcrumb')} className="min-w-0">
+            <ol className="flex min-w-0 items-center gap-1.5 text-[13px]">
+              {crumbs.map((crumb, i) => {
+                const last = i === crumbs.length - 1;
+                return (
+                  // Phones show only the last crumb.
+                  <li key={crumb.labelKey} className={cn('min-w-0 items-center gap-1.5', last ? 'flex' : 'hidden sm:flex')}>
+                    {i > 0 && <ChevronRight aria-hidden className="text-muted-foreground/60 hidden size-3.5 shrink-0 sm:block" />}
+                    {crumb.href ? (
+                      <Link href={crumb.href} className="text-muted-foreground hover:text-foreground truncate rounded transition-colors focus-visible:outline-2 focus-visible:outline-primary">
+                        {nav(crumb.labelKey)}
+                      </Link>
+                    ) : (
+                      <span aria-current="page" className="text-foreground truncate font-semibold">{nav(crumb.labelKey)}</span>
+                    )}
+                  </li>
+                );
+              })}
+            </ol>
+          </nav>
         )}
-        <h1 className="text-foreground truncate text-[15px] font-semibold tracking-[-0.01em]">
-          {t(titleKey as string)}
-        </h1>
       </div>
 
-      {/* A page can put its own controls here (the inbox puts its search and filters). */}
-      <div id="studio-header-center" className="hidden min-w-0 flex-1 items-center md:flex" />
 
       <div className="flex items-center gap-1 sm:gap-1.5">
         <PageSearch />
