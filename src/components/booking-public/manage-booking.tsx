@@ -8,7 +8,7 @@
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
-import { ExternalLink, Loader2 } from 'lucide-react';
+import { CalendarX, ExternalLink, Loader2 } from 'lucide-react';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { AppointmentStatusBadge } from '@/components/appointments/appointment-status-badge';
 import { SlotPicker } from '@/components/appointments/slot-picker';
@@ -22,8 +22,12 @@ import {
 } from './api';
 import { icsPath, priceText } from './flow-helpers';
 import {
-  BottomBar, CalendarButtons, ErrorState, Group, InfoRow, InlineError, PageSkeleton, PageTitle, TAP,
+  BookingHeader, BottomBar, CalendarButtons, InfoRow, TAP,
 } from './parts';
+import { EmptyState } from '@/components/ui/empty-state';
+import { GroupedList } from '@/components/ui/grouped-list';
+import { InlineError } from '@/components/ui/inline-error';
+import { PageLoading } from '@/components/ui/page-loading';
 
 type Mode = 'view' | 'cancel' | 'reschedule';
 
@@ -112,11 +116,11 @@ export function ManageBooking({ token }: { token: string }) {
     }
   }
 
-  if (loadState === 'loading') return <PageSkeleton label={t('loading')} rows={4} />;
+  if (loadState === 'loading') return <PageLoading rows={4} className="w-full max-w-lg" />;
   if (loadState !== 'ready' || !view) {
     return loadState === 'not_found'
-      ? <ErrorState title={t('notFound')} />
-      : <ErrorState title={t('error')} onRetry={() => { setLoadState('loading'); setLoadKey((k) => k + 1); }} />;
+      ? <EmptyState icon={CalendarX} title={t('notFound')} className="w-full max-w-lg" />
+      : <InlineError message={t('error')} className="w-full max-w-lg" onRetry={() => { setLoadState('loading'); setLoadKey((k) => k + 1); }} />;
   }
 
   const price = priceText(view.priceMinor, view.currency, locale, tp('free'));
@@ -131,13 +135,13 @@ export function ManageBooking({ token }: { token: string }) {
 
   return (
     <div className="w-full max-w-lg space-y-6">
-      <PageTitle eyebrow={view.businessName} title={mode === 'reschedule' ? t('chooseNewTime') : t('title')}
+      <BookingHeader subtitle={view.businessName} title={mode === 'reschedule' ? t('chooseNewTime') : t('title')}
         onBack={mode === 'reschedule' ? () => { setMode('view'); setError(null); } : undefined} backLabel={tp('back')} />
       {notice && <p className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm" role="status">{t(notice)}</p>}
-      {error && <InlineError text={tp(`errors.${error}`)} />}
+      {error && <InlineError className="py-4" message={tp(`errors.${error}`)} />}
 
       {mode !== 'reschedule' && (
-        <Group>
+        <GroupedList>
           <InfoRow label={t('status')}><AppointmentStatusBadge status={view.status} /></InfoRow>
           <InfoRow label={t('service')}>{view.serviceName}</InfoRow>
           {view.practitioner && <InfoRow label={t('practitioner')}>{view.practitioner}</InfoRow>}
@@ -150,7 +154,7 @@ export function ManageBooking({ token }: { token: string }) {
             <span className="text-muted-foreground block text-xs">{tp('timesShownIn', { zone })}</span>
           </InfoRow>
           {price && <InfoRow label={t('price')}>{price}</InfoRow>}
-        </Group>
+        </GroupedList>
       )}
 
       {mode === 'view' && view.meetingUrl && (
@@ -171,7 +175,6 @@ export function ManageBooking({ token }: { token: string }) {
 
       {view.canChange && mode === 'view' && (
         <>
-          <div className="h-32 sm:hidden" aria-hidden />
           <BottomBar>
             <Button type="button" variant="ghost" className={cn(TAP, 'w-full text-destructive sm:w-auto')}
               onClick={() => { setMode('cancel'); setNotice(null); setError(null); }}>
@@ -211,7 +214,6 @@ export function ManageBooking({ token }: { token: string }) {
             onNextDates={() => pageDates(WINDOW_DAYS)}
             disabled={slotsLoading || busy}
           />
-          <div className="h-20 sm:hidden" aria-hidden />
           <BottomBar>
             <Button type="button" className={cn(TAP, 'w-full sm:w-auto sm:px-8')} disabled={!slot || busy} onClick={() => void change('reschedule')}>
               {busy && <Loader2 className="size-4 animate-spin" />}

@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { GroupedList, GroupedListRow } from '@/components/ui/grouped-list';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Switch } from '@/components/ui/switch';
 import { useWhatsAppNumbers } from '@/components/settings/numbers/use-whatsapp-numbers';
@@ -206,25 +207,19 @@ export function BookingPagesPanel({ config, canEdit }: { config: AppointmentConf
               </SheetHeader>
               <div className="space-y-5 px-4 pb-6">
                 {linkGroups.map((group) => (
-                  <section key={group.kind} className="space-y-2">
-                    <h3 className="px-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                      {t(`pages.linkGroup.${group.kind}`)}
-                    </h3>
-                    <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-card">
-                      {group.items.map((link) => (
-                        <li key={`${link.kind}:${link.id}`} className="flex min-h-11 items-center gap-2 px-3 py-2">
-                          <span className="min-w-0 flex-1">
-                            <span className="block truncate font-medium">{link.kind === 'page' ? t('pages.wholePage') : link.label}</span>
-                            <span className="block truncate text-xs text-muted-foreground">{link.url}</span>
-                          </span>
-                          <Button type="button" variant="ghost" className="min-h-11 shrink-0" aria-label={t('pages.copyNamed', { name: link.label })}
-                            onClick={() => void copyUrl(link.url)}>
-                            <Copy className="h-4 w-4" /> {t('pages.copy')}
-                          </Button>
-                        </li>
-                      ))}
-                    </ul>
-                  </section>
+                  <GroupedList key={group.kind} header={t(`pages.linkGroup.${group.kind}`)}>
+                    {group.items.map((link) => (
+                      <GroupedListRow
+                        key={`${link.kind}:${link.id}`}
+                        title={link.kind === 'page' ? t('pages.wholePage') : link.label}
+                        subtitle={link.url}
+                        onClick={() => void copyUrl(link.url)}
+                        trailing={<span className="inline-flex items-center gap-1 text-primary">
+                          <Copy className="h-4 w-4" aria-hidden /> {t('pages.copy')}
+                        </span>}
+                      />
+                    ))}
+                  </GroupedList>
                 ))}
               </div>
             </>

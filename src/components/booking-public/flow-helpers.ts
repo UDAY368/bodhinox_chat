@@ -2,6 +2,7 @@
  * Pure helpers for the public booking flow (tested in booking-flow.test.ts):
  * service selection, direct-link preselection, prices and hold-status polling.
  */
+import { formatMoney } from '@/lib/format/money';
 
 export type FlowStep = 'service' | 'time' | 'confirm';
 export const FLOW_STEPS: readonly FlowStep[] = ['service', 'time', 'confirm'];
@@ -68,14 +69,8 @@ export function locationForStaff(service: ServiceRef, staffId: string): string |
 /** "Free" for a missing or zero price; otherwise the formatted amount (null when it cannot be formatted). */
 export function priceText(minor: number | null, currency: string | null, locale: string, free: string): string | null {
   if (minor === null || minor === 0) return free;
-  if (!currency) return null;
-  try {
-    const format = new Intl.NumberFormat(locale, { style: 'currency', currency });
-    const digits = format.resolvedOptions().maximumFractionDigits ?? 2;
-    return format.format(minor / 10 ** digits);
-  } catch {
-    return null;
-  }
+  if (!currency || !/^[A-Z]{3}$/.test(currency)) return null;
+  return formatMoney(minor, currency, { locale }) || null;
 }
 
 // ------------------------------------------------------------ waiting for the WhatsApp code

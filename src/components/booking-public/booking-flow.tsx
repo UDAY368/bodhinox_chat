@@ -10,7 +10,7 @@
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
-import { Check, Copy, Loader2, MessageCircle } from 'lucide-react';
+import { CalendarX, Check, Copy, Loader2, MessageCircle } from 'lucide-react';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -27,8 +27,12 @@ import {
   type FlowStep, type HoldState,
 } from './flow-helpers';
 import {
-  BottomBar, CalendarButtons, ChoiceRow, ErrorState, Group, InfoRow, InlineError, PageSkeleton, PageTitle, TAP,
+  BookingHeader, BottomBar, CalendarButtons, InfoRow, TAP,
 } from './parts';
+import { EmptyState } from '@/components/ui/empty-state';
+import { GroupedList, GroupedListRow } from '@/components/ui/grouped-list';
+import { InlineError } from '@/components/ui/inline-error';
+import { PageLoading } from '@/components/ui/page-loading';
 
 export interface BookingQuery { service?: string | null; staff?: string | null }
 
@@ -166,11 +170,11 @@ export function BookingFlow({ slug, query = {} }: { slug: string; query?: Bookin
     }
   }
 
-  if (loadState === 'loading') return <PageSkeleton label={t('loading')} />;
+  if (loadState === 'loading') return <PageLoading rows={4} className="w-full max-w-lg" />;
   if (loadState !== 'ready' || !page) {
     return loadState === 'not_found'
-      ? <ErrorState title={t('notFound')} />
-      : <ErrorState title={t('error')} onRetry={() => { setLoadState('loading'); setLoadKey((k) => k + 1); }} />;
+      ? <EmptyState icon={CalendarX} title={t('notFound')} className="w-full max-w-lg" />
+      : <InlineError message={t('error')} className="w-full max-w-lg" onRetry={() => { setLoadState('loading'); setLoadKey((k) => k + 1); }} />;
   }
 
   if (hold && requestId && service && location) {
@@ -197,39 +201,39 @@ export function BookingFlow({ slug, query = {} }: { slug: string; query?: Bookin
 
   return (
     <div className="w-full max-w-lg space-y-6">
-      <PageTitle eyebrow={page.businessName} step={stepLabel} title={titles[step]} onBack={back} backLabel={t('back')} />
-      {error && <InlineError text={t(`errors.${error}`)} />}
+      <BookingHeader subtitle={`${page.businessName} · ${stepLabel}`} title={titles[step]} onBack={back} backLabel={t('back')} />
+      {error && <InlineError className="py-4" message={t(`errors.${error}`)} />}
 
       {step === 'service' && (
         <>
-          <Group>
+          <GroupedList>
             {services.map((s) => (
-              <ChoiceRow
+              <GroupedListRow
                 key={s.id}
                 selected={s.id === serviceId}
                 onClick={() => chooseService(s)}
                 title={s.name}
-                detail={[t('duration', { minutes: s.durationMinutes }), s.mode === 'online' ? t('online') : t('inPerson'),
+                subtitle={[t('duration', { minutes: s.durationMinutes }), s.mode === 'online' ? t('online') : t('inPerson'),
                   s.paymentRequired ? t('payInAdvance') : null].filter(Boolean).join(' · ')}
                 trailing={<span data-testid="service-price">{priceText(s.priceMinor, s.currency, locale, t('free'))}</span>}
               />
             ))}
-          </Group>
+          </GroupedList>
           {service && service.locations.length > 1 && (
-            <Group title={t('chooseLocation')}>
+            <GroupedList header={t('chooseLocation')}>
               {service.locations.filter((l) => !staffFilter || l.staff.some((st) => st.id === staffFilter)).map((l) => (
-                <ChoiceRow key={l.id} selected={l.id === locationId} onClick={() => chooseLocation(l)} title={l.name} detail={l.address} />
+                <GroupedListRow key={l.id} selected={l.id === locationId} onClick={() => chooseLocation(l)} title={l.name} subtitle={l.address} />
               ))}
-            </Group>
+            </GroupedList>
           )}
         </>
       )}
 
       {step === 'time' && service && location && timeZone && (
         <>
-          <Group>
+          <GroupedList>
             <InfoRow label={service.name}>{[t('duration', { minutes: service.durationMinutes }), price].filter(Boolean).join(' · ')}</InfoRow>
-          </Group>
+          </GroupedList>
           {location.staff.length > 1 && (
             <section className="space-y-2">
               <h2 className="text-muted-foreground px-1 text-xs font-medium uppercase tracking-wide">{t('chooseStaff')}</h2>
@@ -270,14 +274,14 @@ export function BookingFlow({ slug, query = {} }: { slug: string; query?: Bookin
 
       {step === 'confirm' && service && location && slot && timeZone && (
         <>
-          <Group>
+          <GroupedList>
             <InfoRow label={t('summaryService')}>{service.name}</InfoRow>
             <InfoRow label={t('summaryWhen')}>{formatWhen(slot.startAt, timeZone, locale)}</InfoRow>
             <InfoRow label={t('summaryWhere')}>{service.mode === 'online' ? t('online') : location.name}</InfoRow>
             {staffId && <InfoRow label={t('summaryWith')}>{location.staff.find((s) => s.id === staffId)?.displayName}</InfoRow>}
             {price && <InfoRow label={t('summaryPrice')}>{price}</InfoRow>}
-          </Group>
-          <Group title={t('details')} footer={t('serviceNotice')}>
+          </GroupedList>
+          <GroupedList header={t('details')} footer={t('serviceNotice')}>
             {(['name', 'city', 'state'] as const).map((field) => (
               <div key={field} className="grid gap-1 px-4 py-3">
                 <Label htmlFor={`booking-${field}`}>{t(field)}</Label>
@@ -291,7 +295,7 @@ export function BookingFlow({ slug, query = {} }: { slug: string; query?: Bookin
                 />
               </div>
             ))}
-          </Group>
+          </GroupedList>
           {service.paymentRequired && <p className="text-muted-foreground px-1 text-sm">{t('paymentNotice')}</p>}
           <BottomBar>
             <Button type="button" className={cn(TAP, 'w-full sm:w-auto sm:px-8')} onClick={() => void submit()} disabled={submitting}>
@@ -302,7 +306,6 @@ export function BookingFlow({ slug, query = {} }: { slug: string; query?: Bookin
         </>
       )}
       {/* Room for the pinned bottom button on phones. */}
-      {step !== 'service' && <div className="h-20 sm:hidden" aria-hidden />}
     </div>
   );
 }
@@ -388,15 +391,15 @@ function HoldScreen({ slug, requestId, hold, businessName, service, location, pr
       <div className="w-full max-w-lg space-y-6" data-testid="booking-confirmed">
         <div className="flex flex-col items-center gap-3 pt-4 text-center">
           <span className="flex size-14 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-600"><Check className="size-7" aria-hidden /></span>
-          <PageTitle eyebrow={businessName} title={t('bookedTitle')} />
+          <BookingHeader subtitle={businessName} title={t('bookedTitle')} />
           <p className="text-muted-foreground text-sm">{t('bookedHelp')}</p>
         </div>
-        <Group>
+        <GroupedList>
           <InfoRow label={t('summaryService')}>{service.name}</InfoRow>
           <InfoRow label={t('summaryWhen')}>{when}</InfoRow>
           <InfoRow label={t('summaryWhere')}>{service.mode === 'online' ? t('online') : location.name}</InfoRow>
           {practitioner && <InfoRow label={t('summaryWith')}>{practitioner}</InfoRow>}
-        </Group>
+        </GroupedList>
         <CalendarButtons icsHref={token ? icsPath(token) : null} googleHref={google} />
         {managePath && (
           <a href={managePath} className={cn(buttonVariants({ variant: 'ghost' }), TAP, 'w-full')}>{t('viewBooking')}</a>
@@ -408,7 +411,7 @@ function HoldScreen({ slug, requestId, hold, businessName, service, location, pr
   if (shown === 'expired' || shown === 'cancelled') {
     return (
       <div className="w-full max-w-lg space-y-6">
-        <PageTitle eyebrow={businessName} title={t('expiredTitle')} />
+        <BookingHeader subtitle={businessName} title={t('expiredTitle')} />
         <p className="text-sm" role="alert">{t('expired')}</p>
         <BottomBar>
           <Button type="button" className={cn(TAP, 'w-full sm:w-auto sm:px-8')} onClick={onRestart}>{t('startOver')}</Button>
@@ -420,12 +423,12 @@ function HoldScreen({ slug, requestId, hold, businessName, service, location, pr
   if (shown === 'payment_pending') {
     return (
       <div className="w-full max-w-lg space-y-6" data-testid="booking-waiting-payment">
-        <PageTitle eyebrow={businessName} title={t('waitingPaymentTitle')} />
+        <BookingHeader subtitle={businessName} title={t('waitingPaymentTitle')} />
         <p className="text-sm">{t('waitingPaymentHelp')}</p>
-        <Group>
+        <GroupedList>
           <InfoRow label={t('summaryService')}>{service.name}</InfoRow>
           <InfoRow label={t('summaryWhen')}>{when}</InfoRow>
-        </Group>
+        </GroupedList>
         <Waiting text={t('waitingForPayment')} />
       </div>
     );
@@ -433,7 +436,7 @@ function HoldScreen({ slug, requestId, hold, businessName, service, location, pr
 
   return (
     <div className="w-full max-w-lg space-y-6">
-      <PageTitle eyebrow={businessName} title={t('sendCodeTitle')} />
+      <BookingHeader subtitle={businessName} title={t('sendCodeTitle')} />
       <p className="text-sm">{t('heldFor', { when })}</p>
       <p className="text-muted-foreground text-sm">{hold.whatsappUrl ? t('sendCodeHelp') : t('noWhatsAppLink', { business: businessName })}</p>
       <div className="rounded-xl border bg-card p-5 text-center">
@@ -443,7 +446,6 @@ function HoldScreen({ slug, requestId, hold, businessName, service, location, pr
       {service.paymentRequired && <p className="text-sm" data-testid="booking-payment-note">{t('paymentAfterCode')}</p>}
       <Waiting text={t('waitingForCode')} />
       <p className="text-muted-foreground text-xs">{t('expiresIn', { minutes })}</p>
-      <div className="h-32 sm:hidden" aria-hidden />
       <BottomBar>
         <Button
           type="button"
