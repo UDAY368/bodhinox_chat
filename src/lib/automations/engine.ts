@@ -82,6 +82,8 @@ export interface AutomationContext {
   ad_id?: string
   /** Service of the appointment, for appointment_* triggers. */
   service_id?: string
+  /** The event-feed event (src/lib/events) that fired an order_* / payment_* / form_* / deal_* / cart_* trigger: ids and amounts only. */
+  event?: { type: string; data: Record<string, string | number | boolean | null> }
 }
 
 export interface DispatchInput {

@@ -50,8 +50,8 @@ export async function webhookDataForEvent(tx: TenantTransaction, event: DomainEv
     const start = typeof event.data.start_at === 'string' ? new Date(event.data.start_at) : null;
     const previous = typeof event.data.previous_start_at === 'string' ? new Date(event.data.previous_start_at) : null;
     // The shape appointment.* receivers always got, as of the event's own version.
-    return appointmentWebhookData(eventSnapshot(current, version, kind, start),
-      kind === 'rescheduled' ? { previousStartAt: previous } : {});
+    return { ...appointmentWebhookData(eventSnapshot(current, version, kind, start),
+      kind === 'rescheduled' ? { previousStartAt: previous } : {}) };
   }
   return base;
 }
