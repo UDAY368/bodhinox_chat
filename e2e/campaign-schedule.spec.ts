@@ -7,9 +7,7 @@ test('an agent schedules a campaign, sees when it will start and cancels it', as
   await login(page, fixtures().users.agent);
   await page.goto('/broadcasts/new');
 
-  // Details first: the name and the channel (WhatsApp by default).
-  await page.getByLabel('Name', { exact: true }).fill(name);
-  await page.getByRole('button', { name: 'Next', exact: true }).click();
+  // With one channel there is no Details step: the wizard opens on the template, and the name is asked once, at Send.
   await page.getByRole('button', { name: /e2e_template/ }).click();
   await page.getByRole('button', { name: 'Next', exact: true }).click();
   await page.getByRole('button', { name: /All Contacts/ }).click();
@@ -35,7 +33,8 @@ test('an agent schedules a campaign, sees when it will start and cancels it', as
 test('the campaign list filters by status tab and name search', async ({ page }) => {
   await login(page, fixtures().users.agent);
   await page.goto('/broadcasts');
-  await page.getByRole('tab', { name: 'Cancelled' }).click();
+  // Failed and Cancelled live in the More statuses menu.
+  await page.getByLabel('More statuses').selectOption('cancelled');
   await page.getByLabel('Search campaigns').fill(`Scheduled ${fixtures().runId}`);
   // A retried scheduling test can leave an extra matching campaign; any one proves the filter works.
   await expect(page.getByRole('link', { name: new RegExp(`^Scheduled ${fixtures().runId}`) }).first()).toBeVisible();
