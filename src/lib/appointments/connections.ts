@@ -71,10 +71,12 @@ export async function recordRefundRequested(
   const [refund] = await tx.$queryRaw<{ id: string }[]>`SELECT id::text AS id FROM customer_refunds
     WHERE account_id=${accountId}::uuid AND id=${input.refundId}::uuid AND appointment_id=${row.id}::uuid`;
   if (!refund) throw new AppointmentError('not_found');
+  // detail is a code column ([a-z0-9_]): the refund id without hyphens.
+  const detail = refund.id.replace(/-/g, '').toLowerCase();
   const [seen] = await tx.$queryRaw<{ n: number }[]>`SELECT count(*)::int AS n FROM appointment_events
-    WHERE account_id=${accountId}::uuid AND appointment_id=${row.id}::uuid AND kind='refund_requested' AND detail=${refund.id}`;
+    WHERE account_id=${accountId}::uuid AND appointment_id=${row.id}::uuid AND kind='refund_requested' AND detail=${detail}`;
   if (seen?.n) return 'already';
   await tx.$executeRaw`INSERT INTO appointment_events(appointment_id,version,kind,actor,actor_user_id,detail)
-    VALUES(${row.id}::uuid,${row.version},'refund_requested','staff',${input.userId}::uuid,${refund.id})`;
+    VALUES(${row.id}::uuid,${row.version},'refund_requested','staff',${input.userId}::uuid,${detail})`;
   return 'recorded';
 }

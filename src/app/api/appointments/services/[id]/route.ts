@@ -19,6 +19,6 @@ const handlers = configItem({
     const intake = hasForm ? await setServiceIntakeForm(tx, accountId, userId, id, formId as string | null) : undefined;
     return { ...(row ?? { id }), ...(intake !== undefined ? { intake_form_id: intake } : {}) };
   },
-  map: serviceJson,
+  map: (row: { price_minor?: unknown }) => serviceJson(row),
 });
 export const PATCH = handlers.PATCH;

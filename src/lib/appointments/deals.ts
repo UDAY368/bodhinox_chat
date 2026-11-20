@@ -69,8 +69,10 @@ export async function setAppointmentDeal(
   await tx.$executeRaw`UPDATE appointments SET deal_id=${input.dealId}::uuid
     WHERE account_id=${accountId}::uuid AND id=${row.id}::uuid`;
   const kind = input.dealId ? 'deal_linked' : 'deal_unlinked';
+  // detail is a code column ([a-z0-9_]): the deal id without hyphens.
+  const detail = (input.dealId ?? row.deal_id ?? '').replace(/-/g, '').toLowerCase() || null;
   await tx.$executeRaw`INSERT INTO appointment_events(appointment_id,version,kind,actor,actor_user_id,detail)
-    VALUES(${row.id}::uuid,${row.version},${kind},'staff',${input.userId}::uuid,${input.dealId ?? row.deal_id ?? null})`;
+    VALUES(${row.id}::uuid,${row.version},${kind},'staff',${input.userId}::uuid,${detail})`;
   await audit(tx, accountId, input.userId, `appointments.appointment.${kind}`, row.id, { deal_id: input.dealId ?? row.deal_id ?? null });
   return { ...row, deal_id: input.dealId };
 }
