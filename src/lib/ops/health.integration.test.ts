@@ -90,7 +90,7 @@ describe.skipIf(!ownerUrl || !appUrl || !authUrl || !platformUrl)('[OPS-01] deep
     await beatAgo(1);
     const user = randomUUID();
     const account = randomUUID();
-    await owner.query("INSERT INTO auth_users(id,email,full_name,password_hash) VALUES($1,$1::text || '@example.invalid','Ops health test','test-only-hash')", [user]);
+    await owner.query("INSERT INTO auth_users(id,email,full_name,password_hash) VALUES($1,$2,'Ops health test','test-only-hash')", [user, `${user}@example.invalid`]);
     await owner.query("INSERT INTO accounts(id,name,owner_user_id) VALUES($1,'Ops health',$2)", [account, user]);
     try {
       const before = await readOpsHealth(getPlatformPrisma());
