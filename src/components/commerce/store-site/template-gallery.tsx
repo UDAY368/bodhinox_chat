@@ -27,11 +27,11 @@ const TILE_SCALE = 0.42;
 /** Six sample products with local placeholder pictures, for a shop with too few of its own. */
 export function sampleProducts(names: string[]): PublicProduct[] {
   return names.map((name, i) => ({
-    id: `00000000-0000-4000-8000-00000000000${i + 1}`, name, description: null, disclosure: null, categoryId: null, categoryName: null,
+    id: `00000000-0000-4000-8000-00000000000${i + 1}`, slug: null, categorySlug: null, name, description: null, disclosure: null, categoryId: null, categoryName: null,
     images: [`/shop-samples/sample-${i + 1}.svg`], details: [], digital: false, rating: i % 2 === 0 ? { average: 4.5, count: 12 + i } : null,
     variants: [{
       id: `00000000-0000-4000-8000-0000000001${String(i).padStart(2, "0")}`, options: {}, priceMinor: SAMPLE_PRICES[i],
-      compareAtMinor: i === 1 ? 159900 : null, inStock: true, imageIndex: null, shipsBy: null,
+      compareAtMinor: i === 1 ? 159900 : null, inStock: true, available: null, imageIndex: null, shipsBy: null,
     }],
   }));
 }

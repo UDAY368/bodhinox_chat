@@ -72,9 +72,9 @@ describe('paths and keys', () => {
 
 describe('jsonLdScript', () => {
   it('cannot end the script tag or open a comment, and still parses to the same value', () => {
-    const value = { name: '</script><script>alert(1)</script> <!-- &   ', n: 1 };
+    const value = { name: '</script><script>alert(1)</script> <!-- & \u2028\u2029', n: 1 };
     const text = jsonLdScript(value);
-    expect(text).not.toMatch(/[<>&  ]/);
+    expect(text).not.toMatch(/[<>&\u2028\u2029]/);
     expect(text.toLowerCase()).not.toContain('</script');
     expect(JSON.parse(text)).toEqual(value);
   });

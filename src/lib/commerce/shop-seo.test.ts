@@ -11,7 +11,7 @@ const product = (over: Partial<PublicProduct> = {}): PublicProduct => ({
   variants: [{ id: 'v1', options: {}, priceMinor: 25000, compareAtMinor: null, inStock: true, available: null, imageIndex: null, shipsBy: null }],
   ...over,
 });
-const seo = { title: null, description: null, imageUrl: null, sku: 'NEEM-1' };
+const seo: { title: string | null; description: string | null; imageUrl: string | null; sku: string | null } = { title: null, description: null, imageUrl: null, sku: 'NEEM-1' };
 const input = (p = product(), s = seo) => ({ handle: 'shop', shopName: 'Green Shop', currency: 'INR', product: p, seo: s });
 
 describe('product listing', () => {

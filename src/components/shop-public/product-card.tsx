@@ -3,7 +3,6 @@ import type { PublicProduct } from '@/lib/commerce/public-shop';
 import { productPath } from '@/lib/commerce/shop-paths';
 import type { ShopLayout } from '@/lib/commerce/shop-templates';
 import { formatMoney } from '@/lib/commerce/money';
-import { productPath } from '@/lib/commerce/shop-paths';
 import { Stars } from './product-reviews';
 import { QuickAdd } from './quick-add';
 import type { ShopT } from './shop-link';
