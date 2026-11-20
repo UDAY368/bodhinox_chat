@@ -1,8 +1,9 @@
 // Bounded retention for queue and webhook rows (audit finding 39). Once an hour the
 // worker queues one data.retention_sweep job (no tenant), which deletes in short batches:
 //   - done jobs older than 30 days and failed jobs older than 90 days (jobs_finished_updated_idx);
-//   - processed webhook receipts (raw provider bodies) older than 30 days
-//     (webhook_receipts_processed_idx); unprocessed receipts are never touched;
+//   - processed webhook receipts older than 7 days (webhook_receipts_processed_idx); a processed
+//     WhatsApp receipt already holds only ids and types (processedWebhookShell); unprocessed
+//     receipts are never touched;
 //   - done jobs of the recurring schedulers (SCHEDULE_JOB_TYPES: one row per workspace
 //     every 30 s or so) after 2 days instead of 30;
 //   - per workspace (worker role under withTenant, so RLS scopes each delete), realtime
@@ -22,7 +23,7 @@ export const DATA_RETENTION_JOB = 'data.retention_sweep';
 export const DATA_RETENTION = {
   doneJobDays: 30,
   failedJobDays: 90,
-  webhookReceiptDays: 30,
+  webhookReceiptDays: 7,
   outboxEventDays: 7,
   scheduleJobDays: 2,
   outboundIntentDays: 30,
