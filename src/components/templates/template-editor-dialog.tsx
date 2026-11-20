@@ -144,8 +144,9 @@ export function TemplateEditorDialog({
 
   /** Close, or ask first when something would be lost. */
   function requestClose() {
+    // Nothing unsaved (including just after Save draft, while the list still refreshes): close at once.
     if (dirty && busy === null) setConfirmClose(true);
-    else if (busy === null) onOpenChange(false);
+    else onOpenChange(false);
   }
 
   function patch(p: Partial<TemplateFormData>) {
