@@ -15248,7 +15248,9 @@
         "submitFailed": "Could not submit the template. Try again.",
         "adminOnly": "An admin can submit it.",
         "loadFailed": "Could not load the template state.",
-        "retry": "Retry"
+        "confirmTitle": "Submit the reminder template to Meta?",
+        "confirmBody": "Meta reviews it, usually within a day. Reminders keep using your current template until it is approved.",
+        "nameTaken": "A template with this name was already submitted. Refresh to see its state."
       }
     }
   },

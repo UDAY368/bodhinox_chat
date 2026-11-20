@@ -12,6 +12,10 @@ import { useCallback, useEffect, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { CheckCircle2, Clock, MessageSquareReply, XCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useConfirm } from '@/components/ui/confirm-dialog';
+import { GroupedList, GroupedListRow } from '@/components/ui/grouped-list';
+import { InlineError } from '@/components/ui/inline-error';
+import { PageLoading } from '@/components/ui/page-loading';
 import { authFetch } from '@/lib/auth/client';
 import { createClient } from '@/lib/data/client';
 import { REMINDER_ACTIONS_TEMPLATE } from '@/lib/appointments/reminder-actions-id';
@@ -37,6 +41,7 @@ export function ReminderTemplateCard({ canEdit }: { canEdit: boolean }) {
   const [loadFailed, setLoadFailed] = useState(false);
   const [busy, setBusy] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const confirm = useConfirm();
 
   const load = useCallback(async () => {
     setLoadFailed(false);
@@ -54,6 +59,7 @@ export function ReminderTemplateCard({ canEdit }: { canEdit: boolean }) {
   async function submit() {
     const preset = getLibraryTemplate(REMINDER_ACTIONS_TEMPLATE);
     if (!preset) return;
+    if (!(await confirm({ title: t('confirmTitle'), body: t('confirmBody'), confirmLabel: t('submit') }))) return;
     setBusy(true);
     setSubmitError(null);
     try {
@@ -62,10 +68,8 @@ export function ReminderTemplateCard({ canEdit }: { canEdit: boolean }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(libraryTemplatePayload(preset, templateLanguageForAppLocale())),
       });
-      if (!res.ok) {
-        const body = (await res.json().catch(() => null)) as { error?: unknown } | null;
-        setSubmitError(typeof body?.error === 'string' ? body.error : t('submitFailed'));
-      }
+      // Our own sentence, never the server's text (it can carry Meta's internal detail).
+      if (!res.ok) setSubmitError(res.status === 409 ? t('nameTaken') : t('submitFailed'));
     } catch {
       setSubmitError(t('submitFailed'));
     }
@@ -76,42 +80,36 @@ export function ReminderTemplateCard({ canEdit }: { canEdit: boolean }) {
   const state = rows ? reminderTemplateState(rows) : null;
   const reason = rows?.find((r) => r.rejection_reason)?.rejection_reason ?? null;
 
-  return (
-    <section className="space-y-3 rounded-xl border border-border bg-card p-4" aria-labelledby="reminder-buttons-title">
-      <div className="flex items-start gap-3">
-        <MessageSquareReply className="mt-0.5 h-5 w-5 shrink-0 text-primary" aria-hidden />
-        <div className="space-y-1">
-          <h3 id="reminder-buttons-title" className="font-semibold">{t('title')}</h3>
-          <p className="text-sm text-muted-foreground">{t('description')}</p>
-        </div>
-      </div>
+  const icon = state === 'approved' ? <CheckCircle2 className="h-5 w-5 text-green-600" aria-hidden />
+    : state === 'rejected' ? <XCircle className="h-5 w-5 text-destructive" aria-hidden />
+      : <Clock className="h-5 w-5 text-muted-foreground" aria-hidden />;
+  const canSubmit = canEdit && (state === 'none' || state === 'draft');
 
+  return (
+    <GroupedList
+      header={<span className="flex items-center gap-2"><MessageSquareReply className="h-4 w-4" aria-hidden />{t('title')}</span>}
+      footer={state === 'approved' ? t('description') : `${t('description')} ${t('fallback')}`}
+    >
       {loadFailed ? (
-        <div className="space-y-2 text-sm" role="alert">
-          <p className="text-destructive">{t('loadFailed')}</p>
-          <Button type="button" variant="outline" size="sm" className="min-h-11" onClick={() => void load()}>{t('retry')}</Button>
-        </div>
+        <InlineError message={t('loadFailed')} onRetry={() => void load()} />
       ) : !state ? (
-        <div className="h-11 animate-pulse rounded-lg bg-muted" aria-label={t('title')} />
+        <PageLoading rows={1} />
       ) : (
-        <div className="space-y-3 text-sm">
-          <p className="flex items-center gap-2" role="status">
-            {state === 'approved' ? <CheckCircle2 className="h-4 w-4 text-green-600" aria-hidden />
-              : state === 'rejected' ? <XCircle className="h-4 w-4 text-destructive" aria-hidden />
-                : <Clock className="h-4 w-4 text-muted-foreground" aria-hidden />}
-            <span>{t(`state.${state}`)}</span>
-          </p>
-          {state === 'rejected' && reason ? <p className="text-muted-foreground">{t('rejectedReason', { reason })}</p> : null}
-          {state !== 'approved' ? <p className="text-muted-foreground">{t('fallback')}</p> : null}
-          {canEdit && (state === 'none' || state === 'draft') ? (
-            <Button type="button" className="min-h-11" disabled={busy} onClick={() => void submit()}>
-              {busy ? t('submitting') : t('submit')}
-            </Button>
-          ) : null}
-          {!canEdit && (state === 'none' || state === 'draft') ? <p className="text-muted-foreground">{t('adminOnly')}</p> : null}
-          {submitError ? <p className="text-destructive" role="alert">{submitError}</p> : null}
-        </div>
+        <>
+          <GroupedListRow
+            leading={icon}
+            title={<span role="status">{t(`state.${state}`)}</span>}
+            subtitle={state === 'rejected' && reason ? t('rejectedReason', { reason })
+              : !canEdit && (state === 'none' || state === 'draft') ? t('adminOnly') : undefined}
+            trailing={canSubmit ? (
+              <Button type="button" size="sm" disabled={busy} onClick={() => void submit()}>
+                {busy ? t('submitting') : t('submit')}
+              </Button>
+            ) : undefined}
+          />
+          {submitError ? <InlineError message={submitError} onRetry={canSubmit ? () => void submit() : undefined} /> : null}
+        </>
       )}
-    </section>
+    </GroupedList>
   );
 }
