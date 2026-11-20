@@ -2069,6 +2069,70 @@ function waLeadQuiz(): FlowTemplate {
 }
 
 // ============================================================
+// Ready-made booking automations (batch 3, B10). Each one runs the
+// book_appointment step with no service ids (every bookable service), so a
+// clone validates in any workspace. A paid service ends "waiting for payment"
+// (the link goes out in the chat); when nothing can be booked the Unavailable
+// path sends the booking page link the step saved in {{vars.booking_link}}.
+// Copy: StarterFlows.<slug>.
+// ============================================================
+
+/** The booking graph after `opening` (entry), shared by the three booking starters. */
+function bookingNodes(slug: string, entry: string): FlowTemplateNode[] {
+  const s = scoped(slug);
+  return [
+    book(entry, { success: "check_paid", unavailable: "use_page", cancelled: "not_now" }),
+    node("check_paid", "condition", {
+      subject: "var", subject_key: "appointment_status", operator: "equals", value: "waiting_for_payment",
+      true_next: "pay_to_confirm", false_next: "booked",
+    } as ConditionNodeConfig),
+    say("booked", s("booked", { time: v("appointment_local_time") }), "end"),
+    say("pay_to_confirm", s("payToConfirm", { time: v("appointment_local_time") }), "end"),
+    say("use_page", s("usePage", { link: v("booking_link") }), "end"),
+    say("not_now", s("notNow"), "end"),
+    END,
+  ];
+}
+
+/** "book" keyword on WhatsApp and Instagram: books a time in the chat. */
+function bookKeyword(): FlowTemplate {
+  return {
+    ...template("book_keyword", "services", "CalendarCheck", "keyword", [startAt("book"), ...bookingNodes("book_keyword", "book")]),
+    channels: ["whatsapp", "instagram"],
+  };
+}
+
+/** A reply to an Instagram story opens booking. */
+function igStoryBook(): FlowTemplate {
+  const slug = "ig_story_book";
+  return {
+    slug, name: t(`${slug}.name`), description: t(`${slug}.description`), category: "instagram_stories", icon: "CalendarCheck",
+    trigger_type: "ig_story_reply",
+    trigger_config: { match_mode: "contains", reactions: false } satisfies IgStoryReplyTriggerConfig,
+    entry_node_id: "start",
+    nodes: [startAt("intro"), say("intro", t(`${slug}.intro`), "book"), ...bookingNodes(slug, "book")],
+    channels: ["instagram"],
+  };
+}
+
+/** A comment with the keyword gets a private reply whose button opens booking in the DM. */
+function igCommentBook(): FlowTemplate {
+  const slug = "ig_comment_book";
+  return {
+    slug, name: t(`${slug}.name`), description: t(`${slug}.description`), category: "instagram_comments", icon: "CalendarCheck",
+    trigger_type: "ig_comment",
+    trigger_config: commentTrigger(keywords(`${slug}.keywords`), t(`${slug}.publicReply`)),
+    entry_node_id: "start",
+    nodes: [
+      startAt("opening"),
+      privateReply("opening", t(`${slug}.opening`), t(`${slug}.optIn`), "book"),
+      ...bookingNodes(slug, "book"),
+    ],
+    channels: ["instagram"],
+  };
+}
+
+// ============================================================
 // Registry
 // ============================================================
 
@@ -2143,6 +2207,10 @@ const TEMPLATES: Record<string, FlowTemplate> = Object.fromEntries(
     waSaveDetails(),
     waWebsite(),
     waLeadQuiz(),
+    // Batch 3 (B10): ready-made booking automations.
+    bookKeyword(),
+    igStoryBook(),
+    igCommentBook(),
   ].map((template) => [template.slug, template]),
 );
 

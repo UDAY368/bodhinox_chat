@@ -3521,7 +3521,9 @@
         "serviceMode": "서비스 유형",
         "modeBoth": "온라인과 방문 모두",
         "modeOnline": "온라인만",
-        "modeOffline": "방문만"
+        "modeOffline": "방문만",
+        "paidServiceFlowNote": "Paid: customer gets a payment link",
+        "variablesHelpMore": "Also saves appointment_status (confirmed, or waiting_for_payment for a paid service until the link is paid) and booking_link (your booking page, for the Unavailable path)."
       },
       "capabilitySetUp": "설정",
       "capabilityBlocked": {
@@ -7628,6 +7630,36 @@
           "nurture": "퀴즈에 참여해 주셔서 감사합니다! 준비되시면 아이디어와 혜택을 보내드릴게요."
         }
       }
+    },
+    "book_keyword": {
+      "name": "Book in the chat",
+      "description": "When someone writes \"book\", offer your free times and book one right in the chat. Falls back to your booking page.",
+      "keywords": "book, booking, appointment",
+      "booked": "You're booked for {time}. We'll send you a reminder before your visit.",
+      "payToConfirm": "We're holding {time} for you. We've sent a payment link; your booking is confirmed once it's paid.",
+      "usePage": "Sorry, we can't book that here right now. You can pick a time on our booking page: {link}",
+      "notNow": "No problem. Write \"book\" whenever you're ready."
+    },
+    "ig_story_book": {
+      "name": "Story reply to booking",
+      "description": "When someone replies to your story, offer to book a time in the DM. Falls back to your booking page.",
+      "intro": "Thanks for replying! Would you like to book a time with us?",
+      "booked": "You're booked for {time}. We'll send you a reminder before your visit.",
+      "payToConfirm": "We're holding {time} for you. We've sent a payment link; your booking is confirmed once it's paid.",
+      "usePage": "Sorry, we can't book that here right now. You can pick a time on our booking page: {link}",
+      "notNow": "No problem. Reply to any story when you'd like to book."
+    },
+    "ig_comment_book": {
+      "name": "Comment to booking",
+      "description": "When someone comments the keyword on your post, send a private reply that opens booking in the DM.",
+      "keywords": "book, booking, appointment",
+      "publicReply": "Sent you a DM to book!",
+      "opening": "Hi! Tap below and we'll find you a time.",
+      "optIn": "Book a time",
+      "booked": "You're booked for {time}. We'll send you a reminder before your visit.",
+      "payToConfirm": "We're holding {time} for you. We've sent a payment link; your booking is confirmed once it's paid.",
+      "usePage": "Sorry, we can't book that here right now. You can pick a time on our booking page: {link}",
+      "notNow": "No problem. Comment again whenever you'd like to book."
     }
   },
   "LibErrors": {
@@ -7890,7 +7922,8 @@
       "crossFlowLoop": "고객 응답 없이 플로우 연결 단계가 순환합니다: {flows}.",
       "stage5Pending": "이 단계나 설정은 아직 사용할 수 없습니다. 플로를 게시하려면 제거하세요.",
       "triggerTagRequired": "이 플로우를 시작할 태그를 선택하세요.",
-      "triggerBadFrequency": "한 사람에게 얼마나 자주 시작할 수 있는지 선택하세요."
+      "triggerBadFrequency": "한 사람에게 얼마나 자주 시작할 수 있는지 선택하세요.",
+      "appointmentPaidNotReady": "{count, plural, one {A picked service takes} other {# picked services take}} payment, and online payments are not set up. Turn on the store and connect Razorpay, or untick {count, plural, one {it} other {them}}."
     },
     "automations": {
       "needsStep": "활성 자동화에는 단계가 하나 이상 필요합니다",
@@ -9191,6 +9224,17 @@
         "b3": "Cancel"
       },
       "samples": "Dental check-up|Monday 10 June, 11:30 AM IST|Andheri clinic"
+    },
+    "appointment_book_now": {
+      "title": "Book now campaign",
+      "description": "Invite customers to book, with a tracked link to your booking page. Bookings from the link count for the campaign.",
+      "header": "Time for your next visit?",
+      "body": "Hi {v1}, slots for {v2} are open this week. Tap below to pick a time that suits you.",
+      "footer": "Reply STOP to opt out",
+      "buttons": {
+        "b1": "Book now"
+      },
+      "samples": "Priya|a hair spa"
     }
   },
   "Templates": {
@@ -15252,6 +15296,11 @@
         "confirmBody": "Meta reviews it, usually within a day. Reminders keep using your current template until it is approved.",
         "nameTaken": "A template with this name was already submitted. Refresh to see its state."
       }
+    },
+    "campaignLink": {
+      "label": "Use a booking page",
+      "help": "Send clicks to one of your booking pages. Bookings made within 7 days of a click count for this campaign.",
+      "none": "No active booking pages yet."
     }
   },
   "AppointmentSettings": {

@@ -3521,7 +3521,9 @@
         "serviceMode": "Tipo de serviço",
         "modeBoth": "Online e presencial",
         "modeOnline": "Somente online",
-        "modeOffline": "Somente presencial"
+        "modeOffline": "Somente presencial",
+        "paidServiceFlowNote": "Paid: customer gets a payment link",
+        "variablesHelpMore": "Also saves appointment_status (confirmed, or waiting_for_payment for a paid service until the link is paid) and booking_link (your booking page, for the Unavailable path)."
       },
       "capabilitySetUp": "Configurar",
       "capabilityBlocked": {
@@ -7628,6 +7630,36 @@
           "nurture": "Obrigado por fazer o quiz! Vamos mandar ideias e ofertas quando você estiver pronto."
         }
       }
+    },
+    "book_keyword": {
+      "name": "Book in the chat",
+      "description": "When someone writes \"book\", offer your free times and book one right in the chat. Falls back to your booking page.",
+      "keywords": "book, booking, appointment",
+      "booked": "You're booked for {time}. We'll send you a reminder before your visit.",
+      "payToConfirm": "We're holding {time} for you. We've sent a payment link; your booking is confirmed once it's paid.",
+      "usePage": "Sorry, we can't book that here right now. You can pick a time on our booking page: {link}",
+      "notNow": "No problem. Write \"book\" whenever you're ready."
+    },
+    "ig_story_book": {
+      "name": "Story reply to booking",
+      "description": "When someone replies to your story, offer to book a time in the DM. Falls back to your booking page.",
+      "intro": "Thanks for replying! Would you like to book a time with us?",
+      "booked": "You're booked for {time}. We'll send you a reminder before your visit.",
+      "payToConfirm": "We're holding {time} for you. We've sent a payment link; your booking is confirmed once it's paid.",
+      "usePage": "Sorry, we can't book that here right now. You can pick a time on our booking page: {link}",
+      "notNow": "No problem. Reply to any story when you'd like to book."
+    },
+    "ig_comment_book": {
+      "name": "Comment to booking",
+      "description": "When someone comments the keyword on your post, send a private reply that opens booking in the DM.",
+      "keywords": "book, booking, appointment",
+      "publicReply": "Sent you a DM to book!",
+      "opening": "Hi! Tap below and we'll find you a time.",
+      "optIn": "Book a time",
+      "booked": "You're booked for {time}. We'll send you a reminder before your visit.",
+      "payToConfirm": "We're holding {time} for you. We've sent a payment link; your booking is confirmed once it's paid.",
+      "usePage": "Sorry, we can't book that here right now. You can pick a time on our booking page: {link}",
+      "notNow": "No problem. Comment again whenever you'd like to book."
     }
   },
   "LibErrors": {
@@ -7890,7 +7922,8 @@
       "crossFlowLoop": "As etapas Conectar fluxo formam um ciclo sem resposta do cliente: {flows}.",
       "stage5Pending": "Esta etapa ou configuração ainda não está disponível. Remova-a para publicar o fluxo.",
       "triggerTagRequired": "Escolha a tag que inicia este fluxo.",
-      "triggerBadFrequency": "Escolha com que frequência isso pode começar para a mesma pessoa."
+      "triggerBadFrequency": "Escolha com que frequência isso pode começar para a mesma pessoa.",
+      "appointmentPaidNotReady": "{count, plural, one {A picked service takes} other {# picked services take}} payment, and online payments are not set up. Turn on the store and connect Razorpay, or untick {count, plural, one {it} other {them}}."
     },
     "automations": {
       "needsStep": "automações ativas precisam de pelo menos uma etapa",
@@ -9191,6 +9224,17 @@
         "b3": "Cancel"
       },
       "samples": "Dental check-up|Monday 10 June, 11:30 AM IST|Andheri clinic"
+    },
+    "appointment_book_now": {
+      "title": "Book now campaign",
+      "description": "Invite customers to book, with a tracked link to your booking page. Bookings from the link count for the campaign.",
+      "header": "Time for your next visit?",
+      "body": "Hi {v1}, slots for {v2} are open this week. Tap below to pick a time that suits you.",
+      "footer": "Reply STOP to opt out",
+      "buttons": {
+        "b1": "Book now"
+      },
+      "samples": "Priya|a hair spa"
     }
   },
   "Templates": {
@@ -15252,6 +15296,11 @@
         "confirmBody": "Meta reviews it, usually within a day. Reminders keep using your current template until it is approved.",
         "nameTaken": "A template with this name was already submitted. Refresh to see its state."
       }
+    },
+    "campaignLink": {
+      "label": "Use a booking page",
+      "help": "Send clicks to one of your booking pages. Bookings made within 7 days of a click count for this campaign.",
+      "none": "No active booking pages yet."
     }
   },
   "AppointmentSettings": {

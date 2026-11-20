@@ -21,6 +21,7 @@
 import type { TemplateButton } from '@/types';
 import { getT } from '@/lib/i18n/translate';
 import type { TemplatePayload } from './template-validators';
+import { bookingLibraryTemplates } from './template-library-booking';
 
 export const TEMPLATE_LIBRARY_INDUSTRIES = [
   'retail',
@@ -158,7 +159,7 @@ function build(spec: Spec): LibraryTemplate {
 let cache: LibraryTemplate[] | null = null;
 
 export function listLibraryTemplates(): LibraryTemplate[] {
-  cache ??= SPECS.map(build);
+  cache ??= [...SPECS.map(build), ...bookingLibraryTemplates()];
   return cache;
 }
 
