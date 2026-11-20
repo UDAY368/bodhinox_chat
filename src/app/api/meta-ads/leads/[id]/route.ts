@@ -16,7 +16,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-
 export async function DELETE(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const ctx = await requireRole('admin');
-    const limit = checkRateLimit(`admin:metaLeadDelete:${ctx.userId}`, RATE_LIMITS.adminAction);
+    const limit = await checkRateLimit(`admin:metaLeadDelete:${ctx.userId}`, RATE_LIMITS.adminAction);
     if (!limit.success) return rateLimitResponse(limit);
     const { id } = await params;
     const notFound = () => NextResponse.json({ error: 'not_found', message: getT('Api.metaAds')('notFound') }, { status: 404, headers: NO_STORE });

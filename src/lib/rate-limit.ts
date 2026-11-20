@@ -1,25 +1,28 @@
 /**
- * In-memory per-key rate limiter.
+ * Per-key rate limiter, shared by every web server and the worker.
  *
- * Fixed-window counter (not token bucket): every identifier gets a
- * fresh N-request budget each window. Simple, allocation-light, and
- * fine for a single-instance VPS — which is how forkers of this
- * template will usually deploy.
+ * Fixed-window counter (not token bucket): every identifier gets a fresh
+ * N-request budget each window. The count lives in auth_rate_limits (the
+ * table the login limiter already uses, written by the bodhinox_auth role,
+ * which every process has: rate limits run before auth for some callers).
+ * One INSERT ... ON CONFLICT DO UPDATE ... RETURNING per check. Keys are
+ * SHA-256 hashed together with the window length, so no raw IP, email or id
+ * is stored. Expired rows are removed by the hourly clean-up
+ * (src/lib/jobs/data-retention.ts).
  *
- * Trade-off: a single Node process holds the Map, so horizontal scale
- * (multiple regions, multiple Hostinger nodes, Vercel serverless fan-
- * out) silently defeats the limit. If you scale beyond one instance,
- * swap the `check` implementation for Redis / Upstash / Cloudflare
- * Durable Objects keeping the same return shape. The call sites won't
- * change.
+ * Failure mode: fail open to the per-process counter. If the database cannot
+ * be reached, the check falls back to the in-memory window below, which is
+ * exactly how every caller behaved before the counts moved to the database:
+ * the request is still limited per process, never refused for a database error
+ * and never let through unlimited.
  *
- * Memory: entries are ~50 bytes each. With LIGHT_SWEEP below, expired
- * keys get cleared opportunistically on every ~1 000th call, so a
- * healthy instance stays in the low-MB range even with thousands of
- * distinct users. No background timer — works in serverless edge
- * runtimes that don't keep timers alive across requests.
+ * checkLocalRateLimit is the synchronous, per-process limiter. Only the
+ * public shop page burst in src/proxy.ts uses it directly (a database write
+ * per anonymous page view is not worth it; the per-IP burst is best effort).
  */
 
+import { createHash } from 'node:crypto';
+import { getAuthPrisma } from '@/lib/db/prisma';
 import { NextResponse } from 'next/server';
 import { getT } from '@/lib/i18n/translate';
 
@@ -60,7 +63,8 @@ function sweepExpired(now: number) {
   }
 }
 
-export function checkRateLimit(
+/** Per-process fixed window: the database fallback, and the proxy's page burst. */
+export function checkLocalRateLimit(
   key: string,
   { limit, windowMs }: RateLimitOptions,
 ): RateLimitResult {
@@ -90,6 +94,51 @@ export function checkRateLimit(
     reset: entry.resetAt,
     limit,
   };
+}
+
+/** The stored key: hashed, and namespaced away from the login limiter's keys. */
+export function rateLimitStorageKey(key: string, windowMs: number): string {
+  return createHash('sha256').update(`rate-limit:${windowMs}:${key}`).digest('hex');
+}
+
+let warnedFallback = false;
+
+/**
+ * One shared fixed-window count per key across every process. Falls back to
+ * checkLocalRateLimit when the database is unavailable (see the file header).
+ */
+export async function checkRateLimit(
+  key: string,
+  options: RateLimitOptions,
+): Promise<RateLimitResult> {
+  const { limit, windowMs } = options;
+  try {
+    const stored = rateLimitStorageKey(key, windowMs);
+    const rows = await getAuthPrisma().$queryRaw<{ attempts: number; reset_ms: number }[]>`
+      INSERT INTO auth_rate_limits(key,attempts,reset_at)
+      VALUES(${stored},1,clock_timestamp()+${windowMs}*INTERVAL '1 millisecond')
+      ON CONFLICT(key) DO UPDATE SET
+        attempts=CASE WHEN auth_rate_limits.reset_at<=clock_timestamp() THEN 1
+          ELSE LEAST(auth_rate_limits.attempts+1, ${limit + 1}) END,
+        reset_at=CASE WHEN auth_rate_limits.reset_at<=clock_timestamp()
+          THEN clock_timestamp()+${windowMs}*INTERVAL '1 millisecond' ELSE auth_rate_limits.reset_at END
+      RETURNING attempts, (EXTRACT(EPOCH FROM reset_at)*1000)::float8 AS reset_ms`;
+    const attempts = Number(rows[0]?.attempts);
+    const reset = Math.round(Number(rows[0]?.reset_ms));
+    if (!Number.isSafeInteger(attempts) || !Number.isSafeInteger(reset)) throw new Error('unreadable rate limit row');
+    return {
+      success: attempts <= limit,
+      remaining: Math.max(0, limit - attempts),
+      reset,
+      limit,
+    };
+  } catch {
+    if (!warnedFallback) {
+      warnedFallback = true;
+      console.warn('[rate-limit] database unavailable; using the per-process limit');
+    }
+    return checkLocalRateLimit(key, options);
+  }
 }
 
 /**
@@ -162,9 +211,7 @@ export const RATE_LIMITS = {
   /** Public REST API (`/api/v1/*`), keyed per API key. 120/min ≈ 2
    *  req/s sustained — comfortable for a polling integration or an
    *  automation firing on inbound events, while bounding a runaway
-   *  script. Like every bucket here it's per-process; a multi-
-   *  instance deploy needs the Redis swap described at the top of
-   *  this file (the per-key call sites don't change). */
+   *  script. Shared across every web server (database count). */
   publicApi: { limit: 120, windowMs: 60_000 },
   /** AI draft-reply generation, per user. 20/min is generous for an
    *  agent clicking "Draft with AI" while working a thread, and bounds
@@ -187,13 +234,13 @@ export const RATE_LIMITS = {
    *  in the inbox for a human. */
   aiAutoReplyAccount: { limit: 30, windowMs: 60_000 },
   /** AI assistant (summaries, suggested replies, assessments, insights), per
-   *  member. A soft per-instance first line; the durable limit is the monthly
+   *  member. A soft first line; the durable limit is the monthly
    *  token cap checked in the database before every provider call. */
   aiAssistUser: { limit: 20, windowMs: 60_000 },
   /** AI assistant, per workspace across all members. */
   aiAssistAccount: { limit: 60, windowMs: 60_000 },
   /** Token-protected deep health check (`/api/health?deep=1`), one shared
-   *  bucket per process. Uptime monitors poll about once a minute; 30/min
+   *  bucket. Uptime monitors poll about once a minute; 30/min
    *  bounds the database work a leaked token can cause. */
   opsHealth: { limit: 30, windowMs: 60_000 },
 } as const;
@@ -203,4 +250,5 @@ export const RATE_LIMITS = {
 export function __resetRateLimitForTests() {
   buckets.clear();
   callsSinceSweep = 0;
+  warnedFallback = false;
 }

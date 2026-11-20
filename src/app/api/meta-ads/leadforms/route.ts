@@ -23,7 +23,7 @@ export async function POST(request: Request) {
     if (!metaAdsManageEnabled()) return metaAdsErrorResponse('manage_not_enabled');
     const session = await requireSession(request);
     await assertMutation(request, session);
-    const limit = checkRateLimit(`metaAdsLeadForms:${session.userId}`, RATE_LIMITS.adminAction);
+    const limit = await checkRateLimit(`metaAdsLeadForms:${session.userId}`, RATE_LIMITS.adminAction);
     if (!limit.success) return rateLimitResponse(limit);
     const input = parseLeadFormInput(await request.json().catch(() => null));
     if (!input) return metaAdsErrorResponse('invalid_request');

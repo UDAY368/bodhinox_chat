@@ -23,7 +23,7 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const ctx = await requireRole('admin');
-    const limit = checkRateLimit(`teams:${ctx.userId}`, RATE_LIMITS.adminAction);
+    const limit = await checkRateLimit(`teams:${ctx.userId}`, RATE_LIMITS.adminAction);
     if (!limit.success) return rateLimitResponse(limit);
     const input = parseTeamInput(await request.json().catch(() => null), false);
     return NextResponse.json({ team: await createTeam(tenantOf(ctx), input) }, { status: 201, headers: noStore });

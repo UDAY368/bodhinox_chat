@@ -34,7 +34,7 @@ const PREVIEW_CHARS = 4000;
 export async function POST(request: Request) {
   try {
     const ctx = await requireRole('agent');
-    const limit = checkRateLimit(`flowTestRequest:${ctx.userId}`, RATE_LIMITS.flowTestRequest);
+    const limit = await checkRateLimit(`flowTestRequest:${ctx.userId}`, RATE_LIMITS.flowTestRequest);
     if (!limit.success) return rateLimitResponse(limit);
     const parsed = Body.safeParse(await request.json().catch(() => null));
     if (!parsed.success) return NextResponse.json({ error: t('common.invalidRequestBody') }, { status: 400 });

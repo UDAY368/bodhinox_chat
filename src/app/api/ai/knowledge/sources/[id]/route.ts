@@ -41,7 +41,7 @@ export async function GET(_request: Request, { params }: Params) {
 export async function POST(_request: Request, { params }: Params) {
   try {
     const ctx = await requireRole('admin')
-    const limit = checkRateLimit(`ai-sources:write:${ctx.userId}`, RATE_LIMITS.adminAction)
+    const limit = await checkRateLimit(`ai-sources:write:${ctx.userId}`, RATE_LIMITS.adminAction)
     if (!limit.success) return rateLimitResponse(limit)
     const source = await recrawlSource(tenantOf(ctx), (await params).id)
     return NextResponse.json({ source }, { status: 202, headers: noStore })
@@ -54,7 +54,7 @@ export async function PATCH(request: Request, { params }: Params) {
   try {
     const ctx = await requireRole('admin')
     await requirePermission(tenantOf(ctx), 'ai.knowledge')
-    const limit = checkRateLimit(`ai-sources:write:${ctx.userId}`, RATE_LIMITS.adminAction)
+    const limit = await checkRateLimit(`ai-sources:write:${ctx.userId}`, RATE_LIMITS.adminAction)
     if (!limit.success) return rateLimitResponse(limit)
     const patch = parseAccessPatch(await request.json().catch(() => null))
     const source = await updateSourceAccess(tenantOf(ctx), (await params).id, patch)
@@ -67,7 +67,7 @@ export async function PATCH(request: Request, { params }: Params) {
 export async function PUT(request: Request, { params }: Params) {
   try {
     const ctx = await requireRole('admin')
-    const limit = checkRateLimit(`ai-sources:write:${ctx.userId}`, RATE_LIMITS.adminAction)
+    const limit = await checkRateLimit(`ai-sources:write:${ctx.userId}`, RATE_LIMITS.adminAction)
     if (!limit.success) return rateLimitResponse(limit)
     const input = parseContentInput(await request.json().catch(() => null))
     const source = await updateSourceContent(tenantOf(ctx), (await params).id, input)

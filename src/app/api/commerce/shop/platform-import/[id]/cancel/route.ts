@@ -10,7 +10,7 @@ export async function POST(request: Request, context: IdContext) {
   try {
     const { id } = await context.params;
     const caller = await staffCaller(request, { min: 'admin', mutation: true });
-    const limited = mutationLimit(caller);
+    const limited = await mutationLimit(caller);
     if (limited) return limited;
     if (!isId(id) || !(await cancelPlatformImport({ ...caller.tenant, userId: caller.userId }, id))) throw new CatalogueError('not_found');
     return json({ ok: true });

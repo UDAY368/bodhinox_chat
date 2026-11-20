@@ -16,7 +16,7 @@ export async function GET(_request: Request, context: Context) {
   try {
     const { id } = await context.params;
     const ctx = await requireRole('admin');
-    const limit = checkRateLimit(`forms:meta-check:${ctx.userId}`, RATE_LIMITS.adminAction);
+    const limit = await checkRateLimit(`forms:meta-check:${ctx.userId}`, RATE_LIMITS.adminAction);
     if (!limit.success) return rateLimitResponse(limit);
     return NextResponse.json({ check: await checkFormOnMeta(tenantOf(ctx), id) }, { headers: { 'Cache-Control': 'private, no-store' } });
   } catch (error) {

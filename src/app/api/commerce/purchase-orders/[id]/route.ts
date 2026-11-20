@@ -20,7 +20,7 @@ export async function PUT(request: Request, context: IdContext) {
   try {
     const { id } = await context.params;
     const caller = await staffCaller(request, { min: 'admin', mutation: true, permission: 'commerce.inventory' });
-    const limited = mutationLimit(caller);
+    const limited = await mutationLimit(caller);
     if (limited) return limited;
     return json({ order: await updatePurchaseOrder(caller.tenant, id, parsePurchaseOrderInput(await readJson(request))) });
   } catch (error) {

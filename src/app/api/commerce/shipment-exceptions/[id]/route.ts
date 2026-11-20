@@ -33,7 +33,7 @@ async function readResolution(request: Request): Promise<ShipmentExceptionResolu
 export async function POST(request: Request, context: Context) {
   try {
     const actor = await shipmentAdmin();
-    const limit = checkRateLimit(`shipmentException:${actor.userId}`, LIMIT);
+    const limit = await checkRateLimit(`shipmentException:${actor.userId}`, LIMIT);
     if (!limit.success) return rateLimitResponse(limit);
     const { id } = await context.params;
     const resolution = await readResolution(request);

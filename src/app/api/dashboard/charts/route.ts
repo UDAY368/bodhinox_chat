@@ -6,7 +6,7 @@ import { checkRateLimit, rateLimitResponse } from '@/lib/rate-limit';
 export async function GET(request: Request) {
   try {
     const ctx = await getCurrentAccount();
-    const limit = checkRateLimit(`dashboard:charts:${ctx.accountId}:${ctx.userId}`, { limit: 30, windowMs: 60_000 });
+    const limit = await checkRateLimit(`dashboard:charts:${ctx.accountId}:${ctx.userId}`, { limit: 30, windowMs: 60_000 });
     if (!limit.success) return rateLimitResponse(limit);
     const days = Number(new URL(request.url).searchParams.get('days') ?? 30);
     if (!(CHART_RANGES as readonly number[]).includes(days)) return NextResponse.json({ error: 'Unsupported chart range' }, { status: 400 });

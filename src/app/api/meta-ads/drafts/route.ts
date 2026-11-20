@@ -43,13 +43,13 @@ export async function POST(request: Request) {
     if (!metaAdsConfig()) return notEnabledResponse();
     const session = await requireSession(request);
     await assertMutation(request, session);
-    const limit = checkRateLimit(`metaAdsDrafts:${session.userId}`, RATE_LIMITS.adminAction);
+    const limit = await checkRateLimit(`metaAdsDrafts:${session.userId}`, RATE_LIMITS.adminAction);
     if (!limit.success) return rateLimitResponse(limit);
     const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
     const actor = actorOf(session);
     switch (body?.action) {
       case 'create': {
-        const accountLimit = checkRateLimit(`metaAdsCreate:${session.accountId}`, CREATE_LIMIT);
+        const accountLimit = await checkRateLimit(`metaAdsCreate:${session.accountId}`, CREATE_LIMIT);
         if (!accountLimit.success) return rateLimitResponse(accountLimit);
         const input = parseAdCreateInput(body);
         if (!input) return metaAdsErrorResponse('invalid_request');
@@ -57,7 +57,7 @@ export async function POST(request: Request) {
       }
       case 'duplicate':
       case 'variant': {
-        const accountLimit = checkRateLimit(`metaAdsCreate:${session.accountId}`, CREATE_LIMIT);
+        const accountLimit = await checkRateLimit(`metaAdsCreate:${session.accountId}`, CREATE_LIMIT);
         if (!accountLimit.success) return rateLimitResponse(accountLimit);
         if (body.action === 'duplicate') {
           if (typeof body.id !== 'string' || !UUID.test(body.id)) return metaAdsErrorResponse('invalid_request');

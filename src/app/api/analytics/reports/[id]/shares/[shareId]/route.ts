@@ -13,7 +13,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
     const session = await requireSession(request);
     await assertMutation(request, session);
     if (!hasMinRole(session.role, 'admin')) throw new ForbiddenError();
-    const limit = checkRateLimit(`analyticsReportShares:${session.userId}`, { limit: 20, windowMs: 60_000 });
+    const limit = await checkRateLimit(`analyticsReportShares:${session.userId}`, { limit: 20, windowMs: 60_000 });
     if (!limit.success) return rateLimitResponse(limit);
     const { id, shareId } = await params;
     try {

@@ -36,7 +36,7 @@ export async function PUT(request: Request, { params }: Params) {
   try {
     const { id } = await params;
     const ctx = await requireRole('admin');
-    const limit = checkRateLimit(`admin:memberCapacity:${ctx.userId}`, RATE_LIMITS.adminAction);
+    const limit = await checkRateLimit(`admin:memberCapacity:${ctx.userId}`, RATE_LIMITS.adminAction);
     if (!limit.success) return rateLimitResponse(limit);
     const max = parseCapacityInput(await request.json().catch(() => null));
     return NextResponse.json({ capacity: await setMemberCapacity(tenantOf(ctx), id, max) }, { headers });

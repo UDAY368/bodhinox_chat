@@ -18,6 +18,7 @@ import { getAuthPrisma } from '@/lib/db/prisma';
 import { AuthError } from './errors';
 import { checkMfa, confirmIdentity } from './mfa';
 import type { AuthContext } from './session';
+import { forgetCachedSessions } from './session-cache';
 
 export const DELETED_EMAIL_DOMAIN = 'invalid';
 /** The address an anonymised identity keeps (unique, undeliverable). */
@@ -56,6 +57,7 @@ export async function deleteMyAccount(context: AuthContext, input: { password?: 
     await tx.$executeRaw`UPDATE auth_refresh_tokens SET consumed_at=COALESCE(consumed_at,NOW())
       WHERE session_id IN (SELECT id FROM auth_sessions WHERE user_id=${context.userId}::uuid)`;
     await tx.$executeRaw`UPDATE auth_sessions SET revoked_at=COALESCE(revoked_at,NOW()) WHERE user_id=${context.userId}::uuid`;
+    forgetCachedSessions({ userId: context.userId });
     await tx.$executeRaw`UPDATE auth_verifications SET consumed_at=COALESCE(consumed_at,NOW()) WHERE user_id=${context.userId}::uuid`;
     await tx.$executeRaw`DELETE FROM auth_mfa_factors WHERE user_id=${context.userId}::uuid`;
     await tx.$executeRaw`DELETE FROM auth_identities WHERE user_id=${context.userId}::uuid`;

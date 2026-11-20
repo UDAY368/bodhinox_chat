@@ -18,7 +18,7 @@ export async function POST(_request: Request, context: Context) {
   try {
     const { id, editId } = await context.params;
     const ctx = await staffContext();
-    const limited = writeLimit(ctx);
+    const limited = await writeLimit(ctx);
     if (limited) return limited;
     return NextResponse.json({ payment_state: await ensureBalanceLink(ctx, id, editId) }, { headers: NO_STORE });
   } catch (error) {

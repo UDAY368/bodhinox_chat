@@ -23,7 +23,7 @@ export async function POST(request: Request) {
     const session = await requireSession(request);
     if (!hasMinRole(session.role, 'agent')) throw new ForbiddenError('Cost estimates require an agent role');
     await assertMutation(request, session);
-    const limit = checkRateLimit(`campaignEstimate:${session.userId}`, { limit: 30, windowMs: 60_000 });
+    const limit = await checkRateLimit(`campaignEstimate:${session.userId}`, { limit: 30, windowMs: 60_000 });
     if (!limit.success) return rateLimitResponse(limit);
     if (Number(request.headers.get('content-length') ?? 0) > CAMPAIGN_LIMITS.bodyBytes) throw new AuthError('Request is too large', 413);
     const text = await request.text();

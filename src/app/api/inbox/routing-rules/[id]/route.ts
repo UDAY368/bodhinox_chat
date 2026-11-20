@@ -17,7 +17,7 @@ export async function PUT(request: Request, context: Context) {
   try {
     const { id } = await context.params;
     const ctx = await requireRole('admin');
-    const limit = checkRateLimit(`routingRules:${ctx.userId}`, RATE_LIMITS.send);
+    const limit = await checkRateLimit(`routingRules:${ctx.userId}`, RATE_LIMITS.send);
     if (!limit.success) return rateLimitResponse(limit);
     const input = parseRoutingRuleInput(await request.json().catch(() => null));
     return NextResponse.json({ rule: await updateRoutingRule(tenantOf(ctx), id, input) }, { headers: noStore });
@@ -30,7 +30,7 @@ export async function DELETE(_request: Request, context: Context) {
   try {
     const { id } = await context.params;
     const ctx = await requireRole('admin');
-    const limit = checkRateLimit(`routingRules:${ctx.userId}`, RATE_LIMITS.send);
+    const limit = await checkRateLimit(`routingRules:${ctx.userId}`, RATE_LIMITS.send);
     if (!limit.success) return rateLimitResponse(limit);
     await deleteRoutingRule(tenantOf(ctx), id);
     return NextResponse.json({ ok: true }, { headers: noStore });

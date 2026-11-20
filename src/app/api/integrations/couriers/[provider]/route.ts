@@ -41,7 +41,7 @@ export async function PUT(request: Request, context: Context) {
     const { provider } = await context.params;
     if (!isSecretCourierId(provider)) return shipmentErrorResponse('not_found', 404);
     const ctx = await requireRole('admin');
-    const limited = writeLimit('courierSettings', ctx.userId);
+    const limited = await writeLimit('courierSettings', ctx.userId);
     if (limited) return limited;
     const body = await jsonObject(request);
     if (!body) return shipmentErrorResponse('invalid', 400);
@@ -71,7 +71,7 @@ export async function DELETE(_request: Request, context: Context) {
     const { provider } = await context.params;
     if (!isSecretCourierId(provider)) return shipmentErrorResponse('not_found', 404);
     const ctx = await requireRole('admin');
-    const limited = writeLimit('courierSettings', ctx.userId);
+    const limited = await writeLimit('courierSettings', ctx.userId);
     if (limited) return limited;
     await disconnectProvider(actorOf(ctx), provider);
     return NextResponse.json({ ok: true }, { headers: NO_STORE });

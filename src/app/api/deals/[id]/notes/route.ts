@@ -29,7 +29,7 @@ export async function POST(request: Request, context: Context) {
   try {
     const ctx = await requireRole('agent');
     const { id } = await context.params;
-    const limit = checkRateLimit(`dealNotes:${ctx.userId}`, WRITE_LIMIT);
+    const limit = await checkRateLimit(`dealNotes:${ctx.userId}`, WRITE_LIMIT);
     if (!limit.success) return rateLimitResponse(limit);
     const body = (await request.json().catch(() => null)) as { body?: unknown } | null;
     const note = await addDealNote({ ...tenantOf(ctx), userId: ctx.userId }, id, body?.body);

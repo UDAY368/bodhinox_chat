@@ -20,7 +20,7 @@ export async function POST(request: Request) {
     const session = await requireSession(request);
     await assertMutation(request, session);
     if (!hasMinRole(session.role, 'admin')) throw new ForbiddenError();
-    const limit = checkRateLimit(`metaAdsSync:${session.userId}`, RATE_LIMITS.adminAction);
+    const limit = await checkRateLimit(`metaAdsSync:${session.userId}`, RATE_LIMITS.adminAction);
     if (!limit.success) return rateLimitResponse(limit);
     if (!(await queueInsightsSync(actorOf(session)))) return metaAdsErrorResponse('not_connected');
     return NextResponse.json({ queued: true }, { status: 202, headers: NO_STORE });

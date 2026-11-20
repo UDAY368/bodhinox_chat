@@ -32,9 +32,9 @@ export async function POST(request: Request) {
 
     // Same per-user and per-account budgets as inbox drafts, on their own
     // buckets so writing templates can't starve agents' reply drafts.
-    const userLimit = checkRateLimit(`ai-template-draft:${userId}`, RATE_LIMITS.aiDraft)
+    const userLimit = await checkRateLimit(`ai-template-draft:${userId}`, RATE_LIMITS.aiDraft)
     if (!userLimit.success) return rateLimitResponse(userLimit)
-    const accountLimit = checkRateLimit(
+    const accountLimit = await checkRateLimit(
       `ai-template-draft-acct:${accountId}`,
       RATE_LIMITS.aiDraftAccount,
     )

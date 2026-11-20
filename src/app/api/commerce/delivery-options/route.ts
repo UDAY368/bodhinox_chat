@@ -21,7 +21,7 @@ export async function GET() {
 export async function PUT(request: Request) {
   try {
     const ctx = await requireRole('admin');
-    const limit = checkRateLimit(`commerce:delivery:${ctx.userId}`, RATE_LIMITS.adminAction);
+    const limit = await checkRateLimit(`commerce:delivery:${ctx.userId}`, RATE_LIMITS.adminAction);
     if (!limit.success) return rateLimitResponse(limit);
     const input = parseDeliveryOptions(await request.json().catch(() => null));
     return NextResponse.json({ options: await saveDeliveryOptions({ ...tenantOf(ctx), userId: ctx.userId }, input) });

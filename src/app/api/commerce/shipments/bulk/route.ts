@@ -18,7 +18,7 @@ export const runtime = 'nodejs';
 export async function POST(request: Request) {
   try {
     const ctx = await requireRole('admin');
-    const limited = writeLimit('shipments:bulk', ctx.userId);
+    const limited = await writeLimit('shipments:bulk', ctx.userId);
     if (limited) return limited;
     const body = await jsonObject(request);
     const ids = parseBulkOrderIds(body?.order_ids);

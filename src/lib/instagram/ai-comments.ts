@@ -332,7 +332,7 @@ async function draftComments(accountId: string, settings: SettingsRow, now: Date
   const candidates = (await findCandidates(accountId, DRAFTS_PER_RUN * 3))
     .filter((c) => missingScopes(c.scopes ?? [], 'comments').length === 0);
   if (!candidates.length) return;
-  if (!checkRateLimit(`ai-autoreply:${accountId}`, RATE_LIMITS.aiAutoReplyAccount).success) return;
+  if (!(await checkRateLimit(`ai-autoreply:${accountId}`, RATE_LIMITS.aiAutoReplyAccount)).success) return;
 
   const { profile, healthy } = await worker(accountId, async (tx) => {
     const p = await loadAgentProfileTx(tx, accountId);

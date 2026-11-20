@@ -39,7 +39,7 @@ const notFound = () => NextResponse.json({ error: t('errors.notFound') }, { stat
 export async function PATCH(request: Request, context: Context) {
   try {
     const ctx = await requireRole('admin');
-    const limit = checkRateLimit(`whatsappNumbers:${ctx.userId}`, RATE_LIMITS.adminAction);
+    const limit = await checkRateLimit(`whatsappNumbers:${ctx.userId}`, RATE_LIMITS.adminAction);
     if (!limit.success) return rateLimitResponse(limit);
     const { id } = await context.params;
     const parsed = Body.safeParse(await request.json().catch(() => null));
@@ -66,7 +66,7 @@ export async function PATCH(request: Request, context: Context) {
 export async function DELETE(_request: Request, context: Context) {
   try {
     const ctx = await requireRole('admin');
-    const limit = checkRateLimit(`whatsappNumbers:${ctx.userId}`, RATE_LIMITS.adminAction);
+    const limit = await checkRateLimit(`whatsappNumbers:${ctx.userId}`, RATE_LIMITS.adminAction);
     if (!limit.success) return rateLimitResponse(limit);
     const { id } = await context.params;
     const outcome = await withTenant(tenantOf(ctx), (tx) => disconnectAndReport(tx, ctx.accountId, id, ctx.userId));

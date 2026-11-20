@@ -68,7 +68,7 @@ export async function DELETE() {
   try {
     if (!shopifyConfig()) return NextResponse.json({ error: 'not_configured' }, { status: 503, headers });
     const ctx = await requireRole('admin');
-    const limit = checkRateLimit(`shopifyDisconnect:${ctx.userId}`, RATE_LIMITS.adminAction);
+    const limit = await checkRateLimit(`shopifyDisconnect:${ctx.userId}`, RATE_LIMITS.adminAction);
     if (!limit.success) return rateLimitResponse(limit);
     const token = await loadShopifyToken(ctx.accountId);
     if (!token) return NextResponse.json({ error: 'not_connected' }, { status: 404, headers });

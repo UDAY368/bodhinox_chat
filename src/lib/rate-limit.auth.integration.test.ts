@@ -46,3 +46,55 @@ describe.skipIf(!ownerUrl || !authUrl)('[SEC-02] durable auth rate limit', { tim
     expect(plain.rowCount).toBe(0);
   });
 });
+
+describe.skipIf(!ownerUrl || !authUrl)('shared request rate limit (checkRateLimit)', { timeout: 60_000 }, () => {
+  const callerKey = `two-servers:${randomUUID()}`;
+  const options = { limit: 3, windowMs: 60_000 };
+  async function freshLimiter() {
+    // A new module graph and new database clients: a second web server or the worker.
+    const prisma = await import('@/lib/db/prisma');
+    await prisma.disconnectDatabases();
+    vi.resetModules();
+    return import('@/lib/rate-limit');
+  }
+  beforeAll(async () => {
+    process.env.AUTH_DATABASE_URL = authUrl;
+    owner = new pg.Client({ connectionString: ownerUrl });
+    await owner.connect();
+  });
+  afterAll(async () => {
+    const { rateLimitStorageKey } = await import('@/lib/rate-limit');
+    await owner.query('DELETE FROM auth_rate_limits WHERE key=$1', [rateLimitStorageKey(callerKey, options.windowMs)]);
+    await owner.end();
+    const prisma = await import('@/lib/db/prisma');
+    await prisma.disconnectDatabases();
+  });
+
+  it('two module instances (two web servers) share one count, stored only as a hash', async () => {
+    const serverA = await freshLimiter();
+    expect((await serverA.checkRateLimit(callerKey, options)).remaining).toBe(2);
+    expect((await serverA.checkRateLimit(callerKey, options)).success).toBe(true);
+    const serverB = await freshLimiter();
+    expect((await serverB.checkRateLimit(callerKey, options)).success).toBe(true);
+    const refused = await serverB.checkRateLimit(callerKey, options);
+    expect(refused).toMatchObject({ success: false, remaining: 0, limit: 3 });
+    expect(refused.reset).toBeGreaterThan(Date.now() + 50_000);
+    // serverA's own memory never counted these: the refusal comes from the shared row.
+    expect((await serverA.checkRateLimit(callerKey, options)).success).toBe(false);
+    const stored = serverB.rateLimitStorageKey(callerKey, options.windowMs);
+    const rows = (await owner.query('SELECT attempts FROM auth_rate_limits WHERE key=$1', [stored])).rows;
+    expect(rows).toEqual([{ attempts: 4 }]); // capped at limit + 1
+    expect((await owner.query('SELECT 1 FROM auth_rate_limits WHERE key LIKE $1', [`%${callerKey}%`])).rowCount).toBe(0);
+  });
+
+  it('a new window starts a fresh count', async () => {
+    const limiter = await freshLimiter();
+    const key = `window:${randomUUID()}`;
+    const short = { limit: 1, windowMs: 200 };
+    expect((await limiter.checkRateLimit(key, short)).success).toBe(true);
+    expect((await limiter.checkRateLimit(key, short)).success).toBe(false);
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    expect((await limiter.checkRateLimit(key, short)).success).toBe(true);
+    await owner.query('DELETE FROM auth_rate_limits WHERE key=$1', [limiter.rateLimitStorageKey(key, short.windowMs)]);
+  });
+});

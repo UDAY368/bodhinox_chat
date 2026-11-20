@@ -18,7 +18,7 @@ export async function PATCH(request: Request, context: Context) {
   try {
     const ctx = await requireRole('agent');
     const { id, noteId } = await context.params;
-    const limit = checkRateLimit(`conversationNote:${ctx.userId}`, NOTE_WRITE_LIMIT);
+    const limit = await checkRateLimit(`conversationNote:${ctx.userId}`, NOTE_WRITE_LIMIT);
     if (!limit.success) return rateLimitResponse(limit);
     const input = await readJsonObject(request);
     if (!input) return invalidNoteRequest();

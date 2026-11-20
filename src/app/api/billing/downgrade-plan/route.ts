@@ -43,7 +43,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const session = await requireAdmin(request, true);
-    const limit = checkRateLimit(`billingDowngrade:${session.accountId}`, { limit: 20, windowMs: 60_000 });
+    const limit = await checkRateLimit(`billingDowngrade:${session.accountId}`, { limit: 20, windowMs: 60_000 });
     if (!limit.success) return rateLimitResponse(limit);
     const body = (await request.json().catch(() => null)) as { plan?: unknown; keep?: unknown } | null;
     if (!body || typeof body.plan !== 'string' || !body.plan) throw new DowngradeInputError('invalid_selection');

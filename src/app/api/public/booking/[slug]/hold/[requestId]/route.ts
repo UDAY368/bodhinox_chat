@@ -17,7 +17,7 @@ export const dynamic = 'force-dynamic';
 type Params = { params: Promise<{ slug: string; requestId: string }> };
 
 export async function GET(request: Request, { params }: Params) {
-  if (!burstAllowed('hold_status', request, HOLD_STATUS_LIMIT)) return tooMany();
+  if (!(await burstAllowed('hold_status', request, HOLD_STATUS_LIMIT))) return tooMany();
   try {
     const { slug, requestId } = await params;
     if (!isId(requestId)) return notFound();

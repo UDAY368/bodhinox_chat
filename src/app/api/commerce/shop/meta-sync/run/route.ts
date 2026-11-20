@@ -9,7 +9,7 @@ import { catalogueErrorResponse, json, mutationLimit, staffCaller } from '../../
 export async function POST(request: Request) {
   try {
     const caller = await staffCaller(request, { min: 'admin', mutation: true });
-    const limited = mutationLimit(caller);
+    const limited = await mutationLimit(caller);
     if (limited) return limited;
     await requestMetaSync({ ...caller.tenant, userId: caller.userId });
     return json({ queued: true }, 202);

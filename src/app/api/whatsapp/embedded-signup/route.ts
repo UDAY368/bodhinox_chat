@@ -38,9 +38,9 @@ export async function POST(request: Request) {
     if (!embeddedSignupConfigured()) {
       return NextResponse.json({ error: t('notConfigured'), code: 'notConfigured' }, { status: 503 });
     }
-    const userLimit = checkRateLimit(`embeddedSignup:${ctx.userId}`, RATE_LIMITS.adminAction);
+    const userLimit = await checkRateLimit(`embeddedSignup:${ctx.userId}`, RATE_LIMITS.adminAction);
     if (!userLimit.success) return rateLimitResponse(userLimit);
-    const accountLimit = checkRateLimit(`embeddedSignupAccount:${ctx.accountId}`, ACCOUNT_LIMIT);
+    const accountLimit = await checkRateLimit(`embeddedSignupAccount:${ctx.accountId}`, ACCOUNT_LIMIT);
     if (!accountLimit.success) return rateLimitResponse(accountLimit);
 
     const body: unknown = await request.json().catch(() => null);

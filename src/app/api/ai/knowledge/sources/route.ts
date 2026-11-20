@@ -33,7 +33,7 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const ctx = await requireRole('admin')
-    const limit = checkRateLimit(`ai-sources:write:${ctx.userId}`, RATE_LIMITS.adminAction)
+    const limit = await checkRateLimit(`ai-sources:write:${ctx.userId}`, RATE_LIMITS.adminAction)
     if (!limit.success) return rateLimitResponse(limit)
     const input = parseSourceInput(await request.json().catch(() => null))
     if (setsAccess(input)) await requirePermission(tenantOf(ctx), 'ai.knowledge')

@@ -13,7 +13,7 @@ type Params = { params: Promise<{ id: string }> }
 export async function POST(_request: Request, { params }: Params) {
   try {
     const ctx = await requireRole('admin')
-    const limit = checkRateLimit(`ai-agents:write:${ctx.userId}`, RATE_LIMITS.adminAction)
+    const limit = await checkRateLimit(`ai-agents:write:${ctx.userId}`, RATE_LIMITS.adminAction)
     if (!limit.success) return rateLimitResponse(limit)
     return NextResponse.json({ agent: await duplicateAgent(tenantOf(ctx), (await params).id) }, { status: 201, headers: NO_STORE })
   } catch (error) {

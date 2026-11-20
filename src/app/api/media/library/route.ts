@@ -51,7 +51,7 @@ export async function POST(request: Request) {
     const ctx = await requireSession(request);
     await assertMutation(request, ctx);
     if (!hasMinRole(ctx.role, 'agent')) throw new ForbiddenError('Uploads require an agent role');
-    const limit = checkRateLimit(`media-library:upload:${ctx.userId}`, RATE_LIMITS.send);
+    const limit = await checkRateLimit(`media-library:upload:${ctx.userId}`, RATE_LIMITS.send);
     if (!limit.success) return rateLimitResponse(limit);
     const bytes = await readBoundedBody(request, BODY_LIMIT);
     const form = await new Response(bytes, { headers: { 'Content-Type': request.headers.get('Content-Type') || '' } })

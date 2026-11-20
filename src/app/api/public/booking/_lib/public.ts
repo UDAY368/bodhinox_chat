@@ -77,9 +77,9 @@ export function holdClientHash(request: Request): string {
 /** Hold-status polling, per IP: the page polls every 3 s at most, so 40 a minute leaves room for two tabs. */
 export const HOLD_STATUS_LIMIT: RateLimitOptions = { limit: 40, windowMs: 60_000 };
 
-/** In-memory burst limit; true when allowed. */
-export function burstAllowed(scope: string, request: Request, options: RateLimitOptions): boolean {
-  return checkRateLimit(`booking:${scope}:${clientIp(request)}`, options).success;
+/** Shared burst limit (database count); true when allowed. */
+export async function burstAllowed(scope: string, request: Request, options: RateLimitOptions): Promise<boolean> {
+  return (await checkRateLimit(`booking:${scope}:${clientIp(request)}`, options)).success;
 }
 
 /** Durable per-IP hold creation limit (hashed key in auth_rate_limits). Throws a 429 AuthError. */

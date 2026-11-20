@@ -22,8 +22,8 @@ export async function staffContext(minimum: AccountRole = 'agent'): Promise<Staf
 }
 
 /** null when the member may write, else the 429 response. */
-export function writeLimit(ctx: StaffContext): NextResponse | null {
-  const limit = checkRateLimit(`orders:write:${ctx.userId}`, RATE_LIMITS.send);
+export async function writeLimit(ctx: StaffContext): Promise<NextResponse | null> {
+  const limit = await checkRateLimit(`orders:write:${ctx.userId}`, RATE_LIMITS.send);
   return limit.success ? null : (rateLimitResponse(limit) as NextResponse);
 }
 

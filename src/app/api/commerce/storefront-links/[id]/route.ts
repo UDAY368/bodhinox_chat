@@ -11,7 +11,7 @@ import { checkRateLimit, rateLimitResponse, RATE_LIMITS } from '@/lib/rate-limit
 export async function DELETE(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const ctx = await requireRole('agent');
-    const limit = checkRateLimit(`commerce:storefront-link:${ctx.userId}`, RATE_LIMITS.adminAction);
+    const limit = await checkRateLimit(`commerce:storefront-link:${ctx.userId}`, RATE_LIMITS.adminAction);
     if (!limit.success) return rateLimitResponse(limit);
     const { id } = await params;
     await revokeStorefrontSession({ ...tenantOf(ctx), userId: ctx.userId }, id);

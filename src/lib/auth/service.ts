@@ -18,6 +18,7 @@ import { signAccessToken } from './jwt';
 import { hashPassword, verifyPassword } from './password';
 import { AuthError, UnauthorizedError } from './errors';
 import { type AuthContext } from './session';
+import { forgetCachedSessions } from './session-cache';
 import { checkMfa } from './mfa';
 import { safeNextPath } from './callback';
 import { storableUserAgent } from './user-agent';
@@ -400,6 +401,7 @@ export async function rotateRefreshToken(
     if (row.consumed_at) {
       // Return the failure after commit: throwing here would roll back this revocation.
       await tx.$executeRaw`UPDATE auth_sessions SET revoked_at=COALESCE(revoked_at,NOW()) WHERE id=${row.session_id}::uuid`;
+      forgetCachedSessions({ sessionId: row.session_id });
       await tx.$executeRaw`INSERT INTO audit_logs(account_id,user_id,action,resource_id,metadata)
         VALUES(${row.account_id}::uuid,${row.user_id}::uuid,'auth.refresh_reuse',${row.session_id},'{}'::jsonb)`;
       return null;
@@ -448,6 +450,7 @@ export async function switchTenant(
     if (!memberships[0])
       throw new AuthError('No membership in the selected workspace', 403);
     await tx.$executeRaw`UPDATE auth_sessions SET account_id=${accountId}::uuid WHERE id=${context.sessionId}::uuid`;
+    forgetCachedSessions({ sessionId: context.sessionId });
     await tx.$executeRaw`INSERT INTO audit_logs(account_id,user_id,action,resource_id,metadata)
       VALUES(${accountId}::uuid,${context.userId}::uuid,'auth.tenant_switch',${context.sessionId},'{}'::jsonb)`;
     return sessions[0].expires_at;
@@ -471,6 +474,7 @@ export async function revokeSessions(
   else
     await getAuthPrisma()
       .$executeRaw`UPDATE auth_sessions SET revoked_at=COALESCE(revoked_at,NOW()) WHERE id=${context.sessionId}::uuid AND user_id=${context.userId}::uuid`;
+  forgetCachedSessions(all ? { userId: context.userId } : { sessionId: context.sessionId });
 }
 export async function requestEmail(input: {
   email: string;
@@ -565,6 +569,7 @@ export async function confirmEmailChange(token: string): Promise<void> {
     await tx.$executeRaw`UPDATE profiles SET email=${newEmail},updated_at=NOW() WHERE user_id=${row.user_id}::uuid`;
     await tx.$executeRaw`UPDATE auth_verifications SET consumed_at=NOW() WHERE user_id=${row.user_id}::uuid AND consumed_at IS NULL`;
     await tx.$executeRaw`UPDATE auth_sessions SET revoked_at=COALESCE(revoked_at,NOW()) WHERE user_id=${row.user_id}::uuid`;
+    forgetCachedSessions({ userId: row.user_id });
     await tx.$executeRaw`INSERT INTO audit_logs(user_id,action,resource_id,metadata) VALUES(${row.user_id}::uuid,'auth.email_changed',${row.id},'{}'::jsonb)`;
     return true;
   });
@@ -659,6 +664,7 @@ export async function verifyEmailToken(token: string, password: string): Promise
     // Nothing should hold a session, second factor or linked sign-in on a row that was never
     // verified; clear them defensively so nothing set up by an earlier signer survives.
     await tx.$executeRaw`UPDATE auth_sessions SET revoked_at=COALESCE(revoked_at,NOW()) WHERE user_id=${row.user_id}::uuid`;
+    forgetCachedSessions({ userId: row.user_id });
     await tx.$executeRaw`DELETE FROM auth_mfa_factors WHERE user_id=${row.user_id}::uuid`;
     await tx.$executeRaw`DELETE FROM auth_identities WHERE user_id=${row.user_id}::uuid`;
     // Invited signup: join now that the address is proven. A link used or expired meanwhile is
@@ -706,6 +712,7 @@ export async function resetPassword(
     await tx.$executeRaw`UPDATE auth_users SET password_hash=${passwordHash},password_set=true WHERE id=${rows[0].user_id}::uuid`;
     await tx.$executeRaw`UPDATE auth_verifications SET consumed_at=NOW() WHERE user_id=${rows[0].user_id}::uuid AND purpose IN ('reset','change_email') AND consumed_at IS NULL`;
     await tx.$executeRaw`UPDATE auth_sessions SET revoked_at=COALESCE(revoked_at,NOW()) WHERE user_id=${rows[0].user_id}::uuid`;
+    forgetCachedSessions({ userId: rows[0].user_id });
     return true;
   });
   if (!result)
@@ -734,6 +741,7 @@ export async function updatePassword(
     await checkMfa(tx, context.userId, mfaCode);
     await tx.$executeRaw`UPDATE auth_users SET password_hash=${passwordHash},password_set=true WHERE id=${context.userId}::uuid`;
     await tx.$executeRaw`UPDATE auth_sessions SET revoked_at=COALESCE(revoked_at,NOW()) WHERE user_id=${context.userId}::uuid`;
+    forgetCachedSessions({ userId: context.userId });
     await tx.$executeRaw`UPDATE auth_verifications SET consumed_at=NOW() WHERE user_id=${context.userId}::uuid AND purpose IN ('reset','change_email') AND consumed_at IS NULL`;
   });
 }

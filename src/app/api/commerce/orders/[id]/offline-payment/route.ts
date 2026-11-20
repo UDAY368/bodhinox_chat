@@ -24,7 +24,7 @@ export async function POST(request: Request, context: Context) {
   try {
     const ctx = await requireRole('admin');
     const { id } = await context.params;
-    const limit = checkRateLimit(`offlinePayment:${ctx.userId}`, LIMIT);
+    const limit = await checkRateLimit(`offlinePayment:${ctx.userId}`, LIMIT);
     if (!limit.success) return rateLimitResponse(limit);
     const body = await readJsonObject(request);
     if (!body) return NextResponse.json({ error: t('invalidRequest') }, { status: 400 });

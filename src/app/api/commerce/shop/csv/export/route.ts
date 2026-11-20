@@ -8,7 +8,7 @@ import { catalogueErrorResponse, inTenant, mutationLimit, noStore, staffCaller }
 export async function GET(request: Request) {
   try {
     const caller = await staffCaller(request, { min: 'admin' });
-    const limited = mutationLimit(caller);
+    const limited = await mutationLimit(caller);
     if (limited) return limited;
     const { csv } = await inTenant(caller, (tx) => exportProductsCsv(tx, caller.accountId));
     return new Response(csv, {

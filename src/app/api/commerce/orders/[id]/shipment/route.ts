@@ -83,7 +83,7 @@ export async function POST(request: Request, context: Context) {
     const { id } = await context.params;
     if (!UUID.test(id)) return shipmentErrorResponse('not_found', 404);
     const ctx = await requireRole('agent');
-    const limited = writeLimit('shipments', ctx.userId);
+    const limited = await writeLimit('shipments', ctx.userId);
     if (limited) return limited;
     const body = await jsonObject(request);
     if (!body) return shipmentErrorResponse('invalid', 400);
@@ -121,7 +121,7 @@ export async function DELETE(request: Request, context: Context) {
     const { id } = await context.params;
     if (!UUID.test(id)) return shipmentErrorResponse('not_found', 404);
     const ctx = await requireRole('agent');
-    const limited = writeLimit('shipments', ctx.userId);
+    const limited = await writeLimit('shipments', ctx.userId);
     if (limited) return limited;
     const shipmentId = new URL(request.url).searchParams.get('shipment_id');
     if (shipmentId !== null && !UUID.test(shipmentId)) return shipmentErrorResponse('not_found', 404);

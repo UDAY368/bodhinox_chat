@@ -17,7 +17,7 @@ export async function POST(request: Request) {
   try {
     const session = await requireSession(request);
     await assertMutation(request, session);
-    const limit = checkRateLimit(`account:leave:${session.userId}`, RATE_LIMITS.adminAction);
+    const limit = await checkRateLimit(`account:leave:${session.userId}`, RATE_LIMITS.adminAction);
     if (!limit.success) return rateLimitResponse(limit);
     const { nextAccountId } = await leaveAccount(session);
     const response = NextResponse.json({ ok: true, accountId: nextAccountId });

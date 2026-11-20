@@ -39,7 +39,7 @@ export async function GET() {
 export async function PUT(request: Request) {
   try {
     const ctx = await requireRole('admin');
-    const limit = checkRateLimit(`inboxSettings:${ctx.userId}`, RATE_LIMITS.send);
+    const limit = await checkRateLimit(`inboxSettings:${ctx.userId}`, RATE_LIMITS.send);
     if (!limit.success) return rateLimitResponse(limit);
     const settings = parseInboxSettingsInput(await request.json().catch(() => null));
     return NextResponse.json({ settings: await saveInboxSettings(tenantOf(ctx), settings) }, { headers });

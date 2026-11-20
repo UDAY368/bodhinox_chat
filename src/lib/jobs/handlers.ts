@@ -7,6 +7,7 @@ import {
   retryProviderStatus,
   type InboundActionsPayload,
 } from '@/lib/whatsapp/process-webhook';
+import { processedWebhookShell } from '@/lib/whatsapp/webhook-shell';
 import {
   expireAwaitingReplies,
   resumePendingExecution,
@@ -164,8 +165,9 @@ export async function handleJob(job: Job, assertLease: () => void = () => {}) {
     >`SELECT payload,status FROM webhook_receipts WHERE id=${id}::uuid`;
     if (!rows[0] || rows[0].status === 'processed') return;
     await processWebhook(rows[0].payload, assertLease);
+    // Processed: keep ids and types only (no message text, media links or phone numbers); the dedupe key stays.
     await getWorkerPrisma()
-      .$executeRaw`UPDATE webhook_receipts SET status='processed' WHERE id=${id}::uuid`;
+      .$executeRaw`UPDATE webhook_receipts SET status='processed', payload=${JSON.stringify(processedWebhookShell(rows[0].payload))}::jsonb WHERE id=${id}::uuid`;
     return;
   }
   if (job.type === 'billing.event')

@@ -58,7 +58,7 @@ async function fresh(number: { phoneNumberId: string; accessToken: string }): Pr
 export async function GET(_request: Request, { params }: Params) {
   try {
     const ctx = await getCurrentAccount();
-    const limit = checkRateLimit(`businessProfileRead:${ctx.userId}`, READ_LIMIT);
+    const limit = await checkRateLimit(`businessProfileRead:${ctx.userId}`, READ_LIMIT);
     if (!limit.success) return rateLimitResponse(limit);
     const number = await loadNumber(ctx, (await params).id);
     if (number instanceof NextResponse) return number;
@@ -82,7 +82,7 @@ export async function PUT(request: Request, { params }: Params) {
   try {
     const ctx = await requireRole('admin');
     await assertMutation(request, await requireSession(request));
-    const limit = checkRateLimit(`businessProfile:${ctx.userId}`, RATE_LIMITS.adminAction);
+    const limit = await checkRateLimit(`businessProfile:${ctx.userId}`, RATE_LIMITS.adminAction);
     if (!limit.success) return rateLimitResponse(limit);
 
     let body: unknown;

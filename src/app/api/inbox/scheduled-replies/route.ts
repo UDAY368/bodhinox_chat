@@ -35,7 +35,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const ctx = await requireRole('agent');
-    const limit = checkRateLimit(`inbox:scheduled:${ctx.userId}`, SCHEDULED_REPLY_WRITE_LIMIT);
+    const limit = await checkRateLimit(`inbox:scheduled:${ctx.userId}`, SCHEDULED_REPLY_WRITE_LIMIT);
     if (!limit.success) return rateLimitResponse(limit);
     // A platform admin may block manual replies for a workspace (abuse); a scheduled one is a manual reply.
     if (await manualRepliesBlocked({ accountId: ctx.accountId, userId: ctx.userId, role: ctx.role }))

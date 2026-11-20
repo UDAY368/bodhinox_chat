@@ -15,7 +15,7 @@ import { checkRateLimit, rateLimitResponse, RATE_LIMITS } from '@/lib/rate-limit
 export async function GET(request: Request) {
   try {
     const ctx = await requireRole('admin');
-    const limit = checkRateLimit(`auditLog:${ctx.userId}`, RATE_LIMITS.send);
+    const limit = await checkRateLimit(`auditLog:${ctx.userId}`, RATE_LIMITS.send);
     if (!limit.success) return rateLimitResponse(limit);
     const query = parseAuditQuery(new URL(request.url).searchParams);
     return NextResponse.json(await listAuditLog(tenantOf(ctx), query), { headers: { 'Cache-Control': 'private, no-store' } });

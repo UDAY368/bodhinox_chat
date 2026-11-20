@@ -31,7 +31,7 @@ export async function PUT(request: Request) {
     await assertMutation(request, await requireSession(request));
     const ctx = await requireRole('admin');
     await requirePermission(tenantOf(ctx), 'settings.billing');
-    const limit = checkRateLimit(`billingProfile:${ctx.userId}`, RATE_LIMITS.adminAction);
+    const limit = await checkRateLimit(`billingProfile:${ctx.userId}`, RATE_LIMITS.adminAction);
     if (!limit.success) return rateLimitResponse(limit);
     const body = await jsonBody(request);
     if (!body) return badRequest('invalid_request');

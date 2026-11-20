@@ -21,7 +21,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ toke
   const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || null;
   try {
     // Repeated hits still redirect, but only a bounded number are recorded.
-    const record = checkRateLimit(`click:${token}:${ip ?? 'unknown'}`, CLICK_RECORD_LIMIT).success;
+    const record = (await checkRateLimit(`click:${token}:${ip ?? 'unknown'}`, CLICK_RECORD_LIMIT)).success;
     const destination = (record ? await recordClick(token, ip) : await clickDestination(token))
       ?? (record ? await recordFlowClick(token) : await flowClickDestination(token));
     if (!destination) return new NextResponse('Link not found', { status: 404, headers: { 'Cache-Control': 'no-store' } });

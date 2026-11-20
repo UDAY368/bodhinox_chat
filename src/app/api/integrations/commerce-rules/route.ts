@@ -38,7 +38,7 @@ export async function GET(request: Request) {
 export async function PUT(request: Request) {
   try {
     const ctx = await requireRole('admin');
-    const limit = checkRateLimit(`admin:commerceRule:${ctx.userId}`, RATE_LIMITS.adminAction);
+    const limit = await checkRateLimit(`admin:commerceRule:${ctx.userId}`, RATE_LIMITS.adminAction);
     if (!limit.success) return rateLimitResponse(limit);
     const input = parseCommerceRuleInput(await request.json().catch(() => null));
     const rule = await withTenant(tenantOf(ctx), (tx) => saveCommerceRule(tx, ctx.accountId, input));

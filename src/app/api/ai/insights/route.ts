@@ -37,9 +37,9 @@ export async function POST(request: Request) {
   try {
     const ctx = await requireRole('agent');
     await requirePermission(tenantOf(ctx), 'ai.insights');
-    const user = checkRateLimit(`ai-insights:user:${ctx.userId}`, RATE_LIMITS.aiAssistUser);
+    const user = await checkRateLimit(`ai-insights:user:${ctx.userId}`, RATE_LIMITS.aiAssistUser);
     if (!user.success) return rateLimitResponse(user);
-    const account = checkRateLimit(`ai-insights:account:${ctx.accountId}`, RATE_LIMITS.aiAssistAccount);
+    const account = await checkRateLimit(`ai-insights:account:${ctx.accountId}`, RATE_LIMITS.aiAssistAccount);
     if (!account.success) return rateLimitResponse(account);
     const raw: unknown = await request.json().catch(() => null);
     // Anything but an object has no valid key: requestInsight refuses it with 400 invalid_key.

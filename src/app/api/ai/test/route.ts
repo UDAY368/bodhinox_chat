@@ -25,7 +25,7 @@ export async function POST(request: Request) {
   try {
     const { db, accountId, userId } = await requireRole('admin')
 
-    const limit = checkRateLimit(`ai-test:${userId}`, RATE_LIMITS.adminAction)
+    const limit = await checkRateLimit(`ai-test:${userId}`, RATE_LIMITS.adminAction)
     if (!limit.success) return rateLimitResponse(limit)
 
     // Deployment kill switch: no provider round-trip at all.

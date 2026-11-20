@@ -1,19 +1,50 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+const db = vi.hoisted(() => ({ queryRaw: vi.fn() }));
+vi.mock("@/lib/db/prisma", () => ({ getAuthPrisma: () => ({ $queryRaw: db.queryRaw }) }));
+
 import {
   __resetRateLimitForTests,
+  checkLocalRateLimit,
   checkRateLimit,
   rateLimitResponse,
+  rateLimitStorageKey,
 } from "./rate-limit";
 
 const OPTS = { limit: 3, windowMs: 60_000 };
 
-describe("checkRateLimit", () => {
+describe("checkRateLimit (shared database count)", () => {
+  beforeEach(() => {
+    __resetRateLimitForTests();
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+  });
+
+  it("reads the shared count and stores only a hash of the key", async () => {
+    const reset = Date.now() + 42_000;
+    db.queryRaw.mockResolvedValueOnce([{ attempts: 4, reset_ms: reset }]);
+    expect(await checkRateLimit("ip:203.0.113.9", OPTS)).toEqual({ success: false, remaining: 0, reset, limit: 3 });
+    const values = db.queryRaw.mock.calls[0].slice(1);
+    expect(values).toContain(rateLimitStorageKey("ip:203.0.113.9", 60_000));
+    expect(values.join(" ")).not.toContain("203.0.113.9");
+    expect(rateLimitStorageKey("k", 60_000)).not.toBe(rateLimitStorageKey("k", 1_000));
+  });
+
+  it("fails open to the per-process limit when the database is unavailable", async () => {
+    db.queryRaw.mockRejectedValue(new Error("connection refused"));
+    for (let i = 0; i < 3; i++) expect((await checkRateLimit("user:9", OPTS)).success).toBe(true);
+    expect((await checkRateLimit("user:9", OPTS)).success).toBe(false);
+    expect(console.warn).toHaveBeenCalledTimes(1);
+    expect(String(vi.mocked(console.warn).mock.calls[0][0])).not.toContain("user:9");
+  });
+});
+
+describe("checkLocalRateLimit (per-process fallback)", () => {
   beforeEach(() => {
     __resetRateLimitForTests();
   });
 
   it("permits the first request and decrements remaining", () => {
-    const result = checkRateLimit("user:1", OPTS);
+    const result = checkLocalRateLimit("user:1", OPTS);
     expect(result).toMatchObject({
       success: true,
       remaining: 2,
@@ -23,20 +54,20 @@ describe("checkRateLimit", () => {
   });
 
   it("permits exactly `limit` requests then rejects the next", () => {
-    expect(checkRateLimit("user:1", OPTS).success).toBe(true);
-    expect(checkRateLimit("user:1", OPTS).success).toBe(true);
-    expect(checkRateLimit("user:1", OPTS).success).toBe(true);
-    const over = checkRateLimit("user:1", OPTS);
+    expect(checkLocalRateLimit("user:1", OPTS).success).toBe(true);
+    expect(checkLocalRateLimit("user:1", OPTS).success).toBe(true);
+    expect(checkLocalRateLimit("user:1", OPTS).success).toBe(true);
+    const over = checkLocalRateLimit("user:1", OPTS);
     expect(over.success).toBe(false);
     expect(over.remaining).toBe(0);
   });
 
   it("keeps separate counters per key", () => {
-    checkRateLimit("user:1", OPTS);
-    checkRateLimit("user:1", OPTS);
-    checkRateLimit("user:1", OPTS);
+    checkLocalRateLimit("user:1", OPTS);
+    checkLocalRateLimit("user:1", OPTS);
+    checkLocalRateLimit("user:1", OPTS);
     // user:1 is at the cap, user:2 should still be unaffected.
-    const other = checkRateLimit("user:2", OPTS);
+    const other = checkLocalRateLimit("user:2", OPTS);
     expect(other.success).toBe(true);
     expect(other.remaining).toBe(2);
   });
@@ -48,14 +79,14 @@ describe("checkRateLimit", () => {
       vi.setSystemTime(t0);
       __resetRateLimitForTests();
 
-      checkRateLimit("user:1", OPTS);
-      checkRateLimit("user:1", OPTS);
-      checkRateLimit("user:1", OPTS);
-      expect(checkRateLimit("user:1", OPTS).success).toBe(false);
+      checkLocalRateLimit("user:1", OPTS);
+      checkLocalRateLimit("user:1", OPTS);
+      checkLocalRateLimit("user:1", OPTS);
+      expect(checkLocalRateLimit("user:1", OPTS).success).toBe(false);
 
       // Jump just past the window.
       vi.setSystemTime(t0 + OPTS.windowMs + 1);
-      const refreshed = checkRateLimit("user:1", OPTS);
+      const refreshed = checkLocalRateLimit("user:1", OPTS);
       expect(refreshed.success).toBe(true);
       expect(refreshed.remaining).toBe(2);
     } finally {

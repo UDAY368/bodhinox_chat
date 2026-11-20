@@ -15,7 +15,7 @@ export const runtime = 'nodejs';
 export async function POST(request: Request) {
   try {
     const ctx = await requireRole('agent');
-    const limit = checkRateLimit(`campaignEstimate:ig:${ctx.userId}`, { limit: 30, windowMs: 60_000 });
+    const limit = await checkRateLimit(`campaignEstimate:ig:${ctx.userId}`, { limit: 30, windowMs: 60_000 });
     if (!limit.success) return rateLimitResponse(limit);
     const body = await readBoundedJson(request);
     return NextResponse.json(await countInstagramAudience(tenantOf(ctx), body), { headers: { 'Cache-Control': 'no-store' } });

@@ -28,7 +28,7 @@ export function collectionHandlers<I, V>(key: string, plural: string, singular: 
     async POST(request: Request) {
       try {
         const ctx = await requireRole('admin');
-        const limit = checkRateLimit(`commerce:${key}:${ctx.userId}`, RATE_LIMITS.adminAction);
+        const limit = await checkRateLimit(`commerce:${key}:${ctx.userId}`, RATE_LIMITS.adminAction);
         if (!limit.success) return rateLimitResponse(limit);
         const input = ops.parse(await request.json().catch(() => null));
         return NextResponse.json({ [singular]: await ops.create({ ...tenantOf(ctx), userId: ctx.userId }, input) }, { status: 201 });
@@ -47,7 +47,7 @@ export function itemHandlers<I, V>(key: string, singular: string, ops: {
     async PATCH(request: Request, { params }: Params) {
       try {
         const ctx = await requireRole('admin');
-        const limit = checkRateLimit(`commerce:${key}:${ctx.userId}`, RATE_LIMITS.adminAction);
+        const limit = await checkRateLimit(`commerce:${key}:${ctx.userId}`, RATE_LIMITS.adminAction);
         if (!limit.success) return rateLimitResponse(limit);
         const { id } = await params;
         const body: unknown = await request.json().catch(() => null);
@@ -61,7 +61,7 @@ export function itemHandlers<I, V>(key: string, singular: string, ops: {
     async DELETE(_request: Request, { params }: Params) {
       try {
         const ctx = await requireRole('admin');
-        const limit = checkRateLimit(`commerce:${key}:${ctx.userId}`, RATE_LIMITS.adminAction);
+        const limit = await checkRateLimit(`commerce:${key}:${ctx.userId}`, RATE_LIMITS.adminAction);
         if (!limit.success) return rateLimitResponse(limit);
         const { id } = await params;
         await ops.remove({ ...tenantOf(ctx), userId: ctx.userId }, id);

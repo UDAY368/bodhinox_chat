@@ -49,7 +49,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const session = await requireAdmin(request, true);
-    const limit = checkRateLimit(`billingAddons:${session.accountId}`, { limit: 10, windowMs: 60_000 });
+    const limit = await checkRateLimit(`billingAddons:${session.accountId}`, { limit: 10, windowMs: 60_000 });
     if (!limit.success) return rateLimitResponse(limit);
     const provider = getBillingProvider();
     // GST is added to every pack and invoiced; both need the seller's state.

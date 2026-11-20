@@ -18,7 +18,7 @@ type Params = { params: Promise<{ id: string }> }
 export async function GET(_request: Request, { params }: Params) {
   try {
     const ctx = await requireRole('admin')
-    const limit = checkRateLimit(`ai-activity:${ctx.userId}`, RATE_LIMITS.send)
+    const limit = await checkRateLimit(`ai-activity:${ctx.userId}`, RATE_LIMITS.send)
     if (!limit.success) return rateLimitResponse(limit)
     const { id } = await params
     const event = await getReplyEvent(tenantOf(ctx), id)

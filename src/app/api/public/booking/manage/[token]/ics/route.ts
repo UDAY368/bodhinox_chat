@@ -20,7 +20,7 @@ export const dynamic = 'force-dynamic';
 type Params = { params: Promise<{ token: string }> };
 
 export async function GET(request: Request, { params }: Params) {
-  if (!burstAllowed('manage', request, RATE_LIMITS.bookingManage)) return tooMany();
+  if (!(await burstAllowed('manage', request, RATE_LIMITS.bookingManage))) return tooMany();
   try {
     const { token } = await params;
     if (!isManageTokenFormat(token)) return notFound();

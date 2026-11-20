@@ -31,7 +31,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const caller = await staffCaller(request, { min: 'agent', mutation: true, permission: 'appointments.manage' });
-    const limited = mutationLimit(caller);
+    const limited = await mutationLimit(caller);
     if (limited) return limited;
     const body = (await readJson(request)) as Record<string, unknown> | null;
     const startAt = typeof body?.start_at === 'string' ? new Date(body.start_at) : null;

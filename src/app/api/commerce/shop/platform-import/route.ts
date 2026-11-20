@@ -31,7 +31,7 @@ function parseInput(raw: unknown): PlatformImportInput {
 export async function POST(request: Request) {
   try {
     const caller = await staffCaller(request, { min: 'admin', mutation: true });
-    const limited = mutationLimit(caller);
+    const limited = await mutationLimit(caller);
     if (limited) return limited;
     const input = parseInput(await readJson(request));
     return json(await queuePlatformImport({ ...caller.tenant, userId: caller.userId }, input), 202);

@@ -29,7 +29,7 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const ctx = await getCurrentAccount();
-    const limit = checkRateLimit(`push:subscribe:${ctx.userId}`, RATE_LIMITS.adminAction);
+    const limit = await checkRateLimit(`push:subscribe:${ctx.userId}`, RATE_LIMITS.adminAction);
     if (!limit.success) return rateLimitResponse(limit);
     if (!vapidConfig()) return NextResponse.json({ error: 'push_unavailable', code: 'push_unavailable' }, { status: 503 });
     const subscription = parseSubscription(await request.json().catch(() => null));
@@ -44,7 +44,7 @@ export async function POST(request: Request) {
 export async function DELETE(request: Request) {
   try {
     const ctx = await getCurrentAccount();
-    const limit = checkRateLimit(`push:subscribe:${ctx.userId}`, RATE_LIMITS.adminAction);
+    const limit = await checkRateLimit(`push:subscribe:${ctx.userId}`, RATE_LIMITS.adminAction);
     if (!limit.success) return rateLimitResponse(limit);
     const endpoint = ((await request.json().catch(() => null)) as { endpoint?: unknown } | null)?.endpoint;
     if (!isAllowedPushEndpoint(endpoint)) return NextResponse.json({ error: 'invalid_subscription', code: 'invalid_subscription' }, { status: 400 });

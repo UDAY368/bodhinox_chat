@@ -59,7 +59,7 @@ export async function GET(request: Request) {
 export async function PUT(request: Request) {
   try {
     const ctx = await requireRole('admin');
-    const limit = checkRateLimit(`iceBreakers:${ctx.userId}`, RATE_LIMITS.adminAction);
+    const limit = await checkRateLimit(`iceBreakers:${ctx.userId}`, RATE_LIMITS.adminAction);
     if (!limit.success) return rateLimitResponse(limit);
     const parsed = Body.safeParse(await request.json().catch(() => null));
     if (!parsed.success) {

@@ -73,13 +73,13 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const ctx = await requireRole('admin');
-    const userLimit = checkRateLimit(`formsKey:${ctx.userId}`, RATE_LIMITS.adminAction);
+    const userLimit = await checkRateLimit(`formsKey:${ctx.userId}`, RATE_LIMITS.adminAction);
     if (!userLimit.success) return rateLimitResponse(userLimit);
 
     const number = await resolveNumber(ctx, request);
     if (number instanceof NextResponse) return number;
     if (!number) return NextResponse.json({ error: t('notConnected') }, { status: 409 });
-    const numberLimit = checkRateLimit(`formsKeyNumber:${ctx.accountId}:${number.id}`, ROTATE_LIMIT);
+    const numberLimit = await checkRateLimit(`formsKeyNumber:${ctx.accountId}:${number.id}`, ROTATE_LIMIT);
     if (!numberLimit.success) return rateLimitResponse(numberLimit);
 
     const tenant = tenantOf(ctx);

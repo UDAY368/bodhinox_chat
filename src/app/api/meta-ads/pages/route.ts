@@ -19,7 +19,7 @@ export async function GET(request: Request) {
     if (!metaAdsConfig()) return notEnabledResponse();
     if (!metaAdsManageEnabled()) return metaAdsErrorResponse('manage_not_enabled');
     const session = await requireSession(request);
-    const limit = checkRateLimit(`metaAdsPages:${session.userId}`, LIMIT);
+    const limit = await checkRateLimit(`metaAdsPages:${session.userId}`, LIMIT);
     if (!limit.success) return rateLimitResponse(limit);
     return NextResponse.json({ pages: await listAdPages(actorOf(session)) }, { headers: NO_STORE });
   } catch (error) {

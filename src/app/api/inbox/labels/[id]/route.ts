@@ -16,7 +16,7 @@ export async function PATCH(request: Request, { params }: Params) {
   try {
     const { id } = await params;
     const ctx = await requireRole('agent');
-    const limit = checkRateLimit(`inbox:labels:${ctx.userId}`, LABEL_WRITE_LIMIT);
+    const limit = await checkRateLimit(`inbox:labels:${ctx.userId}`, LABEL_WRITE_LIMIT);
     if (!limit.success) return rateLimitResponse(limit);
     const patch = parseLabelPatch(await request.json().catch(() => null));
     return NextResponse.json({ label: await updateLabel(tenantOf(ctx), id, patch) });
@@ -29,7 +29,7 @@ export async function DELETE(_request: Request, { params }: Params) {
   try {
     const { id } = await params;
     const ctx = await requireRole('agent');
-    const limit = checkRateLimit(`inbox:labels:${ctx.userId}`, LABEL_WRITE_LIMIT);
+    const limit = await checkRateLimit(`inbox:labels:${ctx.userId}`, LABEL_WRITE_LIMIT);
     if (!limit.success) return rateLimitResponse(limit);
     await deleteLabel(tenantOf(ctx), id);
     return NextResponse.json({ ok: true });

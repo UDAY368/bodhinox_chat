@@ -37,7 +37,7 @@ export async function POST(request: Request) {
   try {
     const session = await requireSession(request);
     await assertMutation(request, session);
-    const limit = checkRateLimit(`account:deletion:${session.userId}`, { limit: 5, windowMs: 60 * 60_000 });
+    const limit = await checkRateLimit(`account:deletion:${session.userId}`, { limit: 5, windowMs: 60 * 60_000 });
     if (!limit.success) return rateLimitResponse(limit);
     const parsed = body.safeParse(await request.json().catch(() => ({})));
     if (!parsed.success) throw new AccountActionError('invalid_request', 400);

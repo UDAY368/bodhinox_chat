@@ -16,7 +16,7 @@ const t = getT('Api')
 export async function POST(request: Request) {
   try {
     const ctx = await requireRole('agent')
-    const limit = checkRateLimit(`ai-knowledge-ask:${ctx.userId}`, RATE_LIMITS.aiDraft)
+    const limit = await checkRateLimit(`ai-knowledge-ask:${ctx.userId}`, RATE_LIMITS.aiDraft)
     if (!limit.success) return rateLimitResponse(limit)
     const question = parseAskQuestion(await request.json().catch(() => null))
     if (!question) return NextResponse.json({ error: t('common.invalidRequestBody'), code: 'invalid_input' }, { status: 400 })

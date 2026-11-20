@@ -35,7 +35,7 @@ export async function PUT(request: Request) {
     const session = await requireSession(request);
     await assertMutation(request, session);
     if (!hasMinRole(session.role, 'admin')) throw new ForbiddenError('Changing channels requires an admin role');
-    const limit = checkRateLimit(`workspaceChannels:${session.accountId}`, { limit: 20, windowMs: 60_000 });
+    const limit = await checkRateLimit(`workspaceChannels:${session.accountId}`, { limit: 20, windowMs: 60_000 });
     if (!limit.success) return rateLimitResponse(limit);
     const changes = parseChannelChanges(await request.json().catch(() => null));
     const tenant = { accountId: session.accountId, userId: session.userId, role: session.role };

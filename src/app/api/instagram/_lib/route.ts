@@ -25,7 +25,7 @@ export async function adminMutation(request: Request, bucket: string,
   const session = await requireSession(request);
   await assertMutation(request, session);
   if (!hasMinRole(session.role, 'admin')) throw new InstagramError('forbidden');
-  const result = checkRateLimit(`instagram:${bucket}:${session.userId}`, limit);
+  const result = await checkRateLimit(`instagram:${bucket}:${session.userId}`, limit);
   if (!result.success) return rateLimitResponse(result);
   return session;
 }
