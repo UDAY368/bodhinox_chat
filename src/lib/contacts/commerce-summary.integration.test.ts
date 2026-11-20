@@ -58,7 +58,7 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('contact commerce summary', 
     await order(B, other, '2026-01-09T10:00:00Z');
     // Staff-recorded payments against Asha's payment link (no order).
     const link = (await q(`INSERT INTO payment_links(account_id,provider,reference_id,amount_minor,currency,contact_id,status)
-      VALUES($1,'razorpay',$2,500,'INR',$3,'created') RETURNING id`, [A, `ref-${seed}`, asha])).rows[0].id;
+      VALUES($1,'razorpay',$2,500,'INR',$3,'created') RETURNING id`, [A, `ref_summary_${seed}`, asha])).rows[0].id;
     for (let i = 0; i < OFFLINE_ON_LINK; i++)
       await q(`INSERT INTO customer_payments(account_id,source,payment_link_id,amount_minor,currency,status,offline_reference,settlement,created_at)
         VALUES($1,'offline',$2,500,'INR','captured',$3,'pending',$4)`, [A, link, `cash-${i}`, `2026-02-01T10:00:${String(i).padStart(2, '0')}Z`]);
