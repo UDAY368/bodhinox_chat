@@ -1,6 +1,7 @@
-// GET /api/commerce/orders?status=&source=&contact_id=&conversation_id=&q=&from=&to=&limit=&cursor=
-//   Orders, newest first (agents and above; viewers get 403).
-//   200 { orders: OrderListItem[], next_cursor: string | null }; 400 { error } for a bad filter.
+// GET /api/commerce/orders?status=&source=&contact_id=&conversation_id=&cod_confirmation=&tag=&payment=&cash_due=1&q=&from=&to=&limit=&cursor=
+//   Orders, newest first (agents and above; viewers get 403). payment: paid | waiting | refunded | partly_refunded | cod;
+//   cash_due=1: cash still to collect (lib/commerce/orders CASH_DUE). Every filter runs in SQL in the caller's workspace.
+//   200 { orders: OrderListItem[], next_cursor: string | null, total: number | null (first page only) }; 400 { error } for a bad filter.
 // POST /api/commerce/orders { contact_id, lines: [{ variant_id, qty }], note?, client_request_id }
 //   A manual order (agents and above with commerce.checkout). Every price comes from the catalogue on the
 //   server; a price or total in the body is refused (400). 201 { order } (200 for a replay of the same

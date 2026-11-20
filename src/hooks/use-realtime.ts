@@ -16,6 +16,11 @@ interface UseRealtimeOptions {
   onMessageEvent?: (event: RealtimeEvent<Message>) => void;
   onConversationEvent?: (event: RealtimeEvent<Conversation>) => void;
   onResync?: () => void;
+  /** Contact and deal changes (the chat side panel reloads on its contact's). Subscribed only when given. */
+  onRecordEvent?: (
+    table: 'contacts' | 'deals',
+    event: RealtimeEvent<Record<string, unknown>>
+  ) => void;
   enabled?: boolean;
 }
 
@@ -24,6 +29,7 @@ export function useRealtime({
   onMessageEvent,
   onConversationEvent,
   onResync,
+  onRecordEvent,
   enabled = true,
 }: UseRealtimeOptions) {
   const channelRef = useRef<RealtimeChannel | null>(null);
@@ -37,11 +43,14 @@ export function useRealtime({
   const onMessageRef = useRef(onMessageEvent);
   const onConversationRef = useRef(onConversationEvent);
   const onResyncRef = useRef(onResync);
+  const onRecordRef = useRef(onRecordEvent);
   useEffect(() => {
     onMessageRef.current = onMessageEvent;
     onConversationRef.current = onConversationEvent;
     onResyncRef.current = onResync;
+    onRecordRef.current = onRecordEvent;
   });
+  const wantsRecords = !!onRecordEvent;
 
   useEffect(() => {
     if (!enabled) return;
@@ -72,7 +81,21 @@ export function useRealtime({
             old: payload.old as Partial<Conversation>,
           });
         }
-      )
+      );
+    if (wantsRecords)
+      for (const table of ['contacts', 'deals'] as const)
+        channel.on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table },
+          (payload) => {
+            onRecordRef.current?.(table, {
+              eventType: payload.eventType,
+              new: payload.new,
+              old: payload.old,
+            });
+          }
+        );
+    channel
       .onResync(() => onResyncRef.current?.())
       .subscribe((status) => {
         setIsConnected(status === 'SUBSCRIBED');
@@ -85,7 +108,7 @@ export function useRealtime({
       channelRef.current = null;
       setIsConnected(false);
     };
-  }, [channelName, enabled]);
+  }, [channelName, enabled, wantsRecords]);
 
   const unsubscribe = useCallback(() => {
     if (channelRef.current) {

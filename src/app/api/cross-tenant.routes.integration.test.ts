@@ -84,6 +84,11 @@ export const CASES: Case[] = [
   { route: 'conversations/[id]/unread', method: 'POST', params: id('conversationId'), body: () => ({ unread: false }), as: 'agent' },
   { route: 'conversations/[id]/export', method: 'GET', params: id('conversationId') },
   // Deal team notes (Sales pipeline): another workspace's deal is not found; its notes cannot be read, added to or deleted.
+  { route: 'deals/[id]', method: 'GET', params: rid('deals') },
+  { route: 'pipelines/[id]/board', method: 'GET', params: rid('pipelines') },
+  { route: 'pipelines/[id]/deals', method: 'GET', params: rid('pipelines'), query: (b) => `stage=${b.ids.pipeline_stages}` },
+  { route: 'contacts/[id]/summary', method: 'GET', params: id('contactId') },
+  { route: 'contacts/[id]/payments', method: 'GET', params: id('contactId') },
   { route: 'deals/[id]/notes', method: 'GET', params: rid('deals') },
   { route: 'deals/[id]/notes', method: 'POST', params: rid('deals'), body: () => ({ body: 'p15 cross-tenant deal note' }) },
   { route: 'deals/[id]/notes', method: 'POST', params: rid('deals'), body: () => ({ body: 'p15 cross-tenant deal note' }), as: 'agent' },

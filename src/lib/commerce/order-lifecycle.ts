@@ -39,7 +39,8 @@ import { listOrderShipments, orderShipmentCoverage } from '@/lib/fulfilment/ship
 import { ShipmentError, type OrderShipmentView } from '@/lib/fulfilment/types';
 import { reverseEarnTx, reverseOrderTenderTx } from './customer-ledger';
 import { minorFromDb } from './money';
-import { canTransition, fulfilmentEvidence, type FulfilmentEvidence, type OrderStatus } from './order-format';
+import { fulfilmentEvidence, type FulfilmentEvidence, type OrderStatus } from './order-format';
+import { canCancelAndRefund, canChangeStatusByHand, canTransition, isReadyToShip } from './order-state';
 import { repeatPurchaseDueAt, type OrderFollowupKind } from './order-followup';
 import { OrderError } from './orders';
 import { queueReviewRequestTx } from './reviews';
@@ -151,10 +152,9 @@ export async function transitionOrder(ctx: StaffContext, orderId: string, input:
   await asStaff(ctx, async (tx) => {
     const order = await lockOrder(tx, ctx.accountId, orderId);
     expectStatus(order, input.from);
-    if (!canTransition(order.status, input.to, { priced: order.priced, unpaidCod: order.unpaidCod }))
-      throw new OrderError(409, 'bad_transition', `An order cannot move from ${order.status} to ${input.to}`);
-    if (order.status === 'paid' && input.to === 'cancelled')
-      throw new OrderError(409, 'bad_transition', 'A paid order is cancelled with Cancel and refund');
+    // A paid order is cancelled with Cancel and refund, never by a plain status change.
+    if (!canChangeStatusByHand(order.status, input.to, { priced: order.priced, unpaidCod: order.unpaidCod }))
+      throw new OrderError(409, 'bad_transition', `An order cannot move from ${order.status} to ${input.to} here`);
     // A courier may still collect the parcel (an unpaid COD order ships before payment): cancel the shipment first.
     if (input.to === 'cancelled' && (await liveShipmentExists(tx, ctx.accountId, orderId)))
       throw new OrderError(409, 'shipment_live', 'Cancel the courier shipment before cancelling this order');
@@ -259,12 +259,8 @@ async function fullyRefunded(tx: TenantTransaction, accountId: string, orderId: 
   return row?.full === true;
 }
 
-/**
- * A paid order, or an unpaid cash-on-delivery order still confirmed, is ready to leave with the
- * courier; so is either of them once some of its parcels left (partially shipped).
- */
-const shippable = (order: LockedOrder): boolean =>
-  order.status === 'paid' || order.status === 'partially_shipped' || (order.status === 'confirmed' && order.unpaidCod);
+/** Ready to leave with the courier (order-state.isReadyToShip). */
+const shippable = (order: LockedOrder): boolean => isReadyToShip(order);
 
 /**
  * The courier picked the parcel up (or later) for a paid order, or an unpaid cash-on-delivery
@@ -423,7 +419,7 @@ export async function cancelAndRefund(
   const payments = await asStaff(ctx, async (tx) => {
     const settled = await lockSettledPayments(tx, ctx.accountId, orderId);
     const order = await lockOrder(tx, ctx.accountId, orderId);
-    if (order.status !== 'paid') throw new OrderError(409, 'bad_transition', 'Only a paid order that is not dispatched can be cancelled and refunded');
+    if (!canCancelAndRefund(order.status)) throw new OrderError(409, 'bad_transition', 'Only a paid order that is not dispatched can be cancelled and refunded');
     // Goods could leave after the refund: the courier shipment is cancelled first (or Returns used after pickup).
     if (await liveShipmentExists(tx, ctx.accountId, orderId)) throw new ShipmentError('shipment_live');
     // An order paid only with store credit and points has no payment to refund: the credit and points go back below.

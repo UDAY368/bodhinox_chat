@@ -3,13 +3,14 @@
  * approve or reject it in the returns flow (returns.ts), where nothing is refunded or restocked until staff act. Eligibility,
  * the one-open-request-per-line rule and the request shape live here with no database; buyer-returns.ts runs them under the order lock.
  */
+import { RETURNABLE_STATUSES } from './order-state';
 import { StoreError } from './store-settings';
 
 const DAY_MS = 86_400_000;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-/** Orders a return can be opened for: the goods have left the store. */
-export const RETURNABLE_STATUSES: ReadonlySet<string> = new Set(['dispatched', 'fulfilled']);
+/** Orders a return can be opened for (the goods have left the store): the order-state rule. */
+export { RETURNABLE_STATUSES };
 /** Return statuses that still hold a line: nothing is decided or finished yet. */
 export const OPEN_RETURN_STATUSES: ReadonlySet<string> = new Set(['requested', 'received', 'inspected']);
 

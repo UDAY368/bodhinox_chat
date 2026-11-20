@@ -1,5 +1,6 @@
 'use client';
 
+import { ContactAppointmentsCard } from "@/components/appointments/contact-appointments-card";
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useFormatter, useTranslations } from 'next-intl';
@@ -12,12 +13,17 @@ import { createClient } from '@/lib/data/client';
 import { addContactTag, deleteContactTag } from '@/lib/contacts/tag-api';
 import {
   loadContactDetails,
+  loadWorkspaceLists,
   saveContactBasics,
   saveContactField,
   createAddressField,
   flowAnswers,
   type ContactDetails,
+  type WorkspaceLists,
 } from '@/lib/inbox/contact-details';
+import { CONTACT_RECORDS_CHANGED, type PanelChange } from '@/lib/inbox/panel-reload';
+import type { ContactCommerceSummary } from '@/lib/contacts/commerce-summary';
+import { SidebarCommerce, loadContactSummary } from '@/components/inbox/sidebar-commerce';
 import { contactHandle } from '@/lib/whatsapp/wa-identity';
 import { MASK_CHAR } from '@/lib/inbox/masking';
 import type { Contact, ConversationChannel } from '@/types';
@@ -34,7 +40,11 @@ import { ConsentSection } from '@/components/inbox/consent';
 
 interface ContactSidebarProps {
   contact: Contact | null;
-  refreshToken?: string | number;
+  /**
+   * A realtime change to this contact or its deals (src/lib/inbox/panel-reload.ts).
+   * Nothing else reloads the panel: not new messages, not the stream's resync.
+   */
+  change?: PanelChange | null;
   /** Changes when the open conversation's assignee or status changes, so its history reloads. */
   handlingKey?: string;
   onUpdated?: (contact: Contact) => void;
@@ -52,7 +62,7 @@ interface ContactSidebarProps {
 
 export function ContactSidebar({
   contact,
-  refreshToken,
+  change,
   handlingKey,
   onUpdated,
   onCollapse,
@@ -71,6 +81,8 @@ export function ContactSidebar({
   // AI summary for staff, when the workspace turned it on.
   const assist = useAssistAvailability(canSendMessages);
   const [data, setData] = useState<ContactDetails | null>(null);
+  const [lists, setLists] = useState<WorkspaceLists | null>(null);
+  const [summary, setSummary] = useState<ContactCommerceSummary | null>(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -79,17 +91,34 @@ export function ContactSidebar({
   const [values, setValues] = useState<Record<string, string>>({});
   const [newNote, setNewNote] = useState('');
   const [copied, setCopied] = useState(false);
+  /** Bumped by Refresh and the panel's own saves, for the sections that load themselves. */
+  const [panelToken, setPanelToken] = useState(0);
   const request = useRef(0);
+  const summaryRequest = useRef(0);
   const contactId = contact?.id;
   const loadError = t('loadError');
-  const reload = useCallback(async () => {
+  const reloadSummary = useCallback(async () => {
+    if (!contactId) return;
+    const current = ++summaryRequest.current;
+    try {
+      const next = await loadContactSummary(contactId);
+      if (current === summaryRequest.current) setSummary(next);
+    } catch {
+      if (current === summaryRequest.current) setError(loadError);
+    }
+  }, [contactId, loadError]);
+  const reload = useCallback(async (options: { lists?: 'cached' | 'fresh' } = {}) => {
     if (!contactId) return null;
     const current = ++request.current;
     setLoading(true);
     try {
-      const next = await loadContactDetails(contactId);
+      const [next, nextLists] = await Promise.all([
+        loadContactDetails(contactId),
+        options.lists && accountId ? loadWorkspaceLists(accountId, { fresh: options.lists === 'fresh' }) : null,
+      ]);
       if (current !== request.current) return null;
       setData(next);
+      if (nextLists) setLists(nextLists);
       setError('');
       return next;
     } catch (err) {
@@ -99,21 +128,48 @@ export function ContactSidebar({
     } finally {
       if (current === request.current) setLoading(false);
     }
-  }, [contactId, loadError]);
+  }, [contactId, accountId, loadError]);
+  const refreshAll = useCallback(() => {
+    setPanelToken((n) => n + 1);
+    void reload({ lists: 'fresh' });
+    void reloadSummary();
+  }, [reload, reloadSummary]);
+  // The open contact: everything once (the tag and field lists from the session cache).
   useEffect(() => {
-    void reload();
+    void reload({ lists: 'cached' });
+    void reloadSummary();
     return () => {
-      // This counter tracks async requests, rather than a DOM element.
+      // These counters track async requests, rather than DOM elements.
       // eslint-disable-next-line react-hooks/exhaustive-deps
       request.current++;
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+      summaryRequest.current++;
     };
-  }, [reload, refreshToken]);
+  }, [reload, reloadSummary]);
+  // A realtime change: only the part it touched. A change seen before this panel mounted is ignored.
+  const seenChange = useRef(change?.seq ?? 0);
+  useEffect(() => {
+    if (!change || change.seq <= seenChange.current) return;
+    seenChange.current = change.seq;
+    if (change.kind === 'contact') void reload();
+    else void reloadSummary();
+  }, [change, reload, reloadSummary]);
+  // An order, quote, deal or booking made from the composer for this contact.
+  useEffect(() => {
+    if (!contactId) return;
+    const onChanged = (event: Event) => {
+      if ((event as CustomEvent<{ contactId: string }>).detail?.contactId === contactId) void reloadSummary();
+    };
+    window.addEventListener(CONTACT_RECORDS_CHANGED, onChanged);
+    return () => window.removeEventListener(CONTACT_RECORDS_CHANGED, onChanged);
+  }, [contactId, reloadSummary]);
   async function mutate(action: () => Promise<unknown>) {
     if (busy || !canSendMessages) return;
     setBusy(true);
     setError('');
     try {
       await action();
+      setPanelToken((n) => n + 1);
       const next = await reload();
       if (next) onUpdated?.({ ...next.contact, tags: next.tags });
     } catch (err) {
@@ -134,7 +190,8 @@ export function ContactSidebar({
   const countClass = 'bg-muted text-muted-foreground rounded-full px-1.5 text-[11px] font-semibold tabular-nums';
   // Collapsible sections: a quiet summary row with a chevron (inbox.css).
   const summaryClass = 'studio-sec-summary flex h-9 cursor-pointer list-none items-center gap-2 text-[13px] font-semibold';
-  const addressExists = data?.customFields.some(
+  const customFields = lists?.customFields ?? [];
+  const addressExists = !lists || customFields.some(
     (field) => field.field_name.trim().toLowerCase() === 'address'
   );
   const detailRows: Array<{ key: string; label: string; value: string | null | undefined }> = [
@@ -142,7 +199,7 @@ export function ContactSidebar({
     { key: 'phone', label: t('phone'), value: current.phone },
     { key: 'email', label: t('email'), value: current.email },
     { key: 'company', label: t('company'), value: current.company },
-    ...(data?.customFields ?? []).map((field) => ({
+    ...customFields.map((field) => ({
       key: field.id,
       label: field.field_name,
       value: data?.customValues[field.id],
@@ -186,7 +243,7 @@ export function ContactSidebar({
                 aria-label={t('refresh')}
                 title={t('refresh')}
                 disabled={loading || busy}
-                onClick={() => void reload()}
+                onClick={refreshAll}
                 className="text-muted-foreground"
               >
                 <RefreshCw className={cn('size-4', loading && 'animate-spin')} />
@@ -254,7 +311,7 @@ export function ContactSidebar({
           {error && (
             <div role="alert" className="border-destructive/40 text-destructive mx-4 mb-3 rounded-lg border p-3 text-xs">
               {error}
-              <button className="ml-2 underline" onClick={() => void reload()}>
+              <button className="ml-2 underline" onClick={refreshAll}>
                 {t('retry')}
               </button>
             </div>
@@ -284,7 +341,7 @@ export function ContactSidebar({
                   <AiSummaryPanel key={conversationId} conversationId={conversationId} embedded />
                 </details>
               )}
-              <AssessmentPanel conversationId={conversationId} refreshToken={refreshToken} />
+              <AssessmentPanel conversationId={conversationId} refreshToken={panelToken} />
               <details open>
                 <summary className={summaryClass}><h3>{t('details')}</h3></summary>
                 {editing ? (
@@ -294,7 +351,7 @@ export function ContactSidebar({
                       event.preventDefault();
                       void mutate(async () => {
                         await saveContactBasics(contact.id, basics);
-                        for (const field of data.customFields)
+                        for (const field of customFields)
                           if ((values[field.id] ?? '') !== (data.customValues[field.id] ?? ''))
                             await saveContactField(contact.id, field.id, values[field.id] ?? '');
                         setEditing(false);
@@ -314,7 +371,7 @@ export function ContactSidebar({
                         />
                       </label>
                     ))}
-                    {data.customFields.map((field) => (
+                    {customFields.map((field) => (
                       <label key={field.id} className="block space-y-1 text-xs">
                         {field.field_name}
                         <input
@@ -374,6 +431,7 @@ export function ContactSidebar({
                           void mutate(async () => {
                             if (!accountId || !user) throw new Error(t('saveError'));
                             await createAddressField({ accountId, userId: user.id });
+                            setLists(await loadWorkspaceLists(accountId, { fresh: true }));
                           })
                         }
                         className="border-border hover:bg-muted inline-flex h-8 items-center gap-1.5 rounded-full border px-3.5 text-[13px] font-medium transition-colors duration-150 disabled:opacity-50"
@@ -421,7 +479,7 @@ export function ContactSidebar({
                   <details className="mt-3 text-xs">
                     <summary className="text-primary cursor-pointer font-medium">{t('manageTags')}</summary>
                     <div className="mt-2 flex flex-wrap gap-2">
-                      {data.availableTags.map((tag) => {
+                      {(lists?.availableTags ?? []).map((tag) => {
                         const selected = data.tags.some((item) => item.id === tag.id);
                         return (
                           <button
@@ -441,7 +499,7 @@ export function ContactSidebar({
                           </button>
                         );
                       })}
-                      {!data.availableTags.length && <p>{t('noAvailableTags')}</p>}
+                      {lists && !lists.availableTags.length && <p>{t('noAvailableTags')}</p>}
                     </div>
                   </details>
                 )}
@@ -494,9 +552,9 @@ export function ContactSidebar({
                 </div>
               </details>
               {conversationId && (
-                <HandlingHistory conversationId={conversationId} refreshToken={`${refreshToken ?? ''}|${handlingKey ?? ''}`} />
+                <HandlingHistory conversationId={conversationId} refreshToken={`${panelToken}|${handlingKey ?? ''}`} />
               )}
-              {channel === 'instagram' && <InstagramFacts contactId={contact.id} refreshToken={refreshToken} />}
+              {channel === 'instagram' && <InstagramFacts contactId={contact.id} refreshToken={panelToken} />}
               <details>
                 <summary className={summaryClass}><h3>{t('flowAnswers')}</h3></summary>
                 <p className="text-muted-foreground mt-1 text-xs">{t('flowAnswersHint')}</p>
@@ -524,26 +582,15 @@ export function ContactSidebar({
                   <p className="text-muted-foreground mt-2 text-xs">{t('noFlowAnswers')}</p>
                 )}
               </details>
-              <details>
-                <summary className={summaryClass}>
-                  <h3>{t('deals')}</h3>
-                  <span className={countClass}>{data.deals.length}</span>
-                </summary>
-                <div className="mt-3 space-y-2">
-                  {data.deals.map((deal) => (
-                    <div key={deal.id} className="bg-muted rounded-xl p-3 text-xs">
-                      <p className="font-medium">{deal.title}</p>
-                      <div className="text-muted-foreground mt-1 flex justify-between gap-2">
-                        <span>
-                          {deal.currency ?? '$'} {Number(deal.value).toLocaleString()}
-                        </span>
-                        <span>{deal.stage?.name}</span>
-                      </div>
-                    </div>
-                  ))}
-                  {!data.deals.length && <p className="text-muted-foreground text-xs">{t('noDeals')}</p>}
+              {summary ? (
+                <SidebarCommerce contactId={contact.id} summary={summary} />
+              ) : (
+                <div aria-hidden className="mt-3 space-y-2">
+                  <div className="bg-muted h-9 animate-pulse rounded-lg" />
+                  <div className="bg-muted h-9 animate-pulse rounded-lg" />
                 </div>
-              </details>
+              )}
+              <ContactAppointmentsCard contactId={contact.id} conversationId={conversationId} contactName={contact.name} compact />
             </>
           )}
         </div>

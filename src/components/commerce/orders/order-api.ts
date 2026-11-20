@@ -119,16 +119,6 @@ export interface OrderSettings {
   variable_map: Record<string, string>;
 }
 
-export interface OrderQuery {
-  status?: OrderStatus | "";
-  source?: OrderSource | "";
-  q?: string;
-  tag?: string;
-  /** Only COD orders waiting for the customer's answer, or that declined. */
-  codConfirmation?: "pending" | "declined" | "";
-  cursor?: string | null;
-}
-
 export type ApiResult<T> = { ok: true; value: T } | { ok: false; status: number; code?: string; error?: string };
 
 async function result<T>(res: Response, key: string): Promise<ApiResult<T>> {
@@ -139,36 +129,6 @@ async function result<T>(res: Response, key: string): Promise<ApiResult<T>> {
     code: typeof json.code === "string" ? json.code : undefined,
     error: typeof json.error === "string" ? json.error : undefined,
   };
-}
-
-/** The list's filters as query parameters; the list and the CSV export both use this, so neither drops one. */
-export function orderFilterParams(query: Omit<OrderQuery, "cursor">): URLSearchParams {
-  const params = new URLSearchParams();
-  if (query.status) params.set("status", query.status);
-  if (query.source) params.set("source", query.source);
-  if (query.codConfirmation) params.set("cod_confirmation", query.codConfirmation);
-  if (query.q?.trim()) params.set("q", query.q.trim());
-  if (query.tag?.trim()) params.set("tag", query.tag.trim());
-  return params;
-}
-
-export async function listOrders(query: OrderQuery): Promise<{ orders: OrderListItem[]; next_cursor: string | null }> {
-  const params = orderFilterParams(query);
-  if (query.cursor) params.set("cursor", query.cursor);
-  const res = await authFetch(`/api/commerce/orders?${params}`, { cache: "no-store" });
-  if (!res.ok) throw new Error(`orders ${res.status}`);
-  return (await res.json()) as { orders: OrderListItem[]; next_cursor: string | null };
-}
-
-/**
- * The CSV of the orders matching the list's filters (admins). `truncated` is true when the server stopped at
- * its row cap (X-Truncated: 1), so the screen can say the file is not complete.
- */
-export async function exportOrders(query: Omit<OrderQuery, "cursor">): Promise<{ blob: Blob; filename: string; truncated: boolean }> {
-  const res = await authFetch(`/api/commerce/orders/export?${orderFilterParams(query)}`, { cache: "no-store" });
-  if (!res.ok) throw new Error(`orders export ${res.status}`);
-  const filename = /filename="([^"]+)"/.exec(res.headers.get("content-disposition") ?? "")?.[1] ?? "orders.csv";
-  return { blob: await res.blob(), filename, truncated: res.headers.get("x-truncated") === "1" };
 }
 
 export async function getOrder(id: string): Promise<ApiResult<OrderDetail>> {

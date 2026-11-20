@@ -90,6 +90,12 @@ export function DealCard({ deal, stage, onEdit, isOverlay, stages, onMove, onDel
           )}
         </div>
 
+        {deal.status === "lost" && deal.lost_reason && (
+          <p className="truncate text-xs text-muted-foreground" title={deal.lost_reason}>
+            {deal.lost_reason}
+          </p>
+        )}
+
         {/* Contact row */}
         <div className="flex min-w-0 items-center gap-[7px] text-[13px] text-muted-foreground">
           <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-muted text-[10px] font-semibold text-foreground">

@@ -192,7 +192,28 @@ export function parseAdjustInput(variantId: string, raw: unknown): AdjustInput {
  */
 export async function adjustStock(ctx: TenantContext & { userId: string }, input: AdjustInput): Promise<StockLevel> {
   await requirePermission(ctx, 'commerce.inventory');
-  return withTenant(ctx, async (tx) => {
+  return withTenant(ctx, (tx) => adjustOne(tx, ctx, input), getWorkerPrisma());
+}
+
+/**
+ * The stock counts typed in the product form, all or nothing in one worker
+ * transaction: each tracked variant moves from the on-hand count the form was
+ * read with to the typed count (stock_changed when it moved meanwhile).
+ */
+export async function setStockLevels(ctx: TenantContext & { userId: string },
+  targets: { variantId: string; expectedOnHand: number; onHand: number }[]): Promise<void> {
+  const moves = targets.filter((x) => x.onHand !== x.expectedOnHand);
+  if (!moves.length) return;
+  await requirePermission(ctx, 'commerce.inventory');
+  await withTenant(ctx, async (tx) => {
+    for (const m of moves) {
+      await adjustOne(tx, ctx, { variantId: m.variantId, delta: m.onHand - m.expectedOnHand, kind: 'adjustment', reason: null, expectedOnHand: m.expectedOnHand });
+    }
+  }, getWorkerPrisma());
+}
+
+async function adjustOne(tx: TenantTransaction, ctx: TenantContext & { userId: string }, input: AdjustInput): Promise<StockLevel> {
+  {
     const variant = await tx.$queryRaw<{ track_inventory: boolean; archived: boolean }[]>`
       SELECT track_inventory, archived_at IS NOT NULL AS archived FROM shop_variants
       WHERE account_id=${ctx.accountId}::uuid AND id=${input.variantId}::uuid`;
@@ -218,7 +239,7 @@ export async function adjustStock(ctx: TenantContext & { userId: string }, input
     await auditCatalogue(tx, ctx.accountId, ctx.userId, 'commerce.stock_adjusted', input.variantId,
       { kind: input.kind, delta: input.delta, on_hand_after: result.onHand });
     return result;
-  }, getWorkerPrisma());
+  }
 }
 
 /** Body of PUT .../threshold: { low_stock_threshold: 0..100000 | null } (null = the store default). */

@@ -2,9 +2,9 @@
 
 import { useParams } from "next/navigation";
 
-import { OrderDetailView } from "@/components/commerce/orders/order-detail";
+import { OrderView } from "@/components/commerce/orders/order-view";
 
 export default function OrderPage() {
   const params = useParams<{ id: string }>();
-  return params.id ? <OrderDetailView id={params.id} /> : null;
+  return params.id ? <OrderView key={params.id} orderId={params.id} variant="page" /> : null;
 }

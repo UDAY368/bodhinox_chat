@@ -6,6 +6,7 @@
 // Labels, Messaging consent per channel (plus Instagram identities), the
 // contact's Conversations, Orders and Deals. Keeps every capability of the old
 // side panel: consent, erase, send a template, deals, tags, notes, custom fields.
+import { orderRef } from '@/lib/commerce/order-state';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -13,7 +14,7 @@ import { toast } from 'sonner';
 import { useLocale, useTranslations } from 'next-intl';
 import {
   ArrowLeft, Ban, Check, Copy, Download, Loader2, MessageSquare, MoreHorizontal, Pencil, Plus, Send, ShoppingBag, Tag as TagIcon,
-  Trash2, UserRound, X, Inbox, FileText, ShieldCheck, Upload, CircleDot,
+  Trash2, UserRound, X, Inbox, FileText, ShieldCheck, Upload, CircleDot, CalendarDays,
 } from 'lucide-react';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -46,6 +47,9 @@ import type { Channel, Contact, ContactNote, Deal, MessageTemplate, Tag } from '
 import { ContactForm } from './contact-form';
 import { ContactIdentities } from './contact-identities';
 import { InstagramFacts } from './instagram-facts';
+import { ContactPayments } from './contact-payments';
+import { ContactAppointmentsCard } from '@/components/appointments/contact-appointments-card';
+import { bookingTimelineEvent } from '@/lib/appointments/contact-bookings';
 import { CustomFieldInput, FIELD_SELECT } from './custom-field-input';
 import { downloadContactsCsv, memberName, saveContactField, useContactMembers, useCustomFields } from './contacts-client';
 import { formatDay, formatLastSeen, formatWhen } from './format';
@@ -796,7 +800,7 @@ export function ContactProfile({ contactId }: { contactId: string }) {
                   <li key={o.id}>
                     <Link href={`/commerce/orders/${o.id}`} className="flex items-center gap-2.5 rounded-lg p-2 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50">
                       <span className="min-w-0 flex-1">
-                        <strong className="block truncate text-[13px] font-semibold text-foreground">{t('profile.orderName', { ref: o.external_id || o.id.slice(0, 8) })}</strong>
+                        <strong className="block truncate text-[13px] font-semibold text-foreground">{t('profile.orderName', { ref: orderRef(o) })}</strong>
                         <small className="block text-xs text-muted-foreground">{formatDay(o.created_at, locale)} · {o.status}</small>
                       </span>
                       <b className="shrink-0 text-[13px] font-semibold tabular-nums text-foreground">{formatMoney(o.total_minor, o.currency, locale)}</b>
@@ -809,6 +813,11 @@ export function ContactProfile({ contactId }: { contactId: string }) {
             )}
           </section>
 
+          {/* Payments (agents and above, like orders) */}
+          {canEdit && <ContactPayments contactId={contactId} className={CARD} titleClassName={CARD_TITLE} />}
+
+          <ContactAppointmentsCard contactId={contact.id} contactName={contact.name} />
+
           {/* Deals */}
           <section className={CARD} aria-labelledby="ct-deals">
             <h2 id="ct-deals" className={cn(CARD_TITLE, 'mb-2')}>{t('profile.deals')}</h2>
@@ -816,7 +825,7 @@ export function ContactProfile({ contactId }: { contactId: string }) {
               <ul className="-mx-2 flex flex-col gap-0.5">
                 {deals.map((deal) => (
                   <li key={deal.id}>
-                    <Link href="/pipelines" className="flex items-center gap-2.5 rounded-lg p-2 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50">
+                    <Link href={`/pipelines?deal=${encodeURIComponent(deal.id)}`} className="flex items-center gap-2.5 rounded-lg p-2 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50">
                       <span className="min-w-0 flex-1">
                         <strong className="block truncate text-[13px] font-semibold text-foreground">{deal.title}</strong>
                         <small className="block truncate text-xs text-muted-foreground">
@@ -959,6 +968,8 @@ export function ContactProfile({ contactId }: { contactId: string }) {
         return by(t('timeline.blocked'));
       case 'unblocked':
         return by(t('timeline.unblocked'));
+      case 'booking':
+        return by(t(`timeline.booking.${bookingTimelineEvent(d)}`, { service: String(d.service_name ?? '') }));
       case 'template_sent':
         return by(typeof d.template === 'string' && d.template ? t('timeline.templateSentNamed', { name: d.template }) : t('timeline.templateSent'));
       default:
@@ -980,6 +991,7 @@ function EventIcon({ kind }: { kind: TimelineEvent['kind'] }) {
     case 'blocked':
     case 'unblocked': return <Ban className={cls} />;
     case 'template_sent': return <Send className={cls} />;
+    case 'booking': return <CalendarDays className={cls} />;
     case 'created': return <Upload className={cls} />;
     case 'field_changed':
     case 'custom_field_changed': return <Pencil className={cls} />;

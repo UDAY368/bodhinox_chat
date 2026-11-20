@@ -16,7 +16,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { StateBadge } from "@/components/commerce/orders/state-badge";
-import type { Tone } from "@/components/commerce/orders/order-state";
+import type { Tone } from "@/lib/commerce/order-state";
 import { fetchMetaSync, reconcileMetaSyncItem, runMetaSync, saveMetaSync, type MetaSyncView } from "./catalogue-api";
 import { useCatalogueError } from "./catalogue-admin";
 

@@ -51,6 +51,7 @@ import Link from 'next/link';
 import { InboxSearch } from '@/components/inbox/search/inbox-search';
 import { useInboxFolders } from '@/components/inbox/use-inbox-folders';
 import { parseInboxFilter } from '@/lib/inbox/inbox-filters';
+import { panelReloadFor, type PanelChange } from '@/lib/inbox/panel-reload';
 import {
   jumpRequestFor,
   type JumpRequest,
@@ -549,11 +550,22 @@ function InboxViewInner({ scope }: { scope: InboxScope }) {
   // reconnect resync: realtime is best-effort and events sent while the
   // WS was disconnected (laptop sleep, network blip, background-tab
   // throttle) are simply lost. We need a way to catch up.
+  // The contact panel reloads only on a change to its contact or that contact's deals (src/lib/inbox/panel-reload.ts).
+  const [panelChange, setPanelChange] = useState<PanelChange | null>(null);
+  const activeContactId = activeContact?.id;
+  const handleRecordEvent = useCallback(
+    (table: 'contacts' | 'deals', event: { new: Record<string, unknown>; old: Record<string, unknown> }) => {
+      const kind = panelReloadFor(table, event, activeContactId);
+      if (kind) setPanelChange((prev) => ({ kind, seq: (prev?.seq ?? 0) + 1 }));
+    },
+    [activeContactId]
+  );
   const { isConnected } = useRealtime({
     channelName: 'inbox-realtime',
     onMessageEvent: handleMessageEvent,
     onConversationEvent: handleConversationEvent,
     onResync: () => setResyncToken((token) => token + 1),
+    onRecordEvent: handleRecordEvent,
     enabled: true,
   });
 
@@ -1067,7 +1079,7 @@ function InboxViewInner({ scope }: { scope: InboxScope }) {
               channel={conversationChannel(activeConversation)}
               folders={folders}
               onCollapse={handleToggleContactPanel}
-              refreshToken={`${resyncToken}:${messages.length}`}
+              change={panelChange}
               handlingKey={`${activeConversation?.assigned_agent_id ?? ''}:${activeConversation?.status ?? ''}`}
               onUpdated={handleContactUpdated}
               botPaused={activeConversation?.bot_paused ?? false}

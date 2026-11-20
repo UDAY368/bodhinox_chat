@@ -84,8 +84,8 @@ export async function checklistOf(tx: TenantTransaction, accountId: string, site
     { key: 'product', done: !!row?.product, href: '/commerce/catalogue' },
     { key: 'template', done: site.saved, href: '/commerce/store/editor' },
     { key: 'payments', done: online || !!row?.cod, href: '/commerce/payments' },
-    { key: 'shipping', done: !!row?.shipping, href: '/commerce/settings' },
-    { key: 'checkout', done: !!row?.checkout, href: '/commerce/settings' },
+    { key: 'shipping', done: !!row?.shipping, href: '/commerce/settings?section=shipping' },
+    { key: 'checkout', done: !!row?.checkout, href: '/commerce/settings?section=checkout' },
     { key: 'ordering', done: ordering, href: '#ordering' },
     { key: 'published', done: site.saved && site.published, href: '#publish' },
   ];

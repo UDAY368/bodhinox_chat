@@ -60,10 +60,12 @@ export interface ProductListFilter {
   offset?: number;
 }
 
-export async function fetchShopProducts(f: ProductListFilter):
-  Promise<ApiResult<{ products: ShopProductSummary[]; total: number; currency: string | null }>> {
+export interface ProductPage { products: ShopProductSummary[]; total: number; currency: string | null; shop_url: string | null }
+
+export async function fetchShopProducts(f: ProductListFilter): Promise<ApiResult<ProductPage>> {
   const res = await get(`/api/commerce/shop/products${qs({ q: f.q?.trim(), status: f.status, category_id: f.categoryId, stock: f.stock, limit: f.limit, offset: f.offset })}`);
-  return result(res, (j) => ({ products: (j.products as ShopProductSummary[]) ?? [], total: Number(j.total ?? 0), currency: (j.currency as string | null) ?? null }));
+  return result(res, (j) => ({ products: (j.products as ShopProductSummary[]) ?? [], total: Number(j.total ?? 0),
+    currency: (j.currency as string | null) ?? null, shop_url: (j.shop_url as string | null) ?? null }));
 }
 
 export async function fetchShopProduct(id: string): Promise<ApiResult<ShopProduct>> {
@@ -74,12 +76,38 @@ export type ProductBody = Partial<Pick<ShopProduct, "name" | "description" | "di
   | "follow_up_template_language" | "follow_up_after_days" | "repurchase_after_days" | "cod_available" | "tags" | "brand" | "product_type" | "details"
   | "publish_at" | "hide_at" | "is_digital" | "digital_media_id" | "digital_url" | "is_bundle">> & { version?: number; images?: ({ url: string } | { media_id: string })[] };
 
-export async function createShopProduct(body: ProductBody): Promise<ApiResult<ShopProduct>> {
-  return result(await send("/api/commerce/shop/products", "POST", body), asProduct);
+/** One row of the options matrix as the product form saves it (blank SKU = generated on the server). */
+export interface VariantRowBody extends Omit<VariantBody, "archived" | "position" | "image_id"> {
+  id?: string | null;
+  image_index?: number | null;
+  /** Units on hand to set (tracked variants); `expected_on_hand` is the count the form was read with. */
+  stock?: number | null;
+  expected_on_hand?: number;
 }
 
-export async function updateShopProduct(id: string, body: ProductBody): Promise<ApiResult<ShopProduct>> {
-  return result(await send(productUrl(id), "PATCH", body), asProduct);
+export type ProductFormBody = ProductBody & { variants?: VariantRowBody[]; parts?: Array<{ variant_id: string; quantity: number }> };
+
+/** The product form's one Save: create (id null) or update the product with its photos, variants and parts. */
+export async function saveProductForm(id: string | null, body: ProductFormBody): Promise<ApiResult<{ product: ShopProduct; stockError: string | null }>> {
+  const res = id ? await send(productUrl(id), "PATCH", body) : await send("/api/commerce/shop/products", "POST", body);
+  return result(res, (j) => ({ product: j.product as ShopProduct, stockError: typeof j.stock_error === "string" ? j.stock_error : null }));
+}
+
+export type BulkAction = "live" | "hidden" | "archive" | "category";
+
+/** One list action over the chosen products (admins); products it does not fit are skipped. */
+export async function bulkProducts(action: BulkAction, ids: string[], categoryId?: string | null): Promise<ApiResult<{ changed: number; skipped: number }>> {
+  return result(await send("/api/commerce/shop/products/bulk", "POST", { action, ids, ...(action === "category" ? { category_id: categoryId ?? null } : {}) }),
+    (j) => ({ changed: Number(j.changed ?? 0), skipped: Number(j.skipped ?? 0) }));
+}
+
+/** Upload one photo to the media library (the same path the media picker uses); the product links it on Save. */
+export async function uploadPhoto(file: File): Promise<ApiResult<{ id: string; url: string }>> {
+  const form = new FormData();
+  form.set("file", file);
+  const res = await authFetch("/api/media/library", { method: "POST", body: form }).catch(() => null);
+  if (!res) return { ok: false, status: 0 };
+  return result(res, (j) => { const item = j.item as { id: string; url: string }; return { id: item.id, url: item.url }; });
 }
 
 export async function publishShopProduct(id: string, version: number): Promise<ApiResult<ShopProduct>> {
@@ -115,11 +143,6 @@ export interface VariantBody {
   preorder?: boolean;
   preorder_ship_date?: string | null;
   preorder_cap?: number | null;
-}
-
-/** Replace a bundle product's parts (admins). */
-export async function saveBundleParts(productId: string, parts: Array<{ variant_id: string; quantity: number }>): Promise<ApiResult<ShopProduct>> {
-  return result(await send(`${productUrl(productId)}/bundle`, "PUT", { parts }), asProduct);
 }
 
 export async function saveVariant(productId: string, variantId: string | null, body: VariantBody): Promise<ApiResult<ShopProduct>> {

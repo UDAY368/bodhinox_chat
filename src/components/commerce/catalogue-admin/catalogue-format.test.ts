@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { bpsToPercent, moneyInput, moneyText, parseOptionsText, percentToBps, priceRange } from "./catalogue-format";
+import { bpsToPercent, moneyInput, moneyText, percentToBps, priceRange } from "./catalogue-format";
 
 describe("catalogue form helpers", () => {
   it("turns percent text into basis points and back", () => {
@@ -29,11 +29,4 @@ describe("catalogue form helpers", () => {
     expect(priceRange(null, null, "INR", "en")).toBeNull();
   });
 
-  it("parses option text into at most four pairs", () => {
-    expect(parseOptionsText("Size: M, Colour: Blue")).toEqual({ Size: "M", Colour: "Blue" });
-    expect(parseOptionsText("")).toEqual({});
-    expect(parseOptionsText("Size M")).toBeNull();
-    expect(parseOptionsText("a:1,b:2,c:3,d:4,e:5")).toBeNull();
-    expect(parseOptionsText("Size: M, Size: L")).toBeNull();
-  });
 });

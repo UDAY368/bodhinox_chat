@@ -10,11 +10,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { MoneyError, parseMoney } from "@/lib/commerce/money";
+import { canStartReturn } from "@/lib/commerce/order-state";
 import {
   createOrderReturn, moveReturn, refundReturn, type ApiResult, type OrderDetail, type OrderReturn, type ReturnAction,
 } from "./order-api";
 
-const RETURNABLE = new Set(["dispatched", "fulfilled"]);
 const REASONS = new Set(["wrong_item", "damaged", "not_as_described", "size_fit", "changed_mind", "other"]);
 
 /**
@@ -44,7 +44,7 @@ export function OrderReturnsPanel({ order, returns, canAct, canAdmin, onChanged 
   const [outsideConfirmed, setOutsideConfirmed] = useState<Record<string, boolean>>({});
   const nameOf = new Map(order.items.map((i) => [i.id, i.name || i.sku || i.retailer_id || "-"]));
 
-  if (!RETURNABLE.has(order.status) && returns.length === 0) return null;
+  if (!canStartReturn(order.status) && returns.length === 0) return null;
 
   async function run<T>(key: string, call: () => Promise<ApiResult<T>>, success: string): Promise<boolean> {
     setBusy(key);
@@ -119,7 +119,7 @@ export function OrderReturnsPanel({ order, returns, canAct, canAdmin, onChanged 
     <div className="space-y-3 rounded-xl border border-border bg-card p-4">
       <div className="flex items-center justify-between gap-2">
         <h2 className="text-sm font-medium text-foreground">{t("title")}</h2>
-        {RETURNABLE.has(order.status) && canAct && !open && (
+        {canStartReturn(order.status) && canAct && !open && (
           <Button size="sm" variant="outline" onClick={() => setOpen(true)}>{t("open")}</Button>
         )}
       </div>

@@ -26,18 +26,21 @@ import { searchContacts, type ContactOption } from "@/lib/contacts/contact-searc
 import { formatMoney } from "@/lib/commerce/money";
 import { createManualOrder, createQuote, listSellableVariants, type OrderDetail, type SellableVariant } from "./order-api";
 import { sendOrderPaymentLink } from "./order-actions";
-import { orderRef, withChosenOption } from "./order-state";
+import { orderRef } from "@/lib/commerce/order-state";
+import { withChosenOption } from "./customer-options";
 
 const selectClass = "h-9 w-full min-w-0 rounded-lg border border-border bg-card px-2.5 text-sm text-foreground outline-none transition-[border-color,box-shadow] duration-150 focus:border-primary focus:ring-3 focus:ring-ring/30 disabled:opacity-60";
 const MAX_QTY = 99;
 
 interface Line { key: number; variantId: string; qty: string }
 
-export function NewOrderDialog({ open, mode = "order", onOpenChange, onCreated }: {
+export function NewOrderDialog({ open, mode = "order", onOpenChange, onCreated, defaultContact }: {
   open: boolean;
   mode?: "order" | "quote";
   onOpenChange: (open: boolean) => void;
   onCreated: (order: OrderDetail) => void;
+  /** Opened from a chat: this customer is already chosen (and can still be changed). */
+  defaultContact?: ContactOption;
 }) {
   const t = useTranslations("Sales.orders.new");
   const tOrders = useTranslations("Sales.orders");
@@ -65,8 +68,8 @@ export function NewOrderDialog({ open, mode = "order", onOpenChange, onCreated }
     if (!open) return;
      
     setRequestId(crypto.randomUUID());
-    setContactId("");
-    setChosenContact(null);
+    setContactId(defaultContact?.id ?? "");
+    setChosenContact(defaultContact ?? null);
     setSearch("");
     setNote("");
     setHours("24");
@@ -85,6 +88,7 @@ export function NewOrderDialog({ open, mode = "order", onOpenChange, onCreated }
       setLines(value.variants[0] ? [{ key: 1, variantId: value.variants[0].id, qty: "1" }] : []);
     });
     return () => { live = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- reset on open only; the default customer is read then
   }, [open]);
 
   // Product search: narrows the picker on the server (name or SKU); lines already chosen keep their product.

@@ -23,9 +23,11 @@ import type {
   Conversation,
   Deal,
   DealStatus,
+  Pipeline,
   PipelineStage,
   Profile,
 } from "@/types";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
   Sheet,
   SheetContent,
@@ -43,7 +45,6 @@ import {
   X,
   Trash2,
   MessageSquare,
-  DollarSign,
   Link2,
   Loader2,
   Plus,
@@ -52,6 +53,21 @@ import {
 import { toast } from "sonner";
 import { useTranslations } from "next-intl";
 
+/** The symbol shown before the deal value (₹ for INR), from the deal's own currency. */
+function currencySymbol(currency: string): string {
+  try {
+    return new Intl.NumberFormat(undefined, { style: "currency", currency }).formatToParts(0).find((p) => p.type === "currency")?.value ?? currency;
+  } catch {
+    return currency;
+  }
+}
+
+export interface DealContactChoice {
+  id: string;
+  name?: string | null;
+  phone?: string | null;
+}
+
 interface DealFormProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -59,7 +75,12 @@ interface DealFormProps {
   pipelineId: string;
   stages: PipelineStage[];
   defaultStageId?: string;
-  onSaved: () => void;
+  /** A new deal starts with this contact chosen (the chat composer, a contact profile). */
+  defaultContact?: DealContactChoice;
+  /** A new deal may pick its pipeline here (NewDealSheet); the board page fixes it instead. */
+  pipelineChoice?: { pipelines: Pick<Pipeline, "id" | "name">[]; onChange: (pipelineId: string) => void };
+  /** Called after a save; a new deal passes its id. */
+  onSaved: (dealId?: string) => void;
   /** Asks the page to confirm and delete the deal. */
   onDelete?: (deal: Deal) => void;
 }
@@ -71,6 +92,9 @@ interface DealNote {
   author_name: string | null;
   created_at: string;
 }
+
+/** Matches the database check on deals.lost_reason. */
+const LOST_REASON_MAX = 200;
 
 const selectClass =
   "h-9 w-full rounded-lg border border-border bg-card px-2.5 text-sm text-foreground outline-none transition-[border-color,box-shadow] duration-150 focus:border-primary focus:ring-3 focus:ring-ring/30";
@@ -84,6 +108,8 @@ export function DealForm({
   pipelineId,
   stages,
   defaultStageId,
+  defaultContact,
+  pipelineChoice,
   onSaved,
   onDelete,
 }: DealFormProps) {
@@ -116,6 +142,9 @@ export function DealForm({
   const [savedField, setSavedField] = useState<"saving" | "saved" | null>(null);
   const [statusAction, setStatusAction] = useState<DealStatus | null>(null);
   const [status, setStatus] = useState<DealStatus>("open");
+  const [lostReason, setLostReason] = useState("");
+  const [lostOpen, setLostOpen] = useState(false);
+  const [lostDraft, setLostDraft] = useState("");
 
   const [teamNotes, setTeamNotes] = useState<DealNote[]>([]);
   const [noteDraft, setNoteDraft] = useState("");
@@ -145,11 +174,13 @@ export function DealForm({
       setExpectedCloseDate(deal.expected_close_date ?? "");
       setNotes(deal.notes ?? "");
       setStatus(deal.status ?? "open");
+      setLostReason(deal.lost_reason ?? "");
     } else {
       setTitle("");
       setValue("");
       setCurrency(defaultCurrency);
-      setContactId("");
+      setContactId(defaultContact?.id ?? "");
+      setLostReason("");
       setStageId(defaultStageId || stages[0]?.id || "");
       setAssignedTo("");
       setExpectedCloseDate("");
@@ -157,7 +188,16 @@ export function DealForm({
       setStatus("open");
       setTeamNotes([]);
     }
-  }, [open, deal, defaultStageId, stages, defaultCurrency]);
+    // Stages are left out on purpose: a new deal keeps what was typed when its pipeline
+    // (and so its stage list) changes; the effect below fixes up the stage instead.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, deal, defaultCurrency, defaultContact?.id]);
+
+  // A new deal's stage follows its pipeline's stage list (NewDealSheet loads it after opening).
+  useEffect(() => {
+    if (!open || deal || stages.some((s) => s.id === stageId)) return;
+    setStageId(defaultStageId && stages.some((s) => s.id === defaultStageId) ? defaultStageId : stages[0]?.id ?? "");
+  }, [open, deal, stages, stageId, defaultStageId]);
    
 
   // Load supporting data once the sheet is open
@@ -196,13 +236,20 @@ export function DealForm({
       return;
     }
     if (contact?.id === contactId) return;
+    // A preselected contact (from the chat or a profile) or the deal's own contact needs no lookup.
+    const known = (!deal && defaultContact?.id === contactId ? defaultContact : null)
+      ?? (deal?.contact && deal.contact.id === contactId ? deal.contact : null);
+    if (known) {
+      setContact({ id: known.id, name: known.name ?? null, phone: known.phone ?? null });
+      return;
+    }
     let cancelled = false;
     void db.from("contacts").select("id,name,phone").eq("id", contactId).maybeSingle()
       .then(({ data }) => { if (!cancelled) setContact((data as ContactOption | null) ?? null); });
     return () => {
       cancelled = true;
     };
-  }, [open, contactId, contact?.id, db]);
+  }, [open, contactId, contact?.id, db, deal, defaultContact]);
 
   const chooseContact = (id: string) => {
     setContactId(id);
@@ -303,7 +350,7 @@ export function DealForm({
       setSaving(false);
       return;
     }
-    const { error } = await db.from("deals").insert({
+    const { data: created, error } = await db.from("deals").insert({
       title: title.trim(),
       value: parseFloat(value) || 0,
       currency,
@@ -316,27 +363,31 @@ export function DealForm({
       user_id: sessionUser.id,
       account_id: accountId,
       status: "open",
-    });
+    }).select("id").single();
     setSaving(false);
-    if (error) {
+    if (error || !created) {
       toast.error(t("toastFailedCreate"));
       return;
     }
     toast.success(t("toastCreated"));
     onOpenChange(false);
-    onSaved();
+    onSaved((created as { id: string }).id);
   }
 
-  async function handleStatusChange(next: DealStatus) {
+  /** Won, lost (with an optional reason) or reopen. The database sets closed_at and clears the reason when not lost. */
+  async function handleStatusChange(next: DealStatus, reason?: string) {
     if (!deal) return;
     setStatusAction(next);
-    const { error } = await db.from("deals").update({ status: next }).eq("id", deal.id);
+    const lost = next === "lost" ? (reason ?? "").trim().slice(0, LOST_REASON_MAX) || null : null;
+    const { error } = await db.from("deals").update({ status: next, lost_reason: lost }).eq("id", deal.id);
     setStatusAction(null);
     if (error) {
       toast.error(t("toastFailedStatus"));
       return;
     }
     setStatus(next);
+    setLostReason(lost ?? "");
+    setLostOpen(false);
     toast.success(
       next === "won" ? t("toastMarkedWon") : next === "lost" ? t("toastMarkedLost") : t("toastReopened"),
     );
@@ -405,6 +456,14 @@ export function DealForm({
           </SheetHeader>
 
           <div className="flex-1 overflow-y-auto p-4 space-y-4">
+            {editing && status !== "open" && (
+              <div className={`rounded-xl px-3 py-2 text-sm ${status === "won" ? "bg-emerald-500/10" : "bg-destructive/10"}`}>
+                <p className="font-medium">{status === "won" ? ts("closedWon") : ts("closedLost")}</p>
+                {status === "lost" && lostReason && (
+                  <p className="mt-0.5 break-words text-muted-foreground">{ts("lostReasonShown", { reason: lostReason })}</p>
+                )}
+              </div>
+            )}
             <div className="grid gap-2">
               <Label htmlFor="deal-title" className="text-muted-foreground">{t("title")}</Label>
               <Input
@@ -422,7 +481,7 @@ export function DealForm({
               <div className="grid gap-2">
                 <Label htmlFor="deal-value" className="text-muted-foreground">{t("value")}</Label>
                 <div className="relative">
-                  <DollarSign className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                  <span aria-hidden className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">{currencySymbol(currency)}</span>
                   <Input
                     id="deal-value"
                     type="number"
@@ -453,6 +512,24 @@ export function DealForm({
                 </select>
               </div>
             </div>
+
+            {!editing && pipelineChoice && pipelineChoice.pipelines.length > 1 && (
+              <div className="grid gap-2">
+                <Label htmlFor="deal-pipeline" className="text-muted-foreground">{ts("pipeline")}</Label>
+                <select
+                  id="deal-pipeline"
+                  value={pipelineId}
+                  onChange={(e) => pipelineChoice.onChange(e.target.value)}
+                  className={selectClass}
+                >
+                  {pipelineChoice.pipelines.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
 
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div className="grid gap-2">
@@ -634,7 +711,7 @@ export function DealForm({
                   </Button>
                 )}
                 {canWrite && status !== "lost" && (
-                  <Button type="button" variant="outline" disabled={!!statusAction} onClick={() => void handleStatusChange("lost")}>
+                  <Button type="button" variant="outline" disabled={!!statusAction} onClick={() => { setLostDraft(""); setLostOpen(true); }}>
                     {statusAction === "lost" ? <Loader2 className="h-4 w-4 animate-spin" /> : <X className="h-4 w-4" />} {ts("markLost")}
                   </Button>
                 )}
@@ -665,6 +742,29 @@ export function DealForm({
           </div>
         </div>
       </SheetContent>
+      {deal && (
+        <ConfirmDialog
+          open={lostOpen}
+          onOpenChange={setLostOpen}
+          title={ts("lostTitle")}
+          destructive
+          confirmLabel={ts("markLost")}
+          onConfirm={() => handleStatusChange("lost", lostDraft)}
+          body={
+            <div className="grid gap-2">
+              <p>{ts("lostBody")}</p>
+              <Label htmlFor="deal-lost-reason" className="text-foreground">{ts("lostReason")}</Label>
+              <Input
+                id="deal-lost-reason"
+                value={lostDraft}
+                maxLength={LOST_REASON_MAX}
+                onChange={(e) => setLostDraft(e.target.value)}
+                placeholder={ts("lostReasonPlaceholder")}
+              />
+            </div>
+          }
+        />
+      )}
       {deal && (
         <CreatePaymentLinkDialog
           open={linkOpen}

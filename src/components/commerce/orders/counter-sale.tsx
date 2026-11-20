@@ -23,7 +23,7 @@ import { Label } from "@/components/ui/label";
 import { searchContacts, type ContactOption } from "@/lib/contacts/contact-search";
 import { formatMoney } from "@/lib/commerce/money";
 import { createCounterSale, documentUrl, getOrderTimeline, listSellableVariants, type CounterSaleResult, type SellableVariant } from "./order-api";
-import { orderRef } from "./order-state";
+import { orderRef } from "@/lib/commerce/order-state";
 
 const MAX_QTY = 99;
 type Method = "cash" | "upi";

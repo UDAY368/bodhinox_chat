@@ -1868,6 +1868,22 @@
           "onDelete": "CASCADE"
         },
         "definition": "account_id UUID NOT NULL DEFAULT NULLIF(current_setting('app.account_id', true),'')::uuid "
+      },
+      {
+        "name": "closed_at",
+        "type": "timestamptz",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "closed_at timestamptz"
+      },
+      {
+        "name": "lost_reason",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "lost_reason text CHECK (lost_reason IS NULL OR char_length(lost_reason) <= 200)"
       }
     ],
     "broadcasts": [
