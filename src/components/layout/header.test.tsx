@@ -31,7 +31,7 @@ describe('Header', () => {
     expect(html).toMatch(/<a[^>]*href="\/commerce\/orders"[^>]*>Sidebar.orders<\/a>/);
     expect(html).not.toContain('aria-current');
     expect(html).toContain('material-chrome');
-    expect(html).toContain('id="studio-header-center"');
+    expect(html).not.toContain('studio-header-center');
   });
 
   it('marks the current page as the last crumb, which phones show alone', () => {

@@ -16,7 +16,7 @@ export default function ContactFieldsPage() {
   return (
     <div className="min-w-0 space-y-5">
       <ContactsHeader
-        actions={canEditSettings && (
+        primaryAction={canEditSettings && (
           <Button onClick={() => setCreating(true)}>
             <Plus className="size-4" />
             {t('fieldsTab.newField')}

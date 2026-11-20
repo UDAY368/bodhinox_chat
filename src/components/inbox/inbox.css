@@ -27,8 +27,7 @@ html[data-mode='dark'] .studio-inbox {
   background: var(--card);
 }
 
-.studio-inbox .studio-chat-filters input,
-.studio-inbox-topbar input {
+.studio-inbox .studio-chat-filters input {
   height: 36px;
   border-color: transparent;
   border-radius: 12px;
@@ -36,8 +35,7 @@ html[data-mode='dark'] .studio-inbox {
   box-shadow: none;
 }
 
-.studio-inbox .studio-chat-filters input:focus-visible,
-.studio-inbox-topbar input:focus-visible {
+.studio-inbox .studio-chat-filters input:focus-visible {
   border-color: transparent;
   box-shadow: 0 0 0 2px var(--ring);
 }

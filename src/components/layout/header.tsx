@@ -88,8 +88,6 @@ export function Header({ onOpenSidebar, showMenuToggle = false, menuExpanded }: 
         )}
       </div>
 
-      {/* A page can put its own controls here (the inbox puts its search and filters). */}
-      <div id="studio-header-center" className="hidden min-w-0 flex-1 items-center md:flex" />
 
       <div className="flex items-center gap-1 sm:gap-1.5">
         <PageSearch />
