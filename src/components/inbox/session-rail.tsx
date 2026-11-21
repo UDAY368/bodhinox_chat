@@ -43,7 +43,7 @@ export function rowWindow(lastCustomerMessageAt: string | null | undefined, now:
 }
 
 /**
- * AiSensy-style strip: one bordered box of avatars for the chats whose window is
+ * A strip: one bordered box of avatars for the chats whose window is
  * open, closing soonest first, with ‹ › to page through. Hidden when none are open.
  */
 export function WindowStrip({
