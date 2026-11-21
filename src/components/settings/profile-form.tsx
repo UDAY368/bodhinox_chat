@@ -10,10 +10,10 @@ import { useAuth } from '@/hooks/use-auth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { PasswordInput } from '@/components/ui/password-input';
-import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Card, CardContent } from '@/components/ui/card';
+import { GroupedListRow } from '@/components/ui/grouped-list';
+import { SETTINGS_ROW_HAIRLINE, SettingsBlock, SettingsGroup, SettingsMoreMenu, SettingsRow, SettingsSwitchRow } from './settings-row';
 import { useLocale, useTranslations } from 'next-intl';
 import { SettingsPanelHead } from './settings-panel-head';
 import { useSettingsDraft } from './settings-draft';
@@ -275,184 +275,141 @@ export function ProfileForm() {
   return (
     <section className="animate-in fade-in-50 max-w-2xl duration-200">
       <SettingsPanelHead title={t('title')} description={t('description')} />
-      <form onSubmit={onSubmit} className="space-y-4">
-        <Card>
-          <CardContent className="space-y-6">
-            {/* Avatar row */}
-            <div className="flex flex-wrap items-center gap-5">
-              <Avatar size="lg" className="size-16">
-                {currentAvatar ? (
-                  <AvatarImage
-                    src={currentAvatar}
-                    alt={fullName || t('avatarAlt')}
-                  />
-                ) : null}
-                <AvatarFallback className="bg-primary/10 text-primary text-base">
-                  {initial}
-                </AvatarFallback>
-              </Avatar>
-
-              <div className="flex flex-wrap gap-2">
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/png,image/jpeg,image/webp,image/gif"
-                  className="hidden"
-                  onChange={onPickFile}
+      <form onSubmit={onSubmit} className="space-y-8">
+        {/* Photo: one action (change), removing it sits in the group's more menu. */}
+        <SettingsGroup>
+          <div className={`${SETTINGS_ROW_HAIRLINE} flex min-h-11 items-center gap-4 px-4 py-3`}>
+            <Avatar size="lg" className="size-14 shrink-0">
+              {currentAvatar ? (
+                <AvatarImage
+                  src={currentAvatar}
+                  alt={fullName || t('avatarAlt')}
                 />
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={saving}
-                >
-                  <Upload className="size-4" />
-                  {currentAvatar ? t('changePhoto') : t('uploadPhoto')}
-                </Button>
-                {currentAvatar && (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    onClick={onRemoveAvatar}
-                    disabled={saving}
-                    className="text-muted-foreground hover:text-foreground"
-                  >
-                    <Trash2 className="size-4" />
-                    {t('remove')}
-                  </Button>
-                )}
-                <p className="text-muted-foreground w-full text-xs">
-                  {t('photoHint')}
-                </p>
-              </div>
+              ) : null}
+              <AvatarFallback className="bg-primary/10 text-primary text-base">
+                {initial}
+              </AvatarFallback>
+            </Avatar>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-medium text-foreground">{fullName || profile?.email || '—'}</p>
+              <p className="text-muted-foreground text-xs">{t('photoHint')}</p>
             </div>
-
-            {/* Name */}
-            <div className="space-y-2">
-              <Label htmlFor="profile-full-name" className="text-foreground">
-                {t('displayName')}
-              </Label>
-              <Input
-                id="profile-full-name"
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
-                placeholder={t('fullNamePlaceholder')}
-                maxLength={120}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/png,image/jpeg,image/webp,image/gif"
+              className="hidden"
+              onChange={onPickFile}
+            />
+            <div className="flex shrink-0 items-center gap-1">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => fileInputRef.current?.click()}
                 disabled={saving}
-                required
-              />
-            </div>
-
-            {/* Email */}
-            <div className="space-y-2">
-              <Label htmlFor="profile-email" className="text-foreground">
-                {t('email')}
-              </Label>
-              <Input
-                id="profile-email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                disabled={saving}
-                required
-              />
-              {emailChangePending && (
-                <p className="flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-300">
-                  <Mail className="mt-0.5 size-3.5 shrink-0" />
-                  <span>
-                    Check {pendingEmail} for a confirmation link. Your current
-                    email stays active until confirmation. Confirming signs out
-                    every device.
-                  </span>
-                </p>
-              )}
-            </div>
-
-            {emailChanged && (
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="email-current-password">
-                    Current password
-                  </Label>
-                  <PasswordInput
-                    id="email-current-password"
-
-                    autoComplete="current-password"
-                    value={currentPassword}
-                    onChange={(e) => setCurrentPassword(e.target.value)}
-                    disabled={saving}
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="email-mfa-code">
-                    Authenticator or recovery code (if enabled)
-                  </Label>
-                  <Input
-                    id="email-mfa-code"
-                    autoComplete="one-time-code"
-                    value={mfaCode}
-                    onChange={(e) => setMfaCode(e.target.value)}
-                    disabled={saving}
-                  />
-                </div>
-              </div>
-            )}
-
-            {/* Interface language: the member's own, else the workspace default. */}
-            <div className="space-y-2">
-              <Label htmlFor="profile-language" className="text-foreground">
-                {tProfile('language')}
-              </Label>
-              <Select
-                value={language ?? INHERIT}
-                disabled={saving}
-                onValueChange={(v) => setLanguage((!v || v === INHERIT ? null : v) as AppLocale | null)}
               >
-                <SelectTrigger id="profile-language" className="min-h-11 w-full sm:min-h-9 sm:max-w-xs">
-                  <SelectValue>{(v: string) => (v === INHERIT ? inheritLabel : tLang(v as AppLocale))}</SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={INHERIT}>{inheritLabel}</SelectItem>
-                  {APP_LOCALES.map((code) => <SelectItem key={code} value={code}>{tLang(code)}</SelectItem>)}
-                </SelectContent>
-              </Select>
-              <p className="text-muted-foreground text-xs">{tProfile('languageHint')}</p>
+                <Upload className="size-4" />
+                <span className="hidden sm:inline">{currentAvatar ? t('changePhoto') : t('uploadPhoto')}</span>
+                <span className="sr-only sm:hidden">{currentAvatar ? t('changePhoto') : t('uploadPhoto')}</span>
+              </Button>
+              <SettingsMoreMenu
+                actions={[{ label: t('remove'), icon: Trash2, destructive: true, disabled: saving, hidden: !currentAvatar, onSelect: onRemoveAvatar }]}
+              />
             </div>
+          </div>
+        </SettingsGroup>
 
-            {/* Read-only block */}
-            <div className="border-border bg-muted rounded-lg border p-4">
-              <p className="text-muted-foreground mb-3 text-xs font-semibold">
-                {t('accountDetails')}
+        <SettingsGroup>
+          <SettingsRow label={t('displayName')} htmlFor="profile-full-name">
+            <Input
+              id="profile-full-name"
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
+              placeholder={t('fullNamePlaceholder')}
+              maxLength={120}
+              disabled={saving}
+              required
+            />
+          </SettingsRow>
+          <SettingsRow label={t('email')} htmlFor="profile-email">
+            <Input
+              id="profile-email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              disabled={saving}
+              required
+            />
+          </SettingsRow>
+          {emailChangePending && (
+            <SettingsBlock>
+              <p className="flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-300">
+                <Mail className="mt-0.5 size-3.5 shrink-0" />
+                <span>
+                  Check {pendingEmail} for a confirmation link. Your current
+                  email stays active until confirmation. Confirming signs out
+                  every device.
+                </span>
               </p>
-              <dl className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
-                <div>
-                  <dt className="text-muted-foreground">{t('role')}</dt>
-                  <dd className="text-foreground mt-0.5 font-mono">
-                    {profile?.role ?? 'user'}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-muted-foreground">{t('joined')}</dt>
-                  <dd className="text-foreground mt-0.5">{joined}</dd>
-                </div>
-                <div className="sm:col-span-2">
-                  <dt className="text-muted-foreground">{t('userId')}</dt>
-                  <dd className="text-muted-foreground mt-0.5 font-mono text-xs break-all">
-                    {user?.id ?? '—'}
-                  </dd>
-                </div>
-              </dl>
-            </div>
+            </SettingsBlock>
+          )}
+          {emailChanged && (
+            <>
+              <SettingsRow label="Current password" htmlFor="email-current-password">
+                <PasswordInput
+                  id="email-current-password"
+                  autoComplete="current-password"
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  disabled={saving}
+                  required
+                />
+              </SettingsRow>
+              <SettingsRow label="Authenticator or recovery code (if enabled)" htmlFor="email-mfa-code">
+                <Input
+                  id="email-mfa-code"
+                  autoComplete="one-time-code"
+                  value={mfaCode}
+                  onChange={(e) => setMfaCode(e.target.value)}
+                  disabled={saving}
+                />
+              </SettingsRow>
+            </>
+          )}
+        </SettingsGroup>
 
-            {!profile && (
-              <p className="text-muted-foreground flex items-center gap-2 text-sm">
-                <CircleAlert className="size-4" />
-                {t('loading')}
-              </p>
-            )}
-          </CardContent>
-        </Card>
+        {/* Interface language: the member's own, else the workspace default. */}
+        <SettingsGroup footer={tProfile('languageHint')}>
+          <SettingsRow label={tProfile('language')} htmlFor="profile-language">
+            <Select
+              value={language ?? INHERIT}
+              disabled={saving}
+              onValueChange={(v) => setLanguage((!v || v === INHERIT ? null : v) as AppLocale | null)}
+            >
+              <SelectTrigger id="profile-language" className="min-h-11 w-full sm:min-h-9">
+                <SelectValue>{(v: string) => (v === INHERIT ? inheritLabel : tLang(v as AppLocale))}</SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={INHERIT}>{inheritLabel}</SelectItem>
+                {APP_LOCALES.map((code) => <SelectItem key={code} value={code}>{tLang(code)}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </SettingsRow>
+        </SettingsGroup>
+
+        {/* Read-only account details. */}
+        <SettingsGroup title={t('accountDetails')}>
+          <GroupedListRow title={t('role')} trailing={<span className="font-mono">{profile?.role ?? 'user'}</span>} />
+          <GroupedListRow title={t('joined')} trailing={joined} />
+          <SettingsSwitchRow title={t('userId')} description={<span className="font-mono break-all">{user?.id ?? '—'}</span>} control={null} />
+        </SettingsGroup>
+
+        {!profile && (
+          <p className="text-muted-foreground flex items-center gap-2 text-sm">
+            <CircleAlert className="size-4" />
+            {t('loading')}
+          </p>
+        )}
 
         {/* Saving and discarding happen from the page's Unsaved changes bar;
             this hidden button keeps Enter-to-save inside the form. */}

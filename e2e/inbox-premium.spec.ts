@@ -156,7 +156,7 @@ test.describe('inbox premium', () => {
     await login(page, users.admin);
     await page.goto('/settings?tab=inbox');
 
-    const card = page.locator('[data-slot="card"]').filter({ has: page.locator('#inbox-timezone') });
+    const card = page.locator('[data-slot="grouped-list"]').filter({ has: page.locator('#inbox-timezone') });
     await expect(card.locator('#inbox-timezone')).toBeEditable();
     await card.locator('#inbox-timezone').fill('Asia/Kolkata');
     const monday = card.getByRole('switch', { name: label('Open on Monday', 'Settings.workingHours.openOn') }).first();

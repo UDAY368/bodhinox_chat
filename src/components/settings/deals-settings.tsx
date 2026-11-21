@@ -10,15 +10,9 @@ import { CURRENCIES } from "@/lib/currency";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-} from "@/components/ui/card";
 import { useTranslations } from "next-intl";
 import { SettingsPanelHead } from "./settings-panel-head";
+import { SettingsBlock, SettingsGroup } from "./settings-row";
 
 function currencyLabel(code: string): string {
   const c = CURRENCIES.find((x) => x.code === code);
@@ -81,17 +75,9 @@ export function DealsSettings() {
         title={t("title")}
         description={t("description")}
       />
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-foreground">
-            <Coins className="size-4 text-primary" />
-            {t("defaultCurrency")}
-          </CardTitle>
-          <CardDescription className="text-muted-foreground">
-            {t("defaultCurrencyDesc")}
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
+      <SettingsGroup title={<><Coins className="size-4 text-primary" />
+            {t("defaultCurrency")}</>} footer={t("defaultCurrencyDesc")}>
+        <SettingsBlock className="space-y-4">
           <div className="grid gap-2 sm:max-w-xs">
             <Label htmlFor="deals-currency" className="text-muted-foreground">{t("currencyLabel")}</Label>
             <Select
@@ -133,8 +119,8 @@ export function DealsSettings() {
               )}
             </Button>
           )}
-        </CardContent>
-      </Card>
+        </SettingsBlock>
+      </SettingsGroup>
     </section>
   );
 }

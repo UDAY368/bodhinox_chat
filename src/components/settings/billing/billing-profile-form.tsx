@@ -9,11 +9,11 @@ import { toast } from 'sonner';
 import { useTranslations } from 'next-intl';
 
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { authFetch } from '@/lib/auth/client';
 import type { BillingProfileView } from './types';
+import { SettingsBlock, SettingsGroup } from '../settings-row';
 
 type Form = Record<'legal_name' | 'gstin' | 'address_line1' | 'address_line2' | 'city' | 'state_code' | 'postal_code' | 'country' | 'email', string>;
 
@@ -59,12 +59,8 @@ export function BillingProfileForm({ profile, onSaved }: { profile: BillingProfi
   );
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-foreground">{t('title')}</CardTitle>
-        <CardDescription>{t('description')}</CardDescription>
-      </CardHeader>
-      <CardContent>
+    <SettingsGroup title={t('title')} footer={t('description')}>
+      <SettingsBlock>
         <form onSubmit={save} className="grid gap-4 sm:grid-cols-2">
           {field('legal_name', { required: true, maxLength: 200, className: 'sm:col-span-2', autoComplete: 'organization' })}
           {field('gstin', { maxLength: 15 })}
@@ -80,7 +76,7 @@ export function BillingProfileForm({ profile, onSaved }: { profile: BillingProfi
             <Button type="submit" disabled={saving}>{saving && <Loader2 className="size-4 animate-spin" />}{t('save')}</Button>
           </div>
         </form>
-      </CardContent>
-    </Card>
+      </SettingsBlock>
+    </SettingsGroup>
   );
 }

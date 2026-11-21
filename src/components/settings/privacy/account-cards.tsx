@@ -9,10 +9,10 @@ import { useTranslations } from 'next-intl';
 import { Loader2 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { StepUpFields, sendJson, useActionError, useMfaState } from './step-up';
+import { SettingsBlock, SettingsGroup } from '../settings-row';
 
 const reloadInto = (path: string) => window.location.assign(path);
 
@@ -36,12 +36,8 @@ export function LeaveWorkspaceCard({ workspaceName }: { workspaceName: string })
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-foreground">{t('title')}</CardTitle>
-        <CardDescription>{t('description', { name: workspaceName })}</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-3">
+    <SettingsGroup title={t('title')} footer={t('description', { name: workspaceName })}>
+      <SettingsBlock className="space-y-3">
         {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}
         {confirming ? (
           <div className="flex gap-2">
@@ -54,8 +50,8 @@ export function LeaveWorkspaceCard({ workspaceName }: { workspaceName: string })
         ) : (
           <Button variant="outline" onClick={() => setConfirming(true)}>{t('start')}</Button>
         )}
-      </CardContent>
-    </Card>
+      </SettingsBlock>
+    </SettingsGroup>
   );
 }
 
@@ -79,12 +75,8 @@ export function CreateWorkspaceCard() {
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-foreground">{t('title')}</CardTitle>
-        <CardDescription>{t('description')}</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-3">
+    <SettingsGroup title={t('title')} footer={t('description')}>
+      <SettingsBlock className="space-y-3">
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="create-workspace-name">{t('name')}</Label>
           <Input id="create-workspace-name" value={name} maxLength={100} onChange={(e) => setName(e.target.value)} />
@@ -94,8 +86,8 @@ export function CreateWorkspaceCard() {
           {busy ? <Loader2 className="size-4 animate-spin" /> : null}
           {t('submit')}
         </Button>
-      </CardContent>
-    </Card>
+      </SettingsBlock>
+    </SettingsGroup>
   );
 }
 
@@ -127,12 +119,8 @@ export function DeleteAccountCard() {
   };
 
   return (
-    <Card className="border-destructive/30">
-      <CardHeader>
-        <CardTitle className="text-foreground">{t('title')}</CardTitle>
-        <CardDescription>{t('description')}</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-3">
+    <SettingsGroup title={t('title')} footer={t('description')}>
+      <SettingsBlock className="space-y-3">
         {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}
         {!open ? (
           <Button variant="destructive" onClick={() => setOpen(true)}>{t('start')}</Button>
@@ -165,7 +153,7 @@ export function DeleteAccountCard() {
             </div>
           </div>
         )}
-      </CardContent>
-    </Card>
+      </SettingsBlock>
+    </SettingsGroup>
   );
 }

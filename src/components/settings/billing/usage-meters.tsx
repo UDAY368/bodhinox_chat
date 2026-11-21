@@ -8,9 +8,9 @@
 
 import { useFormatter, useTranslations } from 'next-intl';
 
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { LIMIT_POLICY, LIMITS, MONTHLY_LIMITS, type LimitKey } from '@/lib/billing/entitlements-catalogue';
 import type { PlanView } from '@/lib/billing/client';
+import { SettingsBlock, SettingsGroup } from '../settings-row';
 
 const UNITS = ['B', 'KB', 'MB', 'GB', 'TB'] as const;
 const HOW_ITEMS = ['hard', 'inbound', 'monthly', 'warnings', 'expiry'] as const;
@@ -44,11 +44,8 @@ export function UsageMeters({ plan }: { plan: PlanView }) {
   };
 
   return (
-    <Card data-testid="usage-meters">
-      <CardHeader>
-        <CardTitle className="text-foreground">{t('limitsTitle')}</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-3">
+    <SettingsGroup testId="usage-meters" title={t('limitsTitle')}>
+      <SettingsBlock className="space-y-3">
         {LIMITS.map((key) => {
           const limit = plan.limits[key];
           const used = plan.usage[key];
@@ -89,7 +86,7 @@ export function UsageMeters({ plan }: { plan: PlanView }) {
             {HOW_ITEMS.map((item) => <li key={item}>{t(`meters.how.${item}`)}</li>)}
           </ul>
         </details>
-      </CardContent>
-    </Card>
+      </SettingsBlock>
+    </SettingsGroup>
   );
 }

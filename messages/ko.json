@@ -4806,7 +4806,10 @@
       "maskOffHint": "이 멤버에게 고객 전화번호 가리기",
       "maskedToast": "이제 {name}님에게 전화번호가 가려집니다",
       "unmaskedToast": "이제 {name}님이 전체 전화번호를 볼 수 있습니다",
-      "maskFailed": "전화번호 가리기 설정을 업데이트하지 못했습니다"
+      "maskFailed": "전화번호 가리기 설정을 업데이트하지 못했습니다",
+      "maskMenuOff": "전화번호 가리기",
+      "maskMenuOn": "전체 전화번호 표시",
+      "memberActions": "{name}에 대한 추가 작업"
     },
     "invite": {
       "inviteCreated": "초대가 생성되었습니다",
@@ -10628,7 +10631,8 @@
         "meta": "Meta 카탈로그 연결",
         "collections": "컬렉션",
         "locations": "재고 위치",
-        "purchaseOrders": "발주서"
+        "purchaseOrders": "발주서",
+        "stock": "재고 관리"
       },
       "statuses": {
         "draft": "숨김",

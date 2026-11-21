@@ -5,7 +5,7 @@ import { useFormatter, useTranslations } from 'next-intl';
 import { Laptop, Smartphone, Tablet, MonitorSmartphone } from 'lucide-react';
 import { authFetch } from '@/lib/auth/client';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { SettingsBlock, SettingsGroup } from './settings-row';
 
 type DeviceSession = {
   id: string;
@@ -54,12 +54,8 @@ export function DeviceSessionsCard() {
 
   const others = sessions?.filter((session) => !session.current).length ?? 0;
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-foreground">{t('title')}</CardTitle>
-        <CardDescription className="text-muted-foreground">{t('description')}</CardDescription>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-3">
+    <SettingsGroup title={t('title')} footer={t('description')}>
+      <SettingsBlock className="flex flex-col gap-3">
         {sessions === null && !message && <p className="text-muted-foreground text-sm">{t('loading')}</p>}
         <ul className="divide-border divide-y">
           {sessions?.map((session) => {
@@ -111,7 +107,7 @@ export function DeviceSessionsCard() {
             {t('signOutOthers', { count: others })}
           </Button>
         )}
-      </CardContent>
-    </Card>
+      </SettingsBlock>
+    </SettingsGroup>
   );
 }

@@ -8,7 +8,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { Button } from '@/components/ui/button';
 import { PasswordInput } from '@/components/ui/password-input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { SettingsBlock, SettingsGroup } from './settings-row';
 
 type Status = {
   configured: boolean;
@@ -101,14 +101,8 @@ export function GoogleLinkCard() {
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-foreground">{t('title')}</CardTitle>
-        <CardDescription className="text-muted-foreground">
-          {status.linked ? t('linkedAs', { email: status.linked.email }) : t('description')}
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
+    <SettingsGroup title={t('title')} footer={status.linked ? t('linkedAs', { email: status.linked.email }) : t('description')}>
+      <SettingsBlock>
         {!status.passwordSet ? (
           <div className="flex flex-col gap-3" data-testid="google-link-no-password">
             <p className="text-muted-foreground text-sm">{t('noPassword')}</p>
@@ -148,7 +142,7 @@ export function GoogleLinkCard() {
           </Button>
         </form>
         )}
-      </CardContent>
-    </Card>
+      </SettingsBlock>
+    </SettingsGroup>
   );
 }

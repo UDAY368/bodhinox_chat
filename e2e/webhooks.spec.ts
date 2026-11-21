@@ -28,7 +28,9 @@ test.describe('Settings → API & webhooks', () => {
     await row.getByRole('switch').click();
     await expect(row.getByText('Paused')).toBeVisible();
 
-    await row.getByRole('button', { name: 'Delete webhook' }).click();
+    // Delete sits in the row's more menu.
+    await row.getByRole('button', { name: 'More' }).click();
+    await page.getByRole('menuitem', { name: 'Delete webhook' }).click();
     await expect(row).toHaveCount(0);
   });
 

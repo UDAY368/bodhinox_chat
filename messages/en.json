@@ -4806,7 +4806,10 @@
       "maskOffHint": "Mask customers' phone numbers for this member",
       "maskedToast": "Phone numbers are now masked for {name}",
       "unmaskedToast": "{name} can now see full phone numbers",
-      "maskFailed": "Failed to update phone masking"
+      "maskFailed": "Failed to update phone masking",
+      "maskMenuOff": "Mask phone numbers",
+      "maskMenuOn": "Show full phone numbers",
+      "memberActions": "More actions for {name}"
     },
     "invite": {
       "inviteCreated": "Invite created",
@@ -10628,7 +10631,8 @@
         "meta": "Meta catalogue link",
         "collections": "Collections",
         "locations": "Locations",
-        "purchaseOrders": "Purchase orders"
+        "purchaseOrders": "Purchase orders",
+        "stock": "Stock"
       },
       "statuses": {
         "draft": "Hidden",

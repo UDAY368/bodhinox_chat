@@ -11,7 +11,9 @@ import { RefreshCw } from 'lucide-react';
 import { authFetch } from '@/lib/auth/client';
 import { Badge } from '@/components/ui/badge';
 import { Button, buttonVariants } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { InlineError } from '@/components/ui/inline-error';
+import { PageLoading } from '@/components/ui/page-loading';
+import { SETTINGS_ROW_HAIRLINE, SettingsBlock, SettingsGroup } from '../settings-row';
 import type { HealthState, IntegrationHealthRow } from '@/lib/platform/health';
 
 const STATE_VARIANT: Record<HealthState, 'secondary' | 'destructive' | 'outline'> = {
@@ -46,28 +48,24 @@ export function IntegrationHealthCard(): React.ReactElement {
 
   const when = (value: string | null) => (value ? format.relativeTime(new Date(value)) : t('never'));
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-start justify-between gap-3">
-        <div>
-          <CardTitle className="text-foreground">{t('title')}</CardTitle>
-          <CardDescription className="text-muted-foreground">{t('description')}</CardDescription>
-        </div>
-        <Button type="button" variant="ghost" size="sm" onClick={() => void load()} disabled={loading} aria-label={t('refresh')}>
+    <SettingsGroup
+      title={t('title')}
+      footer={t('description')}
+      action={
+        <Button type="button" variant="ghost" size="icon" onClick={() => void load()} disabled={loading} aria-label={t('refresh')}>
           <RefreshCw className={loading ? 'size-4 animate-spin' : 'size-4'} aria-hidden />
         </Button>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-2">
-        {rows === null && !failed && <p className="text-muted-foreground text-sm">{t('loading')}</p>}
+      }
+    >
+        {rows === null && !failed && <SettingsBlock><PageLoading rows={2} /></SettingsBlock>}
         {failed && (
-          <p role="status" className="text-sm">
-            {t('loadFailed')}
-          </p>
+          <SettingsBlock><InlineError message={t('loadFailed')} onRetry={() => void load()} /></SettingsBlock>
         )}
-        {rows !== null && rows.length === 0 && <p className="text-muted-foreground text-sm">{t('empty')}</p>}
+        {rows !== null && rows.length === 0 && <SettingsBlock><p className="text-muted-foreground text-sm">{t('empty')}</p></SettingsBlock>}
         {rows !== null && rows.length > 0 && (
-          <ul className="divide-border divide-y">
+          <ul>
             {rows.map((row) => (
-              <li key={`${row.kind}:${row.id}`} className="flex flex-wrap items-center gap-x-3 gap-y-1 py-2">
+              <li key={`${row.kind}:${row.id}`} className={`${SETTINGS_ROW_HAIRLINE} flex min-h-11 flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2.5`}>
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium">
                     {t(`kinds.${row.kind}`)}
@@ -89,7 +87,6 @@ export function IntegrationHealthCard(): React.ReactElement {
             ))}
           </ul>
         )}
-      </CardContent>
-    </Card>
+    </SettingsGroup>
   );
 }

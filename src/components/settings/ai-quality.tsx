@@ -13,8 +13,8 @@ import { Loader2 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 
 import { InlineError } from '@/components/ui/inline-error';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { authFetch } from '@/lib/auth/client';
+import { SettingsBlock, SettingsGroup } from './settings-row';
 
 export interface AiQualityView {
   window_days: number;
@@ -78,12 +78,8 @@ export function AiQuality() {
   const n = (v: number) => v.toLocaleString();
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{t('title')}</CardTitle>
-        <CardDescription>{t('description', { days: view?.window_days ?? 30 })}</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-5">
+    <SettingsGroup title={t('title')} footer={t('description', { days: view?.window_days ?? 30 })}>
+      <SettingsBlock className="space-y-5">
         {loadFailed && (
           <InlineError message={t('loadFailed')} onRetry={() => void load()} />
         )}
@@ -109,11 +105,11 @@ export function AiQuality() {
               {view.guard_flags.length === 0 ? (
                 <p className="text-muted-foreground text-sm">{t('noFlags')}</p>
               ) : (
-                <ul className="divide-border divide-y rounded-lg border text-sm">
+                <ul className="-mx-4 divide-y divide-separator border-y border-separator text-sm">
                   {view.guard_flags.map((f) => {
                     const key = flagLabelKey(f.flag);
                     return (
-                      <li key={f.flag} className="flex items-center justify-between gap-3 px-3 py-2">
+                      <li key={f.flag} className="flex min-h-11 items-center justify-between gap-3 px-4 py-2">
                         <span className="min-w-0 truncate">
                           {key ? t(key) : f.flag}
                           {key && <span className="text-muted-foreground ml-2 font-mono text-xs">{f.flag}</span>}
@@ -128,7 +124,7 @@ export function AiQuality() {
             <p className="text-muted-foreground text-xs">{t('autonomyNote')}</p>
           </>
         )}
-      </CardContent>
-    </Card>
+      </SettingsBlock>
+    </SettingsGroup>
   );
 }

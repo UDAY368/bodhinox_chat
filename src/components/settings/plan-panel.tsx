@@ -8,13 +8,13 @@ import { useEffect, useState } from 'react';
 import { Check, Loader2, X } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { authFetch } from '@/lib/auth/client';
 import { FEATURES } from '@/lib/billing/entitlements-catalogue';
 import { usePlanState } from '@/lib/billing/client';
 import { Button } from '@/components/ui/button';
 import { SettingsPanelHead } from './settings-panel-head';
 import { UsageMeters } from './billing/usage-meters';
+import { SettingsBlock, SettingsGroup } from './settings-row';
 
 export function PlanPanel() {
   const t = useTranslations('Settings.plan');
@@ -42,11 +42,8 @@ export function PlanPanel() {
         </div>
       ) : (
         <>
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-foreground" data-testid="plan-name">{t('current', { plan: plan.planName })}</CardTitle>
-            </CardHeader>
-            <CardContent>
+          <SettingsGroup title={<span data-testid="plan-name">{t('current', { plan: plan.planName })}</span>}>
+            <SettingsBlock>
               <ul className="grid gap-2 sm:grid-cols-2">
                 {FEATURES.map((feature) => (
                   <li key={feature} className="flex items-center gap-2 text-sm">
@@ -55,8 +52,8 @@ export function PlanPanel() {
                   </li>
                 ))}
               </ul>
-            </CardContent>
-          </Card>
+            </SettingsBlock>
+          </SettingsGroup>
           <UsageMeters plan={plan} />
           <p className="text-xs text-muted-foreground" data-testid="plan-upgrade-hint">{t(billingConfigured ? 'upgradeHintBilling' : 'upgradeHint')}</p>
         </>

@@ -17,7 +17,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { AtSign, Loader2 } from 'lucide-react';
+import { AtSign, Loader2, RefreshCw, Unplug } from 'lucide-react';
 import { toast } from 'sonner';
 import { useTranslations } from 'next-intl';
 
@@ -27,12 +27,12 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { InlineError } from '@/components/ui/inline-error';
 import { useConfirm } from '@/components/ui/confirm-dialog';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { useAuth } from '@/hooks/use-auth';
 import { hasMinRole } from '@/lib/auth/roles';
 import { channelPath } from '@/lib/channels/routes';
 import type { InstagramAccountView } from '@/lib/instagram/connection';
+import { SettingsBlock, SettingsGroup, SettingsMoreMenu } from './settings-row';
 
 type Status =
   | { enabled: false; reason: 'flag_off' | 'not_configured'; accounts: [] }
@@ -137,14 +137,8 @@ export function InstagramCard() {
   const live = accounts.filter((a) => a.status !== 'disconnected');
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <AtSign className="size-4" aria-hidden="true" /> {t('title')}
-        </CardTitle>
-        <CardDescription>{t('description')}</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-5">
+    <SettingsGroup title={<><AtSign className="size-4" aria-hidden="true" /> {t('title')}</>} footer={t('description')}>
+      <SettingsBlock className="space-y-5">
         {loadFailed && (
           <InlineError message={t('loadFailed')} onRetry={() => void load()} />
         )}
@@ -185,8 +179,8 @@ export function InstagramCard() {
             {status.pageLoginAvailable && <InstagramPageLogin canEdit={canEdit} onConnected={() => void load()} />}
           </>
         )}
-      </CardContent>
-    </Card>
+      </SettingsBlock>
+    </SettingsGroup>
   );
 }
 
@@ -214,28 +208,23 @@ function AccountRow({ account, canEdit, busy, onReconnect, onDisconnect, onCheck
     : <Badge variant="destructive">{account.status === 'token_invalid' ? t('badgeReconnect') : t('badgePermission')}</Badge>;
 
   return (
-    <div className="border-border space-y-3 rounded-lg border p-4">
+    <div className="-mx-4 space-y-3 border-y border-separator px-4 py-3">
       <div className="flex flex-wrap items-center gap-2 text-sm">
         <span className="text-foreground font-medium">{handle}</span>
         {badge}
         {canEdit && (
-          <div className="ml-auto flex flex-wrap gap-2">
-            {!disconnected && (
-              <Button type="button" variant="outline" size="sm" onClick={() => void onCheck(account)} disabled={!!busy}>
-                {busy === `health:${account.id}` && <Loader2 className="size-3.5 animate-spin" />}
-                {t('checkNow')}
-              </Button>
-            )}
+          // Reconnect is the one primary action; Check now and Disconnect sit in the more menu.
+          <div className="ml-auto flex flex-wrap items-center gap-1">
+            {busy === `health:${account.id}` && <Loader2 className="text-muted-foreground size-3.5 animate-spin" />}
             {(account.status === 'token_invalid' || account.status === 'permission_missing' || disconnected) && (
               <Button type="button" size="sm" onClick={() => void onReconnect()} disabled={!!busy}>
                 {disconnected ? t('connect') : t('reconnect')}
               </Button>
             )}
-            {!disconnected && (
-              <Button type="button" variant="outline" size="sm" onClick={() => void onDisconnect(account)} disabled={!!busy}>
-                {t('disconnect')}
-              </Button>
-            )}
+            <SettingsMoreMenu actions={[
+              { label: t('checkNow'), icon: RefreshCw, hidden: disconnected, disabled: !!busy, onSelect: () => void onCheck(account) },
+              { label: t('disconnect'), icon: Unplug, destructive: true, hidden: disconnected, disabled: !!busy, onSelect: () => void onDisconnect(account) },
+            ]} />
           </div>
         )}
       </div>

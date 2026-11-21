@@ -17,7 +17,7 @@ import { ACCOUNT_ISSUE_EVENTS } from '@/lib/whatsapp/account-issue';
 import { Button } from '@/components/ui/button';
 import { useConfirm } from '@/components/ui/confirm-dialog';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { SETTINGS_ROW_HAIRLINE, SettingsBlock, SettingsGroup, SettingsMoreMenu } from '../settings-row';
 import { numberLabel, type WhatsAppNumberDto } from './use-whatsapp-numbers';
 
 const QUALITY_CLASSES: Record<string, string> = {
@@ -103,21 +103,17 @@ export function NumbersList({ numbers, selectedId, adding, canEdit, onSelect, on
   }
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0 space-y-1.5">
-          <CardTitle className="text-foreground">{t('settings.title')}</CardTitle>
-          <CardDescription className="text-muted-foreground">{t('settings.description')}</CardDescription>
-        </div>
-        {canEdit && (
-          <Button variant={adding ? 'secondary' : 'outline'} size="sm" onClick={onAdd} disabled={adding}>
-            <Plus className="size-4" />
-            {t('settings.addManually')}
-          </Button>
-        )}
-      </CardHeader>
-      <CardContent className="space-y-2">
-        {numbers.length === 0 && <p className="text-muted-foreground text-sm">{t('settings.empty')}</p>}
+    <SettingsGroup
+      title={t('settings.title')}
+      footer={t('settings.description')}
+      action={canEdit ? (
+        <Button variant={adding ? 'secondary' : 'ghost'} size="sm" onClick={onAdd} disabled={adding}>
+          <Plus className="size-4" />
+          {t('settings.addManually')}
+        </Button>
+      ) : undefined}
+    >
+        {numbers.length === 0 && <SettingsBlock><p className="text-muted-foreground text-sm">{t('settings.empty')}</p></SettingsBlock>}
         {numbers.map((n) => {
           const selected = !adding && n.id === selectedId;
           const busy = busyId === n.id;
@@ -127,8 +123,9 @@ export function NumbersList({ numbers, selectedId, adding, canEdit, onSelect, on
               key={n.id}
               data-testid="whatsapp-number-row"
               className={cn(
-                'border-border flex flex-wrap items-center gap-3 rounded-md border p-3',
-                selected && 'border-primary/60 bg-primary/5'
+                SETTINGS_ROW_HAIRLINE,
+                'flex min-h-11 flex-wrap items-center gap-3 px-4 py-3',
+                selected && 'bg-primary/5'
               )}
             >
               <div className="min-w-0 flex-1 space-y-1">
@@ -197,53 +194,31 @@ export function NumbersList({ numbers, selectedId, adding, canEdit, onSelect, on
                   </span>
                 </p>
               </div>
-              <div className="flex flex-wrap items-center gap-1">
+              {/* Select is the row's one action; default, rename and disconnect sit in its more menu. */}
+              <div className="flex items-center gap-1">
+                {busy && <Loader2 className="text-muted-foreground size-4 animate-spin" />}
                 <Button
                   variant={selected ? 'secondary' : 'ghost'}
                   size="sm"
-                  className="h-8"
                   onClick={() => onSelect(n.id)}
                   aria-pressed={selected}
                 >
                   {selected ? t('settings.selected') : t('settings.select')}
                 </Button>
-                {canEdit && !n.is_default && !n.removed && (
-                  <Button variant="ghost" size="sm" className="h-8" disabled={busy} onClick={() => void makeDefault(n)}>
-                    <Star className="size-3.5" />
-                    {t('settings.makeDefault')}
-                  </Button>
-                )}
-                {canEdit && renamingId !== n.id && (
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="size-8"
-                    disabled={busy}
-                    aria-label={t('settings.rename')}
-                    title={t('settings.rename')}
-                    onClick={() => { setRenamingId(n.id); setDraftName(n.display_name ?? ''); }}
-                  >
-                    <Pencil className="size-3.5" />
-                  </Button>
-                )}
-                {canEdit && !n.removed && (
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="size-8 text-red-500 hover:text-red-400"
-                    disabled={busy}
-                    aria-label={t('settings.disconnect')}
-                    title={t('settings.disconnect')}
-                    onClick={() => void disconnect(n)}
-                  >
-                    {busy ? <Loader2 className="size-3.5 animate-spin" /> : <Trash2 className="size-3.5" />}
-                  </Button>
+                {canEdit && (
+                  <SettingsMoreMenu
+                    actions={[
+                      { label: t('settings.makeDefault'), icon: Star, disabled: busy, hidden: n.is_default || n.removed, onSelect: () => void makeDefault(n) },
+                      { label: t('settings.rename'), icon: Pencil, disabled: busy, hidden: renamingId === n.id,
+                        onSelect: () => { setRenamingId(n.id); setDraftName(n.display_name ?? ''); } },
+                      { label: t('settings.disconnect'), icon: Trash2, destructive: true, disabled: busy, hidden: n.removed, onSelect: () => void disconnect(n) },
+                    ]}
+                  />
                 )}
               </div>
             </div>
           );
         })}
-      </CardContent>
-    </Card>
+    </SettingsGroup>
   );
 }

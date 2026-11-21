@@ -12,12 +12,13 @@ import { currentPushSubscription, disablePush, enablePush, pushSupported, type P
 import { QUIET_HOURS_EVENT } from '@/lib/notifications/quiet-hours-store';
 import { Button } from '@/components/ui/button';
 import { InlineError } from '@/components/ui/inline-error';
+import { PageLoading } from '@/components/ui/page-loading';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 import { BrowserNotificationsCard } from './browser-notifications-card';
 import { SettingsPanelHead } from './settings-panel-head';
-import { SettingsPanel, SettingsSwitchRow } from './settings-row';
+import { SETTINGS_ROW_HAIRLINE, SettingsGroup, SettingsSwitchRow } from './settings-row';
 import { useSettingsDraft } from './settings-draft';
 
 const ENDPOINT = '/api/notifications/preferences';
@@ -209,17 +210,15 @@ export function NotificationPreferences({ className }: { className?: string }) {
     <section className={cn('max-w-3xl space-y-8', className)}>
       <SettingsPanelHead title={t('title')} description={t('description')} className="mb-0" />
       {loading ? (
-        <div className="rounded-xl border border-border bg-card px-4 py-6">
-          <p role="status" className="text-sm text-muted-foreground">{t('loading')}</p>
-        </div>
+        <PageLoading rows={5} />
       ) : error || !draft || !loaded ? (
         <InlineError message={t('loadFailed')} onRetry={() => setRetry((v) => v + 1)} />
       ) : (
         <>
-          <div className="space-y-3">
+          <div className="flex flex-col gap-1.5">
             {!loaded.email_available && <p className="px-0.5 text-[13px] text-muted-foreground">{t('emailUnavailable')}</p>}
             {!loaded.push_available && <p className="px-0.5 text-[13px] text-muted-foreground">{tr('pushUnavailable')}</p>}
-            <div role="table" aria-label={t('title')} className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-card">
+            <div role="table" aria-label={t('title')} className="divide-y divide-separator overflow-hidden rounded-group border border-separator bg-grouped-surface">
               <div role="row" className="flex min-h-[38px] items-center gap-2 bg-muted/60 px-3 text-xs font-semibold text-muted-foreground sm:gap-3 sm:px-4">
                 <span role="columnheader" className="min-w-0 flex-1">{t('event')}</span>
                 {CHANNELS.map((channel) => (
@@ -250,17 +249,15 @@ export function NotificationPreferences({ className }: { className?: string }) {
                 );
               })}
             </div>
-            <p className="px-0.5 text-xs text-muted-foreground">{t('digestHint')}</p>
+            <p className="px-4 text-footnote text-muted-foreground">{t('digestHint')}</p>
           </div>
 
-          <section aria-labelledby="quiet-hours-title" className="space-y-3">
-            <h3 id="quiet-hours-title" className="text-base font-semibold text-foreground">{tr('quietTitle')}</h3>
-            <SettingsPanel>
+          <SettingsGroup title={tr('quietTitle')}>
               <SettingsSwitchRow title={tr('quietPause')} description={tr('quietPauseHint')}
                 control={<Switch checked={draft.quiet.enabled} disabled={saving} aria-label={tr('quietTitle')} onCheckedChange={(enabled) => setQuiet({ enabled })} />} />
               {draft.quiet.enabled && (
                 <>
-                  <div className="grid grid-cols-1 gap-2 px-4 py-3.5 sm:grid-cols-[minmax(0,13rem)_minmax(0,1fr)] sm:items-center sm:gap-6">
+                  <div className={cn(SETTINGS_ROW_HAIRLINE, 'grid min-h-11 grid-cols-1 gap-2 px-4 py-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:gap-6')}>
                     <div>
                       <p className="text-sm font-medium text-foreground">{tr('quietBetween')}</p>
                       <p className="mt-0.5 text-xs text-muted-foreground">{tr('quietZone', { zone: browserZone() })}</p>
@@ -282,12 +279,9 @@ export function NotificationPreferences({ className }: { className?: string }) {
                       onCheckedChange={(allow_mentions) => setQuiet({ allow_mentions })} />} />
                 </>
               )}
-            </SettingsPanel>
-          </section>
+          </SettingsGroup>
 
-          <section aria-labelledby="push-device-title" className="space-y-3">
-            <h3 id="push-device-title" className="text-base font-semibold text-foreground">{tr('deviceTitle')}</h3>
-            <SettingsPanel>
+          <SettingsGroup title={tr('deviceTitle')}>
               <SettingsSwitchRow
                 title={tr('thisBrowser')}
                 description={
@@ -316,8 +310,7 @@ export function NotificationPreferences({ className }: { className?: string }) {
                   </Button>
                 }
               />
-            </SettingsPanel>
-          </section>
+          </SettingsGroup>
 
           <BrowserNotificationsCard />
         </>

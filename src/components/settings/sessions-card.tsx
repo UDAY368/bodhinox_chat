@@ -7,13 +7,6 @@ import { Loader2, LogOut } from 'lucide-react';
 import { createClient } from '@/lib/data/client';
 import { Button } from '@/components/ui/button';
 import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-} from '@/components/ui/card';
-import {
   Dialog,
   DialogContent,
   DialogHeader,
@@ -22,6 +15,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { useTranslations } from 'next-intl';
+import { SettingsBlock, SettingsGroup } from './settings-row';
 
 export function SessionsCard() {
   const t = useTranslations('Settings.profile');
@@ -51,17 +45,9 @@ export function SessionsCard() {
 
   return (
     <>
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-foreground">
-            <LogOut className="size-4 text-primary" />
-            {t('sessionsTitle')}
-          </CardTitle>
-          <CardDescription className="text-muted-foreground">
-            {t('sessionsDesc')}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
+      <SettingsGroup title={<><LogOut className="size-4 text-primary" />
+            {t('sessionsTitle')}</>} footer={t('sessionsDesc')}>
+        <SettingsBlock>
           <Button
             type="button"
             variant="outline"
@@ -70,8 +56,8 @@ export function SessionsCard() {
             <LogOut className="size-4" />
             {t('signOutAll')}
           </Button>
-        </CardContent>
-      </Card>
+        </SettingsBlock>
+      </SettingsGroup>
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>

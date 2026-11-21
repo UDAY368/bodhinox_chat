@@ -8,13 +8,14 @@
  */
 
 import { useCallback, useEffect, useState } from "react";
-import { Loader2, Pencil, Plus, Trash2 } from "lucide-react";
+import { ChevronRight, Loader2, Pencil, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
 import { useConfirm } from "@/components/ui/confirm-dialog";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { PageLoading } from "@/components/ui/page-loading";
+import { SETTINGS_ROW_HAIRLINE, SettingsBlock, SettingsGroup, SettingsMoreMenu } from "../settings-row";
 import { InlineError } from "@/components/ui/inline-error";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -89,59 +90,60 @@ export function TeamsCard({ canEdit }: { canEdit: boolean }) {
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-foreground">{t("title")}</CardTitle>
-        <CardDescription className="text-muted-foreground">{t("description")}</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        {loading ? (
-          <Loader2 className="size-4 animate-spin text-primary" />
-        ) : loadFailed ? (
-          <InlineError message={t("loadFailed")} onRetry={() => void load()} />
-        ) : (
-          <>
-            {teams.length === 0 && <p className="text-sm text-muted-foreground">{t("empty")}</p>}
-            <ul className="space-y-2">
-              {teams.map((team) => (
-                <li key={team.id} className="flex flex-wrap items-center gap-2 rounded-md border border-border p-2">
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium text-foreground">{team.name}</p>
-                    <p className="truncate text-xs text-muted-foreground">
-                      {team.member_ids.length ? team.member_ids.map(memberName).join(", ") : t("noMembers")}
-                    </p>
-                  </div>
-                  <Button type="button" variant="ghost" size="sm" aria-label={t("edit", { name: team.name })} disabled={busy}
-                    onClick={() => setEditing(team)}>
-                    <Pencil className="size-3.5" />
-                  </Button>
-                  <Button type="button" variant="ghost" size="sm" aria-label={t("delete", { name: team.name })} disabled={busy}
-                    onClick={() => remove(team)}>
-                    <Trash2 className="size-3.5" />
-                  </Button>
-                </li>
-              ))}
-            </ul>
-            <Button type="button" variant="outline" size="sm" disabled={busy} onClick={() => setEditing("new")}>
-              <Plus className="size-3.5" /> {t("add")}
-            </Button>
-            {editing && (
-              <TeamDialog
-                team={editing === "new" ? null : editing}
-                members={members}
-                onClose={() => setEditing(null)}
-                onSaved={(saved) => {
-                  setTeams((list) => (list.some((x) => x.id === saved.id)
-                    ? list.map((x) => (x.id === saved.id ? saved : x))
-                    : [...list, saved].sort((a, b) => a.name.localeCompare(b.name))));
-                  setEditing(null);
-                }}
-              />
-            )}
-          </>
-        )}
-      </CardContent>
-    </Card>
+    <SettingsGroup
+      title={t("title")}
+      footer={t("description")}
+      action={!loading && !loadFailed ? (
+        <Button type="button" variant="ghost" size="sm" disabled={busy} onClick={() => setEditing("new")}>
+          <Plus className="size-3.5" /> {t("add")}
+        </Button>
+      ) : undefined}
+    >
+      {loading ? (
+        <SettingsBlock><PageLoading rows={3} /></SettingsBlock>
+      ) : loadFailed ? (
+        <SettingsBlock><InlineError message={t("loadFailed")} onRetry={() => void load()} /></SettingsBlock>
+      ) : (
+        <>
+          {teams.length === 0 && (
+            <SettingsBlock><p className="text-sm text-muted-foreground">{t("empty")}</p></SettingsBlock>
+          )}
+          {teams.map((team) => (
+            <div key={team.id} className={`${SETTINGS_ROW_HAIRLINE} flex min-h-11 items-center gap-1 pr-2`}>
+              {/* Tapping the row edits the team; deleting sits in its more menu. */}
+              <button type="button" aria-label={t("edit", { name: team.name })} disabled={busy}
+                onClick={() => setEditing(team)}
+                className="flex min-h-11 min-w-0 flex-1 items-center gap-3 px-4 py-2.5 text-left outline-none hover:bg-muted/60 focus-visible:bg-muted disabled:opacity-60">
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-medium text-foreground">{team.name}</span>
+                  <span className="block truncate text-xs text-muted-foreground">
+                    {team.member_ids.length ? team.member_ids.map(memberName).join(", ") : t("noMembers")}
+                  </span>
+                </span>
+                <ChevronRight aria-hidden className="size-4 shrink-0 text-muted-foreground/60" />
+              </button>
+              <SettingsMoreMenu actions={[
+                { label: t("edit", { name: team.name }), icon: Pencil, disabled: busy, onSelect: () => setEditing(team) },
+                { label: t("delete", { name: team.name }), icon: Trash2, destructive: true, disabled: busy, onSelect: () => void remove(team) },
+              ]} />
+            </div>
+          ))}
+          {editing && (
+            <TeamDialog
+              team={editing === "new" ? null : editing}
+              members={members}
+              onClose={() => setEditing(null)}
+              onSaved={(saved) => {
+                setTeams((list) => (list.some((x) => x.id === saved.id)
+                  ? list.map((x) => (x.id === saved.id ? saved : x))
+                  : [...list, saved].sort((a, b) => a.name.localeCompare(b.name))));
+                setEditing(null);
+              }}
+            />
+          )}
+        </>
+      )}
+    </SettingsGroup>
   );
 }
 

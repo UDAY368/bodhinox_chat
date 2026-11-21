@@ -13,11 +13,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
-import { Copy, Loader2, Plus, Trash2 } from 'lucide-react';
+import { Copy, Plus, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { InlineError } from '@/components/ui/inline-error';
+import { PageLoading } from '@/components/ui/page-loading';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { authFetch } from '@/lib/auth/client';
@@ -27,7 +29,7 @@ import type { WorkspaceInboxSettings } from '@/lib/inbox/inbox-settings';
 import { MAX_RANGES_PER_DAY, WEEKDAYS, type TimeRange, type Weekday, type WorkingHours } from '@/lib/inbox/working-hours';
 import { workingHoursBody } from './inbox/working-hours-card';
 import { SettingsPanelHead } from './settings-panel-head';
-import { SettingsPanel, SettingsRow } from './settings-row';
+import { SETTINGS_ROW_HAIRLINE, SettingsGroup, SettingsRow } from './settings-row';
 import { useSettingsDraft } from './settings-draft';
 
 interface Draft {
@@ -181,13 +183,12 @@ export function WorkspaceSection() {
     <section className="max-w-3xl animate-in fade-in-50 duration-200">
       <SettingsPanelHead title={t('title')} description={t('description')} />
       {loadFailed ? (
-        <p role="alert" className="text-sm text-destructive">{t('loadFailed')}</p>
+        <InlineError message={t('loadFailed')} />
       ) : !draft ? (
-        <Loader2 className="size-5 animate-spin text-primary" aria-label={t('loading')} />
+        <PageLoading rows={4} />
       ) : (
         <div className="space-y-8">
-          {!canEdit && <p className="text-sm text-muted-foreground">{t('adminsOnly')}</p>}
-          <SettingsPanel>
+          <SettingsGroup footer={!canEdit ? t('adminsOnly') : undefined}>
             <SettingsRow label={t('name')} hint={t('nameHint')} htmlFor="workspace-name" error={err('name')} errorId="workspace-name-error">
               <Input
                 id="workspace-name"
@@ -229,24 +230,22 @@ export function WorkspaceSection() {
                 </SelectContent>
               </Select>
             </SettingsRow>
-          </SettingsPanel>
+          </SettingsGroup>
 
-          <section aria-labelledby="workspace-hours-title" className="space-y-3">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <h3 id="workspace-hours-title" className="text-base font-semibold text-foreground">{tHours('hours')}</h3>
-              {canEdit && (
-                <Button type="button" variant="outline" size="sm" disabled={!editable}
-                  onClick={() => { setDraft({ ...draft, working_hours: copyMondayToWeekdays(draft.working_hours) }); toast.success(t('copied')); }}>
-                  <Copy className="size-3.5" /> {t('copyMonday')}
-                </Button>
-              )}
-            </div>
-            <p className="text-xs text-muted-foreground">{t('hoursHint')}</p>
-            <SettingsPanel>
+          <SettingsGroup
+            title={tHours('hours')}
+            footer={t('hoursHint')}
+            action={canEdit ? (
+              <Button type="button" variant="ghost" size="sm" disabled={!editable}
+                onClick={() => { setDraft({ ...draft, working_hours: copyMondayToWeekdays(draft.working_hours) }); toast.success(t('copied')); }}>
+                <Copy className="size-3.5" /> {t('copyMonday')}
+              </Button>
+            ) : undefined}
+          >
               {WEEKDAYS.map((day) => {
                 const ranges = draft.working_hours[day] ?? [];
                 return (
-                  <div key={day} className="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-start sm:gap-4">
+                  <div key={day} className={`${SETTINGS_ROW_HAIRLINE} flex min-h-11 flex-col gap-2 px-4 py-3 sm:flex-row sm:items-start sm:gap-4`}>
                     <label className="flex w-40 shrink-0 items-center gap-3 text-sm font-medium text-foreground sm:pt-1.5">
                       <Switch
                         checked={ranges.length > 0}
@@ -290,8 +289,7 @@ export function WorkspaceSection() {
                   </div>
                 );
               })}
-            </SettingsPanel>
-          </section>
+          </SettingsGroup>
         </div>
       )}
     </section>

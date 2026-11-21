@@ -23,7 +23,7 @@ import { Copy, KeyRound, Loader2, Plus, Trash2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { PageLoading } from '@/components/ui/page-loading';
-import { Card, CardContent } from '@/components/ui/card';
+import { EmptyState } from '@/components/ui/empty-state';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Input } from '@/components/ui/input';
@@ -37,6 +37,7 @@ import {
 } from '@/lib/api-keys/scopes';
 import { useTranslations } from 'next-intl';
 import { SettingsPanelHead } from './settings-panel-head';
+import { SETTINGS_ROW_HAIRLINE, SettingsGroup } from './settings-row';
 
 interface ApiKey {
   id: string;
@@ -148,38 +149,27 @@ export function ApiKeysSettings() {
       />
 
       {keys.length === 0 ? (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-10 text-center">
-            <KeyRound className="text-muted-foreground size-6" />
-            <p className="text-muted-foreground mt-2 text-sm">
-              {t('noApiKeys')}
-            </p>
-            {canEditSettings ? (
-              <p className="text-muted-foreground mt-1 text-xs">
-                {t.rich('createOneHint', {
-                  bold: (chunks: React.ReactNode) => (
-                    <span className="text-foreground">{chunks}</span>
-                  ),
-                })}
-              </p>
-            ) : (
-              <p className="text-muted-foreground mt-1 text-xs">
-                {t('askAdminHint')}
-              </p>
-            )}
-          </CardContent>
-        </Card>
+        <SettingsGroup
+          footer={canEditSettings
+            ? t.rich('createOneHint', {
+                bold: (chunks: React.ReactNode) => (
+                  <span className="text-foreground">{chunks}</span>
+                ),
+              })
+            : t('askAdminHint')}
+        >
+          <EmptyState icon={KeyRound} title={t('noApiKeys')} />
+        </SettingsGroup>
       ) : (
-        <Card>
-          <CardContent className="p-0">
-            <ul className="divide-border divide-y">
+        <SettingsGroup>
+            <ul>
               {keys.map((k) => {
                 const status = keyStatus(k);
                 const inactive = status !== 'active';
                 return (
                   <li
                     key={k.id}
-                    className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:gap-4"
+                    className={`${SETTINGS_ROW_HAIRLINE} flex min-h-11 flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:gap-4`}
                   >
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
@@ -237,11 +227,11 @@ export function ApiKeysSettings() {
                     {status === 'active' && (
                       <RequireRole min="admin">
                         <Button
-                          variant="outline"
+                          variant="ghost"
                           size="sm"
                           onClick={() => handleRevoke(k)}
                           disabled={revoking === k.id}
-                          className="self-start border-red-500/40 bg-red-500/10 text-red-700 dark:text-red-300 hover:border-red-500/60 hover:bg-red-500/20 hover:text-red-800 dark:hover:text-red-200 sm:self-auto"
+                          className="self-start text-destructive hover:bg-destructive/10 hover:text-destructive sm:self-auto"
                         >
                           {revoking === k.id ? (
                             <Loader2 className="size-4 animate-spin" />
@@ -256,8 +246,7 @@ export function ApiKeysSettings() {
                 );
               })}
             </ul>
-          </CardContent>
-        </Card>
+        </SettingsGroup>
       )}
 
       <CreateKeyDialog

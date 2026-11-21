@@ -10,14 +10,13 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { Loader2, ShoppingBag } from "lucide-react";
+import { Loader2, ShoppingBag, Unplug } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslations } from "next-intl";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useConfirm } from "@/components/ui/confirm-dialog";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
@@ -25,6 +24,9 @@ import { useAuth } from "@/hooks/use-auth";
 import { authFetch } from "@/lib/auth/client";
 import { NumberSelect } from "./numbers/number-select";
 import { useWhatsAppNumbers } from "./numbers/use-whatsapp-numbers";
+import { SettingsBlock, SettingsGroup } from "./settings-row";
+import { InlineError } from "@/components/ui/inline-error";
+import { PageLoading } from "@/components/ui/page-loading";
 
 const EVENTS = ["order_created", "order_paid", "order_fulfilled", "order_cancelled", "checkout_abandoned"] as const;
 type EventName = (typeof EVENTS)[number];
@@ -167,21 +169,14 @@ export function ShopifyCard() {
   const installed = !!store && !store.uninstalled_at;
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-foreground flex items-center gap-2">
-          <ShoppingBag className="size-4" /> {t("title")}
-        </CardTitle>
-        <CardDescription className="text-muted-foreground">{t("description")}</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {!state && !loadFailed && <Loader2 className="size-4 animate-spin text-primary" />}
-        {loadFailed && (
-          <div className="flex items-center gap-2 text-sm text-destructive">
-            {t("loadFailed")}
-            <Button type="button" variant="outline" size="sm" onClick={() => void load()}>{t("retry")}</Button>
-          </div>
-        )}
+    <SettingsGroup
+      title={<span className="inline-flex items-center gap-2"><ShoppingBag className="size-4" /> {t("title")}</span>}
+      footer={t("description")}
+      more={[{ label: t("disconnect"), icon: Unplug, destructive: true, disabled: busy, hidden: !canEdit || !installed, onSelect: () => void disconnect() }]}
+    >
+      <SettingsBlock className="space-y-4">
+        {!state && !loadFailed && <PageLoading rows={2} />}
+        {loadFailed && <InlineError message={t("loadFailed")} onRetry={() => void load()} />}
         {state && !state.configured && <p className="text-sm text-muted-foreground">{t("notConfigured")}</p>}
         {state?.configured && (
           <>
@@ -193,11 +188,6 @@ export function ShopifyCard() {
                   <span className="text-muted-foreground">
                     {t("connectedOn", { date: new Date(store.installed_at).toLocaleDateString() })}
                   </span>
-                  {canEdit && (
-                    <Button type="button" variant="outline" size="sm" className="ml-auto" onClick={disconnect} disabled={busy}>
-                      {t("disconnect")}
-                    </Button>
-                  )}
                 </>
               ) : (
                 <>
@@ -244,8 +234,8 @@ export function ShopifyCard() {
             )}
           </>
         )}
-      </CardContent>
-    </Card>
+      </SettingsBlock>
+    </SettingsGroup>
   );
 }
 

@@ -15,13 +15,6 @@ import { Switch } from '@/components/ui/switch';
 import { useConfirm } from '@/components/ui/confirm-dialog';
 import { PageLoading } from '@/components/ui/page-loading';
 import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-} from '@/components/ui/card';
-import {
   Select,
   SelectContent,
   SelectItem,
@@ -36,6 +29,7 @@ import { isOpenRouterBaseUrl, OPENROUTER_BASE_URL, OPENROUTER_FREE_MODEL, type O
 import type { AccountMember } from '@/types';
 import { fetchAccountMembers, memberLabel } from '@/lib/account/members';
 import { useTranslations } from 'next-intl';
+import { SettingsBlock, SettingsGroup } from "./settings-row";
 
 const MASKED_KEY = '••••••••••••••••';
 
@@ -349,19 +343,11 @@ export function AiConfig() {
       )}
 
       <div className="space-y-6">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Sparkles className="h-4 w-4 text-primary" /> {t('connectStep')}
-            </CardTitle>
+        <SettingsGroup title={<><Sparkles className="h-4 w-4 text-primary" /> {t('connectStep')}</>} footer={provider === 'gemini' ? t('geminiSecurityNotice') : t('encryptionNotice')}>
+          <SettingsBlock className="space-y-4">
             <p className="text-sm font-medium text-muted-foreground" role="status">
               {connected ? t('connectedKeySaved') : t('notConnected')}
             </p>
-            <CardDescription>
-              {provider === 'gemini' ? t('geminiSecurityNotice') : t('encryptionNotice')}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="ai-provider">{t('provider')}</Label>
@@ -544,17 +530,11 @@ export function AiConfig() {
                 })}
               </p>
             </div>
-          </CardContent>
-        </Card>
+          </SettingsBlock>
+        </SettingsGroup>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">{t('behaviour')}</CardTitle>
-            <CardDescription>
-              {t('behaviourDesc')}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
+        <SettingsGroup title={t('behaviour')} footer={t('behaviourDesc')}>
+          <SettingsBlock className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="ai-prompt">{t('businessContext')}</Label>
               <Textarea
@@ -669,8 +649,8 @@ export function AiConfig() {
                 </SelectContent>
               </Select>
             </div>
-          </CardContent>
-        </Card>
+          </SettingsBlock>
+        </SettingsGroup>
 
         <AiKnowledgeCard
           accountId={accountId}

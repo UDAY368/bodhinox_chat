@@ -11,10 +11,10 @@ import { toast } from 'sonner';
 import { createAuthClient } from '@/lib/auth/client';
 import { openInNewTab } from './open-tab';
 
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { formatMajor } from '@/lib/format/money';
 import { formatDay, type InvoiceRow } from './types';
+import { SettingsBlock, SettingsGroup } from '../settings-row';
 
 export async function viewInvoice(id: string): Promise<'opened' | 'same_tab' | 'signed_out'> {
   const url = `/api/billing/invoices/${encodeURIComponent(id)}?format=html`;
@@ -38,11 +38,8 @@ export function InvoicesTable({ invoices }: { invoices: InvoiceRow[] }) {
   const t = useTranslations('Billing.invoices');
   const locale = useLocale();
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-foreground">{t('title')}</CardTitle>
-      </CardHeader>
-      <CardContent>
+    <SettingsGroup title={t('title')}>
+      <SettingsBlock>
         {!invoices.length ? (
           <p className="text-sm text-muted-foreground">{t('empty')}</p>
         ) : (
@@ -76,7 +73,7 @@ export function InvoicesTable({ invoices }: { invoices: InvoiceRow[] }) {
             </TableBody>
           </Table>
         )}
-      </CardContent>
-    </Card>
+      </SettingsBlock>
+    </SettingsGroup>
   );
 }

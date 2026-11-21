@@ -11,13 +11,6 @@ import { PageLoading } from '@/components/ui/page-loading';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
-import {
   Dialog,
   DialogContent,
   DialogHeader,
@@ -28,6 +21,7 @@ import {
 import { cn } from '@/lib/utils';
 import { useTranslations } from 'next-intl';
 import type { Tag } from '@/types';
+import { SettingsBlock, SettingsGroup } from './settings-row';
 
 const PRESET_COLORS = [
   { name: 'red', value: '#ef4444' },
@@ -178,17 +172,9 @@ export function TagManager() {
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-foreground">
-          <TagIcon className="size-4 text-primary" />
-          {t('tagsTitle')}
-        </CardTitle>
-        <CardDescription className="text-muted-foreground">
-          {t('tagsDesc')}
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
+    <SettingsGroup title={<><TagIcon className="size-4 text-primary" />
+          {t('tagsTitle')}</>} footer={t('tagsDesc')}>
+      <SettingsBlock className="space-y-4">
         {loading ? (
           <PageLoading rows={4} />
         ) : (
@@ -309,7 +295,7 @@ export function TagManager() {
             </div>
           </>
         )}
-      </CardContent>
+      </SettingsBlock>
 
       {/* Edit category */}
       <Dialog open={editTag !== null} onOpenChange={(open) => !open && setEditTag(null)}>
@@ -375,6 +361,6 @@ export function TagManager() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </Card>
+    </SettingsGroup>
   );
 }

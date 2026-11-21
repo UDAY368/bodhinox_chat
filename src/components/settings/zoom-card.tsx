@@ -11,20 +11,21 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { Loader2, Video } from "lucide-react";
+import { Loader2, Unplug, Video } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslations } from "next-intl";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useConfirm } from "@/components/ui/confirm-dialog";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { InlineError } from "@/components/ui/inline-error";
 import { Switch } from "@/components/ui/switch";
 import { useAuth } from "@/hooks/use-auth";
 import { authFetch } from "@/lib/auth/client";
 import { hasMinRole } from "@/lib/auth/roles";
 import type { MeetingConnectionDto } from "@/lib/meetings/types";
+import { SettingsBlock, SettingsGroup } from "./settings-row";
+import { PageLoading } from "@/components/ui/page-loading";
 
 /** ?zoom=<outcome> values the callback can send. */
 const OUTCOMES = new Set([
@@ -125,16 +126,14 @@ export function ZoomCard() {
     : <Badge variant="outline">{t("statusNotConnected")}</Badge>;
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Video className="size-4" aria-hidden="true" /> {t("title")}
-        </CardTitle>
-        <CardDescription>{t("description")}</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
+    <SettingsGroup
+      title={<span className="inline-flex items-center gap-2"><Video className="size-4" aria-hidden="true" /> {t("title")}</span>}
+      footer={t("description")}
+      more={[{ label: t("disconnect"), icon: Unplug, destructive: true, disabled: busy, hidden: !canEdit || !stored, onSelect: () => void disconnect() }]}
+    >
+      <SettingsBlock className="space-y-4">
         {loadFailed && <InlineError message={t("loadFailed")} onRetry={() => void load()} />}
-        {!state && !loadFailed && <Loader2 className="text-muted-foreground size-4 animate-spin" aria-label={t("loading")} />}
+        {!state && !loadFailed && <PageLoading rows={2} />}
         {state && (
           <>
             <div className="flex flex-wrap items-center gap-2 text-sm">
@@ -143,11 +142,6 @@ export function ZoomCard() {
                 <span className="text-muted-foreground">
                   {t("connectedOn", { date: new Date(state.connected_at).toLocaleDateString() })}
                 </span>
-              )}
-              {canEdit && stored && (
-                <Button type="button" variant="outline" size="sm" className="ml-auto" onClick={disconnect} disabled={busy}>
-                  {t("disconnect")}
-                </Button>
               )}
             </div>
             {!state.available && <p className="text-muted-foreground text-sm">{t("unavailableHelp")}</p>}
@@ -175,7 +169,7 @@ export function ZoomCard() {
             )}
           </>
         )}
-      </CardContent>
-    </Card>
+      </SettingsBlock>
+    </SettingsGroup>
   );
 }

@@ -8,9 +8,9 @@ import { useLocale, useTranslations } from 'next-intl';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ExpiryNote } from './expiry-note';
 import { formatDay, type BillingOverview } from './types';
+import { SettingsBlock, SettingsGroup } from '../settings-row';
 
 const WARN = 'border-amber-500/40 bg-amber-500/10 text-amber-900 dark:text-amber-200';
 const DANGER = 'border-red-500/40 bg-red-500/10 text-red-900 dark:text-red-200';
@@ -43,14 +43,9 @@ export function SubscriptionCard({ overview, busy, onCancel, onPay }: {
   ) : null;
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex flex-wrap items-center gap-2 text-foreground">
-          {s ? t('current', { plan: s.planName }) : t('none')}
-          {s && <Badge variant={s.status === 'active' || s.status === 'trialing' ? 'secondary' : 'destructive'} data-testid="billing-status">{t(`status.${s.status}`)}</Badge>}
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-3 text-sm">
+    <SettingsGroup title={<>{s ? t('current', { plan: s.planName }) : t('none')}
+          {s && <Badge variant={s.status === 'active' || s.status === 'trialing' ? 'secondary' : 'destructive'} data-testid="billing-status">{t(`status.${s.status}`)}</Badge>}</>}>
+      <SettingsBlock className="space-y-3 text-sm">
         {!s && <p className="text-muted-foreground">{t('noneHint')}</p>}
         {s?.interval && s.currentPeriodEnd && (s.status === 'active' || s.status === 'trialing') && (
           <p className="text-muted-foreground">
@@ -74,7 +69,7 @@ export function SubscriptionCard({ overview, busy, onCancel, onPay }: {
             </Button>
           </div>
         )}
-      </CardContent>
-    </Card>
+      </SettingsBlock>
+    </SettingsGroup>
   );
 }
