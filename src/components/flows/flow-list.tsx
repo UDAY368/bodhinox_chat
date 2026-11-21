@@ -28,6 +28,13 @@ import { useCan } from "@/hooks/use-can";
 import { Button } from "@/components/ui/button";
 import { GatedButton } from "@/components/ui/gated-button";
 import { InlineError } from "@/components/ui/inline-error";
+import { useConfirm } from "@/components/ui/confirm-dialog";
+import { EmptyState as UiEmptyState } from "@/components/ui/empty-state";
+import { GroupedList } from "@/components/ui/grouped-list";
+import { PageHeader } from "@/components/ui/page-header";
+import { PageLoading } from "@/components/ui/page-loading";
+import { SegmentedControl } from "@/components/ui/segmented-control";
+import { OptionSelect } from "@/components/automations/option-select";
 import { Switch } from "@/components/ui/switch";
 import {
   Dialog,
@@ -197,6 +204,7 @@ export function FlowList({ channel }: { channel: Channel | "all" }) {
   const tGate = useTranslations("GatedButton");
   const tList = useTranslations("AutomationList");
   const tSeq = useTranslations("Instagram.sequences");
+  const confirm = useConfirm();
   const [flows, setFlows] = useState<FlowRow[]>([]);
   const [rules, setRules] = useState<RuleRow[]>([]);
   const [sequences, setSequences] = useState<SequenceRow[]>([]);
@@ -583,7 +591,7 @@ export function FlowList({ channel }: { channel: Channel | "all" }) {
   }
 
   async function deleteFolder(folder: FolderRow) {
-    if (!window.confirm(tFolders("deleteConfirm", { name: folder.name }))) return;
+    if (!(await confirm({ title: tFolders("deleteConfirm", { name: folder.name }), confirmLabel: tFolders("delete"), destructive: true }))) return;
     const res = await authFetch(`/api/flows/folders/${folder.id}`, { method: "DELETE" });
     if (!res.ok) {
       toast.error(await errorText(res, tFolders("saveFailed")));
@@ -605,11 +613,7 @@ export function FlowList({ channel }: { channel: Channel | "all" }) {
   };
 
   if (loading) {
-    return (
-      <div className="flex h-full items-center justify-center">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-      </div>
-    );
+    return <PageLoading />;
   }
 
   if (loadError) {
@@ -631,22 +635,22 @@ export function FlowList({ channel }: { channel: Channel | "all" }) {
 
   const list = (
     <div className="min-w-0 flex-1">
-      <header className="flex flex-wrap items-start justify-between gap-4">
-        <div className="min-w-0">
-          <h1 className="text-[22px] font-bold tracking-tight text-foreground">{unified ? t("unifiedTitle") : tSection(channel === "instagram" ? "instagramTitle" : "whatsappTitle")}</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {unified ? tList("description") : tSection(channel === "instagram" ? "instagramDescription" : "whatsappDescription")}
-          </p>
-        </div>
-        <GatedButton
-          canAct={canCreate}
-          gateReason={tGate("reasons.createFlows")}
-          onClick={() => setCreateOpen(true)}
-        >
-          <Plus className="h-4 w-4" />
-          {t("newFlow")}
-        </GatedButton>
-      </header>
+      <PageHeader
+        className="mb-0"
+        title={unified ? t("unifiedTitle") : tSection(channel === "instagram" ? "instagramTitle" : "whatsappTitle")}
+        subtitle={unified ? tList("description") : tSection(channel === "instagram" ? "instagramDescription" : "whatsappDescription")}
+        moreActions={!unified && canCreate ? [{ label: tFolders("new"), icon: FolderPlus, onSelect: () => setFolderDialog({ mode: "create" }) }] : undefined}
+        primaryAction={
+          <GatedButton
+            canAct={canCreate}
+            gateReason={tGate("reasons.createFlows")}
+            onClick={() => setCreateOpen(true)}
+          >
+            <Plus className="h-4 w-4" />
+            {t("newFlow")}
+          </GatedButton>
+        }
+      />
 
       {empty ? (
         <div className="mt-6">
@@ -656,25 +660,12 @@ export function FlowList({ channel }: { channel: Channel | "all" }) {
         <>
           <div className="mb-3.5 mt-6 flex flex-wrap items-center justify-between gap-3">
             {unified ? (
-              <div role="tablist" aria-label={tList("kindFilterLabel")}
-                className="flex max-w-full shrink-0 gap-0.5 overflow-x-auto rounded-xl bg-muted p-[3px] [scrollbar-width:none]">
-                {KIND_TABS.map((kind) => (
-                  <button
-                    key={kind}
-                    type="button"
-                    role="tab"
-                    aria-selected={kindTab === kind}
-                    onClick={() => setKindTab(kind)}
-                    className={cn(
-                      "inline-flex h-[30px] shrink-0 items-center gap-1.5 whitespace-nowrap rounded-[9px] px-3 text-[13px] font-medium transition-[background-color,color,box-shadow] duration-150 focus-visible:outline-2 focus-visible:outline-primary",
-                      kindTab === kind ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
-                    )}
-                  >
-                    {kindLabel(kind)}
-                    <span className="font-medium tabular-nums text-muted-foreground">{counts[kind]}</span>
-                  </button>
-                ))}
-              </div>
+              <SegmentedControl
+                aria-label={tList("kindFilterLabel")}
+                value={kindTab}
+                onValueChange={setKindTab}
+                options={KIND_TABS.map((kind) => ({ value: kind, label: kindLabel(kind), count: counts[kind] }))}
+              />
             ) : <span />}
             <div className="flex min-w-0 flex-wrap items-center gap-2">
               {unified && enabledChannels.length > 1 && (
@@ -685,28 +676,26 @@ export function FlowList({ channel }: { channel: Channel | "all" }) {
                   ))}
                 </div>
               )}
-              <select
+              <OptionSelect
+                size="sm"
                 aria-label={t("statusFilterLabel")}
                 value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
-                className={cn(FILTER_SELECT, statusFilter === "all" ? "bg-card text-muted-foreground" : "border-transparent bg-primary/10 font-semibold text-primary")}
-              >
-                {STATUS_FILTERS.map((status) => (
-                  <option key={status} value={status}>{statusLabel(status)}</option>
-                ))}
-              </select>
+                onValueChange={(value) => setStatusFilter(value as StatusFilter)}
+                className={cn(FILTER_SELECT, statusFilter !== "all" && "border-transparent bg-primary/10 font-semibold text-primary")}
+                options={STATUS_FILTERS.map((status) => ({ value: status, label: statusLabel(status) }))}
+              />
               {showsTriggers && triggerTypes.length > 0 && (
-                <select
+                <OptionSelect
+                  size="sm"
                   aria-label={tRow("triggerFilter")}
                   value={triggerFilter}
-                  onChange={(e) => setTriggerFilter(e.target.value as FlowTriggerType | "all")}
-                  className={cn(FILTER_SELECT, triggerFilter === "all" ? "bg-card text-muted-foreground" : "border-transparent bg-primary/10 font-semibold text-primary")}
-                >
-                  <option value="all">{tRow("anyTrigger")}</option>
-                  {triggerTypes.map((type) => (
-                    <option key={type} value={type}>{triggerTypeLabel(type, tRow)}</option>
-                  ))}
-                </select>
+                  onValueChange={(value) => setTriggerFilter(value as FlowTriggerType | "all")}
+                  className={cn(FILTER_SELECT, triggerFilter !== "all" && "border-transparent bg-primary/10 font-semibold text-primary")}
+                  options={[
+                    { value: "all", label: tRow("anyTrigger") },
+                    ...triggerTypes.map((type) => ({ value: type, label: triggerTypeLabel(type, tRow) })),
+                  ]}
+                />
               )}
               <div className="relative w-full sm:w-[240px]">
                 <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -756,25 +745,17 @@ export function FlowList({ channel }: { channel: Channel | "all" }) {
                 )}
               </span>
             ))}
-            {canCreate && (
-              <Button variant="ghost" size="sm" onClick={() => setFolderDialog({ mode: "create" })}>
-                <FolderPlus className="h-3.5 w-3.5" />
-                {tFolders("new")}
-              </Button>
-            )}
           </div>
           )}
 
           {visibleItems.length === 0 ? (
-            <div className="flex flex-col items-center gap-2 rounded-xl border border-border px-4 py-12 text-center">
-              <span className="mb-2 inline-flex h-[52px] w-[52px] items-center justify-center rounded-2xl bg-primary/10 text-primary">
-                <Search className="h-6 w-6" aria-hidden />
-              </span>
-              <p className="text-sm text-muted-foreground">{unified ? tList("noMatches") : t("noMatches")}</p>
-              {filtered && <Button variant="outline" size="sm" className="mt-2" onClick={clearFilters}>{tList("clearFilters")}</Button>}
-            </div>
+            <UiEmptyState
+              icon={Search}
+              title={unified ? tList("noMatches") : t("noMatches")}
+              action={filtered ? <Button variant="outline" size="sm" onClick={clearFilters}>{tList("clearFilters")}</Button> : undefined}
+            />
           ) : (
-            <div className="overflow-hidden rounded-xl border border-border bg-card">
+            <GroupedList>
               <div className={cn("hidden gap-3.5 bg-muted px-4 py-2.5 text-xs font-semibold text-muted-foreground lg:grid", ROW_GRID)}>
                 <span>{tRow("nameColumn")}</span>
                 <span>{tList("typeColumn")}</span>
@@ -806,7 +787,7 @@ export function FlowList({ channel }: { channel: Channel | "all" }) {
                   />
                 ))}
               </ul>
-            </div>
+            </GroupedList>
           )}
         </>
       )}
@@ -842,7 +823,7 @@ export function FlowList({ channel }: { channel: Channel | "all" }) {
   );
 }
 
-const FILTER_SELECT = "h-8 max-w-full rounded-full border border-border px-3 text-[13px] transition-colors duration-150 hover:bg-muted focus-visible:outline-2 focus-visible:outline-primary";
+const FILTER_SELECT = "w-auto max-w-full rounded-full px-3 text-[13px]";
 
 /** The status words: Live, Stopped (paused), Draft, Archived (Testing has its own). */
 const STATUS_KEY: Record<Exclude<ItemStatus, "testing">, "live" | "stopped" | "draft" | "archived"> = {
@@ -883,26 +864,17 @@ function EmptyState({
 }) {
   const tGate = useTranslations("GatedButton");
   return (
-    <div className="flex flex-col items-center justify-center gap-2 rounded-xl border border-border bg-card px-6 py-14 text-center">
-      <span className="mb-2 inline-flex h-[52px] w-[52px] items-center justify-center rounded-2xl bg-primary/10 text-primary">
-        <Workflow className="h-6 w-6" />
-      </span>
-      <h2 className="text-[15px] font-semibold text-foreground">
-        {t("emptyTitle")}
-      </h2>
-      <p className="max-w-md text-sm text-muted-foreground">
-        {t("emptyDesc")}
-      </p>
-      <GatedButton
-        canAct={canCreate}
-        gateReason={tGate("reasons.createFlows")}
-        onClick={onCreate}
-        className="mt-3"
-      >
-        <Plus className="h-4 w-4" />
-        {t("createFirst")}
-      </GatedButton>
-    </div>
+    <UiEmptyState
+      icon={Workflow}
+      title={t("emptyTitle")}
+      body={t("emptyDesc")}
+      action={
+        <GatedButton canAct={canCreate} gateReason={tGate("reasons.createFlows")} onClick={onCreate}>
+          <Plus className="h-4 w-4" />
+          {t("createFirst")}
+        </GatedButton>
+      }
+    />
   );
 }
 
@@ -1200,15 +1172,12 @@ function MoveForm({ flow, folders, onCancel, onMove }: {
             </DialogHeader>
             <div className="space-y-1.5">
               <Label htmlFor="flow-move-folder">{t("filterLabel")}</Label>
-              <select
+              <OptionSelect
                 id="flow-move-folder"
                 value={target}
-                onChange={(e) => setTarget(e.target.value)}
-                className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm text-foreground"
-              >
-                <option value="">{t("noFolder")}</option>
-                {folders.map((folder) => <option key={folder.id} value={folder.id}>{folder.name}</option>)}
-              </select>
+                onValueChange={setTarget}
+                options={[{ value: "", label: t("noFolder") }, ...folders.map((folder) => ({ value: folder.id, label: folder.name }))]}
+              />
             </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={onCancel}>{t("cancel")}</Button>

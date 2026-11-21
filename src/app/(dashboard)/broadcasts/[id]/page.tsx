@@ -6,6 +6,11 @@ import { useParams, useRouter } from 'next/navigation';
 import { createClient } from '@/lib/data/client';
 import { Broadcast, BroadcastRecipient, RecipientStatus } from '@/types';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import { useConfirm } from '@/components/ui/confirm-dialog';
+import { EmptyState } from '@/components/ui/empty-state';
+import { PageHeader } from '@/components/ui/page-header';
+import { PageLoading } from '@/components/ui/page-loading';
 import {
   Table,
   TableBody,
@@ -24,7 +29,7 @@ import {
   AlertCircle,
   MessageCircle,
   Download,
-  Copy,
+  Radio,
   PlayCircle,
   RotateCcw,
   MousePointerClick,
@@ -192,7 +197,7 @@ export default function BroadcastDetailPage() {
   const [uncertainTotal, setUncertainTotal] = useState(0);
   const [uncertain, setUncertain] = useState<UncertainRecipient[]>([]);
   const [selectedUncertain, setSelectedUncertain] = useState<Set<string>>(new Set());
-  const [confirmNotSent, setConfirmNotSent] = useState(false);
+  const confirm = useConfirm();
   const [reconciling, setReconciling] = useState(false);
   const [newTime, setNewTime] = useState('');
   const [scheduleBusy, setScheduleBusy] = useState(false);
@@ -355,7 +360,6 @@ export default function BroadcastDetailPage() {
         return;
       }
       toast.success(t('toastReconciled', { count: payload.resolved ?? 0 }));
-      setConfirmNotSent(false);
       await fetchData();
     } catch (err) {
       toast.error(t('toastReconcileFailed', { error: err instanceof Error ? err.message : t('unknownError') }));
@@ -400,21 +404,20 @@ export default function BroadcastDetailPage() {
   const sales = useCampaignSales(salesIds)[broadcastId];
 
   if (loading) {
-    return (
-      <div className="flex h-64 items-center justify-center">
-        <Loader2 className="h-6 w-6 animate-spin text-primary" />
-      </div>
-    );
+    return <PageLoading />;
   }
 
   if (error || !broadcast) {
     return (
-      <div className="flex h-64 flex-col items-center justify-center gap-2">
-        <p className="text-sm text-red-600 dark:text-red-400">{error ?? t('notFound')}</p>
-        <Button variant="outline" onClick={() => router.push('/broadcasts')}>
-          {t('backToBroadcasts')}
-        </Button>
-      </div>
+      <EmptyState
+        icon={Radio}
+        title={error ?? t('notFound')}
+        action={
+          <Button variant="outline" onClick={() => router.push('/broadcasts')}>
+            {t('backToBroadcasts')}
+          </Button>
+        }
+      />
     );
   }
 
@@ -438,74 +441,72 @@ export default function BroadcastDetailPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="flex min-w-0 flex-col items-start gap-2">
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            onClick={() => router.push('/broadcasts')}
-            aria-label={t('backToBroadcasts')}
-            title={t('backToBroadcasts')}
-            className="-ml-1 text-muted-foreground"
-          >
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-3">
-              <h1 className="text-[22px] font-bold leading-tight tracking-tight text-foreground">{broadcast.name}</h1>
-              <StatusPill tone={STATUS_TONE[broadcast.status] ?? 'neutral'} pulse={status.pulse}>
-                {tStatus(status.label)}
-              </StatusPill>
-            </div>
-            <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
-              <span className="inline-flex items-center gap-1.5">
-                <ChannelDot channel={broadcast.channel === 'instagram' ? 'instagram' : 'whatsapp'} />
-                {broadcast.channel === 'instagram' ? tc('channels.instagram') : tc('channels.whatsapp')}
+      <div>
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          onClick={() => router.push('/broadcasts')}
+          aria-label={t('backToBroadcasts')}
+          title={t('backToBroadcasts')}
+          className="-ml-1 mb-2 text-muted-foreground"
+        >
+          <ArrowLeft className="h-4 w-4" />
+        </Button>
+        {/* Lead action by status and the More menu (Campaigns redesign; Duplicate is in the menu). Delete is in
+            the menu behind a confirmation; a sending campaign must be paused before it can be deleted. */}
+        <PageHeader
+          className="mb-0"
+          title={broadcast.name}
+          subtitle={
+            <div className="flex flex-col gap-1.5">
+              <span>
+                <StatusPill tone={STATUS_TONE[broadcast.status] ?? 'neutral'} pulse={status.pulse}>
+                  {tStatus(status.label)}
+                </StatusPill>
               </span>
-              <span aria-hidden>·</span>
-              {broadcast.channel !== 'instagram' && (
-                <>
-                  <span>{t('template', { name: broadcast.template_name })}</span>
-                  <span aria-hidden>·</span>
-                </>
-              )}
-              {numbers.length > 1 && (() => {
-                const id = (broadcast as Broadcast & { whatsapp_config_id?: string | null }).whatsapp_config_id;
-                const n = id ? numbers.find((x) => x.id === id) : undefined;
-                return (
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
+                <span className="inline-flex items-center gap-1.5">
+                  <ChannelDot channel={broadcast.channel === 'instagram' ? 'instagram' : 'whatsapp'} />
+                  {broadcast.channel === 'instagram' ? tc('channels.instagram') : tc('channels.whatsapp')}
+                </span>
+                <span aria-hidden>·</span>
+                {broadcast.channel !== 'instagram' && (
                   <>
-                    <span>{tn('picker.sendFrom')}: {n ? numberLabel(n, tn) : '—'}</span>
+                    <span>{t('template', { name: broadcast.template_name })}</span>
                     <span aria-hidden>·</span>
                   </>
+                )}
+                {numbers.length > 1 && (() => {
+                  const id = (broadcast as Broadcast & { whatsapp_config_id?: string | null }).whatsapp_config_id;
+                  const n = id ? numbers.find((x) => x.id === id) : undefined;
+                  return (
+                    <>
+                      <span>{tn('picker.sendFrom')}: {n ? numberLabel(n, tn) : '—'}</span>
+                      <span aria-hidden>·</span>
+                    </>
+                  );
+                })()}
+                <span>
+                  {t('createdAt', { date: new Date(broadcast.created_at).toLocaleDateString() })}
+                </span>
+              </div>
+            </div>
+          }
+          primaryAction={
+            <>
+              <BroadcastActionsMenu broadcast={broadcast} actions={actions} inDetail exclude={lead ? [lead] : []} />
+              {lead && (() => {
+                const Icon = actions.icon(lead);
+                return (
+                  <Button onClick={() => actions.run(lead, broadcast)} disabled={actions.busy !== null}>
+                    {actions.busy === broadcast.id ? <Loader2 className="animate-spin" /> : <Icon />}
+                    {actions.label(lead, broadcast)}
+                  </Button>
                 );
               })()}
-              <span>
-                {t('createdAt', { date: new Date(broadcast.created_at).toLocaleDateString() })}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* Lead action by status, Duplicate, and the More menu (Campaigns redesign). Delete is in the
-            menu behind a confirmation; a sending campaign must be paused before it can be deleted. */}
-        <div className="flex flex-wrap items-center gap-2">
-          {lead && (() => {
-            const Icon = actions.icon(lead);
-            return (
-              <Button size="sm" onClick={() => actions.run(lead, broadcast)} disabled={actions.busy !== null}>
-                {actions.busy === broadcast.id ? <Loader2 className="animate-spin" /> : <Icon />}
-                {actions.label(lead, broadcast)}
-              </Button>
-            );
-          })()}
-          {actions.canSend && broadcast.kind !== 'api' && (
-            <Button variant="ghost" size="sm" onClick={() => actions.run('duplicate', broadcast)}>
-              <Copy />
-              {tc('actions.duplicate')}
-            </Button>
-          )}
-          <BroadcastActionsMenu broadcast={broadcast} actions={actions} inDetail exclude={[...(lead ? [lead] : []), 'duplicate']} />
-        </div>
+            </>
+          }
+        />
       </div>
       {actions.dialogs}
 
@@ -607,10 +608,9 @@ export default function BroadcastDetailPage() {
           <div className="max-h-64 space-y-1 overflow-y-auto">
             {canReconcile && (
               <label className="flex items-center gap-2 text-xs text-muted-foreground">
-                <input
-                  type="checkbox"
+                <Checkbox
                   checked={uncertain.length > 0 && selectedUncertain.size === uncertain.length}
-                  onChange={(e) => setSelectedUncertain(e.target.checked ? new Set(uncertain.map((r) => r.id)) : new Set())}
+                  onCheckedChange={(checked) => setSelectedUncertain(checked ? new Set(uncertain.map((r) => r.id)) : new Set())}
                 />
                 {t('uncertainSelectAll')}
               </label>
@@ -618,10 +618,9 @@ export default function BroadcastDetailPage() {
             {uncertain.map((r) => (
               <label key={r.id} className="flex items-center gap-2 text-sm text-foreground">
                 {canReconcile && (
-                  <input
-                    type="checkbox"
+                  <Checkbox
                     checked={selectedUncertain.has(r.id)}
-                    onChange={() => toggleUncertain(r.id)}
+                    onCheckedChange={() => toggleUncertain(r.id)}
                     aria-label={t('uncertainSelect', { name: r.contact_name ?? r.contact_phone ?? t('unknownContact') })}
                   />
                 )}
@@ -631,29 +630,22 @@ export default function BroadcastDetailPage() {
             ))}
           </div>
           {canReconcile ? (
-            confirmNotSent ? (
-              <div className="flex flex-wrap items-center gap-2 rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm">
-                <span className="text-red-600 dark:text-red-400">{t('uncertainNotSentWarning', { count: selectedUncertain.size })}</span>
-                <Button variant="outline" size="sm" disabled={reconciling} onClick={() => setConfirmNotSent(false)}>
-                  {t('cancel')}
-                </Button>
-                <Button size="sm" disabled={reconciling} onClick={() => handleReconcile('not_sent')}
-                  className="bg-red-600 text-white hover:bg-red-700">
-                  {t('confirm')}
-                </Button>
-              </div>
-            ) : (
               <div className="flex flex-wrap items-center gap-2">
                 <Button size="sm" variant="outline" disabled={reconciling || selectedUncertain.size === 0}
                   onClick={() => handleReconcile('sent')}>
                   {t('uncertainMarkSent', { count: selectedUncertain.size })}
                 </Button>
                 <Button size="sm" variant="outline" disabled={reconciling || selectedUncertain.size === 0}
-                  onClick={() => setConfirmNotSent(true)}>
+                  onClick={async () => {
+                    if (await confirm({
+                      title: t('uncertainNotSentWarning', { count: selectedUncertain.size }),
+                      confirmLabel: t('uncertainMarkNotSent', { count: selectedUncertain.size }),
+                      destructive: true,
+                    })) void handleReconcile('not_sent');
+                  }}>
                   {t('uncertainMarkNotSent', { count: selectedUncertain.size })}
                 </Button>
               </div>
-            )
           ) : (
             <p className="text-xs text-muted-foreground">{t('uncertainAdminOnly')}</p>
           )}

@@ -34,11 +34,12 @@ test('the campaign list filters by status tab and name search', async ({ page })
   await login(page, fixtures().users.agent);
   await page.goto('/broadcasts');
   // Failed and Cancelled live in the More statuses menu.
-  await page.getByLabel('More statuses').selectOption('cancelled');
+  await page.getByLabel('More statuses').click();
+  await page.getByRole('option', { name: /^Cancelled/ }).click();
   await page.getByLabel('Search campaigns').fill(`Scheduled ${fixtures().runId}`);
   // A retried scheduling test can leave an extra matching campaign; any one proves the filter works.
   await expect(page.getByRole('link', { name: new RegExp(`^Scheduled ${fixtures().runId}`) }).first()).toBeVisible();
-  await page.getByRole('tab', { name: 'Sent' }).click();
+  await page.getByRole('radio', { name: /^Sent/ }).click();
   await expect(page.getByText('No campaigns match.')).toBeVisible();
 });
 
@@ -46,10 +47,12 @@ test('an agent creates an API campaign and sees how to add recipients', async ({
   const name = `API ${fixtures().runId}`;
   await login(page, fixtures().users.agent);
   await page.goto('/broadcasts');
-  await page.getByRole('button', { name: 'New API campaign' }).click();
+  await page.getByRole('button', { name: 'More', exact: true }).first().click();
+  await page.getByRole('menuitem', { name: 'New API campaign' }).click();
   const dialog = page.getByRole('dialog');
   await dialog.getByLabel('Name', { exact: true }).fill(name);
-  await dialog.getByLabel('Template').selectOption({ label: 'e2e_template (en_US)' });
+  await dialog.getByLabel('Template').click();
+  await page.getByRole('option', { name: 'e2e_template (en_US)' }).click();
   await dialog.getByRole('button', { name: 'Create' }).click();
   await expect(page).toHaveURL(/\/broadcasts\/[0-9a-f-]{36}$/);
   await expect(page.getByText('Add recipients through the API')).toBeVisible();

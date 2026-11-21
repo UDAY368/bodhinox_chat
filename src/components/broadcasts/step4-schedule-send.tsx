@@ -6,6 +6,7 @@ import { formatClock, parseClock } from '@/lib/broadcasts/send-window';
 import { MessageTemplate } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { SegmentedControl } from '@/components/ui/segmented-control';
 import { Switch } from '@/components/ui/switch';
 import {
   Dialog,
@@ -291,16 +292,17 @@ export function Step4ScheduleSend({
       {/* When to send */}
       <div className="rounded-xl border border-border bg-card p-4 space-y-3">
         <p className="text-sm font-medium text-foreground">{t('scheduleSend.whenLabel')}</p>
-        <div className="flex flex-wrap gap-4 text-sm text-foreground">
-          <label className="flex items-center gap-2">
-            <input type="radio" name="send-when" checked={!later} onChange={() => setLater(false)} />
-            {t('scheduleSend.whenNow')}
-          </label>
-          <label className="flex items-center gap-2">
-            <input type="radio" name="send-when" checked={later} disabled={!canSchedule} onChange={() => setLater(true)} />
-            {t('scheduleSend.whenLater')}
-            {!canSchedule && <UpgradeBadge />}
-          </label>
+        <div className="flex flex-wrap items-center gap-2">
+          <SegmentedControl
+            aria-label={t('scheduleSend.whenLabel')}
+            value={later ? 'later' : 'now'}
+            onValueChange={(when) => setLater(when === 'later')}
+            options={[
+              { value: 'now', label: t('scheduleSend.whenNow') },
+              { value: 'later', label: t('scheduleSend.whenLater'), disabled: !canSchedule },
+            ]}
+          />
+          {!canSchedule && <UpgradeBadge />}
         </div>
         {later && (
           <div className="space-y-1">

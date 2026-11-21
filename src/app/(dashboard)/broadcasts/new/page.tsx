@@ -23,6 +23,7 @@ import { csvValueColumns } from '@/lib/broadcast-csv';
 import { fetchSegments } from '@/lib/audience/client';
 import { presetSegmentAudience } from '@/components/broadcasts/preset-segment';
 import { Check } from 'lucide-react';
+import { PageHeader } from '@/components/ui/page-header';
 import { useLocale, useTranslations } from 'next-intl';
 
 type StepKey = 'details' | 'template' | 'audience' | 'personalize' | 'send' | 'message' | 'review';
@@ -307,12 +308,7 @@ function NewBroadcastWizard() {
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-[22px] font-bold leading-tight tracking-tight text-foreground">{t('title')}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          {t('subtitle')}
-        </p>
-      </div>
+      <PageHeader className="mb-0" title={t('title')} subtitle={t('subtitle')} />
 
       {/* Step Indicator: underlined steps, numbered dots; finished steps can be revisited. */}
       <ol className="flex gap-1 overflow-x-auto [scrollbar-width:none]">

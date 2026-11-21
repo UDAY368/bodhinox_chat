@@ -29,6 +29,7 @@ import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
+import { useConfirm } from '@/components/ui/confirm-dialog';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { authFetch } from '@/lib/auth/client';
@@ -83,6 +84,7 @@ async function errorOf(res: Response, fallback: string): Promise<string> {
 
 export function VersionBar({ toolbarExtra }: { toolbarExtra?: ReactNode }) {
   const t = useTranslations('Flows.versions');
+  const askConfirm = useConfirm();
   const { flow, state, dirty, canActivate, publish: publishDraft } = useFlowEditor();
   const [info, setInfo] = useState<VersionsResponse | null>(null);
   const [busy, setBusy] = useState(false);
@@ -266,7 +268,7 @@ export function VersionBar({ toolbarExtra }: { toolbarExtra?: ReactNode }) {
       </Dialog>
 
       <Sheet open={drawerOpen} onOpenChange={(open) => { setDrawerOpen(open); if (!open) setViewing(null); }}>
-        <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-md">
+        <SheetContent side="right" size="md" className="w-full overflow-y-auto">
           <SheetHeader>
             <SheetTitle>{viewing ? t('viewingTitle', { version: viewing.version }) : t('drawerTitle')}</SheetTitle>
             <SheetDescription>{viewing ? t('viewingHint') : t('drawerHint')}</SheetDescription>
@@ -321,7 +323,7 @@ export function VersionBar({ toolbarExtra }: { toolbarExtra?: ReactNode }) {
                       )}
                       {!isLive && v.active_runs > 0 && (
                         <Button variant="ghost" size="sm" disabled={busy} className="text-red-400 hover:text-red-300"
-                          onClick={() => { if (window.confirm(t('cancelConfirm', { count: v.active_runs, version: v.version }))) void runAction('cancel', { version_id: v.id }); }}>
+                          onClick={async () => { if (await askConfirm({ title: t('cancelConfirm', { count: v.active_runs, version: v.version }), confirmLabel: t('cancelRuns'), destructive: true })) void runAction('cancel', { version_id: v.id }); }}>
                           <XCircle className="h-3.5 w-3.5" />
                           {t('cancelRuns')}
                         </Button>

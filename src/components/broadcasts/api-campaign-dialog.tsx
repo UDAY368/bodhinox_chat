@@ -9,9 +9,10 @@ import { Loader2 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { OptionSelect } from '@/components/automations/option-select';
 import { authFetch } from '@/lib/auth/client';
 import { createClient } from '@/lib/data/client';
 import { NumberSelect } from '@/components/settings/numbers/number-select';
@@ -68,24 +69,24 @@ export function ApiCampaignDialog({ open, onOpenChange, onCreated }: {
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="border-border bg-popover sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle className="text-popover-foreground">{t('title')}</DialogTitle>
-          <DialogDescription className="text-muted-foreground">{t('description')}</DialogDescription>
-        </DialogHeader>
-        <div className="space-y-3">
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent side="right" size="md" className="w-full overflow-y-auto">
+        <SheetHeader>
+          <SheetTitle>{t('title')}</SheetTitle>
+          <SheetDescription>{t('description')}</SheetDescription>
+        </SheetHeader>
+        <div className="space-y-3 px-4">
           <div className="space-y-1.5">
             <Label htmlFor="api-campaign-name" className="text-muted-foreground">{t('name')}</Label>
             <Input id="api-campaign-name" value={name} maxLength={200} onChange={(e) => setName(e.target.value)} />
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="api-campaign-template" className="text-muted-foreground">{t('template')}</Label>
-            <select id="api-campaign-template" value={templateId} onChange={(e) => setTemplateId(e.target.value)}
-              className="h-9 w-full rounded-md border border-border bg-muted px-2 text-sm text-foreground">
-              <option value="">{t('chooseTemplate')}</option>
-              {templates.map((tpl) => <option key={tpl.id} value={tpl.id}>{tpl.name} ({tpl.language ?? 'en_US'})</option>)}
-            </select>
+            <OptionSelect id="api-campaign-template" value={templateId} onValueChange={setTemplateId} className="h-9"
+              options={[
+                { value: '', label: t('chooseTemplate') },
+                ...templates.map((tpl) => ({ value: tpl.id, label: `${tpl.name} (${tpl.language ?? 'en_US'})` })),
+              ]} />
           </div>
           {allNumbers.length > 1 && (
             <div className="space-y-1.5">
@@ -101,14 +102,14 @@ export function ApiCampaignDialog({ open, onOpenChange, onCreated }: {
             </div>
           )}
         </div>
-        <DialogFooter>
+        <SheetFooter className="sm:flex-row sm:justify-end">
           <Button variant="outline" onClick={() => onOpenChange(false)}>{t('cancel')}</Button>
           <Button onClick={create} disabled={busy || !name.trim() || !templateId}>
             {busy && <Loader2 className="size-4 animate-spin" />}
             {t('create')}
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </SheetFooter>
+      </SheetContent>
+    </Sheet>
   );
 }

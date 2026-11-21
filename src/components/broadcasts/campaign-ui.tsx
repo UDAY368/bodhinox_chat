@@ -2,83 +2,29 @@
 
 // Small presentational pieces shared by the Campaigns screens (broadcasts,
 // templates, ads, forms) so they read as one calm, consistent system:
-// page header, segmented filter, search box, soft status pill, thin
-// progress bar, stat block and a centred empty state. Markup only — no
-// data, no handlers of their own.
+// page header and empty state (thin wrappers over the shared PageHeader and
+// EmptyState), search box, soft status pill, thin progress bar and stat
+// block. Markup only — no data, no handlers of their own.
 
 import type { ComponentType, ReactNode } from 'react';
 import { Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { EmptyState } from '@/components/ui/empty-state';
+import { PageHeader } from '@/components/ui/page-header';
 
+/** The Campaigns screens' large title: the shared PageHeader, `actions` as its primary action. */
 export function CampaignHeader({
   title,
   description,
   actions,
   className,
 }: {
-  title: ReactNode;
+  title: string;
   description?: ReactNode;
   actions?: ReactNode;
   className?: string;
 }) {
-  return (
-    <div className={cn('flex flex-wrap items-start justify-between gap-4', className)}>
-      <div className="min-w-0 flex-1 basis-64">
-        <h1 className="text-[22px] font-bold leading-tight tracking-tight text-foreground">{title}</h1>
-        {description && <p className="mt-1 text-sm text-muted-foreground">{description}</p>}
-      </div>
-      {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
-    </div>
-  );
-}
-
-export interface SegmentItem<V extends string> {
-  value: V;
-  label: ReactNode;
-  count?: number;
-}
-
-/** Segmented control rendered as a tablist (keeps role="tab" names). */
-export function SegmentedTabs<V extends string>({
-  items,
-  value,
-  onChange,
-  ariaLabel,
-  className,
-}: {
-  items: SegmentItem<V>[];
-  value: V;
-  onChange: (value: V) => void;
-  ariaLabel: string;
-  className?: string;
-}) {
-  return (
-    <div
-      role="tablist"
-      aria-label={ariaLabel}
-      className={cn('flex max-w-full gap-0.5 overflow-x-auto rounded-xl bg-muted p-[3px] [scrollbar-width:none]', className)}
-    >
-      {items.map((item) => {
-        const on = item.value === value;
-        return (
-          <button
-            key={item.value}
-            type="button"
-            role="tab"
-            aria-selected={on}
-            onClick={() => onChange(item.value)}
-            className={cn(
-              'inline-flex h-[30px] shrink-0 items-center gap-1.5 whitespace-nowrap rounded-[9px] px-3 text-[13px] font-medium transition-colors duration-150',
-              on ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',
-            )}
-          >
-            {item.label}
-            {item.count !== undefined && <span className="tabular-nums text-muted-foreground">{item.count}</span>}
-          </button>
-        );
-      })}
-    </div>
-  );
+  return <PageHeader title={title} subtitle={description} primaryAction={actions} className={cn('mb-0', className)} />;
 }
 
 export function SearchField({
@@ -175,29 +121,21 @@ export function IconTile({ icon: Icon, className }: { icon: ComponentType<{ clas
   );
 }
 
+/** The Campaigns screens' empty state: the shared EmptyState (one icon, one line, one action). */
 export function CampaignEmpty({
-  icon: Icon,
+  icon,
   title,
   description,
   action,
   className,
 }: {
   icon: ComponentType<{ className?: string }>;
-  title: ReactNode;
-  description?: ReactNode;
+  title: string;
+  description?: string;
   action?: ReactNode;
   className?: string;
 }) {
-  return (
-    <div className={cn('flex flex-col items-center gap-2 rounded-xl border border-border bg-card px-4 py-12 text-center', className)}>
-      <span className="mb-1 inline-flex size-13 items-center justify-center rounded-2xl bg-primary/10 text-primary" aria-hidden>
-        <Icon className="size-6" />
-      </span>
-      <p className="text-[15px] font-semibold text-foreground">{title}</p>
-      {description && <p className="max-w-sm text-sm text-muted-foreground">{description}</p>}
-      {action && <div className="mt-2">{action}</div>}
-    </div>
-  );
+  return <EmptyState icon={icon} title={title} body={description} action={action} className={className} />;
 }
 
 /** Soft pill tone per broadcast status (presentation only; labels come from the shared status config). */

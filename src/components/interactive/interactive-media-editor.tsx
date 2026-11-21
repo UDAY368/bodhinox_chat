@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { Input } from '@/components/ui/input';
+import { OptionSelect } from '@/components/automations/option-select';
 import {
   uploadAccountMedia,
   MEDIA_MAX_BYTES_BY_KIND,
@@ -67,17 +68,16 @@ export function InteractiveMediaEditor({
 
   return (
     <div className="border-border flex flex-col gap-2 rounded-md border p-2">
-      <label className="text-muted-foreground flex flex-col gap-1 text-xs">
-        {t('media')}
-        <select
+      <div className="text-muted-foreground flex flex-col gap-1 text-xs">
+        <span aria-hidden>{t('media')}</span>
+        <OptionSelect
           aria-label={t('media')}
           value={kind}
-          className="border-input bg-muted text-foreground h-9 rounded-md border px-2 text-sm"
-          onChange={(e) => {
+          onValueChange={(next) => {
             generation.current++;
             setBusy(false);
             setError('');
-            const type = e.target.value as InteractiveMedia['type'] | 'text';
+            const type = next as InteractiveMedia['type'] | 'text';
             onChange(
               type === 'text'
                 ? undefined
@@ -86,14 +86,15 @@ export function InteractiveMediaEditor({
                   : { type, url: '' }
             );
           }}
-        >
-          <option value="text">{t('mediaText')}</option>
-          <option value="image">{t('mediaImage')}</option>
-          <option value="video">{t('mediaVideo')}</option>
-          <option value="location">{t('mediaLocation')}</option>
-          <option value="document">{t('mediaFile')}</option>
-        </select>
-      </label>
+          options={[
+            { value: 'text', label: t('mediaText') },
+            { value: 'image', label: t('mediaImage') },
+            { value: 'video', label: t('mediaVideo') },
+            { value: 'location', label: t('mediaLocation') },
+            { value: 'document', label: t('mediaFile') },
+          ]}
+        />
+      </div>
       {value?.type === 'location' ? (
         <>
           <div className="grid grid-cols-2 gap-2">

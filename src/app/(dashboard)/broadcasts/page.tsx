@@ -6,13 +6,11 @@ import { createClient } from '@/lib/data/client';
 import { Broadcast, BroadcastStatus } from '@/types';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { ChevronLeft, ChevronRight, Code, Loader2, Plus, Radio, Search } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Code, Plus, Radio, Search } from 'lucide-react';
 import {
   CampaignEmpty,
-  CampaignHeader,
   IconTile,
   SearchField,
-  SegmentedTabs,
   StatusPill,
   BROADCAST_STATUS_TONE as STATUS_TONE,
 } from '@/components/broadcasts/campaign-ui';
@@ -29,6 +27,11 @@ import { GatedButton } from '@/components/ui/gated-button';
 import { getBroadcastStatus } from '@/lib/broadcast-status';
 import { useTranslations } from 'next-intl';
 import { InlineError } from '@/components/ui/inline-error';
+import { GroupedList } from '@/components/ui/grouped-list';
+import { PageHeader } from '@/components/ui/page-header';
+import { PageLoading } from '@/components/ui/page-loading';
+import { SegmentedControl } from '@/components/ui/segmented-control';
+import { OptionSelect } from '@/components/automations/option-select';
 
 /**
  * Poll cadence while any broadcast is sending. Kept modest so we don't
@@ -185,11 +188,7 @@ export default function BroadcastsPage() {
   }, [anySending, fetchBroadcasts]);
 
   if (loading) {
-    return (
-      <div className="flex h-64 items-center justify-center">
-        <Loader2 className="h-6 w-6 animate-spin text-primary" />
-      </div>
-    );
+    return <PageLoading />;
   }
 
   if (error && broadcasts.length === 0) {
@@ -199,23 +198,18 @@ export default function BroadcastsPage() {
   // Each row shows its own real sent progress; there is no page-wide bar.
   return (
     <div className="space-y-6">
-      <CampaignHeader
+      <PageHeader
+        className="mb-0"
         title={tc('title')}
-        description={tc('blurbs.broadcasts')}
-        actions={
+        subtitle={tc('blurbs.broadcasts')}
+        moreActions={canCreate ? [{ label: t('newApiCampaign'), icon: Code, disabled: !canApi, onSelect: () => setApiOpen(true) }] : undefined}
+        primaryAction={
           <>
             {canCreate && !canApi && <UpgradeBadge />}
-            {canCreate && (
-              <Button variant="outline" onClick={() => setApiOpen(true)} disabled={!canApi}>
-                <Code className="h-4 w-4" />
-                {t('newApiCampaign')}
-              </Button>
-            )}
             <GatedButton
               canAct={canCreate}
               gateReason={tGate('reasons.createBroadcasts')}
               onClick={() => router.push('/broadcasts/new')}
-              className="h-9 bg-primary px-4 text-primary-foreground hover:bg-primary/90"
             >
               <Plus className="h-4 w-4" />
               {t('newBroadcast')}
@@ -231,29 +225,28 @@ export default function BroadcastsPage() {
       {/* Status filter (segmented, plus a menu for the end states) + name search */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex min-w-0 items-center gap-2">
-          <SegmentedTabs
+          <SegmentedControl
             // Six tabs can be wider than a tablet row: shrink and scroll instead of pushing the search off-screen.
             className="min-w-0"
-            ariaLabel={t('tabsLabel')}
+            aria-label={t('tabsLabel')}
             value={tab}
-            onChange={(key) => { setTab(key); setPage(0); }}
-            items={MAIN_TABS.map((key) => ({ value: key, label: key === 'all' ? t('tabAll') : tStatus(key), count: counts[key] }))}
+            onValueChange={(key) => { setTab(key); setPage(0); }}
+            options={MAIN_TABS.map((key) => ({ value: key, label: key === 'all' ? t('tabAll') : tStatus(key), count: counts[key] }))}
           />
-          <select
+          <OptionSelect
             aria-label={t('moreStatuses')}
+            placeholder={t('moreStatuses')}
             value={MORE_STATUSES.includes(tab) ? tab : ''}
-            onChange={(e) => { setTab((e.target.value || 'all') as Tab); setPage(0); }}
-            className={`h-9 shrink-0 rounded-lg border px-2.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring ${
-              MORE_STATUSES.includes(tab) ? 'border-primary bg-primary/5 text-foreground' : 'border-border bg-muted text-muted-foreground'
-            }`}
-          >
-            <option value="">{t('moreStatuses')}</option>
-            {MORE_STATUSES.map((key) => (
-              <option key={key} value={key}>
-                {tStatus(key)}{counts[key] != null ? ` (${counts[key]!.toLocaleString()})` : ''}
-              </option>
-            ))}
-          </select>
+            onValueChange={(value) => { setTab((value || 'all') as Tab); setPage(0); }}
+            className={`h-9 w-auto shrink-0 ${MORE_STATUSES.includes(tab) ? 'border-primary bg-primary/5 text-foreground' : 'bg-muted text-muted-foreground'}`}
+            options={[
+              { value: '', label: t('moreStatuses') },
+              ...MORE_STATUSES.map((key) => ({
+                value: key,
+                label: `${tStatus(key)}${counts[key] != null ? ` (${counts[key]!.toLocaleString()})` : ''}`,
+              })),
+            ]}
+          />
         </div>
         <SearchField
           ariaLabel={t('searchLabel')}
@@ -296,7 +289,8 @@ export default function BroadcastsPage() {
           }
         />
       ) : (
-        <ul className="@container overflow-hidden rounded-xl border border-border bg-card" aria-label={t('title')}>
+        <GroupedList>
+        <ul className="@container" aria-label={t('title')}>
           {broadcasts.map((broadcast) => {
             const status = getBroadcastStatus(broadcast.status);
             const started = broadcastStarted(broadcast.status);
@@ -363,6 +357,7 @@ export default function BroadcastsPage() {
             );
           })}
         </ul>
+        </GroupedList>
       )}
 
       {actions.dialogs}

@@ -11,6 +11,7 @@ import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 
 import { createClient } from "@/lib/data/client";
+import { OptionSelect } from "./option-select";
 import { usePublishedForms } from "@/components/flows/forms/use-pickers";
 import { EVENT_ORDER_SOURCES, EVENT_TRIGGER_FILTERS, EVENT_TRIGGER_VARS, isAppointmentTrigger } from "@/lib/events/trigger-filters";
 import type { EventTriggerType } from "@/lib/events/types";
@@ -18,7 +19,6 @@ import type { EventTriggerType } from "@/lib/events/types";
 type Config = Record<string, unknown>;
 interface Option { id: string; name: string; pipeline_id?: string }
 
-const SELECT = "border-border bg-muted text-foreground focus:border-primary w-full rounded-md border px-2 py-1.5 text-sm focus:outline-none";
 const LABEL = "text-muted-foreground mb-1 block text-xs font-medium";
 
 function usePipelines(enabled: boolean): { pipelines: Option[]; stages: Option[] } {
@@ -60,40 +60,41 @@ export function EventTriggerFilters({ trigger, config, onChange }: {
       {fields.includes("source") && (
         <div>
           <label htmlFor="event-source" className={LABEL}>{t("source")}</label>
-          <select id="event-source" className={SELECT} value={value("source")} onChange={(e) => set({ source: e.target.value })}>
-            <option value="">{t("anySource")}</option>
-            {EVENT_ORDER_SOURCES.map((source) => <option key={source} value={source}>{t(`sources.${source}`)}</option>)}
-          </select>
+          <OptionSelect id="event-source" value={value("source")} onValueChange={(source) => set({ source })}
+            options={[{ value: "", label: t("anySource") }, ...EVENT_ORDER_SOURCES.map((source) => ({ value: source, label: t(`sources.${source}`) }))]} />
         </div>
       )}
       {fields.includes("form_id") && (
         <div>
           <label htmlFor="event-form" className={LABEL}>{t("form")}</label>
-          <select id="event-form" className={SELECT} value={value("form_id")} onChange={(e) => set({ form_id: e.target.value })}>
-            <option value="">{t("anyForm")}</option>
-            {forms.map((form) => <option key={form.id} value={form.id}>{form.name}</option>)}
-            {value("form_id") && !forms.some((f) => f.id === value("form_id")) && <option value={value("form_id")}>{t("missing")}</option>}
-          </select>
+          <OptionSelect id="event-form" value={value("form_id")} onValueChange={(form_id) => set({ form_id })}
+            options={[
+              { value: "", label: t("anyForm") },
+              ...forms.map((form) => ({ value: form.id, label: form.name })),
+              ...(value("form_id") && !forms.some((f) => f.id === value("form_id")) ? [{ value: value("form_id"), label: t("missing") }] : []),
+            ]} />
         </div>
       )}
       {fields.includes("pipeline_id") && (
         <>
           <div>
             <label htmlFor="event-pipeline" className={LABEL}>{t("pipeline")}</label>
-            <select id="event-pipeline" className={SELECT} value={pipelineId}
-              onChange={(e) => set({ pipeline_id: e.target.value, to_stage_id: "" })}>
-              <option value="">{t("anyPipeline")}</option>
-              {pipelines.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-              {pipelineId && !pipelines.some((p) => p.id === pipelineId) && <option value={pipelineId}>{t("missing")}</option>}
-            </select>
+            <OptionSelect id="event-pipeline" value={pipelineId}
+              onValueChange={(pipeline_id) => set({ pipeline_id, to_stage_id: "" })}
+              options={[
+                { value: "", label: t("anyPipeline") },
+                ...pipelines.map((p) => ({ value: p.id, label: p.name })),
+                ...(pipelineId && !pipelines.some((p) => p.id === pipelineId) ? [{ value: pipelineId, label: t("missing") }] : []),
+              ]} />
           </div>
           <div>
             <label htmlFor="event-stage" className={LABEL}>{t("stage")}</label>
-            <select id="event-stage" className={SELECT} value={value("to_stage_id")} disabled={!pipelineId}
-              onChange={(e) => set({ to_stage_id: e.target.value })}>
-              <option value="">{t("anyStage")}</option>
-              {stages.filter((s) => s.pipeline_id === pipelineId).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-            </select>
+            <OptionSelect id="event-stage" value={value("to_stage_id")} disabled={!pipelineId}
+              onValueChange={(to_stage_id) => set({ to_stage_id })}
+              options={[
+                { value: "", label: t("anyStage") },
+                ...stages.filter((s) => s.pipeline_id === pipelineId).map((s) => ({ value: s.id, label: s.name })),
+              ]} />
           </div>
         </>
       )}

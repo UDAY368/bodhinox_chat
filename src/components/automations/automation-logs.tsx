@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation"
 import {
   ArrowLeft,
   Check,
-  Loader2,
+  History,
   X,
   ChevronDown,
   ChevronRight,
@@ -18,7 +18,11 @@ import type {
   AutomationLog,
   AutomationLogStepResult,
 } from "@/types"
-import { Button } from "@/components/ui/button"
+import { EmptyState } from "@/components/ui/empty-state"
+import { GroupedList } from "@/components/ui/grouped-list"
+import { InlineError } from "@/components/ui/inline-error"
+import { PageHeader } from "@/components/ui/page-header"
+import { PageLoading } from "@/components/ui/page-loading"
 import { cn } from "@/lib/utils"
 import { formatRelative } from "@/lib/automations/trigger-meta"
 import { channelPath } from "@/lib/channels/routes"
@@ -41,9 +45,11 @@ export function AutomationLogs({ id, channel }: { id: string; channel: Channel }
   const [logs, setLogs] = useState<AutomationLog[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [openLogId, setOpenLogId] = useState<string | null>(null)
+  const [retryToken, setRetryToken] = useState(0)
 
   useEffect(() => {
     async function load() {
+      setError(null)
       try {
         const db = createClient()
         const [autRes, logRes] = await Promise.all([
@@ -73,53 +79,35 @@ export function AutomationLogs({ id, channel }: { id: string; channel: Channel }
       }
     }
     load()
-  }, [id, channel])
+  }, [id, channel, retryToken])
 
   if (error) {
-    return (
-      <div className="flex h-64 flex-col items-center justify-center gap-3">
-        <p className="text-sm text-destructive">{error}</p>
-        <Button variant="outline" onClick={() => router.push(channelPath(channel, "automations"))}>
-          {t("back")}
-        </Button>
-      </div>
-    )
+    return <InlineError message={t("loadError")} onRetry={() => setRetryToken((n) => n + 1)} />
   }
 
   if (!automation || logs === null) {
-    return (
-      <div className="flex h-64 items-center justify-center">
-        <Loader2 className="h-6 w-6 animate-spin text-primary" />
-      </div>
-    )
+    return <PageLoading />
   }
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-3">
+      <div>
         <button
           type="button"
           onClick={() => router.push(channelPath(channel, "automations"))}
-          className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground transition-colors duration-150 hover:bg-muted hover:text-foreground"
+          className="mb-2 -ml-1 flex size-8 items-center justify-center rounded-full text-muted-foreground transition-colors duration-150 hover:bg-muted hover:text-foreground"
           aria-label={t("backAria")}
         >
           <ArrowLeft className="h-4 w-4" />
         </button>
-        <div>
-          <h1 className="text-[22px] font-bold tracking-tight text-foreground">{automation.name}</h1>
-          <p className="mt-0.5 text-sm text-muted-foreground">{t("title")}</p>
-        </div>
+        <PageHeader className="mb-0" title={automation.name} subtitle={t("title")} />
       </div>
 
       {logs.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-xl border border-border bg-card px-4 py-12 text-center">
-          <p className="text-[15px] font-semibold text-foreground">{t("emptyTitle")}</p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            {t("emptyDesc")}
-          </p>
-        </div>
+        <EmptyState icon={History} title={t("emptyTitle")} body={t("emptyDesc")} />
       ) : (
-        <ul className="divide-y divide-border/60 overflow-hidden rounded-xl border border-border bg-card">
+        <GroupedList>
+        <ul className="divide-y divide-border/60">
           {logs.map((log) => {
             const isOpen = openLogId === log.id
             return (
@@ -172,6 +160,7 @@ export function AutomationLogs({ id, channel }: { id: string; channel: Channel }
             )
           })}
         </ul>
+        </GroupedList>
       )}
     </div>
   )

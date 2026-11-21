@@ -9,6 +9,8 @@ import { CustomField, Tag } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { SegmentedControl } from '@/components/ui/segmented-control';
+import { OptionSelect } from '@/components/automations/option-select';
 import { toast } from 'sonner';
 import {
   Users,
@@ -377,17 +379,16 @@ export function Step2SelectAudience({
           ) : segments.length === 0 ? (
             <p className="text-sm text-muted-foreground">{t('selectAudience.noSegments')}</p>
           ) : (
-            <select
+            <OptionSelect
               id="audience-segment"
+              className="h-9"
               value={audience.segmentId ?? ''}
-              onChange={(e) => onUpdate({ ...audience, segmentId: e.target.value || undefined })}
-              className="w-full rounded-lg border border-border bg-muted px-3 py-2 text-sm text-foreground"
-            >
-              <option value="">{t('selectAudience.selectSegmentPlaceholder')}</option>
-              {segments.map((s) => (
-                <option key={s.id} value={s.id}>{s.name}</option>
-              ))}
-            </select>
+              onValueChange={(segmentId) => onUpdate({ ...audience, segmentId: segmentId || undefined })}
+              options={[
+                { value: '', label: t('selectAudience.selectSegmentPlaceholder') },
+                ...segments.map((s) => ({ value: s.id, label: s.name })),
+              ]}
+            />
           )}
           <p className="mt-2 text-xs text-muted-foreground">{t('selectAudience.segmentConsentNote')}</p>
         </div>
@@ -403,17 +404,16 @@ export function Step2SelectAudience({
           ) : lists.length === 0 ? (
             <p className="text-sm text-muted-foreground">{t('selectAudience.noLists')}</p>
           ) : (
-            <select
+            <OptionSelect
               id="audience-list"
+              className="h-9"
               value={audience.listId ?? ''}
-              onChange={(e) => onUpdate({ ...audience, listId: e.target.value || undefined })}
-              className="w-full rounded-lg border border-border bg-muted px-3 py-2 text-sm text-foreground"
-            >
-              <option value="">{t('selectAudience.selectListPlaceholder')}</option>
-              {lists.map((l) => (
-                <option key={l.id} value={l.id}>{l.name} ({l.member_count})</option>
-              ))}
-            </select>
+              onValueChange={(listId) => onUpdate({ ...audience, listId: listId || undefined })}
+              options={[
+                { value: '', label: t('selectAudience.selectListPlaceholder') },
+                ...lists.map((l) => ({ value: l.id, label: `${l.name} (${l.member_count})` })),
+              ]}
+            />
           )}
           <p className="mt-2 text-xs text-muted-foreground">{t('selectAudience.segmentConsentNote')}</p>
         </div>
@@ -465,34 +465,24 @@ export function Step2SelectAudience({
               {t('selectAudience.errorLoadFields')}
             </p>
           ) : (
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1fr)_140px_minmax(0,1fr)]">
-              <select
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]">
+              <OptionSelect
+                aria-label={t('selectAudience.field')}
+                className="h-9"
                 value={audience.customField?.fieldId ?? ''}
-                onChange={(e) => updateCustomField({ fieldId: e.target.value })}
-                className="h-9 rounded-lg border border-border bg-muted px-2.5 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary"
-              >
-                <option value="">{t('selectAudience.selectField')}</option>
-                {customFields.map((f) => (
-                  <option key={f.id} value={f.id}>
-                    {f.field_name}
-                  </option>
-                ))}
-              </select>
-              <select
+                onValueChange={(fieldId) => updateCustomField({ fieldId })}
+                options={[
+                  { value: '', label: t('selectAudience.selectField') },
+                  ...customFields.map((f) => ({ value: f.id, label: f.field_name })),
+                ]}
+              />
+              <SegmentedControl
+                aria-label={t('selectAudience.operator')}
+                className="self-center"
                 value={audience.customField?.operator ?? 'is'}
-                onChange={(e) =>
-                  updateCustomField({
-                    operator: e.target.value as CustomFieldOperator,
-                  })
-                }
-                className="h-9 rounded-lg border border-border bg-muted px-2.5 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary"
-              >
-                {OPERATOR_OPTIONS.map((op: { value: CustomFieldOperator; label: string }) => (
-                  <option key={op.value} value={op.value}>
-                    {op.label}
-                  </option>
-                ))}
-              </select>
+                onValueChange={(operator) => updateCustomField({ operator })}
+                options={OPERATOR_OPTIONS}
+              />
               <input
                 type="text"
                 value={audience.customField?.value ?? ''}

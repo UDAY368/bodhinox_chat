@@ -11,14 +11,13 @@ import { Button } from "@/components/ui/button";
 import { GatedButton } from "@/components/ui/gated-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { useConfirm } from "@/components/ui/confirm-dialog";
+import { EmptyState } from "@/components/ui/empty-state";
+import { GroupedList } from "@/components/ui/grouped-list";
+import { PageLoading } from "@/components/ui/page-loading";
+import { InlineError } from "@/components/ui/inline-error";
+import { OptionSelect } from "@/components/automations/option-select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { FormStatusBadge } from "@/components/forms/form-status-badge";
 import { CampaignEmpty, CampaignHeader, SearchField } from "@/components/broadcasts/campaign-ui";
@@ -54,22 +53,25 @@ export default function FormsPage() {
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
-  const [deleting, setDeleting] = useState<FormListItem | null>(null);
+  const confirm = useConfirm();
   const [query, setQuery] = useState("");
   const term = query.trim().toLowerCase();
   const visible = term ? forms.filter((f) => f.name.toLowerCase().includes(term)) : forms;
   const published = forms.filter((f) => f.status === "published").length;
 
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [retryToken, setRetryToken] = useState(0);
   useEffect(() => {
     let cancelled = false;
+    setLoadFailed(false);
     listForms()
       .then((rows) => !cancelled && setForms(rows))
-      .catch(() => !cancelled && toast.error(t("loadError")))
+      .catch(() => !cancelled && setLoadFailed(true))
       .finally(() => !cancelled && setLoading(false));
     return () => {
       cancelled = true;
     };
-  }, [t]);
+  }, [retryToken]);
 
   // A double Enter fires twice before `creating` disables anything; the
   // second POST would hit the unique name and flash a false "name taken".
@@ -112,15 +114,19 @@ export default function FormsPage() {
     }
   }
 
-  async function confirmDelete() {
-    if (!deleting) return;
-    const target = deleting;
+  async function handleDelete(target: FormListItem) {
+    const yes = await confirm({
+      title: t("deleteTitle"),
+      body: t("deleteDesc", { name: target.name }),
+      confirmLabel: t("deleteConfirm"),
+      destructive: true,
+    });
+    if (!yes) return;
     setBusyId(target.id);
     try {
       if (!(await deleteForm(target.id))) throw new Error();
       setForms((prev) => prev.filter((f) => f.id !== target.id));
       toast.success(t("deleteSuccess"));
-      setDeleting(null);
     } catch {
       toast.error(t("deleteError"));
     } finally {
@@ -136,10 +142,18 @@ export default function FormsPage() {
   }
 
   if (loading) {
+    return <PageLoading />;
+  }
+
+  if (loadFailed) {
     return (
-      <div className="flex h-full items-center justify-center">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" aria-label={t("loading")} />
-      </div>
+      <InlineError
+        message={t("loadError")}
+        onRetry={() => {
+          setLoading(true);
+          setRetryToken((n) => n + 1);
+        }}
+      />
     );
   }
 
@@ -164,17 +178,17 @@ export default function FormsPage() {
       )}
 
       {forms.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-xl border border-border bg-card px-6 py-12 text-center">
-          <div className="flex size-13 items-center justify-center rounded-2xl bg-primary/10 text-primary" aria-hidden>
-            <ClipboardList className="h-6 w-6" />
-          </div>
-          <h2 className="mt-3 text-[15px] font-semibold text-foreground">{t("emptyTitle")}</h2>
-          <p className="mt-1 max-w-md text-sm text-muted-foreground">{t("emptyDesc")}</p>
-          <GatedButton canAct={canManage} gateReason={tGate("reasons.manageForms")} onClick={openCreate} variant="outline" className="mt-4">
-            <Plus className="h-4 w-4" />
-            {t("createFirst")}
-          </GatedButton>
-        </div>
+        <EmptyState
+          icon={ClipboardList}
+          title={t("emptyTitle")}
+          body={t("emptyDesc")}
+          action={
+            <GatedButton canAct={canManage} gateReason={tGate("reasons.manageForms")} onClick={openCreate} variant="outline">
+              <Plus className="h-4 w-4" />
+              {t("createFirst")}
+            </GatedButton>
+          }
+        />
       ) : visible.length === 0 ? (
         <CampaignEmpty
           icon={Search}
@@ -183,7 +197,7 @@ export default function FormsPage() {
           action={<Button variant="outline" onClick={() => setQuery("")}>{tc("clearFilters")}</Button>}
         />
       ) : (
-        <div className="overflow-hidden rounded-xl border border-border bg-card">
+        <GroupedList>
           <Table>
             <TableHeader className="bg-muted">
               <TableRow className="border-border hover:bg-transparent">
@@ -252,7 +266,8 @@ export default function FormsPage() {
                         gateReason={tGate("reasons.manageForms")}
                         aria-label={t("deleteNamed", { name: form.name })}
                         className="text-destructive hover:bg-destructive/10"
-                        onClick={() => setDeleting(form)}
+                        disabled={busyId === form.id}
+                        onClick={() => void handleDelete(form)}
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                       </GatedButton>
@@ -262,16 +277,16 @@ export default function FormsPage() {
               ))}
             </TableBody>
           </Table>
-        </div>
+        </GroupedList>
       )}
 
-      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-        <DialogContent className="bg-popover text-popover-foreground sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>{t("createTitle")}</DialogTitle>
-            <DialogDescription className="text-muted-foreground">{t("createDesc")}</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
+      <Sheet open={createOpen} onOpenChange={setCreateOpen}>
+        <SheetContent side="right" size="md" className="w-full overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle>{t("createTitle")}</SheetTitle>
+            <SheetDescription>{t("createDesc")}</SheetDescription>
+          </SheetHeader>
+          <div className="space-y-4 px-4">
             <div className="space-y-1.5">
               <Label htmlFor="form-create-name">{t("nameLabel")}</Label>
               <Input
@@ -289,21 +304,18 @@ export default function FormsPage() {
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="form-create-category">{t("categoryLabel")}</Label>
-              <select
+              <OptionSelect
                 id="form-create-category"
+                className="h-9"
                 value={category}
-                onChange={(e) => setCategory(e.target.value as FormCategory)}
-                className="h-9 w-full rounded-lg border border-border bg-card px-2.5 text-sm text-foreground"
-              >
-                {FORM_CATEGORIES.map((c) => (
-                  <option key={c} value={c}>{tCat(c)}</option>
-                ))}
-              </select>
+                onValueChange={(value) => setCategory(value as FormCategory)}
+                options={FORM_CATEGORIES.map((c) => ({ value: c, label: tCat(c) }))}
+              />
               <p className="text-xs text-muted-foreground">{t("categoryHint")}</p>
             </div>
             {createError && <p role="alert" className="text-sm text-destructive">{createError}</p>}
           </div>
-          <DialogFooter>
+          <SheetFooter className="sm:flex-row sm:justify-end">
             <Button variant="ghost" onClick={() => setCreateOpen(false)} disabled={creating}>
               {t("cancel")}
             </Button>
@@ -311,29 +323,10 @@ export default function FormsPage() {
               {creating && <Loader2 className="h-4 w-4 animate-spin" />}
               {t("create")}
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
 
-      <Dialog open={deleting !== null} onOpenChange={(open) => !open && setDeleting(null)}>
-        <DialogContent className="bg-popover text-popover-foreground sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>{t("deleteTitle")}</DialogTitle>
-            <DialogDescription className="text-muted-foreground">
-              {t("deleteDesc", { name: deleting?.name ?? "" })}
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setDeleting(null)} disabled={busyId !== null}>
-              {t("cancel")}
-            </Button>
-            <Button variant="destructive" onClick={confirmDelete} disabled={busyId !== null}>
-              {busyId !== null && <Loader2 className="h-4 w-4 animate-spin" />}
-              {t("deleteConfirm")}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
