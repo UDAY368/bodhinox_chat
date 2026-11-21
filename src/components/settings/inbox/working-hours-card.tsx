@@ -132,7 +132,7 @@ export function WorkingHoursCard({ canEdit }: { canEdit: boolean }) {
     );
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" data-testid="working-hours">
       <SettingsGroup title={t("title")} footer={t("description")}>
         <SettingsRow label={t("timezone")} htmlFor="inbox-timezone">
           <Input
