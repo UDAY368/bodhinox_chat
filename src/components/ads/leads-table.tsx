@@ -19,6 +19,7 @@ import { InlineError } from '@/components/ui/inline-error';
 import { OptionSelect } from '@/components/ui/option-select';
 import { GroupedList, GroupedListRow } from '@/components/ui/grouped-list';
 import { RowMoreMenu } from './ads-ui';
+import { PageLoading } from '@/components/ui/page-loading';
 import { useAuth } from '@/hooks/use-auth';
 import { authFetch } from '@/lib/auth/client';
 import { hasMinRole } from '@/lib/auth/roles';
@@ -301,7 +302,8 @@ export function LeadsTable({ canManage }: LeadsTableProps) {
         </>
       )}
 
-      {loading && <Loader2 className="size-4 animate-spin text-muted-foreground" aria-hidden />}
+      {/* First load: placeholders shaped like the list; loading more: a small spinner by the button. */}
+      {loading && (leads.length === 0 ? <PageLoading rows={4} /> : <Loader2 className="size-4 animate-spin text-muted-foreground" aria-hidden />)}
       {cursor && !loading && (
         <Button type="button" variant="outline" size="sm" onClick={() => load(filters, cursor)}>{t('leads.loadMore')}</Button>
       )}
