@@ -5,6 +5,9 @@ import {
   runAutomationsForTrigger,
   type AutomationContext,
 } from '@/lib/automations/engine';
+import { getWorkerPrisma } from '@/lib/db/prisma';
+import { withTenant } from '@/lib/db/tenant';
+import { exitSequencesFor } from '@/lib/sequences/subscriptions';
 import { addContactTagIfAbsent } from './tag-write';
 import { MAX_TAG_CHAIN_DEPTH, getTagChainDepth } from './tag-chain';
 
@@ -68,6 +71,7 @@ export async function addContactTagAndDispatch(
   });
 
   if (!added) return { added: false, dispatched: false, reason: 'duplicate' };
+  await exitTaggedSequences(input);
 
   const depth = getTagChainDepth(input.context);
   if (depth >= MAX_TAG_CHAIN_DEPTH) {
@@ -120,5 +124,20 @@ async function startTagFlow(input: AddContactTagAndDispatchInput, chainDepth: nu
     });
   } catch {
     console.error('[flows] tag_added start failed', { accountId: input.accountId, contactId: input.contactId, tagId: input.tagId });
+  }
+}
+
+/**
+ * Sequences set to "Exit when tagged" with this tag stop for the contact. Never
+ * throws (the tag is already written): the sequence worker checks the same
+ * rule before every step. Ids only in the log.
+ */
+async function exitTaggedSequences(input: AddContactTagAndDispatchInput): Promise<void> {
+  try {
+    await withTenant({ accountId: input.accountId, role: 'owner' }, (tx) => exitSequencesFor(tx, {
+      accountId: input.accountId, contactId: input.contactId, reason: 'tagged', tagId: input.tagId,
+    }), getWorkerPrisma());
+  } catch {
+    console.error('[sequences] tag exit failed', { accountId: input.accountId, contactId: input.contactId, tagId: input.tagId });
   }
 }

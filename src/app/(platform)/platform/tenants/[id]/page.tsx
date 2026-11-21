@@ -6,14 +6,18 @@
 // diagnostics access. No customer content is shown or reachable from here.
 
 import { use, useCallback, useEffect, useState } from 'react';
-import Link from 'next/link';
+import { Building2, ScrollText } from 'lucide-react';
 import { useFormatter, useTranslations } from 'next-intl';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
+import { EmptyState } from '@/components/ui/empty-state';
+import { InlineError } from '@/components/ui/inline-error';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { PageHeader } from '@/components/ui/page-header';
+import { PageLoading } from '@/components/ui/page-loading';
 import { Textarea } from '@/components/ui/textarea';
 import type { PlatformTenantDetail } from '@/types/platform';
 import { errorCode, platformApi, PlatformApiError } from '../../../_components/platform-api';
@@ -104,9 +108,9 @@ export default function PlatformTenantPage({ params }: { params: Promise<{ id: s
     }
   }
 
-  if (state === 'loading') return <p className="text-muted-foreground text-sm">{t('loading')}</p>;
-  if (state === 'missing') return <p className="text-sm">{t('notFound')}</p>;
-  if (state === 'failed' || !tenant) return <p role="status" className="text-sm">{t('loadFailed')}</p>;
+  if (state === 'loading') return <PageLoading />;
+  if (state === 'missing') return <EmptyState icon={Building2} title={t('notFound')} />;
+  if (state === 'failed' || !tenant) return <InlineError message={t('loadFailed')} onRetry={() => { setState('loading'); void load(); }} />;
 
   const when = (value: string | null) => (value ? format.dateTime(new Date(value), { dateStyle: 'medium', timeStyle: 'short' }) : '-');
   const closing = tenant.lifecycle.status === 'closing';
@@ -114,15 +118,12 @@ export default function PlatformTenantPage({ params }: { params: Promise<{ id: s
   const reasonOk = lifecycleReason.trim().length >= 10;
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-center gap-3">
-        <h1 className="text-xl font-semibold">{tenant.name}</h1>
+      <PageHeader title={tenant.name} className="mb-0"
+        subtitle={<span className="font-mono text-xs">{tenant.account_id}</span>}
+        moreActions={[{ label: t('auditLink'), href: `/platform/audit?accountId=${tenant.account_id}`, icon: ScrollText }]}>
         <Badge variant={tenant.lifecycle.status === 'active' ? 'secondary' : 'destructive'}>{t(`lifecycle.${tenant.lifecycle.status}`)}</Badge>
         {tenant.lifecycle.block_manual && <Badge variant="destructive">{t('manualBlocked')}</Badge>}
-        <Link href={`/platform/audit?accountId=${tenant.account_id}`} className="text-muted-foreground ml-auto text-sm hover:underline">
-          {t('auditLink')}
-        </Link>
-      </div>
-      <p className="text-muted-foreground font-mono text-xs">{tenant.account_id}</p>
+      </PageHeader>
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>

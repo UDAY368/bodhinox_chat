@@ -147,13 +147,3 @@ export async function assertMutation(
   if (!rows[0]) throw new UnauthorizedError();
   assertCsrf(request, rows[0].csrf_hash);
 }
-/** Server route compatibility: still requires the real browser Origin and CSRF headers. */
-export async function assertCurrentMutation(
-  context: AuthContext
-): Promise<void> {
-  const incoming = await headers();
-  await assertMutation(
-    new Request('http://internal.invalid', { headers: incoming }),
-    context
-  );
-}

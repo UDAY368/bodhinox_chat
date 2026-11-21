@@ -18,6 +18,7 @@ function audienceBody(audience: AudienceConfig) {
     excludeTagIds: audience.excludeTagIds,
     segmentId: audience.segmentId,
     listId: audience.listId,
+    ...(audience.skipRecentDays ? { skipRecentDays: audience.skipRecentDays } : {}),
   };
 }
 
@@ -74,4 +75,67 @@ export async function fetchWorkspaceTimeZone(): Promise<string> {
 /** Cancel a scheduled campaign before it starts. */
 export function cancelSchedule(id: string): Promise<unknown> {
   return call(`/api/broadcasts/${encodeURIComponent(id)}/schedule`, { method: 'DELETE' }, 'Could not cancel the schedule');
+}
+
+/** "Cancel remaining": stop a sending or paused campaign for good. */
+export function cancelRemaining(id: string): Promise<{ cancelled: number; heldForReview: number }> {
+  return call(`/api/broadcasts/${encodeURIComponent(id)}/cancel-remaining`, { method: 'POST', body: '{}' }, 'Could not cancel the campaign');
+}
+
+/** Who a WhatsApp campaign reaches now, by the rules creation applies; and the workspace time zone. */
+export function campaignReach(audience: AudienceConfig): Promise<{ count: number; timeZone: string }> {
+  const { csvText: _text, csvFileName: _file, ...rest } = audience;
+  void _text; void _file;
+  const body = {
+    ...rest,
+    // CSV rows need only their number to be counted.
+    csvContacts: audience.type === 'csv' ? audience.csvContacts?.map((row) => ({ phone: row.phone })) : undefined,
+    allowDuplicates: audience.type === 'csv' && audience.allowDuplicates ? true : undefined,
+    consentConfirmed: undefined,
+  };
+  return call('/api/broadcasts/reach', { method: 'POST', body: JSON.stringify({ audience: body }) }, 'Could not count the audience');
+}
+
+/** A draft as the wizard saves and reopens it (lib/broadcasts/drafts). */
+export interface CampaignDraftPayload {
+  name: string;
+  channel: 'whatsapp' | 'instagram';
+  text?: string;
+  templateId?: string | null;
+  variables?: Record<string, { type: string; value: string }>;
+  headerMediaUrl?: string;
+  trackedUrl?: string;
+  sendExtras?: Record<string, unknown>;
+  scheduledAt?: string;
+  whatsappConfigId?: string | null;
+  sendWindow?: { start: number; end: number } | null;
+  audience: AudienceConfig;
+}
+
+/** Save a draft (new, or replacing `id`); returns its id. */
+export async function saveCampaignDraft(draft: CampaignDraftPayload, id?: string | null): Promise<string> {
+  const { csvText: _text, ...audience } = draft.audience;
+  void _text;
+  const result = await call<{ id?: unknown }>(id ? `/api/broadcasts/drafts/${encodeURIComponent(id)}` : '/api/broadcasts/drafts', {
+    method: id ? 'PUT' : 'POST',
+    body: JSON.stringify({ ...draft, audience }),
+  }, 'Could not save the draft');
+  if (typeof result.id !== 'string') throw new Error('Saving the draft returned no identifier');
+  return result.id;
+}
+
+/** Remove a draft once the campaign it was finishing is created. */
+export function deleteCampaignDraft(id: string): Promise<unknown> {
+  return call(`/api/broadcasts/drafts/${encodeURIComponent(id)}`, { method: 'DELETE' }, 'Could not remove the draft');
+}
+
+export async function loadCampaignDraft(id: string): Promise<CampaignDraftPayload> {
+  return (await call<{ draft: CampaignDraftPayload }>(`/api/broadcasts/drafts/${encodeURIComponent(id)}`, { method: 'GET' }, 'Could not open the draft')).draft;
+}
+
+/** "Create segment from this result" on a campaign report. */
+export async function createResultSegment(id: string, result: string): Promise<{ id: string; name: string }> {
+  return (await call<{ segment: { id: string; name: string } }>(`/api/broadcasts/${encodeURIComponent(id)}/segment`, {
+    method: 'POST', body: JSON.stringify({ result }),
+  }, 'Could not create the segment')).segment;
 }

@@ -24,6 +24,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import {
   Dialog,
   DialogContent,
@@ -701,28 +702,16 @@ export function TemplateEditorDialog({
     </Dialog>
 
     {/* Closing with unsaved changes: the risky choice is red; Keep editing is the default. */}
-    <Dialog open={confirmClose} onOpenChange={setConfirmClose}>
-      <DialogContent className="bg-popover border-border sm:max-w-sm">
-        <DialogHeader>
-          <DialogTitle className="text-popover-foreground">{t('discardTitle')}</DialogTitle>
-          <DialogDescription className="text-muted-foreground">{t('discardBody')}</DialogDescription>
-        </DialogHeader>
-        <DialogFooter className="bg-popover border-border">
-          <Button variant="outline" autoFocus onClick={() => setConfirmClose(false)}>
-            {t('keepEditing')}
-          </Button>
-          <Button
-            variant="destructive"
-            onClick={() => {
-              setConfirmClose(false);
-              onOpenChange(false);
-            }}
-          >
-            {t('discardChanges')}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    <ConfirmDialog
+      open={confirmClose}
+      onOpenChange={setConfirmClose}
+      title={t('discardTitle')}
+      body={t('discardBody')}
+      cancelLabel={t('keepEditing')}
+      confirmLabel={t('discardChanges')}
+      destructive
+      onConfirm={() => onOpenChange(false)}
+    />
     </>
   );
 }
@@ -901,8 +890,8 @@ function FlowButtonForm({ flowId, onPatch }: { flowId: string; onPatch: (patch: 
   return (
     <div className="space-y-1 pl-1">
       <Select value={picked} onValueChange={(v) => { if (v) void pick(v); }}>
-        <SelectTrigger aria-label={t('flowFormLabel')} className="h-8 border-border bg-muted text-xs text-foreground">
-          <SelectValue placeholder={flowId ? t('flowFormPicked') : t('flowFormPick')} />
+        <SelectTrigger aria-label={t('flowFormLabel')} className="min-h-11 border-border bg-muted text-xs text-foreground sm:min-h-8">
+          <SelectValue>{(v: string) => forms.find((f) => f.id === v)?.name ?? (flowId ? t('flowFormPicked') : t('flowFormPick'))}</SelectValue>
         </SelectTrigger>
         <SelectContent className="bg-popover border-border">
           {forms.map((f) => (
@@ -1126,9 +1115,11 @@ function CarouselFields({
             >
               <SelectTrigger
                 aria-label={t('cards.slotType', { n: slot + 1 })}
-                className="w-40 bg-muted border-border text-foreground h-8 text-xs"
+                className="w-40 bg-muted border-border text-foreground min-h-11 text-xs sm:min-h-8"
               >
-                <SelectValue />
+                <SelectValue>
+                  {(v: string) => (v === 'QUICK_REPLY' ? t('btnQuickReply') : v === 'URL' ? t('btnUrl') : t('btnPhone'))}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent className="bg-popover border-border">
                 {CARD_BUTTON_TYPES.map((type) => (

@@ -5,17 +5,27 @@
 // Saving publishes the menu to Instagram (PUT
 // /api/instagram/accounts/{id}/persistent-menu, admins); members see the list
 // read-only.
+// Apple's way (b7): a grouped list, a segmented control for "When tapped",
+// the shared flow menu (Select), 44px row buttons, the shared loading and
+// failed states, and "Remove menu" confirmed in the in-app dialog.
 
-import { useEffect, useState } from 'react';
-import { Loader2, Plus, Trash2 } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
+import { ListTree, Loader2, Plus, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useTranslations } from 'next-intl';
 
 import { instagramCall, jsonInit } from '@/components/instagram/comment-rules-editor';
 import type { InstagramFlowSummary } from '@/components/instagram/use-instagram-flows';
 import { Button } from '@/components/ui/button';
+import { useConfirm } from '@/components/ui/confirm-dialog';
+import { EmptyState } from '@/components/ui/empty-state';
+import { GroupedList, GroupedListRow } from '@/components/ui/grouped-list';
+import { InlineError } from '@/components/ui/inline-error';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { PageLoading } from '@/components/ui/page-loading';
+import { SegmentedControl } from '@/components/ui/segmented-control';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { INSTAGRAM_LIMITS, charLength, validHttpsUrl } from '@/lib/instagram/graph-limits';
 import type { PersistentMenuView } from '@/lib/instagram/persistent-menu';
 
@@ -55,6 +65,7 @@ export function PersistentMenuEditor({ accountId, flows, canEdit }: {
   const t = useTranslations('Instagram.menu');
   const ts = useTranslations('Instagram.starters');
   const tc = useTranslations('Settings.instagram');
+  const confirm = useConfirm();
   const [view, setView] = useState<PersistentMenuView | null>(null);
   const [rows, setRows] = useState<MenuRow[]>([]);
   const [failed, setFailed] = useState(false);
@@ -68,20 +79,23 @@ export function PersistentMenuEditor({ accountId, flows, canEdit }: {
       : { type: 'web_url', title: item.title, flowId: '', url: item.url }));
   };
 
+  const load = useCallback(async (isLive: () => boolean = () => true) => {
+    try {
+      const { ok, json } = await instagramCall(base);
+      if (!isLive()) return;
+      if (!ok) throw new Error('load');
+      accept(json.menu as PersistentMenuView);
+      setFailed(false);
+    } catch {
+      if (isLive()) setFailed(true);
+    }
+  }, [base]);
+
   useEffect(() => {
     let live = true;
-    void (async () => {
-      try {
-        const { ok, json } = await instagramCall(base);
-        if (!live) return;
-        if (!ok) throw new Error('load');
-        accept(json.menu as PersistentMenuView);
-      } catch {
-        if (live) setFailed(true);
-      }
-    })();
+    void load(() => live);
     return () => { live = false; };
-  }, [base]);
+  }, [load]);
 
   const flowIds = new Set(flows.map((f) => f.id));
   const problem = menuProblem(rows, flowIds);
@@ -111,58 +125,67 @@ export function PersistentMenuEditor({ accountId, flows, canEdit }: {
     }
   };
 
-  if (failed) return <p className="text-destructive text-sm">{tc('loadFailed')}</p>;
-  if (!view) return <Loader2 className="text-muted-foreground size-4 animate-spin" aria-label={tc('loading')} />;
+  if (failed) return <InlineError message={tc('loadFailed')} onRetry={() => void load()} className="py-6" />;
+  if (!view) return <PageLoading rows={2} />;
 
   if (!canEdit) {
-    return (
-      <div className="space-y-2">
-        {view.items.length === 0 && <p className="text-muted-foreground text-sm">{t('empty')}</p>}
-        <ul className="space-y-1 text-sm">
-          {view.items.map((item) => (
-            <li key={item.title} className="bg-muted/40 rounded-md p-2">
-              <p className="text-foreground">{item.title}</p>
-              <p className={item.flowUsable ? 'text-muted-foreground text-xs' : 'text-destructive text-xs'}>
-                {item.type === 'web_url' ? item.url : item.flowUsable ? item.flowName : ts('flowMissing')}
-              </p>
-            </li>
-          ))}
-        </ul>
-        <p className="text-muted-foreground text-xs">{t('adminOnly')}</p>
-      </div>
+    return view.items.length === 0 ? (
+      <EmptyState icon={ListTree} title={t('empty')} body={t('adminOnly')} className="py-6" />
+    ) : (
+      <GroupedList footer={t('adminOnly')}>
+        {view.items.map((item) => (
+          <GroupedListRow key={item.title} title={item.title}
+            subtitle={<span className={item.flowUsable ? undefined : 'text-destructive'}>
+              {item.type === 'web_url' ? item.url : item.flowUsable ? item.flowName : ts('flowMissing')}
+            </span>} />
+        ))}
+      </GroupedList>
     );
   }
 
+  const addRow = () => setRows((current) => [...current, { type: 'postback', title: '', flowId: '', url: '' }]);
+  const clear = async () => {
+    if (await confirm({ title: t('clearConfirm'), confirmLabel: t('clear'), destructive: true })) void send([], t('cleared'));
+  };
+
   return (
     <div className="space-y-3">
-      {rows.length === 0 && <p className="text-muted-foreground text-sm">{t('empty')}</p>}
+      {rows.length === 0 && (
+        <EmptyState icon={ListTree} title={t('empty')} className="py-6"
+          action={(
+            <Button type="button" variant="outline" className="min-h-11 sm:min-h-8" disabled={saving} onClick={addRow}>
+              <Plus className="size-4" />
+              {t('add')}
+            </Button>
+          )} />
+      )}
       {!view.managed && <p className="text-muted-foreground text-xs">{ts('replacesExisting')}</p>}
       {view.syncedAt && <p className="text-muted-foreground text-xs">{t('lastSynced', { time: new Date(view.syncedAt).toLocaleString() })}</p>}
-      {rows.map((row, index) => (
-        <div key={index} className="grid grid-cols-1 gap-2 rounded-md border p-3 sm:grid-cols-[1fr_1fr_1.5fr_auto] sm:items-end">
+      {rows.length > 0 && <GroupedList>{rows.map((row, index) => (
+        <div key={index} className="not-first:border-separator grid grid-cols-1 gap-2 px-4 py-3 not-first:border-t sm:grid-cols-[1fr_auto_1.5fr_auto] sm:items-end">
           <div className="space-y-1">
             <Label htmlFor={`ig-menu-t-${accountId}-${index}`}>{t('itemTitle')}</Label>
             <Input id={`ig-menu-t-${accountId}-${index}`} value={row.title} maxLength={MAX_CHARS * 2}
               placeholder={t('itemTitlePlaceholder')} onChange={(e) => update(index, { title: e.target.value })} />
           </div>
           <div className="space-y-1">
-            <Label htmlFor={`ig-menu-k-${accountId}-${index}`}>{t('type')}</Label>
-            <select id={`ig-menu-k-${accountId}-${index}`} value={row.type}
-              onChange={(e) => update(index, { type: e.target.value === 'web_url' ? 'web_url' : 'postback' })}
-              className="border-input bg-background h-9 w-full rounded-md border px-2 text-sm">
-              <option value="postback">{t('typeFlow')}</option>
-              <option value="web_url">{t('typeLink')}</option>
-            </select>
+            <p className="text-sm leading-none font-medium">{t('type')}</p>
+            <SegmentedControl aria-label={t('type')} value={row.type}
+              onValueChange={(type) => update(index, { type })}
+              options={[{ value: 'postback', label: t('typeFlow') }, { value: 'web_url', label: t('typeLink') }]} />
           </div>
           {row.type === 'postback' ? (
             <div className="space-y-1">
               <Label htmlFor={`ig-menu-f-${accountId}-${index}`}>{t('flow')}</Label>
-              <select id={`ig-menu-f-${accountId}-${index}`} value={flowIds.has(row.flowId) ? row.flowId : ''}
-                onChange={(e) => update(index, { flowId: e.target.value })}
-                className="border-input bg-background h-9 w-full rounded-md border px-2 text-sm">
-                <option value="">{t('chooseFlow')}</option>
-                {flows.map((flow) => <option key={flow.id} value={flow.id}>{flow.name}</option>)}
-              </select>
+              <Select value={flowIds.has(row.flowId) ? row.flowId : ''}
+                onValueChange={(v) => update(index, { flowId: typeof v === 'string' ? v : '' })}>
+                <SelectTrigger id={`ig-menu-f-${accountId}-${index}`} className="min-h-11 w-full sm:min-h-8">
+                  <SelectValue>{flows.find((flow) => flow.id === row.flowId)?.name ?? t('chooseFlow')}</SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {flows.map((flow) => <SelectItem key={flow.id} value={flow.id}>{flow.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
               {row.flowId && (unusable.has(row.flowId) || !flowIds.has(row.flowId)) && (
                 <p className="text-destructive text-xs">{ts('flowMissing')}</p>
               )}
@@ -174,12 +197,12 @@ export function PersistentMenuEditor({ accountId, flows, canEdit }: {
                 onChange={(e) => update(index, { url: e.target.value })} />
             </div>
           )}
-          <Button type="button" variant="ghost" size="sm" aria-label={t('remove', { n: index + 1 })}
+          <Button type="button" variant="ghost" size="icon" className="text-destructive size-11 justify-self-end" aria-label={t('remove', { n: index + 1 })}
             onClick={() => setRows((current) => current.filter((_, i) => i !== index))}>
             <Trash2 className="size-4" />
           </Button>
         </div>
-      ))}
+      ))}</GroupedList>}
       {flows.length === 0 && rows.some((r) => r.type === 'postback') && <p className="text-muted-foreground text-sm">{t('noFlows')}</p>}
       {problem === 'title' && <p className="text-destructive text-xs">{t('needsTitle')}</p>}
       {problem === 'tooLong' && <p className="text-destructive text-xs">{t('titleTooLong', { max: MAX_CHARS })}</p>}
@@ -189,18 +212,18 @@ export function PersistentMenuEditor({ accountId, flows, canEdit }: {
       {problem === 'url' && <p className="text-destructive text-xs">{t('badUrl')}</p>}
       {rows.length >= MAX && <p className="text-muted-foreground text-xs">{t('max', { max: MAX })}</p>}
       <div className="flex flex-wrap gap-2">
-        <Button type="button" variant="outline" size="sm" disabled={rows.length >= MAX || saving}
-          onClick={() => setRows((current) => [...current, { type: 'postback', title: '', flowId: '', url: '' }])}>
-          <Plus className="size-3.5" />
-          {t('add')}
-        </Button>
-        <Button type="button" size="sm" onClick={() => void send(rows, t('saved'))} disabled={problem !== null || saving}>
+        {rows.length > 0 && (
+          <Button type="button" variant="outline" className="min-h-11 sm:min-h-8" disabled={rows.length >= MAX || saving} onClick={addRow}>
+            <Plus className="size-3.5" />
+            {t('add')}
+          </Button>
+        )}
+        <Button type="button" className="min-h-11 sm:min-h-8" onClick={() => void send(rows, t('saved'))} disabled={problem !== null || saving}>
           {saving && <Loader2 className="size-3.5 animate-spin" />}
           {saving ? t('saving') : t('save')}
         </Button>
         {view.managed && view.items.length > 0 && (
-          <Button type="button" variant="outline" size="sm" disabled={saving}
-            onClick={() => { if (window.confirm(t('clearConfirm'))) void send([], t('cleared')); }}>
+          <Button type="button" variant="ghost" className="text-destructive min-h-11 sm:min-h-8" disabled={saving} onClick={() => void clear()}>
             {t('clear')}
           </Button>
         )}

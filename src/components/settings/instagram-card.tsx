@@ -25,6 +25,8 @@ import { instagramCall, jsonInit } from '@/components/instagram/comment-rules-ed
 import { InstagramPageLogin } from '@/components/settings/instagram-page-login';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { InlineError } from '@/components/ui/inline-error';
+import { useConfirm } from '@/components/ui/confirm-dialog';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { useAuth } from '@/hooks/use-auth';
@@ -46,6 +48,7 @@ const call = instagramCall;
 
 export function InstagramCard() {
   const t = useTranslations('Settings.instagram');
+  const confirm = useConfirm();
   const { accountRole } = useAuth();
   const canEdit = !!accountRole && hasMinRole(accountRole, 'admin');
   const searchParams = useSearchParams();
@@ -102,7 +105,7 @@ export function InstagramCard() {
       : current);
 
   const disconnect = async (account: InstagramAccountView) => {
-    if (!window.confirm(t('disconnectConfirm', { username: account.username ?? account.igUserId }))) return;
+    if (!(await confirm({ title: t('disconnectConfirm', { username: account.username ?? account.igUserId }), confirmLabel: t('disconnect'), destructive: true }))) return;
     setBusy(`disconnect:${account.id}`);
     try {
       const { ok, json } = await call(`/api/instagram/accounts/${account.id}`, jsonInit('DELETE'));
@@ -143,10 +146,7 @@ export function InstagramCard() {
       </CardHeader>
       <CardContent className="space-y-5">
         {loadFailed && (
-          <div className="flex items-center gap-3 text-sm">
-            <p className="text-destructive">{t('loadFailed')}</p>
-            <Button type="button" variant="outline" size="sm" onClick={() => void load()}>{t('retry')}</Button>
-          </div>
+          <InlineError message={t('loadFailed')} onRetry={() => void load()} />
         )}
         {!status && !loadFailed && <Loader2 className="text-muted-foreground size-4 animate-spin" aria-label={t('loading')} />}
 

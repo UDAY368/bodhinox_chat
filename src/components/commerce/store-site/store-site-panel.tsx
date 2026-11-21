@@ -25,6 +25,8 @@ import type { ShopSiteView } from "@/lib/commerce/shop-site";
 import { ShopAccessCard } from "./shop-access-card";
 import { RedirectsCard } from "./redirects-card";
 import { encodeQr, qrSvgPath } from "@/lib/qr/encode";
+import { OptionSelect } from "@/components/ui/option-select";
+import { PageHeader } from "@/components/ui/page-header";
 
 function QrCode({ url, label }: { url: string; label: string }) {
   const { path, size } = useMemo(() => {
@@ -115,17 +117,16 @@ export function StoreSitePanel() {
 
   return (
     <div className="mx-auto w-full max-w-4xl space-y-5">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-[22px] font-bold tracking-tight text-foreground">{t("title")}</h1>
-          <p className="text-sm text-muted-foreground">{t("subtitle")}</p>
-        </div>
-        {view.site.saved && view.site.published && (
-          <a href={shopUrl} target="_blank" rel="noopener noreferrer" className={buttonVariants({ variant: "outline" })}>
+      <PageHeader
+        className="mb-0"
+        title={t("title")}
+        subtitle={t("subtitle")}
+        primaryAction={view.site.saved && view.site.published ? (
+          <a href={shopUrl} target="_blank" rel="noopener noreferrer" className={buttonVariants({ variant: "outline", className: "min-h-11 sm:min-h-8" })}>
             <ExternalLink className="size-4" />{t("openShop")}
           </a>
-        )}
-      </div>
+        ) : undefined}
+      />
 
       {view.limits.length > 0 && (
         <div role="status" className="rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100">
@@ -208,11 +209,17 @@ export function StoreSitePanel() {
         <CardContent className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-1.5 sm:col-span-2">
             <Label htmlFor="shop-number">{t("number")}</Label>
-            <select id="shop-number" disabled={!canEdit} className="h-9 w-full rounded-md border bg-background px-2 text-sm"
-              value={draft.whatsappConfigId ?? ""} onChange={(e) => setDraft({ ...draft, whatsappConfigId: e.target.value || null, otpTemplateId: null })}>
-              <option value="">{t("noNumber")}</option>
-              {view.numbers.map((n) => <option key={n.id} value={n.id}>{n.name ?? n.id.slice(0, 8)}{n.connected ? "" : ` (${t("disconnected")})`}</option>)}
-            </select>
+            <OptionSelect fit
+              id="shop-number"
+              className="w-full"
+              disabled={!canEdit}
+              value={draft.whatsappConfigId ?? ""}
+              onValueChange={(v) => setDraft({ ...draft, whatsappConfigId: v || null, otpTemplateId: null })}
+              options={[
+                { value: "", label: t("noNumber") },
+                ...view.numbers.map((n) => ({ value: n.id, label: `${n.name ?? n.id.slice(0, 8)}${n.connected ? "" : ` (${t("disconnected")})`}` })),
+              ]}
+            />
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="shop-wa-phone">{t("whatsappPhone")}</Label>
@@ -222,11 +229,17 @@ export function StoreSitePanel() {
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="shop-otp-template">{t("otpTemplate")}</Label>
-            <select id="shop-otp-template" disabled={!canEdit || !draft.whatsappConfigId} className="h-9 w-full rounded-md border bg-background px-2 text-sm"
-              value={draft.otpTemplateId ?? ""} onChange={(e) => setDraft({ ...draft, otpTemplateId: e.target.value || null })}>
-              <option value="">{t("noOtp")}</option>
-              {templates.map((tpl) => <option key={tpl.id} value={tpl.id}>{tpl.name}{tpl.language ? ` (${tpl.language})` : ""}</option>)}
-            </select>
+            <OptionSelect fit
+              id="shop-otp-template"
+              className="w-full"
+              disabled={!canEdit || !draft.whatsappConfigId}
+              value={draft.otpTemplateId ?? ""}
+              onValueChange={(v) => setDraft({ ...draft, otpTemplateId: v || null })}
+              options={[
+                { value: "", label: t("noOtp") },
+                ...templates.map((tpl) => ({ value: tpl.id, label: `${tpl.name}${tpl.language ? ` (${tpl.language})` : ""}` })),
+              ]}
+            />
             <p className="text-xs text-muted-foreground">{templates.length ? t("otpHint") : t("otpNoneHint")}</p>
           </div>
         </CardContent>

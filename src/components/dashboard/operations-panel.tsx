@@ -12,7 +12,9 @@ import type { PhoneHealth } from '@/lib/whatsapp/phone-health';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
-import { segmentedItem, segmentedTrack } from './segmented';
+import { SegmentedControl } from '@/components/ui/segmented-control';
+import { PageLoading } from '@/components/ui/page-loading';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 export function OperationsPanel({
   onReplyTarget,
@@ -83,22 +85,15 @@ export function OperationsPanel({
           <h2 className="text-foreground text-[17px] font-semibold tracking-tight">{t('title')}</h2>
           <p className="text-muted-foreground mt-0.5 text-[13px]">{t('description')}</p>
         </div>
-        <div role="group" aria-label={t('range')} className={segmentedTrack}>
-          {([7, 30, 90] as const).map((value) => (
-            <button
-              key={value}
-              type="button"
-              aria-pressed={days === value}
-              className={segmentedItem(days === value)}
-              onClick={() => {
-                setError(false);
-                setDays(value);
-              }}
-            >
-              {t('days', { count: value })}
-            </button>
-          ))}
-        </div>
+        <SegmentedControl
+          aria-label={t('range')}
+          value={String(days)}
+          onValueChange={(v) => {
+            setError(false);
+            setDays(Number(v) as typeof days);
+          }}
+          options={([7, 30, 90] as const).map((value) => ({ value: String(value), label: t('days', { count: value }) }))}
+        />
       </div>
       {whatsapp && <WhatsAppHealth key={accountId} />}
       {error && (
@@ -117,12 +112,9 @@ export function OperationsPanel({
         </div>
       )}
       {!data && !error && (
-        <p
-          role="status"
-          className="border-border bg-card text-muted-foreground animate-pulse rounded-xl border p-6 text-center text-sm"
-        >
-          {t('loading')}
-        </p>
+        <div className="border-border bg-card rounded-xl border p-2">
+          <PageLoading rows={3} />
+        </div>
       )}
       {data && <OperationsContent data={data} whatsapp={whatsapp} />}
     </section>
@@ -412,20 +404,21 @@ export function OperationsContent({ data, whatsapp = true }: {
         <Panel title={t('pipelines')}>
           {selected ? (
             <>
-              <label className="block text-sm">
-                {t('pipeline')}
-                <select
-                  className="border-border bg-card mt-1 h-9 w-full rounded-lg border px-2.5 text-[13px]"
-                  value={selected.id}
-                  onChange={(event) => setPipelineId(event.target.value)}
-                >
-                  {data.pipelines.map((item) => (
-                    <option key={item.id} value={item.id}>
-                      {item.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              <div className="space-y-1 text-sm">
+                <span id="ops-pipeline-label">{t('pipeline')}</span>
+                <Select value={selected.id} onValueChange={(v) => { if (v) setPipelineId(v); }}>
+                  <SelectTrigger aria-labelledby="ops-pipeline-label" className="min-h-11 w-full sm:min-h-9">
+                    <SelectValue>{(v: string) => data.pipelines.find((item) => item.id === v)?.name ?? ''}</SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {data.pipelines.map((item) => (
+                      <SelectItem key={item.id} value={item.id}>
+                        {item.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
               <dl className="grid grid-cols-2 gap-3 text-sm">
                 {(['open', 'won', 'lost', 'idle'] as const).map((key) => (
                   <div key={key}>

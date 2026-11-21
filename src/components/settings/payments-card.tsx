@@ -15,6 +15,7 @@ import { useTranslations } from "next-intl";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -35,6 +36,7 @@ const ENDPOINT = "/api/payments/razorpay/settings";
 
 export function PaymentsCard() {
   const t = useTranslations("Payments.settings");
+  const confirm = useConfirm();
   const canEdit = useCan("edit-settings");
   const [status, setStatus] = useState<RazorpayStatus | null>(null);
   const [loadFailed, setLoadFailed] = useState(false);
@@ -76,7 +78,7 @@ export function PaymentsCard() {
   };
 
   const disconnect = async () => {
-    if (!window.confirm(t("disconnectConfirm"))) return;
+    if (!(await confirm({ title: t("disconnectConfirm"), confirmLabel: t("disconnect"), destructive: true }))) return;
     setRemoving(true);
     try {
       const res = await authFetch(ENDPOINT, { method: "DELETE" });

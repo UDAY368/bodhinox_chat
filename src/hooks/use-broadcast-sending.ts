@@ -24,6 +24,8 @@ interface BroadcastPayload {
   whatsappConfigId?: string | null;
   /** One id per wizard session, so a retry or double submit returns the campaign already created. */
   clientRequestId?: string;
+  /** Quiet hours (workspace time zone); null or omitted sends any time. */
+  sendWindow?: { start: number; end: number } | null;
 }
 
 export function useBroadcastSending() {
@@ -42,6 +44,7 @@ export function useBroadcastSending() {
         ...(payload.sendExtras && Object.keys(payload.sendExtras).length ? { sendExtras: payload.sendExtras } : {}),
         ...(payload.whatsappConfigId ? { whatsappConfigId: payload.whatsappConfigId } : {}),
         ...(payload.clientRequestId ? { clientRequestId: payload.clientRequestId } : {}),
+        ...(payload.sendWindow ? { sendWindow: payload.sendWindow } : {}),
       });
       return id;
     } finally {

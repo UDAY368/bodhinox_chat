@@ -13,8 +13,14 @@ import { useFormatter, useTranslations } from 'next-intl';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
+import { InlineError } from '@/components/ui/inline-error';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { PageHeader } from '@/components/ui/page-header';
+import { PageLoading } from '@/components/ui/page-loading';
+import { SegmentedControl } from '@/components/ui/segmented-control';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { FEATURES, LIMITS } from '@/lib/billing/entitlements-catalogue';
 import type { PlanPreview, PlatformPlanPrice, PlatformPlanRow, PlatformPlanVersion } from '@/types/platform';
 import { errorCode, platformApi } from '../../_components/platform-api';
@@ -43,11 +49,9 @@ export default function PlatformPlansPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="text-xl font-semibold">{t('title')}</h1>
-        <p className="text-muted-foreground text-sm">{t('intro')}</p>
-      </div>
-      {failed && <p role="status" className="text-sm">{t('loadFailed')}</p>}
+      <PageHeader title={t('title')} subtitle={t('intro')} className="mb-0" />
+      {failed && <InlineError message={t('loadFailed')} onRetry={() => void load()} />}
+      {!catalogue && !failed && <PageLoading />}
       {catalogue?.plans.map((plan) => <PlanEditor key={`${plan.id}:${plan.currentVersion}`} plan={plan} onChanged={load} />)}
       {catalogue && <Prices catalogue={catalogue} onChanged={load} />}
     </div>
@@ -167,9 +171,9 @@ function PlanEditor({ plan, onChanged }: { plan: PlatformPlanRow; onChanged: () 
           <legend className="font-medium">{t('features')}</legend>
           <div className="grid grid-cols-1 gap-x-4 gap-y-1 sm:grid-cols-2 lg:grid-cols-3">
             {FEATURES.map((f) => (
-              <label key={f} className="flex items-center gap-2">
-                <input type="checkbox" checked={draft.features[f]} disabled={locked && plan.features[f] === true}
-                  onChange={(e) => setDraft((d) => ({ ...d, features: { ...d.features, [f]: e.target.checked } }))} />
+              <label key={f} className="flex min-h-11 items-center gap-2 sm:min-h-8">
+                <Checkbox checked={draft.features[f]} disabled={locked && plan.features[f] === true}
+                  onCheckedChange={(checked) => setDraft((d) => ({ ...d, features: { ...d.features, [f]: checked === true } }))} />
                 <span className="font-mono text-xs">{f}</span>
               </label>
             ))}
@@ -321,17 +325,22 @@ function Prices({ catalogue, onChanged }: { catalogue: Catalogue; onChanged: () 
         <form onSubmit={save} className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <div className="flex flex-col gap-1">
             <Label htmlFor="price-plan">{t('plan')}</Label>
-            <select id="price-plan" className="border-input bg-background h-9 rounded-md border px-2" value={plan} onChange={(e) => setPlan(e.target.value)}>
-              {catalogue.plans.map((p) => <option key={p.id} value={p.id}>{p.name} ({p.id})</option>)}
-            </select>
+            <Select value={plan || null} onValueChange={(v) => { if (v) setPlan(String(v)); }}>
+              <SelectTrigger id="price-plan" className="min-h-11 w-full sm:min-h-9">
+                <SelectValue placeholder={t('plan')}>{(v: string | null) => {
+                  const p = catalogue.plans.find((x) => x.id === v);
+                  return p ? `${p.name} (${p.id})` : t('plan');
+                }}</SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {catalogue.plans.map((p) => <SelectItem key={p.id} value={p.id}>{p.name} ({p.id})</SelectItem>)}
+              </SelectContent>
+            </Select>
           </div>
           <div className="flex flex-col gap-1">
-            <Label htmlFor="price-interval">{t('interval')}</Label>
-            <select id="price-interval" className="border-input bg-background h-9 rounded-md border px-2" value={interval}
-              onChange={(e) => setBillingInterval(e.target.value === 'year' ? 'year' : 'month')}>
-              <option value="month">{t('intervals.month')}</option>
-              <option value="year">{t('intervals.year')}</option>
-            </select>
+            <p className="text-sm font-medium">{t('interval')}</p>
+            <SegmentedControl<'month' | 'year'> aria-label={t('interval')} value={interval} onValueChange={setBillingInterval}
+              options={[{ value: 'month', label: t('intervals.month') }, { value: 'year', label: t('intervals.year') }]} />
           </div>
           <div className="flex flex-col gap-1">
             <Label htmlFor="price-amount">{t('amountInr')}</Label>
@@ -341,8 +350,8 @@ function Prices({ catalogue, onChanged }: { catalogue: Catalogue; onChanged: () 
             <Label htmlFor="price-provider">{t('providerPlan')}</Label>
             <Input id="price-provider" required placeholder="plan_..." value={providerPlanId} onChange={(e) => setProviderPlanId(e.target.value)} />
           </div>
-          <label className="flex items-center gap-2 self-end pb-2">
-            <input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} />
+          <label className="flex min-h-11 items-center gap-2 self-end sm:min-h-9">
+            <Checkbox checked={active} onCheckedChange={(checked) => setActive(checked === true)} />
             {t('activeLabel')}
           </label>
           <div className="self-end">

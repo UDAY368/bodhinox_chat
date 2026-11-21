@@ -17,6 +17,7 @@ import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { OptionSelect } from "@/components/ui/option-select";
 import { resolveFallbackPolicy } from "@/lib/flows/fallback";
 import type { FallbackMessage, FlowRow } from "@/lib/flows/types";
 import { uploadAccountMedia } from "@/lib/storage/upload-media";
@@ -148,18 +149,19 @@ export function FlowSettings() {
       )}
 
       <div>
-        <label className="flex flex-wrap items-center gap-2">
-          <span>{t("label")}</span>
-          <select className="rounded border border-border bg-card px-2 py-1" value={resolveFallbackPolicy(policy).on_unknown_reply}
-            onChange={(event) => setState((previous) => ({ ...previous, fallback_policy: { ...previous.fallback_policy,
-              on_unknown_reply: event.target.value as FlowRow["fallback_policy"]["on_unknown_reply"],
-            } }))}>
-            <option value="reprompt">{t("reprompt")}</option>
-            <option value="handoff">{t("handoff")}</option>
-            <option value="ignore">{t("ignore")}</option>
-            <option value="ai">{t("ai")}</option>
-          </select>
-        </label>
+        <div className="flex flex-wrap items-center gap-2">
+          <span id="flow-fallback-label">{t("label")}</span>
+          <OptionSelect aria-labelledby="flow-fallback-label" className="w-auto" value={resolveFallbackPolicy(policy).on_unknown_reply}
+            onValueChange={(value) => setState((previous) => ({ ...previous, fallback_policy: { ...previous.fallback_policy,
+              on_unknown_reply: value as FlowRow["fallback_policy"]["on_unknown_reply"],
+            } }))}
+            options={[
+              { value: "reprompt", label: t("reprompt") },
+              { value: "handoff", label: t("handoff") },
+              { value: "ignore", label: t("ignore") },
+              { value: "ai", label: t("ai") },
+            ]} />
+        </div>
         <p className="mt-1 text-xs text-muted-foreground">{t("help")}</p>
       </div>
 

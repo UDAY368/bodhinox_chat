@@ -30,7 +30,6 @@ export const INSIGHT_LIST_LIMIT = 20;
 export const INSIGHT_JOB_MAX_ATTEMPTS = 2;
 
 export type InsightStatus = 'queued' | 'running' | 'done' | 'skipped' | 'failed';
-export const TERMINAL_INSIGHT_STATUSES: readonly InsightStatus[] = ['done', 'skipped', 'failed'];
 
 export interface InsightRunView {
   id: string;

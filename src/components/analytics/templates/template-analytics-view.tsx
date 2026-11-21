@@ -4,11 +4,12 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useFormatter, useTranslations } from 'next-intl';
 import { Loader2 } from 'lucide-react';
 import { authFetch } from '@/lib/auth/client';
-import { segmentedItem, segmentedTrack } from '@/components/dashboard/segmented';
 import { BarChart } from '@/components/tremor/bar-chart';
 import type { AvailableChartColorsKeys } from '@/components/tremor/chart-colors';
-import { Button } from '@/components/ui/button';
+import { InlineError } from '@/components/ui/inline-error';
 import { Input } from '@/components/ui/input';
+import { PageLoading } from '@/components/ui/page-loading';
+import { SegmentedControl } from '@/components/ui/segmented-control';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ChartWithTable } from '@/components/analytics/shared';
 import {
@@ -121,19 +122,8 @@ export function TemplateAnalyticsView({ templateId }: { templateId?: string | nu
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-end gap-2">
-        <div className={segmentedTrack} role="group" aria-label={t('rangeLabel')}>
-          {PRESETS.map((p) => (
-            <button
-              key={p}
-              type="button"
-              aria-pressed={preset === p}
-              onClick={() => choosePreset(p)}
-              className={segmentedItem(preset === p, 'h-[26px] px-2.5 text-xs')}
-            >
-              {t(`presets.${p}`)}
-            </button>
-          ))}
-        </div>
+        <SegmentedControl size="sm" aria-label={t('rangeLabel')} value={preset} onValueChange={choosePreset}
+          options={PRESETS.map((p) => ({ value: p, label: t(`presets.${p}`) }))} />
         {preset === 'custom' && (
           <div className="flex flex-wrap items-center gap-2">
             <Input
@@ -159,16 +149,9 @@ export function TemplateAnalyticsView({ templateId }: { templateId?: string | nu
       </div>
 
       {error ? (
-        <div className="flex items-center gap-2 text-sm text-destructive" role="alert">
-          {error}
-          <Button variant="outline" size="xs" onClick={() => setReloadKey((k) => k + 1)}>
-            {t('retry')}
-          </Button>
-        </div>
+        <InlineError message={error} onRetry={() => setReloadKey((k) => k + 1)} />
       ) : !data ? (
-        <div className="flex items-center gap-2 text-sm text-muted-foreground" role="status">
-          <Loader2 className="size-4 animate-spin" aria-hidden /> {t('loading')}
-        </div>
+        <PageLoading rows={3} />
       ) : (
         <>
           <p className="text-xs text-muted-foreground">
@@ -185,19 +168,8 @@ export function TemplateAnalyticsView({ templateId }: { templateId?: string | nu
               <h3 className="text-sm font-semibold text-foreground">
                 {data.range.bucket === 'week' ? t('chartTitleWeekly') : t('chartTitleDaily')}
               </h3>
-              <div className={segmentedTrack} role="group" aria-label={t('modeLabel')}>
-                {(['counts', 'rates'] as const).map((m) => (
-                  <button
-                    key={m}
-                    type="button"
-                    aria-pressed={mode === m}
-                    onClick={() => setMode(m)}
-                    className={segmentedItem(mode === m, 'h-[26px] px-2.5 text-xs')}
-                  >
-                    {t(`modes.${m}`)}
-                  </button>
-                ))}
-              </div>
+              <SegmentedControl size="sm" aria-label={t('modeLabel')} value={mode} onValueChange={setMode}
+                options={(['counts', 'rates'] as const).map((m) => ({ value: m, label: t(`modes.${m}`) }))} />
             </div>
             {data.totals.sent === 0 ? (
               <p className="py-8 text-center text-sm text-muted-foreground">{t('empty')}</p>

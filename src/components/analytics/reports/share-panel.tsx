@@ -14,12 +14,12 @@ import { Copy, Loader2 } from "lucide-react";
 import { useFormatter, useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
+import { PageLoading } from "@/components/ui/page-loading";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 import { authFetch } from "@/lib/auth/client";
 import { shareRolesFor, type RunKind, type ShareRole } from "@/lib/analytics/report-kinds";
 
 const EXPIRY_HOURS = [24, 72, 168] as const;
-const selectClass = "border-border bg-card text-foreground h-9 w-full rounded-lg border px-2.5 text-[13px] transition-colors duration-150 hover:bg-muted outline-none focus-visible:ring-2 focus-visible:ring-ring/50";
 
 export interface ReportShareView {
   id: string;
@@ -114,20 +114,18 @@ export function SharePanel({ reportId, kind }: { reportId: string; kind: RunKind
   return (
     <div className="space-y-3 rounded-xl bg-muted/60 p-3.5">
       <p className="text-xs text-muted-foreground">{t("explain")}</p>
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
-        <div className="space-y-1.5">
-          <Label htmlFor={`share-role-${reportId}`}>{t("minRole")}</Label>
-          <select id={`share-role-${reportId}`} value={minRole} onChange={(e) => setMinRole(e.target.value as ShareRole)} className={selectClass}>
-            {roles.map((r) => <option key={r} value={r}>{t(`roles.${r}`)}</option>)}
-          </select>
+      <div className="flex flex-wrap items-end gap-3">
+        <div className="min-w-0 max-w-full space-y-1.5">
+          <p className="text-sm leading-none font-medium">{t("minRole")}</p>
+          <SegmentedControl size="sm" aria-label={t("minRole")} value={minRole} onValueChange={setMinRole}
+            options={roles.map((r) => ({ value: r, label: t(`roles.${r}`) }))} />
         </div>
-        <div className="space-y-1.5">
-          <Label htmlFor={`share-expiry-${reportId}`}>{t("expiresIn")}</Label>
-          <select id={`share-expiry-${reportId}`} value={hours} onChange={(e) => setHours(Number(e.target.value))} className={selectClass}>
-            {EXPIRY_HOURS.map((h) => <option key={h} value={h}>{t(`hours.${h}`)}</option>)}
-          </select>
+        <div className="min-w-0 max-w-full space-y-1.5">
+          <p className="text-sm leading-none font-medium">{t("expiresIn")}</p>
+          <SegmentedControl size="sm" aria-label={t("expiresIn")} value={String(hours)} onValueChange={(v) => setHours(Number(v))}
+            options={EXPIRY_HOURS.map((h) => ({ value: String(h), label: t(`hours.${h}`) }))} />
         </div>
-        <Button type="button" size="sm" onClick={create} disabled={busy}>
+        <Button type="button" className="min-h-11 sm:min-h-8" onClick={create} disabled={busy}>
           {busy && <Loader2 className="size-4 animate-spin" />}
           {t("create")}
         </Button>
@@ -143,7 +141,7 @@ export function SharePanel({ reportId, kind }: { reportId: string; kind: RunKind
       )}
       {error && <p className="text-xs text-destructive" role="alert">{error}</p>}
       {shares === null ? (
-        <Loader2 className="size-4 animate-spin text-primary" />
+        <PageLoading rows={1} />
       ) : shares.length === 0 ? (
         <p className="text-xs text-muted-foreground">{t("none")}</p>
       ) : (

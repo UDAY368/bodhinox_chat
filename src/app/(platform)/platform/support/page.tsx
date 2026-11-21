@@ -7,9 +7,14 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
+import { LifeBuoy } from 'lucide-react';
 import { useFormatter, useTranslations } from 'next-intl';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { EmptyState } from '@/components/ui/empty-state';
+import { InlineError } from '@/components/ui/inline-error';
+import { PageHeader } from '@/components/ui/page-header';
+import { PageLoading } from '@/components/ui/page-loading';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import type { PlatformSupportGrant, SupportDiagnostics } from '@/types/platform';
 import { errorCode, platformApi } from '../../_components/platform-api';
@@ -47,10 +52,10 @@ export default function PlatformSupportPage() {
   const active = (g: PlatformSupportGrant) => g.status === 'approved';
   return (
     <div className="flex flex-col gap-4">
-      <h1 className="text-xl font-semibold">{t('title')}</h1>
-      <p className="text-muted-foreground text-sm">{t('intro')}</p>
-      {failed && <p role="status" className="text-sm">{t('loadFailed')}</p>}
-      {grants !== null && grants.length === 0 && <p className="text-muted-foreground text-sm">{t('empty')}</p>}
+      <PageHeader title={t('title')} subtitle={t('intro')} className="mb-0" />
+      {failed && <InlineError message={t('loadFailed')} onRetry={() => { setFailed(false); void load(); }} />}
+      {grants === null && !failed && <PageLoading />}
+      {grants !== null && grants.length === 0 && <EmptyState icon={LifeBuoy} title={t('empty')} />}
       {grants !== null && grants.length > 0 && (
         <ul className="divide-border divide-y">
           {grants.map((g) => (

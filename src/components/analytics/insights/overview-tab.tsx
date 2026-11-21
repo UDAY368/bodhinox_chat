@@ -17,6 +17,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { hasMinRole } from '@/lib/auth/roles';
 import type { AttentionCounts, TrendReport } from '@/lib/analytics/insights';
 import type { AiStats } from '@/lib/analytics/queries';
+import type { AiCostEstimate } from '@/lib/analytics/ai-cost';
 import { AiSection } from '@/components/analytics/ai-section';
 import { AiInsightsPanel } from '@/components/analytics/ai-insights';
 import { CommerceCard } from '@/components/analytics/commerce-card';
@@ -63,18 +64,17 @@ export function OverviewTab() {
   const { overview, trends } = useConversationReports();
   const attention = useReport<{ attention: AttentionCounts }>('attention', query);
   const canSeeAi = accountRole ? hasMinRole(accountRole, 'agent') : false;
-  const ai = useReport<{ stats: AiStats }>('ai', rangeQuery, canSeeAi);
+  const ai = useReport<{ stats: AiStats; cost: AiCostEstimate | null }>('ai', rangeQuery, canSeeAi);
   const [hidden, setHidden] = useState<Set<string>>(new Set());
 
   const o = overview.data, tr = trends.data;
   const n = (v: number) => format.number(v);
   const stats = [
-    { label: t('stats.new'), value: o ? n(o.current.started.total) : '–', delta: o && delta(o.current.started.total, o.previous.started.total), href: '/analytics/conversations' },
-    { label: t('stats.resolved'), value: o ? n(o.current.resolution.resolved) : '–', delta: o && delta(o.current.resolution.resolved, o.previous.resolution.resolved), href: '/analytics/conversations' },
-    { label: t('stats.firstResponse'), value: o ? duration(o.current.firstResponse.medianSeconds) : '–', delta: o && delta(o.current.firstResponse.medianSeconds, o.previous.firstResponse.medianSeconds, true), href: '/analytics/conversations' },
+    { label: t('stats.new'), value: o ? n(o.current.started.total) : '–', delta: o && delta(o.current.started.total, o.previous.started.total), href: '/inbox?filter=open' },
+    { label: t('stats.resolved'), value: o ? n(o.current.resolution.resolved) : '–', delta: o && delta(o.current.resolution.resolved, o.previous.resolution.resolved), href: '/inbox?filter=closed' },
+    { label: t('stats.firstResponse'), value: o ? duration(o.current.firstResponse.medianSeconds) : '–', delta: o && delta(o.current.firstResponse.medianSeconds, o.previous.firstResponse.medianSeconds, true), href: '/inbox?filter=waiting' },
     { label: t('stats.resolution'), value: o ? duration(o.current.resolution.medianSeconds) : '–', delta: o && delta(o.current.resolution.medianSeconds, o.previous.resolution.medianSeconds, true), href: '/analytics/conversations' },
     { label: t('stats.messages'), value: tr ? n(tr.trend.totals.msgs) : '–', delta: tr && delta(tr.trend.totals.msgs, tr.previousMessages.msgs), href: '/analytics/campaigns' },
-    { label: t('stats.teamReply'), value: o ? duration(o.current.humanFirstResponse.medianSeconds) : '–', delta: o && delta(o.current.humanFirstResponse.medianSeconds, o.previous.humanFirstResponse.medianSeconds, true), href: '/analytics/team' },
   ];
 
   const series = useMemo(() => tr ? [
@@ -126,7 +126,7 @@ export function OverviewTab() {
         </InsightCard>
       </Grid>
       {canSeeAi && channel !== 'instagram' && <CommerceCard query={rangeQuery} />}
-      {canSeeAi && <AiSection stats={ai.data?.stats ?? null} loading={ai.loading} error={ai.error} onRetry={ai.retry} />}
+      {canSeeAi && <AiSection stats={ai.data?.stats ?? null} cost={ai.data?.cost ?? null} loading={ai.loading} error={ai.error} onRetry={ai.retry} />}
       {canSeeAi && <AiInsightsPanel range={range} />}
     </div>
   );

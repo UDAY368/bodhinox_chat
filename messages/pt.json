@@ -259,6 +259,7 @@
       "title": "Conversas ao longo do tempo",
       "description": "Volume diário de mensagens por direção",
       "days": "{count} dias",
+      "rangeLabel": "Intervalo de datas",
       "noActivity": "Nenhuma atividade de mensagens neste período",
       "noActivityHint": "Envie ou receba mensagens para começar a preencher este gráfico.",
       "incoming": "Recebidas",
@@ -401,6 +402,18 @@
       "aiComments": "Responder comentários com IA",
       "leadCapture": "Captar leads com uma automação",
       "open": "Abrir"
+    },
+    "business": {
+      "revenue": "Receita de hoje",
+      "revenueWeek": "{amount} em 7 dias{more, plural, =0 {} other { + # moedas}}",
+      "bookings": "Reservas de hoje",
+      "bookingsSub": "{upcoming} ainda por vir · {week} em 7 dias",
+      "adSpend": "Gasto com anúncios, 7 dias",
+      "adSpendSub": "Do Meta ads{more, plural, =0 {} other { + # moedas}}",
+      "adSpendNone": "Conecte o Meta ads para ver o gasto",
+      "aiHandled": "Resolvido pela IA hoje",
+      "aiHandledSub": "{week} em 7 dias, encerradas sem uma pessoa",
+      "failed": "Os números do negócio não carregaram."
     }
   },
   "Inbox": {
@@ -454,7 +467,28 @@
       "tabActive": "Ativos",
       "tabRequesting": "Solicitando",
       "tabIntervened": "Intervindos",
-      "loadFailed": "Não foi possível carregar as conversas."
+      "loadFailed": "Não foi possível carregar as conversas.",
+      "select": "Selecionar",
+      "done": "Concluído",
+      "selectRow": "Selecionar {name}",
+      "selectedCount": "{count, plural, =0 {Selecione conversas} one {# selecionada} other {# selecionadas}}",
+      "selectAllLoaded": "Selecionar tudo",
+      "deselectAll": "Desmarcar tudo",
+      "selectAllMatching": "Selecionar todas as {count}",
+      "bulkActions": "Ações para as conversas selecionadas",
+      "bulkAssign": "Atribuir",
+      "bulkUnassign": "Remover atribuição",
+      "bulkResolve": "Resolver",
+      "bulkLabel": "Etiquetar",
+      "bulkMarkRead": "Marcar como lida",
+      "bulkDone": "{count, plural, =0 {Nada para mudar} one {# conversa atualizada} other {# conversas atualizadas}}",
+      "bulkRefused": "{count, plural, one {# conversa foi ignorada porque você não pode alterá-la} other {# conversas foram ignoradas porque você não pode alterá-las}}",
+      "bulkFailed": "Não foi possível atualizar as conversas. Tente novamente.",
+      "bulkTooMany": "No máximo {max} conversas de uma vez. Refine o filtro.",
+      "bulkConfirmTitle": "{action} {count, plural, one {# conversa} other {# conversas}}?",
+      "bulkConfirmMatching": "Isto altera todas as conversas que correspondem ao filtro, incluindo as que ainda não foram carregadas.",
+      "bulkConfirmResolve": "As conversas resolvidas saem da visualização Abertas.",
+      "loadingMore": "Carregando mais"
     },
     "messageThread": {
       "backToConversations": "Voltar às conversas",
@@ -1006,7 +1040,8 @@
         "blue": "Azul",
         "violet": "Violeta",
         "pink": "Rosa"
-      }
+      },
+      "deleteAction": "Excluir"
     },
     "favourites": {
       "add": "Adicionar aos favoritos",
@@ -1279,7 +1314,8 @@
         "loadFailed": "Não foi possível carregar os segmentos",
         "exportAll": "Exportar CSV",
         "exportSegment": "Exportar segmento",
-        "exportFailed": "Não foi possível exportar os contatos"
+        "exportFailed": "Não foi possível exportar os contatos",
+        "deleteConfirm": "Excluir o segmento \"{name}\"? Os contatos são mantidos."
       },
       "otherTags": "Outras",
       "lists": {
@@ -1302,7 +1338,8 @@
         "removeFromList": "Remover da lista",
         "removed": "{count} removidos da lista",
         "changeFailed": "Não foi possível atualizar a lista",
-        "exportList": "Exportar lista"
+        "exportList": "Exportar lista",
+        "deleteConfirm": "Excluir a lista \"{name}\"? Os contatos são mantidos."
       },
       "rowActions": "Ações para {name}",
       "previousPage": "Página anterior",
@@ -2042,6 +2079,70 @@
         "appointment_completed_named": "{service} concluída",
         "appointment_no_show": "Faltou a uma reserva",
         "appointment_no_show_named": "Faltou a {service}"
+      }
+    },
+    "duplicates": {
+      "moreMenu": "Mais",
+      "findDuplicates": "Encontrar duplicados",
+      "back": "Contatos",
+      "title": "Encontrar duplicados",
+      "subtitle": "Contatos que parecem ser a mesma pessoa. Mescle-os ou marque-os como não duplicados.",
+      "adminsOnly": "Apenas administradores e proprietários podem encontrar e mesclar duplicados.",
+      "loadFailed": "Não foi possível carregar os duplicados.",
+      "retry": "Tentar novamente",
+      "empty": "Nenhum duplicado encontrado.",
+      "showMore": "Mostrar mais",
+      "noName": "Sem nome",
+      "whatsapp": "WhatsApp",
+      "instagram": "Instagram",
+      "conversations": "{count, plural, =1 {# conversa} other {# conversas}}",
+      "added": "Adicionado em {date}",
+      "reason": {
+        "phone": "Mesmo número",
+        "email": "Mesmo e-mail",
+        "name": "Mesmo nome no Instagram e no WhatsApp"
+      },
+      "notDuplicates": "Não são duplicados",
+      "merge": "Mesclar",
+      "dismissed": "Marcados como não duplicados",
+      "dismissFailed": "Não foi possível salvar. Tente novamente.",
+      "mergeTitle": "Mesclar contatos",
+      "mergeDescription": "Tudo passa para o contato que você mantém. O outro contato é excluído. Isso não pode ser desfeito.",
+      "keepLabel": "Manter",
+      "mergeInto": "{merged} será mesclado em {keep}.",
+      "willMove": "O que será movido",
+      "previewFailed": "Não foi possível verificar esta mesclagem.",
+      "nothingMoves": "Nada mais para mover.",
+      "combined": "{count, plural, =1 {# conversa do WhatsApp no mesmo número é unida em uma.} other {# conversas do WhatsApp no mesmo número são unidas em uma.}}",
+      "rules": "Campos vazios no contato mantido são preenchidos. Se algum dos contatos cancelou a inscrição ou está bloqueado, o contato mesclado continua assim.",
+      "cancel": "Cancelar",
+      "mergeConfirm": "Mesclar",
+      "confirmTitle": "Mesclar {merged} em {keep}?",
+      "confirmBody": "{merged} é excluído e tudo passa para {keep}. Isso não pode ser desfeito.",
+      "merged": "Contatos mesclados",
+      "mergeFailed": "Não foi possível mesclar. Tente novamente.",
+      "refused": {
+        "phone_conflict": "Estes contatos têm números de WhatsApp diferentes. Um contato pode ter apenas um número.",
+        "identity_conflict": "Os dois contatos estão na mesma conta do Instagram. Desvincule uma identidade primeiro.",
+        "contact_busy": "Há uma automação ou mensagem em andamento para este contato. Tente novamente em um minuto.",
+        "not_found": "Um destes contatos não existe mais.",
+        "forbidden": "Apenas administradores e proprietários podem mesclar contatos."
+      },
+      "counts": {
+        "conversations": "Conversas",
+        "messages": "Mensagens",
+        "tags": "Etiquetas",
+        "notes": "Notas",
+        "orders": "Pedidos",
+        "deals": "Negócios",
+        "appointments": "Agendamentos",
+        "payments": "Links de pagamento",
+        "formAnswers": "Respostas de formulários",
+        "sequences": "Sequências",
+        "customValues": "Campos personalizados",
+        "identities": "Identidades do Instagram",
+        "lists": "Listas",
+        "tasks": "Tarefas"
       }
     }
   },
@@ -3970,6 +4071,7 @@
       "actionFailed": "Não funcionou. Tente novamente.",
       "replayQueued": "Repetição na fila",
       "cancelDone": "Execução cancelada",
+      "cancelConfirm": "Cancelar esta execução? O cliente não receberá mais mensagens deste fluxo.",
       "intentsTitle": "Mensagens e chamadas",
       "noIntents": "Esta execução não enviou nada.",
       "intentsHelp": "\"unknown\" significa que o provedor não confirmou o envio: verifique a conversa; nunca é reenviado automaticamente.",
@@ -4352,7 +4454,8 @@
       "conflictBody": "Alguém salvou uma versão mais recente deste rascunho. Recarregue para vê-la ou substitua-a pelas suas alterações.",
       "reload": "Recarregar",
       "overwrite": "Substituir",
-      "leaveWarning": "Suas últimas alterações ainda estão sendo salvas. Sair mesmo assim?"
+      "leaveWarning": "Suas últimas alterações ainda estão sendo salvas. Sair mesmo assim?",
+      "leave": "Sair"
     },
     "multiTrigger": {
       "when": "Quando…",
@@ -5378,7 +5481,20 @@
         "autoReply": "Responder automaticamente às mensagens do Instagram",
         "autoReplyHelp": "Usa o mesmo agente de IA. Só responde até 24 horas após a última mensagem do cliente.",
         "unavailable": "Conecte o Instagram para ativar."
-      }
+      },
+      "loading": "Carregando a configuração de IA…",
+      "connectStep": "Etapa 1 · Conecte o provedor",
+      "connectedKeySaved": "Conectado · chave salva",
+      "notConnected": "Ainda não conectado. Escolha um provedor, adicione a chave e teste a conexão.",
+      "recommendedModel": "{model} (recomendado)",
+      "otherModel": "Outro…",
+      "modelId": "ID do modelo",
+      "testFailed": "Não foi possível conectar: {reason}",
+      "removeConfirmTitle": "Remover a configuração de IA?",
+      "removeConfirmBody": "A chave salva é apagada e o assistente e as respostas automáticas são desligados. Você pode configurar de novo depois.",
+      "removeConfirmAction": "Remover",
+      "showKey": "Mostrar chave",
+      "hideKey": "Ocultar chave"
     },
     "aiKnowledge": {
       "loadFailed": "Falha ao carregar a base de conhecimento",
@@ -6716,6 +6832,7 @@
       "title": "Uso de tokens",
       "description": "Tokens gastos com a chave do seu provedor por rascunhos e pelo bot de resposta automática. Apenas contagens — nenhum conteúdo de mensagem é armazenado aqui.",
       "window": "Últimos {days} dias",
+      "period": "Período",
       "loadFailed": "Falha ao carregar o uso",
       "empty": "Nenhum uso de IA nos últimos {days} dias ainda.",
       "emptyHint": "Isto é preenchido conforme o assistente redige e responde automaticamente.",
@@ -13157,7 +13274,8 @@
     "libraryCount": "{count, plural, =0 {Nenhum arquivo na biblioteca} one {# arquivo na biblioteca ({size})} other {# arquivos na biblioteca ({size})}}",
     "manage": "Gerenciar arquivos",
     "manageTitle": "Gerenciar biblioteca de mídia",
-    "manageDescription": "Agentes podem excluir os próprios envios; administradores podem excluir qualquer arquivo. Arquivos usados por uma mensagem dos últimos {days} dias, um modelo ou um fluxo são apenas removidos da biblioteca."
+    "manageDescription": "Agentes podem excluir os próprios envios; administradores podem excluir qualquer arquivo. Arquivos usados por uma mensagem dos últimos {days} dias, um modelo ou um fluxo são apenas removidos da biblioteca.",
+    "deleteAction": "Excluir"
   },
   "NotificationPreferences": {
     "title": "Preferências de notificação",
@@ -13853,7 +13971,10 @@
       "replies": "Respostas da IA",
       "conversations": "Conversas com IA",
       "handoffs": "Transferidas para uma pessoa",
-      "unanswered": "Perguntas sem resposta"
+      "unanswered": "Perguntas sem resposta",
+      "estimatedCost": "Custo estimado de IA",
+      "estimatedCostNote": "Estimativa com {tokens} tokens a preços de tabela",
+      "estimatedCostUnpriced": "Estimativa a preços de tabela; {tokens} tokens de modelos sem preço ficaram de fora"
     },
     "reports": {
       "title": "Relatórios",
@@ -14478,7 +14599,9 @@
         "stopSending": "Parar de enviar",
         "saveSchedule": "Salvar agendamento"
       }
-    }
+    },
+    "openRecords": "Abrir {name}",
+    "openRecordsLabel": "Abrir os registros de {chart}"
   },
   "Ads": {
     "title": "Anúncios",
@@ -15662,7 +15785,8 @@
       "customHours": "Horário especial",
       "reason": "Motivo",
       "empty": "Nenhuma exceção.",
-      "delete": "Excluir"
+      "delete": "Excluir",
+      "deleteConfirm": "Excluir esta exceção?"
     },
     "pages": {
       "title": "Páginas de agendamento",
@@ -17783,7 +17907,76 @@
         "busy": "Uma mensagem está sendo enviada agora. Tente novamente em instantes.",
         "forbidden": "Sua função não pode alterar sequências.",
         "instagram_not_enabled": "O Instagram não está disponível para este espaço de trabalho.",
-        "generic": "Algo deu errado. Tente novamente."
+        "generic": "Algo deu errado. Tente novamente.",
+        "channelLocked": "Remova todas as mensagens antes de mudar o canal.",
+        "tagNotFound": "Essa etiqueta não existe mais. Escolha outra.",
+        "templateNotFound": "Esse modelo não existe mais. Escolha outro.",
+        "templateUnusable": "Escolha um modelo aprovado que precise só de valores do corpo."
+      },
+      "addMessageButton": "Adicionar mensagem",
+      "addMessageDescription": "Cada mensagem do Instagram é uma automação. Crie um rascunho novo ou escolha uma que você já tem.",
+      "removeMessageTitle": "Remover a mensagem {number}?",
+      "removeMessageBody": "Os inscritos que ainda não a receberam pulam essa mensagem. Mensagens já enviadas não mudam.",
+      "removeMessageConfirm": "Remover mensagem",
+      "channel": {
+        "label": "Canal",
+        "instagram": "Instagram",
+        "whatsapp": "WhatsApp",
+        "locked": "O canal só pode ser alterado enquanto a sequência não tiver mensagens."
+      },
+      "exit": {
+        "title": "Sair quando",
+        "description": "Um inscrito sai da sequência assim que uma destas coisas acontece. Nada mais é enviado a ele.",
+        "replied": "Responder",
+        "tagged": "Receber uma etiqueta",
+        "bought": "Comprar",
+        "chooseTag": "Escolha uma etiqueta",
+        "noTags": "Ainda não há etiquetas. Crie uma na página Contatos."
+      },
+      "exitReason": {
+        "replied": "Respondeu",
+        "tagged": "Etiquetado",
+        "purchased": "Comprou",
+        "opted_out": "Cancelou",
+        "blocked": "Bloqueado"
+      },
+      "whatsapp": {
+        "windowNote": "O WhatsApp só permite mensagens livres até 24 horas depois da última mensagem da pessoa. Depois disso, o modelo aprovado da etapa é enviado. Uma etapa sem modelo é pulada nesse caso.",
+        "sheetTitle": "Mensagem do WhatsApp",
+        "sheetDescription": "O que esta etapa envia, quando, e o modelo usado quando a janela de 24 horas estiver fechada.",
+        "delayHint": "A janela de 24 horas é verificada quando a mensagem estiver na hora, não agora.",
+        "text": "Mensagem",
+        "textPlaceholder": "Olá {{contact.name}}, …",
+        "textHint": "Use {{contact.name}} para colocar o nome do contato.",
+        "media": "Anexo",
+        "mediaKind": "Tipo de anexo",
+        "attach": "Anexar arquivo",
+        "removeMedia": "Remover anexo",
+        "fileTooLarge": "Esse arquivo é grande demais.",
+        "uploadFailed": "Não foi possível enviar o arquivo. Tente novamente.",
+        "templateLabel": "Modelo depois de 24 horas",
+        "noTemplate": "Sem modelo",
+        "noTemplateHint": "Sem modelo, esta etapa é pulada para quem não escreveu nas últimas 24 horas.",
+        "templateSummary": "Modelo depois de 24 horas: {name}",
+        "noTemplateSummary": "Sem modelo: pulada depois de 24 horas",
+        "skippedCount": "{count, plural, one {Pulada # vez: sem modelo} other {Pulada # vezes: sem modelo}}",
+        "variable": "Valor {number}",
+        "value": "Texto",
+        "fallback": "Se vazio",
+        "editStep": "Editar a mensagem {number}",
+        "empty": "Ainda sem mensagem",
+        "mediaType": {
+          "image": "Imagem",
+          "video": "Vídeo",
+          "document": "Documento"
+        },
+        "field": {
+          "name": "Nome",
+          "phone": "Telefone",
+          "email": "E-mail",
+          "company": "Empresa",
+          "text": "Texto"
+        }
       }
     },
     "subscription": {
@@ -18067,6 +18260,40 @@
       },
       "previewFailed": "Não foi possível carregar a prévia da Meta.",
       "previewNone": "A Meta não tem prévia deste anúncio nesse lugar."
+    },
+    "sendControls": {
+      "csvConsent": "Estas pessoas aceitaram receber mensagens de WhatsApp de nós",
+      "csvConsentHint": "Obrigatório para um CSV. Envie só para quem deu o número para isso.",
+      "skipRecent": "Pular quem recebeu mensagens recentemente",
+      "skipRecentHint": "Deixa de fora quem recebeu uma mensagem de campanha ou sequência neste período.",
+      "skipRecentOff": "Desligado",
+      "skipRecentDays": "{count, plural, one {Último # dia} other {Últimos # dias}}",
+      "quietHours": "Horário de envio",
+      "quietHoursHint": "Envia só entre estes horários. Mensagens fora deles esperam a janela abrir.",
+      "windowFrom": "Enviar a partir de",
+      "windowTo": "até",
+      "windowUntil": "Enviar até",
+      "windowSame": "Escolha horários de início e fim diferentes.",
+      "windowZone": "Horários em {zone}.",
+      "confirmWindow": "Envia só entre {from} e {until} ({zone}).",
+      "templateSearch": "Buscar modelos",
+      "templateNoMatches": "Nenhum modelo corresponde à busca.",
+      "templateClearSearch": "Limpar busca",
+      "templatePreview": "Prévia",
+      "cancelRemaining": "Cancelar o restante",
+      "cancelRemainingTitle": "Cancelar o restante desta campanha?",
+      "cancelRemainingBody": "Nenhuma outra mensagem de \"{name}\" será enviada. Quem já recebeu continua igual. Isso não pode ser desfeito.",
+      "toastCancelled": "Campanha cancelada",
+      "heldForReview": "{count, plural, one {# mensagem tem resultado desconhecido e fica para revisão} other {# mensagens têm resultado desconhecido e ficam para revisão}}",
+      "createSegment": "Criar segmento",
+      "createSegmentHint": "Salve as pessoas com um resultado como segmento. Ele se atualiza quando os resultados mudam.",
+      "segmentResults": {
+        "read_not_replied": "Lida, sem resposta",
+        "delivered_not_read": "Entregue, não lida",
+        "failed": "Falhou",
+        "clicked": "Clicou"
+      },
+      "toastSegmentCreated": "Segmento \"{name}\" criado"
     }
   },
   "Sales": {
@@ -18860,7 +19087,8 @@
       "needText": "Escreva uma resposta primeiro.",
       "replaced": "Resposta traduzida. Revise e depois envie.",
       "failed": "A tradução não deu certo. Tente novamente."
-    }
+    },
+    "activityLog": "Registro de atividade"
   },
   "SettingsRedesign": {
     "saveBar": {
@@ -19463,6 +19691,62 @@
     "reasons": {
       "outcome_unknown": "Sem resposta do provedor",
       "stuck_sending": "O envio não terminou"
+    }
+  },
+  "SettingsSearch": {
+    "label": "Pesquisar configurações",
+    "placeholder": "Pesquisar configurações",
+    "noResults": "Nenhuma configuração encontrada.",
+    "related": "Relacionado",
+    "entries": {
+      "overview": "Visão geral",
+      "profile": "Seu perfil",
+      "language": "Idioma",
+      "security": "Login e segurança",
+      "password": "Alterar senha",
+      "two-factor": "Autenticação de dois fatores",
+      "notifications": "Notificações",
+      "quiet-hours": "Horário de silêncio",
+      "appearance": "Aparência",
+      "privacy": "Privacidade e acesso",
+      "workspace": "Espaço de trabalho",
+      "workspace-language": "Idioma padrão",
+      "time-zone": "Fuso horário",
+      "channels": "Canais",
+      "whatsapp": "WhatsApp",
+      "whatsapp-numbers": "Números de telefone",
+      "instagram": "Instagram",
+      "members": "Membros da equipe",
+      "invite": "Convidar um colega",
+      "inbox": "Caixa de entrada",
+      "working-hours": "Horário de atendimento",
+      "away-message": "Mensagem de ausência",
+      "routing": "Regras de distribuição",
+      "automation-pause": "Pausar automações",
+      "assignment": "Modo de atribuição",
+      "visibility": "Visibilidade dos agentes",
+      "media": "Biblioteca de mídia",
+      "templates": "Modelos",
+      "quick-replies": "Respostas rápidas",
+      "fields": "Campos e etiquetas",
+      "conversion-events": "Eventos de conversão",
+      "deals": "Negócios e moeda",
+      "ai": "Assistente de IA",
+      "ai-setup": "Provedor e modelo de IA",
+      "ai-knowledge": "Conhecimento da IA",
+      "ai-usage": "Uso da IA",
+      "integrations": "Integrações",
+      "payments": "Pagamentos",
+      "connections": "Reuniões e envio",
+      "ads": "Anúncios",
+      "api": "API e webhooks",
+      "webhooks": "Webhooks",
+      "plan": "Plano e uso",
+      "audit-log": "Registro de auditoria",
+      "contact-fields": "Campos de contato",
+      "store-settings": "Configurações da loja",
+      "booking-settings": "Configurações de agendamento",
+      "needs-review": "Para revisar"
     }
   }
 }

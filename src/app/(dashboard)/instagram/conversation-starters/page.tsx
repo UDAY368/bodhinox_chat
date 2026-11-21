@@ -4,18 +4,23 @@
 // account's ice breakers, up to 4 questions that each start an Instagram flow.
 // Admins edit and publish them to Instagram; members see them read-only. An
 // account without the messages permission links to Settings › Instagram.
+// Apple's way (b7): one large title, each account a titled section (no card
+// around the grouped list), the shared loading, empty and failed states.
 
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Loader2 } from 'lucide-react';
+import { AtSign } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 
-import type { InstagramStatus } from '@/components/instagram/comment-accounts';
+import { accountHandle, type InstagramStatus } from '@/components/instagram/comment-accounts';
 import { instagramCall } from '@/components/instagram/comment-rules-editor';
 import { ConversationStartersEditor } from '@/components/instagram/conversation-starters-editor';
 import { useInstagramFlows } from '@/components/instagram/use-instagram-flows';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { buttonVariants } from '@/components/ui/button';
+import { EmptyState } from '@/components/ui/empty-state';
+import { InlineError } from '@/components/ui/inline-error';
+import { PageHeader } from '@/components/ui/page-header';
+import { PageLoading } from '@/components/ui/page-loading';
 import { useAuth } from '@/hooks/use-auth';
 import { useCan } from '@/hooks/use-can';
 import { channelSettingsPath } from '@/lib/channels/routes';
@@ -54,52 +59,37 @@ export default function InstagramConversationStartersPage() {
   const retry = () => { void load(); void reloadFlows(); };
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-foreground text-[22px] font-bold tracking-tight">{t('title')}</h1>
-        <p className="text-muted-foreground mt-1 text-sm">{t('description')}</p>
-      </div>
-      {(failed || flowsFailed) && (
-        <div className="flex items-center gap-3 text-sm">
-          <p className="text-destructive">{tSettings('loadFailed')}</p>
-          <Button type="button" variant="outline" size="sm" onClick={retry}>{tSettings('retry')}</Button>
-        </div>
-      )}
-      {(!status || !usableFlows) && !failed && !flowsFailed && (
-        <Loader2 className="text-muted-foreground size-4 animate-spin" aria-label={tSettings('loading')} />
-      )}
-      {status && !status.enabled && (
-        <p className="text-muted-foreground text-sm">
-          {status.reason === 'not_configured' ? tSettings('reasonNotConfigured') : tSettings('reasonFlagOff')}
-        </p>
-      )}
-      {status?.enabled && accounts.length === 0 && (
-        <p className="text-muted-foreground text-sm">
-          {t('notConnected')}
-          {canEdit && <>{' '}<Link href={channelSettingsPath('instagram')} className={linkClass}>{tSettings('connect')}</Link></>}
-        </p>
-      )}
-      {usableFlows && accounts.map((account) => {
-        const handle = account.username ? `@${account.username}` : account.name ?? account.igUserId;
-        const dmReady = account.missingScopes.dm.length === 0;
-        return (
-          <Card key={account.id} data-instagram-account={account.id}>
-            <CardHeader>
-              <CardTitle className="text-base">{handle}</CardTitle>
-            </CardHeader>
-            <CardContent>
+    <div>
+      <PageHeader title={t('title')} subtitle={t('description')} />
+      <div className="space-y-8">
+        {(failed || flowsFailed) && <InlineError message={tSettings('loadFailed')} onRetry={retry} />}
+        {(!status || !usableFlows) && !failed && !flowsFailed && <PageLoading rows={3} />}
+        {status && !status.enabled && (
+          <p className="text-muted-foreground text-sm">
+            {status.reason === 'not_configured' ? tSettings('reasonNotConfigured') : tSettings('reasonFlagOff')}
+          </p>
+        )}
+        {status?.enabled && accounts.length === 0 && (
+          <EmptyState icon={AtSign} title={t('notConnected')}
+            action={canEdit ? <Link href={channelSettingsPath('instagram')} className={buttonVariants({ className: 'min-h-11 sm:min-h-8' })}>{tSettings('connect')}</Link> : undefined} />
+        )}
+        {usableFlows && accounts.map((account) => {
+          const dmReady = account.missingScopes.dm.length === 0;
+          return (
+            <section key={account.id} data-instagram-account={account.id} className="space-y-2" aria-label={accountHandle(account)}>
+              <h2 className="text-foreground px-1 text-base font-semibold">{accountHandle(account)}</h2>
               {dmReady ? (
                 <ConversationStartersEditor accountId={account.id} flows={usableFlows} canEdit={canEdit} />
               ) : (
-                <p className="text-muted-foreground text-sm">
+                <p className="text-muted-foreground px-1 text-sm">
                   {tSettings('badgePermission')}
                   {canEdit && <>{' · '}<Link href={channelSettingsPath('instagram')} className={linkClass}>{tChannels('manage')}</Link></>}
                 </p>
               )}
-            </CardContent>
-          </Card>
-        );
-      })}
+            </section>
+          );
+        })}
+      </div>
     </div>
   );
 }

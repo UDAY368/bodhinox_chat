@@ -27,5 +27,3 @@ export async function withTenant<T>(context: TenantContext, operation: (tx: Tena
     return operation(tx);
   }, { maxWait: 10_000, timeout: options.timeoutMs ?? 30_000 });
 }
-
-export const withTenantTransaction = withTenant;

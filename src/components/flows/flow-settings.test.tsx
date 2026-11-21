@@ -39,7 +39,8 @@ describe('flow trigger number', () => {
     const html = renderToStaticMarkup(<FlowSettings />)
     // One-number workspace: the picker still shows because a number is set.
     expect(html).toContain('id="flow-trigger-number"')
-    expect(html).toMatch(/<option value="num-b" selected="">/)
+    // The number menu (the shared Select) shows the saved number's label, not "every number".
+    expect(html).toContain('+1 555 0102')
   })
 
   it('hides the picker in a one-number workspace when the flow listens on every number', () => {

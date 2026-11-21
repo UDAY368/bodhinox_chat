@@ -14,7 +14,7 @@ import { useTranslations } from "next-intl";
 import { MediaLibraryBrowser, useFormatBytes, type StorageUsage } from "@/components/inbox/media-library/media-picker";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { authFetch } from "@/lib/auth/client";
 
 export function MediaLibraryCard({ className }: { className?: string }) {
@@ -77,15 +77,15 @@ export function MediaLibraryCard({ className }: { className?: string }) {
         </Button>
       </CardContent>
 
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="flex max-h-[85vh] flex-col sm:max-w-3xl">
-          <DialogHeader>
-            <DialogTitle>{t("manageTitle")}</DialogTitle>
-            <DialogDescription>{t("manageDescription", { days: 30 })}</DialogDescription>
-          </DialogHeader>
+      <Sheet open={open} onOpenChange={setOpen}>
+        <SheetContent size="lg" className="w-full gap-4 overflow-y-auto p-4">
+          <SheetHeader className="p-0 pr-8">
+            <SheetTitle>{t("manageTitle")}</SheetTitle>
+            <SheetDescription>{t("manageDescription", { days: 30 })}</SheetDescription>
+          </SheetHeader>
           {open && <MediaLibraryBrowser mode="manage" onUsage={onUsage} />}
-        </DialogContent>
-      </Dialog>
+        </SheetContent>
+      </Sheet>
     </Card>
   );
 }

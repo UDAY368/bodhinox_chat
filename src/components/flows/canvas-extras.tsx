@@ -53,7 +53,6 @@ export function useOutputClick(source: string, handle: string, enabled: boolean)
 
 /** The add-step menu's groups: the four step groups plus Extras (notes). */
 export type CanvasGroup = StepGroup | 'extras';
-export const CANVAS_GROUPS: CanvasGroup[] = ['start', 'content', 'ai', 'logic', 'extras'];
 
 const GROUP_HUE: Record<CanvasGroup, { l: number; c: number; h: number }> = {
   start: { l: 0.62, c: 0.13, h: 162 }, // green: where the flow begins

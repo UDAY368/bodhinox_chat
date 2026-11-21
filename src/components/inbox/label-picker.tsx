@@ -10,6 +10,7 @@ import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { useConfirm } from '@/components/ui/confirm-dialog';
 import type { InboxFolders } from '@/components/inbox/use-inbox-folders';
 import { authFetch } from '@/lib/auth/client';
 import { cn } from '@/lib/utils';
@@ -42,6 +43,7 @@ interface LabelPickerProps {
 export function LabelPicker({ conversationId, folders, canEdit }: LabelPickerProps) {
   const t = useTranslations('Inbox.labels');
   const tf = useTranslations('Inbox.favourites');
+  const confirm = useConfirm();
   const [managing, setManaging] = useState(false);
   const [name, setName] = useState('');
   const [color, setColor] = useState<LabelColor>('blue');
@@ -91,7 +93,7 @@ export function LabelPicker({ conversationId, folders, canEdit }: LabelPickerPro
   }
 
   async function deleteLabel(labelId: string, labelName: string) {
-    if (!window.confirm(t('confirmDelete', { name: labelName }))) return;
+    if (!(await confirm({ title: t('confirmDelete', { name: labelName }), confirmLabel: t('deleteAction'), destructive: true }))) return;
     setBusy(true);
     const res = await authFetch(`/api/inbox/labels/${encodeURIComponent(labelId)}`, { method: 'DELETE' }).catch(() => null);
     setBusy(false);

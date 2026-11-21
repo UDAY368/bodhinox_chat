@@ -20,14 +20,7 @@ import { toast } from 'sonner';
 import { Copy, Loader2, MessageCircle, Sparkles } from 'lucide-react';
 
 import { Button, buttonVariants } from '@/components/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -163,7 +156,7 @@ export function InviteMemberDialog({
   function whatsappShareUrl(url: string): string {
     // Include the account name so the recipient knows which team
     // they're being invited to before clicking through. This matters
-    // for users in multi-team contexts where "our wacrm account"
+    // for users in multi-team contexts where "our Bodhinox account"
     // wouldn't be enough to disambiguate.
     const accountName = result?.accountName ?? t('fallbackAccountName');
     const message = t('whatsappMessage', { accountName, expiresInDays: result?.expiresInDays ?? 0, url });
@@ -171,7 +164,7 @@ export function InviteMemberDialog({
   }
 
   return (
-    <Dialog
+    <Sheet
       open={open}
       onOpenChange={(next) => {
         // Reset state when the dialog closes — both for cancel and
@@ -181,22 +174,22 @@ export function InviteMemberDialog({
         onOpenChange(next);
       }}
     >
-      <DialogContent className="bg-popover border-border sm:max-w-md">
+      <SheetContent size="md" className="w-full gap-4 overflow-y-auto p-4">
         {result ? (
           <>
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2 text-popover-foreground">
+            <SheetHeader className="p-0 pr-8">
+              <SheetTitle className="flex items-center gap-2 text-popover-foreground">
                 <Sparkles className="size-4 text-primary" />
                 {t('inviteCreated')}
-              </DialogTitle>
-              <DialogDescription className="text-muted-foreground">
+              </SheetTitle>
+              <SheetDescription className="text-muted-foreground">
                 {t.rich('inviteCreatedDesc', {
                   role: tRoles(result.role),
                   days: result.expiresInDays,
                   bold: (chunks: React.ReactNode) => <strong>{chunks}</strong>
                 })}
-              </DialogDescription>
-            </DialogHeader>
+              </SheetDescription>
+            </SheetHeader>
 
             <div className="space-y-3 py-2">
               <Label className="text-muted-foreground">{t('inviteLink')}</Label>
@@ -230,7 +223,7 @@ export function InviteMemberDialog({
               </div>
 
               {/* Anchor styled with `buttonVariants` rather than wrapping
-                  in <Button asChild>. The wacrm Button is the Base UI
+                  in <Button asChild>. The app's Button is the Base UI
                   ButtonPrimitive — it has no Radix-style asChild slot.
                   Direct anchor preserves right-click "Open in new tab"
                   behaviour too. */}
@@ -249,23 +242,23 @@ export function InviteMemberDialog({
               </a>
             </div>
 
-            <DialogFooter className="bg-popover border-border">
+            <SheetFooter className="flex-row flex-wrap justify-end p-0">
               <Button
                 onClick={() => onOpenChange(false)}
                 className="bg-primary hover:bg-primary/90 text-primary-foreground"
               >
                 {t('done')}
               </Button>
-            </DialogFooter>
+            </SheetFooter>
           </>
         ) : (
           <>
-            <DialogHeader>
-              <DialogTitle className="text-popover-foreground">{t('dialogTitle')}</DialogTitle>
-              <DialogDescription className="text-muted-foreground">
+            <SheetHeader className="p-0 pr-8">
+              <SheetTitle className="text-popover-foreground">{t('dialogTitle')}</SheetTitle>
+              <SheetDescription className="text-muted-foreground">
                 {t('dialogDesc')}
-              </DialogDescription>
-            </DialogHeader>
+              </SheetDescription>
+            </SheetHeader>
 
             <div className="space-y-4 py-2">
               <div className="space-y-2">
@@ -325,7 +318,7 @@ export function InviteMemberDialog({
               </div>
             </div>
 
-            <DialogFooter className="bg-popover border-border">
+            <SheetFooter className="flex-row flex-wrap justify-end p-0">
               <Button
                 variant="outline"
                 onClick={() => onOpenChange(false)}
@@ -347,10 +340,10 @@ export function InviteMemberDialog({
                   t('generateLink')
                 )}
               </Button>
-            </DialogFooter>
+            </SheetFooter>
           </>
         )}
-      </DialogContent>
-    </Dialog>
+      </SheetContent>
+    </Sheet>
   );
 }

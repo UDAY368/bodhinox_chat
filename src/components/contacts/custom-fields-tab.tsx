@@ -16,12 +16,15 @@ import { Textarea } from '@/components/ui/textarea';
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
+import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { authFetch } from '@/lib/auth/client';
 import { CUSTOM_FIELD_TYPES, MAX_FIELD_NAME, checkChoices, parseChoices, type CustomFieldType } from '@/lib/contacts/custom-field-types';
 import { useCan } from '@/hooks/use-can';
 import { cn } from '@/lib/utils';
 import { useCustomFields, type CustomFieldSummary } from './contacts-client';
-import { FIELD_SELECT } from './custom-field-input';
+import { OptionSelect } from '@/components/ui/option-select';
+import { EmptyState } from '@/components/ui/empty-state';
+import { PageLoading } from '@/components/ui/page-loading';
 
 const ROW = 'grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 px-4 py-2.5 @xl:grid-cols-[minmax(0,1.3fr)_100px_minmax(0,1.6fr)_120px_76px] @xl:gap-x-4';
 
@@ -83,19 +86,20 @@ export function CustomFieldsTab({ createOpen, onCreateOpenChange, onCount }: {
         </div>
       )}
       {loading ? (
-        <div className="flex justify-center py-16"><Loader2 className="size-5 animate-spin text-muted-foreground" aria-label={t('loading')} /></div>
+        <PageLoading rows={4} />
       ) : fields.length === 0 ? (
-        <div className="flex flex-col items-center gap-3 rounded-2xl border border-border bg-card px-6 py-16 text-center">
-          <span className="flex size-12 items-center justify-center rounded-xl bg-muted text-muted-foreground"><FileText className="size-5" /></span>
-          <h2 className="text-base font-semibold text-foreground">{t('fieldsTab.emptyTitle')}</h2>
-          <p className="max-w-sm text-sm text-muted-foreground">{t('fieldsTab.emptyText')}</p>
-          {canEdit && (
+        <EmptyState
+          icon={FileText}
+          title={t('fieldsTab.emptyTitle')}
+          body={t('fieldsTab.emptyText')}
+          className="py-16"
+          action={canEdit && (
             <Button variant="outline" onClick={() => setDialog({ field: null })}>
               <Plus className="size-4" />
               {t('fieldsTab.newField')}
             </Button>
           )}
-        </div>
+        />
       ) : (
         <>
           <p className="text-[13px] text-muted-foreground">{t('fieldsTab.hint')}</p>
@@ -225,14 +229,14 @@ function FieldDialog({ field, onClose, onSaved }: { field: CustomFieldSummary | 
   }
 
   return (
-    <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-h-[90dvh] overflow-y-auto bg-popover border-border text-popover-foreground sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>{field ? t('fieldsTab.editTitle') : t('fieldsTab.newTitle')}</DialogTitle>
-          <DialogDescription>{t('fieldsTab.dialogDesc')}</DialogDescription>
-        </DialogHeader>
+    <Sheet open onOpenChange={(open) => !open && onClose()}>
+      <SheetContent size="md" className="overflow-y-auto">
+        <SheetHeader>
+          <SheetTitle>{field ? t('fieldsTab.editTitle') : t('fieldsTab.newTitle')}</SheetTitle>
+          <SheetDescription>{t('fieldsTab.dialogDesc')}</SheetDescription>
+        </SheetHeader>
         <form
-          className="space-y-4"
+          className="space-y-4 px-4"
           onSubmit={(e) => {
             e.preventDefault();
             void save();
@@ -247,11 +251,8 @@ function FieldDialog({ field, onClose, onSaved }: { field: CustomFieldSummary | 
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="field-type">{t('fieldsTab.type')}</Label>
-            <select id="field-type" value={type} disabled={!!field} onChange={(e) => setType(e.target.value as CustomFieldType)} className={FIELD_SELECT}>
-              {CUSTOM_FIELD_TYPES.map((value) => (
-                <option key={value} value={value}>{t(`fieldsTab.types.${value}`)}</option>
-              ))}
-            </select>
+            <OptionSelect id="field-type" value={type} disabled={!!field} onValueChange={(v) => setType(v as CustomFieldType)} className="h-9"
+              options={CUSTOM_FIELD_TYPES.map((value) => ({ value, label: t(`fieldsTab.types.${value}`) }))} />
             {field && <p className="text-xs text-muted-foreground">{t('fieldsTab.typeFixed')}</p>}
           </div>
           {type === 'choice' && (
@@ -270,15 +271,15 @@ function FieldDialog({ field, onClose, onSaved }: { field: CustomFieldSummary | 
               )}
             </div>
           )}
-          <DialogFooter className="bg-popover border-border">
+          <SheetFooter className="flex-row justify-end px-0">
             <Button type="button" variant="outline" onClick={onClose}>{t('cancel')}</Button>
             <Button type="submit" disabled={saving}>
               {saving && <Loader2 className="size-4 animate-spin" />}
               {confirming ? t('fieldsTab.saveAndUpdateSegments') : field ? t('fieldsTab.save') : t('fieldsTab.create')}
             </Button>
-          </DialogFooter>
+          </SheetFooter>
         </form>
-      </DialogContent>
-    </Dialog>
+      </SheetContent>
+    </Sheet>
   );
 }

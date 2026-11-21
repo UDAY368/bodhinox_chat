@@ -151,8 +151,13 @@ export interface BroadcastPlan {
 
 const MAX_RECIPIENTS = 1000;
 
-/** How often (in recipients) a dispatch pass re-reads whether the campaign was paused. */
-export const STOP_CHECK_EVERY = 10;
+/**
+ * How often (in recipients) a dispatch pass re-reads whether the campaign was
+ * paused, cancelled or left its send window. Every recipient, so "Cancel
+ * remaining" lets no further send start once it commits (one primary-key read
+ * beside a ~150 ms pacing pause and a Meta call).
+ */
+export const STOP_CHECK_EVERY = 1;
 
 /**
  * Validate + persist a broadcast, resolving each recipient to a
@@ -416,14 +421,14 @@ export async function deliverBroadcast(
   const carousel = !!plan.templateRow && templateKindOf(plan.templateRow) === 'carousel';
   const flowButtons = (plan.templateRow?.buttons ?? []).some((b) => b.type === 'FLOW');
   for (const recipient of plan.planned) {
-    // Pause is read every STOP_CHECK_EVERY recipients (and before the first), so it takes effect within seconds.
-    if (options?.shouldStop && index % STOP_CHECK_EVERY === 0 && await options.shouldStop()) return { throttled: false, sent, stopped: true };
     // Out of time: this recipient and the rest stay pending, untouched, for the next pass. Never
     // before the first recipient, so every pass makes progress.
     if (index > 0 && options?.deadline !== undefined && Date.now() >= options.deadline) return { throttled: false, sent, timedOut: true };
-    index++;
     // shortcut: fixed ~6 sends/s; pace by the number's messaging tier once the health job (Phase 2c) reports it.
     if (options) await new Promise(resolve => setTimeout(resolve, 150));
+    // Pause, cancel and the send window are read after the pacing pause, right before the send starts.
+    if (options?.shouldStop && index % STOP_CHECK_EVERY === 0 && await options.shouldStop()) return { throttled: false, sent, stopped: true };
+    index++;
     const variants = phoneVariants(recipient.phone);
     let sentMessageId: string | null = null;
     let lastError: string | null = null;
@@ -601,6 +606,8 @@ export async function finalizeBroadcastStatus(
     .update({ status, updated_at: new Date().toISOString() })
     .eq('id', broadcastId)
     .neq('status', status)
+    // "Cancel remaining" is final: a later settle never turns it into sent or failed.
+    .neq('status', 'cancelled')
     .select('id,account_id,name,status,kind,total_recipients,sent_count,delivered_count,read_count,replied_count,failed_count');
   if (final.error) throw new Error('Broadcast completion persistence failed');
   const row = (final.data as Record<string, unknown>[] | null)?.[0];

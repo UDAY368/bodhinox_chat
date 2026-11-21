@@ -2,6 +2,7 @@ import { Prisma } from '@prisma/client';
 import { withTenant, type TenantContext } from '@/lib/db/tenant';
 import type { DashboardOperations } from './operations-types';
 import { loadPhoneMask } from '@/lib/inbox/masking-apply';
+import { firstRepliesSql } from '@/lib/analytics/first-reply';
 
 /** SQL aggregates keep large tenants off browser row caps and scope every join. */
 export async function loadDashboardOperations(context: TenantContext, days = 7): Promise<DashboardOperations> {
@@ -32,27 +33,12 @@ export async function loadDashboardOperations(context: TenantContext, days = 7):
         ) s ON true
         LEFT JOIN contacts ct ON ct.id=c.contact_id AND ct.account_id=c.account_id
         WHERE c.account_id=${context.accountId}::uuid AND c.status <> 'closed'
-      ), real_replies AS (
-        SELECT m.sender_id,m.sender_type,m.created_at,inbound.created_at AS inbound_at,
-          NOT EXISTS (
-            SELECT 1 FROM messages previous
-            WHERE previous.account_id=m.account_id AND previous.conversation_id=m.conversation_id
-              AND previous.sender_type IN ('agent','bot') AND previous.status IN ('sent','delivered','read')
-              AND previous.content_type NOT IN ('template','system') AND previous.created_at>=inbound.created_at
-              AND (previous.created_at,previous.arrival_sequence)<(m.created_at,m.arrival_sequence)
-          ) AS is_first_reply
-        FROM messages m
-        JOIN LATERAL (
-          SELECT i.id,i.created_at FROM messages i
-          WHERE i.account_id=m.account_id AND i.conversation_id=m.conversation_id
-            AND i.sender_type='customer' AND i.created_at <= m.created_at
-          ORDER BY i.created_at DESC,i.arrival_sequence DESC LIMIT 1
-        ) inbound ON true
+      ), ${firstRepliesSql(context.accountId, Prisma.sql`now() - (${days} * interval '1 day')`, Prisma.sql`now()`)},
+      period_replies AS (
+        SELECT m.sender_id, m.sender_type FROM messages m
         WHERE m.account_id=${context.accountId}::uuid AND m.sender_type IN ('agent','bot')
           AND m.status IN ('sent','delivered','read') AND m.content_type NOT IN ('template','system')
           AND m.created_at >= now() - (${days} * interval '1 day')
-      ), period_replies AS (
-        SELECT * FROM real_replies WHERE created_at >= now()-(${days} * interval '1 day')
       ), failures AS (
         SELECT m.id,m.conversation_id,coalesce(nullif(ct.name,''),${phoneName},'Contact') AS name,
           left(coalesce(m.content_text,m.template_name,'Message'),160) AS preview,m.created_at
@@ -64,8 +50,8 @@ export async function loadDashboardOperations(context: TenantContext, days = 7):
         SELECT p.user_id AS id,p.full_name AS name,
           (SELECT count(*) FROM conversations c WHERE c.account_id=${context.accountId}::uuid AND c.assigned_agent_id=p.user_id AND c.status='open') AS open,
           (SELECT count(*) FROM period_replies r WHERE r.sender_id=p.user_id AND r.sender_type='agent') AS replies,
-          (SELECT percentile_cont(0.5) WITHIN GROUP(ORDER BY extract(epoch FROM (r.created_at-r.inbound_at))/60)
-            FROM period_replies r WHERE r.sender_id=p.user_id AND r.sender_type='agent' AND r.is_first_reply) AS "medianMinutes"
+          (SELECT percentile_cont(0.5) WITHIN GROUP(ORDER BY f.secs/60)
+            FROM first_replies f WHERE f.replier_type='agent' AND f.replier_id=p.user_id) AS "medianMinutes"
         FROM account_memberships membership JOIN profiles p ON p.user_id=membership.user_id
         WHERE membership.account_id=${context.accountId}::uuid
       ), pipeline AS (
@@ -89,7 +75,7 @@ export async function loadDashboardOperations(context: TenantContext, days = 7):
         'failedMessages',coalesce((SELECT json_agg(f) FROM (SELECT id,conversation_id AS "conversationId",name,preview,created_at AS at FROM failures ORDER BY created_at DESC LIMIT 20) f),'[]'::json),
         'team',coalesce((SELECT json_agg(t ORDER BY t.name) FROM team t),'[]'::json),
         'automated',json_build_object('replies',(SELECT count(*) FROM period_replies WHERE sender_type='bot'),
-          'medianMinutes',(SELECT percentile_cont(0.5) WITHIN GROUP(ORDER BY extract(epoch FROM(created_at-inbound_at))/60) FROM period_replies WHERE sender_type='bot' AND is_first_reply)),
+          'medianMinutes',(SELECT percentile_cont(0.5) WITHIN GROUP(ORDER BY secs/60) FROM first_replies WHERE replier_type='ai')),
         'pipelines',coalesce((SELECT json_agg(p ORDER BY p.name) FROM pipeline p),'[]'::json),
         'campaigns',json_build_object(
           'automationRuns',(SELECT count(*) FROM automation_logs WHERE account_id=${context.accountId}::uuid AND created_at>=now()-(${days}*interval '1 day')),

@@ -17,7 +17,9 @@ import { useTranslations } from "next-intl";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { InlineError } from "@/components/ui/inline-error";
 import { Switch } from "@/components/ui/switch";
 import { useAuth } from "@/hooks/use-auth";
 import { authFetch } from "@/lib/auth/client";
@@ -36,6 +38,7 @@ const ERRORS = new Set([
 
 export function ZoomCard() {
   const t = useTranslations("Settings.zoom");
+  const confirm = useConfirm();
   const { accountRole } = useAuth();
   const canEdit = !!accountRole && hasMinRole(accountRole, "admin");
   const searchParams = useSearchParams();
@@ -90,7 +93,7 @@ export function ZoomCard() {
   };
 
   const disconnect = async () => {
-    if (!window.confirm(t("disconnectConfirm"))) return;
+    if (!(await confirm({ title: t("disconnectConfirm"), confirmLabel: t("disconnect"), destructive: true }))) return;
     setBusy(true);
     try {
       setState(await send("DELETE", "/api/integrations/zoom"));
@@ -103,7 +106,7 @@ export function ZoomCard() {
   };
 
   const setRegister = async (value: boolean) => {
-    if (value && !window.confirm(t("registerConfirm"))) return;
+    if (value && !(await confirm({ title: t("registerConfirm") }))) return;
     setBusy(true);
     try {
       setState(await send("PATCH", "/api/integrations/zoom", { register_attendees: value }));
@@ -130,7 +133,7 @@ export function ZoomCard() {
         <CardDescription>{t("description")}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        {loadFailed && <p className="text-destructive text-sm">{t("loadFailed")}</p>}
+        {loadFailed && <InlineError message={t("loadFailed")} onRetry={() => void load()} />}
         {!state && !loadFailed && <Loader2 className="text-muted-foreground size-4 animate-spin" aria-label={t("loading")} />}
         {state && (
           <>

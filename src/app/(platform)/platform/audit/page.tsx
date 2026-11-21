@@ -6,9 +6,14 @@
 
 import { Suspense, useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
+import { ScrollText } from 'lucide-react';
 import { useSearchParams } from 'next/navigation';
 import { useFormatter, useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
+import { EmptyState } from '@/components/ui/empty-state';
+import { InlineError } from '@/components/ui/inline-error';
+import { PageHeader } from '@/components/ui/page-header';
+import { PageLoading } from '@/components/ui/page-loading';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import type { PlatformAuditRow } from '@/types/platform';
 import { platformApi } from '../../_components/platform-api';
@@ -51,14 +56,11 @@ function AuditTrail() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-center gap-3">
-        <h1 className="text-xl font-semibold">{t('title')}</h1>
-        {accountId && (
-          <Link href="/platform/audit" className="text-muted-foreground text-sm hover:underline">{t('showAll')}</Link>
-        )}
-      </div>
-      {failed && <p role="status" className="text-sm">{t('loadFailed')}</p>}
-      {rows !== null && rows.length === 0 && <p className="text-muted-foreground text-sm">{t('empty')}</p>}
+      <PageHeader title={t('title')} className="mb-0"
+        subtitle={accountId ? <Link href="/platform/audit" className="hover:underline">{t('showAll')}</Link> : undefined} />
+      {failed && <InlineError message={t('loadFailed')} onRetry={() => { setFailed(false); void load(null); }} />}
+      {rows === null && !failed && <PageLoading />}
+      {rows !== null && rows.length === 0 && <EmptyState icon={ScrollText} title={t('empty')} />}
       {rows !== null && rows.length > 0 && (
         <div className="overflow-x-auto">
           <Table>

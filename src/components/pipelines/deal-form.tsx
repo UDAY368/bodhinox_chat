@@ -37,6 +37,7 @@ import {
 } from "@/components/ui/sheet";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { CreatePaymentLinkDialog } from "@/components/commerce/payments/create-payment-link-dialog";
@@ -96,8 +97,9 @@ interface DealNote {
 /** Matches the database check on deals.lost_reason. */
 const LOST_REASON_MAX = 200;
 
-const selectClass =
-  "h-9 w-full rounded-lg border border-border bg-card px-2.5 text-sm text-foreground outline-none transition-[border-color,box-shadow] duration-150 focus:border-primary focus:ring-3 focus:ring-ring/30";
+const triggerClass = "min-h-11 w-full bg-card sm:min-h-9";
+/** The Select's stand-in for "no choice" (Select items cannot have an empty value); maps to "". */
+const NONE = "__none__";
 
 type Field = "title" | "value" | "currency" | "contact_id" | "stage_id" | "assigned_to" | "expected_close_date" | "notes";
 
@@ -441,7 +443,8 @@ export function DealForm({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="right"
-        className="bg-popover border-border text-popover-foreground sm:max-w-lg w-full p-0"
+        size="lg"
+        className="bg-popover border-border text-popover-foreground w-full p-0"
       >
         <div className="flex h-full min-h-0 flex-col">
           <SheetHeader className="border-b border-border/50 p-4 pr-12">
@@ -497,73 +500,83 @@ export function DealForm({
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="deal-currency" className="text-muted-foreground">{t("currency")}</Label>
-                <select
-                  id="deal-currency"
+                <Select
                   value={currency}
                   disabled={readOnly}
-                  onChange={(e) => { setCurrency(e.target.value); if (editing) void saveField("currency", e.target.value); }}
-                  className={selectClass}
+                  onValueChange={(v) => { if (!v) return; setCurrency(v); if (editing) void saveField("currency", v); }}
                 >
-                  {CURRENCIES.map((c) => (
-                    <option key={c.code} value={c.code}>
-                      {c.code}
-                    </option>
-                  ))}
-                </select>
+                  <SelectTrigger id="deal-currency" className={triggerClass}>
+                    <SelectValue>{(v: string) => v}</SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {CURRENCIES.map((c) => (
+                      <SelectItem key={c.code} value={c.code}>{c.code}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
 
             {!editing && pipelineChoice && pipelineChoice.pipelines.length > 1 && (
               <div className="grid gap-2">
                 <Label htmlFor="deal-pipeline" className="text-muted-foreground">{ts("pipeline")}</Label>
-                <select
-                  id="deal-pipeline"
-                  value={pipelineId}
-                  onChange={(e) => pipelineChoice.onChange(e.target.value)}
-                  className={selectClass}
-                >
-                  {pipelineChoice.pipelines.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name}
-                    </option>
-                  ))}
-                </select>
+                <Select value={pipelineId} onValueChange={(v) => { if (v) pipelineChoice.onChange(v); }}>
+                  <SelectTrigger id="deal-pipeline" className={triggerClass}>
+                    <SelectValue>{(v: string) => pipelineChoice.pipelines.find((p) => p.id === v)?.name ?? ""}</SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {pipelineChoice.pipelines.map((p) => (
+                      <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             )}
 
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div className="grid gap-2">
                 <Label htmlFor="deal-stage" className="text-muted-foreground">{t("stage")}</Label>
-                <select
-                  id="deal-stage"
+                <Select
                   value={stageId}
                   disabled={readOnly}
-                  onChange={(e) => { setStageId(e.target.value); if (editing) void saveField("stage_id", e.target.value); }}
-                  className={selectClass}
+                  onValueChange={(v) => { if (!v) return; setStageId(v); if (editing) void saveField("stage_id", v); }}
                 >
-                  {stages.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.name}
-                    </option>
-                  ))}
-                </select>
+                  <SelectTrigger id="deal-stage" className={triggerClass}>
+                    <SelectValue>{(v: string) => stages.find((s) => s.id === v)?.name ?? ""}</SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {stages.map((s) => (
+                      <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="deal-owner" className="text-muted-foreground">{t("assignedTo")}</Label>
-                <select
-                  id="deal-owner"
-                  value={assignedTo}
+                <Select
+                  value={assignedTo || NONE}
                   disabled={readOnly}
-                  onChange={(e) => { setAssignedTo(e.target.value); if (editing) void saveField("assigned_to", e.target.value); }}
-                  className={selectClass}
+                  onValueChange={(v) => {
+                    const next = !v || v === NONE ? "" : v;
+                    setAssignedTo(next);
+                    if (editing) void saveField("assigned_to", next);
+                  }}
                 >
-                  <option value="">{t("unassigned")}</option>
-                  {profiles.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.full_name || p.email}
-                    </option>
-                  ))}
-                </select>
+                  <SelectTrigger id="deal-owner" className={triggerClass}>
+                    <SelectValue>
+                      {(v: string) => {
+                        const p = profiles.find((x) => x.id === v);
+                        return p ? p.full_name || p.email : t("unassigned");
+                      }}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={NONE}>{t("unassigned")}</SelectItem>
+                    {profiles.map((p) => (
+                      <SelectItem key={p.id} value={p.id}>{p.full_name || p.email}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
 
@@ -592,23 +605,32 @@ export function DealForm({
                   className="border-border bg-card text-foreground"
                 />
               )}
-              <select
-                id="deal-contact"
-                value={contactId}
+              <Select
+                value={contactId || NONE}
                 disabled={readOnly}
-                onChange={(e) => chooseContact(e.target.value)}
-                className={selectClass}
+                onValueChange={(v) => chooseContact(!v || v === NONE ? "" : v)}
               >
-                <option value="">{t("selectContact")}</option>
-                {contact && !contactOptions.some((c) => c.id === contact.id) && (
-                  <option value={contact.id}>{contact.name || contact.phone}</option>
-                )}
-                {contactOptions.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name && c.phone ? `${c.name} · ${c.phone}` : c.name || c.phone}
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger id="deal-contact" className={triggerClass}>
+                  <SelectValue>
+                    {(v: string) => {
+                      const c = contactOptions.find((x) => x.id === v) ?? (contact?.id === v ? contact : null);
+                      if (!c) return t("selectContact");
+                      return c.name && c.phone ? `${c.name} · ${c.phone}` : c.name || c.phone;
+                    }}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={NONE}>{t("selectContact")}</SelectItem>
+                  {contact && !contactOptions.some((c) => c.id === contact.id) && (
+                    <SelectItem value={contact.id}>{contact.name || contact.phone}</SelectItem>
+                  )}
+                  {contactOptions.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.name && c.phone ? `${c.name} · ${c.phone}` : c.name || c.phone}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               {contact && (
                 <div className="flex flex-wrap items-center gap-3 rounded-xl border border-border p-3">
                   <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-semibold" aria-hidden>

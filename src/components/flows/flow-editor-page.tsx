@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2 } from "lucide-react";
+import { PageLoading } from "@/components/ui/page-loading";
 import { toast } from "sonner";
 import { useTranslations } from "next-intl";
 
@@ -71,11 +71,7 @@ export function FlowEditorPage({ channel, flowId }: { channel: Channel; flowId: 
   }, [channel, flowId, router, t]);
 
   if (loading) {
-    return (
-      <div className="flex h-full items-center justify-center">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-      </div>
-    );
+    return <PageLoading />;
   }
   if (notFound || !flow) {
     return (

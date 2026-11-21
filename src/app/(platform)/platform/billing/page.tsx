@@ -10,9 +10,15 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
+import { CheckCircle2 } from 'lucide-react';
 import { useFormatter, useTranslations } from 'next-intl';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { EmptyState } from '@/components/ui/empty-state';
+import { InlineError } from '@/components/ui/inline-error';
+import { PageHeader } from '@/components/ui/page-header';
+import { PageLoading } from '@/components/ui/page-loading';
+import { SegmentedControl } from '@/components/ui/segmented-control';
 import { Input } from '@/components/ui/input';
 import type { PlatformReconciliationItem } from '@/types/platform';
 import { errorCode, platformApi } from '../../_components/platform-api';
@@ -52,20 +58,14 @@ export default function PlatformBillingPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div>
-        <h1 className="text-xl font-semibold">{t('title')}</h1>
-        <p className="text-muted-foreground text-sm">{t('intro')}</p>
-      </div>
-      <div className="flex flex-wrap gap-2" role="group" aria-label={t('filterLabel')}>
-        {FILTERS.map((f) => (
-          <Button key={f} type="button" size="sm" variant={f === filter ? 'default' : 'outline'} aria-pressed={f === filter} onClick={() => setFilter(f)}>
-            {t(`filters.${f}`)}
-          </Button>
-        ))}
-      </div>
-      {failed && <p role="status" className="text-sm">{t('loadFailed')}</p>}
+      <PageHeader title={t('title')} subtitle={t('intro')} className="mb-0">
+        <SegmentedControl<Filter> aria-label={t('filterLabel')} value={filter} onValueChange={setFilter}
+          options={FILTERS.map((f) => ({ value: f, label: t(`filters.${f}`) }))} />
+      </PageHeader>
+      {failed && <InlineError message={t('loadFailed')} onRetry={() => void load(filter)} />}
       {message && <p role="status" className="text-sm">{message}</p>}
-      {items !== null && items.length === 0 && <p className="text-muted-foreground text-sm">{t('empty')}</p>}
+      {items === null && !failed && <PageLoading />}
+      {items !== null && items.length === 0 && <EmptyState icon={CheckCircle2} title={t('empty')} />}
       {items !== null && items.length > 0 && (
         <ul className="divide-border divide-y" data-testid="platform-reconciliation">
           {items.map((item) => (

@@ -17,8 +17,6 @@ import {
 export const MAX_LIST_RANGE_DAYS = 62;
 /** The most rows one schedule request returns (the week and day views). */
 export const MAX_LIST_ROWS = 500;
-/** The List view's page size. */
-export const LIST_PAGE_ROWS = 50;
 
 export interface ScheduleFilter {
   from: Date;

@@ -5,10 +5,12 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
-import { Loader2 } from "lucide-react";
+import { ClipboardList } from "lucide-react";
 
 import { useCan } from "@/hooks/use-can";
 import { buttonVariants } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
+import { PageLoading } from "@/components/ui/page-loading";
 import { FormBuilder } from "@/components/forms/form-builder";
 import { getForm, loadEncryptionStatus } from "@/components/forms/form-api";
 import type { WhatsAppForm } from "@/lib/whatsapp/forms/types";
@@ -51,21 +53,20 @@ export default function FormEditorPage() {
   }, [params.id, t]);
 
   if (!loaded || loaded.id !== params.id) {
-    return (
-      <div className="flex h-full items-center justify-center">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" aria-label={t("loading")} />
-      </div>
-    );
+    return <PageLoading />;
   }
 
   if (!loaded.form) {
     return (
-      <div className="flex h-full flex-col items-center justify-center gap-3 p-6 text-center">
-        <p className="text-sm text-muted-foreground">{t("notFound")}</p>
-        <Link href="/forms" className={buttonVariants({ variant: "outline", size: "sm" })}>
-          {t("backToList")}
-        </Link>
-      </div>
+      <EmptyState
+        icon={ClipboardList}
+        title={t("notFound")}
+        action={
+          <Link href="/forms" className={buttonVariants({ variant: "outline", size: "sm" })}>
+            {t("backToList")}
+          </Link>
+        }
+      />
     );
   }
 

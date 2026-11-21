@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  allocateLargestRemainder, currencyExponent, formatMoney, isCurrencyCode, minorFromDb, minorToDecimalString, MoneyError, mulDivHalfUp,
+  allocateLargestRemainder, currencyExponent, isCurrencyCode, minorFromDb, minorToDecimalString, MoneyError, mulDivHalfUp,
   parseMoney, roundHalfUp,
 } from './money';
 
@@ -22,17 +22,6 @@ describe('money', () => {
     expect(minorToDecimalString(1, 'KWD')).toBe('0.001');
     expect(minorToDecimalString(-250, 'USD')).toBe('-2.50');
     expect(() => minorToDecimalString(1.5, 'USD')).toThrow(MoneyError);
-  });
-
-  it('formats for display with the right number of decimals', () => {
-    expect(formatMoney(123450, 'INR', 'en-IN')).toBe('₹1,234.50');
-    expect(formatMoney(199, 'USD', 'en-US')).toBe('$1.99');
-    expect(formatMoney(1500, 'JPY', 'en-US')).toMatch(/1,500$/);
-    expect(formatMoney(1500, 'KWD', 'en-US')).toContain('1.500');
-    // Exact beyond float precision.
-    expect(formatMoney(9007199254740991, 'USD', 'en-US')).toBe('$90,071,992,547,409.91');
-    // An unknown locale falls back instead of throwing.
-    expect(formatMoney(100, 'USD', 'not a locale')).toBe('$1.00');
   });
 
   it('parses typed amounts into minor units without float error', () => {

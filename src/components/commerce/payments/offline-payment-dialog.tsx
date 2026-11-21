@@ -13,11 +13,12 @@ import { useLocale, useTranslations } from "next-intl";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { formatMoney, minorToDecimalString } from "@/lib/commerce/money";
+import { minorToDecimalString } from "@/lib/commerce/money";
+import { formatMoney } from "@/lib/format/money";
 import { OFFLINE_METHODS, recordOfflinePayment, type OfflineMethod } from "./customer-payments-api";
 
 export function OfflinePaymentDialog({ orderId, currency, dueMinor, open, onOpenChange, onRecorded }: {
@@ -62,12 +63,13 @@ export function OfflinePaymentDialog({ orderId, currency, dueMinor, open, onOpen
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>{t("title")}</DialogTitle>
-          <DialogDescription>{t("description", { amount: formatMoney(Math.max(dueMinor, 0), currency, locale) })}</DialogDescription>
-        </DialogHeader>
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent size="md" className="w-full gap-0">
+        <SheetHeader>
+          <SheetTitle>{t("title")}</SheetTitle>
+          <SheetDescription>{t("description", { amount: formatMoney(Math.max(dueMinor, 0), currency, { locale }) })}</SheetDescription>
+        </SheetHeader>
+        <div className="flex-1 space-y-4 overflow-y-auto px-4 pb-4">
         <div className="space-y-3">
           <div>
             <Label htmlFor="offline-amount" className="mb-1 block text-xs text-muted-foreground">{t("amount", { currency })}</Label>
@@ -75,7 +77,7 @@ export function OfflinePaymentDialog({ orderId, currency, dueMinor, open, onOpen
           </div>
           <div>
             <Label className="mb-1 block text-xs text-muted-foreground">{t("method")}</Label>
-            <Select value={method} onValueChange={(v) => v && setMethod(v as OfflineMethod)}>
+            <Select value={method} items={OFFLINE_METHODS.map((m) => ({ value: m, label: t(`methods.${m}`) }))} onValueChange={(v) => v && setMethod(v as OfflineMethod)}>
               <SelectTrigger className="w-full" aria-label={t("method")}><SelectValue /></SelectTrigger>
               <SelectContent>
                 {OFFLINE_METHODS.map((m) => <SelectItem key={m} value={m}>{t(`methods.${m}`)}</SelectItem>)}
@@ -88,14 +90,15 @@ export function OfflinePaymentDialog({ orderId, currency, dueMinor, open, onOpen
           </div>
           <p className="text-xs text-muted-foreground">{t("help")}</p>
         </div>
-        <DialogFooter>
+        </div>
+        <SheetFooter className="border-t border-border sm:flex-row sm:justify-end">
           <Button variant="outline" onClick={() => onOpenChange(false)}>{t("cancel")}</Button>
           <Button onClick={() => void submit()} disabled={busy || !amount.trim() || !requestId}>
             {busy && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
             {t("submit")}
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </SheetFooter>
+      </SheetContent>
+    </Sheet>
   );
 }

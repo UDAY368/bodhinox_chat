@@ -31,3 +31,30 @@ export function parseDelayInput(amount: string, unit: SequenceDelayUnit): { amou
 export function windowWarning(amount: number, unit: SequenceDelayUnit): boolean {
   return exceedsInstagramWindow({ amount, unit });
 }
+
+/** The editor page of a sequence: WhatsApp sequences live under /whatsapp so they open while Instagram is off. */
+export function sequencePath(channel: 'instagram' | 'whatsapp' | string | null | undefined, id: string): string {
+  return `/${channel === 'whatsapp' ? 'whatsapp' : 'instagram'}/sequences/${encodeURIComponent(id)}`;
+}
+
+/** The template variable values a step offers: a contact field, or text typed by hand. */
+export const TEMPLATE_FIELD_CHOICES = ['name', 'phone', 'email', 'company'] as const;
+export type TemplateFieldChoice = (typeof TEMPLATE_FIELD_CHOICES)[number] | 'text';
+
+/** The field a stored value maps from ({{contact.name|...}} -> name), else 'text'. */
+export function templateValueSource(value: string): TemplateFieldChoice {
+  const m = /^\{\{contact\.(name|phone|email|company)(?:\|[^{}|]*)?\}\}$/.exec(value.trim());
+  return m ? (m[1] as TemplateFieldChoice) : 'text';
+}
+
+/** The stored value for a contact field, with a fallback for an empty one. */
+export function contactPlaceholder(field: (typeof TEMPLATE_FIELD_CHOICES)[number], fallback = '-'): string {
+  const safe = fallback.replace(/[{}|]/g, '').trim().slice(0, 100) || '-';
+  return `{{contact.${field}|${safe}}}`;
+}
+
+/** How many body values a template needs ({{1}}..{{n}}). */
+export function templateVariableCount(bodyText: string): number {
+  const nums = [...bodyText.matchAll(/\{\{\s*(\d+)\s*\}\}/g)].map((m) => Number(m[1]));
+  return nums.length ? Math.min(Math.max(...nums), 20) : 0;
+}

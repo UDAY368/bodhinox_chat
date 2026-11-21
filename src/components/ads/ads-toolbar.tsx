@@ -5,7 +5,8 @@
 
 import { useTranslations } from 'next-intl';
 import { Input } from '@/components/ui/input';
-import { cn } from '@/lib/utils';
+import { SegmentedControl } from '@/components/ui/segmented-control';
+import { OptionSelect } from '@/components/ui/option-select';
 import type { LinkedAdAccount } from '@/lib/meta-ads/accounts';
 import { customRange, presetRange, type AdsRange, type RangePreset } from './ads-shared';
 
@@ -23,39 +24,26 @@ export function AdsToolbar({ accounts, adAccountId, onAccount, range, onRange }:
   return (
     <div className="flex flex-wrap items-center gap-3" data-testid="ads-toolbar">
       {accounts.length > 1 && (
-        <label className="flex items-center gap-2 text-sm">
-          <span className="text-muted-foreground">{t('account')}</span>
-          <select
+        <div className="flex items-center gap-2 text-sm">
+          <span className="text-muted-foreground" aria-hidden>{t('account')}</span>
+          <OptionSelect
+            aria-label={t('account')}
+            className="max-w-[16rem]"
             value={adAccountId ?? 'all'}
-            onChange={(e) => onAccount(e.target.value === 'all' ? null : e.target.value)}
-            className="h-9 max-w-[16rem] rounded-lg border border-border bg-card px-2.5 text-sm text-foreground outline-none transition-shadow duration-150 focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            <option value="all">{t('allAccounts')}</option>
-            {accounts.map((a) => (
-              <option key={a.adAccountId} value={a.adAccountId}>
-                {a.name ?? a.adAccountId}{a.currency ? ` · ${a.currency}` : ''}
-              </option>
-            ))}
-          </select>
-        </label>
+            onValueChange={(v) => onAccount(v === 'all' ? null : v)}
+            options={[
+              { value: 'all', label: t('allAccounts') },
+              ...accounts.map((a) => ({ value: a.adAccountId, label: `${a.name ?? a.adAccountId}${a.currency ? ` · ${a.currency}` : ''}` })),
+            ]}
+          />
+        </div>
       )}
-      <div role="radiogroup" aria-label={t('range')} className="flex max-w-full gap-0.5 overflow-x-auto rounded-xl bg-muted p-[3px]">
-        {[...PRESETS, 'custom' as const].map((preset) => (
-          <button
-            key={preset}
-            type="button"
-            role="radio"
-            aria-checked={range.preset === preset}
-            onClick={() => onRange(preset === 'custom' ? customRange(range.from, range.to) : presetRange(preset))}
-            className={cn(
-              'h-8 shrink-0 whitespace-nowrap rounded-[9px] px-3 text-xs font-medium outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-ring',
-              range.preset === preset ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',
-            )}
-          >
-            {t(`presets.${preset}`)}
-          </button>
-        ))}
-      </div>
+      <SegmentedControl
+        aria-label={t('range')}
+        value={range.preset}
+        onValueChange={(preset) => onRange(preset === 'custom' ? customRange(range.from, range.to) : presetRange(preset))}
+        options={[...PRESETS, 'custom' as const].map((preset) => ({ value: preset, label: t(`presets.${preset}`) }))}
+      />
       {range.preset === 'custom' && (
         <div className="flex items-center gap-2">
           <Input type="date" aria-label={t('from')} value={range.from} max={range.to}

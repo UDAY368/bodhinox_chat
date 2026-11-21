@@ -31,7 +31,7 @@ import {
   archiveShopProduct, fetchCategories, fetchShopProduct, publishShopProduct, saveProductForm, unpublishShopProduct,
   type ShopCategory, type ShopProduct,
 } from "./catalogue-api";
-import { selectClass, StatusBadge, useCatalogueError, VisibilityControl } from "./catalogue-admin";
+import { StatusBadge, useCatalogueError, VisibilityControl } from "./catalogue-admin";
 import { ProductWriter } from "./product-writer";
 import { ProductPhotos } from "./product-photos";
 import { OptionsBuilder, VariantDetails, VariantMatrix } from "./product-options";
@@ -39,6 +39,8 @@ import { PRODUCT_SECTIONS, type SectionProps } from "./product-sections";
 import {
   archivedPool, bodyOf, emptyForm, formOf, hasErrors, validate, type ProductFormState, type VariantRow,
 } from "./product-form-state";
+import { OptionSelect } from "@/components/ui/option-select";
+import { Checkbox } from "@/components/ui/checkbox";
 
 export function ProductForm({ id, currency: listCurrency, onSaved, onDirtyChange, onClose }: {
   /** null = a new product. */
@@ -238,7 +240,7 @@ export function ProductForm({ id, currency: listCurrency, onSaved, onDirtyChange
                   readOnly={readOnly || !single.track} onChange={(e) => setSingle({ stock: e.target.value })} />
                 {singleErrors.has("stock") && <p className="text-xs text-destructive">{t("invalid.stock")}</p>}
                 <label className="flex min-h-11 items-center gap-2 text-xs text-muted-foreground sm:min-h-0">
-                  <input type="checkbox" className="size-4" checked={!single.track} disabled={readOnly} onChange={(e) => setSingle({ track: !e.target.checked })} />
+                  <Checkbox checked={!single.track} disabled={readOnly} onCheckedChange={(checked) => setSingle({ track: !checked })} />
                   {t("madeToOrderToggle")}
                 </label>
               </div>
@@ -252,13 +254,17 @@ export function ProductForm({ id, currency: listCurrency, onSaved, onDirtyChange
           )}
           <div className="space-y-1 sm:max-w-sm">
             <Label htmlFor="pf-cat">{t("category")}</Label>
-            <select id="pf-cat" className={`${selectClass} min-h-11 w-full sm:min-h-9`} value={form.category_id} disabled={readOnly}
-              onChange={(e) => update(() => ({ category_id: e.target.value }))}>
-              <option value="">{tEditor("noCategory")}</option>
-              {categories.filter((c) => !c.archived || c.id === product?.category_id).map((c) => (
-                <option key={c.id} value={c.id}>{c.parent_id ? `— ${c.name}` : c.name}</option>
-              ))}
-            </select>
+            <OptionSelect fit
+              id="pf-cat"
+              value={form.category_id}
+              onValueChange={(v) => update(() => ({ category_id: v }))}
+              disabled={readOnly}
+              className="w-full"
+              options={[
+                { value: "", label: tEditor("noCategory") },
+                ...categories.filter((c) => !c.archived || c.id === product?.category_id).map((c) => ({ value: c.id, label: c.parent_id ? `— ${c.name}` : c.name })),
+              ]}
+            />
           </div>
         </section>
 
@@ -291,7 +297,7 @@ function SheetOrPageTitle({ children }: { children: React.ReactNode }) {
   const inSheet = useInSheet();
   return inSheet
     ? <SheetTitle className="truncate text-lg font-semibold">{children}</SheetTitle>
-    : <h1 className="truncate text-[22px] font-bold tracking-tight text-foreground">{children}</h1>;
+    : <h1 className="truncate text-large-title text-foreground">{children}</h1>;
 }
 
 const SheetContext = createContext(false);

@@ -40,6 +40,7 @@ import {
   unlockBroadcastDelivery,
 } from '@/lib/broadcasts/schedule';
 import { broadcastHalted } from '@/lib/broadcasts/pause';
+import { requeueForSendWindow } from '@/lib/broadcasts/send-window';
 import { broadcastChannel, deliverInstagramBroadcast } from '@/lib/broadcasts/instagram';
 import { NUMBER_DISCONNECTED_REASON } from '@/lib/whatsapp/number-admin';
 import { withJobScope } from './scope';
@@ -146,6 +147,9 @@ export async function scheduleWork() {
   // Usage ledger housekeeping (settled/released rows older than 13 months); independent of billing keys.
   await import('@/lib/jobs/usage-housekeeping').then((m) => m.scheduleUsageHousekeeping())
     .catch(() => console.error('[worker] usage housekeeping scheduling failed'));
+  // Daily analytics summary: one bulk-lane job per workspace per local day (yesterday and two days before re-rolled).
+  await import('@/lib/analytics/rollup-job').then((m) => m.scheduleAnalyticsRollups())
+    .catch(() => console.error('[worker] analytics rollup scheduling failed'));
   // Workspace exports: expire ready files after 7 days and fail stuck exports.
   await import('@/lib/jobs/workspace-export').then((m) => m.scheduleWorkspaceExportSweeps())
     .catch(() => console.error('[worker] workspace export sweep scheduling failed'));
@@ -208,6 +212,8 @@ export async function handleJob(job: Job, assertLease: () => void = () => {}) {
       const throttles = Number.isInteger(job.payload.throttles) ? (job.payload.throttles as number) : 0;
       // A cancelled campaign, or one scheduled for later, sends nothing.
       if (!(await broadcastDispatchable(accountId, broadcastId))) return;
+      // Quiet hours: outside the campaign's send window this pass waits for it to open (lib/broadcasts/send-window).
+      if (await requeueForSendWindow(accountId, broadcastId, job.payload, job.id)) return;
       if (!(await lockBroadcastDelivery(accountId, broadcastId))) {
         // Another pass is running; try again shortly instead of sending in parallel.
         await enqueueJob('broadcast.dispatch', job.payload, {
@@ -231,7 +237,8 @@ export async function handleJob(job: Job, assertLease: () => void = () => {}) {
           // Instagram: free text inside each recipient's 24-hour window (lib/broadcasts/instagram).
           if (!(await claimBroadcastStart(accountId, broadcastId))) return;
           const pass = await deliverInstagramBroadcast(accountId, broadcastId, scope, { assertLease, shouldStop, deadline });
-          if (pass.stopped) return;
+          // Paused, cancelled, or its send window closed (then the pass waits for the window to reopen).
+          if (pass.stopped) { await requeueForSendWindow(accountId, broadcastId, job.payload, job.id); return; }
           if (pass.remaining > 0 && scope === 'pending')
             await enqueueJob('broadcast.dispatch', { broadcastId, scope: 'pending' }, {
               tenantId: accountId,
@@ -268,7 +275,13 @@ export async function handleJob(job: Job, assertLease: () => void = () => {}) {
           deadline,
         });
         // Paused by a member: the rest stays pending until Resume queues the next pass.
-        if (result.stopped) return;
+        if (result.stopped) {
+          // A closed send window queues the rest for when it reopens; this request's retry is already applied.
+          const { retryId: _retryApplied, ...rest } = job.payload;
+          void _retryApplied;
+          await requeueForSendWindow(accountId, broadcastId, rest, job.id);
+          return;
+        }
         if (result.throttled) {
           const next = result.sent > 0 ? 1 : throttles + 1;
           // Still throttled after about an hour with no progress: stop and leave the rest
@@ -593,6 +606,9 @@ export async function handleJob(job: Job, assertLease: () => void = () => {}) {
       await (await import('@/lib/billing/reconciliation')).runBillingReconcile(accountId);
     else if (job.type === 'usage.housekeeping')
       await (await import('@/lib/jobs/usage-housekeeping')).runUsageHousekeeping(accountId);
+    else if (job.type === 'analytics.rollup')
+      // Idempotent upsert of the workspace's last three days into analytics_daily.
+      await (await import('@/lib/analytics/rollup-job')).runAnalyticsRollup(accountId);
     else if (job.type === 'workspace.export' || job.type === 'workspace.export_sweep')
       // One streamed workspace export into private storage, or the 7-day expiry sweep.
       await (await import('@/lib/jobs/workspace-export')).handleWorkspaceExportJob(accountId, job.type, job.payload, { attempts: job.attempts, maxAttempts: job.max_attempts });

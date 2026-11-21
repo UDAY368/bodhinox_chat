@@ -11,7 +11,8 @@
 
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronDown, ChevronRight, FolderKanban, Loader2, MoreHorizontal, Pause, Play, RefreshCw, ShieldAlert } from 'lucide-react';
-import { EmptyState, LoadingRows, StatusChip } from '@/components/ads/ads-ui';
+import { LoadingRows, StatusChip } from '@/components/ads/ads-ui';
+import { EmptyState } from '@/components/ui/empty-state';
 import { toast } from 'sonner';
 import { useTranslations } from 'next-intl';
 
@@ -22,7 +23,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { formatSpend } from '@/components/ads/ads-table';
 import { authFetch } from '@/lib/auth/client';
-import { formatMoney, isCurrencyCode, parseMoney } from '@/lib/commerce/money';
+import { isCurrencyCode, parseMoney } from '@/lib/commerce/money';
+import { formatMoney } from '@/lib/format/money';
 import type { AdChangeDto, AdChangeField, AdManageView, AdObjectDto } from '@/lib/meta-ads/manage';
 import { cn } from '@/lib/utils';
 
@@ -38,7 +40,7 @@ const POLL_MS = 4000;
 const POLL_LIMIT = 30;
 
 const money = (minor: number | null, currency: string | null) =>
-  minor === null ? '-' : currency && isCurrencyCode(currency) ? formatMoney(minor, currency) : minor.toLocaleString();
+  minor === null ? '-' : currency && isCurrencyCode(currency) ? formatMoney(minor, currency, { locale: 'en' }) : minor.toLocaleString();
 
 /** A local date-time input value (YYYY-MM-DDTHH:mm) for an ISO time. */
 const localInput = (iso: string | null) => {
@@ -378,7 +380,7 @@ export function CampaignsPanel({ canManage, adAccountId = null }: { canManage: b
       )}
 
       {tree.length === 0 ? (
-        <EmptyState icon={FolderKanban} title={t('empty')} body={t('emptyBody')} />
+        <EmptyState icon={FolderKanban} title={t('empty')} body={t('emptyBody')} className="rounded-group border border-separator bg-grouped-surface" />
       ) : (
         <div className="overflow-x-auto rounded-xl border border-border bg-card">
           <table className="w-full min-w-[820px] text-sm">

@@ -15,7 +15,8 @@ import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -23,7 +24,8 @@ import {
   adjustInventory, fetchInventory, fetchMovements,
   type AdjustKind, type InventoryFilter, type InventoryRow, type MovementRow,
 } from "./catalogue-api";
-import { selectClass, useCatalogueError } from "./catalogue-admin";
+import { useCatalogueError } from "./catalogue-admin";
+import { PageLoading } from "@/components/ui/page-loading";
 
 export interface AdjustTarget {
   variantId: string;
@@ -63,14 +65,19 @@ export function InventoryPanel({ canManage }: { canManage: boolean }) {
           <Search className="pointer-events-none absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder={t("search")} aria-label={t("search")} className="pl-8" />
         </div>
-        <select aria-label={t("filterLabel")} className={selectClass} value={filter} onChange={(e) => setFilter(e.target.value as InventoryFilter | "")}>
-          <option value="">{t("filter.all")}</option>
-          <option value="low">{t("filter.low")}</option>
-          <option value="out">{t("filter.out")}</option>
-        </select>
+        <SegmentedControl
+          aria-label={t("filterLabel")}
+          value={filter}
+          onValueChange={(v) => setFilter(v as InventoryFilter | "")}
+          options={[
+            { value: "", label: t("filter.all") },
+            { value: "low", label: t("filter.low") },
+            { value: "out", label: t("filter.out") },
+          ]}
+        />
       </div>
       {data === null ? (
-        <div className="flex justify-center p-6"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
+        <PageLoading rows={3} />
       ) : data.items.length === 0 ? (
         <p className="rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">{t("empty")}</p>
       ) : (
@@ -219,20 +226,26 @@ export function AdjustStockDialog({ target, onClose, onDone }: { target: AdjustT
   };
 
   return (
-    <Dialog open={target !== null} onOpenChange={(open) => { if (!open) onClose(); }}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>{t("title")}</DialogTitle>
-          <DialogDescription>{target ? `${target.label} — ${t("current", { onHand: target.onHand, reserved: target.reserved })}` : ""}</DialogDescription>
-        </DialogHeader>
-        <form className="space-y-3" onSubmit={(e) => { e.preventDefault(); void submit(); }}>
+    <Sheet open={target !== null} onOpenChange={(open) => { if (!open) onClose(); }}>
+      <SheetContent size="md" className="w-full gap-0">
+        <SheetHeader>
+          <SheetTitle>{t("title")}</SheetTitle>
+          <SheetDescription>{target ? `${target.label} — ${t("current", { onHand: target.onHand, reserved: target.reserved })}` : ""}</SheetDescription>
+        </SheetHeader>
+        <form className="flex min-h-0 flex-1 flex-col" onSubmit={(e) => { e.preventDefault(); void submit(); }}>
+          <div className="flex-1 space-y-3 overflow-y-auto px-4 pb-4">
           <div className="space-y-1">
-            <Label htmlFor="adjust-kind">{t("kind")}</Label>
-            <select id="adjust-kind" className={`${selectClass} w-full`} value={kind} onChange={(e) => setKind(e.target.value as AdjustKind)}>
-              <option value="receipt">{t("kinds.receipt")}</option>
-              <option value="write_off">{t("kinds.write_off")}</option>
-              <option value="adjustment">{t("kinds.adjustment")}</option>
-            </select>
+            <Label>{t("kind")}</Label>
+            <SegmentedControl<AdjustKind>
+              aria-label={t("kind")}
+              value={kind}
+              onValueChange={setKind}
+              options={[
+                { value: "receipt", label: t("kinds.receipt") },
+                { value: "write_off", label: t("kinds.write_off") },
+                { value: "adjustment", label: t("kinds.adjustment") },
+              ]}
+            />
           </div>
           <div className="space-y-1">
             <Label htmlFor="adjust-qty">{t("quantity")}</Label>
@@ -243,12 +256,13 @@ export function AdjustStockDialog({ target, onClose, onDone }: { target: AdjustT
             <Label htmlFor="adjust-reason">{kind === "write_off" ? t("reasonRequired") : t("reason")}</Label>
             <Input id="adjust-reason" maxLength={200} value={reason} onChange={(e) => setReason(e.target.value)} />
           </div>
-          <DialogFooter>
+          </div>
+          <SheetFooter className="border-t border-border sm:flex-row sm:justify-end">
             <Button type="button" variant="ghost" onClick={onClose}>{t("cancel")}</Button>
             <Button type="submit" disabled={busy || !valid}>{busy && <Loader2 className="h-4 w-4 animate-spin" />}{t("submit")}</Button>
-          </DialogFooter>
+          </SheetFooter>
         </form>
-      </DialogContent>
-    </Dialog>
+      </SheetContent>
+    </Sheet>
   );
 }

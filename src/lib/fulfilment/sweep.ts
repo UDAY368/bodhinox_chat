@@ -66,11 +66,6 @@ export async function scheduleFulfilmentSweeps(now: number = Date.now(), force =
   return accounts.length;
 }
 
-/** Test hook. */
-export function resetFulfilmentScheduleForTests(): void {
-  lastSchedule = Number.NEGATIVE_INFINITY;
-}
-
 export interface FulfilmentSweepSummary {
   polled: number;
   stale: number;

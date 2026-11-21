@@ -17,7 +17,8 @@ import { cn } from '@/lib/utils';
 import type { AdDraftDto } from '@/lib/meta-ads/create';
 import { formatMoneyValue } from './ads-shared';
 import { AdVariantDialog } from './ad-variant-dialog';
-import { isCurrencyCode, formatMoney } from '@/lib/commerce/money';
+import { isCurrencyCode } from '@/lib/commerce/money';
+import { formatMoney } from '@/lib/format/money';
 
 const POLL_MS = 5_000;
 const MAX_POLLS = 60;
@@ -74,7 +75,7 @@ export function AdDrafts({ canManage, refreshKey }: { canManage: boolean; refres
   };
 
   if (!drafts || drafts.length === 0) return null;
-  const budget = (d: AdDraftDto) => (d.currency && isCurrencyCode(d.currency) ? formatMoney(d.dailyBudget, d.currency) : formatMoneyValue(d.dailyBudget / 100, null));
+  const budget = (d: AdDraftDto) => (d.currency && isCurrencyCode(d.currency) ? formatMoney(d.dailyBudget, d.currency, { locale: 'en' }) : formatMoneyValue(d.dailyBudget / 100, null));
 
   return (
     <section aria-labelledby="ad-drafts-title" className="rounded-xl border border-border bg-card p-4" data-testid="ad-drafts">

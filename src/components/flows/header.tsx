@@ -44,6 +44,7 @@ import {
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   DropdownMenu,
@@ -96,6 +97,7 @@ export function EditorHeader({ view, onViewChange, previewOpen, onTogglePreview,
   const t = useTranslations("Flows.header");
   const tHistory = useTranslations("Flows.history");
   const tAuto = useTranslations("Flows.autosave");
+  const confirm = useConfirm();
   const tCanvas = useTranslations("Flows.canvas");
   const tBuilder = useTranslations("Flows.builder");
   const {
@@ -116,7 +118,7 @@ export function EditorHeader({ view, onViewChange, previewOpen, onTogglePreview,
   // Runs is another page: save what is pending first, and ask only when that save failed.
   const openRuns = async () => {
     const saved = !dirty || (await flush());
-    if (saved || window.confirm(tAuto("leaveWarning"))) router.push(`/flows/${flow.id}/runs`);
+    if (saved || (await confirm({ title: tAuto("leaveWarning"), confirmLabel: tAuto("leave"), destructive: true }))) router.push(`/flows/${flow.id}/runs`);
   };
   const [duplicating, setDuplicating] = useState(false);
   // The copy is made from the saved draft, so save what is pending first.

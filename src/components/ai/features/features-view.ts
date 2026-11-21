@@ -16,7 +16,6 @@ export const FEATURES: { key: FeatureKey; setting: SettingKey }[] = [
 ]
 
 export const TEAM_LANGUAGES = ['en', 'hi', 'te', 'ta', 'mr', 'kn', 'ml', 'bn', 'gu', 'pa', 'es', 'pt', 'ko', 'fr', 'de', 'ar'] as const
-export type TeamLanguage = (typeof TEAM_LANGUAGES)[number]
 
 export const LIMIT_PRESETS = [1_000_000, 3_000_000, 5_000_000, 10_000_000] as const
 export const MIN_LIMIT = 100_000

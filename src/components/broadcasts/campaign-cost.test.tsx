@@ -26,15 +26,15 @@ describe('wizard cost estimate', () => {
   it('prices one currency without a currency choice', () => {
     const html = render(<EstimateSummary estimate={estimate()} onCurrency={noop} />);
     expect(html).toContain('₹');
-    expect(html).not.toContain('<select');
+    expect(html).not.toContain('aria-label="Analytics.cost.currency"');
     expect(html).toContain('Analytics.cost.missingCountries');
     expect(html).not.toContain('missingCountriesInCurrency');
   });
 
   it('offers the other currencies and says a country lacks a rate in this currency, not at all', () => {
     const html = render(<EstimateSummary estimate={estimate({ currencies: ['INR', 'USD'] })} onCurrency={noop} />);
-    expect(html).toContain('<select');
-    expect(html).toContain('<option value="USD">USD</option>');
+    // The currency menu (the shared Select): its trigger shows the chosen currency's label.
+    expect(html).toMatch(/data-slot="select-trigger"[^>]*aria-label="Analytics.cost.currency"|aria-label="Analytics.cost.currency"[^>]*data-slot="select-trigger"/);
     expect(html).toContain('Analytics.cost.missingCountriesInCurrency');
     const none = render(<EstimateSummary estimate={estimate({ currencies: ['INR', 'USD'], byCountry: [], total: 0 })} onCurrency={noop} />);
     expect(none).toContain('Analytics.cost.noCurrencyRate');

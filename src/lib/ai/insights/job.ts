@@ -42,10 +42,6 @@ import {
 
 export const AI_INSIGHT_JOB = 'ai.insight_run';
 
-export interface InsightJobPayload {
-  runId: string;
-}
-
 export const insightJobDedupeKey = (runId: string): string => `ai-insight:${runId}`;
 
 export interface InsightJobDeps {

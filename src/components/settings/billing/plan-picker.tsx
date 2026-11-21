@@ -11,7 +11,8 @@ import { useLocale, useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
-import { formatAmount, type Interval, type PlanPrice, type SubscriptionView } from './types';
+import { formatMajor } from '@/lib/format/money';
+import { type Interval, type PlanPrice, type SubscriptionView } from './types';
 
 const LIVE = new Set(['trialing', 'active', 'past_due', 'grace']);
 
@@ -54,7 +55,7 @@ export function PlanPicker({ prices, subscription, canManage, busyPlan, onChoose
               <li key={`${p.plan}-${p.interval}`} className={cn('flex flex-col gap-2 rounded-lg border p-4', current && 'border-primary')}>
                 <span className="font-medium text-foreground">{label(p.plan)}</span>
                 <span className="text-2xl font-semibold text-foreground">
-                  {formatAmount(p.amountMinor, p.currency, locale)}
+                  {formatMajor(p.amountMinor / 100, p.currency, { locale })}
                   <span className="text-sm font-normal text-muted-foreground"> / {t(`per.${p.interval}`)}</span>
                 </span>
                 <span className="text-xs text-muted-foreground">{t('gstNote')}</span>

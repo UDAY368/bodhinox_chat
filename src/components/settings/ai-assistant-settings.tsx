@@ -21,11 +21,14 @@ import { useTranslations } from 'next-intl';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { InlineError } from '@/components/ui/inline-error';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Checkbox } from '@/components/ui/checkbox';
+import { SegmentedControl } from '@/components/ui/segmented-control';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { authFetch } from '@/lib/auth/client';
 import { useWorkspaceChannels } from '@/hooks/use-workspace-channels';
 import { AUTO_REPLY_LEAD_FIELDS, autoReplyGoalsProblem } from '@/lib/ai/goal-rules';
@@ -85,7 +88,6 @@ export function moveGoal(goals: readonly AiGoal[], from: number, delta: -1 | 1):
 }
 
 const NO_GOALS: AiGoal[] = [];
-const fieldClass = 'border-input bg-background h-9 w-full rounded-md border px-2 text-sm';
 
 /** The Instagram goals editor (Settings -> AI assistant). */
 export function InstagramGoalsEditor({ initial, busy, onSave }: {
@@ -130,10 +132,15 @@ export function InstagramGoalsEditor({ initial, busy, onSave }: {
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-sm font-medium">{tg('goalLabel', { n: index + 1 })}</span>
                 <label className="sr-only" htmlFor={`${id}-type`}>{tg('type')}</label>
-                <select id={`${id}-type`} className={`${fieldClass} w-auto`} value={goal.type} disabled={busy}
-                  onChange={(e) => update(index, blankGoal(e.target.value as AiGoalType))}>
-                  {[goal.type, ...unused].map((type) => <option key={type} value={type}>{tg(`types.${type}`)}</option>)}
-                </select>
+                <Select value={goal.type} disabled={busy}
+                  onValueChange={(v) => { if (v) update(index, blankGoal(v as AiGoalType)); }}>
+                  <SelectTrigger id={`${id}-type`} className="min-h-11 sm:min-h-8">
+                    <SelectValue>{(v: string) => tg(`types.${v as AiGoalType}`)}</SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {[goal.type, ...unused].map((type) => <SelectItem key={type} value={type}>{tg(`types.${type}`)}</SelectItem>)}
+                  </SelectContent>
+                </Select>
                 <span className="ml-auto flex gap-1">
                   <Button type="button" size="icon" variant="ghost" aria-label={tg('moveUp')} disabled={busy || index === 0}
                     onClick={() => setGoals((list) => moveGoal(list, index, -1))}><ArrowUp className="size-4" aria-hidden="true" /></Button>
@@ -177,13 +184,14 @@ export function InstagramGoalsEditor({ initial, busy, onSave }: {
                       ))}
                     </div>
                   </fieldset>
-                  <div className="max-w-xs space-y-1">
-                    <Label htmlFor={`${id}-refusal`}>{tg('onRefusal')}</Label>
-                    <select id={`${id}-refusal`} className={fieldClass} value={goal.on_refusal} disabled={busy}
-                      onChange={(e) => update(index, { ...goal, on_refusal: e.target.value === 'handoff' ? 'handoff' : 'continue' })}>
-                      <option value="continue">{tg('refusalContinue')}</option>
-                      <option value="handoff">{tg('refusalHandoff')}</option>
-                    </select>
+                  <div className="space-y-1">
+                    <p className="text-sm font-medium">{tg('onRefusal')}</p>
+                    <SegmentedControl aria-label={tg('onRefusal')} value={goal.on_refusal}
+                      onValueChange={(v) => { if (!busy) update(index, { ...goal, on_refusal: v }); }}
+                      options={[
+                        { value: 'continue', label: tg('refusalContinue'), disabled: busy },
+                        { value: 'handoff', label: tg('refusalHandoff'), disabled: busy },
+                      ]} />
                   </div>
                 </div>
               )}
@@ -277,10 +285,7 @@ export function AiAssistantSettings() {
       </CardHeader>
       <CardContent className="space-y-5">
         {loadFailed && (
-          <div className="flex items-center gap-3 text-sm">
-            <p className="text-destructive">{t('loadFailed')}</p>
-            <Button type="button" size="sm" variant="outline" onClick={() => void load()}>{t('retry')}</Button>
-          </div>
+          <InlineError message={t('loadFailed')} onRetry={() => void load()} />
         )}
         {!view && !loadFailed && <Loader2 className="text-muted-foreground size-4 animate-spin" aria-label={t('loading')} />}
         {view && status && (

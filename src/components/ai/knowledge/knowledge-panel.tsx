@@ -18,7 +18,11 @@ import {
 import { authFetch } from '@/lib/auth/client';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import { EmptyState } from '@/components/ui/empty-state';
+import { InlineError } from '@/components/ui/inline-error';
+import { PageLoading } from '@/components/ui/page-loading';
+import { SegmentedControl } from '@/components/ui/segmented-control';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
@@ -69,20 +73,21 @@ export function KnowledgePanel({ canEdit, hasEmbeddingsKey = true, onChange, can
   const [dialog, setDialog] = useState<SourceDialogState | null>(null);
   const [viewing, setViewing] = useState<KnowledgeSourceView | null>(null);
   const [deleting, setDeleting] = useState<KnowledgeSourceView | null>(null);
+  const [loadError, setLoadError] = useState(false);
 
   const load = useCallback(async (quiet = false) => {
     if (!quiet) setLoading(true);
     try {
       const res = await authFetch('/api/ai/knowledge/sources');
       const data = await res.json().catch(() => ({}));
-      if (res.ok) setSources(data.sources ?? []);
-      else if (!quiet) toast.error(data.error ?? tk('loadFailed'));
+      if (res.ok) { setSources(data.sources ?? []); setLoadError(false); }
+      else if (!quiet) setLoadError(true);
     } catch {
-      if (!quiet) toast.error(tk('loadFailed'));
+      if (!quiet) setLoadError(true);
     } finally {
       if (!quiet) setLoading(false);
     }
-  }, [tk]);
+  }, []);
   useEffect(() => { void load(); }, [load]);
 
   const polling = shouldPoll(sources);
@@ -221,40 +226,40 @@ export function KnowledgePanel({ canEdit, hasEmbeddingsKey = true, onChange, can
       )}
 
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex min-w-0 flex-wrap gap-1.5" role="group" aria-label={t('typeLabel')}>
-          {SOURCE_GROUPS.map((g) => (
-            <button key={g} type="button" aria-pressed={group === g} onClick={() => setGroup(g)}
-              className={cn('inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-[13px] font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50',
-                group === g ? 'border-primary bg-primary-soft text-primary' : 'border-border bg-card text-muted-foreground hover:text-foreground')}>
-              {t(`types.${g}`)}<b className="font-semibold tabular-nums">{count(g)}</b>
-            </button>
-          ))}
-        </div>
+        <SegmentedControl
+          aria-label={t('typeLabel')}
+          value={group}
+          onValueChange={setGroup}
+          options={SOURCE_GROUPS.map((g) => ({ value: g, label: t(`types.${g}`), count: count(g) }))}
+        />
         <div className="flex w-full min-w-0 items-center gap-2 sm:w-auto">
-          <label className="relative flex h-9 min-w-0 flex-1 items-center sm:w-56 sm:flex-none">
+          <label className="relative flex min-h-11 min-w-0 flex-1 items-center sm:w-56 sm:flex-none">
             <Search className="pointer-events-none absolute left-3 size-4 text-muted-foreground" aria-hidden />
             <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t('search')} aria-label={t('search')}
-              className="h-9 w-full rounded-full border border-border bg-card pr-3 pl-9 text-sm outline-none transition-colors duration-150 placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30" />
+              className="h-11 w-full rounded-full border border-border bg-card pr-3 pl-9 sm:h-9 text-sm outline-none transition-colors duration-150 placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30" />
           </label>
-          {canEdit && <Button type="button" variant="outline" className="h-9 shrink-0" onClick={() => setDialog({ kind: 'add' })}><Plus aria-hidden />{t('addShort')}</Button>}
+          {canEdit && <Button type="button" variant="outline" className="min-h-11 shrink-0 sm:min-h-9" onClick={() => setDialog({ kind: 'add' })}><Plus aria-hidden />{t('addShort')}</Button>}
         </div>
       </div>
 
       {loading ? (
-        <div className="flex justify-center py-8"><Loader2 className="size-5 animate-spin text-muted-foreground" aria-label={tc('loading')} /></div>
+        <PageLoading rows={4} />
+      ) : loadError ? (
+        <InlineError message={tk('loadFailed')} onRetry={() => void load()} />
       ) : sources.length === 0 ? (
-        <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-border px-4 py-12 text-center">
-          <span className="flex size-11 items-center justify-center rounded-xl bg-primary-soft text-primary"><BookOpen className="size-5" aria-hidden /></span>
-          <h2 className="text-base font-semibold">{t('emptyTitle')}</h2>
-          <p className="max-w-sm text-sm text-muted-foreground">{t('emptyBody')}</p>
-          {canEdit && <Button type="button" variant="outline" onClick={() => setDialog({ kind: 'add' })}><Plus aria-hidden />{t('addFirst')}</Button>}
-        </div>
+        <EmptyState
+          icon={BookOpen}
+          title={t('emptyTitle')}
+          body={t('emptyBody')}
+          action={canEdit ? <Button type="button" variant="outline" onClick={() => setDialog({ kind: 'add' })}><Plus aria-hidden />{t('addFirst')}</Button> : undefined}
+        />
       ) : list.length === 0 ? (
-        <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-border px-4 py-12 text-center">
-          <h2 className="text-base font-semibold">{t('noMatchTitle')}</h2>
-          <p className="text-sm text-muted-foreground">{t('noMatchBody')}</p>
-          <Button type="button" variant="outline" onClick={() => { setGroup('all'); setQuery(''); }}>{t('clearFilters')}</Button>
-        </div>
+        <EmptyState
+          icon={Search}
+          title={t('noMatchTitle')}
+          body={t('noMatchBody')}
+          action={<Button type="button" variant="outline" onClick={() => { setGroup('all'); setQuery(''); }}>{t('clearFilters')}</Button>}
+        />
       ) : (
         <div className="overflow-hidden rounded-xl border border-border bg-card" role="table" aria-label={t('tableLabel')}>
           <div role="row" className={cn(ROW, 'hidden bg-muted py-2 text-xs font-semibold text-muted-foreground md:grid')}>
@@ -302,7 +307,7 @@ export function KnowledgePanel({ canEdit, hasEmbeddingsKey = true, onChange, can
                   )}
                   <DropdownMenu>
                     <DropdownMenuTrigger aria-label={t('more', { title: s.title })}
-                      className="inline-flex size-8 items-center justify-center rounded-full text-muted-foreground transition-colors duration-150 hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 data-[popup-open]:bg-muted">
+                      className="inline-flex size-11 items-center justify-center rounded-full text-muted-foreground sm:size-8 transition-colors duration-150 hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 data-[popup-open]:bg-muted">
                       <MoreHorizontal className="size-4" aria-hidden />
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
@@ -348,18 +353,16 @@ export function KnowledgePanel({ canEdit, hasEmbeddingsKey = true, onChange, can
         <SourceDetailDialog source={viewing} canEdit={canEdit} onClose={() => setViewing(null)}
           onEdit={(state) => { setViewing(null); setDialog(state); }} />
       )}
-      <Dialog open={deleting !== null} onOpenChange={(open) => { if (!open) setDeleting(null); }}>
-        <DialogContent className="border-border bg-popover sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="break-words">{t('deleteTitle', { title: deleting?.title ?? '' })}</DialogTitle>
-            <DialogDescription>{t('deleteBody')}</DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setDeleting(null)}>{tc('cancel')}</Button>
-            <Button type="button" variant="destructive" disabled={!deleting || pending === deleting.id} onClick={() => deleting && void remove(deleting)}>{t('deleteConfirm')}</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ConfirmDialog
+        open={deleting !== null}
+        onOpenChange={(open) => { if (!open) setDeleting(null); }}
+        title={t('deleteTitle', { title: deleting?.title ?? '' })}
+        body={t('deleteBody')}
+        cancelLabel={tc('cancel')}
+        confirmLabel={t('deleteConfirm')}
+        destructive
+        onConfirm={async () => { if (deleting) await remove(deleting); }}
+      />
     </div>
   );
 }

@@ -15,19 +15,20 @@ import {
 import { parseInternationalPhone } from '@/lib/whatsapp/phone-utils';
 import { MASK_CHAR } from '@/lib/inbox/masking';
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from '@/components/ui/dialog';
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+  SheetFooter,
+} from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Loader2, AlertTriangle } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { saveContactField, useContactMembers } from './contacts-client';
+import { OptionSelect } from '@/components/ui/option-select';
 
 interface ContactFormProps {
   open: boolean;
@@ -260,20 +261,20 @@ export function ContactForm({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90dvh] overflow-y-auto bg-popover border-border text-popover-foreground sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle className="text-popover-foreground">
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent size="md" className="overflow-y-auto">
+        <SheetHeader>
+          <SheetTitle>
             {isEdit ? t('editTitle') : t('addTitle')}
-          </DialogTitle>
-          <DialogDescription className="text-muted-foreground">
+          </SheetTitle>
+          <SheetDescription>
             {isEdit
               ? t('editDesc')
               : t('addDesc')}
-          </DialogDescription>
-        </DialogHeader>
+          </SheetDescription>
+        </SheetHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4 px-4">
           <div className="space-y-2">
             <Label htmlFor="cf-name" className="text-muted-foreground">
               {t('nameLabel')}
@@ -382,20 +383,17 @@ export function ContactForm({
             <Label htmlFor="cf-owner" className="text-muted-foreground">
               {tx('fields.owner')}
             </Label>
-            <select
+            <OptionSelect
               id="cf-owner"
               value={ownerId}
-              onChange={(e) => setOwnerId(e.target.value)}
-              className="h-9 w-full rounded-lg border border-border bg-muted px-2.5 text-sm text-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
-            >
-              <option value="">{tx('owner.noOne')}</option>
-              {members.map((m) => (
-                <option key={m.user_id} value={m.user_id}>{m.full_name || tx('owner.unnamedMember')}</option>
-              ))}
-              {ownerId && !members.some((m) => m.user_id === ownerId) && members.length > 0 && (
-                <option value={ownerId}>{tx('owner.formerMember')}</option>
-              )}
-            </select>
+              onValueChange={setOwnerId}
+              className="h-9 bg-muted"
+              options={[
+                { value: '', label: tx('owner.noOne') },
+                ...members.map((m) => ({ value: m.user_id, label: m.full_name || tx('owner.unnamedMember') })),
+                ...(ownerId && !members.some((m) => m.user_id === ownerId) && members.length > 0 ? [{ value: ownerId, label: tx('owner.formerMember') }] : []),
+              ]}
+            />
           </div>
 
           <div className="space-y-2">
@@ -437,7 +435,7 @@ export function ContactForm({
             )}
           </div>
 
-          <DialogFooter className="bg-popover border-border">
+          <SheetFooter className="flex-row justify-end px-0">
             <Button
               type="button"
               variant="outline"
@@ -453,9 +451,9 @@ export function ContactForm({
               {saving && <Loader2 className="size-4 animate-spin" />}
               {isEdit ? t('update') : t('create')}
             </Button>
-          </DialogFooter>
+          </SheetFooter>
         </form>
-      </DialogContent>
-    </Dialog>
+      </SheetContent>
+    </Sheet>
   );
 }

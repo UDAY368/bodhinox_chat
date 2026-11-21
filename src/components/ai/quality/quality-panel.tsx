@@ -11,12 +11,16 @@ import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useFormatter, useTranslations } from 'next-intl';
 import { toast } from 'sonner';
-import { Loader2, ShieldCheck, ThumbsDown, ThumbsUp } from 'lucide-react';
+import { MessageSquare, ShieldCheck, ThumbsDown, ThumbsUp } from 'lucide-react';
 import { authFetch } from '@/lib/auth/client';
 import { Badge } from '@/components/ui/badge';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { segmentedItem, segmentedTrack } from '@/components/dashboard/segmented';
+import { EmptyState } from '@/components/ui/empty-state';
+import { InlineError } from '@/components/ui/inline-error';
+import { PageLoading } from '@/components/ui/page-loading';
+import { SegmentedControl } from '@/components/ui/segmented-control';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import { applyVote, OUTCOMES, REPLY_FILTERS, share, type QualityReplyView, type QualityView, type ReplyFilter } from './quality-view';
 
@@ -67,13 +71,10 @@ export function QualityPanel({ onWriteAnswer }: { onWriteAnswer?: (question: str
 
   if (failed) {
     return (
-      <div className="flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card p-4 text-sm">
-        <p className="text-destructive">{tc('loadFailed')}</p>
-        <Button type="button" size="sm" variant="outline" onClick={() => void load(filter)}>{tc('retry')}</Button>
-      </div>
+      <InlineError message={tc('loadFailed')} onRetry={() => void load(filter)} />
     );
   }
-  if (!view) return <div className="flex justify-center py-10"><Loader2 className="size-5 animate-spin text-muted-foreground" aria-label={tc('loading')} /></div>;
+  if (!view) return <PageLoading rows={5} />;
 
   const o = view.outcomes;
   const shown = o.accepted + o.edited + o.rejected + o.unused;
@@ -107,10 +108,12 @@ export function QualityPanel({ onWriteAnswer }: { onWriteAnswer?: (question: str
         <section className="min-w-0 rounded-xl border border-border bg-card p-4" aria-labelledby="ai-q-chart">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h2 id="ai-q-chart" className="text-base font-semibold">{chart === 'day' ? t('chartDay') : t('chartOutcome')}</h2>
-            <div className={segmentedTrack} role="group" aria-label={t('chartLabel')}>
-              <button type="button" aria-pressed={chart === 'day'} className={segmentedItem(chart === 'day')} onClick={() => setChart('day')}>{t('byDay')}</button>
-              <button type="button" aria-pressed={chart === 'outcome'} className={segmentedItem(chart === 'outcome')} onClick={() => setChart('outcome')}>{t('byOutcome')}</button>
-            </div>
+            <SegmentedControl
+              aria-label={t('chartLabel')}
+              value={chart}
+              onValueChange={setChart}
+              options={[{ value: 'day', label: t('byDay') }, { value: 'outcome', label: t('byOutcome') }]}
+            />
           </div>
           {chart === 'day' ? (
             <div className="mt-4 flex flex-col gap-2">
@@ -181,22 +184,22 @@ export function QualityPanel({ onWriteAnswer }: { onWriteAnswer?: (question: str
 
       <div className="flex flex-wrap items-center justify-between gap-2 pt-3">
         <h2 className="text-base font-semibold">{t('repliesTitle')}</h2>
-        <div className="flex flex-wrap gap-1.5" role="group" aria-label={t('filterLabel')}>
-          {REPLY_FILTERS.map((f) => (
-            <button key={f} type="button" aria-pressed={filter === f} onClick={() => setFilter(f)}
-              className={cn('inline-flex h-8 items-center rounded-full border px-3 text-[13px] font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50',
-                filter === f ? 'border-primary bg-primary-soft text-primary' : 'border-border bg-card text-muted-foreground hover:text-foreground')}>
-              {t(`filters.${f}`)}
-            </button>
-          ))}
-        </div>
+        <Select value={filter} onValueChange={(v) => { if (v) setFilter(v as ReplyFilter); }}>
+          <SelectTrigger aria-label={t('filterLabel')} className="min-h-11 w-full sm:min-h-9 sm:w-48">
+            <SelectValue>{(v: string) => t(`filters.${v}`)}</SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            {REPLY_FILTERS.map((f) => <SelectItem key={f} value={f}>{t(`filters.${f}`)}</SelectItem>)}
+          </SelectContent>
+        </Select>
       </div>
       {view.replies.length === 0 ? (
-        <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-border px-4 py-10 text-center">
-          <h3 className="text-base font-semibold">{t('nothing')}</h3>
-          <p className="text-sm text-muted-foreground">{filter === 'all' ? t('nothingYet') : t('nothingBody')}</p>
-          {filter !== 'all' && <Button type="button" variant="outline" onClick={() => setFilter('all')}>{t('showAll')}</Button>}
-        </div>
+        <EmptyState
+          icon={MessageSquare}
+          title={t('nothing')}
+          body={filter === 'all' ? t('nothingYet') : t('nothingBody')}
+          action={filter !== 'all' ? <Button type="button" variant="outline" onClick={() => setFilter('all')}>{t('showAll')}</Button> : undefined}
+        />
       ) : (
         <div className="overflow-hidden rounded-xl border border-border bg-card" role="table" aria-label={t('repliesTitle')}>
           <div role="row" className="hidden grid-cols-[170px_minmax(0,1fr)_130px_84px] gap-3.5 bg-muted px-4 py-2 text-xs font-semibold text-muted-foreground md:grid xl:grid-cols-[200px_minmax(0,1fr)_150px_84px]">

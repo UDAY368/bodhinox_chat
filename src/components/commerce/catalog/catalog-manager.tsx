@@ -15,6 +15,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { GatedButton } from "@/components/ui/gated-button";
 import { Label } from "@/components/ui/label";
+import { OptionSelect } from "@/components/ui/option-select";
 import { Switch } from "@/components/ui/switch";
 import {
   Dialog,
@@ -24,6 +25,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { authFetch } from "@/lib/auth/client";
 import {
   connectCatalog,
@@ -35,6 +37,8 @@ import {
   type CatalogPublic,
   type MetaCatalogChoice,
 } from "./catalog-api";
+import { PageLoading } from "@/components/ui/page-loading";
+import { EmptyState } from "@/components/ui/empty-state";
 
 interface NumberOption {
   id: string;
@@ -151,13 +155,9 @@ export function CatalogManager({ canManage, onChanged }: { canManage: boolean; o
       </div>
 
       {catalogs === null ? (
-        <div className="flex justify-center p-6"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" aria-label={t("loading")} /></div>
+        <PageLoading rows={3} />
       ) : catalogs.length === 0 ? (
-        <div className="flex flex-col items-center rounded-xl border border-dashed border-border px-6 py-10 text-center">
-          <span className="flex size-[52px] items-center justify-center rounded-2xl bg-primary/10 text-primary"><Store className="size-6" /></span>
-          <p className="mt-3 text-sm font-medium text-foreground">{t("emptyTitle")}</p>
-          <p className="mt-1 max-w-md text-xs text-muted-foreground">{t("emptyDesc")}</p>
-        </div>
+        <EmptyState icon={Store} title={t("emptyTitle")} body={t("emptyDesc")} />
       ) : (
         <ul className="grid gap-3 md:grid-cols-2">
           {catalogs.map((catalog) => (
@@ -303,31 +303,38 @@ function ConnectCatalogDialog({ open, onOpenChange, onConnected }: {
     }
   }
 
-  const select = "h-9 w-full rounded-lg border border-border bg-card px-2.5 text-sm text-foreground";
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>{t("title")}</DialogTitle>
-          <DialogDescription>{t("description")}</DialogDescription>
-        </DialogHeader>
-        <div className="space-y-4">
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent size="md" className="w-full gap-0">
+        <SheetHeader>
+          <SheetTitle>{t("title")}</SheetTitle>
+          <SheetDescription>{t("description")}</SheetDescription>
+        </SheetHeader>
+        <div className="flex-1 space-y-4 overflow-y-auto px-4 pb-4">
           <div className="space-y-1.5">
             <Label htmlFor="catalog-connect-number">{t("number")}</Label>
-            <select id="catalog-connect-number" className={select} value={numberId} onChange={(e) => setNumberId(e.target.value)} disabled={numbers === null}>
-              <option value="">{numbers === null ? t("loading") : numbers.length ? t("pickNumber") : t("noNumbers")}</option>
-              {(numbers ?? []).map((n) => <option key={n.id} value={n.id}>{n.display_name || n.phone_number_id}</option>)}
-            </select>
+            <OptionSelect fit
+              id="catalog-connect-number"
+              className="w-full"
+              value={numberId}
+              onValueChange={setNumberId}
+              disabled={numbers === null}
+              placeholder={numbers === null ? t("loading") : numbers.length ? t("pickNumber") : t("noNumbers")}
+              options={(numbers ?? []).map((n) => ({ value: n.id, label: n.display_name || n.phone_number_id }))}
+            />
           </div>
           {numberId && (
             <div className="space-y-1.5">
               <Label htmlFor="catalog-connect-catalog">{t("catalog")}</Label>
-              <select id="catalog-connect-catalog" className={select} value={catalogId} onChange={(e) => setCatalogId(e.target.value)} disabled={choices === null}>
-                <option value="">{choices === null ? t("loading") : choices.length ? t("pickCatalog") : t("noCatalogs")}</option>
-                {(choices ?? []).map((c) => (
-                  <option key={c.id} value={c.id}>{c.linked ? t("linkedOption", { name: c.name || c.id }) : c.name || c.id}</option>
-                ))}
-              </select>
+              <OptionSelect fit
+                id="catalog-connect-catalog"
+                className="w-full"
+                value={catalogId}
+                onValueChange={setCatalogId}
+                disabled={choices === null}
+                placeholder={choices === null ? t("loading") : choices.length ? t("pickCatalog") : t("noCatalogs")}
+                options={(choices ?? []).map((c) => ({ value: c.id, label: c.linked ? t("linkedOption", { name: c.name || c.id }) : c.name || c.id }))}
+              />
               {choicesError && <p role="alert" className="text-xs text-destructive">{choicesError}</p>}
             </div>
           )}
@@ -342,14 +349,14 @@ function ConnectCatalogDialog({ open, onOpenChange, onConnected }: {
           <p className="text-xs text-muted-foreground">{t("help")}</p>
           {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
         </div>
-        <DialogFooter>
+        <SheetFooter className="border-t border-border sm:flex-row sm:justify-end">
           <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={saving}>{t("cancel")}</Button>
           <Button onClick={() => void submit()} disabled={!numberId || !catalogId || saving}>
             {saving && <Loader2 className="h-4 w-4 animate-spin" />}
             {t("submit")}
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </SheetFooter>
+      </SheetContent>
+    </Sheet>
   );
 }

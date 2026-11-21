@@ -20,7 +20,9 @@ import {
   createLocation, fetchInventory, fetchLocations, fetchTransfers, fetchVariantLocations, transferStock, updateLocation,
   type InventoryRow, type LocationQuantity, type StockLocation, type StockTransfer,
 } from "./catalogue-api";
-import { selectClass, useCatalogueError } from "./catalogue-admin";
+import { useCatalogueError } from "./catalogue-admin";
+import { OptionSelect } from "@/components/ui/option-select";
+import { PageLoading } from "@/components/ui/page-loading";
 
 export const variantLabel = (row: Pick<InventoryRow, "product_name" | "option_values" | "sku">) =>
   [row.product_name, Object.values(row.option_values).join(" / "), row.sku].filter(Boolean).join(" · ");
@@ -91,7 +93,7 @@ export function LocationsPanel({ canManage }: { canManage: boolean }) {
   };
   const nameOf = (id: string) => locations?.find((l) => l.id === id)?.name ?? "";
 
-  if (locations === null) return <div className="flex justify-center p-6"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>;
+  if (locations === null) return <PageLoading rows={3} />;
   return (
     <section className="space-y-6">
       <div className="space-y-2">
@@ -192,15 +194,27 @@ function TransferForm({ locations, onDone }: { locations: StockLocation[]; onDon
       <form className="grid gap-3 sm:grid-cols-4" onSubmit={(e) => { e.preventDefault(); void submit(); }}>
         <div className="space-y-1">
           <Label htmlFor="tr-from">{t("from")}</Label>
-          <select id="tr-from" className={`${selectClass} w-full`} value={from} onChange={(e) => { setFrom(e.target.value); fresh(); }}>
-            {locations.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
-          </select>
+          <OptionSelect fit
+            id="tr-from"
+            value={from}
+            onValueChange={(v) => { setFrom(v); fresh(); }}
+            className="w-full"
+            options={[
+              ...locations.map((l) => ({ value: l.id, label: l.name })),
+            ]}
+          />
         </div>
         <div className="space-y-1">
           <Label htmlFor="tr-to">{t("to")}</Label>
-          <select id="tr-to" className={`${selectClass} w-full`} value={to} onChange={(e) => { setTo(e.target.value); fresh(); }}>
-            {locations.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
-          </select>
+          <OptionSelect fit
+            id="tr-to"
+            value={to}
+            onValueChange={(v) => { setTo(v); fresh(); }}
+            className="w-full"
+            options={[
+              ...locations.map((l) => ({ value: l.id, label: l.name })),
+            ]}
+          />
         </div>
         <div className="space-y-1">
           <Label htmlFor="tr-qty">{t("quantity")}</Label>

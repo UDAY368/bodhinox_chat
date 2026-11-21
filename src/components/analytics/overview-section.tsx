@@ -117,7 +117,7 @@ export function ConversationCharts({
   const stats = data?.current;
   const count = t('count');
   const states = stats
-    ? (['bot', 'requesting', 'assigned', 'resolved'] as const).map((key) => ({ name: t(`state.${key}`), [count]: stats.byLifecycle[key] }))
+    ? LIFECYCLE_KEYS.map((key) => ({ name: t(`state.${key}`), [count]: stats.byLifecycle[key] }))
     : [];
   const sources = stats
     ? (['inbound', 'business', 'campaignReply', 'ad'] as const).map((key) => ({ name: t(`source.${key}`), [count]: stats.started[key] }))
@@ -126,7 +126,6 @@ export function ConversationCharts({
   const timing = stats
     ? [
         { name: t('firstResponse'), median: stats.firstResponse.medianSeconds, p90: stats.firstResponse.p90Seconds, n: stats.firstResponse.count },
-        { name: t('humanFirstResponse'), median: stats.humanFirstResponse.medianSeconds, p90: stats.humanFirstResponse.p90Seconds, n: stats.humanFirstResponse.count },
         { name: t('resolutionTime'), median: stats.resolution.medianSeconds, p90: stats.resolution.p90Seconds, n: stats.resolution.count },
       ]
     : [];
@@ -142,6 +141,7 @@ export function ConversationCharts({
             chart={<BarChart className="h-56" data={states} index="name" categories={[count]} colors={['chart1']} valueFormatter={number} showLegend={false} allowDecimals={false} />}
             columns={[t('stateColumn'), count]}
             rows={states.map((s) => [s.name, s[count] as number])}
+            records={LIFECYCLE_KEYS.map((key) => ({ name: t(`state.${key}`), href: `/inbox?filter=lifecycle-${key}` }))}
           />
         </ReportState>
       </Panel>
@@ -184,6 +184,9 @@ export function ConversationCharts({
     </div>
   );
 }
+
+/** Current lifecycle states; each opens the inbox filtered to it (lifecycle-* folder filters). */
+const LIFECYCLE_KEYS = ['bot', 'requesting', 'assigned', 'resolved'] as const;
 
 function toMinutes(seconds: number | null): number {
   return seconds == null ? 0 : Math.round((seconds / 60) * 10) / 10;

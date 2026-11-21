@@ -21,6 +21,7 @@ import {
   comboCount, mapRows, MAX_OPTION_NAMES, MAX_OPTION_VALUES, MAX_VARIANTS, optionCombos, type ProductOption,
 } from "@/lib/commerce/catalogue/variant-matrix";
 import { freshRow, imageKey, type FormImage, type ProductFormState, type RowErrorKey, type VariantRow } from "./product-form-state";
+import { Checkbox } from "@/components/ui/checkbox";
 
 type Patch = (fn: (f: ProductFormState) => Partial<ProductFormState>) => void;
 
@@ -234,7 +235,7 @@ export function VariantDetails({ row, images, currency, readOnly, physical, erro
       </div>
       {show("track") && (
         <label className="flex min-h-11 items-center gap-2 text-sm sm:min-h-0">
-          <input type="checkbox" className="size-4" checked={row.track} disabled={readOnly} onChange={(e) => onChange({ track: e.target.checked })} />
+          <Checkbox checked={row.track} disabled={readOnly} onCheckedChange={(checked) => onChange({ track: checked })} />
           {t("trackInventory")}
           {row.id && row.track && <span className="text-xs text-muted-foreground">{t("reserved", { count: row.reserved })}</span>}
         </label>
@@ -270,7 +271,7 @@ export function PreorderFields({ row, readOnly, errors, onChange }: {
   return (
     <div className="space-y-2">
       <label className="flex items-start gap-2 text-sm">
-        <input type="checkbox" className="mt-0.5 size-4" checked={row.preorder} disabled={readOnly} onChange={(e) => onChange({ preorder: e.target.checked })} />
+        <Checkbox className="mt-0.5" checked={row.preorder} disabled={readOnly} onCheckedChange={(checked) => onChange({ preorder: checked })} />
         <span>
           <span className="block font-medium">{t("preorder")}</span>
           <span className="block text-xs text-muted-foreground">{t("preorderHint")}</span>

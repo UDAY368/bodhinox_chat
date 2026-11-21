@@ -11,11 +11,17 @@ import { useCallback, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { format } from "date-fns";
-import { ArrowLeft, Loader2, RotateCcw, XCircle } from "lucide-react";
+import { ArrowLeft, Loader2, RotateCcw, SearchX, XCircle } from "lucide-react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { useConfirm } from "@/components/ui/confirm-dialog";
+import { EmptyState } from "@/components/ui/empty-state";
+import { GroupedList } from "@/components/ui/grouped-list";
+import { InlineError } from "@/components/ui/inline-error";
+import { PageHeader } from "@/components/ui/page-header";
+import { PageLoading } from "@/components/ui/page-loading";
 import { authFetch } from "@/lib/auth/client";
 import { cn } from "@/lib/utils";
 import { EventLine, STATUS_META, runStatusKey, type EventRow, type RunRow } from "../run-shared";
@@ -59,6 +65,9 @@ export default function FlowRunDetailPage() {
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [retryToken, setRetryToken] = useState(0);
+  const confirm = useConfirm();
 
   const load = useCallback(async () => {
     const res = await authFetch(`/api/flows/${params.id}/runs/${params.runId}`);
@@ -72,13 +81,14 @@ export default function FlowRunDetailPage() {
 
   useEffect(() => {
     if (!params.id || !params.runId) return;
+    setLoadFailed(false);
     load()
       .catch((err) => {
         console.error(err);
-        toast.error(t("loadError"));
+        setLoadFailed(true);
       })
       .finally(() => setLoading(false));
-  }, [params.id, params.runId, load, t]);
+  }, [params.id, params.runId, load, retryToken]);
 
   async function post(path: string, body?: Record<string, unknown>) {
     setBusy(true);
@@ -101,20 +111,26 @@ export default function FlowRunDetailPage() {
   }
 
   if (loading) {
+    return <div className="mx-auto max-w-4xl p-6"><PageLoading /></div>;
+  }
+  if (loadFailed && !notFound) {
     return (
-      <div className="flex h-full items-center justify-center">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-      </div>
+      <InlineError
+        message={t("loadError")}
+        onRetry={() => {
+          setLoading(true);
+          setRetryToken((n) => n + 1);
+        }}
+      />
     );
   }
   if (notFound || !detail) {
     return (
-      <div className="flex h-full flex-col items-center justify-center gap-3">
-        <p className="text-sm text-muted-foreground">{tEdit("notFound")}</p>
-        <button type="button" onClick={() => router.push(`/flows/${params.id}/runs`)} className="text-sm text-primary hover:opacity-80">
-          {tRun("backToRuns")}
-        </button>
-      </div>
+      <EmptyState
+        icon={SearchX}
+        title={tEdit("notFound")}
+        action={<Button variant="outline" onClick={() => router.push(`/flows/${params.id}/runs`)}>{tRun("backToRuns")}</Button>}
+      />
     );
   }
 
@@ -130,42 +146,51 @@ export default function FlowRunDetailPage() {
         <ArrowLeft className="h-3 w-3" />
         {flow.name}
       </button>
-      <div className="flex flex-wrap items-center gap-2">
-        <h1 className="text-xl font-semibold text-foreground">{contactLabel}</h1>
-        <Badge variant="outline" className={cn("gap-1", meta.classes)}>
-          <StatusIcon className="h-3 w-3" />
-          {t(runStatusKey(run.status))}
-        </Badge>
-        <span className="rounded border border-border px-1.5 py-0.5 text-[10px] text-muted-foreground">
-          {run.version ? t("versionLabel", { version: run.version }) : t("unversioned")}
-        </span>
-      </div>
-      <p className="mt-1 text-xs text-muted-foreground">
-        {t("started", { time: format(new Date(run.started_at), "PP p") })}
-        {run.end_reason ? ` · ${tRun("endReason", { reason: run.end_reason })}` : ""}
-        {detail.failed_node ? ` · ${tRun("failedAt", { node: detail.failed_node })}` : ""}
-      </p>
-
-      <div className="mt-4 flex flex-wrap items-center gap-2">
-        {run.status === "failed" && detail.can.replay && (
-          <Button size="sm" disabled={busy || !detail.replayable.ok}
-            title={detail.replayable.ok ? undefined : tRun(`refusal.${detail.replayable.reason ?? "not_failed"}`)}
-            onClick={() => void post(`/api/flows/${flow.id}/runs/${run.id}/replay`)}>
-            {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RotateCcw className="h-3.5 w-3.5" />}
-            {tRun("replay")}
-          </Button>
-        )}
-        {run.status === "active" && detail.can.cancel && (
-          <Button size="sm" variant="outline" disabled={busy}
-            onClick={() => void post(`/api/flows/${flow.id}/runs/cancel`, { run_id: run.id })}>
-            <XCircle className="h-3.5 w-3.5" />
-            {tRun("cancel")}
-          </Button>
-        )}
-        {run.status === "failed" && !detail.replayable.ok && (
-          <p className="text-xs text-amber-400" data-testid="replay-refusal">{tRun(`refusal.${detail.replayable.reason ?? "not_failed"}`)}</p>
-        )}
-      </div>
+      <PageHeader
+        className="mb-4"
+        title={contactLabel}
+        subtitle={
+          <div className="flex flex-col gap-1.5">
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge variant="outline" className={cn("gap-1", meta.classes)}>
+                <StatusIcon className="h-3 w-3" />
+                {t(runStatusKey(run.status))}
+              </Badge>
+              <span className="rounded border border-border px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                {run.version ? t("versionLabel", { version: run.version }) : t("unversioned")}
+              </span>
+            </div>
+            <p className="text-xs">
+              {t("started", { time: format(new Date(run.started_at), "PP p") })}
+              {run.end_reason ? ` · ${tRun("endReason", { reason: run.end_reason })}` : ""}
+              {detail.failed_node ? ` · ${tRun("failedAt", { node: detail.failed_node })}` : ""}
+            </p>
+          </div>
+        }
+        primaryAction={
+          run.status === "failed" && detail.can.replay ? (
+            <Button disabled={busy || !detail.replayable.ok}
+              title={detail.replayable.ok ? undefined : tRun(`refusal.${detail.replayable.reason ?? "not_failed"}`)}
+              onClick={() => void post(`/api/flows/${flow.id}/runs/${run.id}/replay`)}>
+              {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RotateCcw className="h-3.5 w-3.5" />}
+              {tRun("replay")}
+            </Button>
+          ) : run.status === "active" && detail.can.cancel ? (
+            <Button variant="outline" disabled={busy}
+              onClick={async () => {
+                if (await confirm({ title: tRun("cancelConfirm"), confirmLabel: tRun("cancel"), destructive: true })) {
+                  void post(`/api/flows/${flow.id}/runs/cancel`, { run_id: run.id });
+                }
+              }}>
+              <XCircle className="h-3.5 w-3.5" />
+              {tRun("cancel")}
+            </Button>
+          ) : undefined
+        }
+      />
+      {run.status === "failed" && !detail.replayable.ok && (
+        <p className="-mt-2 mb-4 text-xs text-amber-400" data-testid="replay-refusal">{tRun(`refusal.${detail.replayable.reason ?? "not_failed"}`)}</p>
+      )}
 
       <section className="mt-6">
         <h2 className="mb-2 text-sm font-semibold">{tRun("intentsTitle")}</h2>
@@ -204,13 +229,15 @@ export default function FlowRunDetailPage() {
 
       <section className="mt-6">
         <h2 className="mb-2 text-sm font-semibold">{tRun("timelineTitle")}</h2>
-        <div className="flex flex-col gap-1 rounded-lg border border-border bg-card p-2">
-          {detail.events.length === 0 ? (
-            <p className="text-xs text-muted-foreground">{t("noEvents")}</p>
-          ) : (
-            detail.events.map((ev, ix) => <EventLine key={ix} ev={ev} />)
-          )}
-        </div>
+        <GroupedList>
+          <div className="flex flex-col gap-1 p-2">
+            {detail.events.length === 0 ? (
+              <p className="text-xs text-muted-foreground">{t("noEvents")}</p>
+            ) : (
+              detail.events.map((ev, ix) => <EventLine key={ix} ev={ev} />)
+            )}
+          </div>
+        </GroupedList>
       </section>
     </div>
   );

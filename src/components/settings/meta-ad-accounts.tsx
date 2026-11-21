@@ -9,8 +9,11 @@ import { Loader2, Plus, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { authFetch } from '@/lib/auth/client';
 import type { AvailableAdAccount, LinkedAdAccount } from '@/lib/meta-ads/accounts';
+
+const accountLabel = (a: AvailableAdAccount) => `${a.name ?? a.adAccountId}${a.currency ? ` · ${a.currency}` : ''}`;
 
 export function MetaAdAccounts({ canEdit }: { canEdit: boolean }) {
   const t = useTranslations('Ads.accounts');
@@ -101,10 +104,17 @@ export function MetaAdAccounts({ canEdit }: { canEdit: boolean }) {
           <p className="text-xs text-muted-foreground">{t('noneAvailable')}</p>
         ) : (
           <div className="flex flex-wrap items-center gap-2">
-            <select value={choice} onChange={(e) => setChoice(e.target.value)} aria-label={t('choose')}
-              className="h-9 max-w-xs rounded-lg border border-border bg-card px-2.5 text-sm">
-              {available.map((a) => <option key={a.adAccountId} value={a.adAccountId}>{a.name ?? a.adAccountId}{a.currency ? ` · ${a.currency}` : ''}</option>)}
-            </select>
+            <Select value={choice || null} onValueChange={(v) => setChoice(v ? String(v) : '')}>
+              <SelectTrigger aria-label={t('choose')} className="min-h-11 max-w-xs bg-card sm:min-h-9">
+                <SelectValue placeholder={t('choose')}>{(v: string | null) => {
+                  const a = available.find((x) => x.adAccountId === v);
+                  return a ? accountLabel(a) : t('choose');
+                }}</SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {available.map((a) => <SelectItem key={a.adAccountId} value={a.adAccountId}>{accountLabel(a)}</SelectItem>)}
+              </SelectContent>
+            </Select>
             <Button type="button" size="sm" disabled={busy || !choice} onClick={() => void change('add', choice)}>{t('addThis')}</Button>
             <Button type="button" size="sm" variant="ghost" onClick={() => setAvailable(null)}>{t('cancel')}</Button>
           </div>

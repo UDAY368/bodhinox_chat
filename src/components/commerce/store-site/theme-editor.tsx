@@ -38,6 +38,8 @@ import {
   resolveTheme, SHOP_COLOR_KEYS, SHOP_FONT_IDS, SHOP_FONTS, SHOP_TEMPLATES, SHOP_TEXT_LIMITS,
   type ShopColors, type ShopThemeSettings,
 } from "@/lib/commerce/shop-templates";
+import { OptionSelect } from "@/components/ui/option-select";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 
 type Tab = "sections" | "theme" | "menu" | "pages" | "history";
 type Device = "phone" | "desktop";
@@ -55,7 +57,6 @@ const fromLocalInput = (value: string) => {
   const d = new Date(value);
   return value && !Number.isNaN(d.getTime()) ? d.toISOString() : null;
 };
-const selectClass = "h-9 w-full rounded-md border bg-background px-2 text-sm";
 
 function Field({ id, label, hint, children }: { id: string; label: string; hint?: string; children: ReactNode }) {
   return (
@@ -198,12 +199,17 @@ export function ThemeEditor() {
     const known = value === null || linkOptions.some((o) => o.value === value);
     return (
       <div className="flex flex-col gap-1.5">
-        <select id={id} className={selectClass} disabled={!canEdit} value={value === null ? "" : known ? value : "__url"}
-          onChange={(e) => onChange(e.target.value === "" ? null : e.target.value === "__url" ? "https://" : e.target.value)}>
-          <option value="">{t("noLink")}</option>
-          {linkOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-          <option value="__url">{t("webAddress")}</option>
-        </select>
+        <OptionSelect fit
+          id={id}
+          value={value === null ? "" : known ? value : "__url"}
+          onValueChange={(v) => onChange(v === "" ? null : v === "__url" ? "https://" : v)}
+          disabled={!canEdit}
+          options={[
+            { value: "", label: t("noLink") },
+            ...linkOptions.map((o) => ({ value: o.value, label: o.label })),
+            { value: "__url", label: t("webAddress") },
+          ]}
+        />
         {!known && <Input aria-label={t("webAddress")} disabled={!canEdit} value={value ?? ""} placeholder="https://…" onChange={(e) => onChange(e.target.value || null)} />}
       </div>
     );
@@ -236,25 +242,43 @@ export function ThemeEditor() {
       case "video": return <Field id={id} label={label} hint={t("videoHint")}><Input id={id} disabled={!canEdit} placeholder="https://youtu.be/…" value={(value as string) ?? ""} onChange={(e) => set(e.target.value || null)} /></Field>;
       case "category": return (
         <Field id={id} label={label}>
-          <select id={id} className={selectClass} disabled={!canEdit} value={(value as string) ?? ""} onChange={(e) => set(e.target.value || null)}>
-            <option value="">{t("allCategories")}</option>
-            {view.preview.tree.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-          </select>
+          <OptionSelect fit
+            id={id}
+            value={(value as string) ?? ""}
+            onValueChange={(v) => set(v || null)}
+            disabled={!canEdit}
+            options={[
+              { value: "", label: t("allCategories") },
+              ...view.preview.tree.map((c) => ({ value: c.id, label: c.name })),
+            ]}
+          />
         </Field>
       );
       case "collection": return (
         <Field id={id} label={label} hint={t("collectionHint")}>
-          <select id={id} className={selectClass} disabled={!canEdit} value={(value as string) ?? ""} onChange={(e) => set(e.target.value || null)}>
-            <option value="">{t("noCollection")}</option>
-            {view.preview.collections.map((c) => <option key={c.id} value={c.id}>{c.published ? c.title : `${c.title} (${t("unpublished")})`}</option>)}
-          </select>
+          <OptionSelect fit
+            id={id}
+            value={(value as string) ?? ""}
+            onValueChange={(v) => set(v || null)}
+            disabled={!canEdit}
+            options={[
+              { value: "", label: t("noCollection") },
+              ...view.preview.collections.map((c) => ({ value: c.id, label: c.published ? c.title : `${c.title} (${t("unpublished")})` })),
+            ]}
+          />
         </Field>
       );
       case "choice": return (
         <Field id={id} label={label}>
-          <select id={id} className={selectClass} disabled={!canEdit} value={(value as string) ?? field.options[0]} onChange={(e) => set(e.target.value)}>
-            {field.options.map((o) => <option key={o} value={o}>{t(`choices.${field.key}.${o}` as never)}</option>)}
-          </select>
+          <OptionSelect fit
+            id={id}
+            value={(value as string) ?? field.options[0]}
+            onValueChange={(v) => set(v)}
+            disabled={!canEdit}
+            options={[
+              ...field.options.map((o) => ({ value: o, label: t(`choices.${field.key}.${o}` as never) })),
+            ]}
+          />
         </Field>
       );
       case "datetime": return (
@@ -386,9 +410,14 @@ export function ThemeEditor() {
                 </ul>
                 {canEdit && (
                   <div className="flex gap-2">
-                    <select aria-label={t("sectionType")} className={selectClass} value={adding} onChange={(e) => setAdding(e.target.value as ShopSectionType)}>
-                      {SHOP_SECTION_TYPES.map((type) => <option key={type} value={type}>{t(`sections.${type}`)}</option>)}
-                    </select>
+                    <OptionSelect fit
+                      aria-label={t("sectionType")}
+                      value={adding}
+                      onValueChange={(v) => setAdding(v as ShopSectionType)}
+                      options={[
+                        ...SHOP_SECTION_TYPES.map((type) => ({ value: type, label: t(`sections.${type}`) })),
+                      ]}
+                    />
                     <Button type="button" variant="outline" onClick={addSection}><Plus className="size-4" />{t("addSection")}</Button>
                   </div>
                 )}
@@ -420,13 +449,19 @@ export function ThemeEditor() {
                 </div>
                 {(["heading", "body"] as const).map((key) => (
                   <Field key={key} id={`theme-font-${key}`} label={ts(`font.${key}`)}>
-                    <select id={`theme-font-${key}`} disabled={!canEdit} className={selectClass} value={doc.theme.font[key] ?? ""}
-                      onChange={(e) => setTheme({ font: { ...doc.theme.font, [key]: (e.target.value || undefined) as never } })}>
-                      <option value="">{ts("templateFont", { font: ts(`fonts.${SHOP_TEMPLATES[doc.template].font[key]}`) })}</option>
-                      {/* A font id saved before the self-hosted fonts stays selectable until it is changed. */}
-                      {[...SHOP_FONT_IDS, ...(doc.theme.font[key] && !SHOP_FONT_IDS.includes(doc.theme.font[key]) ? [doc.theme.font[key]] : [])]
-                        .map((f) => <option key={f} value={f} style={{ fontFamily: SHOP_FONTS[f] }}>{ts(`fonts.${f}`)}</option>)}
-                    </select>
+                    <OptionSelect fit
+                      id={`theme-font-${key}`}
+                      className="w-full"
+                      disabled={!canEdit}
+                      value={doc.theme.font[key] ?? ""}
+                      onValueChange={(v) => setTheme({ font: { ...doc.theme.font, [key]: (v || undefined) as never } })}
+                      options={[
+                        { value: "", label: ts("templateFont", { font: ts(`fonts.${SHOP_TEMPLATES[doc.template].font[key]}`) }) },
+                        // A font id saved before the self-hosted fonts stays selectable until it is changed.
+                        ...[...SHOP_FONT_IDS, ...(doc.theme.font[key] && !SHOP_FONT_IDS.includes(doc.theme.font[key]) ? [doc.theme.font[key]] : [])]
+                          .map((f) => ({ value: f, label: <span style={{ fontFamily: SHOP_FONTS[f] }}>{ts(`fonts.${f}`)}</span> })),
+                      ]}
+                    />
                   </Field>
                 ))}
                 {(["headline", "subheadline", "announcement"] as const).map((key) => (
@@ -552,14 +587,25 @@ export function ThemeEditor() {
 
         <div className="flex min-h-[480px] min-w-0 flex-col gap-2">
           <div className="flex flex-wrap items-center gap-2">
-            <div className="inline-flex rounded-md border p-0.5" role="group" aria-label={t("device")}>
-              <Button type="button" size="sm" variant={device === "phone" ? "secondary" : "ghost"} aria-pressed={device === "phone"} onClick={() => setDevice("phone")}><Smartphone className="size-4" />{t("phone")}</Button>
-              <Button type="button" size="sm" variant={device === "desktop" ? "secondary" : "ghost"} aria-pressed={device === "desktop"} onClick={() => setDevice("desktop")}><Monitor className="size-4" />{t("desktop")}</Button>
-            </div>
-            <select aria-label={t("previewOf")} className="h-8 rounded-md border bg-background px-2 text-sm" value={page} onChange={(e) => setPage(e.target.value as typeof page)}>
-              <option value="home">{tp("home")}</option>
-              {SHOP_PAGE_SLUGS.map((slug) => <option key={slug} value={slug}>{tp(`pages.${slug}`)}</option>)}
-            </select>
+            <SegmentedControl
+              size="sm"
+              aria-label={t("device")}
+              value={device}
+              onValueChange={setDevice}
+              options={[
+                { value: "phone", label: <><Smartphone className="size-4" />{t("phone")}</> },
+                { value: "desktop", label: <><Monitor className="size-4" />{t("desktop")}</> },
+              ]}
+            />
+            <OptionSelect fit
+              aria-label={t("previewOf")}
+              value={page}
+              onValueChange={(v) => setPage(v as typeof page)}
+              options={[
+                { value: "home", label: tp("home") },
+                ...SHOP_PAGE_SLUGS.map((slug) => ({ value: slug, label: tp(`pages.${slug}`) })),
+              ]}
+            />
             <span className="text-xs text-muted-foreground">{t("previewNote")}</span>
           </div>
           <div className="relative min-h-0 flex-1 overflow-hidden rounded-lg border bg-muted/40">

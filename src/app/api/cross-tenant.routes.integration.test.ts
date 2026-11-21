@@ -174,6 +174,13 @@ export const CASES: Case[] = [
   { route: 'broadcasts/[id]/schedule', method: 'PATCH', params: id('broadcastId'), body: () => ({ scheduledAt: new Date(Date.now() + 86400000).toISOString() }) },
   { route: 'broadcasts/[id]/schedule', method: 'DELETE', params: id('broadcastId') },
   { route: 'broadcasts/[id]/pause', method: 'POST', params: id('broadcastId'), body: () => ({}) },
+  // Batch 7: another workspace's campaign cannot be cancelled or segmented, and its draft cannot be read, replaced or removed.
+  { route: 'broadcasts/[id]/cancel-remaining', method: 'POST', params: id('broadcastId'), body: () => ({}) },
+  { route: 'broadcasts/[id]/segment', method: 'POST', params: id('broadcastId'), body: () => ({ result: 'failed' }) },
+  { route: 'broadcasts/drafts/[id]', method: 'GET', params: id('broadcastId') },
+  { route: 'broadcasts/drafts/[id]', method: 'PUT', params: id('broadcastId'),
+    body: () => ({ name: 'p15 taken over', channel: 'whatsapp', audience: { type: 'all' } }) },
+  { route: 'broadcasts/drafts/[id]', method: 'DELETE', params: id('broadcastId') },
   { route: 'whatsapp/broadcast/[id]/resume', method: 'POST', params: id('broadcastId'), body: () => ({}) },
   { route: 'whatsapp/broadcast/[id]/reconcile', method: 'GET', params: id('broadcastId') },
   // Flows and automations
@@ -415,7 +422,7 @@ describe('[TEN-01][SEC-03] cross-tenant route coverage', () => {
 });
 
 const TABLES = ['contacts', 'conversations', 'messages', 'tags', 'contact_tags', 'orders', 'appointments', 'appointment_services',
-  'appointment_locations', 'broadcasts', 'broadcast_recipients', 'flows', 'flow_nodes', 'flow_runs', 'automations', 'automation_steps',
+  'appointment_locations', 'broadcasts', 'broadcast_recipients', 'broadcast_drafts', 'flows', 'flow_nodes', 'flow_runs', 'automations', 'automation_steps',
   'contact_lists', 'contact_list_members', 'segments', 'teams', 'payment_links', 'media_objects', 'conversation_notes',
   'workspace_attributes', 'report_schedules', 'analytics_saved_reports', 'saved_filters', 'whatsapp_forms', 'webhook_endpoints', 'api_keys',
   'account_memberships', 'quick_replies', 'message_templates', 'ai_knowledge_documents', 'whatsapp_config', 'accounts',

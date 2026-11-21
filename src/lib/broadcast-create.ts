@@ -17,6 +17,8 @@ export interface BroadcastCreationInput {
   whatsappConfigId?: string | null;
   /** One id per wizard session; the server returns the campaign already created for a repeat. */
   clientRequestId?: string;
+  /** Quiet hours: minutes after midnight in the workspace time zone; omitted sends any time. */
+  sendWindow?: { start: number; end: number } | null;
 }
 
 export async function requestBroadcastCreation(input: BroadcastCreationInput, send: typeof authFetch = authFetch): Promise<string> {

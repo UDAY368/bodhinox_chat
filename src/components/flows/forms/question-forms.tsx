@@ -12,6 +12,7 @@ import { useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Select,
@@ -207,10 +208,9 @@ export function QuestionForm({ node, allNodes, onUpdateConfig, t, instagram = fa
           <div className="flex flex-wrap gap-3">
             {(["image", "video", "document", "audio"] as const).map((type) => (
               <label key={type} className="flex items-center gap-1.5 text-xs">
-                <input
-                  type="checkbox"
+                <Checkbox
                   checked={mediaTypes.includes(type)}
-                  onChange={(e) => onUpdateConfig({ media_types: e.target.checked ? [...mediaTypes, type] : mediaTypes.filter((m) => m !== type) })}
+                  onCheckedChange={(checked) => onUpdateConfig({ media_types: checked ? [...mediaTypes, type] : mediaTypes.filter((m) => m !== type) })}
                 />
                 {t(`mediaKind_${type}`)}
               </label>

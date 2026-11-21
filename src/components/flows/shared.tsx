@@ -123,7 +123,7 @@ export interface BuilderNode {
 // the picker stays scannable as the type list grows, and so a fork
 // adding its own node types has an obvious place to slot them.
 //
-// Note there's no "Events / Triggers" category: in wacrm a flow is
+// Note there's no "Events / Triggers" category: in Bodhinox a flow is
 // triggered by flow-level config (`trigger_type`), not by a node on
 // the canvas, so `start` is just the entry point under Flow control.
 // ------------------------------------------------------------
@@ -182,7 +182,6 @@ export type NodeCategory = 'messaging' | 'logic' | 'flow';
  * group gets one header colour in the builder (5C).
  */
 export type StepGroup = 'start' | 'content' | 'ai' | 'logic';
-export const STEP_GROUPS: StepGroup[] = ['start', 'content', 'ai', 'logic'];
 
 /** The order categories render in the add-step menu. */
 export const NODE_CATEGORIES: NodeCategory[] = ['messaging', 'logic', 'flow'];

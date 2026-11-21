@@ -23,6 +23,8 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { SegmentedControl } from '@/components/ui/segmented-control';
+import { OptionSelect } from '@/components/ui/option-select';
 import { authFetch } from '@/lib/auth/client';
 import { previewSegment, type ListSummary, type SegmentSummary } from '@/lib/audience/client';
 import type { AudienceCondition, AudienceFilter, AudienceMatch } from '@/lib/audience/filter';
@@ -35,7 +37,7 @@ const FIELDS: Field[] = ['tags', 'list', 'campaign', 'ad', 'lead_form', 'custom_
 const STAGE5_FIELD_LABELS: Partial<Record<Field, string>> = { whatsapp: 'whatsappField', instagram_subscription: 'instagramSubscriptionField' };
 /** Same list as IG_SEGMENT_FACTS in lib/audience/filter (a server module, so not imported here). */
 const IG_SEGMENT_FACTS = ['follows_business', 'business_follows', 'is_verified'] as const;
-const selectClass = 'h-8 min-w-0 max-w-full rounded-lg border border-border bg-card px-2 text-sm text-foreground';
+const OPTION_SELECT = 'w-auto min-w-0 max-w-full';
 
 function blank(field: Field): AudienceCondition {
   switch (field) {
@@ -115,6 +117,10 @@ export function SegmentBuilderDialog({
   const t = useTranslations('Contacts.segments');
   const tf = useTranslations('Contacts.filters');
   const ts = useTranslations('Contacts.channelStatus');
+  const fieldOptions = useMemo(() => FIELDS.map((f) => {
+    const stage5 = STAGE5_FIELD_LABELS[f];
+    return { value: f, label: stage5 ? tf(stage5) : t(`fields.${f}`) };
+  }), [t, tf]);
   const [name, setName] = useState('');
   const [conditions, setConditions] = useState<AudienceCondition[]>([]);
   const [match, setMatch] = useState<AudienceMatch>('all');
@@ -204,37 +210,29 @@ export function SegmentBuilderDialog({
           <div className="space-y-2">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <Label className="text-muted-foreground">{t('conditionsLabel')}</Label>
-              <div role="radiogroup" aria-label={tf('matchLabel')} className="inline-flex rounded-xl bg-muted p-[3px]">
-                {(['all', 'any'] as const).map((mode) => (
-                  <button key={mode} type="button" role="radio" aria-checked={match === mode}
-                    onClick={() => setMatch(mode)}
-                    className={`focus-visible:ring-ring rounded-[9px] px-3 py-1 text-xs font-medium outline-none transition-colors duration-150 focus-visible:ring-2 ${match === mode ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>
-                    {mode === 'all' ? tf('matchAll') : tf('matchAny')}
-                  </button>
-                ))}
-              </div>
+              <SegmentedControl<AudienceMatch>
+                aria-label={tf('matchLabel')}
+                size="sm"
+                value={match}
+                onValueChange={setMatch}
+                options={[{ value: 'all', label: tf('matchAll') }, { value: 'any', label: tf('matchAny') }]}
+              />
             </div>
             {conditions.map((c, index) => (
               <div key={index} className="flex flex-wrap items-center gap-2 rounded-xl border border-border bg-card p-2" data-testid="segment-condition">
-                <select
+                <OptionSelect
                   aria-label={t('fieldLabel')}
-                  className={selectClass}
+                  className={OPTION_SELECT}
                   value={c.field}
-                  onChange={(e) => update(index, blank(e.target.value as Field))}
-                >
-                  {FIELDS.map((f) => {
-                    const stage5 = STAGE5_FIELD_LABELS[f];
-                    return <option key={f} value={f}>{stage5 ? tf(stage5) : t(`fields.${f}`)}</option>;
-                  })}
-                </select>
+                  onValueChange={(v) => update(index, blank(v as Field))}
+                  options={fieldOptions}
+                />
 
                 {c.field === 'tags' && (
                   <>
-                    <select aria-label={t('operatorLabel')} className={selectClass} value={c.op}
-                      onChange={(e) => update(index, { ...c, op: e.target.value as 'has_any' | 'has_none' })}>
-                      <option value="has_any">{t('ops.has_any')}</option>
-                      <option value="has_none">{t('ops.has_none')}</option>
-                    </select>
+                    <OptionSelect aria-label={t('operatorLabel')} className={OPTION_SELECT} value={c.op}
+                      onValueChange={(v) => update(index, { ...c, op: v as 'has_any' | 'has_none' })}
+                      options={[{ value: 'has_any', label: t('ops.has_any') }, { value: 'has_none', label: t('ops.has_none') }]} />
                     <div className="flex flex-wrap gap-1">
                       {tags.map((tag) => {
                         const on = c.tagIds.includes(tag.id);
@@ -253,11 +251,9 @@ export function SegmentBuilderDialog({
 
                 {c.field === 'list' && (
                   <>
-                    <select aria-label={t('operatorLabel')} className={selectClass} value={c.op}
-                      onChange={(e) => update(index, { ...c, op: e.target.value as 'in_any' | 'in_none' })}>
-                      <option value="in_any">{t('ops.in_any')}</option>
-                      <option value="in_none">{t('ops.in_none')}</option>
-                    </select>
+                    <OptionSelect aria-label={t('operatorLabel')} className={OPTION_SELECT} value={c.op}
+                      onValueChange={(v) => update(index, { ...c, op: v as 'in_any' | 'in_none' })}
+                      options={[{ value: 'in_any', label: t('ops.in_any') }, { value: 'in_none', label: t('ops.in_none') }]} />
                     <div className="flex flex-wrap gap-1">
                       {lists.map((list) => {
                         const on = c.listIds.includes(list.id);
@@ -276,29 +272,25 @@ export function SegmentBuilderDialog({
 
                 {c.field === 'campaign' && (
                   <>
-                    <select aria-label={t('campaignLabel')} className={selectClass} value={c.broadcastId}
-                      onChange={(e) => update(index, { ...c, broadcastId: e.target.value })}>
-                      <option value="">{t('chooseCampaign')}</option>
-                      {campaigns.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
-                      {/* A saved condition may name a campaign older than the recent list. */}
-                      {c.broadcastId && !campaigns.some((b) => b.id === c.broadcastId) && (
-                        <option value={c.broadcastId}>{t('olderCampaign')}</option>
-                      )}
-                    </select>
-                    <select aria-label={t('operatorLabel')} className={selectClass} value={c.op}
-                      onChange={(e) => update(index, { ...c, op: e.target.value as typeof c.op })}>
-                      {CAMPAIGN_OUTCOMES.map((op) => <option key={op} value={op}>{t(`campaignOps.${op}`)}</option>)}
-                    </select>
+                    <OptionSelect aria-label={t('campaignLabel')} className={OPTION_SELECT} value={c.broadcastId}
+                      onValueChange={(v) => update(index, { ...c, broadcastId: v })}
+                      options={[
+                        { value: '', label: t('chooseCampaign') },
+                        ...campaigns.map((b) => ({ value: b.id, label: b.name })),
+                        // A saved condition may name a campaign older than the recent list.
+                        ...(c.broadcastId && !campaigns.some((b) => b.id === c.broadcastId) ? [{ value: c.broadcastId, label: t('olderCampaign') }] : []),
+                      ]} />
+                    <OptionSelect aria-label={t('operatorLabel')} className={OPTION_SELECT} value={c.op}
+                      onValueChange={(v) => update(index, { ...c, op: v as typeof c.op })}
+                      options={CAMPAIGN_OUTCOMES.map((op) => ({ value: op, label: t(`campaignOps.${op}`) }))} />
                   </>
                 )}
 
                 {c.field === 'ad' && (
                   <>
-                    <select aria-label={t('operatorLabel')} className={selectClass} value={c.op}
-                      onChange={(e) => update(index, { ...c, op: e.target.value as typeof c.op })}>
-                      <option value="clicked_any">{t('ops.clicked_any')}</option>
-                      <option value="clicked_none">{t('ops.clicked_none')}</option>
-                    </select>
+                    <OptionSelect aria-label={t('operatorLabel')} className={OPTION_SELECT} value={c.op}
+                      onValueChange={(v) => update(index, { ...c, op: v as typeof c.op })}
+                      options={[{ value: 'clicked_any', label: t('ops.clicked_any') }, { value: 'clicked_none', label: t('ops.clicked_none') }]} />
                     <IdListInput ids={c.adIds} label={t('adIdsLabel')} placeholder={t('adIdsPlaceholder')}
                       onChange={(adIds) => update(index, { ...c, adIds })} />
                     {c.adIds.length === 0 && <span className="text-xs text-muted-foreground">{t('anyAd')}</span>}
@@ -307,11 +299,9 @@ export function SegmentBuilderDialog({
 
                 {c.field === 'lead_form' && (
                   <>
-                    <select aria-label={t('operatorLabel')} className={selectClass} value={c.op}
-                      onChange={(e) => update(index, { ...c, op: e.target.value as typeof c.op })}>
-                      <option value="submitted_any">{t('ops.submitted_any')}</option>
-                      <option value="submitted_none">{t('ops.submitted_none')}</option>
-                    </select>
+                    <OptionSelect aria-label={t('operatorLabel')} className={OPTION_SELECT} value={c.op}
+                      onValueChange={(v) => update(index, { ...c, op: v as typeof c.op })}
+                      options={[{ value: 'submitted_any', label: t('ops.submitted_any') }, { value: 'submitted_none', label: t('ops.submitted_none') }]} />
                     <IdListInput ids={c.formIds} label={t('formIdsLabel')} placeholder={t('formIdsPlaceholder')}
                       onChange={(formIds) => update(index, { ...c, formIds })} />
                     {c.formIds.length === 0 && <span className="text-xs text-muted-foreground">{t('anyForm')}</span>}
@@ -320,15 +310,12 @@ export function SegmentBuilderDialog({
 
                 {c.field === 'custom_field' && (
                   <>
-                    <select aria-label={t('customFieldLabel')} className={selectClass} value={c.fieldId}
-                      onChange={(e) => update(index, { ...c, fieldId: e.target.value })}>
-                      <option value="">{t('chooseField')}</option>
-                      {customFields.map((f) => <option key={f.id} value={f.id}>{f.field_name}</option>)}
-                    </select>
-                    <select aria-label={t('operatorLabel')} className={selectClass} value={c.op}
-                      onChange={(e) => update(index, { ...c, op: e.target.value as typeof c.op })}>
-                      {(['is', 'is_not', 'contains', 'is_empty', 'is_not_empty'] as const).map((op) => <option key={op} value={op}>{t(`ops.${op}`)}</option>)}
-                    </select>
+                    <OptionSelect aria-label={t('customFieldLabel')} className={OPTION_SELECT} value={c.fieldId}
+                      onValueChange={(v) => update(index, { ...c, fieldId: v })}
+                      options={[{ value: '', label: t('chooseField') }, ...customFields.map((f) => ({ value: f.id, label: f.field_name }))]} />
+                    <OptionSelect aria-label={t('operatorLabel')} className={OPTION_SELECT} value={c.op}
+                      onValueChange={(v) => update(index, { ...c, op: v as typeof c.op })}
+                      options={(['is', 'is_not', 'contains', 'is_empty', 'is_not_empty'] as const).map((op) => ({ value: op, label: t(`ops.${op}`) }))} />
                     {['is', 'is_not', 'contains'].includes(c.op) && (
                       <Input aria-label={t('valueLabel')} className="h-8 w-40" value={c.value ?? ''} onChange={(e) => update(index, { ...c, value: e.target.value })} />
                     )}
@@ -337,10 +324,9 @@ export function SegmentBuilderDialog({
 
                 {(c.field === 'name' || c.field === 'phone' || c.field === 'email' || c.field === 'company') && (
                   <>
-                    <select aria-label={t('operatorLabel')} className={selectClass} value={c.op}
-                      onChange={(e) => update(index, { ...c, op: e.target.value as typeof c.op })}>
-                      {(['contains', 'is_empty', 'is_not_empty'] as const).map((op) => <option key={op} value={op}>{t(`ops.${op}`)}</option>)}
-                    </select>
+                    <OptionSelect aria-label={t('operatorLabel')} className={OPTION_SELECT} value={c.op}
+                      onValueChange={(v) => update(index, { ...c, op: v as typeof c.op })}
+                      options={(['contains', 'is_empty', 'is_not_empty'] as const).map((op) => ({ value: op, label: t(`ops.${op}`) }))} />
                     {c.op === 'contains' && (
                       <Input aria-label={t('valueLabel')} className="h-8 w-40" value={c.value ?? ''} onChange={(e) => update(index, { ...c, value: e.target.value })} />
                     )}
@@ -349,45 +335,37 @@ export function SegmentBuilderDialog({
 
                 {c.field === 'created_at' && (
                   <>
-                    <select aria-label={t('operatorLabel')} className={selectClass} value={c.op}
-                      onChange={(e) => update(index, { ...c, op: e.target.value as 'before' | 'after' })}>
-                      <option value="after">{t('ops.after')}</option>
-                      <option value="before">{t('ops.before')}</option>
-                    </select>
+                    <OptionSelect aria-label={t('operatorLabel')} className={OPTION_SELECT} value={c.op}
+                      onValueChange={(v) => update(index, { ...c, op: v as 'before' | 'after' })}
+                      options={[{ value: 'after', label: t('ops.after') }, { value: 'before', label: t('ops.before') }]} />
                     <Input aria-label={t('valueLabel')} type="date" className="h-8 w-40" value={c.value}
                       onChange={(e) => update(index, { ...c, value: e.target.value })} />
                   </>
                 )}
 
                 {c.field === 'instagram' && (
-                  <select aria-label={t('operatorLabel')} className={selectClass} value={c.op}
-                    onChange={(e) => update(index, { ...c, op: e.target.value as typeof c.op })}>
-                    <option value="has_identity">{t('ops.has_identity')}</option>
-                    <option value="has_no_identity">{t('ops.has_no_identity')}</option>
-                  </select>
+                  <OptionSelect aria-label={t('operatorLabel')} className={OPTION_SELECT} value={c.op}
+                    onValueChange={(v) => update(index, { ...c, op: v as typeof c.op })}
+                    options={[{ value: 'has_identity', label: t('ops.has_identity') }, { value: 'has_no_identity', label: t('ops.has_no_identity') }]} />
                 )}
 
                 {c.field === 'instagram_profile' && (
                   <>
-                    <select aria-label={t('igFactLabel')} className={selectClass} value={c.fact}
-                      onChange={(e) => update(index, { ...c, fact: e.target.value as typeof c.fact })}>
-                      {IG_SEGMENT_FACTS.map((fact) => <option key={fact} value={fact}>{t(`igFacts.${fact}`)}</option>)}
-                    </select>
-                    <select aria-label={t('operatorLabel')} className={selectClass} value={c.op}
-                      onChange={(e) => update(index, { ...c, op: e.target.value as typeof c.op })}>
-                      {(['is_true', 'is_false', 'is_unknown'] as const).map((op) => <option key={op} value={op}>{t(`ops.${op}`)}</option>)}
-                    </select>
+                    <OptionSelect aria-label={t('igFactLabel')} className={OPTION_SELECT} value={c.fact}
+                      onValueChange={(v) => update(index, { ...c, fact: v as typeof c.fact })}
+                      options={IG_SEGMENT_FACTS.map((fact) => ({ value: fact, label: t(`igFacts.${fact}`) }))} />
+                    <OptionSelect aria-label={t('operatorLabel')} className={OPTION_SELECT} value={c.op}
+                      onValueChange={(v) => update(index, { ...c, op: v as typeof c.op })}
+                      options={(['is_true', 'is_false', 'is_unknown'] as const).map((op) => ({ value: op, label: t(`ops.${op}`) }))} />
                     <span className="text-xs text-muted-foreground">{t('igFreshness')}</span>
                   </>
                 )}
 
                 {c.field === 'instagram_followers' && (
                   <>
-                    <select aria-label={t('operatorLabel')} className={selectClass} value={c.op}
-                      onChange={(e) => update(index, { ...c, op: e.target.value as typeof c.op })}>
-                      <option value="at_least">{t('ops.at_least')}</option>
-                      <option value="at_most">{t('ops.at_most')}</option>
-                    </select>
+                    <OptionSelect aria-label={t('operatorLabel')} className={OPTION_SELECT} value={c.op}
+                      onValueChange={(v) => update(index, { ...c, op: v as typeof c.op })}
+                      options={[{ value: 'at_least', label: t('ops.at_least') }, { value: 'at_most', label: t('ops.at_most') }]} />
                     <Input aria-label={t('followersLabel')} type="number" min={0} className="h-8 w-32" value={c.value}
                       onChange={(e) => update(index, { ...c, value: Math.max(0, Math.floor(Number(e.target.value) || 0)) })} />
                     <span className="text-xs text-muted-foreground">{t('igFreshness')}</span>
@@ -395,36 +373,28 @@ export function SegmentBuilderDialog({
                 )}
 
                 {c.field === 'instagram_window' && (
-                  <select aria-label={t('operatorLabel')} className={selectClass} value={c.op}
-                    onChange={(e) => update(index, { ...c, op: e.target.value as typeof c.op })}>
-                    <option value="open">{t('ops.open')}</option>
-                    <option value="closed">{t('ops.closed')}</option>
-                  </select>
+                  <OptionSelect aria-label={t('operatorLabel')} className={OPTION_SELECT} value={c.op}
+                    onValueChange={(v) => update(index, { ...c, op: v as typeof c.op })}
+                    options={[{ value: 'open', label: t('ops.open') }, { value: 'closed', label: t('ops.closed') }]} />
                 )}
 
                 {c.field === 'whatsapp' && (
-                  <select aria-label={t('operatorLabel')} className={selectClass} value={c.op}
-                    onChange={(e) => update(index, { ...c, op: e.target.value as typeof c.op })}>
-                    <option value="has_number">{tf('hasWhatsApp')}</option>
-                    <option value="has_no_number">{tf('hasNoWhatsApp')}</option>
-                  </select>
+                  <OptionSelect aria-label={t('operatorLabel')} className={OPTION_SELECT} value={c.op}
+                    onValueChange={(v) => update(index, { ...c, op: v as typeof c.op })}
+                    options={[{ value: 'has_number', label: tf('hasWhatsApp') }, { value: 'has_no_number', label: tf('hasNoWhatsApp') }]} />
                 )}
 
                 {c.field === 'instagram_subscription' && (
-                  <select aria-label={t('operatorLabel')} className={selectClass} value={c.op}
-                    onChange={(e) => update(index, { ...c, op: e.target.value as typeof c.op })}>
-                    <option value="subscribed">{ts('subscribed')}</option>
-                    <option value="unsubscribed">{ts('unsubscribed')}</option>
-                  </select>
+                  <OptionSelect aria-label={t('operatorLabel')} className={OPTION_SELECT} value={c.op}
+                    onValueChange={(v) => update(index, { ...c, op: v as typeof c.op })}
+                    options={[{ value: 'subscribed', label: ts('subscribed') }, { value: 'unsubscribed', label: ts('unsubscribed') }]} />
                 )}
 
                 {(c.field === 'shop_orders' || c.field === 'shop_spend') && (
                   <>
-                    <select aria-label={t('operatorLabel')} className={selectClass} value={c.op}
-                      onChange={(e) => update(index, { ...c, op: e.target.value as typeof c.op })}>
-                      <option value="at_least">{t('ops.at_least')}</option>
-                      <option value="at_most">{t('ops.at_most')}</option>
-                    </select>
+                    <OptionSelect aria-label={t('operatorLabel')} className={OPTION_SELECT} value={c.op}
+                      onValueChange={(v) => update(index, { ...c, op: v as typeof c.op })}
+                      options={[{ value: 'at_least', label: t('ops.at_least') }, { value: 'at_most', label: t('ops.at_most') }]} />
                     <Input aria-label={c.field === 'shop_orders' ? t('shopOrdersLabel') : t('shopSpendLabel')} type="number" min={0} className="h-8 w-32" value={c.value}
                       onChange={(e) => update(index, { ...c, value: Math.max(0, Math.floor(Number(e.target.value) || 0)) })} />
                     <span className="text-xs text-muted-foreground">{c.field === 'shop_spend' ? t('shopSpendHint') : t('shopCounted')}</span>
@@ -433,16 +403,12 @@ export function SegmentBuilderDialog({
 
                 {c.field === 'shop_order_date' && (
                   <>
-                    <select aria-label={t('shopWhichLabel')} className={selectClass} value={c.which}
-                      onChange={(e) => update(index, { ...c, which: e.target.value as 'first' | 'last' })}>
-                      <option value="first">{t('shopFirstOrder')}</option>
-                      <option value="last">{t('shopLastOrder')}</option>
-                    </select>
-                    <select aria-label={t('operatorLabel')} className={selectClass} value={c.op}
-                      onChange={(e) => update(index, { ...c, op: e.target.value as 'before' | 'after' })}>
-                      <option value="after">{t('ops.after')}</option>
-                      <option value="before">{t('ops.before')}</option>
-                    </select>
+                    <OptionSelect aria-label={t('shopWhichLabel')} className={OPTION_SELECT} value={c.which}
+                      onValueChange={(v) => update(index, { ...c, which: v as 'first' | 'last' })}
+                      options={[{ value: 'first', label: t('shopFirstOrder') }, { value: 'last', label: t('shopLastOrder') }]} />
+                    <OptionSelect aria-label={t('operatorLabel')} className={OPTION_SELECT} value={c.op}
+                      onValueChange={(v) => update(index, { ...c, op: v as 'before' | 'after' })}
+                      options={[{ value: 'after', label: t('ops.after') }, { value: 'before', label: t('ops.before') }]} />
                     <Input aria-label={t('valueLabel')} type="date" className="h-8 w-40" value={c.value}
                       onChange={(e) => update(index, { ...c, value: e.target.value })} />
                   </>
@@ -450,35 +416,32 @@ export function SegmentBuilderDialog({
 
                 {c.field === 'shop_bought' && (
                   <>
-                    <select aria-label={t('operatorLabel')} className={selectClass} value={c.op}
-                      onChange={(e) => update(index, { ...c, op: e.target.value as 'bought' | 'not_bought' })}>
-                      <option value="bought">{t('ops.bought')}</option>
-                      <option value="not_bought">{t('ops.not_bought')}</option>
-                    </select>
-                    <select aria-label={t('shopTargetLabel')} className={selectClass} value={c.categoryId ? `c:${c.categoryId}` : `p:${c.productId ?? ''}`}
-                      onChange={(e) => {
-                        const [kind, id] = [e.target.value.slice(0, 1), e.target.value.slice(2)];
+                    <OptionSelect aria-label={t('operatorLabel')} className={OPTION_SELECT} value={c.op}
+                      onValueChange={(v) => update(index, { ...c, op: v as 'bought' | 'not_bought' })}
+                      options={[{ value: 'bought', label: t('ops.bought') }, { value: 'not_bought', label: t('ops.not_bought') }]} />
+                    <OptionSelect
+                      aria-label={t('shopTargetLabel')}
+                      className={OPTION_SELECT}
+                      value={c.categoryId ? `c:${c.categoryId}` : `p:${c.productId ?? ''}`}
+                      onValueChange={(value) => {
+                        const [kind, id] = [value.slice(0, 1), value.slice(2)];
                         update(index, { field: 'shop_bought', op: c.op, ...(kind === 'c' ? { categoryId: id } : { productId: id }) });
-                      }}>
-                      <option value="p:">{t('chooseShopTarget')}</option>
-                      <optgroup label={t('shopProducts')}>
-                        {(shopItems?.products ?? []).map((p) => <option key={p.id} value={`p:${p.id}`}>{p.name}</option>)}
-                        {c.productId && !(shopItems?.products ?? []).some((p) => p.id === c.productId) && <option value={`p:${c.productId}`}>{t('olderProduct')}</option>}
-                      </optgroup>
-                      <optgroup label={t('shopCategories')}>
-                        {(shopItems?.categories ?? []).map((cat) => <option key={cat.id} value={`c:${cat.id}`}>{cat.name}</option>)}
-                        {c.categoryId && !(shopItems?.categories ?? []).some((cat) => cat.id === c.categoryId) && <option value={`c:${c.categoryId}`}>{t('olderCategory')}</option>}
-                      </optgroup>
-                    </select>
+                      }}
+                      options={[
+                        { value: 'p:', label: t('chooseShopTarget') },
+                        ...(shopItems?.products ?? []).map((p) => ({ value: `p:${p.id}`, label: p.name, group: t('shopProducts') })),
+                        ...(c.productId && !(shopItems?.products ?? []).some((p) => p.id === c.productId) ? [{ value: `p:${c.productId}`, label: t('olderProduct'), group: t('shopProducts') }] : []),
+                        ...(shopItems?.categories ?? []).map((cat) => ({ value: `c:${cat.id}`, label: cat.name, group: t('shopCategories') })),
+                        ...(c.categoryId && !(shopItems?.categories ?? []).some((cat) => cat.id === c.categoryId) ? [{ value: `c:${c.categoryId}`, label: t('olderCategory'), group: t('shopCategories') }] : []),
+                      ]}
+                    />
                   </>
                 )}
 
                 {(c.field === 'opted_out' || c.field === 'blocked') && (
-                  <select aria-label={t('valueLabel')} className={selectClass} value={String(c.value)}
-                    onChange={(e) => update(index, { ...c, value: e.target.value === 'true' })}>
-                    <option value="true">{t('yes')}</option>
-                    <option value="false">{t('no')}</option>
-                  </select>
+                  <OptionSelect aria-label={t('valueLabel')} className={OPTION_SELECT} value={String(c.value)}
+                    onValueChange={(v) => update(index, { ...c, value: v === 'true' })}
+                    options={[{ value: 'true', label: t('yes') }, { value: 'false', label: t('no') }]} />
                 )}
 
                 <Button type="button" variant="ghost" size="sm" className="ml-auto" aria-label={t('removeCondition')}

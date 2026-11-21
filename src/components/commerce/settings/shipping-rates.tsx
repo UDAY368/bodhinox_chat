@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
-import { formatMoney } from "@/lib/commerce/money";
+import { formatMoney } from "@/lib/format/money";
 import { useReportDirty } from "./section-dirty";
 import { Field, bpsToPercent, minorText, percentToBps, toMinor, useErrorText } from "./settings-fields";
 import { storeApi, type ShippingRateView } from "./settings-api";
@@ -81,7 +81,7 @@ export function ShippingRates({ currency, canEdit }: { currency: string; canEdit
             <li key={r.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
               <span className="min-w-0">
                 <span className="font-medium">{r.name}</span> · {r.country}{r.postal_prefixes.length ? ` · ${r.postal_prefixes.join(", ")}` : ""}{r.states.length ? ` · ${r.states.join(", ")}` : ""} ·{" "}
-                {formatMoney(r.fee_minor, currency)}{r.active ? "" : ` · ${t("inactive")}`}
+                {formatMoney(r.fee_minor, currency, { locale: "en" })}{r.active ? "" : ` · ${t("inactive")}`}
               </span>
               {canEdit && (
                 <span className="flex gap-1">

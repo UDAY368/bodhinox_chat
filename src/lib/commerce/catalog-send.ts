@@ -101,8 +101,6 @@ export type CommerceMessage =
   | { kind: 'product_list'; header: string; body: string; footer?: string; sections: { title: string; products: ProductRef[] }[] }
   | { kind: 'catalog'; body: string; footer?: string; thumbnail?: ProductRef };
 
-export type CommerceMessageKind = CommerceMessage['kind'];
-
 const refKey = (ref: ProductRef): string => ('id' in ref ? `id:${ref.id}` : `rid:${ref.retailerId.trim()}`);
 
 function validRef(ref: unknown): ref is ProductRef {

@@ -13,10 +13,13 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
-import { formatMoney } from "@/lib/commerce/money";
+import { formatMoney } from "@/lib/format/money";
 import { useReportDirty } from "./section-dirty";
 import { Field, bpsToPercent, minorText, percentToBps, toMinor, useErrorText } from "./settings-fields";
 import { storeApi, type AutoDiscountView, type CouponView } from "./settings-api";
+import { OptionSelect } from "@/components/ui/option-select";
+import { Checkbox } from "@/components/ui/checkbox";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 
 type CouponDraft = { code: string; kind: "percent" | "fixed"; value: string; min: string; maxDiscount: string; startsAt: string; endsAt: string;
   maxRedemptions: string; perContact: string };
@@ -68,7 +71,7 @@ export function Coupons({ currency, canEdit }: { currency: string; canEdit: bool
     await reload();
   }
 
-  const describe = (c: CouponView) => (c.kind === "percent" ? `${c.value / 100}%` : formatMoney(c.value, currency));
+  const describe = (c: CouponView) => (c.kind === "percent" ? `${c.value / 100}%` : formatMoney(c.value, currency, { locale: "en" }));
   return (
     <Card>
       <CardHeader>
@@ -95,11 +98,15 @@ export function Coupons({ currency, canEdit }: { currency: string; canEdit: bool
           <div className="grid gap-3 rounded-md border p-3 sm:grid-cols-2">
             <Field id="cp-code" label={t("couponCode")}><Input id="cp-code" maxLength={32} value={draft.code} onChange={(e) => setDraft({ ...draft, code: e.target.value.toUpperCase() })} /></Field>
             <Field id="cp-kind" label={t("couponKind")}>
-              <select id="cp-kind" className="h-9 w-full rounded-md border bg-background px-2 text-sm" value={draft.kind}
-                onChange={(e) => setDraft({ ...draft, kind: e.target.value as "percent" | "fixed" })}>
-                <option value="percent">{t("kindPercent")}</option>
-                <option value="fixed">{t("kindFixed", { currency })}</option>
-              </select>
+              <SegmentedControl
+                aria-label={t("couponKind")}
+                value={draft.kind}
+                onValueChange={(v) => setDraft({ ...draft, kind: v as "percent" | "fixed" })}
+                options={[
+                  { value: "percent", label: t("kindPercent") },
+                  { value: "fixed", label: t("kindFixed", { currency }) },
+                ]}
+              />
             </Field>
             <Field id="cp-value" label={t("couponValue")}><Input id="cp-value" inputMode="decimal" value={draft.value} onChange={(e) => setDraft({ ...draft, value: e.target.value })} /></Field>
             <Field id="cp-min" label={t("minSubtotal", { currency })}><Input id="cp-min" inputMode="decimal" value={draft.min} onChange={(e) => setDraft({ ...draft, min: e.target.value })} /></Field>
@@ -213,8 +220,8 @@ export function AutoDiscounts({ currency, canEdit }: { currency: string; canEdit
 
   const describe = (r: AutoDiscountView) => {
     const what = r.kind === "buy_x_get_y" ? `${r.buy_qty} + ${r.get_qty}`
-      : r.percent_bps !== null ? `${r.percent_bps / 100}%` : r.amount_minor !== null ? formatMoney(r.amount_minor, currency) : "";
-    const over = r.min_subtotal_minor > 0 ? t("autoOver", { amount: formatMoney(r.min_subtotal_minor, currency) }) : "";
+      : r.percent_bps !== null ? `${r.percent_bps / 100}%` : r.amount_minor !== null ? formatMoney(r.amount_minor, currency, { locale: "en" }) : "";
+    const over = r.min_subtotal_minor > 0 ? t("autoOver", { amount: formatMoney(r.min_subtotal_minor, currency, { locale: "en" }) }) : "";
     return [t(`autoKinds.${r.kind}`), what, over].filter(Boolean).join(" · ");
   };
   const set = (patch: Partial<AutoDraft>) => setDraft((d) => (d ? { ...d, ...patch } : d));
@@ -256,10 +263,15 @@ export function AutoDiscounts({ currency, canEdit }: { currency: string; canEdit
           <div className="grid gap-3 rounded-md border p-3 sm:grid-cols-2">
             <Field id="ad-name" label={t("autoName")}><Input id="ad-name" maxLength={80} value={draft.name} onChange={(e) => set({ name: e.target.value })} /></Field>
             <Field id="ad-kind" label={t("autoKind")}>
-              <select id="ad-kind" className="h-9 w-full rounded-md border bg-background px-2 text-sm" value={draft.kind}
-                onChange={(e) => set({ kind: e.target.value as AutoKind })}>
-                {AUTO_KINDS.map((k) => <option key={k} value={k}>{t(`autoKinds.${k}`)}</option>)}
-              </select>
+              <OptionSelect fit
+                id="ad-kind"
+                value={draft.kind}
+                onValueChange={(v) => set({ kind: v as AutoKind })}
+                className="w-full"
+                options={[
+                  ...AUTO_KINDS.map((k) => ({ value: k, label: t(`autoKinds.${k}`) })),
+                ]}
+              />
             </Field>
             {(draft.kind === "amount_off_over" || draft.kind === "prepaid") && (
               <Field id="ad-amount" label={t("autoAmount", { currency })} help={draft.kind === "prepaid" ? t("autoPrepaidHelp") : undefined}>
@@ -286,8 +298,8 @@ export function AutoDiscounts({ currency, canEdit }: { currency: string; canEdit
                 <div className="max-h-40 space-y-1 overflow-y-auto rounded-md border p-2">
                   {products.map((p) => (
                     <label key={p.id} className="flex items-center gap-2 text-sm">
-                      <input type="checkbox" className="size-4" checked={draft.products.includes(p.id)}
-                        onChange={(e) => set({ products: e.target.checked ? [...draft.products, p.id].slice(0, 50) : draft.products.filter((id) => id !== p.id) })} />
+                      <Checkbox checked={draft.products.includes(p.id)}
+                        onCheckedChange={(checked) => set({ products: checked ? [...draft.products, p.id].slice(0, 50) : draft.products.filter((id) => id !== p.id) })} />
                       {p.name}
                     </label>
                   ))}

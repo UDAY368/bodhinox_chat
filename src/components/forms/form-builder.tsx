@@ -37,6 +37,7 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { GatedButton } from "@/components/ui/gated-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { OptionSelect } from "@/components/ui/option-select";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -89,7 +90,6 @@ const FIELD_ICONS: Record<FormFieldType, LucideIcon> = {
   opt_in: SquareCheck,
 };
 
-const selectClass = "h-9 rounded-lg border border-border bg-card px-2.5 text-sm text-foreground disabled:opacity-60";
 
 interface Draft {
   name: string;
@@ -307,36 +307,33 @@ export function FormBuilder({
             <FieldErrors id="form-name-error" messages={errorMap.get("name") ?? []} />
             <div className="flex flex-wrap items-center gap-2">
               <Label htmlFor="form-category" className="text-xs text-muted-foreground">{t("category")}</Label>
-              <select
+              <OptionSelect
                 id="form-category"
+                className="h-9 w-auto"
                 value={draft.category}
                 disabled={readOnly}
-                onChange={(e) => setDraft((d) => ({ ...d, category: e.target.value as FormCategory }))}
-                className={selectClass}
-              >
-                {FORM_CATEGORIES.map((c) => (
-                  <option key={c} value={c}>{tCat(c)}</option>
-                ))}
-              </select>
+                onValueChange={(category) => setDraft((d) => ({ ...d, category: category as FormCategory }))}
+                options={FORM_CATEGORIES.map((c) => ({ value: c, label: tCat(c) }))}
+              />
               {pickable.length >= 2 && (
                 <>
                   <Label htmlFor="form-number" className="text-xs text-muted-foreground">{t("number")}</Label>
-                  <select
-                    id="form-number"
-                    value={draft.whatsapp_config_id}
-                    disabled={readOnly || numberChoices.length < 2}
-                    title={form.meta_flow_id ? t("numberSameWaba") : undefined}
-                    onChange={(e) => setDraft((d) => ({ ...d, whatsapp_config_id: e.target.value }))}
-                    className={selectClass}
-                  >
-                    {!draft.whatsapp_config_id && <option value="">{t("numberDefault")}</option>}
-                    {draft.whatsapp_config_id && !numberChoices.some((n) => n.id === draft.whatsapp_config_id) && (
-                      <option value={draft.whatsapp_config_id}>{t("numberUnavailable")}</option>
-                    )}
-                    {numberChoices.map((n) => (
-                      <option key={n.id} value={n.id}>{numberOptionLabel(n, tn)}</option>
-                    ))}
-                  </select>
+                  <span title={form.meta_flow_id ? t("numberSameWaba") : undefined}>
+                    <OptionSelect
+                      id="form-number"
+                      className="h-9 w-auto"
+                      value={draft.whatsapp_config_id}
+                      disabled={readOnly || numberChoices.length < 2}
+                      onValueChange={(id) => setDraft((d) => ({ ...d, whatsapp_config_id: id }))}
+                      options={[
+                        ...(!draft.whatsapp_config_id ? [{ value: "", label: t("numberDefault") }] : []),
+                        ...(draft.whatsapp_config_id && !numberChoices.some((n) => n.id === draft.whatsapp_config_id)
+                          ? [{ value: draft.whatsapp_config_id, label: t("numberUnavailable") }]
+                          : []),
+                        ...numberChoices.map((n) => ({ value: n.id, label: numberOptionLabel(n, tn) })),
+                      ]}
+                    />
+                  </span>
                 </>
               )}
             </div>

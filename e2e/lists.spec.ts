@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { fixtures, login } from './fixtures';
+import { confirmInApp, pickOption } from './ui';
 
 test.describe('static lists, tag categories and workspace attributes', () => {
   test('an agent creates a list, adds and removes a contact, and deletes the list', async ({ page }) => {
@@ -15,24 +16,25 @@ test.describe('static lists, tag categories and workspace attributes', () => {
     await expect(dialog).toBeHidden();
 
     const selector = page.getByLabel('List', { exact: true });
-    await expect(selector).toHaveValue(/.+/);
+    await expect(selector).toContainText(`Event ${runId} (0)`);
     await expect(page.getByText('No contacts match')).toBeVisible();
 
     // Add the seeded contact from the full contact view.
-    await selector.selectOption('');
+    await pickOption(page, selector, 'No list');
     await page.getByLabel(`Select ${contact.name}`).click();
     await page.getByRole('button', { name: 'Add to list' }).click();
     await page.getByRole('menuitem', { name: `Event ${runId}` }).click();
     await expect(page.getByText(`1 added to Event ${runId}`)).toBeVisible();
 
-    await selector.selectOption({ label: `Event ${runId} (1)` });
+    await pickOption(page, selector, `Event ${runId} (1)`);
     await expect(page.getByRole('cell', { name: contact.name, exact: true })).toBeVisible();
     await page.getByLabel(`Select ${contact.name}`).click();
     await page.getByRole('button', { name: 'Remove from list' }).click();
     await expect(page.getByRole('cell', { name: contact.name, exact: true })).toHaveCount(0);
 
     await page.getByRole('button', { name: 'Delete list' }).click();
-    await expect(selector).toHaveValue('');
+    await confirmInApp(page, 'Delete list');
+    await expect(selector).toContainText('No list');
   });
 
   test('an admin saves a secret workspace attribute that is never shown again', async ({ page }) => {

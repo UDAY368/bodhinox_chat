@@ -69,12 +69,10 @@ export type PricingRefusal =
   | 'delivery_unavailable';
 
 export type PaymentMethod = 'online' | 'cod';
-export const PAYMENT_METHODS: readonly PaymentMethod[] = ['online', 'cod'];
 export const isPaymentMethod = (value: unknown): value is PaymentMethod => value === 'online' || value === 'cod';
 
 /** How the order reaches the customer: a shipping rate, collection at the store, or the store's own local delivery. */
 export type DeliveryMethod = 'ship' | 'pickup' | 'local';
-export const DELIVERY_METHODS: readonly DeliveryMethod[] = ['ship', 'pickup', 'local'];
 export const isDeliveryMethod = (value: unknown): value is DeliveryMethod => value === 'ship' || value === 'pickup' || value === 'local';
 
 /** The store's pickup and local delivery settings as pricing reads them. */

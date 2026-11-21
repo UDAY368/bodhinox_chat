@@ -16,6 +16,7 @@ import { useFormatter, useTranslations } from "next-intl";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import { useAuth } from "@/hooks/use-auth";
 import { authFetch } from "@/lib/auth/client";
 import { cn } from "@/lib/utils";
@@ -49,6 +50,7 @@ async function errorMessage(response: Response, fallback: string): Promise<strin
 
 export function NotesPanel({ conversationId, canWrite, members, revision = 0 }: NotesPanelProps) {
   const t = useTranslations("Inbox.notes");
+  const confirm = useConfirm();
   const format = useFormatter();
   const { user, accountRole } = useAuth();
   const [notes, setNotes] = useState<ConversationNoteView[]>([]);
@@ -135,7 +137,7 @@ export function NotesPanel({ conversationId, canWrite, members, revision = 0 }: 
   };
 
   const remove = async (id: string) => {
-    if (!window.confirm(t("deleteConfirm"))) return;
+    if (!(await confirm({ title: t("deleteConfirm"), confirmLabel: t("delete"), destructive: true }))) return;
     setDeleting(id);
     try {
       const response = await authFetch(`${base}/${encodeURIComponent(id)}`, { method: "DELETE" });

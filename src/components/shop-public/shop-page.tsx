@@ -7,7 +7,7 @@
  */
 import type { ShopPolicyFacts } from '@/lib/commerce/public-shop';
 import type { PolicySlug, ShopContent, ShopPageSlug } from '@/lib/commerce/shop-sections';
-import { formatMoney } from '@/lib/commerce/money';
+import { formatMoney } from '@/lib/format/money';
 import { FaqList } from './shop-sections';
 import type { ShopT } from './shop-link';
 
@@ -19,7 +19,7 @@ function Paragraphs({ text }: { text: string }) {
 
 /** The generated text of a policy page, as paragraphs. */
 export function policyParagraphs(slug: PolicySlug, facts: ShopPolicyFacts, shopName: string, t: ShopT, locale: string): string[] {
-  const money = (minor: number) => (facts.currency ? formatMoney(minor, facts.currency, locale) : String(minor));
+  const money = (minor: number) => (facts.currency ? formatMoney(minor, facts.currency, { locale }) : String(minor));
   const seller = facts.legalName ?? shopName;
   switch (slug) {
     case 'shipping': {

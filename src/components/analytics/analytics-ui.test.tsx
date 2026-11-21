@@ -4,8 +4,6 @@ import { NextIntlClientProvider } from 'next-intl';
 import { describe, expect, it } from 'vitest';
 
 import type { ConversationStats } from '@/lib/analytics/queries';
-import { AgentLeaderboard } from './agent-leaderboard';
-import { CampaignFunnel, rate } from './campaign-funnel';
 import { FlowDropOff } from './flow-dropoff';
 import { ConversationCharts, OverviewTiles, percentChange, type OverviewReport } from './overview-section';
 import { NumberFilter, rangeParams } from './range-picker';
@@ -24,18 +22,15 @@ const stats = (over: Partial<ConversationStats> = {}): ConversationStats => ({
   started: { total: 10, inbound: 5, business: 3, campaignReply: 1, ad: 1 },
   byLifecycle: { bot: 1, requesting: 2, assigned: 3, resolved: 4 },
   firstResponse: { count: 8, unanswered: 2, medianSeconds: 125, p90Seconds: 4000 },
-  humanFirstResponse: { count: 5, medianSeconds: 900, p90Seconds: 7200 },
   resolution: { resolved: 4, count: 3, medianSeconds: 90_000, p90Seconds: null },
   ...over,
 });
 
 describe('analytics helpers', () => {
-  it('computes changes and rates only with a baseline', () => {
+  it('computes changes only with a baseline', () => {
     expect(percentChange(15, 10)).toBe(50);
     expect(percentChange(5, 0)).toBeNull();
     expect(percentChange(null, 10)).toBeNull();
-    expect(rate(1, 3)).toBe(33);
-    expect(rate(1, 0)).toBeNull();
   });
 
   it('builds report queries from presets or custom days, dropping empty filters', () => {
@@ -74,10 +69,13 @@ describe('analytics panels', () => {
 
   it('keeps the number filter when a selected number is set but the list is reloading', () => {
     const html = render(<NumberFilter numbers={[]} value="n2" onChange={noop} />);
-    expect(html).toContain('<select');
+    expect(html).toContain('data-slot="select-trigger"');
     expect(render(<NumberFilter numbers={[]} value="" onChange={noop} />)).toBe('');
     const two = [{ id: 'n1', label: 'Main', isDefault: true }, { id: 'n2', label: null, isDefault: false }];
-    expect(render(<NumberFilter numbers={two} value="n2" onChange={noop} />)).toContain('value="n2" selected');
+    // The menu shows the chosen number's name, never its id.
+    const picked = render(<NumberFilter numbers={two} value="n2" onChange={noop} />);
+    expect(picked).toContain('Analytics.numbers.fallback');
+    expect(picked).not.toContain('>n2<');
   });
 
   it('pairs every chart with an accessible table', () => {
@@ -88,36 +86,26 @@ describe('analytics panels', () => {
     expect(html).toContain('scope="row"');
     // Click-to-WhatsApp ad starts are their own source row.
     expect(html).toContain('Analytics.overview.source.ad');
-    // The team's own first reply sits beside the any-reply figure.
+    // One response-time figure: the median first reply (first-reply.ts).
     expect(html).toContain('Analytics.overview.firstResponse');
-    expect(html).toContain('Analytics.overview.humanFirstResponse');
+    expect(html).not.toContain('Analytics.overview.humanFirstResponse');
   });
 
   it('shows a retry on error and an empty state without data', () => {
     expect(render(<ConversationCharts data={null} loading={false} error onRetry={noop} />)).toContain('role="alert"');
     const empty = { ...report, current: stats({ started: { total: 0, inbound: 0, business: 0, campaignReply: 0, ad: 0 }, byLifecycle: { bot: 0, requesting: 0, assigned: 0, resolved: 0 },
       firstResponse: { count: 0, unanswered: 0, medianSeconds: null, p90Seconds: null },
-      humanFirstResponse: { count: 0, medianSeconds: null, p90Seconds: null }, resolution: { resolved: 0, count: 0, medianSeconds: null, p90Seconds: null } }) };
+ resolution: { resolved: 0, count: 0, medianSeconds: null, p90Seconds: null } }) };
     expect(render(<ConversationCharts data={empty} loading={false} error={false} onRetry={noop} />)).toContain('Analytics.emptyTitle');
   });
 
-  it('lists the leaderboard, campaign funnel and flow drop-off as tables', () => {
-    const board = render(<AgentLeaderboard loading={false} error={false} onRetry={noop} agents={[
-      { userId: 'u1', name: 'Asha', role: 'agent', conversationsHandled: 3, repliesSent: 9, firstResponseCount: 2, medianFirstResponseSeconds: 30, resolved: 1 }]} />);
-    expect(board).toContain('Asha');
-    expect(board).toContain('<table');
-
-    const totals = { recipients: 100, sent: 90, delivered: 80, read: 40, replied: 9, clicked: 4, failed: 10 };
-    const funnel = render(<CampaignFunnel loading={false} error={false} onRetry={noop}
-      funnel={{ totals, broadcasts: [{ ...totals, id: 'b1', name: 'Diwali', templateName: 'offer', at: null }] }} />);
-    expect(funnel).toContain('Diwali');
-    expect(funnel).toContain('Analytics.campaigns.percent');
-
+  it('lists the flow drop-off as a table', () => {
     const flows = render(<FlowDropOff loading={false} error={false} onRetry={noop} flowId="" onFlowChange={noop}
       flows={[{ id: 'f1', name: 'Welcome' }]}
       stats={{ started: 5, completed: 2, handedOff: 1, timedOut: 1, failed: 1, cancelled: 0, active: 0,
         dropOff: [{ flowId: 'f1', nodeKey: 'ask_name', nodeType: 'question', runs: 2 }] }} />);
     expect(flows).toContain('Welcome · ask_name (question)');
-    expect(flows).toContain('<select');
+    expect(flows).toContain('data-slot="select-trigger"');
+    expect(flows).toContain('Analytics.flows.allFlows');
   });
 });

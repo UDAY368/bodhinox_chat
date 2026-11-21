@@ -7,6 +7,7 @@ import { ArrowDown, ArrowUp, Plus, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
@@ -15,7 +16,8 @@ import type { FormField, FormSaveTo } from "@/lib/whatsapp/forms/types";
 import type { FlowCustomField } from "@/components/flows/forms/use-pickers";
 import { errorsUnder, fieldCapabilities, newOption } from "./form-editing";
 
-const selectClass = "h-9 w-full rounded-lg border border-border bg-card px-2.5 text-sm text-foreground disabled:opacity-60";
+// Base UI's Select treats "" as nothing picked; "Don't save" uses this instead.
+const SAVE_NONE = "__none__";
 
 function saveToValue(saveTo: FormSaveTo | null | undefined): string {
   if (!saveTo) return "";
@@ -251,28 +253,41 @@ export function FieldEditor({
       {caps.saveTo && (
         <div className="space-y-1.5">
           <Label htmlFor={`${uid}-save`}>{t("saveTo")}</Label>
-          <select
-            id={`${uid}-save`}
-            value={saveToValue(field.save_to)}
+          <Select
+            items={[
+              { value: SAVE_NONE, label: t("saveToNone") },
+              { value: "contact:name", label: t("contactName") },
+              { value: "contact:email", label: t("contactEmail") },
+              { value: "contact:company", label: t("contactCompany") },
+              ...customFields.map((cf) => ({ value: `custom:${cf.id}`, label: cf.field_name })),
+            ]}
+            value={saveToValue(field.save_to) || SAVE_NONE}
             disabled={readOnly}
-            aria-describedby={described("save_to")}
-            onChange={(e) => set({ save_to: parseSaveTo(e.target.value) })}
-            className={selectClass}
+            onValueChange={(next) => {
+              if (typeof next === "string") set({ save_to: parseSaveTo(next === SAVE_NONE ? "" : next) });
+            }}
           >
-            <option value="">{t("saveToNone")}</option>
-            <optgroup label={t("saveToContact")}>
-              <option value="contact:name">{t("contactName")}</option>
-              <option value="contact:email">{t("contactEmail")}</option>
-              <option value="contact:company">{t("contactCompany")}</option>
-            </optgroup>
-            {customFields.length > 0 && (
-              <optgroup label={t("saveToCustom")}>
-                {customFields.map((cf) => (
-                  <option key={cf.id} value={`custom:${cf.id}`}>{cf.field_name}</option>
-                ))}
-              </optgroup>
-            )}
-          </select>
+            <SelectTrigger id={`${uid}-save`} aria-describedby={described("save_to")} className="h-9 w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={SAVE_NONE}>{t("saveToNone")}</SelectItem>
+              <SelectGroup>
+                <SelectLabel>{t("saveToContact")}</SelectLabel>
+                <SelectItem value="contact:name">{t("contactName")}</SelectItem>
+                <SelectItem value="contact:email">{t("contactEmail")}</SelectItem>
+                <SelectItem value="contact:company">{t("contactCompany")}</SelectItem>
+              </SelectGroup>
+              {customFields.length > 0 && (
+                <SelectGroup>
+                  <SelectLabel>{t("saveToCustom")}</SelectLabel>
+                  {customFields.map((cf) => (
+                    <SelectItem key={cf.id} value={`custom:${cf.id}`}>{cf.field_name}</SelectItem>
+                  ))}
+                </SelectGroup>
+              )}
+            </SelectContent>
+          </Select>
           <FieldErrors id={errId("save_to")} messages={err("save_to")} />
         </div>
       )}

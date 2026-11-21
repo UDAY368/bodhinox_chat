@@ -28,20 +28,23 @@ it('marks a disconnected number in its label', () => {
 it('the select hides disconnected numbers but still names the current one', async () => {
   const { createElement } = await import('react');
   const { renderToStaticMarkup } = await import('react-dom/server');
-  const { NumberSelect } = await import('./number-select');
+  const { NumberSelect, numberSelectOptions, NO_NUMBER } = await import('./number-select');
   const dto = (over: Record<string, unknown>) => ({
     waba_id: null, status: 'connected', is_default: false, quality_rating: null, messaging_limit_tier: null,
     name_status: null, health_checked_at: null, connected_at: null, created_at: null, ...live, ...over,
   });
-  const numbers = [dto({}), dto({ ...gone, status: 'disconnected' })];
+  const numbers = [dto({}), dto({ ...gone, status: 'disconnected' })] as Parameters<typeof numberSelectOptions>[0];
+  const tKey = (key: string) => key;
+  const values = (value: string | null) => numberSelectOptions(numbers, value, 'All', tKey).map((o) => o.value);
+
+  expect(values(null)).toEqual([NO_NUMBER, 'a']);
+  expect(values('b')).toEqual([NO_NUMBER, 'a', 'b']);
+  // A stored id the list does not have at all still shows.
+  expect(values('zzz')).toEqual([NO_NUMBER, 'a', 'zzz']);
+
   const render = (value: string | null) =>
     renderToStaticMarkup(createElement(NumberSelect, { numbers, value, onChange: () => {}, emptyLabel: 'All' }));
-
-  const fresh = render(null);
-  expect(fresh).toContain('value="a"');
-  expect(fresh).not.toContain('value="b"');
-
-  const existing = render('b');
-  expect(existing).toContain('value="b"');
-  expect(existing).toContain('picker.disconnectedSuffix');
+  // The closed menu shows the chosen number's label, never its raw id.
+  expect(render(null)).toContain('All');
+  expect(render('b')).toContain('picker.disconnectedSuffix');
 });

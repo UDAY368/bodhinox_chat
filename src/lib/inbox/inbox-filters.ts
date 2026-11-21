@@ -125,6 +125,90 @@ export interface AgentFilter {
   mode: 'assigned' | 'handled';
 }
 
+// ---------------------------------------------------------------- server-side list query (batch 7)
+//
+// Everything the conversation list filters by, as one value the browser sends
+// to GET /api/inbox/conversations (as query parameters) and to the bulk route.
+// The server turns it into SQL (conversation-list.ts); the browser only keeps
+// the rows of the pages it loaded.
+
+export type ListConsent = 'any' | 'opted_in' | 'opted_out' | 'none';
+export type ListSession = 'all' | 'active' | 'expired';
+export type ListChannel = 'whatsapp' | 'instagram';
+
+export interface InboxListQuery {
+  /** The inbox page: one channel, or 'all' (the All view). */
+  scope: 'all' | ListChannel;
+  /** The view or folder (the `?filter=` URL value). */
+  filter: InboxFilter;
+  /** The All view's channel tab; null for every channel. */
+  channel: ListChannel | null;
+  /** A WhatsApp number id, 'none' for conversations without one, or null. */
+  numberId: string | null;
+  agent: AgentFilter | null;
+  /** Contact tags, OR-matched. */
+  tagIds: string[];
+  /** Exact (trimmed) contact company. */
+  company: string | null;
+  consent: ListConsent;
+  /** Name, number, last message, or any message text. */
+  search: string;
+  session: ListSession;
+}
+
+export const MAX_LIST_TAGS = 50;
+export const MAX_LIST_TEXT = 200;
+const LIST_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const CHANNELS: readonly string[] = ['whatsapp', 'instagram'];
+const CONSENTS: readonly string[] = ['any', 'opted_in', 'opted_out', 'none'];
+const SESSIONS: readonly string[] = ['all', 'active', 'expired'];
+
+/** The query as URL parameters (defaults left out, so equal queries give equal strings). */
+export function listQueryParams(query: InboxListQuery): URLSearchParams {
+  const params = new URLSearchParams();
+  if (query.scope !== 'all') params.set('scope', query.scope);
+  if (query.filter !== 'all') params.set('filter', query.filter);
+  if (query.channel) params.set('channel', query.channel);
+  if (query.numberId) params.set('number', query.numberId);
+  if (query.agent) {
+    params.set('agent', query.agent.memberId);
+    params.set('agentMode', query.agent.mode);
+  }
+  if (query.tagIds.length) params.set('tags', [...query.tagIds].sort().join(','));
+  if (query.company !== null) params.set('company', query.company);
+  if (query.consent !== 'any') params.set('consent', query.consent);
+  if (query.search.trim()) params.set('q', query.search.trim());
+  if (query.session !== 'all') params.set('session', query.session);
+  return params;
+}
+
+/**
+ * The query from URL parameters. Lenient like parseInboxFilter: an unknown or
+ * malformed value is left at its default, never passed on.
+ */
+export function parseListQuery(params: URLSearchParams): InboxListQuery {
+  const pick = <T extends string>(value: string | null, allowed: readonly string[], fallback: T): T =>
+    value !== null && allowed.includes(value) ? (value as T) : fallback;
+  const number = params.get('number');
+  const agent = params.get('agent');
+  const company = params.get('company');
+  return {
+    scope: pick(params.get('scope'), CHANNELS, 'all'),
+    filter: parseInboxFilter(params.get('filter')),
+    channel: CHANNELS.includes(params.get('channel') ?? '') ? (params.get('channel') as ListChannel) : null,
+    numberId: number === 'none' ? 'none' : number && LIST_UUID.test(number) ? number.toLowerCase() : null,
+    agent: agent && LIST_UUID.test(agent)
+      ? { memberId: agent.toLowerCase(), mode: params.get('agentMode') === 'handled' ? 'handled' : 'assigned' }
+      : null,
+    tagIds: [...new Set((params.get('tags') ?? '').split(',').filter((id) => LIST_UUID.test(id)).map((id) => id.toLowerCase()))]
+      .slice(0, MAX_LIST_TAGS),
+    company: company !== null && company.trim() ? company.trim().slice(0, MAX_LIST_TEXT) : null,
+    consent: pick(params.get('consent'), CONSENTS, 'any'),
+    search: (params.get('q') ?? '').trim().slice(0, MAX_LIST_TEXT),
+    session: pick(params.get('session'), SESSIONS, 'all'),
+  };
+}
+
 export function matchesAgentFilter(
   c: { id?: string; assigned_agent_id?: string | null },
   agent: AgentFilter | null,

@@ -36,6 +36,8 @@ export interface ReportContext {
   accountId: string;
   range: AnalyticsRange;
   params: URLSearchParams;
+  /** The member's current role (from the live session), for figures shown to some roles only. */
+  role: AccountRole;
 }
 
 /** The range as echoed to the browser (no Date objects). */
@@ -95,7 +97,7 @@ export async function analyticsReport<T extends object>(
       { accountId: session.accountId, userId: session.userId, role: session.role },
       async (tx, timezone) => {
         const range = parseRange(rangeInputFromSearchParams(params), timezone);
-        return { range: rangeSummary(range), ...(await report({ tx, accountId: session.accountId, range, params })) };
+        return { range: rangeSummary(range), ...(await report({ tx, accountId: session.accountId, range, params, role: session.role })) };
       },
     );
     return NextResponse.json(body, { headers: { 'Cache-Control': 'no-store' } });

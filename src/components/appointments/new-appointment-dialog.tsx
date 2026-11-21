@@ -6,6 +6,7 @@
  * re-checks the slot under its locks and confirms at once; the customer's
  * confirmation and reminders are queued with the booking.
  */
+import { OptionSelect } from '@/components/ui/option-select';
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { useLocale, useTranslations } from 'next-intl';
@@ -15,7 +16,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { Label } from '@/components/ui/label';
 import type { Slot } from '@/lib/appointments/types';
 import { SlotSelector } from './slot-selector';
-import { apiRequest, selectClass, useFailureText, type AppointmentConfig } from './shared';
+import { apiRequest, useFailureText, type AppointmentConfig } from './shared';
 
 /** Locations offering a service, and whether it is pooled there (pure; tested). */
 export function offeringChoices(config: Pick<AppointmentConfig, 'offerings' | 'locations' | 'staff'>, serviceId: string) {
@@ -103,27 +104,21 @@ export function NewAppointmentDialog({
           <div className="grid gap-3 sm:grid-cols-3">
             <div className="space-y-1">
               <Label htmlFor="appt-service">{t('create.service')}</Label>
-              <select id="appt-service" className={selectClass} value={serviceId}
-                onChange={(e) => { setServiceId(e.target.value); setLocationId(''); setStaffId(''); setSlot(null); }}>
-                <option value="">—</option>
-                {services.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-              </select>
+              <OptionSelect id="appt-service" value={serviceId}
+                onValueChange={(v) => { setServiceId(v); setLocationId(''); setStaffId(''); setSlot(null); }}
+                options={[{ value: '', label: '—' }, ...services.map((s) => ({ value: s.id, label: s.name }))]} />
             </div>
             <div className="space-y-1">
               <Label htmlFor="appt-location">{t('create.location')}</Label>
-              <select id="appt-location" className={selectClass} value={locationId} disabled={!serviceId}
-                onChange={(e) => { setLocationId(e.target.value); setStaffId(''); setSlot(null); }}>
-                <option value="">—</option>
-                {choices.locations.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
-              </select>
+              <OptionSelect id="appt-location" value={locationId} disabled={!serviceId}
+                onValueChange={(v) => { setLocationId(v); setStaffId(''); setSlot(null); }}
+                options={[{ value: '', label: '—' }, ...choices.locations.map((l) => ({ value: l.id, label: l.name }))]} />
             </div>
             <div className="space-y-1">
               <Label htmlFor="appt-staff">{t('create.practitioner')}</Label>
-              <select id="appt-staff" className={selectClass} value={staffId} disabled={!locationId || staffHere.length === 0}
-                onChange={(e) => { setStaffId(e.target.value); setSlot(null); }}>
-                <option value="">{staffHere.length ? t('schedule.anyStaff') : t('schedule.pool')}</option>
-                {staffHere.map((s) => <option key={s.id} value={s.id}>{s.display_name}</option>)}
-              </select>
+              <OptionSelect id="appt-staff" value={staffId} disabled={!locationId || staffHere.length === 0}
+                onValueChange={(v) => { setStaffId(v); setSlot(null); }}
+                options={[{ value: '', label: staffHere.length ? t('schedule.anyStaff') : t('schedule.pool') }, ...staffHere.map((s) => ({ value: s.id, label: s.display_name }))]} />
             </div>
           </div>
           {preferred && (

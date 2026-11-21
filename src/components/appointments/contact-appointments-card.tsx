@@ -186,15 +186,3 @@ function NewBookingForContact({ contact, onClose, onBooked }: {
     />
   );
 }
-
-/** A ready "New booking" button for a contact (chat header or sidebar), opening the dialog. */
-export function NewBookingButton({ contact }: { contact: { id: string; name: string | null } }) {
-  const t = useTranslations('Appointments.contactCard');
-  const booking = useNewBookingDialog(contact);
-  return (
-    <>
-      <Button size="sm" variant="outline" onClick={booking.open}><CalendarPlus className="size-4" />{t('newBooking')}</Button>
-      {booking.dialog}
-    </>
-  );
-}

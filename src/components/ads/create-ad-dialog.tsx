@@ -21,6 +21,8 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { SegmentedControl } from '@/components/ui/segmented-control';
+import { OptionSelect } from '@/components/ui/option-select';
 import { authFetch } from '@/lib/auth/client';
 import { isCurrencyCode, parseMoney } from '@/lib/commerce/money';
 import { cn } from '@/lib/utils';
@@ -445,14 +447,13 @@ export function CreateAdDialog({ open, onOpenChange, accounts, adAccountId, page
               <div className="flex flex-wrap items-center gap-2 rounded-xl border border-dashed border-border p-3" data-testid="create-ad-setups">
                 <Bookmark className="size-4 text-primary" aria-hidden />
                 <span className="text-sm text-foreground">{ts('startFrom')}</span>
-                <select aria-label={ts('startFrom')} defaultValue="" onChange={(e) => {
-                  const chosen = templates.find((x) => x.id === e.target.value);
-                  if (chosen) applySetup(chosen.settings);
-                  e.target.value = '';
-                }} className="h-8 min-w-0 flex-1 rounded-lg border border-border bg-card px-2 text-sm">
-                  <option value="">{ts('choose')}</option>
-                  {templates.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}
-                </select>
+                {/* An action picker: it applies the chosen setup and goes back to "Choose". */}
+                <OptionSelect aria-label={ts('startFrom')} value="" placeholder={ts('choose')} className="min-w-0 flex-1"
+                  onValueChange={(id) => {
+                    const chosen = templates.find((x) => x.id === id);
+                    if (chosen) applySetup(chosen.settings);
+                  }}
+                  options={templates.map((x) => ({ value: x.id, label: x.name }))} />
               </div>
             )}
             <div role="radiogroup" aria-label={t('goal')} className="grid gap-3 sm:grid-cols-2">
@@ -471,20 +472,16 @@ export function CreateAdDialog({ open, onOpenChange, accounts, adAccountId, page
             {accounts.length > 1 && (
               <div className="space-y-1">
                 <Label htmlFor="create-ad-account">{t('adAccount')}</Label>
-                <select id="create-ad-account" value={account} onChange={(e) => { setAccount(e.target.value); setImage(null); }}
-                  className="h-9 w-full rounded-lg border border-border bg-card px-2.5 text-sm">
-                  {accounts.map((a) => <option key={a.adAccountId} value={a.adAccountId}>{a.name ?? a.adAccountId}{a.currency ? ` · ${a.currency}` : ''}</option>)}
-                </select>
+                <OptionSelect id="create-ad-account" value={account} onValueChange={(v) => { setAccount(v); setImage(null); }}
+                  options={accounts.map((a) => ({ value: a.adAccountId, label: `${a.name ?? a.adAccountId}${a.currency ? ` · ${a.currency}` : ''}` }))} />
               </div>
             )}
             {pages.length > 1 && (
               <div className="space-y-1">
                 <Label htmlFor="create-ad-page">{t('page')}</Label>
-                <select id="create-ad-page" value={CONNECTED_PAGE_KINDS.includes(kind) ? (pages.find((p) => p.connected)?.id ?? '') : pageId}
-                  disabled={CONNECTED_PAGE_KINDS.includes(kind)} onChange={(e) => setPageId(e.target.value)}
-                  className="h-9 w-full rounded-lg border border-border bg-card px-2.5 text-sm disabled:opacity-60">
-                  {pages.map((p) => <option key={p.id} value={p.id}>{p.name ?? p.id}{p.connected ? ` · ${t('connectedPage')}` : ''}</option>)}
-                </select>
+                <OptionSelect id="create-ad-page" value={CONNECTED_PAGE_KINDS.includes(kind) ? (pages.find((p) => p.connected)?.id ?? '') : pageId}
+                  disabled={CONNECTED_PAGE_KINDS.includes(kind)} onValueChange={setPageId}
+                  options={pages.map((p) => ({ value: p.id, label: `${p.name ?? p.id}${p.connected ? ` · ${t('connectedPage')}` : ''}` }))} />
                 {CONNECTED_PAGE_KINDS.includes(kind) && <p className="text-xs text-muted-foreground">{t('pageLocked')}</p>}
               </div>
             )}
@@ -513,12 +510,9 @@ export function CreateAdDialog({ open, onOpenChange, accounts, adAccountId, page
               </p>
             </div>
             <div className="space-y-1">
-              <Label htmlFor="create-ad-gender">{t('gender')}</Label>
-              <select id="create-ad-gender" value={gender} onChange={(e) => setGender(e.target.value as 'all' | '1' | '2')} className="h-9 w-full rounded-lg border border-border bg-card px-2.5 text-sm">
-                <option value="all">{t('genders.all')}</option>
-                <option value="1">{t('genders.men')}</option>
-                <option value="2">{t('genders.women')}</option>
-              </select>
+              <Label>{t('gender')}</Label>
+              <SegmentedControl aria-label={t('gender')} value={gender} onValueChange={setGender}
+                options={[{ value: 'all', label: t('genders.all') }, { value: '1', label: t('genders.men') }, { value: '2', label: t('genders.women') }]} />
             </div>
             <div className="space-y-1">
               <Label htmlFor="create-ad-start">{t('start')}</Label>
@@ -686,10 +680,9 @@ export function CreateAdDialog({ open, onOpenChange, accounts, adAccountId, page
               {kind === 'lead_form' && (
                 <div className="space-y-1">
                   <Label htmlFor="create-ad-form">{t('leadForm')}</Label>
-                  <select id="create-ad-form" value={leadFormId} onChange={(e) => setLeadFormId(e.target.value)} className="h-9 w-full rounded-lg border border-border bg-card px-2.5 text-sm">
-                    <option value="">{forms === null ? t('loadingForms') : t('chooseForm')}</option>
-                    {(forms ?? []).map((f) => <option key={f.id} value={f.id}>{f.name ?? f.id}</option>)}
-                  </select>
+                  <OptionSelect id="create-ad-form" value={leadFormId} onValueChange={setLeadFormId}
+                    placeholder={forms === null ? t('loadingForms') : t('chooseForm')}
+                    options={(forms ?? []).map((f) => ({ value: f.id, label: f.name ?? f.id }))} />
                   {forms !== null && forms.length === 0 && <p className="text-xs text-muted-foreground">{t('noForms')}</p>}
                   <Button type="button" variant="outline" size="sm" onClick={() => setLeadFormOpen(true)} data-testid="create-ad-new-form">
                     <Plus className="size-3.5" /> {t('newForm')}
@@ -699,9 +692,8 @@ export function CreateAdDialog({ open, onOpenChange, accounts, adAccountId, page
               {(kind === 'lead_form' || kind === 'website') && (
                 <div className="space-y-1">
                   <Label htmlFor="create-ad-cta">{t('cta')}</Label>
-                  <select id="create-ad-cta" value={cta || CTAS[kind][0]} onChange={(e) => setCta(e.target.value)} className="h-9 w-full rounded-lg border border-border bg-card px-2.5 text-sm">
-                    {CTAS[kind].map((c) => <option key={c} value={c}>{t(`ctas.${c}`)}</option>)}
-                  </select>
+                  <OptionSelect id="create-ad-cta" value={cta || CTAS[kind][0]} onValueChange={setCta}
+                    options={CTAS[kind].map((c) => ({ value: c, label: t(`ctas.${c}`) }))} />
                 </div>
               )}
               {kind === 'whatsapp' && (

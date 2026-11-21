@@ -22,6 +22,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
+import { InlineError } from '@/components/ui/inline-error';
+import { PageLoading } from '@/components/ui/page-loading';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { InstagramGoalsEditor } from '@/components/settings/ai-assistant-settings';
 import type { AiGoal } from '@/lib/flows/types';
 import { cn } from '@/lib/utils';
@@ -109,13 +112,10 @@ export function FeaturesPanel() {
 
   if (failed) {
     return (
-      <div className="flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card p-4 text-sm">
-        <p className="text-destructive">{t('common.loadFailed')}</p>
-        <Button type="button" size="sm" variant="outline" onClick={() => void load()}>{t('common.retry')}</Button>
-      </div>
+      <InlineError message={t('common.loadFailed')} onRetry={() => void load()} />
     );
   }
-  if (!view) return <div className="flex justify-center py-10"><Loader2 className="size-5 animate-spin text-muted-foreground" aria-label={t('common.loading')} /></div>;
+  if (!view) return <PageLoading rows={5} />;
 
   const s = view.settings;
   const onCount = FEATURES.filter((f) => s[f.setting]).length;
@@ -149,14 +149,18 @@ export function FeaturesPanel() {
                   <strong className="block text-sm font-semibold" id={`feature-${key}`}>{name}</strong>
                   <p className="mt-0.5 text-[13px] text-muted-foreground">{t(`features.items.${key}.desc`)}</p>
                   {key === 'translate' && s.translation_enabled && (
-                    <label className="mt-2.5 flex flex-wrap items-center gap-2 text-[13px] font-medium text-muted-foreground">
-                      {t('features.teamLanguage')}
-                      <select value={s.translation_language} disabled={busy}
-                        className="h-8 min-w-[130px] rounded-lg border border-border bg-card px-2 text-[13px] text-foreground outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30"
-                        onChange={(e) => void save({ translation_language: e.target.value }, t('features.languageSaved', { language: t(`languages.${e.target.value}`) }))}>
-                        {TEAM_LANGUAGES.map((l) => <option key={l} value={l}>{t(`languages.${l}`)}</option>)}
-                      </select>
-                    </label>
+                    <div className="mt-2.5 flex flex-wrap items-center gap-2 text-[13px] font-medium text-muted-foreground">
+                      <span id="ai-team-language-label">{t('features.teamLanguage')}</span>
+                      <Select value={s.translation_language} disabled={busy}
+                        onValueChange={(v) => { if (v) void save({ translation_language: v }, t('features.languageSaved', { language: t(`languages.${v}`) })); }}>
+                        <SelectTrigger aria-labelledby="ai-team-language-label" className="min-h-11 min-w-[130px] sm:min-h-8">
+                          <SelectValue>{(v: string) => t(`languages.${v}`)}</SelectValue>
+                        </SelectTrigger>
+                        <SelectContent>
+                          {TEAM_LANGUAGES.map((l) => <SelectItem key={l} value={l}>{t(`languages.${l}`)}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
                   )}
                 </div>
                 <Switch className="mt-1.5" checked={s[setting]} disabled={busy} aria-labelledby={`feature-${key}`}
@@ -205,7 +209,7 @@ export function FeaturesPanel() {
                     <div className="flex flex-wrap gap-1.5">
                       {LIMIT_PRESETS.map((n) => (
                         <button key={n} type="button" onClick={() => setLimitText(String(n))}
-                          className="h-7 rounded-full border border-border bg-card px-3 text-xs text-muted-foreground transition-colors duration-150 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50">
+                          className="min-h-11 rounded-full border border-border bg-card px-3 text-xs text-muted-foreground sm:min-h-7 transition-colors duration-150 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50">
                           {t('budget.preset', { n: n / 1_000_000 })}
                         </button>
                       ))}

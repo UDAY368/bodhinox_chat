@@ -15,11 +15,15 @@ import { toast } from "sonner";
 import { useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
+import { InlineError } from "@/components/ui/inline-error";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { SegmentedControl } from "@/components/ui/segmented-control";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { authFetch } from "@/lib/auth/client";
 import { createClient } from "@/lib/data/client";
@@ -50,6 +54,7 @@ const toInput = (rule: RoutingRule): RoutingRuleInput => ({
 
 export function RoutingRulesCard({ canEdit }: { canEdit: boolean }) {
   const t = useTranslations("Settings.routingRules");
+  const confirm = useConfirm();
   const { numbers } = useWhatsAppNumbers();
   const [rules, setRules] = useState<RoutingRule[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
@@ -112,7 +117,7 @@ export function RoutingRulesCard({ canEdit }: { canEdit: boolean }) {
   });
 
   const remove = (rule: RoutingRule) => run(async () => {
-    if (!window.confirm(t("deleteConfirm", { name: rule.name }))) return;
+    if (!(await confirm({ title: t("deleteConfirm", { name: rule.name }), confirmLabel: t("delete"), destructive: true }))) return;
     await call(`${ENDPOINT}/${rule.id}`, { method: "DELETE" }, t("deleteFailed"));
     setRules((list) => list.filter((r) => r.id !== rule.id));
     toast.success(t("deleted"));
@@ -140,7 +145,7 @@ export function RoutingRulesCard({ canEdit }: { canEdit: boolean }) {
         ) : loading ? (
           <Loader2 className="size-4 animate-spin text-primary" />
         ) : loadFailed ? (
-          <p className="text-xs text-destructive">{t("loadFailed")}</p>
+          <InlineError message={t("loadFailed")} onRetry={() => void load()} />
         ) : (
           <>
             {rules.length === 0 && <p className="text-sm text-muted-foreground">{t("empty")}</p>}
@@ -253,12 +258,12 @@ function RuleDialog({ rule, members, teams, tags, numbers, onClose, onSaved }: {
   };
 
   return (
-    <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
-      <DialogContent className="border-border bg-popover max-h-[90vh] overflow-y-auto sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle className="text-popover-foreground">{rule ? t("editTitle") : t("addTitle")}</DialogTitle>
-          <DialogDescription className="text-muted-foreground">{t("dialogDescription")}</DialogDescription>
-        </DialogHeader>
+    <Sheet open onOpenChange={(open) => { if (!open) onClose(); }}>
+      <SheetContent size="lg" className="w-full gap-4 overflow-y-auto p-4">
+        <SheetHeader className="p-0 pr-8">
+          <SheetTitle className="text-popover-foreground">{rule ? t("editTitle") : t("addTitle")}</SheetTitle>
+          <SheetDescription className="text-muted-foreground">{t("dialogDescription")}</SheetDescription>
+        </SheetHeader>
         <div className="space-y-4">
           <div className="space-y-1.5">
             <Label htmlFor="routing-rule-name">{t("name")}</Label>
@@ -293,39 +298,43 @@ function RuleDialog({ rule, members, teams, tags, numbers, onClose, onSaved }: {
               </div>
             )}
             <div className="space-y-1.5">
-              <Label htmlFor="routing-rule-channel">{t("channel")}</Label>
-              <select id="routing-rule-channel" value={channel} onChange={(e) => setChannel(e.target.value as ChannelChoice)}
-                className="border-border bg-card text-foreground h-9 w-full rounded-md border px-2 text-sm">
-                <option value="any">{t("channelAny")}</option>
-                <option value="whatsapp">{t("channelWhatsapp")}</option>
-                <option value="instagram">{t("channelInstagram")}</option>
-              </select>
+              <p className="text-sm font-medium text-foreground">{t("channel")}</p>
+              <SegmentedControl<ChannelChoice> aria-label={t("channel")} value={channel} onValueChange={setChannel}
+                options={[
+                  { value: "any", label: t("channelAny") },
+                  { value: "whatsapp", label: t("channelWhatsapp") },
+                  { value: "instagram", label: t("channelInstagram") },
+                ]} />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="routing-rule-hours">{t("hours")}</Label>
-              <select id="routing-rule-hours" value={hours} onChange={(e) => setHours(e.target.value as HoursChoice)}
-                className="border-border bg-card text-foreground h-9 w-full rounded-md border px-2 text-sm">
-                <option value="any">{t("hoursAny")}</option>
-                <option value="within">{t("hoursWithin")}</option>
-                <option value="outside">{t("hoursOutside")}</option>
-              </select>
+              <p className="text-sm font-medium text-foreground">{t("hours")}</p>
+              <SegmentedControl<HoursChoice> aria-label={t("hours")} value={hours} onValueChange={setHours}
+                options={[
+                  { value: "any", label: t("hoursAny") },
+                  { value: "within", label: t("hoursWithin") },
+                  { value: "outside", label: t("hoursOutside") },
+                ]} />
             </div>
           </fieldset>
 
           <fieldset className="space-y-2">
             <legend className="text-sm font-medium text-foreground">{t("assignTo")}</legend>
-            <select aria-label={t("assignMode")} value={mode}
-              onChange={(e) => { setMode(e.target.value as AssignTo["mode"]); setAssignees(assignees.slice(0, 1)); }}
-              className="border-border bg-card text-foreground h-9 w-full rounded-md border px-2 text-sm">
-              <option value="member">{t("modeMember")}</option>
-              <option value="round_robin">{t("modeRoundRobin")}</option>
-              {(teams.length > 0 || mode === "team") && <option value="team">{t("modeTeam")}</option>}
-            </select>
+            <SegmentedControl<AssignTo["mode"]> aria-label={t("assignMode")} value={mode}
+              onValueChange={(next) => { setMode(next); setAssignees(assignees.slice(0, 1)); }}
+              options={[
+                { value: "member", label: t("modeMember") },
+                { value: "round_robin", label: t("modeRoundRobin") },
+                ...((teams.length > 0 || mode === "team") ? [{ value: "team" as const, label: t("modeTeam") }] : []),
+              ]} />
             {mode === "team" ? (
-              <select aria-label={t("team")} value={teamId} onChange={(e) => setTeamId(e.target.value)}
-                className="border-border bg-card text-foreground h-9 w-full rounded-md border px-2 text-sm">
-                {teams.map((team) => <option key={team.id} value={team.id}>{team.name}</option>)}
-              </select>
+              <Select value={teamId || null} onValueChange={(v) => { if (v) setTeamId(String(v)); }}>
+                <SelectTrigger aria-label={t("team")} className="min-h-11 w-full bg-card sm:min-h-9">
+                  <SelectValue placeholder={t("team")}>{(v: string | null) => teams.find((team) => team.id === v)?.name ?? t("team")}</SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {teams.map((team) => <SelectItem key={team.id} value={team.id}>{team.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
             ) : (
             <div className="max-h-48 space-y-1.5 overflow-y-auto rounded-md border border-border p-2">
               {members.map((member) => (
@@ -350,13 +359,13 @@ function RuleDialog({ rule, members, teams, tags, numbers, onClose, onSaved }: {
             <p className="text-xs text-muted-foreground">{t("reassignHint")}</p>
           </div>
         </div>
-        <DialogFooter>
+        <SheetFooter className="flex-row flex-wrap justify-end p-0">
           <Button type="button" variant="outline" onClick={onClose} disabled={saving}>{t("cancel")}</Button>
           <Button type="button" onClick={save} disabled={saving || !name.trim() || (mode === "team" ? !teamId : assignees.length === 0)}>
             {saving && <Loader2 className="size-3.5 animate-spin" />} {t("save")}
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </SheetFooter>
+      </SheetContent>
+    </Sheet>
   );
 }

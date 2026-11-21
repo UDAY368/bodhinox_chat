@@ -319,10 +319,6 @@ export async function scheduleWorkspaceExportSweeps(now: number = Date.now(), fo
   return accounts.length;
 }
 
-export function resetWorkspaceExportSweepForTests(): void {
-  lastSweepSchedule = Number.NEGATIVE_INFINITY;
-}
-
 /** Fails exports stuck for a day, then deletes expired files and marks their rows expired. */
 export async function runWorkspaceExportSweep(accountId: string,
   removeFile: (accountId: string, key: string) => Promise<void> = deleteExportFile): Promise<{ failed: number; expired: number }> {

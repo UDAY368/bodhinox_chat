@@ -9,6 +9,8 @@ import { Loader2, Sparkles } from 'lucide-react';
 import { authFetch } from '@/lib/auth/client';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { PageLoading } from '@/components/ui/page-loading';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Panel, useDuration } from '@/components/analytics/shared';
 import { rangeParams, type RangeValue } from '@/components/analytics/range-picker';
 import {
@@ -17,7 +19,6 @@ import {
 } from './insight-view';
 
 const POLL_MS = 3_000;
-const selectClass = 'h-9 rounded-lg border border-border bg-card px-2.5 text-[13px] text-foreground transition-colors duration-150 hover:bg-muted outline-none focus-visible:ring-2 focus-visible:ring-ring/50';
 
 /**
  * Business insights from fixed reporting queries: the numbers, their range,
@@ -88,19 +89,24 @@ export function AiInsightsPanel({ range }: { range: RangeValue }) {
   return (
     <Panel title={t('title')} description={t('description')}>
       {enabled === null ? (
-        <div className="flex justify-center py-6"><Loader2 className="h-5 w-5 animate-spin" aria-label={t('loading')} /></div>
+        <PageLoading rows={2} />
       ) : !enabled ? (
         <p role="status" className="text-sm text-muted-foreground">{t('notEnabled')}</p>
       ) : (
         <div className="space-y-5">
           <div className="flex flex-wrap items-end gap-3">
-            <label className="flex flex-col gap-1 text-xs text-muted-foreground">
-              {t('chooseInsight')}
-              <select className={selectClass} value={key} onChange={(e) => setKey(e.target.value as InsightKey)}>
-                {keys.map((k) => <option key={k} value={k}>{t(`keys.${k}`)}</option>)}
-              </select>
-            </label>
-            <Button type="button" onClick={request} disabled={busy || keys.length === 0}>
+            <div className="flex w-full flex-col gap-1 text-xs text-muted-foreground sm:w-auto">
+              <span id="ai-insight-key">{t('chooseInsight')}</span>
+              <Select value={key} onValueChange={(v) => { if (v) setKey(v as InsightKey); }}>
+                <SelectTrigger aria-labelledby="ai-insight-key" className="min-h-11 w-full sm:min-h-9 sm:w-56">
+                  <SelectValue>{(v: string) => (v ? t(`keys.${v as InsightKey}`) : t('chooseInsight'))}</SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {keys.map((k) => <SelectItem key={k} value={k}>{t(`keys.${k}`)}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <Button type="button" className="min-h-11 sm:min-h-9" onClick={request} disabled={busy || keys.length === 0}>
               {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden /> : <Sparkles className="mr-2 h-4 w-4" aria-hidden />}
               {t('generate')}
             </Button>

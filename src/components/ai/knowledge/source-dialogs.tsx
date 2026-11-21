@@ -1,7 +1,7 @@
 'use client';
 
 // Knowledge source dialogs (AI page, Knowledge tab):
-//   SourceDialog: add a website, a sitemap, an uploaded file, a question and
+//   SourceDialog (a sheet): add a website, a sitemap, an uploaded file, a question and
 //     answer or typed text; or edit a Q&A pair or a text source.
 //   SourceDetailDialog: view what a source holds (its pages, its text, or its
 //     question and answer), with "Edit" for Q&A and text sources.
@@ -14,9 +14,10 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Sheet, SheetContent, SheetFooter, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { segmentedItem, segmentedTrack } from '@/components/dashboard/segmented';
 import { ACCEPTED_UPLOADS, kindKey, UPLOAD_MAX_BYTES, type KnowledgeSourceView } from './source-view';
 
 export type AddMode = 'website' | 'sitemap' | 'file' | 'qa' | 'text';
@@ -104,17 +105,22 @@ export function SourceDialog({ state, onClose, onSaved }: {
   const title = editing ? (editing.source.qa ? t('add.editAnswerTitle') : t('add.editTextTitle')) : t('add.title');
 
   return (
-    <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto border-border bg-popover sm:max-w-lg">
-        <DialogHeader><DialogTitle>{title}</DialogTitle></DialogHeader>
-        <form className="space-y-4" noValidate onSubmit={(e) => { e.preventDefault(); void submit(); }}>
+    <Sheet open onOpenChange={(open) => { if (!open) onClose(); }}>
+      <SheetContent side="right" size="md" className="gap-0 p-0">
+        <SheetHeader className="border-b border-border/50 pr-12"><SheetTitle>{title}</SheetTitle></SheetHeader>
+        <form className="flex min-h-0 flex-1 flex-col" noValidate onSubmit={(e) => { e.preventDefault(); void submit(); }}>
+         <div className="flex-1 space-y-4 overflow-y-auto p-4">
           {!editing && (
-            <div className={`${segmentedTrack} flex-wrap`} role="group" aria-label={t('add.modeLabel')}>
-              {MODES.map((m) => (
-                <button key={m} type="button" aria-pressed={mode === m} className={segmentedItem(mode === m)} onClick={() => { setMode(m); setError(null); }}>
-                  {t(`add.modes.${m}`)}
-                </button>
-              ))}
+            <div className="space-y-1">
+              <Label htmlFor="src-mode">{t('add.modeLabel')}</Label>
+              <Select value={mode} onValueChange={(v) => { if (v) { setMode(v as AddMode); setError(null); } }}>
+                <SelectTrigger id="src-mode" className="min-h-11 w-full sm:min-h-9">
+                  <SelectValue>{(v: string) => t(`add.modes.${v}`)}</SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {MODES.map((m) => <SelectItem key={m} value={m}>{t(`add.modes.${m}`)}</SelectItem>)}
+                </SelectContent>
+              </Select>
             </div>
           )}
           {(mode === 'website' || mode === 'sitemap') && (
@@ -178,15 +184,16 @@ export function SourceDialog({ state, onClose, onSaved }: {
             </>
           )}
           {error && <p className="text-xs font-medium text-destructive" role="alert">{error}</p>}
-          <DialogFooter>
+         </div>
+          <SheetFooter className="flex-row justify-end border-t border-border/50">
             <Button type="button" variant="outline" onClick={onClose} disabled={busy}>{tc('cancel')}</Button>
             <Button type="submit" disabled={busy}>
               {busy && <Loader2 className="size-4 animate-spin" aria-hidden />}{editing ? t('add.save') : t('add.submit')}
             </Button>
-          </DialogFooter>
+          </SheetFooter>
         </form>
-      </DialogContent>
-    </Dialog>
+      </SheetContent>
+    </Sheet>
   );
 }
 

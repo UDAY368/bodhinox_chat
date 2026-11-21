@@ -6,6 +6,8 @@
 // event counts. Counts and amounts only; the numbers come from
 // GET /api/analytics/instagram, which any member may read (revenue is for
 // agents and above). The Instagram section layout explains a channel that is off.
+// Apple's way (b7): one large title with the range and a By post / By flow
+// segmented control under it.
 
 import { useState } from 'react';
 import { useFormatter, useTranslations } from 'next-intl';
@@ -13,7 +15,8 @@ import { useFormatter, useTranslations } from 'next-intl';
 import { RangePicker, rangeParams, type RangeValue } from '@/components/analytics/range-picker';
 import { ChartWithTable, DataTable, Panel, ReportState, reportQuery, useReport } from '@/components/analytics/shared';
 import { BarChart } from '@/components/tremor/bar-chart';
-import { Button } from '@/components/ui/button';
+import { PageHeader } from '@/components/ui/page-header';
+import { SegmentedControl } from '@/components/ui/segmented-control';
 import type { ConversionCount } from '@/lib/analytics/conversion-log';
 import type { ContactSeriesPoint } from '@/lib/instagram/contact-series';
 import type { CommentFunnel, CommentFunnelBy } from '@/lib/instagram/funnel';
@@ -54,22 +57,11 @@ export default function InstagramInsightsPage() {
     ...(by === 'flow' ? [t('ctr')] : []), t('leads'), t('follows')];
   return (
     <div className="studio-dashboard space-y-6">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="text-[22px] font-bold tracking-tight text-foreground">{t('title')}</h1>
-          <p className="mt-2 max-w-xl text-sm leading-relaxed text-muted-foreground">{t('description')}</p>
-        </div>
-        <div className="flex flex-col items-start gap-2 sm:items-end">
-          <RangePicker value={range} onChange={setRange} today={range.preset === 'custom' ? undefined : report.data?.range.endDay} />
-          <div role="group" aria-label={t('range')} className="flex gap-1">
-            {(['post', 'flow'] as const).map((key) => (
-              <Button key={key} size="sm" variant={by === key ? 'default' : 'outline'} aria-pressed={by === key} onClick={() => setBy(key)}>
-                {key === 'post' ? t('byPost') : t('byFlow')}
-              </Button>
-            ))}
-          </div>
-        </div>
-      </div>
+      <PageHeader className="mb-0" title={t('title')} subtitle={<span className="block max-w-xl">{t('description')}</span>}>
+        <RangePicker value={range} onChange={setRange} today={range.preset === 'custom' ? undefined : report.data?.range.endDay} />
+        <SegmentedControl aria-label={t('range')} value={by} onValueChange={setBy}
+          options={[{ value: 'post', label: t('byPost') }, { value: 'flow', label: t('byFlow') }]} />
+      </PageHeader>
       <Panel title={by === 'post' ? t('byPost') : t('byFlow')} description={t('clicksNote')}>
         <ReportState loading={report.loading} error={report.error} onRetry={report.retry} empty={!!funnel && funnel.totals.comments === 0}>
           {funnel && (

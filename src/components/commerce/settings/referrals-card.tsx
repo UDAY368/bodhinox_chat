@@ -16,7 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { formatMoney } from "@/lib/commerce/money";
+import { formatMoney } from "@/lib/format/money";
 import type { ReferralOverview } from "@/lib/commerce/referrals";
 
 export function ReferralsCard({ canEdit, refreshKey }: { canEdit: boolean; refreshKey: number }) {
@@ -38,7 +38,7 @@ export function ReferralsCard({ canEdit, refreshKey }: { canEdit: boolean; refre
   }, [load, refreshKey]);
   if (!data) return null;
 
-  const money = (minor: number) => (data.currency ? formatMoney(minor, data.currency, locale) : String(minor));
+  const money = (minor: number) => (data.currency ? formatMoney(minor, data.currency, { locale }) : String(minor));
   const bps = Math.round(Number(percent) * 100);
   const validPercent = Number.isFinite(bps) && bps >= 0 && bps <= 5000;
 

@@ -15,15 +15,23 @@ import { useFormatter, useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import { useConfirm } from '@/components/ui/confirm-dialog';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { EmptyState } from '@/components/ui/empty-state';
+import { GroupedList } from '@/components/ui/grouped-list';
+import { InlineError } from '@/components/ui/inline-error';
 import { Input } from '@/components/ui/input';
+import { PageLoading } from '@/components/ui/page-loading';
+import { SegmentedControl } from '@/components/ui/segmented-control';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { authFetch } from '@/lib/auth/client';
 import {
   customRangeIssue, deviceToday, DURATION_METRICS, SAVED_CHANNELS, SAVED_GROUPS, SAVED_METRICS, SAVED_RANGES, SAVED_REPORT_NAME_MAX,
   type SavedGroup, type SavedMetric, type SavedReportDefinition,
 } from '@/lib/analytics/saved-report-shape';
-import { quietSelect } from '@/components/dashboard/segmented';
 import { useDuration } from '@/components/analytics/shared';
 import { saveBlob } from '@/components/analytics/insights/csv';
 import { cn } from '@/lib/utils';
@@ -51,22 +59,29 @@ interface PreviewView {
 interface Member { user_id: string; full_name: string; role: string; email?: string | null }
 
 const field = 'grid gap-1.5 text-xs font-medium text-muted-foreground';
-const select = `${quietSelect} w-full`;
+const fieldTrigger = 'min-h-11 w-full sm:min-h-9';
+const CADENCES = ['daily', 'weekly', 'monthly'] as const;
 
 async function json<T>(response: Response): Promise<T & { error?: string }> {
   return (await response.json().catch(() => ({}))) as T & { error?: string };
 }
 
-export function SavedReports() {
+/** `buildRequest` opens the builder each time it changes to a new object (the page header's primary button). */
+export function SavedReports({ buildRequest = null }: { buildRequest?: object | null } = {}) {
   const t = useTranslations('Analytics.insights.saved');
   const format = useFormatter();
+  const confirm = useConfirm();
   const [reports, setReports] = useState<SavedReportView[] | null>(null);
   const [failed, setFailed] = useState(false);
   const [search, setSearch] = useState('');
   const [editing, setEditing] = useState<SavedReportView | 'new' | null>(null);
   const [previewing, setPreviewing] = useState<SavedReportView | null>(null);
   const [scheduling, setScheduling] = useState<SavedReportView | null>(null);
-  const [deleting, setDeleting] = useState<SavedReportView | null>(null);
+  const [handledRequest, setHandledRequest] = useState<object | null>(buildRequest);
+  if (buildRequest !== handledRequest) {
+    setHandledRequest(buildRequest);
+    if (buildRequest) setEditing('new');
+  }
 
   const load = useCallback(async () => {
     try {
@@ -100,49 +115,65 @@ export function SavedReports() {
     toast.success(t('duplicated'));
   };
 
+  const remove = async (report: SavedReportView) => {
+    const ok = await confirm({
+      title: t('deleteTitle'),
+      body: report.schedule ? t('deleteScheduled', { name: report.name }) : t('deleteText', { name: report.name }),
+      confirmLabel: t('delete'),
+      cancelLabel: t('cancel'),
+      destructive: true,
+    });
+    if (!ok) return;
+    const res = await authFetch(`/api/analytics/saved-reports/${report.id}`, { method: 'DELETE' });
+    if (!res.ok) return void toast.error((await json(res)).error || t('failed'));
+    setReports((l) => (l ?? []).filter((r) => r.id !== report.id));
+    toast.success(t('deleted'));
+  };
+
   const q = search.trim().toLowerCase();
   const list = (reports ?? []).filter((r) => !q || r.name.toLowerCase().includes(q));
   const scheduled = (reports ?? []).filter((r) => r.schedule).length;
 
   return (
     <section aria-labelledby="saved-reports-title" className="space-y-3">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div className="min-w-0">
-          <h2 id="saved-reports-title" className="text-[15px] font-semibold tracking-tight text-foreground">{t('title')}</h2>
-          <p className="mt-0.5 text-xs text-muted-foreground">{t('description')}</p>
-        </div>
-        <Button onClick={() => setEditing('new')}><Plus aria-hidden />{t('build')}</Button>
+      <div className="min-w-0">
+        <h2 id="saved-reports-title" className="text-[15px] font-semibold tracking-tight text-foreground">{t('title')}</h2>
+        <p className="mt-0.5 text-xs text-muted-foreground">{t('description')}</p>
       </div>
       <div className="flex flex-col gap-2 min-[761px]:flex-row min-[761px]:items-center">
         <label className="relative min-w-0 min-[761px]:w-72">
           <span className="sr-only">{t('search')}</span>
           <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
-          <Input type="search" value={search} onChange={(e) => setSearch(e.target.value)} placeholder={t('search')} className="h-9 pl-8" />
+          <Input type="search" value={search} onChange={(e) => setSearch(e.target.value)} placeholder={t('search')} className="h-11 pl-8 sm:h-9" />
         </label>
         {reports && <span className="text-[13px] text-muted-foreground">{t('count', { shown: list.length, total: reports.length, scheduled })}</span>}
       </div>
       {failed ? (
-        <div role="alert" className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
-          {t('loadFailed')}<Button size="sm" variant="outline" onClick={() => void load()}>{t('retry')}</Button>
-        </div>
+        <InlineError message={t('loadFailed')} onRetry={() => void load()} />
       ) : !reports ? (
-        <div className="h-24 animate-pulse rounded-xl bg-muted" />
+        <PageLoading rows={3} />
       ) : list.length ? (
-        <ul className="overflow-hidden rounded-xl border border-border bg-card">
-          {list.map((r) => (
-            <ReportRow key={r.id} report={r} created={format.dateTime(new Date(r.createdAt), { dateStyle: 'medium' })}
-              onOpen={() => setPreviewing(r)} onSchedule={() => setScheduling(r)} onEdit={() => setEditing(r)}
-              onDuplicate={() => void duplicate(r)} onDelete={() => setDeleting(r)} />
-          ))}
-        </ul>
+        <GroupedList>
+          <ul>
+            {list.map((r) => (
+              <ReportRow key={r.id} report={r} created={format.dateTime(new Date(r.createdAt), { dateStyle: 'medium' })}
+                onOpen={() => setPreviewing(r)} onSchedule={() => setScheduling(r)} onEdit={() => setEditing(r)}
+                onDuplicate={() => void duplicate(r)} onDelete={() => void remove(r)} />
+            ))}
+          </ul>
+        </GroupedList>
       ) : (
-        <div className="flex flex-col items-center gap-1.5 rounded-xl border border-dashed border-border px-4 py-8 text-center">
-          <strong className="text-sm font-semibold">{reports.length ? t('noMatch') : t('empty')}</strong>
-          <p className="text-xs text-muted-foreground">{reports.length ? t('noMatchHint') : t('emptyHint')}</p>
-          <Button size="sm" variant="outline" className="mt-2" onClick={() => (reports.length ? setSearch('') : setEditing('new'))}>
-            {reports.length ? t('clearSearch') : t('build')}
-          </Button>
-        </div>
+        <EmptyState
+          icon={reports.length ? Search : FileText}
+          title={reports.length ? t('noMatch') : t('empty')}
+          body={reports.length ? t('noMatchHint') : t('emptyHint')}
+          action={
+            <Button variant="outline" className="min-h-11 sm:min-h-8" onClick={() => (reports.length ? setSearch('') : setEditing('new'))}>
+              {reports.length ? undefined : <Plus aria-hidden />}
+              {reports.length ? t('clearSearch') : t('build')}
+            </Button>
+          }
+        />
       )}
       {editing && (
         <BuilderDialog report={editing === 'new' ? null : editing} taken={(reports ?? []).map((r) => ({ id: r.id, name: r.name }))}
@@ -150,27 +181,6 @@ export function SavedReports() {
       )}
       {previewing && <PreviewDialog report={previewing} onClose={() => setPreviewing(null)} />}
       {scheduling && <ScheduleDialog report={scheduling} onClose={() => setScheduling(null)} onSaved={replace} />}
-      {deleting && (
-        <Dialog open onOpenChange={(o) => { if (!o) setDeleting(null); }}>
-          <DialogContent className="sm:max-w-md">
-            <DialogHeader>
-              <DialogTitle>{t('deleteTitle')}</DialogTitle>
-              <DialogDescription>{deleting.schedule ? t('deleteScheduled', { name: deleting.name }) : t('deleteText', { name: deleting.name })}</DialogDescription>
-            </DialogHeader>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setDeleting(null)}>{t('cancel')}</Button>
-              <Button variant="destructive" onClick={async () => {
-                const target = deleting;
-                const res = await authFetch(`/api/analytics/saved-reports/${target.id}`, { method: 'DELETE' });
-                if (!res.ok) return toast.error((await json(res)).error || t('failed'));
-                setReports((l) => (l ?? []).filter((r) => r.id !== target.id));
-                setDeleting(null);
-                toast.success(t('deleted'));
-              }}>{t('delete')}</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      )}
     </section>
   );
 }
@@ -215,7 +225,7 @@ function ReportRow({ report: r, created, onOpen, onSchedule, onEdit, onDuplicate
       </button>
       <span className="col-span-2 row-start-2 min-w-0 min-[1000px]:col-span-1 min-[1000px]:row-start-1">
         <button type="button" onClick={onSchedule} title={r.schedule ? t('changeSchedule') : t('scheduleEmail')}
-          className={cn('inline-flex max-w-full items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-ring/50',
+          className={cn('inline-flex min-h-11 max-w-full items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium sm:min-h-0 outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-ring/50',
             r.schedule ? 'bg-primary-soft text-primary hover:bg-primary-soft-2' : 'bg-muted text-muted-foreground hover:text-foreground')}>
           <Mail className="size-3.5 shrink-0" aria-hidden />
           <span className="truncate">{r.schedule ? `${scheduleText(r.schedule)}${r.schedule.pausedAt ? ` · ${t('paused')}` : ''}` : t('notScheduled')}</span>
@@ -226,7 +236,7 @@ function ReportRow({ report: r, created, onOpen, onSchedule, onEdit, onDuplicate
         <ExportMenu report={r} />
         <DropdownMenu>
           <DropdownMenuTrigger aria-label={t('more', { name: r.name })} title={t('moreShort')}
-            className="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50">
+            className="inline-flex size-11 items-center justify-center rounded-md text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50 sm:size-8">
             <MoreHorizontal className="size-4" aria-hidden />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
@@ -260,7 +270,7 @@ function ExportMenu({ report }: { report: SavedReportView }) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger aria-label={t('exportReport', { name: report.name })}
-        className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border px-2.5 text-[13px] font-medium outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring/50">
+        className="inline-flex h-11 min-w-11 items-center justify-center gap-1.5 rounded-md border border-border px-2.5 text-[13px] font-medium outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring/50 sm:h-8">
         <Download className="size-3.5" aria-hidden /><span className="hidden min-[480px]:inline">{t('export')}</span>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
@@ -323,13 +333,14 @@ function BuilderDialog({ report, taken, onClose, onSaved }: {
   };
 
   return (
-    <Dialog open onOpenChange={(o) => { if (!o) onClose(); }}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
-        <form onSubmit={save} noValidate className="grid min-w-0 gap-4">
-          <DialogHeader>
-            <DialogTitle>{report ? t('editTitle') : t('buildTitle')}</DialogTitle>
-            <DialogDescription>{t('builderHint')}</DialogDescription>
-          </DialogHeader>
+    <Sheet open onOpenChange={(o) => { if (!o) onClose(); }}>
+      <SheetContent size="lg">
+        <form onSubmit={save} noValidate className="flex min-h-0 min-w-0 flex-1 flex-col">
+          <SheetHeader className="pr-12">
+            <SheetTitle>{report ? t('editTitle') : t('buildTitle')}</SheetTitle>
+            <SheetDescription>{t('builderHint')}</SheetDescription>
+          </SheetHeader>
+          <div className="grid min-h-0 flex-1 content-start gap-4 overflow-y-auto px-4 pb-4">
           <label className={field}>
             {t('name')}
             <Input value={name} maxLength={SAVED_REPORT_NAME_MAX} onChange={(e) => setName(e.target.value)} placeholder={t('namePlaceholder')} aria-invalid={Boolean(errors.name)} autoFocus />
@@ -341,13 +352,11 @@ function BuilderDialog({ report, taken, onClose, onSaved }: {
               {SAVED_METRICS.map((m) => {
                 const on = metrics.includes(m);
                 return (
-                  <label key={m} className="relative cursor-pointer">
-                    <input type="checkbox" className="peer sr-only" checked={on}
-                      onChange={() => setMetrics((list) => (on ? list.filter((x) => x !== m) : SAVED_METRICS.filter((x) => x === m || list.includes(x))))} />
-                    <span className={cn('inline-flex h-[30px] items-center rounded-full border px-3 text-[13px] font-medium transition-colors duration-150 peer-focus-visible:ring-2 peer-focus-visible:ring-ring/50',
-                      on ? 'border-transparent bg-primary-soft font-semibold text-primary' : 'border-border text-muted-foreground hover:bg-muted')}>
-                      {t(`metric.${m}`)}
-                    </span>
+                  <label key={m} className={cn('inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-full border px-3 text-[13px] font-medium transition-colors duration-150 sm:min-h-[30px]',
+                    on ? 'border-transparent bg-primary-soft font-semibold text-primary' : 'border-border text-muted-foreground hover:bg-muted')}>
+                    <Checkbox checked={on}
+                      onCheckedChange={() => setMetrics((list) => (on ? list.filter((x) => x !== m) : SAVED_METRICS.filter((x) => x === m || list.includes(x))))} />
+                    {t(`metric.${m}`)}
                   </label>
                 );
               })}
@@ -355,27 +364,38 @@ function BuilderDialog({ report, taken, onClose, onSaved }: {
             {errors.metrics && <span role="alert" className="text-xs font-medium text-destructive">{errors.metrics}</span>}
           </fieldset>
           <div className="grid gap-3 min-[480px]:grid-cols-2">
-            <label className={field}>{t('groupBy')}
-              <select className={select} value={group} onChange={(e) => setGroup(e.target.value as SavedGroup)}>
-                {SAVED_GROUPS.map((g) => <option key={g} value={g}>{t(`groups.${g}`)}</option>)}
-              </select>
-            </label>
-            <label className={field}>{tc('label')}
-              <select className={select} value={channel} onChange={(e) => setChannel(e.target.value as typeof channel)}>
-                {SAVED_CHANNELS.map((c) => <option key={c} value={c}>{c === 'all' ? tc('all') : tc(c)}</option>)}
-              </select>
-            </label>
-            <label className={field}>{t('range')}
-              <select className={select} value={preset} onChange={(e) => setPreset(e.target.value as typeof preset)}>
-                {SAVED_RANGES.map((p) => <option key={p} value={p}>{t(`ranges.${p}`)}</option>)}
-              </select>
-            </label>
-            <label className={field}>{t('fileType')}
-              <select className={select} value={fileFormat} onChange={(e) => setFileFormat(e.target.value as 'csv' | 'pdf')}>
-                <option value="csv">CSV</option>
-                <option value="pdf">PDF</option>
-              </select>
-            </label>
+            <div className={field}>
+              <span id="saved-report-group">{t('groupBy')}</span>
+              <Select value={group} onValueChange={(v) => { if (v) setGroup(v as SavedGroup); }}>
+                <SelectTrigger aria-labelledby="saved-report-group" className={fieldTrigger}>
+                  <SelectValue>{(v: string) => t(`groups.${v as SavedGroup}`)}</SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {SAVED_GROUPS.map((g) => <SelectItem key={g} value={g}>{t(`groups.${g}`)}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className={field}>
+              <span id="saved-report-range">{t('range')}</span>
+              <Select value={preset} onValueChange={(v) => { if (v) setPreset(v as typeof preset); }}>
+                <SelectTrigger aria-labelledby="saved-report-range" className={fieldTrigger}>
+                  <SelectValue>{(v: string) => t(`ranges.${v as typeof preset}`)}</SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {SAVED_RANGES.map((p) => <SelectItem key={p} value={p}>{t(`ranges.${p}`)}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className={field}>
+              <span>{tc('label')}</span>
+              <SegmentedControl aria-label={tc('label')} value={channel} onValueChange={setChannel}
+                options={SAVED_CHANNELS.map((c) => ({ value: c, label: c === 'all' ? tc('all') : tc(c) }))} />
+            </div>
+            <div className={field}>
+              <span>{t('fileType')}</span>
+              <SegmentedControl aria-label={t('fileType')} value={fileFormat} onValueChange={setFileFormat}
+                options={[{ value: 'csv' as const, label: 'CSV' }, { value: 'pdf' as const, label: 'PDF' }]} />
+            </div>
           </div>
           {preset === 'custom' && (
             <div className="grid gap-3 min-[480px]:grid-cols-2">
@@ -385,13 +405,14 @@ function BuilderDialog({ report, taken, onClose, onSaved }: {
             </div>
           )}
           {errors.form && <p role="alert" className="text-xs font-medium text-destructive">{errors.form}</p>}
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={onClose}>{t('cancel')}</Button>
-            <Button type="submit" disabled={busy}>{report ? t('saveChanges') : t('saveReport')}</Button>
-          </DialogFooter>
+          </div>
+          <SheetFooter className="border-t border-border sm:flex-row sm:justify-end">
+            <Button type="button" variant="outline" className="min-h-11 sm:min-h-8" onClick={onClose}>{t('cancel')}</Button>
+            <Button type="submit" className="min-h-11 sm:min-h-8" disabled={busy}>{report ? t('saveChanges') : t('saveReport')}</Button>
+          </SheetFooter>
         </form>
-      </DialogContent>
-    </Dialog>
+      </SheetContent>
+    </Sheet>
   );
 }
 
@@ -441,11 +462,9 @@ function PreviewDialog({ report, onClose }: { report: SavedReportView; onClose: 
           </DialogDescription>
         </DialogHeader>
         {failed ? (
-          <div role="alert" className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
-            {t('previewFailed')}<Button size="sm" variant="outline" onClick={() => { setFailed(false); setAttempt((n) => n + 1); }}>{t('retry')}</Button>
-          </div>
+          <InlineError message={t('previewFailed')} onRetry={() => { setFailed(false); setAttempt((n) => n + 1); }} />
         ) : !preview ? (
-          <div className="h-40 animate-pulse rounded-lg bg-muted" />
+          <PageLoading rows={4} />
         ) : (
           <div className="max-h-[52vh] overflow-auto rounded-lg border border-border">
             <table className="w-full min-w-[480px] text-sm">
@@ -533,19 +552,20 @@ function ScheduleDialog({ report, onClose, onSaved }: { report: SavedReportView;
   };
 
   return (
-    <Dialog open onOpenChange={(o) => { if (!o) onClose(); }}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-md">
-        <form onSubmit={(e) => { e.preventDefault(); void send('PUT'); }} noValidate className="grid min-w-0 gap-4">
-          <DialogHeader>
-            <DialogTitle>{s ? t('changeSchedule') : t('scheduleTitle')}</DialogTitle>
-            <DialogDescription>{t('scheduleHint', { name: report.name, format: report.format.toUpperCase() })}</DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-3 min-[480px]:grid-cols-2">
-            <label className={field}>{t('howOften')}
-              <select className={select} value={cadence} onChange={(e) => setCadence(e.target.value as Cadence)}>
-                {(['daily', 'weekly', 'monthly'] as const).map((c) => <option key={c} value={c}>{t(`freq.${c}`)}</option>)}
-              </select>
-            </label>
+    <Sheet open onOpenChange={(o) => { if (!o) onClose(); }}>
+      <SheetContent size="md">
+        <form onSubmit={(e) => { e.preventDefault(); void send('PUT'); }} noValidate className="flex min-h-0 min-w-0 flex-1 flex-col">
+          <SheetHeader className="pr-12">
+            <SheetTitle>{s ? t('changeSchedule') : t('scheduleTitle')}</SheetTitle>
+            <SheetDescription>{t('scheduleHint', { name: report.name, format: report.format.toUpperCase() })}</SheetDescription>
+          </SheetHeader>
+          <div className="grid min-h-0 flex-1 content-start gap-4 overflow-y-auto px-4 pb-4">
+          <div className="grid gap-3">
+            <div className={field}>
+              <span>{t('howOften')}</span>
+              <SegmentedControl aria-label={t('howOften')} value={cadence} onValueChange={setCadence}
+                options={CADENCES.map((c) => ({ value: c, label: t(`freq.${c}`) }))} />
+            </div>
             <label className={field}>{t('time')}
               <Input type="time" value={time} onChange={(e) => setTime(e.target.value)} aria-invalid={Boolean(errors.time)} required />
               {errors.time && <span role="alert" className="text-xs font-medium text-destructive">{errors.time}</span>}
@@ -553,11 +573,11 @@ function ScheduleDialog({ report, onClose, onSaved }: { report: SavedReportView;
           </div>
           <fieldset className="grid gap-1">
             <legend className="mb-1 text-xs font-medium text-muted-foreground">{t('sendTo')}</legend>
-            {admins === null ? <div className="h-16 animate-pulse rounded-lg bg-muted" /> : admins.length === 0 ? (
+            {admins === null ? <PageLoading rows={2} /> : admins.length === 0 ? (
               <p className="text-xs text-muted-foreground">{t('noAdmins')}</p>
             ) : admins.map((m) => (
-              <label key={m.user_id} className="flex cursor-pointer items-center gap-2.5 rounded-md px-2 py-1.5 hover:bg-muted">
-                <input type="checkbox" className="size-4 accent-[var(--primary)]" checked={recipients.includes(m.user_id)} onChange={() => toggle(m.user_id)} />
+              <label key={m.user_id} className="flex min-h-11 cursor-pointer items-center gap-2.5 rounded-md px-2 py-1.5 hover:bg-muted">
+                <Checkbox checked={recipients.includes(m.user_id)} onCheckedChange={() => toggle(m.user_id)} />
                 <span className="flex min-w-0 flex-col">
                   <strong className="truncate text-sm font-medium">{m.full_name || t('unnamed')}</strong>
                   {m.email && <small className="truncate text-xs text-muted-foreground">{m.email}</small>}
@@ -568,16 +588,17 @@ function ScheduleDialog({ report, onClose, onSaved }: { report: SavedReportView;
             {errors.to && <span role="alert" className="text-xs font-medium text-destructive">{errors.to}</span>}
           </fieldset>
           {errors.form && <p role="alert" className="text-xs font-medium text-destructive">{errors.form}</p>}
-          <DialogFooter>
+          </div>
+          <SheetFooter className="border-t border-border sm:flex-row sm:justify-end">
             {s ? (
-              <Button type="button" variant="destructive" disabled={busy} onClick={() => void send('DELETE')}><CalendarClock aria-hidden />{t('stopSending')}</Button>
+              <Button type="button" variant="destructive" className="min-h-11 sm:min-h-8" disabled={busy} onClick={() => void send('DELETE')}><CalendarClock aria-hidden />{t('stopSending')}</Button>
             ) : (
-              <Button type="button" variant="outline" onClick={onClose}>{t('cancel')}</Button>
+              <Button type="button" variant="outline" className="min-h-11 sm:min-h-8" onClick={onClose}>{t('cancel')}</Button>
             )}
-            <Button type="submit" disabled={busy}>{t('saveSchedule')}</Button>
-          </DialogFooter>
+            <Button type="submit" className="min-h-11 sm:min-h-8" disabled={busy}>{t('saveSchedule')}</Button>
+          </SheetFooter>
         </form>
-      </DialogContent>
-    </Dialog>
+      </SheetContent>
+    </Sheet>
   );
 }

@@ -135,7 +135,7 @@ export function TemplatePicker({
         return;
       }
 
-      // Scope by RLS (message_templates_select → is_account_member), NOT by
+      // Scope by RLS (tenant_read → account_id = app_account_id()), NOT by
       // user_id. Templates are account-owned, so filtering on the caller's
       // user_id hid templates that a teammate created — leaving them unable
       // to send approved templates in a shared account.

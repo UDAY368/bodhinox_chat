@@ -11,6 +11,7 @@ import { X } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import { FLOW_TRIGGER_LIMITS } from "@/lib/flows/types";
 import {
@@ -140,7 +141,7 @@ export function KeywordTriggerFields({ config, onChange, t }: { config: Config; 
           </Select>
         </div>
         <label className="flex items-center gap-2 self-end pb-2 text-xs">
-          <input type="checkbox" checked={Boolean(config.case_sensitive)} onChange={(e) => onChange({ ...config, case_sensitive: e.target.checked })} />
+          <Checkbox checked={Boolean(config.case_sensitive)} onCheckedChange={(checked) => onChange({ ...config, case_sensitive: checked })} />
           {t("caseSensitive")}
         </label>
       </div>
@@ -201,8 +202,8 @@ export function TemplateReplyTriggerFields({ config, onChange, t }: { config: Co
           <div className="flex flex-wrap gap-3">
             {buttons.map((b) => (
               <label key={b} className="flex items-center gap-1.5 text-xs">
-                <input type="checkbox" checked={chosen.includes(b)}
-                  onChange={(e) => onChange({ ...config, buttons: e.target.checked ? [...chosen, b] : chosen.filter((x) => x !== b) })} />
+                <Checkbox checked={chosen.includes(b)}
+                  onCheckedChange={(checked) => onChange({ ...config, buttons: checked ? [...chosen, b] : chosen.filter((x) => x !== b) })} />
                 {b}
               </label>
             ))}

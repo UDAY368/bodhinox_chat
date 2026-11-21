@@ -4,14 +4,14 @@
 //
 // This is the machine-to-machine counterpart of `getCurrentAccount`
 // (cookie session → account). Where the dashboard authenticates a
-// human via Supabase cookies, the public API authenticates a caller
+// human via session cookies, the public API authenticates a caller
 // via `Authorization: Bearer wacrm_live_…`.
 //
 // Calling convention — every `/api/v1` route does:
 //
 //   try {
 //     const ctx = await requireApiKey(request, "messages:send");
-//     // ctx.supabase   — service-role client (no user session exists)
+//     // ctx.db         — service-role client (no user session exists)
 //     // ctx.accountId  — the key's account; scope every query by it
 //     // ctx.scopes     — granted scopes
 //     // ctx.keyId      — for logging / the rate-limit bucket
@@ -19,7 +19,7 @@
 //     return toApiErrorResponse(err);   // maps ApiError → envelope
 //   }
 //
-// Why a service-role client: an API caller has no Supabase session,
+// Why a service-role client: an API caller has no cookie session,
 // so there's no `auth.uid()` for RLS to match. The key lookup itself
 // establishes the account; from there every downstream query MUST be
 // explicitly filtered by `ctx.accountId` (the same discipline the
@@ -39,7 +39,7 @@ import { checkRateLimit, RATE_LIMITS } from '@/lib/rate-limit';
 export interface ApiKeyContext {
   /** Discriminant — lets shared logic tell key auth from cookie auth. */
   authType: 'api_key';
-  /** Service-role Supabase client. RLS-bypassing; scope by accountId. */
+  /** Service-role data client. RLS-bypassing; scope by accountId. */
   db: DataClient;
   /** The account this key belongs to. */
   accountId: string;

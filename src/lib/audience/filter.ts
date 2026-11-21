@@ -110,7 +110,7 @@ function compileCondition(accountId: string, c: AudienceCondition): Prisma.Sql {
     }
     case 'campaign': {
       const outcome = Prisma.sql`EXISTS(SELECT 1 FROM broadcast_recipients r WHERE r.account_id=${accountId}::uuid AND r.contact_id=c.id
-        AND r.broadcast_id=${c.broadcastId}::uuid AND r.status IN (${Prisma.join([...OUTCOME_STATUSES[c.op]])}))`;
+        AND r.broadcast_id=${c.broadcastId}::uuid AND r.status IN (${Prisma.join([...OUTCOME_STATUSES[c.op]])})${c.op === 'clicked' ? Prisma.sql` AND r.clicked_at IS NOT NULL` : Prisma.empty})`;
       // A deleted campaign must match nobody, or "did not receive X" would match every contact.
       const exists = Prisma.sql`EXISTS(SELECT 1 FROM broadcasts b WHERE b.account_id=${accountId}::uuid AND b.id=${c.broadcastId}::uuid)`;
       return c.op === 'not_received' ? Prisma.sql`(${exists} AND NOT ${outcome})` : outcome;

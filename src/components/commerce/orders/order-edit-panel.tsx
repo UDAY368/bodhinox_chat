@@ -18,11 +18,11 @@ import { Copy, Loader2, Minus, Pencil, Plus, Trash2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { formatMoney } from "@/lib/commerce/money";
+import { formatMoney } from "@/lib/format/money";
 import {
   createEditBalanceLink, getOrderEditState, listSellableVariants, previewOrderEdit, saveOrderEdit,
   type OrderEditBody, type OrderEditPreview, type OrderEditState, type SellableVariant,
@@ -62,7 +62,7 @@ export function OrderEditPanel({ orderId, canEdit, onChanged }: {
 
   if (!state) return null;
   const money = (minor: number) => {
-    try { return formatMoney(minor, state.currency, locale); } catch { return `${state.currency} ${minor}`; }
+    return formatMoney(minor, state.currency, { locale });
   };
   const latest = state.edits[0];
   const showButton = canEdit && state.blocked !== "not_editable";
@@ -259,12 +259,13 @@ function OrderEditDialog({ orderId, state, money, onClose, onSaved, onStale }: {
   const signed = (minor: number) => (minor < 0 ? `−${money(-minor)}` : money(minor));
 
   return (
-    <Dialog open onOpenChange={(next) => { if (!next && !busy) onClose(); }}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle>{t("dialogTitle")}</DialogTitle>
-          <DialogDescription>{t("dialogHelp")}</DialogDescription>
-        </DialogHeader>
+    <Sheet open onOpenChange={(next) => { if (!next && !busy) onClose(); }}>
+      <SheetContent size="md" className="w-full gap-0">
+        <SheetHeader>
+          <SheetTitle>{t("dialogTitle")}</SheetTitle>
+          <SheetDescription>{t("dialogHelp")}</SheetDescription>
+        </SheetHeader>
+        <div className="flex-1 space-y-4 overflow-y-auto px-4 pb-4">
         <div className="space-y-4 text-sm">
           <fieldset className="space-y-2">
             <legend className="mb-1.5 text-sm font-medium">{t("items")}</legend>
@@ -374,13 +375,14 @@ function OrderEditDialog({ orderId, state, money, onClose, onSaved, onStale }: {
               placeholder={t("reasonPlaceholder")} onChange={(e) => setReason(e.target.value)} />
           </div>
         </div>
-        <DialogFooter>
+        </div>
+        <SheetFooter className="border-t border-border sm:flex-row sm:justify-end">
           <Button variant="outline" disabled={busy} onClick={onClose}>{t("cancel")}</Button>
           <Button disabled={!canSave} onClick={() => void save()}>
             {busy && <Loader2 className="h-4 w-4 animate-spin" />} {t("confirm")}
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </SheetFooter>
+      </SheetContent>
+    </Sheet>
   );
 }

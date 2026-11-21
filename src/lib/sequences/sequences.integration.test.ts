@@ -325,8 +325,13 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('sequences on PostgreSQL', {
       await sequenceSubscriptions.subscribe(accountA, t.contact, seq.id);
       await updateSequence(agentA, seq.id, { status: 'paused' });
       await runDueSequences(accountA);
-      vi.stubEnv('INSTAGRAM_ENABLED', 'false');
       await updateSequence(adminA, seq.id, { status: 'active' });
+      vi.stubEnv('INSTAGRAM_ENABLED', 'false');
+      // The store refuses an Instagram sequence per channel while Instagram is off (the routes no longer gate every call).
+      await expect(updateSequence(adminA, seq.id, { status: 'paused' })).rejects.toMatchObject({ code: 'instagram_not_enabled' });
+      await expect(createSequence(agentA, 'Off')).rejects.toMatchObject({ code: 'instagram_not_enabled' });
+      expect((await createSequence(agentA, 'WhatsApp while off', 'whatsapp')).channel).toBe('whatsapp');
+      expect((await listSequences(viewerA)).every((s) => s.channel === 'whatsapp')).toBe(true);
       expect(await runDueSequences(accountA)).toBe(0);
       expect(h.start).not.toHaveBeenCalled();
       expect((await subscription(seq.id, t.contact)).status).toBe('active');

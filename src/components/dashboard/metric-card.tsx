@@ -1,4 +1,5 @@
 import { ArrowDown, ArrowUp, Minus } from 'lucide-react'
+import Link from 'next/link'
 import type { ComponentType } from 'react'
 import { cn } from '@/lib/utils'
 
@@ -19,11 +20,13 @@ interface MetricCardProps {
   }
   /** Used instead of `delta` when the metric has a static subtitle. */
   subtitle?: string
+  /** When set, the whole card opens the records behind the figure. */
+  href?: string
 }
 
-export function MetricCard({ title, value, icon: Icon, delta, subtitle }: MetricCardProps) {
-  return (
-    <div className="flex min-w-0 flex-col gap-1 rounded-xl border border-border bg-card p-4">
+export function MetricCard({ title, value, icon: Icon, delta, subtitle, href }: MetricCardProps) {
+  const body = (
+    <>
       <div className="flex items-center justify-between gap-2">
         <p className="truncate text-xs font-medium text-muted-foreground">{title}</p>
         <Icon className="h-3.5 w-3.5 shrink-0 text-muted-foreground/70" aria-hidden />
@@ -34,7 +37,15 @@ export function MetricCard({ title, value, icon: Icon, delta, subtitle }: Metric
       {delta ? <DeltaRow sign={delta.sign} label={delta.label} /> : subtitle ? (
         <p className="text-xs text-muted-foreground">{subtitle}</p>
       ) : null}
-    </div>
+    </>
+  )
+  const cls = 'flex min-w-0 flex-col gap-1 rounded-xl border border-border bg-card p-4'
+  return href ? (
+    <Link href={href} className={cn(cls, 'outline-none transition-colors duration-150 hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring/50')}>
+      {body}
+    </Link>
+  ) : (
+    <div className={cls}>{body}</div>
   )
 }
 

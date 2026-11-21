@@ -1,6 +1,6 @@
 'use client';
 
-// The agent editor (AI page, Agents tab): one dialog with name, role, goal and
+// The agent editor (AI page, Agents tab): one sheet with name, role, goal and
 // instructions, tone, channels, handover rules and working hours, as in the
 // prototype. Saves through POST /api/ai/agents or PATCH /api/ai/agents/:id.
 
@@ -10,19 +10,22 @@ import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { authFetch } from '@/lib/auth/client';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { SegmentedControl } from '@/components/ui/segmented-control';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
-import { segmentedItem, segmentedTrack } from '@/components/dashboard/segmented';
 import { cn } from '@/lib/utils';
 import {
   AGENT_CHANNELS, AGENT_ROLES, AGENT_TONES, formFrom, formToBody,
   type AgentForm, type AgentFormErrors, type AgentView, type HoursMode,
 } from './agent-view';
 
-const field = 'h-9 w-full rounded-lg border border-border bg-card px-2.5 text-sm text-foreground outline-none transition-colors duration-150 focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30';
+const trigger = 'min-h-11 w-full sm:min-h-9';
+const HOURS_MODES: HoursMode[] = ['always', 'during', 'outside'];
+const MODE_LABEL = { always: 'editor.modeAlways', during: 'editor.modeDuring', outside: 'editor.modeOutside' } as const;
 
 export function AgentDialog({ open, agent, takenNames, onOpenChange, onSaved }: {
   open: boolean;
@@ -66,13 +69,14 @@ export function AgentDialog({ open, agent, takenNames, onOpenChange, onSaved }: 
     errors[key] ? <p className="text-xs font-medium text-destructive" role="alert">{message}</p> : null;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto border-border bg-popover sm:max-w-xl">
-        <DialogHeader>
-          <DialogTitle>{agent ? t('editor.editTitle', { name: agent.name }) : t('editor.newTitle')}</DialogTitle>
-          {agent?.is_default && <DialogDescription>{t('agents.defaultHint')}</DialogDescription>}
-        </DialogHeader>
-        <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); void save(); }} noValidate>
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent side="right" size="lg" className="gap-0 p-0">
+        <SheetHeader className="border-b border-border/50 pr-12">
+          <SheetTitle>{agent ? t('editor.editTitle', { name: agent.name }) : t('editor.newTitle')}</SheetTitle>
+          {agent?.is_default && <SheetDescription>{t('agents.defaultHint')}</SheetDescription>}
+        </SheetHeader>
+        <form className="flex min-h-0 flex-1 flex-col" onSubmit={(e) => { e.preventDefault(); void save(); }} noValidate>
+         <div className="flex-1 space-y-4 overflow-y-auto p-4">
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1">
               <Label htmlFor="agent-name">{t('editor.name')}</Label>
@@ -82,9 +86,14 @@ export function AgentDialog({ open, agent, takenNames, onOpenChange, onSaved }: 
             </div>
             <div className="space-y-1">
               <Label htmlFor="agent-role">{t('editor.role')}</Label>
-              <select id="agent-role" className={field} value={form.role} onChange={(e) => set('role', e.target.value as AgentForm['role'])}>
-                {AGENT_ROLES.map((r) => <option key={r} value={r}>{t(`agents.roles.${r}`)}</option>)}
-              </select>
+              <Select value={form.role} onValueChange={(v) => { if (v) set('role', v as AgentForm['role']); }}>
+                <SelectTrigger id="agent-role" className={trigger}>
+                  <SelectValue>{(v: string) => t(`agents.roles.${v}`)}</SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {AGENT_ROLES.map((r) => <SelectItem key={r} value={r}>{t(`agents.roles.${r}`)}</SelectItem>)}
+                </SelectContent>
+              </Select>
             </div>
           </div>
           <div className="space-y-1">
@@ -93,14 +102,16 @@ export function AgentDialog({ open, agent, takenNames, onOpenChange, onSaved }: 
               aria-invalid={errors.goal ? true : undefined} onChange={(e) => set('instructions', e.target.value)} />
             {err('goal', t('editor.errors.goal'))}
           </div>
-          <div className="space-y-1.5">
-            <span className="text-sm font-medium" id="agent-tone-label">{t('editor.tone')}</span>
-            <div className={cn(segmentedTrack, 'flex-wrap')} role="group" aria-labelledby="agent-tone-label">
-              {AGENT_TONES.map((tone) => (
-                <button key={tone} type="button" aria-pressed={form.tone === tone} className={segmentedItem(form.tone === tone)}
-                  onClick={() => set('tone', tone)}>{t(`agents.tones.${tone}`)}</button>
-              ))}
-            </div>
+          <div className="space-y-1">
+            <Label htmlFor="agent-tone">{t('editor.tone')}</Label>
+            <Select value={form.tone} onValueChange={(v) => { if (v) set('tone', v as AgentForm['tone']); }}>
+              <SelectTrigger id="agent-tone" className={trigger}>
+                <SelectValue>{(v: string) => t(`agents.tones.${v}`)}</SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {AGENT_TONES.map((tone) => <SelectItem key={tone} value={tone}>{t(`agents.tones.${tone}`)}</SelectItem>)}
+              </SelectContent>
+            </Select>
           </div>
           <div className="space-y-1.5">
             <span className="text-sm font-medium" id="agent-channels-label">{t('editor.channels')}</span>
@@ -109,7 +120,7 @@ export function AgentDialog({ open, agent, takenNames, onOpenChange, onSaved }: 
                 const on = form.channels.includes(c);
                 return (
                   <button key={c} type="button" aria-pressed={on}
-                    className={cn('inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-[13px] font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50',
+                    className={cn('inline-flex min-h-11 items-center gap-1.5 rounded-full sm:min-h-8 border px-3 text-[13px] font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50',
                       on ? 'border-primary bg-primary-soft text-primary' : 'border-border bg-card text-muted-foreground hover:text-foreground')}
                     onClick={() => set('channels', on ? form.channels.filter((x) => x !== c) : [...form.channels, c])}>
                     <span aria-hidden className={cn('size-2 rounded-full', c === 'whatsapp' ? 'bg-emerald-500' : 'bg-pink-500')} />
@@ -154,13 +165,14 @@ export function AgentDialog({ open, agent, takenNames, onOpenChange, onSaved }: 
 
           <fieldset className="min-w-0 space-y-3 rounded-xl border border-border p-3.5">
             <legend className="px-1.5 text-xs font-semibold text-muted-foreground">{t('editor.hoursLegend')}</legend>
-            <div className="space-y-1">
-              <Label htmlFor="agent-mode">{t('editor.hoursMode')}</Label>
-              <select id="agent-mode" className={field} value={form.mode} onChange={(e) => set('mode', e.target.value as HoursMode)}>
-                <option value="always">{t('editor.modeAlways')}</option>
-                <option value="during">{t('editor.modeDuring')}</option>
-                <option value="outside">{t('editor.modeOutside')}</option>
-              </select>
+            <div className="space-y-1.5">
+              <span className="text-sm font-medium">{t('editor.hoursMode')}</span>
+              <SegmentedControl
+                aria-label={t('editor.hoursMode')}
+                value={form.mode}
+                onValueChange={(v) => set('mode', v)}
+                options={HOURS_MODES.map((m) => ({ value: m, label: t(MODE_LABEL[m]) }))}
+              />
             </div>
             {form.mode !== 'always' && (
               <div className="grid grid-cols-2 gap-3">
@@ -178,15 +190,16 @@ export function AgentDialog({ open, agent, takenNames, onOpenChange, onSaved }: 
             <p className="text-xs text-muted-foreground">{t('editor.overnightHint')}</p>
             <p className="text-xs text-muted-foreground">{t('editor.timezone')}</p>
           </fieldset>
-          <DialogFooter>
+         </div>
+          <SheetFooter className="flex-row justify-end border-t border-border/50">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={busy}>{t('common.cancel')}</Button>
             <Button type="submit" disabled={busy}>
               {busy && <Loader2 className="size-4 animate-spin" aria-hidden />}
               {agent ? t('editor.save') : t('editor.create')}
             </Button>
-          </DialogFooter>
+          </SheetFooter>
         </form>
-      </DialogContent>
-    </Dialog>
+      </SheetContent>
+    </Sheet>
   );
 }

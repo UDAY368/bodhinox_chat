@@ -170,3 +170,31 @@ describe('the Instagram auto-reply switch (Stage 2)', () => {
     expect(update).not.toHaveBeenCalled()
   })
 })
+
+describe('saved provider keys stay on the server', () => {
+  it('answers GET with has_key only, never the stored key or its ciphertext', async () => {
+    const cipher = encrypt('sk-ant-saved-secret')
+    mocks.existing = {
+      provider: 'anthropic', model: 'claude-haiku-5-5', api_key: cipher,
+      embeddings_api_key: encrypt('sk-embeddings-secret'), is_active: true,
+    }
+    const response = await GET()
+    const text = await response.text()
+    const body = JSON.parse(text)
+    expect(body).toMatchObject({ configured: true, provider: 'anthropic', model: 'claude-haiku-5-5', has_key: true, has_embeddings_key: true })
+    expect(body.api_key).toBeUndefined()
+    expect(body.embeddings_api_key).toBeUndefined()
+    for (const secret of ['sk-ant-saved-secret', 'sk-embeddings-secret', cipher]) expect(text).not.toContain(secret)
+  })
+
+  it('answers a save with success only, and stores the typed key encrypted', async () => {
+    const response = await POST(new Request('https://crm.test/api/ai/config', {
+      method: 'POST',
+      body: JSON.stringify({ provider: 'openai', model: 'gpt-5.4-mini', api_key: 'sk-typed-secret' }),
+    }))
+    expect(response.status).toBe(200)
+    expect(await response.text()).not.toContain('sk-typed-secret')
+    expect(JSON.stringify(mocks.stored)).not.toContain('sk-typed-secret')
+    expect(mocks.stored?.api_key).toEqual(expect.any(String))
+  })
+})

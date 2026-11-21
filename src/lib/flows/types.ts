@@ -1,7 +1,7 @@
 /**
  * Type definitions for the Flows runtime.
  *
- * These mirror the Supabase schema added in migration 010 (`flows`,
+ * These mirror the database schema added in migration 010 (`flows`,
  * `flow_nodes`, `flow_runs`, `flow_run_events`) plus the discriminated
  * unions the engine uses to typecheck node configs.
  *
@@ -80,7 +80,7 @@ export interface SendListNodeConfig {
 /**
  * Sends a single image / video / document / audio file, then
  * auto-advances. The media file is uploaded to the `flow-media`
- * Supabase Storage bucket by the builder; `media_url` is the public
+ * storage bucket by the builder; `media_url` is the public
  * URL Meta fetches at send time.
  *
  * Why one node with a `media_type` discriminator (rather than three
@@ -434,7 +434,6 @@ export const STAGE5_CONDITION_SUBJECTS = ["system", "segment", "link_click", "wo
 
 /** Instagram profile facts a condition can test (contact_channel_identities columns). */
 export const IG_PROFILE_FACTS = ["follows_business", "business_follows", "is_verified", "follower_count", "in_window"] as const;
-export type IgProfileFact = (typeof IG_PROFILE_FACTS)[number];
 
 /**
  * System facts a `system` condition can test (Stage 5): the stored Instagram
@@ -442,7 +441,6 @@ export type IgProfileFact = (typeof IG_PROFILE_FACTS)[number];
  * contact is subscribed on the run's channel, and the contact id.
  */
 export const SYSTEM_FACTS = ["ig_username", "last_interaction_at", "window_open_until", "subscribed", "contact_id"] as const;
-export type SystemFact = (typeof SYSTEM_FACTS)[number];
 
 /** One test. `time` and `date` read the clock in the node's timezone (HH:MM, YYYY-MM-DD). */
 export interface ConditionRule {
@@ -1570,16 +1568,4 @@ export interface DispatchInboundResult {
     | "duplicate_inbound_ignored"
     | "waiting"
     | "no_match";
-}
-
-// ============================================================
-// Helpers — exhaustiveness assertions
-// ============================================================
-
-/**
- * Throws a typed compile-time error if the switch over a discriminated
- * union forgets a case. Used in the engine's node-type switch.
- */
-export function assertNever(x: never): never {
-  throw new Error(`Unhandled node type: ${JSON.stringify(x)}`);
 }

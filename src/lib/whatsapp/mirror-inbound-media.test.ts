@@ -13,7 +13,7 @@ const MEDIA_ID = "1234567890123456";
 /**
  * Minimal stand-in for `db.storage`. Records every upload so a
  * test can assert on the object path and the content type without a
- * Supabase project.
+ * real storage backend.
  */
 function fakeStorage(uploadError: { message: string } | null = null) {
   const uploads: Array<{

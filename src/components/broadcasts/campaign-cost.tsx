@@ -11,6 +11,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import { useLocale, useTranslations } from 'next-intl';
 
+import { OptionSelect } from '@/components/ui/option-select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { authFetch } from '@/lib/auth/client';
 import type { AudienceCostEstimate, CampaignCostComparison } from '@/lib/analytics/campaign-cost';
@@ -109,14 +110,14 @@ export function EstimateSummary({ estimate, onCurrency }: { estimate: AudienceCo
           <p className="text-foreground">{several && estimate.currency ? t('noCurrencyRate', { currency: estimate.currency }) : t('rateNotConfigured')}</p>
         )}
         {several && (
-          <select
+          <OptionSelect
+            size="sm"
             aria-label={t('currency')}
-            className="rounded-md border border-border bg-muted px-2 py-1 text-xs text-foreground"
+            className="w-auto text-xs"
             value={estimate.currency ?? ''}
-            onChange={(e) => onCurrency(e.target.value)}
-          >
-            {estimate.currencies.map((c) => <option key={c} value={c}>{c}</option>)}
-          </select>
+            onValueChange={onCurrency}
+            options={estimate.currencies.map((c) => ({ value: c, label: c }))}
+          />
         )}
       </div>
       {!estimate.capped && estimate.missingCountries.length > 0 && estimate.byCountry.length > 0 && (
@@ -168,14 +169,14 @@ export function CampaignCostCard({ broadcastId }: { broadcastId: string }) {
         </div>
         <div className="flex items-center gap-4 text-sm">
           {data.currencies.length > 1 && (
-            <select
+            <OptionSelect
+              size="sm"
               aria-label={t('currency')}
-              className="rounded-md border border-border bg-muted px-2 py-1 text-xs text-foreground"
+              className="w-auto text-xs"
               value={cur ?? ''}
-              onChange={(e) => setCurrency(e.target.value)}
-            >
-              {data.currencies.map((c) => <option key={c} value={c}>{c}</option>)}
-            </select>
+              onValueChange={setCurrency}
+              options={data.currencies.map((c) => ({ value: c, label: c }))}
+            />
           )}
           {cur && (
             <>

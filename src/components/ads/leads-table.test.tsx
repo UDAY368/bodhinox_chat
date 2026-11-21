@@ -10,12 +10,15 @@ vi.mock('@/hooks/use-auth', () => ({ useAuth: () => ({ accountRole: auth.role })
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn() }) }));
 vi.mock('@/lib/auth/client', () => ({ authFetch: vi.fn() }));
 
+import { ConfirmProvider } from '@/components/ui/confirm-dialog';
 import { LeadsTable, createRequestSequencer } from './leads-table';
 
 const render = (canManage: boolean) =>
   renderToStaticMarkup(
     <NextIntlClientProvider locale="en" messages={{}} onError={() => {}} getMessageFallback={({ namespace, key }) => `${namespace}.${key}`}>
-      <LeadsTable canManage={canManage} />
+      <ConfirmProvider>
+        <LeadsTable canManage={canManage} />
+      </ConfirmProvider>
     </NextIntlClientProvider>,
   );
 

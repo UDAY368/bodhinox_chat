@@ -12,9 +12,30 @@ import type { AiProvider } from './types'
  */
 export const AI_PROVIDER_DEFAULT_MODEL: Record<AiProvider, string> = {
   openai: 'gpt-5.4-mini',
-  anthropic: 'claude-haiku-4-5-20251001',
+  anthropic: 'claude-haiku-5-5',
   openai_compatible: 'model-id',
   gemini: 'gemini-3.8-flash',
+}
+
+/**
+ * The model picker's short list per provider. The first entry is the
+ * recommended one (the default above). Any other id is still accepted as
+ * "Other…" free text, so saved free-text models keep working. An
+ * OpenAI-compatible endpoint has no list: its models depend on the host.
+ */
+export const AI_PROVIDER_MODELS: Record<AiProvider, readonly string[]> = {
+  openai: ['gpt-5.4-mini', 'gpt-5.4', 'gpt-4o-mini'],
+  anthropic: ['claude-haiku-5-5', 'claude-sonnet-5-5', 'claude-opus-5-5', 'claude-haiku-4-5-20251001'],
+  openai_compatible: [],
+  gemini: ['gemini-3.8-flash', 'gemini-2.5-flash', 'gemini-2.5-pro'],
+}
+
+/** The picker's "Other…" choice: the model id is typed in. */
+export const OTHER_MODEL = '__other__'
+
+/** The picker value for a saved model: a listed id, else "Other…" (free text). */
+export function modelChoice(provider: AiProvider, model: string): string {
+  return AI_PROVIDER_MODELS[provider].includes(model.trim()) ? model.trim() : OTHER_MODEL
 }
 
 /**

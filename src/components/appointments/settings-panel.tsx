@@ -7,8 +7,8 @@
  * message (appointmentTemplateRefusal) is listed but not selectable, with the
  * reason; the server checks again on save.
  */
+import { OptionSelect } from '@/components/ui/option-select';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
@@ -17,6 +17,7 @@ import { Input } from '@/components/ui/input';
 import { PageLoading } from '@/components/ui/page-loading';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { createClient } from '@/lib/data/client';
 import {
   appointmentTemplateRefusal, manageButtonUrl, type AppointmentCheckedTemplate, type AppointmentTemplateRefusal,
@@ -24,7 +25,7 @@ import {
 import {
   APPOINTMENT_TEMPLATE_SLOTS, type AppointmentSettingsRow, type AppointmentTemplateSlot,
 } from '@/lib/appointments/types';
-import { apiRequest, selectClass, useFailureText, type ApiFailure } from './shared';
+import { apiRequest, useFailureText, type ApiFailure } from './shared';
 
 export type TemplateOption = AppointmentCheckedTemplate & { id: string; name: string; language: string };
 
@@ -76,7 +77,6 @@ const SWITCHES: { key: 'reminder_24h' | 'reminder_2h' | 'staff_notify'; label: s
 
 export function SettingsPanel({ canEdit }: { canEdit: boolean }) {
   const t = useTranslations('AppointmentSettings');
-  const tAppointments = useTranslations('Appointments');
   const failureText = useFailureText();
   /** The settings as last loaded or saved: the form only ever sends what differs from it. */
   const [baseline, setBaseline] = useState<AppointmentSettingsRow | null>(null);
@@ -131,15 +131,8 @@ export function SettingsPanel({ canEdit }: { canEdit: boolean }) {
     toast.success(t('saved'));
   }
 
-  if (loadFailure) {
-    return (
-      <div className="max-w-2xl space-y-2 text-sm" role="alert">
-        <p className="text-destructive">{failureText(loadFailure)}</p>
-        <Button type="button" variant="outline" size="sm" onClick={() => void loadSettings()}>{tAppointments('retry')}</Button>
-      </div>
-    );
-  }
-  if (!settings) return <Loader2 className="h-5 w-5 animate-spin text-primary" aria-label={t('title')} />;
+  if (loadFailure) return <InlineError className="max-w-2xl" message={failureText(loadFailure)} onRetry={() => void loadSettings()} />;
+  if (!settings) return <PageLoading rows={4} className="max-w-2xl" />;
   const set = (patch: Partial<AppointmentSettingsRow>) => setSettings((s) => (s ? { ...s, ...patch } : s));
   const disabled = !canEdit || busy;
 
@@ -183,15 +176,16 @@ export function SettingsPanel({ canEdit }: { canEdit: boolean }) {
           return (
             <div key={slot} className="space-y-1">
               <Label htmlFor={`tpl-${slot}`}>{t(`templateSlots.${slot}`)}</Label>
-              <select id={`tpl-${slot}`} className={selectClass} value={value} disabled={disabled} onChange={(e) => setTemplate(slot, e.target.value)}>
-                <option value="">{t('noTemplate')}</option>
-                {value && !current && <option value={value}>{value.replace('|', ' (')})</option>}
-                {choices.map((c) => (
-                  <option key={c.key} value={c.key} disabled={!!c.refusal && c.key !== value}>
-                    {c.label}{c.refusal ? ` — ${t(`templateErrors.${c.refusal}`)}` : ''}
-                  </option>
-                ))}
-              </select>
+              <OptionSelect id={`tpl-${slot}`} value={value} disabled={disabled} onValueChange={(v) => setTemplate(slot, v)}
+                options={[
+                  { value: '', label: t('noTemplate') },
+                  ...(value && !current ? [{ value, label: `${value.replace('|', ' (')})` }] : []),
+                  ...choices.map((c) => ({
+                    value: c.key,
+                    label: `${c.label}${c.refusal ? ` — ${t(`templateErrors.${c.refusal}`)}` : ''}`,
+                    disabled: !!c.refusal && c.key !== value,
+                  })),
+                ]} />
               {current?.refusal && <p className="text-xs text-destructive">{t(`templateErrors.${current.refusal}`)}</p>}
               {fieldError?.field === `${slot}_template_name` && <p className="text-xs text-destructive">{fieldError.message}</p>}
             </div>
@@ -209,6 +203,8 @@ interface StageOption { id: string; name: string; pipeline_id: string; pipeline_
  * Deals (Batch 3): the stage a completed booking moves its linked deal to.
  * Saved on its own, so it never overwrites the booking settings above.
  */
+const NO_STAGE = '__no_stage__';
+
 export function DealStageCard({ canEdit }: { canEdit: boolean }) {
   const t = useTranslations('Appointments.deal');
   const tA = useTranslations('Appointments');
@@ -255,21 +251,35 @@ export function DealStageCard({ canEdit }: { canEdit: boolean }) {
     }
     return [...groups.entries()];
   }, [stages]);
+  const stageItems = useMemo(() => [
+    { value: NO_STAGE, label: t('stageNone') },
+    ...(stages ?? []).map((s) => ({ value: s.id, label: s.name })),
+    ...(value && !(stages ?? []).some((s) => s.id === value) ? [{ value, label: value.slice(0, 8) }] : []),
+  ], [stages, value, t]);
 
   if (failed) return <InlineError message={tA('loadFailed')} onRetry={() => void load()} />;
   if (!stages) return <PageLoading rows={1} />;
   return (
     <div className="space-y-2 rounded-group border border-separator bg-grouped-surface p-4">
       <Label htmlFor="appt-deal-stage">{t('stageLabel')}</Label>
-      <select id="appt-deal-stage" className={selectClass} value={value} disabled={!canEdit || busy} onChange={(e) => void save(e.target.value)}>
-        <option value="">{t('stageNone')}</option>
-        {pipelines.map(([id, g]) => (
-          <optgroup key={id} label={g.name}>
-            {g.stages.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-          </optgroup>
-        ))}
-        {value && !stages.some((s) => s.id === value) && <option value={value}>{value.slice(0, 8)}</option>}
-      </select>
+      <Select
+        items={stageItems}
+        value={value || NO_STAGE}
+        disabled={!canEdit || busy}
+        onValueChange={(v) => { if (typeof v === 'string') void save(v === NO_STAGE ? '' : v); }}
+      >
+        <SelectTrigger id="appt-deal-stage" className="w-full"><SelectValue /></SelectTrigger>
+        <SelectContent>
+          <SelectItem value={NO_STAGE}>{t('stageNone')}</SelectItem>
+          {pipelines.map(([id, g]) => (
+            <SelectGroup key={id}>
+              <SelectLabel>{g.name}</SelectLabel>
+              {g.stages.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+            </SelectGroup>
+          ))}
+          {value && !stages.some((s) => s.id === value) && <SelectItem value={value}>{value.slice(0, 8)}</SelectItem>}
+        </SelectContent>
+      </Select>
       <p className="text-footnote text-muted-foreground">{t('stageHelp')}</p>
     </div>
   );

@@ -159,6 +159,9 @@ model conversations {
   /// The member who resolved it (20261119000000); set by the database, NULL when it resolved automatically.
   resolved_by String? @db.Uuid
   @@unique([account_id, id])
+  /// 20261207050100: conversations_account_resolved_idx (account_id, resolved_at) WHERE resolved_at IS NOT NULL, built CONCURRENTLY by the SQL.
+  /// 20261207040000: conversations_list_order_idx (account_id, last_message_at DESC NULLS LAST, id), the inbox list's keyset order, built CONCURRENTLY by the SQL.
+  @@index([account_id, created_at], map: "conversations_account_created_idx")
 }
 
 /// Who handled which chat (20261119000000): assignments, resolves and reopens, written only by a trigger.
@@ -364,8 +367,28 @@ model broadcasts {
   finished_at DateTime? @db.Timestamptz(6)
   /// 20261201100000: the wizard's per-session request id; a repeated create returns the campaign already made.
   client_request_id String? @db.Uuid
+  /// 20261207030000: skip contacts sent a campaign or sequence message in the last N days (0 = off).
+  skip_recent_days Int @default(0) @db.SmallInt
+  /// 20261207030000: quiet hours; minutes after local midnight in send_window_time_zone (all NULL = no window).
+  send_window_start Int? @db.SmallInt
+  send_window_end Int? @db.SmallInt
+  send_window_time_zone String?
+  /// 20261207030000: who confirmed a CSV audience's WhatsApp consent, and when.
+  csv_consent_user_id String? @db.Uuid
+  csv_consent_at DateTime? @db.Timestamptz(6)
   @@unique([account_id, id])
   @@unique([account_id, client_request_id], map: "broadcasts_account_client_request_id_key")
+}
+
+/// 20261207030000: a draft campaign's full wizard state and CSV rows (server-side; removed with the draft).
+model broadcast_drafts {
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  broadcast_id String @db.Uuid
+  state Json @db.JsonB @default("{}")
+  csv_rows Json? @db.JsonB
+  updated_by String? @db.Uuid
+  updated_at DateTime @db.Timestamptz(6) @default(now())
+  @@id([account_id, broadcast_id])
 }
 
 model broadcast_recipients {
@@ -1219,6 +1242,7 @@ model orders {
   @@unique([account_id, source, external_id])
   @@unique([account_id, id])
   @@index([account_id, created_at(sort: Desc)], map: "orders_account_created_idx")
+  /// 20261207050300: orders_account_paid_idx (account_id, paid_at) WHERE paid_at IS NOT NULL, built CONCURRENTLY by the SQL.
   @@unique([account_id, storefront_session_id])
   buyer_extras Json?
   /// 20261201005000: the email the buyer typed at checkout.
@@ -3487,6 +3511,11 @@ model sequences {
   created_by String? @db.Uuid
   created_at DateTime @default(now()) @db.Timestamptz(6)
   updated_at DateTime @default(now()) @db.Timestamptz(6)
+  /// 20261207010000: "Exit when" settings, checked by the worker before every step.
+  exit_on_reply Boolean @default(false)
+  exit_on_purchase Boolean @default(false)
+  /// FK (account_id, exit_on_tag_id) -> tags, ON DELETE SET NULL (owned by the SQL).
+  exit_on_tag_id String? @db.Uuid
   @@unique([account_id, id])
   @@index([account_id, channel, status], map: "sequences_account_channel_idx")
 }
@@ -3504,6 +3533,16 @@ model sequence_messages {
   flow_id String? @db.Uuid
   created_at DateTime @default(now()) @db.Timestamptz(6)
   updated_at DateTime @default(now()) @db.Timestamptz(6)
+  /// 20261207010000: a WhatsApp step's text and/or media, and the template sent when the 24-hour window is closed.
+  wa_text String?
+  /// 'image' | 'video' | 'document'
+  wa_media_type String?
+  wa_media_url String?
+  wa_media_filename String?
+  template_name String?
+  template_language String?
+  /// Body values as placeholder text, e.g. ["{{contact.name|there}}"].
+  template_params Json @default("[]")
   @@unique([account_id, id])
 }
 
@@ -3520,6 +3559,8 @@ model sequence_subscriptions {
   claimed_at DateTime? @db.Timestamptz(6)
   ended_at DateTime? @db.Timestamptz(6)
   updated_at DateTime @default(now()) @db.Timestamptz(6)
+  /// 20261207010000: 'replied' | 'tagged' | 'purchased' | 'opted_out' | 'blocked'
+  exit_reason String?
   @@unique([account_id, id])
   @@unique([account_id, sequence_id, contact_id])
   @@index([account_id, contact_id], map: "sequence_subscriptions_contact_idx")
@@ -3543,6 +3584,10 @@ model sequence_message_sends {
   attempts Int @default(0)
   created_at DateTime @default(now()) @db.Timestamptz(6)
   updated_at DateTime @default(now()) @db.Timestamptz(6)
+  /// 20261207010000: the WhatsApp message id of a sent WhatsApp step (it has no flow run).
+  channel_message_id String?
+  /// 'message' | 'template'
+  sent_as String?
   @@unique([account_id, id])
   @@unique([account_id, subscription_id, round_started_at, sequence_message_id])
   @@index([account_id, sequence_id, sequence_message_id], map: "sequence_message_sends_stats_idx")
@@ -4546,4 +4591,55 @@ model shop_redirects {
   created_at DateTime @default(now()) @db.Timestamptz(6)
   @@unique([account_id, id])
   @@unique([account_id, from_path])
+}
+
+/// Batch 7 (20261207020000_contact_merge): a contact pair an admin marked "Not duplicates" (lower id first).
+model contact_duplicate_dismissals {
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  contact_low_id String @db.Uuid
+  contact_high_id String @db.Uuid
+  dismissed_by_user_id String? @db.Uuid
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  @@id([account_id, contact_low_id, contact_high_id])
+  @@index([account_id, contact_high_id], map: "contact_duplicate_dismissals_high_idx")
+}
+
+/// Batch 7 (20261207050000_analytics_daily): one row per workspace per workspace-timezone day, written only by the
+/// analytics.rollup worker job (src/lib/analytics/daily.ts). Every member reads; money and AI figures are left out for viewers in code.
+model analytics_daily {
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  day DateTime @db.Date
+  messages_in Int @default(0)
+  messages_out Int @default(0)
+  /// {"whatsapp": {"in": n, "out": n}, ...}
+  messages_by_channel Json @db.JsonB @default("{}")
+  conversations_opened Int @default(0)
+  conversations_resolved Int @default(0)
+  first_reply_count Int @default(0)
+  first_reply_unanswered Int @default(0)
+  first_reply_median_seconds Int?
+  /// Every answered wait of the day in seconds, so a median over any range of days is exact.
+  first_reply_seconds Int[] @default([])
+  ai_replies Int @default(0)
+  ai_handoffs Int @default(0)
+  ai_closed Int @default(0)
+  paid_orders Int @default(0)
+  /// {"INR": 123450}: minor units per currency.
+  revenue_minor Json @db.JsonB @default("{}")
+  bookings Int @default(0)
+  rolled_at DateTime @db.Timestamptz(6) @default(now())
+  @@id([account_id, day])
+}
+
+/// Batch 7 (20261207050000_analytics_daily): AI tokens per workspace, day, provider and model; admins read (billing-class).
+model analytics_daily_ai_usage {
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  day DateTime @db.Date
+  provider String
+  model String
+  calls Int @default(0)
+  prompt_tokens BigInt @default(0)
+  completion_tokens BigInt @default(0)
+  rolled_at DateTime @db.Timestamptz(6) @default(now())
+  @@id([account_id, day, provider, model])
 }

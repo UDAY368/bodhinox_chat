@@ -16,8 +16,11 @@ import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
+import { InlineError } from "@/components/ui/inline-error";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { authFetch } from "@/lib/auth/client";
 import { cn } from "@/lib/utils";
 
@@ -36,7 +39,8 @@ export interface AuditFilters { q: string; category: string; actor: string; acti
 /** The category chips, in the prototype's order; '' is All. Ids match the server's AUDIT_CATEGORIES. */
 export const AUDIT_CHIPS = ["", "team", "channels", "billing", "security", "integrations", "settings"] as const;
 const EMPTY: AuditFilters = { q: "", category: "", actor: "", action: "", from: "", to: "" };
-const selectClass = "border-border bg-card text-foreground h-9 w-full rounded-md border px-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
+/** The "any" choice of a filter menu (an empty filter). */
+const ANY = "__any__";
 
 /** Query string for the list or the export (pure). */
 export function auditQuery(filters: AuditFilters, cursor: string | null): string {
@@ -107,6 +111,10 @@ export function AuditLogTable({ canView }: { canView: boolean }) {
 
   if (!canView) return <p className="text-sm text-muted-foreground">{t("adminsOnly")}</p>;
 
+  const memberName = (id: string) => {
+    const m = members.find((x) => x.user_id === id);
+    return m ? m.full_name || m.email || m.user_id : id;
+  };
   const set = <K extends keyof AuditFilters>(key: K, value: AuditFilters[K]) => setFilters((f) => ({ ...f, [key]: value }));
   const details = (entry: Entry) =>
     Object.entries(entry.metadata).map(([key, value]) => `${key}: ${value === null ? "-" : String(value)}`).join(" · ");
@@ -161,10 +169,15 @@ export function AuditLogTable({ canView }: { canView: boolean }) {
           <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
           <Input type="search" value={filters.q} maxLength={80} placeholder={tr("search")} onChange={(e) => set("q", e.target.value)} className="bg-card pl-8" />
         </label>
-        <select aria-label={tr("person")} value={filters.actor} onChange={(e) => set("actor", e.target.value)} className={selectClass}>
-          <option value="">{tr("everyone")}</option>
-          {members.map((m) => <option key={m.user_id} value={m.user_id}>{m.full_name || m.email || m.user_id}</option>)}
-        </select>
+        <Select value={filters.actor || ANY} onValueChange={(v) => set("actor", !v || v === ANY ? "" : String(v))}>
+          <SelectTrigger aria-label={tr("person")} className="min-h-11 w-full bg-card sm:min-h-9">
+            <SelectValue>{(v: string) => (v === ANY ? tr("everyone") : memberName(v))}</SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={ANY}>{tr("everyone")}</SelectItem>
+            {members.map((m) => <SelectItem key={m.user_id} value={m.user_id}>{m.full_name || m.email || m.user_id}</SelectItem>)}
+          </SelectContent>
+        </Select>
       </div>
 
       <div className="flex flex-wrap gap-1.5" role="group" aria-label={tr("categories")}>
@@ -187,10 +200,15 @@ export function AuditLogTable({ canView }: { canView: boolean }) {
         <div className="grid gap-3 pt-3 sm:grid-cols-3">
           <div className="space-y-1.5">
             <Label htmlFor="audit-action">{t("action")}</Label>
-            <select id="audit-action" value={filters.action} onChange={(e) => set("action", e.target.value)} className={selectClass}>
-              <option value="">{t("anyAction")}</option>
-              {actions.map((a) => <option key={a} value={a}>{a}</option>)}
-            </select>
+            <Select value={filters.action || ANY} onValueChange={(v) => set("action", !v || v === ANY ? "" : String(v))}>
+              <SelectTrigger id="audit-action" className="min-h-11 w-full bg-card sm:min-h-9">
+                <SelectValue>{(v: string) => (v === ANY ? t("anyAction") : v)}</SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ANY}>{t("anyAction")}</SelectItem>
+                {actions.map((a) => <SelectItem key={a} value={a}>{a}</SelectItem>)}
+              </SelectContent>
+            </Select>
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="audit-from">{t("from")}</Label>
@@ -205,14 +223,10 @@ export function AuditLogTable({ canView }: { canView: boolean }) {
 
       <div className="overflow-hidden rounded-xl border border-border bg-card">
         {failed ? (
-          <p role="alert" className="px-4 py-6 text-sm text-destructive">{t("loadFailed")}</p>
+          <InlineError message={t("loadFailed")} onRetry={() => void fetchPage(query, null)} />
         ) : entries.length === 0 && !loading ? (
-          <div className="flex flex-col items-center gap-3 px-4 py-10 text-center">
-            <Search className="size-6 text-muted-foreground" aria-hidden />
-            <p className="text-sm font-medium text-foreground">{tr("noMatch")}</p>
-            <p className="text-xs text-muted-foreground">{tr("noMatchHint")}</p>
-            {filtered && <Button type="button" variant="outline" size="sm" onClick={() => setFilters(EMPTY)}>{tr("clear")}</Button>}
-          </div>
+          <EmptyState icon={Search} title={tr("noMatch")} body={tr("noMatchHint")}
+            action={filtered ? <Button type="button" variant="outline" className="min-h-11 sm:min-h-9" onClick={() => setFilters(EMPTY)}>{tr("clear")}</Button> : undefined} />
         ) : (
           <ul className="divide-y divide-border">
             {entries.map((entry) => (

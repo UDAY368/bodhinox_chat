@@ -23,7 +23,9 @@ import { createClient } from '@/lib/data/client';
 import { useAuth } from '@/hooks/use-auth';
 import { useCan } from '@/hooks/use-can';
 import { Button } from '@/components/ui/button';
+import { PageLoading } from '@/components/ui/page-loading';
 import { Input } from '@/components/ui/input';
+import { SegmentedControl } from '@/components/ui/segmented-control';
 import { Badge } from '@/components/ui/badge';
 import { useTranslations } from 'next-intl';
 import { Card, CardContent } from '@/components/ui/card';
@@ -301,9 +303,7 @@ export function TemplateManager({ variant = 'settings' }: { variant?: 'settings'
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="size-6 animate-spin text-primary" />
-      </div>
+      <PageLoading rows={6} />
     );
   }
 
@@ -413,16 +413,12 @@ export function TemplateManager({ variant = 'settings' }: { variant?: 'settings'
               ))}
             </div>
             <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
-            <select
+            <SegmentedControl<CategoryFilter>
               aria-label={tc('templates.category')}
               value={category}
-              onChange={(e) => setCategory(e.target.value as CategoryFilter)}
-              className="h-9 rounded-lg border border-border bg-muted px-2.5 text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              {CATEGORIES.map((c) => (
-                <option key={c} value={c}>{c === 'all' ? tc('templates.allCategories') : categoryLabel(c)}</option>
-              ))}
-            </select>
+              onValueChange={setCategory}
+              options={CATEGORIES.map((c) => ({ value: c, label: c === 'all' ? tc('templates.allCategories') : categoryLabel(c) }))}
+            />
             <div className="relative sm:w-64">
               <Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
               <Input

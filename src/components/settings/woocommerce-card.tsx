@@ -11,15 +11,10 @@ import { Copy, Loader2, ShoppingBag, Trash2 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 
 import { Button } from '@/components/ui/button';
+import { PageLoading } from '@/components/ui/page-loading';
+import { useConfirm } from '@/components/ui/confirm-dialog';
 import { Card, CardContent } from '@/components/ui/card';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RequireRole } from '@/components/auth/require-role';
@@ -52,6 +47,7 @@ export function WooCommerceCard() {
 
 function WooCommerceCardInner() {
   const t = useTranslations('Integrations.woocommerce');
+  const confirm = useConfirm();
   const [stores, setStores] = useState<WooStore[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -106,7 +102,7 @@ function WooCommerceCardInner() {
   }
 
   async function disconnect(id: string) {
-    if (!window.confirm(t('disconnectConfirm'))) return;
+    if (!(await confirm({ title: t('disconnectConfirm'), confirmLabel: t('disconnect'), destructive: true }))) return;
     setBusy(true);
     try {
       const res = await authFetch(`/api/integrations/woocommerce?id=${encodeURIComponent(id)}`, { method: 'DELETE' });
@@ -138,9 +134,7 @@ function WooCommerceCardInner() {
       <Card>
         <CardContent className="space-y-6 p-5">
           {loading ? (
-            <div className="flex justify-center py-4">
-              <Loader2 className="text-muted-foreground h-5 w-5 animate-spin" />
-            </div>
+            <PageLoading rows={2} />
           ) : (
             <>
               {stores.length === 0 ? (
@@ -219,12 +213,12 @@ function WooCommerceCardInner() {
         </CardContent>
       </Card>
 
-      <Dialog open={created !== null} onOpenChange={(open) => !open && setCreated(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{t('setupTitle')}</DialogTitle>
-            <DialogDescription>{t('setupDesc')}</DialogDescription>
-          </DialogHeader>
+      <Sheet open={created !== null} onOpenChange={(open) => !open && setCreated(null)}>
+        <SheetContent size="md" className="w-full gap-4 overflow-y-auto p-4">
+          <SheetHeader className="p-0 pr-8">
+            <SheetTitle>{t('setupTitle')}</SheetTitle>
+            <SheetDescription>{t('setupDesc')}</SheetDescription>
+          </SheetHeader>
           {created && (
             <div className="space-y-4 text-sm">
               <ol className="text-muted-foreground list-decimal space-y-1 ps-5 text-xs">
@@ -256,11 +250,11 @@ function WooCommerceCardInner() {
               </div>
             </div>
           )}
-          <DialogFooter>
+          <SheetFooter className="flex-row flex-wrap justify-end p-0">
             <Button onClick={() => setCreated(null)}>{t('done')}</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
     </section>
   );
 }

@@ -17,7 +17,7 @@ import {
  * Tells the user when their account context didn't resolve.
  *
  * Without it the app looks completely normal and simply refuses to
- * save anything: RLS denies every write whose `is_account_member`
+ * save anything: RLS denies every write whose `app_account_id()`
  * check has no account to test, and `useCan` returns false for every
  * capability when the role is null, so buttons sit disabled with no
  * explanation. Issue #471 was reported as "nothing saves, nothing

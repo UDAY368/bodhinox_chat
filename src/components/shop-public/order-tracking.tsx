@@ -5,14 +5,14 @@
  */
 import { getTranslations } from 'next-intl/server';
 import { Check, Circle, X } from 'lucide-react';
-import { formatMoney } from '@/lib/commerce/money';
+import { formatMoney } from '@/lib/format/money';
 import type { OrderTrackingView } from '@/lib/commerce/order-tracking';
 
 export async function OrderTracking({ view, locale }: { view: OrderTrackingView; locale: string }) {
   const t = await getTranslations('ShopPublic');
   const money = (minor: number | null) => {
     if (minor === null) return '';
-    try { return formatMoney(minor, view.currency, locale); } catch { return String(minor); }
+    return formatMoney(minor, view.currency, { locale });
   };
   const when = (iso: string) => new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(iso));
   const row = (label: string, value: string, strong = false) => (

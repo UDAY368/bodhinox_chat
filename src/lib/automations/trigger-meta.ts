@@ -76,14 +76,6 @@ export function isKnownTrigger(t: string): t is AutomationTriggerType {
   return Object.prototype.hasOwnProperty.call(TRIGGER_META, t)
 }
 
-export function triggerMeta(t: AutomationTriggerType | string): TriggerMeta {
-  return (
-    TRIGGER_META[t as AutomationTriggerType] ?? {
-      pillClass: 'border-slate-500/30 bg-slate-500/10 text-muted-foreground',
-    }
-  )
-}
-
 export type RelativeTimeKey = 'never' | 'justNow' | 'minutesAgo' | 'hoursAgo' | 'daysAgo'
 
 /**

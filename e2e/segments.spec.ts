@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import { expect, test } from '@playwright/test';
 import { fixtures, login } from './fixtures';
+import { confirmInApp, pickOption } from './ui';
 
 test.describe('segments and export', () => {
   test('an agent builds a segment, sees its live count and filters contacts by it', async ({ page }) => {
@@ -13,7 +14,7 @@ test.describe('segments and export', () => {
     const dialog = page.getByRole('dialog');
     await dialog.getByLabel('Name', { exact: true }).fill(`Consent contacts ${runId}`);
     const row = dialog.getByTestId('segment-condition');
-    await row.getByLabel('Field').selectOption('name');
+    await pickOption(page, row.getByLabel('Field'), 'Name');
     await row.getByLabel('Value').fill(contact.name);
     await expect(dialog.getByTestId('segment-count')).toHaveText(/1 contacts match · 1 can receive marketing/);
     await dialog.getByRole('button', { name: 'Save segment' }).click();
@@ -26,7 +27,7 @@ test.describe('segments and export', () => {
     await expect(page).toHaveURL(/\/contacts\?segment=/);
 
     const selector = page.getByLabel('Segment', { exact: true });
-    await expect(selector).toHaveValue(/.+/);
+    await expect(selector).toContainText(`Consent contacts ${runId}`);
     await expect(page.getByRole('cell', { name: contact.name, exact: true })).toBeVisible();
     await page.getByRole('button', { name: 'More', exact: true }).click();
     await expect(page.getByRole('menuitem', { name: 'Import' })).toBeVisible();
@@ -34,7 +35,8 @@ test.describe('segments and export', () => {
     await page.keyboard.press('Escape');
 
     await page.getByRole('button', { name: 'Delete segment' }).click();
-    await expect(selector).toHaveValue('');
+    await confirmInApp(page, 'Delete segment');
+    await expect(selector).toContainText('All contacts');
   });
 
   test('a viewer cannot create segments', async ({ page }) => {

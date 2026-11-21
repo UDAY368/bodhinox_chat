@@ -5,21 +5,6 @@
 import { getWorkerPrisma } from '@/lib/db/prisma';
 import { PAGE_WEBHOOK_PROVIDER } from './leads';
 
-export const META_ADS_JOB_TYPES = [
-  'meta.page_webhook',
-  'meta.leadgen_fetch',
-  'meta.leads_sync',
-  'meta.insights_sync',
-  'meta.capi_event',
-  'meta.ad_objects_sync',
-  'meta.ad_change',
-  'meta.ad_create',
-  'meta.audience_sync',
-  'meta.ad_rules',
-  'meta.deal_events',
-] as const;
-export type MetaAdsJobType = (typeof META_ADS_JOB_TYPES)[number];
-
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export function isMetaAdsJob(type: string): boolean {

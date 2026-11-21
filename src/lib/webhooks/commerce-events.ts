@@ -1,6 +1,7 @@
 import { createAdminClient } from '@/lib/data/admin';
 import type { DataClient } from '@/lib/data/types';
-import { formatMoney, isCurrencyCode } from '@/lib/commerce/money';
+import { isCurrencyCode } from '@/lib/commerce/money';
+import { formatMoney } from '@/lib/format/money';
 import { dispatchWebhookEvent } from './deliver';
 
 /**
@@ -62,11 +63,7 @@ const int = (v: number | null | undefined): number | null => (typeof v === 'numb
 
 function money(minor: number | null, currency: string | null): string | null {
   if (minor === null || !currency || !isCurrencyCode(currency)) return null;
-  try {
-    return formatMoney(minor, currency, 'en');
-  } catch {
-    return null;
-  }
+  return formatMoney(minor, currency, { locale: 'en' });
 }
 
 /** The `data` object of an order.created / order.paid delivery. */

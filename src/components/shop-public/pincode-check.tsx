@@ -9,7 +9,7 @@
 import { useState } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
 import { Loader2, Truck } from 'lucide-react';
-import { formatMoney } from '@/lib/commerce/money';
+import { formatMoney } from '@/lib/format/money';
 import { parsePincode } from '@/lib/commerce/pincode';
 
 interface Answer { pincode: string; deliverable: boolean; unknown: boolean; shippingMinor: number; currency: string | null; cod: boolean }
@@ -43,7 +43,7 @@ export function PincodeCheck({ handle, variantId, quantity }: { handle: string; 
 
   const money = (minor: number, currency: string | null) => {
     if (!currency) return '';
-    try { return formatMoney(minor, currency, locale); } catch { return String(minor); }
+    return formatMoney(minor, currency, { locale });
   };
 
   return (

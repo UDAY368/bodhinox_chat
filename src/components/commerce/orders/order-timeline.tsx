@@ -3,7 +3,7 @@
 import { useFormatter, useLocale, useTranslations } from "next-intl";
 import { FileText } from "lucide-react";
 
-import { formatMoney } from "@/lib/commerce/money";
+import { formatMoney } from "@/lib/format/money";
 import { isOrderStatus } from "@/lib/commerce/order-format";
 import { documentUrl, type OrderTimeline } from "./order-api";
 
@@ -32,11 +32,7 @@ export function OrderTimelinePanel({ timeline }: { timeline: OrderTimeline | nul
   if (!timeline) return null;
   const status = (s: string | null) => (s && isOrderStatus(s) ? tStatus(s) : s ?? "");
   const money = (minor: number, currency: string) => {
-    try {
-      return formatMoney(minor, currency, locale);
-    } catch {
-      return `${currency} ${minor}`;
-    }
+    return formatMoney(minor, currency, { locale });
   };
 
   return (

@@ -4,10 +4,15 @@
 // Each message is an Instagram automation of the workspace, sent its delay
 // after the previous one (the first after subscribing). Per message: when it is
 // sent, drag (or the arrow buttons) to reorder, the Active switch, a link to
-// open its automation, and Sent / Clicks / Open rate / CTR. "+ Message" creates
-// a new draft automation or picks an existing one. Any Instagram delay longer
-// than 24 hours carries the window warning: the server skips a message whose
-// window has closed (window_closed) and never sends it late.
+// open its automation, and Sent / Clicks / Open rate / CTR. Any Instagram delay
+// longer than 24 hours carries the window warning: the server skips a message
+// whose window has closed (window_closed) and never sends it late.
+// Batch 7: a channel choice (Instagram / WhatsApp, while there are no
+// messages), WhatsApp steps (a message, when it is sent, and the template sent
+// when the 24-hour window is closed, edited in a sheet) and "Exit when".
+// Apple's way: one large title, one primary button ("Add message", which opens
+// a sheet), Rename / Pause / Delete in the "more" menu, deletes confirmed in
+// the in-app dialog. Phase 2: 44px row buttons, subscribers in a grouped list.
 
 import { useCallback, useEffect, useState, type DragEvent, type FormEvent } from 'react';
 import Link from 'next/link';
@@ -19,15 +24,22 @@ import { useFormatter, useTranslations } from 'next-intl';
 import { useInstagramFlows } from '@/components/instagram/use-instagram-flows';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Card, CardContent } from '@/components/ui/card';
+import { useConfirm } from '@/components/ui/confirm-dialog';
+import { GroupedList } from '@/components/ui/grouped-list';
+import { InlineError } from '@/components/ui/inline-error';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { PageHeader } from '@/components/ui/page-header';
+import { PageLoading } from '@/components/ui/page-loading';
+import { SegmentedControl } from '@/components/ui/segmented-control';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Switch } from '@/components/ui/switch';
 import { useAuth } from '@/hooks/use-auth';
 import { useCan } from '@/hooks/use-can';
 import { channelPath } from '@/lib/channels/routes';
+import type { ExitSettings } from '@/lib/sequences/whatsapp';
 import { moveItem } from '@/lib/sequences/schedule';
 import { SEQUENCE_DELAY_UNITS, STAGE5_LIMITS, type SequenceDelayUnit } from '@/types';
 import {
@@ -37,23 +49,29 @@ import {
   type SequenceMessageView,
   type SequenceSubscriber,
 } from './sequence-api';
-import { formatRate, parseDelayInput, scheduleLabel, windowWarning } from './sequence-format';
+import { formatRate, parseDelayInput, scheduleLabel, sequencePath, windowWarning } from './sequence-format';
+import { ChannelControl, ExitWhenSection, stepFromItem, WhatsAppStepSheet, type StepDelay } from './whatsapp-step';
 
 type T = ReturnType<typeof useTranslations<'Instagram.sequences'>>;
 
 const SEQUENCES_PATH = '/instagram/sequences';
+/** WhatsApp sequences list in the Automation list (there is no WhatsApp sequences tab). */
+const AUTOMATION_PATH = '/automation';
 
 export function SequenceEditor({ id }: { id: string }) {
   const t = useTranslations('Instagram.sequences');
   const router = useRouter();
+  const confirm = useConfirm();
   const { accountId } = useAuth();
   const canEdit = useCan('send-messages');
   const [sequence, setSequence] = useState<SequenceDetail | null>(null);
   const [failed, setFailed] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [renaming, setRenaming] = useState<string | null>(null);
-  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [renaming, setRenaming] = useState(false);
+  const [adding, setAdding] = useState(false);
   const [subscribersKey, setSubscribersKey] = useState(0);
+  /** The WhatsApp step sheet: 'new', a message id, or closed (null). */
+  const [stepSheet, setStepSheet] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -89,13 +107,6 @@ export function SequenceEditor({ id }: { id: string }) {
     }
   };
 
-  const rename = async (event: FormEvent) => {
-    event.preventDefault();
-    const name = renaming?.trim();
-    if (!name) return;
-    if (await run(() => sequenceApi.update(id, { name }))) setRenaming(null);
-  };
-
   const reorder = (order: string[]) => {
     if (!sequence) return;
     const byId = new Map(sequence.items.map((item) => [item.id, item]));
@@ -104,69 +115,86 @@ export function SequenceEditor({ id }: { id: string }) {
     void run(() => sequenceApi.reorder(id, order));
   };
 
-  if (failed)
-    return (
-      <div className="flex items-center gap-3 text-sm">
-        <p className="text-destructive">{t('loadFailed')}</p>
-        <Button type="button" variant="outline" size="sm" onClick={() => void load()}>{t('retry')}</Button>
-      </div>
-    );
-  if (!sequence) return <Loader2 className="text-muted-foreground size-4 animate-spin" aria-label={t('loading')} />;
+  if (failed) return <InlineError message={t('loadFailed')} onRetry={() => void load()} />;
+  if (!sequence) return <PageLoading rows={4} />;
 
   const ids = sequence.items.map((item) => item.id);
+  const whatsapp = sequence.channel === 'whatsapp';
+  const backPath = whatsapp ? AUTOMATION_PATH : SEQUENCES_PATH;
+  const canAdd = canEdit && sequence.items.length < STAGE5_LIMITS.sequenceMessages;
+  const sheetItem = stepSheet && stepSheet !== 'new' ? sequence.items.find((item) => item.id === stepSheet) ?? null : null;
+  const newStepDelay: StepDelay = sequence.items.length === 0
+    ? { delay_amount: 0, delay_unit: 'minutes' } : { delay_amount: 1, delay_unit: 'days' };
+  const saveStep = (step: Parameters<typeof sequenceApi.addWhatsApp>[1], delay: StepDelay) => run(() => stepSheet === 'new'
+    ? sequenceApi.addWhatsApp(id, step, delay)
+    : sequenceApi.updateMessage(id, stepSheet!, { whatsapp: step, ...delay }));
+  const exitSettings: ExitSettings = {
+    exit_on_reply: sequence.exit_on_reply, exit_on_tag_id: sequence.exit_on_tag_id, exit_on_purchase: sequence.exit_on_purchase,
+  };
+
+  const removeSequence = async () => {
+    if (!(await confirm({ title: t('removeTitle'), body: t('removeBody'), confirmLabel: t('remove'), destructive: true }))) return;
+    await run(async () => {
+      await sequenceApi.archive(id);
+      router.push(backPath);
+    });
+  };
+
+  const removeMessage = async (item: SequenceMessageView, number: number) => {
+    if (!(await confirm({
+      title: t('removeMessageTitle', { number }), body: t('removeMessageBody'), confirmLabel: t('removeMessageConfirm'), destructive: true,
+    }))) return;
+    await run(() => sequenceApi.removeMessage(id, item.id));
+  };
 
   return (
     <div className="space-y-6">
-      <div className="space-y-3">
-        <Link href={SEQUENCES_PATH} className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-sm">
-          <ArrowLeft className="size-3.5" />
-          {t('back')}
-        </Link>
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          {renaming !== null ? (
-            <form onSubmit={(e) => void rename(e)} className="flex flex-1 flex-wrap items-center gap-2">
-              <Input aria-label={t('rename')} autoFocus value={renaming} maxLength={STAGE5_LIMITS.sequenceNameChars}
-                className="max-w-sm" onChange={(e) => setRenaming(e.target.value)} />
-              <Button type="submit" size="sm" disabled={busy || !renaming.trim()}>{t('save')}</Button>
-              <Button type="button" size="sm" variant="ghost" onClick={() => setRenaming(null)}>{t('cancel')}</Button>
-            </form>
-          ) : (
-            <div className="flex min-w-0 items-center gap-2">
-              <h1 className="text-foreground truncate text-[22px] font-bold tracking-tight">{sequence.name}</h1>
-              <Badge variant={sequence.status === 'active' ? 'default' : 'secondary'}>{t(`statusLabel.${sequence.status}`)}</Badge>
-              {canEdit && (
-                <Button type="button" size="icon-sm" variant="ghost" aria-label={t('rename')} onClick={() => setRenaming(sequence.name)}>
-                  <Pencil className="size-3.5" />
-                </Button>
-              )}
-            </div>
-          )}
-          {canEdit && (
-            <div className="flex gap-2">
-              <Button type="button" variant="outline" size="sm" disabled={busy}
-                onClick={() => void run(() => sequenceApi.update(id, { status: sequence.status === 'active' ? 'paused' : 'active' }))}>
-                {sequence.status === 'active' ? <Pause className="size-3.5" /> : <Play className="size-3.5" />}
-                {sequence.status === 'active' ? t('pause') : t('resume')}
-              </Button>
-              <Button type="button" variant="outline" size="sm" disabled={busy} onClick={() => setConfirmDelete(true)}>
-                <Trash2 className="size-3.5" />
-                {t('remove')}
-              </Button>
-            </div>
-          )}
-        </div>
-        <dl className="text-muted-foreground flex flex-wrap gap-x-6 gap-y-1 text-sm">
-          <Stat label={t('subscribers')} value={String(sequence.subscribers)} />
-          <Stat label={t('sent')} value={String(sequence.sent)} />
-          <Stat label={t('openRate')} value={formatRate(sequence.open_rate)} hint={t('openRateHint')} />
-          <Stat label={t('ctr')} value={formatRate(sequence.ctr)} />
-        </dl>
-      </div>
+      <Link href={backPath} className="text-muted-foreground hover:text-foreground inline-flex min-h-11 items-center gap-1 text-sm">
+        <ArrowLeft className="size-3.5" />
+        {t('back')}
+      </Link>
+      <PageHeader
+        className="mb-0"
+        title={sequence.name}
+        subtitle={
+          <div className="flex flex-wrap items-center gap-x-6 gap-y-1">
+            <Badge variant={sequence.status === 'active' ? 'default' : 'secondary'}>{t(`statusLabel.${sequence.status}`)}</Badge>
+            <dl className="flex flex-wrap gap-x-6 gap-y-1">
+              <Stat label={t('subscribers')} value={String(sequence.subscribers)} />
+              <Stat label={t('sent')} value={String(sequence.sent)} />
+              <Stat label={t('openRate')} value={formatRate(sequence.open_rate)} hint={t('openRateHint')} />
+              <Stat label={t('ctr')} value={formatRate(sequence.ctr)} />
+            </dl>
+          </div>
+        }
+        primaryAction={canAdd ? (
+          <Button type="button" disabled={busy} onClick={() => (whatsapp ? setStepSheet('new') : setAdding(true))}>
+            <Plus className="size-4" />
+            {t('addMessageButton')}
+          </Button>
+        ) : undefined}
+        moreActions={canEdit ? [
+          { label: t('rename'), icon: Pencil, disabled: busy, onSelect: () => setRenaming(true) },
+          sequence.status === 'active'
+            ? { label: t('pause'), icon: Pause, disabled: busy, onSelect: () => void run(() => sequenceApi.update(id, { status: 'paused' })) }
+            : { label: t('resume'), icon: Play, disabled: busy, onSelect: () => void run(() => sequenceApi.update(id, { status: 'active' })) },
+          { label: t('remove'), icon: Trash2, destructive: true, disabled: busy, onSelect: () => void removeSequence() },
+        ] : undefined}
+      >
+        {canEdit && (
+          <ChannelControl t={t} value={sequence.channel} locked={sequence.items.length > 0} disabled={busy}
+            onChange={(channel) => void run(async () => {
+              const next = await sequenceApi.update(id, { channel });
+              router.replace(sequencePath(next.channel, id));
+              return next;
+            })} />
+        )}
+      </PageHeader>
 
       <div className="border-border bg-muted/40 text-muted-foreground flex gap-2 rounded-lg border p-3 text-sm" role="note">
         <TriangleAlert className="mt-0.5 size-4 shrink-0" />
         <div className="space-y-1">
-          <p>{t('windowWarning')}</p>
+          <p>{whatsapp ? t('whatsapp.windowNote') : t('windowWarning')}</p>
           <p>{t('howToJoin')}</p>
           {!canEdit && <p>{t('readOnly')}</p>}
         </div>
@@ -176,6 +204,7 @@ export function SequenceEditor({ id }: { id: string }) {
         {sequence.items.length === 0 && <li className="text-muted-foreground text-sm">{t('emptyMessages')}</li>}
         {sequence.items.map((item, index) => (
           <MessageRow key={item.id} t={t} item={item} index={index} count={ids.length} canEdit={canEdit} busy={busy}
+            whatsapp={whatsapp} onEditStep={() => setStepSheet(item.id)}
             onMove={(offset) => reorder(moveItem(ids, index, offset))}
             onDrop={(fromId) => {
               const from = ids.indexOf(fromId);
@@ -185,38 +214,31 @@ export function SequenceEditor({ id }: { id: string }) {
               reorder(order);
             }}
             onPatch={(patch) => run(() => sequenceApi.updateMessage(id, item.id, patch))}
-            onRemove={() => void run(() => sequenceApi.removeMessage(id, item.id))} />
+            onRemove={() => void removeMessage(item, index + 1)} />
         ))}
       </ol>
 
-      {canEdit && sequence.items.length < STAGE5_LIMITS.sequenceMessages && (
-        <AddMessage t={t} sequence={sequence} busy={busy}
+      {stepSheet && (
+        <WhatsAppStepSheet key={stepSheet} t={t} open busy={busy} initial={stepFromItem(sheetItem)}
+          initialDelay={sheetItem ? { delay_amount: sheetItem.delay_amount, delay_unit: sheetItem.delay_unit } : newStepDelay}
+          first={sheetItem ? sheetItem.position === 0 : sequence.items.length === 0}
+          onOpenChange={(open) => { if (!open) setStepSheet(null); }} onSave={saveStep} />
+      )}
+      {adding && (
+        <AddMessageSheet t={t} sequence={sequence} busy={busy} onClose={() => setAdding(false)}
           onAddNew={(name) => run(() => sequenceApi.addNew(id, name))}
           onAddExisting={(flowId) => run(() => sequenceApi.addExisting(id, flowId))} />
       )}
+      {renaming && (
+        <RenameSheet t={t} name={sequence.name} busy={busy} onClose={() => setRenaming(false)}
+          onSave={(name) => run(() => sequenceApi.update(id, { name }))} />
+      )}
+
+      <ExitWhenSection t={t} settings={exitSettings} canEdit={canEdit} busy={busy}
+        onChange={(patch) => void run(() => sequenceApi.update(id, patch))} />
 
       <Subscribers t={t} id={id} canEdit={canEdit} reloadKey={subscribersKey}
         onChanged={() => { setSubscribersKey((k) => k + 1); void load(); }} />
-
-      <Dialog open={confirmDelete} onOpenChange={setConfirmDelete}>
-        <DialogContent className="border-border bg-popover sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="text-popover-foreground">{t('removeTitle')}</DialogTitle>
-            <DialogDescription className="text-muted-foreground">{t('removeBody')}</DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button type="button" variant="ghost" onClick={() => setConfirmDelete(false)}>{t('cancel')}</Button>
-            <Button type="button" variant="destructive" disabled={busy}
-              onClick={() => void run(async () => {
-                await sequenceApi.archive(id);
-                setConfirmDelete(false);
-                router.push(SEQUENCES_PATH);
-              })}>
-              {t('remove')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
@@ -238,8 +260,13 @@ function scheduleText(t: T, item: Pick<SequenceMessageView, 'position' | 'delay_
   return `${when} · ${label.anchor === 'first' ? t('scheduleFirst') : t('schedulePrevious')}`;
 }
 
-function MessageRow({ t, item, index, count, canEdit, busy, onMove, onDrop, onPatch, onRemove }: {
+function stepSummary(t: T, item: SequenceMessageView): string {
+  return item.wa_text || (item.wa_media_type ? t(`whatsapp.mediaType.${item.wa_media_type}`) : t('whatsapp.empty'));
+}
+
+function MessageRow({ t, item, index, count, canEdit, busy, whatsapp, onEditStep, onMove, onDrop, onPatch, onRemove }: {
   t: T; item: SequenceMessageView; index: number; count: number; canEdit: boolean; busy: boolean;
+  whatsapp: boolean; onEditStep: () => void;
   onMove: (offset: -1 | 1) => void; onDrop: (fromId: string) => void;
   onPatch: (patch: { delay_amount?: number; delay_unit?: string; active?: boolean }) => Promise<boolean>; onRemove: () => void;
 }) {
@@ -267,19 +294,23 @@ function MessageRow({ t, item, index, count, canEdit, busy, onMove, onDrop, onPa
       <div className="text-muted-foreground flex flex-wrap items-center gap-2 text-xs">
         <span>{scheduleText(t, item)}</span>
         {canEdit && !editing && (
-          <Button type="button" variant="ghost" size="icon-xs" aria-label={t('editSchedule', { number })}
-            onClick={() => { setAmount(String(item.delay_amount)); setUnit(item.delay_unit); setEditing(true); }}>
-            <Pencil className="size-3" />
+          // A WhatsApp step's timing is edited in its sheet, with the rest of the step.
+          <Button type="button" variant="ghost" size="icon" className="size-11" aria-label={t('editSchedule', { number })}
+            onClick={() => {
+              if (whatsapp) { onEditStep(); return; }
+              setAmount(String(item.delay_amount)); setUnit(item.delay_unit); setEditing(true);
+            }}>
+            <Pencil className="size-3.5" />
           </Button>
         )}
-        {windowWarning(item.delay_amount, item.delay_unit) && (
+        {!whatsapp && windowWarning(item.delay_amount, item.delay_unit) && (
           <span className="inline-flex items-center gap-1 text-amber-600 dark:text-amber-400">
             <TriangleAlert className="size-3" />
             {t('windowShort')}
           </span>
         )}
       </div>
-      {editing && (
+      {editing && !whatsapp && (
         <form onSubmit={(e) => void save(e)} className="flex flex-wrap items-end gap-2">
           <div className="space-y-1">
             <Label htmlFor={`delay-${item.id}`} className="text-xs">{t('delayAmount')}</Label>
@@ -297,8 +328,8 @@ function MessageRow({ t, item, index, count, canEdit, busy, onMove, onDrop, onPa
               </SelectContent>
             </Select>
           </div>
-          <Button type="submit" size="sm" disabled={busy || !delay}>{t('save')}</Button>
-          <Button type="button" size="sm" variant="ghost" onClick={() => setEditing(false)}>{t('cancel')}</Button>
+          <Button type="submit" className="min-h-11 sm:min-h-8" disabled={busy || !delay}>{t('save')}</Button>
+          <Button type="button" variant="ghost" className="min-h-11 sm:min-h-8" onClick={() => setEditing(false)}>{t('cancel')}</Button>
           {!delay && <p className="text-destructive w-full text-xs">{t('delayInvalid')}</p>}
           {delay && windowWarning(delay.amount, delay.unit) && <p className="w-full text-xs text-amber-600 dark:text-amber-400">{t('windowWarning')}</p>}
         </form>
@@ -306,21 +337,39 @@ function MessageRow({ t, item, index, count, canEdit, busy, onMove, onDrop, onPa
       <Card className={dragOver ? 'ring-primary ring-2' : undefined}>
         <CardContent className="flex flex-wrap items-center gap-3 py-3">
           {canEdit && (
-            <span draggable aria-label={t('dragHandle', { number })} role="img" className="text-muted-foreground cursor-grab"
+            <span draggable aria-label={t('dragHandle', { number })} role="img"
+              className="text-muted-foreground -ml-2 flex size-11 cursor-grab items-center justify-center"
               onDragStart={(e) => { e.dataTransfer.setData('text/x-sequence-message', item.id); e.dataTransfer.effectAllowed = 'move'; }}>
               <GripVertical className="size-4" />
             </span>
           )}
           <div className="min-w-0 flex-1 space-y-0.5">
             <p className="text-foreground text-sm font-medium">{t('messageLabel', { number })}</p>
-            {item.flow_id ? (
+            {whatsapp ? (
+              <>
+                {canEdit ? (
+                  <button type="button" onClick={onEditStep} aria-label={t('whatsapp.editStep', { number })}
+                    className="text-foreground hover:text-primary block min-h-11 max-w-full truncate text-left text-sm sm:min-h-0">
+                    {stepSummary(t, item)}
+                  </button>
+                ) : (
+                  <p className="text-foreground truncate text-sm">{stepSummary(t, item)}</p>
+                )}
+                <p className="text-muted-foreground text-xs">
+                  {item.template_name ? t('whatsapp.templateSummary', { name: item.template_name }) : t('whatsapp.noTemplateSummary')}
+                </p>
+                {item.skipped_no_template > 0 && (
+                  <p className="text-xs text-amber-600 dark:text-amber-400">{t('whatsapp.skippedCount', { count: item.skipped_no_template })}</p>
+                )}
+              </>
+            ) : item.flow_id ? (
               <Link href={channelPath('instagram', 'flows', item.flow_id)} className="text-primary text-sm hover:underline">
                 {item.flow_name ?? t('openMessage')} · {t('openMessage')}
               </Link>
             ) : (
               <p className="text-destructive text-sm">{t('missing')}</p>
             )}
-            {item.flow_id && item.flow_status !== 'active' && <p className="text-muted-foreground text-xs">{t('notLive')}</p>}
+            {!whatsapp && item.flow_id && item.flow_status !== 'active' && <p className="text-muted-foreground text-xs">{t('notLive')}</p>}
             {index === 0 && <p className="text-muted-foreground text-xs">{t('notPromotional')}</p>}
           </div>
           <dl className="text-muted-foreground grid grid-cols-4 gap-x-4 text-xs">
@@ -332,16 +381,18 @@ function MessageRow({ t, item, index, count, canEdit, busy, onMove, onDrop, onPa
           </dl>
           <div className="flex items-center gap-1">
             <Label className="text-muted-foreground mr-1 text-xs" htmlFor={`active-${item.id}`}>{t('active')}</Label>
-            <Switch id={`active-${item.id}`} aria-label={t('activeLabel', { number })} checked={item.active}
-              disabled={!canEdit || busy} onCheckedChange={(checked) => void onPatch({ active: checked })} />
+            <span className="flex min-h-11 items-center">
+              <Switch id={`active-${item.id}`} aria-label={t('activeLabel', { number })} checked={item.active}
+                disabled={!canEdit || busy} onCheckedChange={(checked) => void onPatch({ active: checked })} />
+            </span>
             {canEdit && (
               <>
-                <Button type="button" variant="ghost" size="icon-sm" aria-label={t('moveUp', { number })} disabled={busy || index === 0}
-                  onClick={() => onMove(-1)}><ArrowUp className="size-3.5" /></Button>
-                <Button type="button" variant="ghost" size="icon-sm" aria-label={t('moveDown', { number })} disabled={busy || index === count - 1}
-                  onClick={() => onMove(1)}><ArrowDown className="size-3.5" /></Button>
-                <Button type="button" variant="ghost" size="icon-sm" aria-label={t('removeMessage', { number })} disabled={busy}
-                  onClick={onRemove}><Trash2 className="size-3.5" /></Button>
+                <Button type="button" variant="ghost" size="icon" className="size-11" aria-label={t('moveUp', { number })} disabled={busy || index === 0}
+                  onClick={() => onMove(-1)}><ArrowUp className="size-4" /></Button>
+                <Button type="button" variant="ghost" size="icon" className="size-11" aria-label={t('moveDown', { number })} disabled={busy || index === count - 1}
+                  onClick={() => onMove(1)}><ArrowDown className="size-4" /></Button>
+                <Button type="button" variant="ghost" size="icon" aria-label={t('removeMessage', { number })} disabled={busy}
+                  className="text-destructive size-11" onClick={onRemove}><Trash2 className="size-4" /></Button>
               </>
             )}
           </div>
@@ -351,74 +402,102 @@ function MessageRow({ t, item, index, count, canEdit, busy, onMove, onDrop, onPa
   );
 }
 
-function AddMessage({ t, sequence, busy, onAddNew, onAddExisting }: {
-  t: T; sequence: SequenceDetail; busy: boolean;
+/** Instagram: add a message, as a new draft automation or an existing one. */
+function AddMessageSheet({ t, sequence, busy, onClose, onAddNew, onAddExisting }: {
+  t: T; sequence: SequenceDetail; busy: boolean; onClose: () => void;
   onAddNew: (name: string) => Promise<boolean>; onAddExisting: (flowId: string) => Promise<boolean>;
 }) {
   const { flows } = useInstagramFlows();
-  const [mode, setMode] = useState<'closed' | 'new' | 'existing'>('closed');
   const defaultName = t('newMessageDefault', { sequence: sequence.name, number: sequence.items.length + 1 })
     .slice(0, STAGE5_LIMITS.sequenceNameChars);
-  const [name, setName] = useState('');
+  const [mode, setMode] = useState<'new' | 'existing'>('new');
+  const [name, setName] = useState(defaultName);
   const [flowId, setFlowId] = useState('');
   const choices = (flows ?? []).filter((f) => f.status !== 'archived');
+  const flowLabel = choices.find((f) => f.id === flowId)?.name;
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     const ok = mode === 'new' ? await onAddNew(name.trim() || defaultName) : flowId ? await onAddExisting(flowId) : false;
-    if (ok) { setMode('closed'); setName(''); setFlowId(''); }
+    if (ok) onClose();
   };
 
-  if (mode === 'closed')
-    return (
-      <div className="flex flex-wrap gap-2">
-        <Button type="button" variant="outline" onClick={() => { setName(defaultName); setMode('new'); }}>
-          <Plus className="size-4" />
-          {t('addMessage')} · {t('createNew')}
-        </Button>
-        <Button type="button" variant="outline" onClick={() => setMode('existing')}>
-          <Plus className="size-4" />
-          {t('addMessage')} · {t('selectExisting')}
-        </Button>
-      </div>
-    );
-
-  const flowLabel = choices.find((f) => f.id === flowId)?.name;
   return (
-    <Card>
-      <CardContent className="pt-6">
-        <form onSubmit={(e) => void submit(e)} className="flex flex-wrap items-end gap-3">
-          {mode === 'new' ? (
-            <div className="min-w-56 flex-1 space-y-1.5">
-              <Label htmlFor="sequence-new-message">{t('newMessageName')}</Label>
-              <Input id="sequence-new-message" autoFocus value={name} maxLength={STAGE5_LIMITS.sequenceNameChars}
-                onChange={(e) => setName(e.target.value)} />
-            </div>
-          ) : (
-            <div className="min-w-56 flex-1 space-y-1.5">
-              <Label>{t('chooseAutomation')}</Label>
-              {flows && choices.length === 0 ? (
-                <p className="text-muted-foreground text-sm">{t('noAutomations')}</p>
-              ) : (
-                <Select value={flowId} onValueChange={(v) => setFlowId(typeof v === 'string' ? v : '')}>
-                  <SelectTrigger aria-label={t('chooseAutomation')} className="w-full">
-                    <SelectValue>{flowLabel ?? t('chooseAutomation')}</SelectValue>
-                  </SelectTrigger>
-                  <SelectContent>
-                    {choices.map((f) => <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              )}
-            </div>
-          )}
-          <Button type="submit" disabled={busy || (mode === 'existing' && !flowId)}>
-            {busy && <Loader2 className="size-4 animate-spin" />}
-            {t('add')}
-          </Button>
-          <Button type="button" variant="ghost" onClick={() => setMode('closed')}>{t('cancel')}</Button>
+    <Sheet open onOpenChange={(open) => { if (!open) onClose(); }}>
+      <SheetContent side="right" size="md" className="overflow-y-auto">
+        <form onSubmit={(e) => void submit(e)} className="flex h-full flex-col">
+          <SheetHeader>
+            <SheetTitle>{t('addMessageButton')}</SheetTitle>
+            <SheetDescription>{t('addMessageDescription')}</SheetDescription>
+          </SheetHeader>
+          <div className="flex-1 space-y-5 px-4">
+            <SegmentedControl aria-label={t('addMessageButton')} value={mode} onValueChange={setMode}
+              options={[{ value: 'new', label: t('createNew') }, { value: 'existing', label: t('selectExisting') }]} />
+            {mode === 'new' ? (
+              <div className="space-y-1.5">
+                <Label htmlFor="sequence-new-message">{t('newMessageName')}</Label>
+                <Input id="sequence-new-message" autoFocus value={name} maxLength={STAGE5_LIMITS.sequenceNameChars}
+                  onChange={(e) => setName(e.target.value)} />
+              </div>
+            ) : (
+              <div className="space-y-1.5">
+                <Label>{t('chooseAutomation')}</Label>
+                {flows && choices.length === 0 ? (
+                  <p className="text-muted-foreground text-sm">{t('noAutomations')}</p>
+                ) : (
+                  <Select value={flowId} onValueChange={(v) => setFlowId(typeof v === 'string' ? v : '')}>
+                    <SelectTrigger aria-label={t('chooseAutomation')} className="w-full">
+                      <SelectValue>{flowLabel ?? t('chooseAutomation')}</SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {choices.map((f) => <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                )}
+              </div>
+            )}
+          </div>
+          <SheetFooter className="flex-row justify-end gap-2">
+            <Button type="button" variant="ghost" onClick={onClose}>{t('cancel')}</Button>
+            <Button type="submit" disabled={busy || (mode === 'existing' && !flowId)}>
+              {busy && <Loader2 className="size-4 animate-spin" />}
+              {t('add')}
+            </Button>
+          </SheetFooter>
         </form>
-      </CardContent>
-    </Card>
+      </SheetContent>
+    </Sheet>
+  );
+}
+
+function RenameSheet({ t, name, busy, onClose, onSave }: {
+  t: T; name: string; busy: boolean; onClose: () => void; onSave: (name: string) => Promise<boolean>;
+}) {
+  const [value, setValue] = useState(name);
+  const submit = async (event: FormEvent) => {
+    event.preventDefault();
+    const trimmed = value.trim();
+    if (trimmed && (await onSave(trimmed))) onClose();
+  };
+  return (
+    <Sheet open onOpenChange={(open) => { if (!open) onClose(); }}>
+      <SheetContent side="right" size="sm">
+        <form onSubmit={(e) => void submit(e)} className="flex h-full flex-col">
+          <SheetHeader>
+            <SheetTitle>{t('rename')}</SheetTitle>
+          </SheetHeader>
+          <div className="flex-1 space-y-1.5 px-4">
+            <Label htmlFor="sequence-rename">{t('name')}</Label>
+            <Input id="sequence-rename" autoFocus value={value} maxLength={STAGE5_LIMITS.sequenceNameChars}
+              onChange={(e) => setValue(e.target.value)} />
+          </div>
+          <SheetFooter className="flex-row justify-end gap-2">
+            <Button type="button" variant="ghost" onClick={onClose}>{t('cancel')}</Button>
+            <Button type="submit" disabled={busy || !value.trim()}>{t('save')}</Button>
+          </SheetFooter>
+        </form>
+      </SheetContent>
+    </Sheet>
   );
 }
 
@@ -459,29 +538,23 @@ function Subscribers({ t, id, canEdit, reloadKey, onChanged }: {
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-base">{t('subscribersTitle')}</CardTitle>
-      </CardHeader>
-      <CardContent>
-        {failed && (
-          <div className="flex items-center gap-3 text-sm">
-            <p className="text-destructive">{t('loadFailed')}</p>
-            <Button type="button" variant="outline" size="sm" onClick={() => void load()}>{t('retry')}</Button>
-          </div>
-        )}
-        {!rows && !failed && <Loader2 className="text-muted-foreground size-4 animate-spin" aria-label={t('loading')} />}
+    <section className="space-y-2" aria-labelledby="sequence-subscribers-title">
+      <h2 id="sequence-subscribers-title" className="text-foreground text-base font-semibold">{t('subscribersTitle')}</h2>
+        {failed && <InlineError message={t('loadFailed')} onRetry={() => void load()} className="py-4" />}
+        {!rows && !failed && <PageLoading rows={2} />}
         {rows?.length === 0 && <p className="text-muted-foreground text-sm">{t('noSubscribers')}</p>}
         {!!rows?.length && (
-          <ul className="divide-y">
+          <GroupedList>
             {rows.map((row) => {
               const running = row.status === 'active' || row.status === 'sending';
               return (
-                <li key={row.contact_id} className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm">
+                <div key={row.contact_id}
+                  className="not-first:border-separator flex min-h-11 flex-wrap items-center justify-between gap-2 px-4 py-2 text-sm not-first:border-t">
                   <div className="min-w-0">
                     <p className="text-foreground truncate font-medium">{row.name || t('unnamedContact')}</p>
                     <p className="text-muted-foreground text-xs">
                       {t(`subscriberStatus.${row.status}`)}
+                      {row.exit_reason && ` · ${t(`exitReason.${row.exit_reason}`)}`}
                       {running && ' · '}
                       {running && (row.next_due_at
                         ? t('nextDue', { time: format.dateTime(new Date(row.next_due_at), { dateStyle: 'medium', timeStyle: 'short' }) })
@@ -489,17 +562,16 @@ function Subscribers({ t, id, canEdit, reloadKey, onChanged }: {
                     </p>
                   </div>
                   {canEdit && running && (
-                    <Button type="button" variant="outline" size="sm" disabled={busy === row.contact_id}
+                    <Button type="button" variant="outline" className="min-h-11 sm:min-h-8" disabled={busy === row.contact_id}
                       onClick={() => void unsubscribe(row.contact_id)}>
                       {t('unsubscribe')}
                     </Button>
                   )}
-                </li>
+                </div>
               );
             })}
-          </ul>
+          </GroupedList>
         )}
-      </CardContent>
-    </Card>
+    </section>
   );
 }

@@ -10,9 +10,11 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { listQuotes, revokeQuote, type QuoteListItem } from "./orders-list-api";
-import { ListError, RowPlaceholders } from "./list-states";
+import { RowPlaceholders } from "./list-states";
+import { InlineError } from "@/components/ui/inline-error";
 import { StateBadge } from "./state-badge";
 import type { Tone } from "@/lib/commerce/order-state";
+import { EmptyState } from "@/components/ui/empty-state";
 
 const TONE: Record<QuoteListItem["state"], Tone> = { open: "accent", ordered: "ok", expired: "neutral", revoked: "bad" };
 
@@ -54,15 +56,15 @@ export function QuotesList({ reloadKey, onNewQuote }: { reloadKey: number; onNew
     setRevoking(null);
   };
 
-  if (failed) return <ListError message={t("quotes.loadError")} retry={t("retry")} onRetry={() => setAttempt((n) => n + 1)} />;
+  if (failed) return <InlineError message={t("quotes.loadError")} onRetry={() => setAttempt((n) => n + 1)} />;
   if (!quotes) return <RowPlaceholders label={t("loading")} />;
   if (quotes.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border px-6 py-14 text-center">
-        <FileText className="h-6 w-6 text-muted-foreground" />
-        <p className="mt-3 text-sm text-muted-foreground">{t("quotes.empty")}</p>
-        {canAct && onNewQuote && <Button className="mt-4 min-h-11 sm:min-h-9" variant="outline" onClick={onNewQuote}>{t("quotes.new")}</Button>}
-      </div>
+      <EmptyState
+        icon={FileText}
+        title={t("quotes.empty")}
+        action={canAct && onNewQuote ? <Button className="min-h-11 sm:min-h-9" variant="outline" onClick={onNewQuote}>{t("quotes.new")}</Button> : undefined}
+      />
     );
   }
 

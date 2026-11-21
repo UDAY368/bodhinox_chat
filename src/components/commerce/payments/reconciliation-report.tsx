@@ -10,14 +10,15 @@
 import { useCallback, useEffect, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { toast } from "sonner";
-import { AlertTriangle, Loader2 } from "lucide-react";
+import { AlertTriangle } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { formatMoney } from "@/lib/commerce/money";
+import { formatMoney } from "@/lib/format/money";
 import { fetchReconciliation, type ReconciliationReport as Report } from "./customer-payments-api";
+import { PageLoading } from "@/components/ui/page-loading";
 
 export function ReconciliationReport() {
   const t = useTranslations("Payments.reconciliation");
@@ -43,7 +44,7 @@ export function ReconciliationReport() {
 
   useEffect(() => { void load({}); }, [load]);
 
-  const money = (minor: number, currency: string) => formatMoney(minor, currency, locale);
+  const money = (minor: number, currency: string) => formatMoney(minor, currency, { locale });
 
   return (
     <div>
@@ -61,7 +62,7 @@ export function ReconciliationReport() {
       </div>
 
       {loading || !report ? (
-        <div className="flex justify-center p-10"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
+        <PageLoading rows={3} />
       ) : (
         <div className="mt-4 space-y-4">
           {(report.open_exceptions > 0 || report.unresolved_refunds > 0) && (

@@ -5,9 +5,14 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
+import { Building2 } from 'lucide-react';
 import { useFormatter, useTranslations } from 'next-intl';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { EmptyState } from '@/components/ui/empty-state';
+import { InlineError } from '@/components/ui/inline-error';
+import { PageHeader } from '@/components/ui/page-header';
+import { PageLoading } from '@/components/ui/page-loading';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import type { TenantListRow, TenantPage } from '@/lib/platform/tenants';
@@ -45,7 +50,7 @@ export default function PlatformTenantsPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      <h1 className="text-xl font-semibold">{t('title')}</h1>
+      <PageHeader title={t('title')} className="mb-0" />
       <form
         className="flex max-w-lg gap-2"
         onSubmit={(e) => {
@@ -58,8 +63,9 @@ export default function PlatformTenantsPage() {
           {t('search')}
         </Button>
       </form>
-      {failed && <p role="status" className="text-sm">{t('loadFailed')}</p>}
-      {rows !== null && rows.length === 0 && <p className="text-muted-foreground text-sm">{t('empty')}</p>}
+      {failed && <InlineError message={t('loadFailed')} onRetry={() => void load(query, null)} />}
+      {rows === null && !failed && <PageLoading />}
+      {rows !== null && rows.length === 0 && <EmptyState icon={Building2} title={t('empty')} />}
       {rows !== null && rows.length > 0 && (
         <div className="overflow-x-auto">
           <Table>

@@ -7,15 +7,12 @@ import { toast } from "sonner";
 import { useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
+import { PageLoading } from "@/components/ui/page-loading";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Sheet, SheetContent, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { SettingsPanelHead } from "./settings-panel-head";
 import {
   InteractiveBuilder,
@@ -47,6 +44,7 @@ function emptyDraft(): DraftState {
 
 export function QuickRepliesManager() {
   const t = useTranslations("Settings.quickReplies");
+  const confirm = useConfirm();
   const [items, setItems] = useState<QuickReply[]>([]);
   const [loading, setLoading] = useState(true);
   const [draft, setDraft] = useState<DraftState | null>(null);
@@ -122,7 +120,7 @@ export function QuickRepliesManager() {
 
   const remove = useCallback(
     async (id: string) => {
-      if (!window.confirm(t("deleteConfirm"))) return;
+      if (!(await confirm({ title: t("deleteConfirm"), confirmLabel: t("delete"), destructive: true }))) return;
       const res = await authFetch(`/api/quick-replies/${id}`, { method: "DELETE" });
       if (!res.ok) {
         toast.error(t("deleteError"));
@@ -130,7 +128,7 @@ export function QuickRepliesManager() {
       }
       await load();
     },
-    [load, t],
+    [confirm, load, t],
   );
 
   // Search by name, text or the interactive message's preview.
@@ -162,20 +160,12 @@ export function QuickRepliesManager() {
       )}
 
       {loading ? (
-        <div className="flex justify-center py-10">
-          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-        </div>
+        <PageLoading rows={4} />
       ) : items.length === 0 ? (
-        <p className="rounded-lg border border-dashed border-border py-10 text-center text-sm text-muted-foreground">
-          {t("empty")}
-        </p>
+        <EmptyState icon={Zap} title={t("empty")} />
       ) : visible.length === 0 ? (
-        <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed border-border py-10 text-center">
-          <Search className="size-5 text-muted-foreground" aria-hidden />
-          <p className="text-sm font-medium text-foreground">{tSearch("noMatch")}</p>
-          <p className="text-xs text-muted-foreground">{tSearch("noMatchHint")}</p>
-          <Button type="button" variant="outline" size="sm" onClick={() => setQuery("")}>{tSearch("clear")}</Button>
-        </div>
+        <EmptyState icon={Search} title={tSearch("noMatch")} body={tSearch("noMatchHint")}
+          action={<Button type="button" variant="outline" className="min-h-11 sm:min-h-9" onClick={() => setQuery("")}>{tSearch("clear")}</Button>} />
       ) : (
         <ul className="flex flex-col gap-2">
           {visible.map((qr) => (
@@ -215,13 +205,13 @@ export function QuickRepliesManager() {
         </ul>
       )}
 
-      <Dialog open={!!draft} onOpenChange={(o) => !o && setDraft(null)}>
-        <DialogContent className="sm:max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>{draft?.id ? t("edit") : t("new")}</DialogTitle>
-          </DialogHeader>
+      <Sheet open={!!draft} onOpenChange={(o) => !o && setDraft(null)}>
+        <SheetContent size="lg" className="w-full gap-4 overflow-y-auto p-4">
+          <SheetHeader className="p-0 pr-8">
+            <SheetTitle>{draft?.id ? t("edit") : t("new")}</SheetTitle>
+          </SheetHeader>
           {draft && (
-            <div className="max-h-[70vh] space-y-3 overflow-y-auto">
+            <div className="space-y-3">
               <div>
                 <label className="mb-1 block text-xs text-muted-foreground">{t("nameLabel")}</label>
                 <Input
@@ -258,7 +248,7 @@ export function QuickRepliesManager() {
               )}
             </div>
           )}
-          <DialogFooter>
+          <SheetFooter className="flex-row flex-wrap justify-end p-0">
             <Button variant="outline" onClick={() => setDraft(null)} disabled={saving}>
               {t("cancel")}
             </Button>
@@ -266,9 +256,9 @@ export function QuickRepliesManager() {
               {saving && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
               {t("save")}
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }

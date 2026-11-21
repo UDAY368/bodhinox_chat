@@ -12,8 +12,6 @@
  */
 import type { TenantTransaction } from '@/lib/db/tenant';
 
-export const ABANDONED_DELAY_MINUTES = { min: 30, max: 2880 } as const;
-
 export const ABANDONED_CART_JOB = 'commerce.abandoned_cart';
 export const COD_CONFIRM_JOB = 'commerce.cod_confirm';
 

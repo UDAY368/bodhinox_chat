@@ -25,6 +25,8 @@ export const BULK_JOB_TYPES = [
   'instagram.resubscribe',
   // Fan-outs to many buyers: back-in-stock and price-drop runs (200 per run), one email-campaign recipient each.
   'commerce.back_in_stock', 'commerce.price_drop', 'shop.email_send',
+  // The nightly per-workspace analytics_daily rollup.
+  'analytics.rollup',
 ] as const;
 
 export const TIMER_JOB_TYPES = [

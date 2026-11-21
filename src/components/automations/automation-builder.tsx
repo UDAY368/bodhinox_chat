@@ -48,6 +48,18 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
+import { Checkbox } from '@/components/ui/checkbox';
+import { SegmentedControl } from '@/components/ui/segmented-control';
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { OptionSelect } from '@/components/ui/option-select';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -517,9 +529,6 @@ function ResourcesProvider({ children }: { children: ReactNode }) {
   );
 }
 
-const SELECT_CLASS =
-  'w-full rounded-md border border-border bg-muted px-2 py-1.5 text-sm text-foreground focus:border-primary focus:outline-none';
-
 /** Tag dropdown by name + color, storing the tag's id. Falls back to a
  *  raw id input when no tags exist yet. */
 function TagSelect({
@@ -550,23 +559,18 @@ function TagSelect({
         style={{ backgroundColor: selected?.color ?? 'transparent' }}
         aria-hidden
       />
-      <select
+      <OptionSelect
         value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className={SELECT_CLASS}
-      >
-        <option value="">{t('tags.select')}</option>
-        {tags.map((tg) => (
-          <option key={tg.id} value={tg.id}>
-            {tg.name}
-          </option>
-        ))}
-        {/* Preserve a saved tag that's since been deleted so editing an
-            existing automation doesn't silently drop it. */}
-        {value && !selected && (
-          <option value={value}>{t('tags.unknown', { id: value })}</option>
-        )}
-      </select>
+        onValueChange={onChange}
+        aria-label={t('config.tagLabel')}
+        options={[
+          { value: '', label: t('tags.select') },
+          ...tags.map((tg) => ({ value: tg.id, label: tg.name })),
+          // Preserve a saved tag that's since been deleted so editing an
+          // existing automation doesn't silently drop it.
+          ...(value && !selected ? [{ value, label: t('tags.unknown', { id: value }) }] : []),
+        ]}
+      />
     </div>
   );
 }
@@ -591,30 +595,43 @@ function ContactFieldSelect({
   const knownCustom =
     customValue && customFields.some((f) => `custom:${f.id}` === customValue);
   return (
-    <select
-      id={id}
+    <Select
+      items={[
+        { value: 'name', label: t('fields.name') },
+        { value: 'email', label: t('fields.email') },
+        { value: 'company', label: t('fields.company') },
+        ...customFields.map((f) => ({ value: `custom:${f.id}`, label: f.field_name })),
+        ...(customValue && !knownCustom ? [{ value: customValue, label: t('fields.unknown', { id: customValue }) }] : []),
+      ]}
       value={value || 'name'}
-      onChange={(e) => onChange(e.target.value)}
-      className={SELECT_CLASS}
+      onValueChange={(next) => {
+        if (typeof next === 'string') onChange(next);
+      }}
     >
-      <option value="name">{t('fields.name')}</option>
-      <option value="email">{t('fields.email')}</option>
-      <option value="company">{t('fields.company')}</option>
-      {customFields.length > 0 && (
-        <optgroup label={t('fields.customFields')}>
-          {customFields.map((f) => (
-            <option key={f.id} value={`custom:${f.id}`}>
-              {f.field_name}
-            </option>
-          ))}
-        </optgroup>
-      )}
-      {customValue && !knownCustom && (
-        <option value={customValue}>
-          {t('fields.unknown', { id: customValue })}
-        </option>
-      )}
-    </select>
+      <SelectTrigger id={id} className="w-full">
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="name">{t('fields.name')}</SelectItem>
+        <SelectItem value="email">{t('fields.email')}</SelectItem>
+        <SelectItem value="company">{t('fields.company')}</SelectItem>
+        {customFields.length > 0 && (
+          <SelectGroup>
+            <SelectLabel>{t('fields.customFields')}</SelectLabel>
+            {customFields.map((f) => (
+              <SelectItem key={f.id} value={`custom:${f.id}`}>
+                {f.field_name}
+              </SelectItem>
+            ))}
+          </SelectGroup>
+        )}
+        {customValue && !knownCustom && (
+          <SelectItem value={customValue}>
+            {t('fields.unknown', { id: customValue })}
+          </SelectItem>
+        )}
+      </SelectContent>
+    </Select>
   );
 }
 
@@ -642,21 +659,16 @@ function AgentSelect({
   }
   const selected = members.find((m) => m.user_id === value);
   return (
-    <select
+    <OptionSelect
       value={value}
-      onChange={(e) => onChange(e.target.value)}
-      className={SELECT_CLASS}
-    >
-      <option value="">{t('agents.select')}</option>
-      {members.map((m) => (
-        <option key={m.user_id} value={m.user_id}>
-          {m.full_name || m.email || m.user_id}
-        </option>
-      ))}
-      {value && !selected && (
-        <option value={value}>{t('agents.unknown', { id: value })}</option>
-      )}
-    </select>
+      onValueChange={onChange}
+      aria-label={t('config.agentLabel')}
+      options={[
+        { value: '', label: t('agents.select') },
+        ...members.map((m) => ({ value: m.user_id, label: m.full_name || m.email || m.user_id })),
+        ...(value && !selected ? [{ value, label: t('agents.unknown', { id: value }) }] : []),
+      ]}
+    />
   );
 }
 
@@ -707,10 +719,10 @@ function DealPipelineFields({
   return (
     <>
       <FieldBlock label={t('pipelines.pipelineLabel')}>
-        <select
+        <OptionSelect
           value={pipelineId}
-          onChange={(e) => {
-            const nextPipelineId = e.target.value;
+          aria-label={t('pipelines.pipelineLabel')}
+          onValueChange={(nextPipelineId) => {
             const firstStage = stages.find(
               (s) => s.pipeline_id === nextPipelineId
             );
@@ -719,46 +731,36 @@ function DealPipelineFields({
               stage_id: firstStage?.id ?? '',
             });
           }}
-          className={SELECT_CLASS}
-        >
-          <option value="">{t('pipelines.selectPipeline')}</option>
-          {pipelines.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.name}
-            </option>
-          ))}
-          {pipelineId && !selectedPipeline && (
-            <option value={pipelineId}>
-              {t('pipelines.unknownPipeline', { id: pipelineId })}
-            </option>
-          )}
-        </select>
+          options={[
+            { value: '', label: t('pipelines.selectPipeline') },
+            ...pipelines.map((p) => ({ value: p.id, label: p.name })),
+            ...(pipelineId && !selectedPipeline
+              ? [{ value: pipelineId, label: t('pipelines.unknownPipeline', { id: pipelineId }) }]
+              : []),
+          ]}
+        />
       </FieldBlock>
       <FieldBlock label={t('pipelines.stageLabel')}>
-        <select
+        <OptionSelect
           value={stageId}
-          onChange={(e) =>
-            onChange({ pipeline_id: pipelineId, stage_id: e.target.value })
+          aria-label={t('pipelines.stageLabel')}
+          onValueChange={(next) =>
+            onChange({ pipeline_id: pipelineId, stage_id: next })
           }
-          className={SELECT_CLASS}
           disabled={!pipelineId || stageOptions.length === 0}
-        >
-          <option value="">
-            {pipelineId
-              ? t('pipelines.selectStage')
-              : t('pipelines.selectPipelineFirst')}
-          </option>
-          {stageOptions.map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.name}
-            </option>
-          ))}
-          {stageId && pipelineId && !selectedStage && (
-            <option value={stageId}>
-              {t('pipelines.unknownStage', { id: stageId })}
-            </option>
-          )}
-        </select>
+          options={[
+            {
+              value: '',
+              label: pipelineId
+                ? t('pipelines.selectStage')
+                : t('pipelines.selectPipelineFirst'),
+            },
+            ...stageOptions.map((s) => ({ value: s.id, label: s.name })),
+            ...(stageId && pipelineId && !selectedStage
+              ? [{ value: stageId, label: t('pipelines.unknownStage', { id: stageId }) }]
+              : []),
+          ]}
+        />
       </FieldBlock>
     </>
   );
@@ -867,32 +869,30 @@ function SendTemplateFields({
 
   return (
     <FieldBlock label={t('templates.templateLabel')}>
-      <select
+      <OptionSelect
         value={current}
-        onChange={(e) => {
-          const [name, lang] = e.target.value.split('::');
+        aria-label={t('templates.templateLabel')}
+        onValueChange={(next) => {
+          const [name, lang] = next.split('::');
           onChange({ template_name: name ?? '', language: lang ?? '' });
         }}
-        className={SELECT_CLASS}
-      >
-        <option value="">{t('templates.select')}</option>
-        {templates.map((tmpl) => {
-          const lang = tmpl.language ?? 'en_US';
-          return (
-            <option key={tmpl.id} value={toValue(tmpl.name, lang)}>
-              {tmpl.name} ({lang})
-            </option>
-          );
-        })}
-        {current && !hasMatch && (
-          <option value={current}>
-            {t('templates.unknown', {
-              name: templateName,
-              lang: language || t('templates.unknownLang'),
-            })}
-          </option>
-        )}
-      </select>
+        options={[
+          { value: '', label: t('templates.select') },
+          ...templates.map((tmpl) => {
+            const lang = tmpl.language ?? 'en_US';
+            return { value: toValue(tmpl.name, lang), label: `${tmpl.name} (${lang})` };
+          }),
+          ...(current && !hasMatch
+            ? [{
+                value: current,
+                label: t('templates.unknown', {
+                  name: templateName,
+                  lang: language || t('templates.unknownLang'),
+                }),
+              }]
+            : []),
+        ]}
+      />
     </FieldBlock>
   );
 }
@@ -1173,19 +1173,17 @@ function TriggerCard({
               <label className="text-muted-foreground mb-1 block text-xs font-medium">
                 {t('triggerType')}
               </label>
-              <select
+              <OptionSelect
                 value={type}
-                onChange={(e) =>
-                  onTypeChange(e.target.value as AutomationTriggerType)
+                aria-label={t('triggerType')}
+                onValueChange={(next) =>
+                  onTypeChange(next as AutomationTriggerType)
                 }
-                className="border-border bg-muted text-foreground focus:border-primary w-full rounded-md border px-2 py-1.5 text-sm focus:outline-none"
-              >
-                {triggerOptionsFor(channel, type, instagramScheduled).map((value) => (
-                  <option key={value} value={value}>
-                    {t(`triggers.${value}.label`)}
-                  </option>
-                ))}
-              </select>
+                options={triggerOptionsFor(channel, type, instagramScheduled).map((value) => ({
+                  value,
+                  label: t(`triggers.${value}.label`),
+                }))}
+              />
               <p className="text-muted-foreground mt-1 text-[11px]">
                 {t(`triggers.${type}.hint`)}
               </p>
@@ -1303,13 +1301,12 @@ function ScheduledRecipients({
     onChange({ ...config, audience: next });
   return (
     <div className="space-y-2">
-      <label className="text-muted-foreground block space-y-1 text-xs">
-        <span>Scheduled recipients</span>
-        <select
-          className={SELECT_CLASS}
+      <div className="text-muted-foreground block space-y-1 text-xs">
+        <span id="scheduled-recipients-label">Scheduled recipients</span>
+        <OptionSelect
+          aria-labelledby="scheduled-recipients-label"
           value={audience?.type ?? 'none'}
-          onChange={(event) => {
-            const type = event.target.value;
+          onValueChange={(type) => {
             update(
               type === 'none'
                 ? undefined
@@ -1325,31 +1322,28 @@ function ScheduledRecipients({
                       : { type: 'all' }
             );
           }}
-        >
-          <option value="none">No contacts (webhook only)</option>
-          <option value="all">All contacts</option>
-          <option value="tags">Contacts with selected tags</option>
-          <option value="custom_field">Contacts matching a custom field</option>
-          <option value="segment">{t('segment')}</option>
-        </select>
-      </label>
+          options={[
+            { value: 'none', label: 'No contacts (webhook only)' },
+            { value: 'all', label: 'All contacts' },
+            { value: 'tags', label: 'Contacts with selected tags' },
+            { value: 'custom_field', label: 'Contacts matching a custom field' },
+            { value: 'segment', label: t('segment') },
+          ]}
+        />
+      </div>
       {audience?.type === 'segment' && (
         <div className="space-y-1">
-          <select
+          <OptionSelect
             aria-label={t('segmentLabel')}
-            className={SELECT_CLASS}
             value={audience.segmentId ?? ''}
-            onChange={(event) =>
-              update({ type: 'segment', segmentId: event.target.value })
+            onValueChange={(segmentId) =>
+              update({ type: 'segment', segmentId })
             }
-          >
-            <option value="">{t('segmentChoose')}</option>
-            {segments.map((segment) => (
-              <option value={segment.id} key={segment.id}>
-                {segment.name}
-              </option>
-            ))}
-          </select>
+            options={[
+              { value: '', label: t('segmentChoose') },
+              ...segments.map((segment) => ({ value: segment.id, label: segment.name })),
+            ]}
+          />
           <p className="text-muted-foreground text-[11px]">
             {segments.length ? t('segmentHint') : t('segmentNone')}
           </p>
@@ -1357,14 +1351,13 @@ function ScheduledRecipients({
       )}
       {audience && (
         <label className="text-muted-foreground flex items-start gap-2 text-xs">
-          <input
-            type="checkbox"
+          <Checkbox
             className="mt-0.5"
             checked={config.once_per_contact === true}
-            onChange={(event) =>
+            onCheckedChange={(checked) =>
               onChange({
                 ...config,
-                once_per_contact: event.target.checked || undefined,
+                once_per_contact: checked || undefined,
               })
             }
           />
@@ -1380,13 +1373,12 @@ function ScheduledRecipients({
           {!tags.length && <p>Create a contact tag in Settings first.</p>}
           {tags.map((tag) => (
             <label key={tag.id} className="flex items-center gap-2">
-              <input
-                type="checkbox"
+              <Checkbox
                 checked={audience.tagIds?.includes(tag.id) ?? false}
-                onChange={(event) =>
+                onCheckedChange={(checked) =>
                   update({
                     ...audience,
-                    tagIds: event.target.checked
+                    tagIds: checked
                       ? [...(audience.tagIds ?? []), tag.id]
                       : audience.tagIds?.filter((id) => id !== tag.id),
                   })
@@ -1399,47 +1391,44 @@ function ScheduledRecipients({
       )}
       {audience?.type === 'custom_field' && (
         <div className="space-y-2">
-          <select
+          <OptionSelect
             aria-label="Recipient custom field"
-            className={SELECT_CLASS}
             value={audience.customField?.fieldId ?? ''}
-            onChange={(event) =>
+            onValueChange={(fieldId) =>
               update({
                 ...audience,
                 customField: {
-                  fieldId: event.target.value,
+                  fieldId,
                   operator: audience.customField?.operator ?? 'is',
                   value: audience.customField?.value ?? '',
                 },
               })
             }
-          >
-            <option value="">Choose a custom field</option>
-            {customFields.map((field) => (
-              <option value={field.id} key={field.id}>
-                {field.field_name}
-              </option>
-            ))}
-          </select>
-          <select
+            options={[
+              { value: '', label: 'Choose a custom field' },
+              ...customFields.map((field) => ({ value: field.id, label: field.field_name })),
+            ]}
+          />
+          <SegmentedControl
             aria-label="Recipient comparison"
-            className={SELECT_CLASS}
+            size="sm"
             value={audience.customField?.operator ?? 'is'}
-            onChange={(event) =>
+            onValueChange={(operator) =>
               update({
                 ...audience,
                 customField: {
                   fieldId: audience.customField?.fieldId ?? '',
                   value: audience.customField?.value ?? '',
-                  operator: event.target.value as 'is' | 'is_not' | 'contains',
+                  operator,
                 },
               })
             }
-          >
-            <option value="is">Equals</option>
-            <option value="is_not">Does not equal</option>
-            <option value="contains">Contains</option>
-          </select>
+            options={[
+              { value: 'is', label: 'Equals' },
+              { value: 'is_not', label: 'Does not equal' },
+              { value: 'contains', label: 'Contains' },
+            ]}
+          />
           <Input
             aria-label="Recipient field value"
             placeholder="Value to match"
@@ -1495,7 +1484,7 @@ function KeywordMatchConfig({
   // when the trigger type changes, so the seed stays in sync.
   const [draft, setDraft] = useState(keywords.join(', '));
 
-  // Persist the default the <select> displays (whole word for a new rule, see
+  // Persist the default the match control displays (whole word for a new rule, see
   // keywordMatchDefault), so the saved config always names its match_type.
   // Seed once on mount; the component remounts when the trigger type
   // changes, matching the keywords draft.
@@ -1539,20 +1528,22 @@ function KeywordMatchConfig({
         <label className="text-muted-foreground mb-1 block text-xs font-medium">
           {t('config.matchType')}
         </label>
-        <select
+        <SegmentedControl
+          aria-label={t('config.matchType')}
+          size="sm"
           value={config?.match_type ?? defaultMatch}
-          onChange={(e) =>
+          onValueChange={(match_type) =>
             onChange({
               ...config,
-              match_type: e.target.value as 'exact' | 'contains' | 'word',
+              match_type,
             })
           }
-          className="border-border bg-muted text-foreground w-full rounded-md border px-2 py-1.5 text-sm focus:outline-none"
-        >
-          <option value="contains">{t('config.matchContains')}</option>
-          <option value="word">{t('config.matchWord')}</option>
-          <option value="exact">{t('config.matchExact')}</option>
-        </select>
+          options={[
+            { value: 'contains', label: t('config.matchContains') },
+            { value: 'word', label: t('config.matchWord') },
+            { value: 'exact', label: t('config.matchExact') },
+          ]}
+        />
         {/* Only worth explaining for `word` — "contains" and "exact" read
             for themselves, and this is the one that changes which messages
             fire an automation in a way that isn't obvious. */}
@@ -1994,11 +1985,10 @@ function StepEditor({
             }
           />
           <label className="text-foreground flex items-start gap-2 text-xs">
-            <input
-              type="checkbox"
+            <Checkbox
               checked={cfg.wait_for_reply === true}
-              onChange={(e) => set({ wait_for_reply: e.target.checked })}
-              className="accent-primary mt-0.5 h-3.5 w-3.5"
+              onCheckedChange={(checked) => set({ wait_for_reply: checked })}
+              className="mt-0.5"
             />
             <span>
               {t('config.waitForReply')}
@@ -2033,16 +2023,16 @@ function StepEditor({
       return (
         <>
           <FieldBlock label={t('config.modeLabel')}>
-            <select
+            <SegmentedControl
+              aria-label={t('config.modeLabel')}
+              size="sm"
               value={(cfg.mode as string) ?? 'round_robin'}
-              onChange={(e) => set({ mode: e.target.value })}
-              className="border-border bg-muted text-foreground w-full rounded-md border px-2 py-1.5 text-sm"
-            >
-              <option value="round_robin">
-                {t('config.modes.round_robin')}
-              </option>
-              <option value="specific">{t('config.modes.specific')}</option>
-            </select>
+              onValueChange={(mode) => set({ mode })}
+              options={[
+                { value: 'round_robin', label: t('config.modes.round_robin') },
+                { value: 'specific', label: t('config.modes.specific') },
+              ]}
+            />
           </FieldBlock>
           {cfg.mode === 'specific' && (
             <FieldBlock label={t('config.agentLabel')}>
@@ -2116,15 +2106,17 @@ function StepEditor({
             />
           </FieldBlock>
           <FieldBlock label={t('config.unitLabel')}>
-            <select
+            <SegmentedControl
+              aria-label={t('config.unitLabel')}
+              size="sm"
               value={(cfg.unit as string) ?? 'hours'}
-              onChange={(e) => set({ unit: e.target.value })}
-              className="border-border bg-muted text-foreground w-full rounded-md border px-2 py-1.5 text-sm"
-            >
-              <option value="minutes">{t('config.units.minutes')}</option>
-              <option value="hours">{t('config.units.hours')}</option>
-              <option value="days">{t('config.units.days')}</option>
-            </select>
+              onValueChange={(unit) => set({ unit })}
+              options={[
+                { value: 'minutes', label: t('config.units.minutes') },
+                { value: 'hours', label: t('config.units.hours') },
+                { value: 'days', label: t('config.units.days') },
+              ]}
+            />
           </FieldBlock>
         </div>
       );
@@ -2132,48 +2124,35 @@ function StepEditor({
       return (
         <>
           <FieldBlock label={t('config.subjectLabel')}>
-            <select
+            <SegmentedControl
+              aria-label={t('config.subjectLabel')}
+              size="sm"
               value={(cfg.subject as string) ?? 'tag_presence'}
-              onChange={(e) =>
+              onValueChange={(subject) =>
                 set(
                   editConditionConfig(
                     cfg,
-                    { subject: e.target.value },
+                    { subject },
                     browserTimeZone()
                   )
                 )
               }
-              className="border-border bg-muted text-foreground w-full rounded-md border px-2 py-1.5 text-sm"
-            >
-              <option value="tag_presence">
-                {t('config.subjects.tag_presence')}
-              </option>
-              <option value="contact_field">
-                {t('config.subjects.contact_field')}
-              </option>
-              <option value="message_content">
-                {t('config.subjects.message_content')}
-              </option>
-              <option value="time_of_day">
-                {t('config.subjects.time_of_day')}
-              </option>
-            </select>
+              options={[
+                { value: 'tag_presence', label: t('config.subjects.tag_presence') },
+                { value: 'contact_field', label: t('config.subjects.contact_field') },
+                { value: 'message_content', label: t('config.subjects.message_content') },
+                { value: 'time_of_day', label: t('config.subjects.time_of_day') },
+              ]}
+            />
           </FieldBlock>
           {cfg.subject === 'time_of_day' && (
             <FieldBlock label={t('config.conditionTimezoneLabel')}>
-              <select
+              <OptionSelect
+                aria-label={t('config.conditionTimezoneLabel')}
                 value={(cfg.timezone as string) ?? LEGACY_CONDITION_TIMEZONE}
-                onChange={(e) => set({ timezone: e.target.value })}
-                className="border-border bg-muted text-foreground w-full rounded-md border px-2 py-1.5 text-sm"
-              >
-                {listTimeZones(cfg.timezone as string | undefined).map(
-                  (zone) => (
-                    <option key={zone} value={zone}>
-                      {zone}
-                    </option>
-                  )
-                )}
-              </select>
+                onValueChange={(timezone) => set({ timezone })}
+                options={listTimeZones(cfg.timezone as string | undefined).map((zone) => ({ value: zone, label: zone }))}
+              />
               <p className="text-muted-foreground mt-1 text-xs">
                 {t('config.conditionTimezoneHint')}
               </p>
@@ -2219,15 +2198,17 @@ function StepEditor({
             t={t}
           />
           <FieldBlock label={t('config.dealStatusLabel')}>
-            <select
-              className={SELECT_CLASS}
+            <SegmentedControl
+              aria-label={t('config.dealStatusLabel')}
+              size="sm"
               value={(cfg.status as string) ?? ''}
-              onChange={(e) => set({ status: e.target.value || undefined })}
-            >
-              <option value="">{t('config.dealStatusOpen')}</option>
-              <option value="won">{t('config.dealStatusWon')}</option>
-              <option value="lost">{t('config.dealStatusLost')}</option>
-            </select>
+              onValueChange={(status) => set({ status: status || undefined })}
+              options={[
+                { value: '', label: t('config.dealStatusOpen') },
+                { value: 'won', label: t('config.dealStatusWon') },
+                { value: 'lost', label: t('config.dealStatusLost') },
+              ]}
+            />
             <p className="text-muted-foreground mt-1 text-[11px]">{t('config.moveDealHint')}</p>
           </FieldBlock>
         </>
@@ -2236,15 +2217,12 @@ function StepEditor({
       return (
         <>
           <FieldBlock label={t('config.methodLabel')}>
-            <select
-              className={SELECT_CLASS}
+            <OptionSelect
+              aria-label={t('config.methodLabel')}
               value={(cfg.method as string) ?? 'POST'}
-              onChange={(e) => set({ method: e.target.value })}
-            >
-              {(['GET', 'POST', 'PUT', 'PATCH', 'DELETE'] as const).map((m) => (
-                <option key={m} value={m}>{m}</option>
-              ))}
-            </select>
+              onValueChange={(method) => set({ method })}
+              options={(['GET', 'POST', 'PUT', 'PATCH', 'DELETE'] as const).map((m) => ({ value: m, label: m }))}
+            />
           </FieldBlock>
           <FieldBlock label={t('config.urlLabel')}>
             <Input
@@ -2274,14 +2252,15 @@ function StepEditor({
       return (
         <>
           <FieldBlock label={t('config.notifyAudienceLabel')}>
-            <select
-              className={SELECT_CLASS}
+            <OptionSelect
+              aria-label={t('config.notifyAudienceLabel')}
               value={(cfg.audience as string) ?? 'assignee'}
-              onChange={(e) => set({ audience: e.target.value })}
-            >
-              <option value="assignee">{t('config.notifyAssignee')}</option>
-              <option value="admins">{t('config.notifyAdmins')}</option>
-            </select>
+              onValueChange={(audience) => set({ audience })}
+              options={[
+                { value: 'assignee', label: t('config.notifyAssignee') },
+                { value: 'admins', label: t('config.notifyAdmins') },
+              ]}
+            />
           </FieldBlock>
           <FieldBlock label={t('config.notifyTextLabel')}>
             <Textarea
@@ -2332,12 +2311,15 @@ function StartFlowField({ value, onChange }: { value: string; onChange: (flowId:
       <label htmlFor="start-flow-id" className="text-muted-foreground mb-1 block text-xs font-medium">
         {tStart('flow')}
       </label>
-      <select id="start-flow-id" value={value} onChange={(e) => onChange(e.target.value)} className={SELECT_CLASS}>
-        <option value="">{tStart('none')}</option>
-        {choices.map((flow) => (
-          <option key={flow.id} value={flow.id}>{flow.name}</option>
-        ))}
-      </select>
+      <OptionSelect
+        id="start-flow-id"
+        value={value}
+        onValueChange={onChange}
+        options={[
+          { value: '', label: tStart('none') },
+          ...choices.map((flow) => ({ value: flow.id, label: flow.name })),
+        ]}
+      />
       <p className="text-muted-foreground mt-1 text-[11px]">{tStart('help')}</p>
     </div>
   );

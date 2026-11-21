@@ -11,6 +11,7 @@ import { StickyNote, Trash2 } from "lucide-react";
 import { useFormatter, useTranslations } from "next-intl";
 import { toast } from "sonner";
 
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import { authFetch } from "@/lib/auth/client";
 import { splitMentions } from "./mentions";
 import type { ConversationNoteView } from "./notes-panel";
@@ -22,6 +23,7 @@ async function errorMessage(response: Response, fallback: string): Promise<strin
 
 export function useThreadNotes(conversationId: string | null | undefined, revision: number) {
   const t = useTranslations("Inbox.notes");
+  const confirm = useConfirm();
   const [loaded, setLoaded] = useState<{ id: string; notes: ConversationNoteView[] } | null>(null);
   const base = conversationId ? `/api/conversations/${encodeURIComponent(conversationId)}/notes` : null;
 
@@ -67,7 +69,7 @@ export function useThreadNotes(conversationId: string | null | undefined, revisi
 
   const remove = useCallback(async (id: string) => {
     if (!base || !conversationId) return;
-    if (!window.confirm(t("deleteConfirm"))) return;
+    if (!(await confirm({ title: t("deleteConfirm"), confirmLabel: t("delete"), destructive: true }))) return;
     try {
       const response = await authFetch(`${base}/${encodeURIComponent(id)}`, { method: "DELETE" });
       if (!response.ok) {
@@ -79,7 +81,7 @@ export function useThreadNotes(conversationId: string | null | undefined, revisi
     } catch {
       toast.error(t("deleteFailed"));
     }
-  }, [base, conversationId, t]);
+  }, [base, conversationId, t, confirm]);
 
   return { notes, add, remove };
 }

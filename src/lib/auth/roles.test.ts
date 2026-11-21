@@ -21,8 +21,8 @@ describe('roleRank', () => {
   });
 
   it("matches the SQL helper's numeric mapping", () => {
-    // Keep these in lockstep with `is_account_member`'s CASE expression
-    // in supabase/migrations/017_account_sharing.sql — any change here
+    // Keep these in lockstep with the role order in `app_write_allowed`
+    // (prisma/migrations/20261014000000_foundation) — any change here
     // means the SQL helper needs the same change.
     expect(roleRank('owner')).toBe(4);
     expect(roleRank('admin')).toBe(3);

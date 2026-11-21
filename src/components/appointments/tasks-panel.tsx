@@ -1,6 +1,10 @@
 'use client';
 
 /** Follow-up tasks (next steps after a no-show, rebooking reminders, manual tasks). */
+import { ListChecks } from 'lucide-react';
+import { EmptyState } from '@/components/ui/empty-state';
+import { SegmentedControl } from '@/components/ui/segmented-control';
+import { OptionSelect } from '@/components/ui/option-select';
 import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { useLocale, useTranslations } from 'next-intl';
@@ -8,7 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import type { TaskKind, TaskStatus } from '@/lib/appointments/types';
 import { TASK_STATUSES } from '@/lib/appointments/types';
-import { apiRequest, dueAtFromDay, formatDueDate, memberLabel, selectClass, useFailureText, useMembers } from './shared';
+import { apiRequest, dueAtFromDay, formatDueDate, memberLabel, useFailureText, useMembers } from './shared';
 
 export interface TaskDto {
   id: string; kind: TaskKind; title: string; due_at: string | null; assigned_to: string | null; status: TaskStatus;
@@ -63,12 +67,11 @@ export function TasksPanel({ canManage, onOpenAppointment }: { canManage: boolea
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-2">
         <h2 className="text-base font-semibold tracking-tight">{t('tasks.title')}</h2>
-        <select aria-label={t('schedule.filterStatus')} className={`${selectClass} ml-auto w-36`} value={status} onChange={(e) => setStatus(e.target.value as TaskStatus)}>
-          {TASK_STATUSES.map((s) => <option key={s} value={s}>{t(`tasks.statuses.${s}`)}</option>)}
-        </select>
+        <SegmentedControl<TaskStatus> aria-label={t('schedule.filterStatus')} className="ml-auto" value={status} onValueChange={setStatus}
+          options={TASK_STATUSES.map((s) => ({ value: s, label: t(`tasks.statuses.${s}`) }))} />
       </div>
-      {tasks && tasks.length === 0 && <p className="text-sm text-muted-foreground">{t('tasks.empty')}</p>}
-      <ul className="divide-y divide-border rounded-xl border border-border bg-card text-sm">
+      {tasks && tasks.length === 0 && <EmptyState icon={ListChecks} title={t('tasks.empty')} />}
+      {!!tasks?.length && <ul className="divide-y divide-separator rounded-group border border-separator bg-grouped-surface text-sm">
         {(tasks ?? []).map((task) => (
           <li key={task.id} className="flex flex-wrap items-center gap-2 p-3">
             <span className="rounded bg-muted px-1.5 py-0.5 text-[10px]">{t(`tasks.kinds.${task.kind}`)}</span>
@@ -86,15 +89,13 @@ export function TasksPanel({ canManage, onOpenAppointment }: { canManage: boolea
             )}
           </li>
         ))}
-      </ul>
+      </ul>}
       {canManage && (
         <div className="flex flex-wrap items-end gap-2">
           <Input aria-label={t('tasks.titleLabel')} placeholder={t('tasks.titleLabel')} maxLength={200} className="flex-1" value={title} onChange={(e) => setTitle(e.target.value)} />
           <Input aria-label={t('tasks.due')} type="date" className="w-40" value={due} onChange={(e) => setDue(e.target.value)} />
-          <select aria-label={t('tasks.assignee')} className={`${selectClass} w-44`} value={assignee} onChange={(e) => setAssignee(e.target.value)}>
-            <option value="">{t('tasks.unassigned')}</option>
-            {members.map((m) => <option key={m.user_id} value={m.user_id}>{memberLabel(m)}</option>)}
-          </select>
+          <OptionSelect aria-label={t('tasks.assignee')} className="w-44" value={assignee} onValueChange={setAssignee}
+            options={[{ value: '', label: t('tasks.unassigned') }, ...members.map((m) => ({ value: m.user_id, label: memberLabel(m) }))]} />
           <Button type="button" disabled={busy || !title.trim()} onClick={() => void add()}>{t('tasks.add')}</Button>
         </div>
       )}

@@ -15,7 +15,7 @@ vi.mock('./template-events', async (importOriginal) => ({
 
 // Tiny mock that records the .update payload and the .eq filter for
 // inspection. Mirrors the surface this module actually uses on the
-// Supabase client — anything beyond throws, so unintended calls fail
+// data client — anything beyond throws, so unintended calls fail
 // loudly:
 //   message_templates: .update().eq().select()  → selectResult (then
 //                      retrySelectResult for the 2nd call, if given)
@@ -26,7 +26,7 @@ type SelectResult = {
   error: { message: string; code?: string } | null;
 };
 
-function makeSupabaseStub(
+function makeDbStub(
   selectResult: SelectResult = { data: [{ id: 'row-1' }], error: null },
   opts: {
     configRows?: { account_id: string; user_id: string; is_default?: boolean }[];
@@ -125,7 +125,7 @@ describe('isTemplateWebhookField', () => {
 });
 
 describe('handleTemplateWebhookChange — status update', () => {
-  let supabaseCalls: ReturnType<typeof makeSupabaseStub>['calls'];
+  let dbCalls: ReturnType<typeof makeDbStub>['calls'];
 
   beforeEach(() => {
     vi.spyOn(console, 'warn').mockImplementation(() => {});
@@ -134,8 +134,8 @@ describe('handleTemplateWebhookChange — status update', () => {
   });
 
   it('flips status to APPROVED and clears any rejection_reason', async () => {
-    const { stub, calls } = makeSupabaseStub();
-    supabaseCalls = calls;
+    const { stub, calls } = makeDbStub();
+    dbCalls = calls;
     await handleTemplateWebhookChange(
       {
         field: 'message_template_status_update',
@@ -148,13 +148,13 @@ describe('handleTemplateWebhookChange — status update', () => {
       },
       stub,
     );
-    expect(supabaseCalls).toHaveLength(1);
-    expect(supabaseCalls[0].table).toBe('message_templates');
-    expect(supabaseCalls[0].filter).toEqual({
+    expect(dbCalls).toHaveLength(1);
+    expect(dbCalls[0].table).toBe('message_templates');
+    expect(dbCalls[0].filter).toEqual({
       column: 'meta_template_id',
       value: '12345', // coerced to string so the .eq matches the TEXT column
     });
-    expect(supabaseCalls[0].update).toEqual({
+    expect(dbCalls[0].update).toEqual({
       status: 'APPROVED',
       rejection_reason: null,
       submission_error: null,
@@ -164,7 +164,7 @@ describe('handleTemplateWebhookChange — status update', () => {
   it('emits template.status_updated for each matched template', async () => {
     webhook.dispatch.mockClear();
     const row = { id: 'row-1', account_id: 'acc-1', name: 'order_confirmation', language: 'en_US', status: 'REJECTED', rejection_reason: 'Spam' };
-    const { stub } = makeSupabaseStub({ data: [row], error: null });
+    const { stub } = makeDbStub({ data: [row], error: null });
     await handleTemplateWebhookChange(
       {
         field: 'message_template_status_update',
@@ -182,7 +182,7 @@ describe('handleTemplateWebhookChange — status update', () => {
   });
 
   it('persists the reason field on REJECTED', async () => {
-    const { stub, calls } = makeSupabaseStub();
+    const { stub, calls } = makeDbStub();
     await handleTemplateWebhookChange(
       {
         field: 'message_template_status_update',
@@ -204,7 +204,7 @@ describe('handleTemplateWebhookChange — status update', () => {
   // placeholder here made every later sync rewrite the reason and add a
   // second REJECTED history event.
   it.each([undefined, 'NONE', ''])('stores no reason when REJECTED carries %j, matching the sync', async (reason) => {
-    const { stub, calls } = makeSupabaseStub();
+    const { stub, calls } = makeDbStub();
     await handleTemplateWebhookChange(
       {
         field: 'message_template_status_update',
@@ -217,7 +217,7 @@ describe('handleTemplateWebhookChange — status update', () => {
   });
 
   it('normalises PENDING_REVIEW → PENDING (via shared normalizeStatus)', async () => {
-    const { stub, calls } = makeSupabaseStub();
+    const { stub, calls } = makeDbStub();
     await handleTemplateWebhookChange(
       {
         field: 'message_template_status_update',
@@ -229,7 +229,7 @@ describe('handleTemplateWebhookChange — status update', () => {
   });
 
   it('logs and exits when meta_template_id is missing (no UPDATE issued)', async () => {
-    const { stub, calls } = makeSupabaseStub();
+    const { stub, calls } = makeDbStub();
     await handleTemplateWebhookChange(
       {
         field: 'message_template_status_update',
@@ -242,7 +242,7 @@ describe('handleTemplateWebhookChange — status update', () => {
 
   it('logs a warning when the row is unknown locally and no WABA id was passed', async () => {
     const warn = vi.spyOn(console, 'warn');
-    const { stub, calls } = makeSupabaseStub({ data: [], error: null });
+    const { stub, calls } = makeDbStub({ data: [], error: null });
     await handleTemplateWebhookChange(
       {
         field: 'message_template_status_update',
@@ -273,7 +273,7 @@ describe('handleTemplateWebhookChange — unknown template stub (#534)', () => {
   });
 
   it('inserts a stub row for a 0-row status update when exactly one config matches the WABA', async () => {
-    const { stub, calls } = makeSupabaseStub(
+    const { stub, calls } = makeDbStub(
       { data: [], error: null },
       { configRows: [CONFIG] },
     );
@@ -314,7 +314,7 @@ describe('handleTemplateWebhookChange — unknown template stub (#534)', () => {
   });
 
   it('carries the rejection reason into the stub on REJECTED and defaults language to en_US', async () => {
-    const { stub, calls } = makeSupabaseStub(
+    const { stub, calls } = makeDbStub(
       { data: [], error: null },
       { configRows: [CONFIG] },
     );
@@ -340,7 +340,7 @@ describe('handleTemplateWebhookChange — unknown template stub (#534)', () => {
 
   it('warns with the WABA id and inserts nothing when no config matches', async () => {
     const warn = vi.spyOn(console, 'warn');
-    const { stub, calls } = makeSupabaseStub(
+    const { stub, calls } = makeDbStub(
       { data: [], error: null },
       { configRows: [] },
     );
@@ -367,7 +367,7 @@ describe('handleTemplateWebhookChange — unknown template stub (#534)', () => {
 
   it('refuses to guess the tenant when several configs share the WABA id', async () => {
     const warn = vi.spyOn(console, 'warn');
-    const { stub, calls } = makeSupabaseStub(
+    const { stub, calls } = makeDbStub(
       { data: [], error: null },
       {
         configRows: [CONFIG, { account_id: 'acc-2', user_id: 'admin-2' }],
@@ -391,7 +391,7 @@ describe('handleTemplateWebhookChange — unknown template stub (#534)', () => {
 
   it('inserts a stub with quality_score (and no status) for a 0-row quality update', async () => {
     const warn = vi.spyOn(console, 'warn');
-    const { stub, calls } = makeSupabaseStub(
+    const { stub, calls } = makeDbStub(
       { data: [], error: null },
       { configRows: [CONFIG] },
     );
@@ -428,7 +428,7 @@ describe('handleTemplateWebhookChange — unknown template stub (#534)', () => {
 
   it('warns (with the WABA id) on a 0-row quality update when the tenant cannot be resolved', async () => {
     const warn = vi.spyOn(console, 'warn');
-    const { stub, calls } = makeSupabaseStub(
+    const { stub, calls } = makeDbStub(
       { data: [], error: null },
       { configRows: [] },
     );
@@ -451,7 +451,7 @@ describe('handleTemplateWebhookChange — unknown template stub (#534)', () => {
 
   it('retries the update once when the stub insert hits a unique violation', async () => {
     const warn = vi.spyOn(console, 'warn');
-    const { stub, calls } = makeSupabaseStub(
+    const { stub, calls } = makeDbStub(
       { data: [], error: null },
       {
         configRows: [CONFIG],
@@ -483,7 +483,7 @@ describe('handleTemplateWebhookChange — unknown template stub (#534)', () => {
 
   it('does not create a stub when the event has no template name', async () => {
     const warn = vi.spyOn(console, 'warn');
-    const { stub, calls } = makeSupabaseStub(
+    const { stub, calls } = makeDbStub(
       { data: [], error: null },
       { configRows: [CONFIG] },
     );
@@ -502,7 +502,7 @@ describe('handleTemplateWebhookChange — unknown template stub (#534)', () => {
 
 describe('handleTemplateWebhookChange — quality update', () => {
   it('sets quality_score from new_quality_score', async () => {
-    const { stub, calls } = makeSupabaseStub();
+    const { stub, calls } = makeDbStub();
     await handleTemplateWebhookChange(
       {
         field: 'message_template_quality_update',
@@ -522,7 +522,7 @@ describe('handleTemplateWebhookChange — quality update', () => {
   });
 
   it('stores null for unrecognised quality scores', async () => {
-    const { stub, calls } = makeSupabaseStub();
+    const { stub, calls } = makeDbStub();
     await handleTemplateWebhookChange(
       {
         field: 'message_template_quality_update',
@@ -540,7 +540,7 @@ describe('handleTemplateWebhookChange — quality update', () => {
 describe('handleTemplateWebhookChange — components update', () => {
   it('is an info-log no-op (does not write to DB)', async () => {
     const info = vi.spyOn(console, 'info').mockImplementation(() => {});
-    const { stub, calls } = makeSupabaseStub();
+    const { stub, calls } = makeDbStub();
     await handleTemplateWebhookChange(
       {
         field: 'message_template_components_update',
@@ -558,7 +558,7 @@ describe('handleTemplateWebhookChange — components update', () => {
 
 describe('handleTemplateWebhookChange — unknown field', () => {
   it('is a defensive no-op', async () => {
-    const { stub, calls } = makeSupabaseStub();
+    const { stub, calls } = makeDbStub();
     await handleTemplateWebhookChange(
       // Pretend Meta added a new template_* field we don't know about.
       // The route handler pre-filters via isTemplateWebhookField, but
@@ -589,7 +589,7 @@ describe('handleTemplateWebhookChange — status history', () => {
   });
 
   it('records a webhook event per updated row, in the row account, on the worker', async () => {
-    const { stub } = makeSupabaseStub({
+    const { stub } = makeDbStub({
       data: [ROW, { ...ROW, id: 'row-2', account_id: 'acc-2' }],
       error: null,
     } as never);
@@ -611,7 +611,7 @@ describe('handleTemplateWebhookChange — status history', () => {
   });
 
   it('records quality updates with the current row status', async () => {
-    const { stub } = makeSupabaseStub({
+    const { stub } = makeDbStub({
       data: [{ ...ROW, status: 'APPROVED', rejection_reason: null, quality_score: 'RED' }],
       error: null,
     } as never);
@@ -630,7 +630,7 @@ describe('handleTemplateWebhookChange — status history', () => {
   });
 
   it('records the first event of a stub row under the id it was inserted with', async () => {
-    const { stub, calls } = makeSupabaseStub(
+    const { stub, calls } = makeDbStub(
       { data: [], error: null },
       { configRows: [CONFIG] },
     );
@@ -652,7 +652,7 @@ describe('handleTemplateWebhookChange — status history', () => {
   });
 
   it('records a quality-only stub as DRAFT, the column default', async () => {
-    const { stub } = makeSupabaseStub(
+    const { stub } = makeDbStub(
       { data: [], error: null },
       { configRows: [CONFIG] },
     );
@@ -670,7 +670,7 @@ describe('handleTemplateWebhookChange — status history', () => {
   });
 
   it('records the rows matched by the retry after a unique violation', async () => {
-    const { stub } = makeSupabaseStub(
+    const { stub } = makeDbStub(
       { data: [], error: null },
       {
         configRows: [CONFIG],
@@ -693,12 +693,12 @@ describe('handleTemplateWebhookChange — status history', () => {
   });
 
   it('records nothing when the update fails or the stub cannot be created', async () => {
-    const failed = makeSupabaseStub({ data: null, error: { message: 'boom' } });
+    const failed = makeDbStub({ data: null, error: { message: 'boom' } });
     await handleTemplateWebhookChange(
       { field: 'message_template_status_update', value: { event: 'APPROVED', message_template_id: '1' } },
       failed.stub,
     );
-    const orphan = makeSupabaseStub({ data: [], error: null }, { configRows: [] });
+    const orphan = makeDbStub({ data: [], error: null }, { configRows: [] });
     await handleTemplateWebhookChange(
       {
         field: 'message_template_status_update',
@@ -719,7 +719,7 @@ describe('handleTemplateWebhookChange — WABA scope (multi-number)', () => {
   });
 
   it("updates only the event WABA's templates and stamps unscoped rows with it", async () => {
-    const { stub, calls } = makeSupabaseStub();
+    const { stub, calls } = makeDbStub();
     await handleTemplateWebhookChange(
       {
         field: 'message_template_status_update',
@@ -733,7 +733,7 @@ describe('handleTemplateWebhookChange — WABA scope (multi-number)', () => {
   });
 
   it('ignores a malformed WABA id instead of filtering on it', async () => {
-    const { stub, calls } = makeSupabaseStub();
+    const { stub, calls } = makeDbStub();
     await handleTemplateWebhookChange(
       {
         field: 'message_template_quality_update',
@@ -747,7 +747,7 @@ describe('handleTemplateWebhookChange — WABA scope (multi-number)', () => {
   });
 
   it('creates the stub for a workspace whose several numbers share the WABA, as the default number owner', async () => {
-    const { stub, calls } = makeSupabaseStub(
+    const { stub, calls } = makeDbStub(
       { data: [], error: null },
       {
         configRows: [

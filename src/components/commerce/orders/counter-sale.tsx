@@ -21,9 +21,11 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { searchContacts, type ContactOption } from "@/lib/contacts/contact-search";
-import { formatMoney } from "@/lib/commerce/money";
+import { formatMoney } from "@/lib/format/money";
 import { createCounterSale, documentUrl, getOrderTimeline, listSellableVariants, type CounterSaleResult, type SellableVariant } from "./order-api";
 import { orderRef } from "@/lib/commerce/order-state";
+import { SegmentedControl } from "@/components/ui/segmented-control";
+import { PageHeader } from "@/components/ui/page-header";
 
 const MAX_QTY = 99;
 type Method = "cash" | "upi";
@@ -93,7 +95,7 @@ export function CounterSale() {
 
   const money = (minor: number, cur = currency) => {
     if (!cur) return String(minor);
-    try { return formatMoney(minor, cur, locale); } catch { return `${cur} ${minor}`; }
+    return formatMoney(minor, cur, { locale });
   };
   const estimate = cart.reduce((n, l) => n + l.variant.price_minor * l.qty, 0);
   const room = (v: SellableVariant) => (v.available === null ? MAX_QTY : Math.min(MAX_QTY, v.available));
@@ -184,17 +186,16 @@ export function CounterSale() {
 
   return (
     <div className="mx-auto w-full max-w-2xl space-y-5 p-4 pb-28">
-      <div>
-        <h1 className="text-xl font-semibold">{t("title")}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t("description")}</p>
-      </div>
+      <PageHeader className="mb-0" title={t("title")} subtitle={t("description")} />
 
       <section className="space-y-2" aria-label={t("customer")}>
         <Label>{t("customer")}</Label>
-        <div className="flex gap-2">
-          <Button type="button" variant={walkIn ? "default" : "outline"} className="flex-1" onClick={() => setWalkIn(true)}>{t("walkIn")}</Button>
-          <Button type="button" variant={walkIn ? "outline" : "default"} className="flex-1" onClick={() => setWalkIn(false)}>{t("namedCustomer")}</Button>
-        </div>
+        <SegmentedControl
+          aria-label={t("customer")}
+          value={walkIn ? "walkIn" : "named"}
+          onValueChange={(v) => setWalkIn(v === "walkIn")}
+          options={[{ value: "walkIn", label: t("walkIn") }, { value: "named", label: t("namedCustomer") }]}
+        />
         {!walkIn && (
           <div className="space-y-2">
             <Input aria-label={t("customerSearch")} placeholder={t("customerSearch")} value={search} onChange={(e) => setSearch(e.target.value)} />
@@ -253,10 +254,15 @@ export function CounterSale() {
 
       <section className="space-y-2" aria-label={t("payment")}>
         <Label>{t("payment")}</Label>
-        <div className="flex gap-2">
-          <Button type="button" variant={method === "cash" ? "default" : "outline"} className="flex-1" onClick={() => setMethod("cash")}><Banknote className="h-4 w-4" /> {t("method.cash")}</Button>
-          <Button type="button" variant={method === "upi" ? "default" : "outline"} className="flex-1" onClick={() => setMethod("upi")}><Smartphone className="h-4 w-4" /> {t("method.upi")}</Button>
-        </div>
+        <SegmentedControl
+          aria-label={t("payment")}
+          value={method}
+          onValueChange={setMethod}
+          options={[
+            { value: "cash", label: <><Banknote className="h-4 w-4" /> {t("method.cash")}</> },
+            { value: "upi", label: <><Smartphone className="h-4 w-4" /> {t("method.upi")}</> },
+          ]}
+        />
         <Input aria-label={t("reference")} placeholder={method === "upi" ? t("referenceUpi") : t("reference")} maxLength={100} value={reference} onChange={(e) => setReference(e.target.value)} />
       </section>
 

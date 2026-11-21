@@ -21,6 +21,7 @@ import { minorToDecimalString, parseMoney } from "@/lib/commerce/money";
 import { useReportDirty } from "./section-dirty";
 import { Field, bpsToPercent, percentToBps, useErrorText } from "./settings-fields";
 import { storeApi, type StoreSettings, type StoreSettingsInput } from "./settings-api";
+import { OptionSelect } from "@/components/ui/option-select";
 
 export type CorePart = "general" | "checkout" | "taxes" | "notifications" | "advanced";
 
@@ -215,14 +216,20 @@ function CheckoutTemplateField({ value, canEdit, onChange }: {
   const templateKey = value.checkout_template_name ? `${value.checkout_template_name}|${value.checkout_template_language ?? ""}` : "";
   return (
     <Field id="ss-template" label={t("checkoutTemplate")} help={t("checkoutTemplateHelp")}>
-      <select id="ss-template" className="h-9 w-full rounded-md border bg-background px-2 text-sm" disabled={!canEdit} value={templateKey}
-        onChange={(e) => {
-          const chosen = templates.find((x) => `${x.name}|${x.language ?? ""}` === e.target.value);
+      <OptionSelect fit
+        id="ss-template"
+        className="w-full"
+        disabled={!canEdit}
+        value={templateKey}
+        onValueChange={(key) => {
+          const chosen = templates.find((x) => `${x.name}|${x.language ?? ""}` === key);
           onChange(chosen?.name ?? null, chosen?.language ?? null);
-        }}>
-        <option value="">{t("noTemplate")}</option>
-        {templates.map((x) => <option key={x.id} value={`${x.name}|${x.language ?? ""}`}>{x.name}{x.language ? ` (${x.language})` : ""}</option>)}
-      </select>
+        }}
+        options={[
+          { value: "", label: t("noTemplate") },
+          ...templates.map((x) => ({ value: `${x.name}|${x.language ?? ""}`, label: `${x.name}${x.language ? ` (${x.language})` : ""}` })),
+        ]}
+      />
     </Field>
   );
 }

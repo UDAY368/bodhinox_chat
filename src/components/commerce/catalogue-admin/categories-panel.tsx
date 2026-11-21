@@ -3,7 +3,7 @@
 /** Catalogue categories, at most two levels deep. Admins add, rename, move and archive. */
 
 import { useCallback, useEffect, useState } from "react";
-import { Loader2, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 
@@ -11,7 +11,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { fetchCategories, saveCategory, type ShopCategory } from "./catalogue-api";
-import { selectClass, useCatalogueError } from "./catalogue-admin";
+import { useCatalogueError } from "./catalogue-admin";
+import { OptionSelect } from "@/components/ui/option-select";
+import { PageLoading } from "@/components/ui/page-loading";
 
 export function CategoriesPanel({ canManage }: { canManage: boolean }) {
   const t = useTranslations("Commerce.catalogue.categories");
@@ -46,7 +48,7 @@ export function CategoriesPanel({ canManage }: { canManage: boolean }) {
     if (await run(saveCategory(null, { name: name.trim(), parent_id: parent || null }), t("saved"))) { setName(""); setParent(""); }
   };
 
-  if (items === null) return <div className="flex justify-center p-6"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>;
+  if (items === null) return <PageLoading rows={3} />;
   const tops = items.filter((c) => !c.parent_id && !c.archived);
   const ordered = items.filter((c) => !c.parent_id).flatMap((top) => [top, ...items.filter((c) => c.parent_id === top.id)]);
 
@@ -55,10 +57,15 @@ export function CategoriesPanel({ canManage }: { canManage: boolean }) {
       {canManage && (
         <form className="flex flex-wrap items-center gap-2" onSubmit={(e) => { e.preventDefault(); void add(); }}>
           <Input value={name} maxLength={80} onChange={(e) => setName(e.target.value)} placeholder={t("name")} aria-label={t("name")} className="max-w-xs" />
-          <select aria-label={t("parent")} className={selectClass} value={parent} onChange={(e) => setParent(e.target.value)}>
-            <option value="">{t("none")}</option>
-            {tops.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-          </select>
+          <OptionSelect fit
+            aria-label={t("parent")}
+            value={parent}
+            onValueChange={(v) => setParent(v)}
+            options={[
+              { value: "", label: t("none") },
+              ...tops.map((c) => ({ value: c.id, label: c.name })),
+            ]}
+          />
           <Button type="submit" disabled={busy || !name.trim()}><Plus className="h-4 w-4" />{t("add")}</Button>
         </form>
       )}
@@ -95,11 +102,16 @@ function CategoryRow({ category, tops, canManage, busy, onSave }: {
       {category.archived && <Badge variant="outline">{t("archived")}</Badge>}
       {canManage && (
         <span className="ml-auto flex items-center gap-2">
-          <select aria-label={t("parent")} className={`${selectClass} h-8`} value={category.parent_id ?? ""} disabled={busy}
-            onChange={(e) => void onSave({ parent_id: e.target.value || null })}>
-            <option value="">{t("none")}</option>
-            {tops.filter((top) => top.id !== category.id).map((top) => <option key={top.id} value={top.id}>{top.name}</option>)}
-          </select>
+          <OptionSelect fit
+            aria-label={t("parent")}
+            value={category.parent_id ?? ""}
+            onValueChange={(v) => void onSave({ parent_id: v || null })}
+            disabled={busy}
+            options={[
+              { value: "", label: t("none") },
+              ...tops.filter((top) => top.id !== category.id).map((top) => ({ value: top.id, label: top.name })),
+            ]}
+          />
           <Button size="sm" variant="ghost" disabled={busy} onClick={() => void onSave({ archived: !category.archived })}>
             {category.archived ? t("restore") : t("archive")}
           </Button>

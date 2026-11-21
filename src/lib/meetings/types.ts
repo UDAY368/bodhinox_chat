@@ -5,9 +5,6 @@
  */
 import type { TenantContext } from '@/lib/db/tenant';
 
-export const MEETING_PROVIDERS = ['zoom'] as const;
-export type MeetingProvider = (typeof MEETING_PROVIDERS)[number];
-
 export const MEETING_CONNECTION_STATUSES = ['active', 'token_invalid', 'disconnected'] as const;
 export type MeetingConnectionStatus = (typeof MEETING_CONNECTION_STATUSES)[number];
 

@@ -12,6 +12,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
+import { InlineError } from '@/components/ui/inline-error';
+import { PageLoading } from '@/components/ui/page-loading';
 import type { AgentProfile } from '@/lib/ai/agent-profile';
 import {
   BUSINESS_TYPE_SUGGESTIONS,
@@ -149,19 +151,12 @@ export function AgentSetupWizard({ canEdit, knowledgeSlot, onOpenKnowledge, onOp
 
   if (loadFailed) {
     return (
-      <Card>
-        <CardContent className="flex items-center justify-between gap-3 py-6 text-sm">
-          <span>{t('loadFailed')}</span>
-          <Button variant="outline" size="sm" onClick={() => void load()}>{t('retry')}</Button>
-        </CardContent>
-      </Card>
+      <InlineError message={t('loadFailed')} onRetry={() => void load()} />
     );
   }
   if (!draft) {
     return (
-      <div className="flex justify-center py-10 text-muted-foreground">
-        <Loader2 className="h-5 w-5 animate-spin" aria-label={t('loading')} />
-      </div>
+      <PageLoading rows={4} />
     );
   }
 

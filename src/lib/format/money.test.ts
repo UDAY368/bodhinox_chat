@@ -38,6 +38,20 @@ describe('formatMoney (minor units)', () => {
     expect(formatMoney(120000, 'USD', { compact: true })).toBe('$1.2K');
     expect(formatMoney(90000, 'INR', { compact: true })).toBe('₹900');
   });
+
+  // Cases moved from the retired src/lib/commerce/money.ts formatMoney (locale was its third argument).
+  it('keeps the old commerce formatter output with an explicit locale', () => {
+    expect(formatMoney(123450, 'INR', { locale: 'en-IN' })).toBe('₹1,234.50');
+    expect(formatMoney(199, 'USD', { locale: 'en-US' })).toBe('$1.99');
+    expect(formatMoney(1500, 'JPY', { locale: 'en-US' })).toMatch(/1,500$/);
+    expect(formatMoney(1500, 'KWD', { locale: 'en-US' })).toContain('1.500');
+    // Exact beyond float precision.
+    expect(formatMoney(9007199254740991, 'USD', { locale: 'en-US' })).toBe('$90,071,992,547,409.91');
+    // An unknown locale falls back instead of throwing.
+    expect(formatMoney(100, 'USD', { locale: 'not a locale' })).toBe('$1.00');
+    // The old default locale was 'en', so callers that passed none now pass it explicitly.
+    expect(formatMoney(1234567800, 'INR', { locale: 'en' })).toBe('₹12,345,678.00');
+  });
 });
 
 describe('formatMajor (major units)', () => {

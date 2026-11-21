@@ -13,7 +13,7 @@ import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { fetchLists, fetchSegments, type ListSummary, type SegmentSummary } from "@/lib/audience/client";
@@ -22,8 +22,9 @@ import { templateSendNeeds } from "@/lib/whatsapp/template-send-params";
 import { templateKindOf } from "@/lib/whatsapp/template-validators";
 import type { MessageTemplate } from "@/types";
 import { sendNewArrivals } from "./catalogue-api";
+import { OptionSelect } from "@/components/ui/option-select";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 
-const selectClass = "h-9 w-full rounded-lg border border-border bg-card px-2.5 text-sm text-foreground";
 type AudienceKind = "all" | "segment" | "list";
 
 export function NewArrivalsDialog({ open, onOpenChange, productIds, onDone }: {
@@ -70,22 +71,28 @@ export function NewArrivalsDialog({ open, onOpenChange, productIds, onDone }: {
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>{t("title")}</DialogTitle>
-          <DialogDescription>{t("description", { count: productIds.length })}</DialogDescription>
-        </DialogHeader>
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent size="md" className="w-full gap-0">
+        <SheetHeader>
+          <SheetTitle>{t("title")}</SheetTitle>
+          <SheetDescription>{t("description", { count: productIds.length })}</SheetDescription>
+        </SheetHeader>
+        <div className="flex-1 space-y-4 overflow-y-auto px-4 pb-4">
         {templates === null ? (
           <div className="flex justify-center p-4"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" aria-label={t("loading")} /></div>
         ) : (
           <div className="space-y-3">
             <div className="space-y-1.5">
               <Label htmlFor="na-template">{t("template")}</Label>
-              <select id="na-template" className={selectClass} value={templateId} onChange={(e) => setTemplateId(e.target.value)}>
-                <option value="">{t("choose")}</option>
-                {usable.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}
-              </select>
+              <OptionSelect fit
+                id="na-template"
+                value={templateId}
+                onValueChange={(v) => setTemplateId(v)}
+                options={[
+                  { value: "", label: t("choose") },
+                  ...usable.map((x) => ({ value: x.id, label: x.name })),
+                ]}
+              />
               {usable.length === 0 && <p className="text-xs text-muted-foreground">{t("noTemplates", { count: productIds.length })}</p>}
             </div>
             {topVars.map((n) => (
@@ -96,17 +103,27 @@ export function NewArrivalsDialog({ open, onOpenChange, productIds, onDone }: {
               </div>
             ))}
             <div className="space-y-1.5">
-              <Label htmlFor="na-audience">{t("audience")}</Label>
-              <select id="na-audience" className={selectClass} value={kind} onChange={(e) => { setKind(e.target.value as AudienceKind); setTargetId(""); }}>
-                <option value="all">{t("audAll")}</option>
-                <option value="segment">{t("audSegment")}</option>
-                <option value="list">{t("audList")}</option>
-              </select>
+              <Label>{t("audience")}</Label>
+              <SegmentedControl
+                aria-label={t("audience")}
+                value={kind}
+                onValueChange={(v) => { setKind(v as AudienceKind); setTargetId(""); }}
+                options={[
+                  { value: "all", label: t("audAll") },
+                  { value: "segment", label: t("audSegment") },
+                  { value: "list", label: t("audList") },
+                ]}
+              />
               {kind !== "all" && (
-                <select aria-label={t("audience")} className={selectClass} value={targetId} onChange={(e) => setTargetId(e.target.value)}>
-                  <option value="">{t("choose")}</option>
-                  {(kind === "segment" ? segments : lists).map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}
-                </select>
+                <OptionSelect fit
+                  aria-label={t("audience")}
+                  value={targetId}
+                  onValueChange={(v) => setTargetId(v)}
+                  options={[
+                    { value: "", label: t("choose") },
+                    ...(kind === "segment" ? segments : lists).map((x) => ({ value: x.id, label: x.name })),
+                  ]}
+                />
               )}
               <p className="text-xs text-muted-foreground">{t("consentNote")}</p>
             </div>
@@ -118,13 +135,14 @@ export function NewArrivalsDialog({ open, onOpenChange, productIds, onDone }: {
             {error && <p role="alert" className="rounded-lg bg-destructive/10 p-2 text-sm text-destructive">{error}</p>}
           </div>
         )}
-        <DialogFooter>
+        </div>
+        <SheetFooter className="border-t border-border sm:flex-row sm:justify-end">
           <Button variant="outline" onClick={() => onOpenChange(false)}>{t("cancel")}</Button>
           <Button disabled={!ready || busy} onClick={() => void submit()}>
             {busy && <Loader2 className="h-4 w-4 animate-spin" />} {t("send")}
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </SheetFooter>
+      </SheetContent>
+    </Sheet>
   );
 }

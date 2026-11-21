@@ -1,12 +1,14 @@
 'use client';
 
 import { useEffect, useState, type ReactNode } from 'react';
+import Link from 'next/link';
 import { useFormatter, useTranslations } from 'next-intl';
 
 import { authFetch } from '@/lib/auth/client';
-import { Button } from '@/components/ui/button';
+import { InlineError } from '@/components/ui/inline-error';
 import { Skeleton } from '@/components/dashboard/skeleton';
-import { EmptyState } from '@/components/dashboard/empty-state';
+import { BarChart3 } from 'lucide-react';
+import { EmptyState } from '@/components/ui/empty-state';
 
 /** Query string for a report: the range plus any filters (empty values dropped). */
 export function reportQuery(values: Record<string, string | null | undefined>): string {
@@ -104,15 +106,8 @@ export function ReportState({
   const t = useTranslations('Analytics');
   if (loading) return <Skeleton className="h-48 w-full" />;
   if (error)
-    return (
-      <div role="alert" className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
-        {t('loadFailed')}
-        <Button size="sm" variant="outline" onClick={onRetry}>
-          {t('retry')}
-        </Button>
-      </div>
-    );
-  if (empty) return <EmptyState title={t('emptyTitle')} hint={t('emptyHint')} />;
+    return <InlineError message={t('loadFailed')} onRetry={onRetry} />;
+  if (empty) return <EmptyState icon={BarChart3} title={t('emptyTitle')} body={t('emptyHint')} className="h-full min-h-40" />;
   return <>{children}</>;
 }
 
@@ -125,11 +120,14 @@ export function ChartWithTable({
   chart,
   columns,
   rows,
+  records,
 }: {
   label: string;
   chart: ReactNode;
   columns: string[];
   rows: (string | number)[][];
+  /** Links that open the records behind the chart (e.g. the inbox filtered to one state). */
+  records?: { name: string; href: string }[];
 }) {
   const t = useTranslations('Analytics');
   const format = useFormatter();
@@ -138,6 +136,16 @@ export function ChartWithTable({
       <div role="img" aria-label={label}>
         {chart}
       </div>
+      {records && records.length > 0 && (
+        <nav aria-label={t('openRecordsLabel', { chart: label })} className="flex flex-wrap gap-2">
+          {records.map((r) => (
+            <Link key={r.href} href={r.href}
+              className="inline-flex min-h-11 items-center rounded-lg border border-border px-3 text-xs font-medium text-foreground outline-none transition-colors duration-150 hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring/50">
+              {t('openRecords', { name: r.name })}
+            </Link>
+          ))}
+        </nav>
+      )}
       <details className="text-sm">
         <summary className="w-fit cursor-pointer rounded-md text-xs font-medium text-muted-foreground transition-colors duration-150 hover:text-foreground">{t('showTable')}</summary>
         <DataTable

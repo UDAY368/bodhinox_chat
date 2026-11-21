@@ -64,7 +64,8 @@ describe("form builder components", () => {
     expect(editable).toContain("Label is too long");
     expect(editable).toContain('aria-invalid="true"');
     expect(editable).toContain("removeField");
-    expect(editable).toContain("custom:11111111-1111-4111-8111-111111111111");
+    // "Save answer to" is the shared Select (its menu, with the custom fields, renders only when open).
+    expect(editable).toMatch(/id="[^"]*-save"[^>]*data-slot="select-trigger"|data-slot="select-trigger"[^>]*id="[^"]*-save"/);
 
     const locked = renderToStaticMarkup(
       <FieldEditor

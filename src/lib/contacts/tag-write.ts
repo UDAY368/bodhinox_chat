@@ -124,10 +124,6 @@ export type ContactEvent =
 /** The automation.trigger job slot of a contact event: `event:<event id>`. */
 export const CONTACT_EVENT_SLOT = /^event:([0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})$/i;
 
-/** The job dedupe key: at most one run per automation, contact and event id. */
-export const contactEventKey = (automationId: string, contactId: string, eventId: string) =>
-  `contact-event:${automationId}:${contactId}:${eventId}`;
-
 /**
  * Queues `event` for every active automation of the account whose trigger
  * matches it (tag_removed on that tag, field_changed on that field), inside

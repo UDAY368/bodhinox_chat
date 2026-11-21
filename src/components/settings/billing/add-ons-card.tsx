@@ -13,6 +13,7 @@ import { useFormatter, useTranslations } from 'next-intl';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { useConfirm } from '@/components/ui/confirm-dialog';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { authFetch } from '@/lib/auth/client';
@@ -38,6 +39,7 @@ const STATUS_VARIANT = { active: 'default', pending: 'secondary', cancelled: 'ou
 /** `onChanged` runs after a purchase or cancellation (e.g. to reload plan limits). */
 export function AddOnsCard({ onChanged }: { onChanged?: () => void }) {
   const t = useTranslations('Settings.addOns');
+  const confirm = useConfirm();
   const format = useFormatter();
   const [data, setData] = useState<AddonsResponse | null | 'hidden' | 'failed'>(null);
   const [packs, setPacks] = useState<Record<string, number>>({});
@@ -81,7 +83,7 @@ export function AddOnsCard({ onChanged }: { onChanged?: () => void }) {
   };
 
   const cancel = async (row: AddonRowView) => {
-    if (!window.confirm(t('cancelConfirm'))) return;
+    if (!(await confirm({ title: t('cancelConfirm'), confirmLabel: t('cancel'), destructive: true }))) return;
     setBusy(row.id);
     try {
       const res = await authFetch(`/api/billing/add-ons?id=${encodeURIComponent(row.id)}`, { method: 'DELETE' });

@@ -6,6 +6,8 @@ import { useTranslations } from 'next-intl';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
+import { OptionSelect } from '@/components/ui/option-select';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 import { slugify } from '@/components/flows/shared';
@@ -241,15 +243,13 @@ export function InteractiveBuilder({
           )}
 
           <label className="text-muted-foreground flex items-center gap-2 text-xs">
-            <input
-              type="checkbox"
+            <Checkbox
               checked={advanced}
-              onChange={(e) => {
-                if (e.target.checked && !needsOptions)
+              onCheckedChange={(checked) => {
+                if (checked && !needsOptions)
                   setOptionsState('loading');
-                setAdvanced(e.target.checked);
+                setAdvanced(checked);
               }}
-              className="accent-primary h-3.5 w-3.5"
             />
             {t('showIds')}
           </label>
@@ -384,14 +384,12 @@ function ButtonsEditor({
             </div>
             {advanced && (
               <>
-                <label className="text-muted-foreground flex flex-col gap-1 text-xs">
-                  {t('buttonAction')}
-                  <select
+                <div className="text-muted-foreground flex flex-col gap-1 text-xs">
+                  <span aria-hidden>{t('buttonAction')}</span>
+                  <OptionSelect
                     aria-label={t('buttonAction')}
                     value={b.action?.type ?? 'reply'}
-                    className="border-input bg-muted text-foreground h-9 w-full rounded-md border px-2 text-sm"
-                    onChange={(e) => {
-                      const type = e.target.value;
+                    onValueChange={(type) => {
                       update(i, {
                         action:
                           type === 'reply'
@@ -404,15 +402,14 @@ function ButtonsEditor({
                                 },
                       });
                     }}
-                  >
-                    <option value="reply">{t('replyOnly')}</option>
-                    <option value="url">{t('linkAction')}</option>
-                    <option value="automation">
-                      {t('existingAutomation')}
-                    </option>
-                    <option value="flow">{t('existingFlow')}</option>
-                  </select>
-                </label>
+                    options={[
+                      { value: 'reply', label: t('replyOnly') },
+                      { value: 'url', label: t('linkAction') },
+                      { value: 'automation', label: t('existingAutomation') },
+                      { value: 'flow', label: t('existingFlow') },
+                    ]}
+                  />
+                </div>
                 {b.action?.type === 'url' && (
                   <Input
                     aria-label={t('buttonUrl')}
@@ -438,34 +435,31 @@ function ButtonsEditor({
                       !targets.some((target) => target.id === action.targetId);
                     return (
                       <>
-                        <select
+                        <OptionSelect
                           aria-label={t('selectTarget')}
                           value={action.targetId}
                           disabled={optionsState !== 'ready'}
-                          className="border-input bg-muted text-foreground h-9 w-full rounded-md border px-2 text-sm"
-                          onChange={(e) =>
+                          onValueChange={(targetId) =>
                             update(i, {
                               action: {
                                 type: action.type,
-                                targetId: e.target.value,
+                                targetId,
                               },
                             })
                           }
-                        >
-                          <option value="">{t('selectTarget')}</option>
-                          {unavailable && (
-                            <option value={action.targetId}>
-                              {optionsState === 'loading'
-                                ? t('loadingTargets')
-                                : t('unavailableTarget')}
-                            </option>
-                          )}
-                          {targets.map((target) => (
-                            <option key={target.id} value={target.id}>
-                              {target.name}
-                            </option>
-                          ))}
-                        </select>
+                          options={[
+                            { value: '', label: t('selectTarget') },
+                            ...(unavailable
+                              ? [{
+                                  value: action.targetId,
+                                  label: optionsState === 'loading'
+                                    ? t('loadingTargets')
+                                    : t('unavailableTarget'),
+                                }]
+                              : []),
+                            ...targets.map((target) => ({ value: target.id, label: target.name })),
+                          ]}
+                        />
                         {optionsState === 'loading' && (
                           <p
                             role="status"

@@ -17,6 +17,7 @@ import { authFetch } from "@/lib/auth/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import type { NoticeTemplatesView } from "@/lib/commerce/notice-templates";
+import { OptionSelect } from "@/components/ui/option-select";
 
 async function readView(res: Response): Promise<{ view: NoticeTemplatesView | null; code: string | null; error: string | null }> {
   const json = (await res.json().catch(() => ({}))) as { templates?: NoticeTemplatesView; code?: string; error?: string };
@@ -75,14 +76,18 @@ export function NoticeTemplates({ canEdit }: { canEdit: boolean }) {
           return (
             <div key={s.kind} className="space-y-1">
               <Label htmlFor={`nt-${s.kind}`}>{t(`kinds.${s.kind}`)}</Label>
-              <select id={`nt-${s.kind}`} className="h-9 w-full rounded-md border bg-background px-2 text-sm"
-                disabled={!canEdit || saving !== null} value={value} onChange={(e) => void choose(s.kind, e.target.value)}>
-                <option value="">{t("none")}</option>
-                {!listed && <option value={value}>{`${s.template_name} (${s.language})`}</option>}
-                {options.map((o) => (
-                  <option key={`${o.name}|${o.language}`} value={`${o.name}|${o.language}`}>{`${o.name} (${o.language})`}</option>
-                ))}
-              </select>
+              <OptionSelect fit
+                id={`nt-${s.kind}`}
+                className="w-full"
+                disabled={!canEdit || saving !== null}
+                value={value}
+                onValueChange={(v) => void choose(s.kind, v)}
+                options={[
+                  { value: "", label: t("none") },
+                  ...(!listed ? [{ value, label: `${s.template_name} (${s.language})` }] : []),
+                  ...options.map((o) => ({ value: `${o.name}|${o.language}`, label: `${o.name} (${o.language})` })),
+                ]}
+              />
               <p className="text-xs text-muted-foreground">
                 {t(s.kind === "abandoned_cart" ? "abandonedCartHelp" : s.kind === "cod_confirm" ? "codConfirmHelp"
                   : s.kind === "back_in_stock" ? "backInStockHelp" : s.kind === "review_request" ? "reviewRequestHelp"

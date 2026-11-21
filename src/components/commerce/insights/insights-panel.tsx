@@ -13,10 +13,12 @@ import { useCan } from "@/hooks/use-can";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { DataTable, Panel, ReportState, reportQuery, useReport } from "@/components/analytics/shared";
-import { formatMoney } from "@/lib/commerce/money";
+import { formatMoney } from "@/lib/format/money";
 import type { LiveView } from "@/lib/commerce/shop-live";
 import type { SalesReport, StockValueReport, TaxReport } from "@/lib/commerce/shop-reports";
 import { LIVE_WINDOW_MINUTES } from "@/lib/commerce/shop-insights-rules";
+import { OptionSelect } from "@/components/ui/option-select";
+import { PageHeader } from "@/components/ui/page-header";
 
 const PRESETS = ["7d", "30d", "90d", "this_month", "last_month", "custom"] as const;
 type Preset = (typeof PRESETS)[number];
@@ -34,18 +36,19 @@ export function InsightsPanel() {
   const query = reportQuery({ preset, from: custom ? from : null, to: custom ? to : null });
   return (
     <div className="mx-auto w-full max-w-[1200px] min-w-0 space-y-4">
-      <div>
-        <h1 className="text-xl font-semibold tracking-tight">{t("title")}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t("description")}</p>
-      </div>
+      <PageHeader className="mb-0" title={t("title")} subtitle={t("description")} />
       <LivePanel />
       <div className="flex flex-wrap items-end gap-3 rounded-xl border border-border bg-card p-4">
         <div className="space-y-1.5">
           <Label htmlFor="insights-range">{t("range.label")}</Label>
-          <select id="insights-range" value={preset} onChange={(e) => setPreset(e.target.value as Preset)}
-            className="h-9 rounded-md border border-input bg-background px-2 text-sm">
-            {PRESETS.map((p) => <option key={p} value={p}>{t(`range.${p}`)}</option>)}
-          </select>
+          <OptionSelect fit
+            id="insights-range"
+            value={preset}
+            onValueChange={(v) => setPreset(v as Preset)}
+            options={[
+              ...PRESETS.map((p) => ({ value: p, label: t(`range.${p}`) })),
+            ]}
+          />
         </div>
         {custom && (
           <>
@@ -133,7 +136,7 @@ function SalesPanel({ query }: { query: string }) {
   const format = useFormatter();
   const report = useReport<{ sales: SalesReport }>("shop-sales", query);
   const s = report.data?.sales ?? null;
-  const money = (minor: number, currency: string) => formatMoney(minor, currency, locale);
+  const money = (minor: number, currency: string) => formatMoney(minor, currency, { locale });
   const empty = !!s && s.byDay.length === 0 && s.byProduct.length === 0;
   return (
     <Panel title={t("title")} description={t("description")}>
@@ -161,7 +164,7 @@ function TaxPanel({ query }: { query: string }) {
   const format = useFormatter();
   const report = useReport<{ tax: TaxReport }>("shop-tax", query);
   const tax = report.data?.tax ?? null;
-  const money = (minor: number, currency: string) => formatMoney(minor, currency, locale);
+  const money = (minor: number, currency: string) => formatMoney(minor, currency, { locale });
   const empty = !!tax && tax.rates.length === 0 && tax.months.length === 0;
   return (
     <Panel title={t("title")} description={t("description")}
@@ -200,13 +203,13 @@ function StockPanel() {
               <dl className="flex flex-wrap gap-x-8 gap-y-2">
                 {stock.totals.map((total) => (
                   <div key={total.currency}><dt className="text-xs text-muted-foreground">{t("total", { units: format.number(total.units) })}</dt>
-                    <dd className="text-xl font-semibold tabular-nums">{formatMoney(total.valueMinor, total.currency, locale)}</dd></div>
+                    <dd className="text-xl font-semibold tabular-nums">{formatMoney(total.valueMinor, total.currency, { locale })}</dd></div>
                 ))}
               </dl>
             )}
             {stock.costed.length > 0 && (
               <DataTable caption={t("costed")} captionHidden={false} columns={[t("product"), t("onHand"), t("unitCost"), t("value")]}
-                rows={stock.costed.map((r) => [`${r.name} (${r.sku})`, format.number(r.onHand), formatMoney(r.unitCostMinor, r.currency, locale), formatMoney(r.valueMinor, r.currency, locale)])} />
+                rows={stock.costed.map((r) => [`${r.name} (${r.sku})`, format.number(r.onHand), formatMoney(r.unitCostMinor, r.currency, { locale }), formatMoney(r.valueMinor, r.currency, { locale })])} />
             )}
             {stock.noCost.length > 0 && (
               <div>

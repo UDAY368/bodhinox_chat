@@ -18,7 +18,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
 import { Loader2, MessageCircle, Minus, Plus, Trash2 } from 'lucide-react';
-import { formatMoney } from '@/lib/commerce/money';
+import { formatMoney } from '@/lib/format/money';
 import { formatShipDate } from '@/lib/commerce/selling-rules';
 import type { CartEstimate } from '@/lib/commerce/cart-estimate';
 import { parsePincode } from '@/lib/commerce/pincode';
@@ -85,7 +85,7 @@ export function ShopCart({ shop, buyer = null }: { shop: CartShopInfo; buyer?: C
     return () => window.removeEventListener(CART_EVENT, load);
   }, [refresh, shop.handle]);
 
-  const money = (minor: number) => (preview?.currency ? formatMoney(minor, preview.currency, locale) : '');
+  const money = (minor: number) => (preview?.currency ? formatMoney(minor, preview.currency, { locale }) : '');
   const message = (c: string) => t(shopErrorKey(c));
   const cart = (lines ?? []).map((l) => ({ variantId: l.variantId, qty: l.qty }));
   const estimate: CartEstimate | null = preview?.estimate ?? null;

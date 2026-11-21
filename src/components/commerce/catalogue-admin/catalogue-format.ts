@@ -1,7 +1,8 @@
 // Pure helpers for the catalogue screens: money in integer minor units and
 // tax rates in basis points, parsed from the decimal text staff type.
 
-import { formatMoney, minorToDecimalString, MoneyError, parseMoney } from "@/lib/commerce/money";
+import { minorToDecimalString, MoneyError, parseMoney } from "@/lib/commerce/money";
+import { formatMoney } from "@/lib/format/money";
 
 /** "18" -> 1800, "12.5" -> 1250, "" -> null; anything else (or above 100%) -> undefined (invalid). */
 export function percentToBps(text: string): number | null | undefined {
@@ -41,7 +42,7 @@ export function moneyText(minor: number | null, currency: string | null): string
 /** "₹499.00", or the range "₹199.00 – ₹499.00"; null without a price or currency. */
 export function priceRange(min: number | null, max: number | null, currency: string | null, locale: string): string | null {
   if (min === null || !currency) return null;
-  const low = formatMoney(min, currency, locale);
-  return max !== null && max !== min ? `${low} – ${formatMoney(max, currency, locale)}` : low;
+  const low = formatMoney(min, currency, { locale });
+  return max !== null && max !== min ? `${low} – ${formatMoney(max, currency, { locale })}` : low;
 }
 

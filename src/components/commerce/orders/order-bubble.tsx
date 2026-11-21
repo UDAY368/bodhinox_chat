@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import { ShoppingBag } from "lucide-react";
 
-import { formatMoney } from "@/lib/commerce/money";
+import { formatMoney } from "@/lib/format/money";
 import { asOrderMessagePayload, orderUnitCount } from "@/lib/commerce/order-format";
 
 /** The cart a customer sent from the catalogue, as stored on the message (interactive_payload.order). */
@@ -21,11 +21,7 @@ export function OrderBubble({ payload }: { payload: unknown }) {
   const order = orderFromPayload(payload);
   if (!order) return null;
   const money = (minor: number) => {
-    try {
-      return formatMoney(minor, order.currency, locale);
-    } catch {
-      return `${order.currency} ${minor}`;
-    }
+    return formatMoney(minor, order.currency, { locale });
   };
   const hidden = order.items.length - MAX_LINES;
   return (

@@ -3,11 +3,11 @@
 /**
  * Products page: linked catalogues on top, then the mirrored products with
  * search, availability and catalogue filters. Prices are formatted from
- * integer minor units with lib/commerce/money.
+ * integer minor units with lib/format/money.
  */
 
 import { useEffect, useState } from "react";
-import { ChevronLeft, ChevronRight, Loader2, Package, Search } from "lucide-react";
+import { ChevronLeft, ChevronRight, Package, Search } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
@@ -18,6 +18,13 @@ import { useCan } from "@/hooks/use-can";
 import { CatalogManager } from "./catalog-manager";
 import { fetchProducts, type CatalogPublic, type ProductFilter, type ProductPublic } from "./catalog-api";
 import { productPrice } from "./product-picker";
+import { OptionSelect } from "@/components/ui/option-select";
+import { Checkbox } from "@/components/ui/checkbox";
+import { PageHeader } from "@/components/ui/page-header";
+import { SegmentedControl } from "@/components/ui/segmented-control";
+import { PageLoading } from "@/components/ui/page-loading";
+import { EmptyState } from "@/components/ui/empty-state";
+import { InlineError } from "@/components/ui/inline-error";
 
 const PAGE = 50;
 type Availability = NonNullable<ProductFilter["availability"]> | "";
@@ -68,14 +75,10 @@ export function ProductsView() {
     set(v);
     setOffset(0);
   };
-  const select = "h-9 rounded-lg border border-border bg-card px-2.5 text-sm text-foreground";
 
   return (
     <div className="space-y-5">
-      <header>
-        <h1 className="text-[22px] font-bold tracking-tight text-foreground">{t("title")}</h1>
-        <p className="mt-1 max-w-2xl text-sm text-muted-foreground">{t("description")}</p>
-      </header>
+      <PageHeader className="mb-0" title={t("title")} subtitle={t("description")} />
 
       <CatalogManager canManage={canManage} onChanged={setCatalogs} />
 
@@ -86,34 +89,40 @@ export function ProductsView() {
             <Search className="pointer-events-none absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input value={q} onChange={(e) => filterChanged(setQ)(e.target.value)} placeholder={t("search")} aria-label={t("search")} className="pl-8" />
           </div>
-          <select aria-label={t("availabilityFilter")} className={select} value={availability}
-            onChange={(e) => filterChanged(setAvailability)(e.target.value as Availability)}>
-            <option value="">{t("allAvailability")}</option>
-            <option value="in_stock">{t("availability.in_stock")}</option>
-            <option value="out_of_stock">{t("availability.out_of_stock")}</option>
-            <option value="other">{t("availability.other")}</option>
-          </select>
+          <SegmentedControl
+            aria-label={t("availabilityFilter")}
+            value={availability}
+            onValueChange={(v) => filterChanged(setAvailability)(v as Availability)}
+            options={[
+              { value: "", label: t("allAvailability") },
+              { value: "in_stock", label: t("availability.in_stock") },
+              { value: "out_of_stock", label: t("availability.out_of_stock") },
+              { value: "other", label: t("availability.other") },
+            ]}
+          />
           {catalogs.length > 1 && (
-            <select aria-label={t("catalogFilter")} className={select} value={catalogId} onChange={(e) => filterChanged(setCatalogId)(e.target.value)}>
-              <option value="">{t("allCatalogs")}</option>
-              {catalogs.map((c) => <option key={c.id} value={c.id}>{c.name || c.catalog_id}</option>)}
-            </select>
+            <OptionSelect fit
+              aria-label={t("catalogFilter")}
+              value={catalogId}
+              onValueChange={(v) => filterChanged(setCatalogId)(v)}
+              options={[
+                { value: "", label: t("allCatalogs") },
+                ...catalogs.map((c) => ({ value: c.id, label: c.name || c.catalog_id })),
+              ]}
+            />
           )}
-          <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <input type="checkbox" checked={hidden} onChange={(e) => filterChanged(setHidden)(e.target.checked)} />
+          <label className="flex min-h-11 items-center gap-2 text-xs text-muted-foreground sm:min-h-0">
+            <Checkbox checked={hidden} onCheckedChange={(checked) => filterChanged(setHidden)(checked)} />
             {t("showHidden")}
           </label>
         </div>
 
         {page === null ? (
-          <div className="flex justify-center p-6"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" aria-label={t("loading")} /></div>
+          <PageLoading rows={3} />
         ) : page.products.length === 0 ? (
-          <div className="flex flex-col items-center rounded-xl border border-dashed border-border px-6 py-10 text-center">
-            <span className="flex size-[52px] items-center justify-center rounded-2xl bg-primary/10 text-primary"><Package className="size-6" /></span>
-            <p className="mt-3 text-sm text-muted-foreground">
-              {failed ? t("loadError") : q || availability || catalogId ? t("noMatches") : t("empty")}
-            </p>
-          </div>
+          failed ? <InlineError message={t("loadError")} /> : (
+            <EmptyState icon={Package} title={q || availability || catalogId ? t("noMatches") : t("empty")} />
+          )
         ) : (
           <>
             <div className="overflow-x-auto rounded-xl border border-border bg-card">

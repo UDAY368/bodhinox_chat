@@ -12,6 +12,7 @@ import { ForbiddenError } from '@/lib/auth/errors';
 import { AudienceFilterError } from '@/lib/audience/filter';
 import { requireContactRoom } from '@/lib/billing/limits';
 import { loadPhoneMask, PHONE_MASKED_MESSAGE } from '@/lib/inbox/masking-apply';
+import { exitSequencesFor } from '@/lib/sequences/subscriptions';
 import { MAX_CUSTOM_VALUE, normalizeFieldValue } from './custom-field-types';
 
 export const IMPORT_BATCH_SIZE = 200;
@@ -44,8 +45,6 @@ const batchSchema = z.object({
   rows: z.array(rowSchema).min(1).max(IMPORT_BATCH_SIZE),
   updateExisting: z.boolean().default(false),
 }).strict();
-
-export type ImportBatchInput = z.input<typeof batchSchema>;
 
 export interface ImportBatchResult {
   /** New contacts created. */
@@ -144,6 +143,10 @@ export async function importContactBatch(ctx: TenantContext, input: unknown): Pr
           JOIN tags t ON t.account_id=${ctx.accountId}::uuid AND t.id=x.tag_id
           ON CONFLICT (contact_id, tag_id) DO NOTHING`
       : 0;
+    // Sequences set to "Exit when tagged" stop for the contacts that now carry their tag.
+    for (const tagId of new Set(links.map((link) => link.tag_id)))
+      await exitSequencesFor(tx, { accountId: ctx.accountId, contactId: links.filter((l) => l.tag_id === tagId).map((l) => l.contact_id),
+        reason: 'tagged', tagId });
 
     // Custom field values, checked against each field's type (custom-field-types.ts); like tags,
     // on new contacts, and on existing ones when the user chose to update them. A blank cell keeps

@@ -13,7 +13,8 @@ import { openInNewTab } from './open-tab';
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { formatAmount, formatDay, type InvoiceRow } from './types';
+import { formatMajor } from '@/lib/format/money';
+import { formatDay, type InvoiceRow } from './types';
 
 export async function viewInvoice(id: string): Promise<'opened' | 'same_tab' | 'signed_out'> {
   const url = `/api/billing/invoices/${encodeURIComponent(id)}?format=html`;
@@ -63,7 +64,7 @@ export function InvoicesTable({ invoices }: { invoices: InvoiceRow[] }) {
                   <TableCell className="text-muted-foreground">
                     {inv.periodStart ? `${formatDay(inv.periodStart, locale)} – ${formatDay(inv.periodEnd, locale)}` : ''}
                   </TableCell>
-                  <TableCell className="text-right">{formatAmount(inv.totalMinor, inv.currency, locale)}</TableCell>
+                  <TableCell className="text-right">{formatMajor(inv.totalMinor / 100, inv.currency, { locale })}</TableCell>
                   <TableCell className="text-right">
                     <button type="button" className="inline-flex items-center gap-1 text-primary hover:underline"
                       onClick={() => void viewInvoice(inv.id).then((r) => { if (r === 'signed_out') toast.error(t('signedOut')); })}>

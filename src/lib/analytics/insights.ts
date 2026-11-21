@@ -12,10 +12,9 @@
 //               resolved now or its status is closed);
 // - resolved:   resolved_at in the range, timed from the start of the resolved
 //               cycle as in queries.ts (untimed when that start is unknown);
-// - first response: each conversation's first customer wait in the range and
-//               the reply that ended it (queries.ts waitsSql). Grouped by
-//               member, the first member reply to that wait instead
-//               (humanFirstSql, as on the leaderboard);
+// - first response: "Median first reply" (first-reply.ts), every customer
+//               wait started in the range and the member or AI reply that
+//               ended it. Grouped by member, the waits that member answered;
 // - messages:   agent and bot messages created in the range (system notes
 //               excluded); failed ones are counted apart, never as sent.
 // A member is credited as in queries.ts (agentOf): the sender, or for rows
@@ -24,7 +23,8 @@
 
 import { Prisma } from '@prisma/client';
 import type { TenantTransaction } from '@/lib/db/tenant';
-import { agentOf, AnalyticsInputError, humanFirstSql, waitsSql } from './queries';
+import { agentOf, AnalyticsInputError } from './queries';
+import { firstRepliesSql } from './first-reply';
 import { bucketKeys, localDay, type AnalyticsRange } from './range';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -92,13 +92,9 @@ function keyExpr(group: MetricGroup, range: AnalyticsRange): Prisma.Sql {
  */
 function factsSql(accountId: string, range: AnalyticsRange, filters: InsightFilters, byMember: boolean): Prisma.Sql {
   const numbered = Boolean(filters.whatsappConfigId);
-  const firstResponses = byMember
-    ? Prisma.sql`SELECT 'frt'::text, h.conversation_id, s.channel, h.wait_at, extract(epoch FROM (h.reply_at - h.wait_at))::float8,
-        ${agentOf('h.sender_id', 'h.reply_at', 'h.assigned_agent_id')}, false
-      FROM human_first h JOIN scope s ON s.id=h.conversation_id WHERE h.reply_at < ${to(range)}`
-    : Prisma.sql`SELECT 'frt'::text, fw.conversation_id, s.channel, fw.wait_at, extract(epoch FROM (fw.reply_at - fw.wait_at))::float8,
-        NULL::uuid, false
-      FROM first_waits fw JOIN scope s ON s.id=fw.conversation_id WHERE fw.reply_at IS NOT NULL`;
+  const firstResponses = Prisma.sql`SELECT 'frt'::text, fr.conversation_id, s.channel, fr.wait_at, fr.secs,
+      ${byMember ? Prisma.sql`CASE WHEN fr.replier_type='agent' THEN ${agentOf('fr.replier_id', 'fr.reply_at', 's.assigned_agent_id')} END` : Prisma.sql`NULL::uuid`}, false
+    FROM first_replies fr JOIN scope s ON s.id=fr.conversation_id WHERE fr.reply_at IS NOT NULL`;
   return Prisma.sql`
     scope AS (
       SELECT c.id, COALESCE(c.channel, 'whatsapp') AS channel, c.assigned_agent_id, c.created_at, c.resolved_at,
@@ -107,10 +103,7 @@ function factsSql(accountId: string, range: AnalyticsRange, filters: InsightFilt
           THEN extract(epoch FROM (c.resolved_at - COALESCE(c.reopened_at, c.created_at)))::float8 END AS res_secs
       FROM conversations c WHERE c.account_id=${accountId}::uuid
         ${numbered ? Prisma.sql`AND c.whatsapp_config_id=${filters.whatsappConfigId}::uuid` : Prisma.empty}
-    ), ${waitsSql(accountId, range, numbered ? Prisma.sql`AND m.conversation_id IN (SELECT id FROM scope)` : Prisma.empty)},
-    first_waits AS (
-      SELECT DISTINCT ON (conversation_id) conversation_id, wait_at, reply_at FROM responses ORDER BY conversation_id, wait_at
-    ), ${byMember ? Prisma.sql`${humanFirstSql(accountId)},` : Prisma.empty}
+    ), ${firstRepliesSql(accountId, from(range), to(range), numbered ? Prisma.sql`AND m.conversation_id IN (SELECT id FROM scope)` : Prisma.empty)},
     facts AS MATERIALIZED (
       SELECT 'new'::text AS f, s.id AS cid, s.channel, s.created_at AS at, NULL::float8 AS secs, s.assigned_agent_id AS member, s.closed
       FROM scope s WHERE s.created_at >= ${from(range)} AND s.created_at < ${to(range)}

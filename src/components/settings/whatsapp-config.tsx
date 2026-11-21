@@ -20,6 +20,8 @@ import { createClient } from '@/lib/data/client';
 import { useAuth } from '@/hooks/use-auth';
 import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
+import { PageLoading } from '@/components/ui/page-loading';
+import { useConfirm } from '@/components/ui/confirm-dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -87,6 +89,7 @@ function healthResetReason(payload: { needs_reset?: boolean; reason?: string }):
 export function WhatsAppConfig() {
   const t = useTranslations('Settings.whatsapp');
   const tn = useTranslations('whatsappNumbers');
+  const confirm = useConfirm();
   const db = createClient();
   // A workspace can connect several numbers (whatsapp_config rows keyed by
   // account_id). The list at the top picks which one the form below edits;
@@ -124,7 +127,7 @@ export function WhatsAppConfig() {
     useState<WabaSubscription | null>(null);
   // Guards against re-hydrating the form when the load effect below
   // re-runs for reasons unrelated to actually switching accounts —
-  // e.g. Supabase's onAuthStateChange fires a token refresh (new
+  // e.g. the auth client's onAuthStateChange fires a token refresh (new
   // `user` object, profileLoading flips true/false) when the browser
   // tab regains focus. Without this, that churn calls fetchConfig()
   // again and overwrites whatever the user typed but hadn't saved yet.
@@ -355,7 +358,7 @@ export function WhatsAppConfig() {
 
       // Always POST through the API — it verifies with Meta and encrypts
       // the access_token server-side with ENCRYPTION_KEY. Skipping this
-      // and writing direct to Supabase stores the token in plaintext,
+      // and writing direct to the database stores the token in plaintext,
       // which then fails decryption on every subsequent health check.
       const payload: Record<string, unknown> = {
         phone_number_id: phoneNumberId.trim(),
@@ -528,12 +531,14 @@ export function WhatsAppConfig() {
     // The same soft disconnect as the numbers list, so the same warning:
     // the token is removed, campaigns are held and live flows go to draft.
     if (
-      !confirm(
-        tn('settings.disconnectConfirmHold', {
+      !(await confirm({
+        title: tn('settings.disconnectConfirmHold', {
           name: numberLabel(selectedNumber ?? { display_name: null, phone_number_id: config.phone_number_id }, tn),
           isDefault: String(selectedNumber?.is_default ?? false),
-        })
-      )
+        }),
+        confirmLabel: tn('settings.disconnect'),
+        destructive: true,
+      }))
     ) {
       return;
     }
@@ -592,9 +597,7 @@ export function WhatsAppConfig() {
     return (
       <section className="animate-in fade-in-50 duration-200">
         <SettingsPanelHead title={t('title')} description={t('description')} />
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="text-primary size-6 animate-spin" />
-        </div>
+        <PageLoading rows={4} />
       </section>
     );
   }

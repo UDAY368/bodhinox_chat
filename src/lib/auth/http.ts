@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { getAuthPrisma } from '@/lib/db/prisma';
 import { AuthError, UnauthorizedError } from './errors';
 import { checkAuthEmailTransport, sendAuthEmail } from './email';
+import { userEmailLocale } from './user-email-locale';
 import { deliveryTestEmail } from './email-content';
 import {
   appOrigin,
@@ -392,7 +393,7 @@ export async function handleAuthPost(
       await sendAuthEmail({
         from: process.env.AUTH_EMAIL_FROM,
         to: context.user.email,
-        ...deliveryTestEmail(),
+        ...deliveryTestEmail(await userEmailLocale(context.userId, context.accountId)),
       });
       return json({ ok: true });
     }

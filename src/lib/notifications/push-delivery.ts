@@ -210,11 +210,6 @@ export async function scheduleNotificationPushes(now: number = Date.now(), force
   return accounts.length;
 }
 
-/** Test hook: forget when the scheduler last looked. */
-export function resetPushScheduleForTests(): void {
-  lastPushCheck = Number.NEGATIVE_INFINITY;
-}
-
 /** A test push to the member's own devices (Settings › Notifications › Send a test). */
 export async function sendTestPush(
   context: { accountId: string; userId: string; role?: 'owner' | 'admin' | 'agent' | 'viewer' },

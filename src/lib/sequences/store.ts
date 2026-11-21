@@ -1,10 +1,14 @@
-// Sequences (Stage 5, 5H): what members read and change. Instagram only this
-// stage (WhatsApp needs approved templates outside its window).
+// Sequences (Stage 5, 5H; WhatsApp and "Exit when" in batch 7): what members
+// read and change.
 //
 // Every query runs in the member's tenant transaction, so RLS confines it to
-// the workspace and refuses writes below the agent role. A sequence message is
-// an Instagram automation (a flow of the same workspace); the worker starts it
-// when the message falls due (worker.ts). Message positions stay 0..n-1: a
+// the workspace and refuses writes below the agent role. An Instagram sequence
+// message is an Instagram automation (a flow of the same workspace) the worker
+// starts when it falls due; a WhatsApp message is its own text and/or media,
+// plus an optional approved template sent instead when the contact's 24-hour
+// window is closed (worker.ts). Instagram sequences are refused while
+// Instagram is off; WhatsApp sequences always work. The channel can change
+// only while the sequence has no messages. Message positions stay 0..n-1: a
 // reorder or a removal rewrites them in one transaction (the unique key is
 // checked at commit).
 import { Prisma } from '@prisma/client';
@@ -21,13 +25,25 @@ import {
 } from '@/types';
 import { delayMs, dueAt, parseDelay, ratePercent, reorderPositions, type SequenceDelay } from './schedule';
 import { subscribeInTx, unsubscribeInTx } from './subscriptions';
+import { loadStepTemplate, stepTemplateRefusal } from './templates';
+import {
+  parseExitPatch,
+  parseWhatsAppStep,
+  SEQUENCE_CHANNELS,
+  type ExitSettings,
+  type SequenceChannel,
+  type SubscriptionEndReason,
+  type WaMediaType,
+  type WhatsAppStep,
+} from './whatsapp';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export const SEQUENCE_WRITE_LIMIT = { limit: 60, windowMs: 60_000 };
 export const sequenceHeaders = { 'Cache-Control': 'private, no-store' };
 
 /** Codes match Instagram.sequences.errors.*; the client maps them to text. */
-export type SequenceErrorCode = 'invalid_request' | 'notFound' | 'tooManyMessages' | 'flowNotFound' | 'busy' | 'forbidden';
+export type SequenceErrorCode = 'invalid_request' | 'notFound' | 'tooManyMessages' | 'flowNotFound' | 'busy' | 'forbidden'
+  | 'channelLocked' | 'tagNotFound' | 'templateNotFound' | 'templateUnusable';
 
 export class SequenceError extends Error {
   constructor(readonly code: SequenceErrorCode, readonly status: 400 | 403 | 404 | 409) {
@@ -45,9 +61,14 @@ export function sequenceErrorResponse(error: unknown): NextResponse {
   return toErrorResponse(error);
 }
 
-/** Sequences are an Instagram feature: refused while Instagram is off. */
+/** Instagram sequences are refused while Instagram is off. */
 export function requireInstagram(): void {
   if (!instagramConfig()) throw new InstagramError('instagram_not_enabled');
+}
+
+/** The channels whose sequences members see right now (WhatsApp always; Instagram while it is on). */
+function visibleChannels(): SequenceChannel[] {
+  return instagramConfig() ? [...SEQUENCE_CHANNELS] : ['whatsapp'];
 }
 
 const invalid = () => new SequenceError('invalid_request', 400);
@@ -63,10 +84,10 @@ export function assertId(id: string): void {
 
 export interface SequenceStats { sent: number; clicks: number; open_rate: number | null; ctr: number | null }
 
-export interface SequenceSummary extends SequenceStats {
+export interface SequenceSummary extends SequenceStats, ExitSettings {
   id: string;
   name: string;
-  channel: 'instagram';
+  channel: SequenceChannel;
   status: SequenceStatus;
   subscribers: number;
   messages: number;
@@ -84,6 +105,16 @@ export interface SequenceMessageView extends SequenceStats {
   flow_name: string | null;
   /** The message's automation status (draft, active, paused, archived); null when it was removed. */
   flow_status: string | null;
+  /** WhatsApp steps: the message, and the template sent when the 24-hour window is closed. */
+  wa_text: string | null;
+  wa_media_type: WaMediaType | null;
+  wa_media_url: string | null;
+  wa_media_filename: string | null;
+  template_name: string | null;
+  template_language: string | null;
+  template_params: string[];
+  /** Times this step was skipped: outside the 24-hour window with no template. */
+  skipped_no_template: number;
 }
 
 export interface SequenceDetail extends SequenceSummary { items: SequenceMessageView[] }
@@ -94,6 +125,8 @@ export interface SequenceSubscriber {
   status: SequenceSubscriptionStatus;
   subscribed_at: string;
   next_due_at: string | null;
+  /** Why "Exit when" or consent stopped them; null otherwise. */
+  exit_reason: SubscriptionEndReason | null;
 }
 
 // ------------------------------------------------------------------ input
@@ -105,38 +138,67 @@ export function parseName(value: unknown): string {
   return name;
 }
 
-export type SequencePatch = { name?: string; status?: 'active' | 'paused' };
+export type SequencePatch = { name?: string; status?: 'active' | 'paused'; channel?: SequenceChannel } & Partial<ExitSettings>;
+
+const PATCH_KEYS = ['name', 'status', 'channel', 'exit_on_reply', 'exit_on_tag_id', 'exit_on_purchase'];
+
+export function parseChannel(value: unknown): SequenceChannel {
+  if (typeof value !== 'string' || !(SEQUENCE_CHANNELS as readonly string[]).includes(value)) throw invalid();
+  return value as SequenceChannel;
+}
 
 export function parseSequencePatch(body: unknown): SequencePatch {
   if (!isObject(body)) throw invalid();
-  const patch: SequencePatch = {};
-  for (const key of Object.keys(body)) if (key !== 'name' && key !== 'status') throw invalid();
+  for (const key of Object.keys(body)) if (!PATCH_KEYS.includes(key)) throw invalid();
+  const exit = parseExitPatch(body);
+  if (!exit) throw invalid();
+  const patch: SequencePatch = { ...exit };
   if ('name' in body) patch.name = parseName(body.name);
   if ('status' in body) {
     if (body.status !== 'active' && body.status !== 'paused') throw invalid();
     patch.status = body.status;
   }
-  if (patch.name === undefined && patch.status === undefined) throw invalid();
+  if ('channel' in body) patch.channel = parseChannel(body.channel);
+  if (!Object.keys(patch).length) throw invalid();
   return patch;
 }
 
-/** POST /messages: an existing automation, or a new draft one with this name. */
-export type MessageCreate = { kind: 'existing'; flowId: string } | { kind: 'new'; name: string };
+/**
+ * POST /messages: on Instagram an existing automation or a new draft one with
+ * this name; on WhatsApp the step itself ({ whatsapp: { text?, media?, template? } })
+ * and, optionally, when it is sent (delay_amount + delay_unit).
+ */
+export type MessageCreate = { kind: 'existing'; flowId: string } | { kind: 'new'; name: string }
+  | { kind: 'whatsapp'; step: WhatsAppStep; delay?: SequenceDelay };
+
+function parseStep(value: unknown): WhatsAppStep {
+  const step = parseWhatsAppStep(value);
+  if (!step) throw invalid();
+  return step;
+}
 
 export function parseMessageCreate(body: unknown): MessageCreate {
   if (!isObject(body)) throw invalid();
+  const keys = Object.keys(body);
+  if ('whatsapp' in body) {
+    if (keys.some((key) => !['whatsapp', 'delay_amount', 'delay_unit'].includes(key))) throw invalid();
+    if (!('delay_amount' in body) && !('delay_unit' in body)) return { kind: 'whatsapp', step: parseStep(body.whatsapp) };
+    const delay = parseDelay(body.delay_amount, body.delay_unit);
+    if (!delay) throw invalid();
+    return { kind: 'whatsapp', step: parseStep(body.whatsapp), delay };
+  }
   if (typeof body.flow_id === 'string' && UUID.test(body.flow_id) && !('create' in body)) return { kind: 'existing', flowId: body.flow_id };
   if (isObject(body.create) && !('flow_id' in body)) return { kind: 'new', name: parseName(body.create.name) };
   throw invalid();
 }
 
-export type MessagePatch = { delay?: SequenceDelay; active?: boolean; flowId?: string };
+export type MessagePatch = { delay?: SequenceDelay; active?: boolean; flowId?: string; whatsapp?: WhatsAppStep };
 
 export function parseMessagePatch(body: unknown): MessagePatch {
   if (!isObject(body)) throw invalid();
   const patch: MessagePatch = {};
   for (const key of Object.keys(body))
-    if (!['delay_amount', 'delay_unit', 'active', 'flow_id'].includes(key)) throw invalid();
+    if (!['delay_amount', 'delay_unit', 'active', 'flow_id', 'whatsapp'].includes(key)) throw invalid();
   if ('delay_amount' in body || 'delay_unit' in body) {
     const delay = parseDelay(body.delay_amount, body.delay_unit);
     if (!delay) throw invalid();
@@ -150,7 +212,9 @@ export function parseMessagePatch(body: unknown): MessagePatch {
     if (typeof body.flow_id !== 'string' || !UUID.test(body.flow_id)) throw invalid();
     patch.flowId = body.flow_id;
   }
-  if (!patch.delay && patch.active === undefined && !patch.flowId) throw invalid();
+  if ('whatsapp' in body) patch.whatsapp = parseStep(body.whatsapp);
+  if (patch.flowId && patch.whatsapp) throw invalid();
+  if (!patch.delay && patch.active === undefined && !patch.flowId && !patch.whatsapp) throw invalid();
   return patch;
 }
 
@@ -164,7 +228,7 @@ export function parseSubscriberAction(body: unknown): SubscriberAction {
 
 // ------------------------------------------------------------------ reads
 
-interface StatsRow { sent: number; clicks: number; linked: number; opened: number }
+interface StatsRow { sent: number; clicks: number; linked: number; opened: number; skipped_no_template: number }
 const toStats = (row: StatsRow | undefined): SequenceStats => ({
   sent: row?.sent ?? 0,
   clicks: row?.clicks ?? 0,
@@ -182,34 +246,39 @@ const toStats = (row: StatsRow | undefined): SequenceStats => ({
 function statsSql(accountId: string, groupBy: 'sequence_id' | 'sequence_message_id', sequenceId: string | null): Prisma.Sql {
   return Prisma.sql`
     SELECT s.${Prisma.raw(groupBy)}::text AS key,
-      count(*)::int AS sent,
-      count(*) FILTER (WHERE EXISTS (SELECT 1 FROM flow_tracked_links l WHERE l.account_id = s.account_id
+      count(*) FILTER (WHERE s.status = 'sent')::int AS sent,
+      count(*) FILTER (WHERE s.status = 'sent' AND EXISTS (SELECT 1 FROM flow_tracked_links l WHERE l.account_id = s.account_id
         AND l.flow_run_id = s.flow_run_id AND l.click_count > 0))::int AS clicks,
-      count(*) FILTER (WHERE EXISTS (SELECT 1 FROM flow_tracked_links l WHERE l.account_id = s.account_id
+      count(*) FILTER (WHERE s.status = 'sent' AND EXISTS (SELECT 1 FROM flow_tracked_links l WHERE l.account_id = s.account_id
         AND l.flow_run_id = s.flow_run_id))::int AS linked,
-      count(*) FILTER (WHERE EXISTS (SELECT 1 FROM messages x WHERE x.account_id = s.account_id AND x.conversation_id = s.conversation_id
+      count(*) FILTER (WHERE s.status = 'sent' AND EXISTS (SELECT 1 FROM messages x WHERE x.account_id = s.account_id
+        AND x.conversation_id = s.conversation_id
         AND x.created_at >= s.created_at AND x.created_at < s.created_at + interval '1 day'
-        AND (x.sender_type = 'customer' OR (x.sender_type = 'bot' AND x.status = 'read'))))::int AS opened
+        AND (x.sender_type = 'customer' OR (x.sender_type = 'bot' AND x.status = 'read'))))::int AS opened,
+      count(*) FILTER (WHERE s.status = 'skipped' AND s.reason = 'outside_window_no_template')::int AS skipped_no_template
     FROM sequence_message_sends s
-    WHERE s.account_id = ${accountId}::uuid AND s.status = 'sent'
+    WHERE s.account_id = ${accountId}::uuid AND (s.status = 'sent' OR (s.status = 'skipped' AND s.reason = 'outside_window_no_template'))
       ${sequenceId ? Prisma.sql`AND s.sequence_id = ${sequenceId}::uuid` : Prisma.empty}
     GROUP BY 1`;
 }
 
-interface SummaryRow {
-  id: string; name: string; status: SequenceStatus; subscribers: number; messages: number; created_at: Date; updated_at: Date;
+interface SummaryRow extends ExitSettings {
+  id: string; name: string; channel: SequenceChannel; status: SequenceStatus; subscribers: number; messages: number;
+  created_at: Date; updated_at: Date;
 }
 
 const SUMMARY = (accountId: string) => Prisma.sql`
-  SELECT q.id::text AS id, q.name, q.status, q.created_at, q.updated_at,
+  SELECT q.id::text AS id, q.name, q.channel, q.status, q.created_at, q.updated_at,
+    q.exit_on_reply, q.exit_on_tag_id::text AS exit_on_tag_id, q.exit_on_purchase,
     (SELECT count(*) FROM sequence_subscriptions s WHERE s.account_id = q.account_id AND s.sequence_id = q.id
        AND s.status IN ('active','sending'))::int AS subscribers,
     (SELECT count(*) FROM sequence_messages m WHERE m.account_id = q.account_id AND m.sequence_id = q.id)::int AS messages
   FROM sequences q
-  WHERE q.account_id = ${accountId}::uuid AND q.channel = 'instagram' AND q.status <> 'archived'`;
+  WHERE q.account_id = ${accountId}::uuid AND q.channel = ANY(${visibleChannels()}::text[]) AND q.status <> 'archived'`;
 
 const toSummary = (row: SummaryRow, stats: StatsRow | undefined): SequenceSummary => ({
-  id: row.id, name: row.name, channel: 'instagram', status: row.status, subscribers: row.subscribers, messages: row.messages,
+  id: row.id, name: row.name, channel: row.channel, status: row.status, subscribers: row.subscribers, messages: row.messages,
+  exit_on_reply: row.exit_on_reply, exit_on_tag_id: row.exit_on_tag_id, exit_on_purchase: row.exit_on_purchase,
   created_at: row.created_at.toISOString(), updated_at: row.updated_at.toISOString(), ...toStats(stats),
 });
 
@@ -225,9 +294,10 @@ export async function listSequences(ctx: TenantContext): Promise<SequenceSummary
 async function loadDetail(tx: TenantTransaction, accountId: string, id: string): Promise<SequenceDetail> {
   const [row] = await tx.$queryRaw<SummaryRow[]>(Prisma.sql`${SUMMARY(accountId)} AND q.id = ${id}::uuid`);
   if (!row) throw notFound();
-  const items = await tx.$queryRaw<(Omit<SequenceMessageView, keyof SequenceStats>)[]>`
+  const items = await tx.$queryRaw<(Omit<SequenceMessageView, keyof SequenceStats | 'skipped_no_template'>)[]>`
     SELECT m.id::text AS id, m.position, m.delay_amount, m.delay_unit, m.active, m.flow_id::text AS flow_id,
-      f.name AS flow_name, f.status AS flow_status
+      f.name AS flow_name, f.status AS flow_status, m.wa_text, m.wa_media_type, m.wa_media_url, m.wa_media_filename,
+      m.template_name, m.template_language, m.template_params
     FROM sequence_messages m
     LEFT JOIN flows f ON f.account_id = m.account_id AND f.id = m.flow_id
     WHERE m.account_id = ${accountId}::uuid AND m.sequence_id = ${id}::uuid
@@ -236,8 +306,14 @@ async function loadDetail(tx: TenantTransaction, accountId: string, id: string):
   const byMessage = new Map(stats.map((s) => [s.key, s]));
   const total = stats.reduce<StatsRow>((sum, s) => ({
     sent: sum.sent + s.sent, clicks: sum.clicks + s.clicks, linked: sum.linked + s.linked, opened: sum.opened + s.opened,
-  }), { sent: 0, clicks: 0, linked: 0, opened: 0 });
-  return { ...toSummary(row, total), items: items.map((item) => ({ ...item, ...toStats(byMessage.get(item.id)) })) };
+    skipped_no_template: sum.skipped_no_template + s.skipped_no_template,
+  }), { sent: 0, clicks: 0, linked: 0, opened: 0, skipped_no_template: 0 });
+  return {
+    ...toSummary(row, total),
+    items: items.map((item) => ({
+      ...item, ...toStats(byMessage.get(item.id)), skipped_no_template: byMessage.get(item.id)?.skipped_no_template ?? 0,
+    })),
+  };
 }
 
 export async function getSequence(ctx: TenantContext, id: string): Promise<SequenceDetail> {
@@ -250,7 +326,7 @@ export async function listSubscribers(ctx: TenantContext, id: string): Promise<S
   return withTenant(ctx, async (tx) => {
     await lockSequence(tx, ctx.accountId, id, false);
     const rows = await tx.$queryRaw<(Omit<SequenceSubscriber, 'subscribed_at' | 'next_due_at'> & { subscribed_at: Date; next_due_at: Date | null })[]>`
-      SELECT s.contact_id::text AS contact_id, c.name, s.status, s.subscribed_at, s.next_due_at
+      SELECT s.contact_id::text AS contact_id, c.name, s.status, s.subscribed_at, s.next_due_at, s.exit_reason
       FROM sequence_subscriptions s
       JOIN contacts c ON c.account_id = s.account_id AND c.id = s.contact_id
       WHERE s.account_id = ${ctx.accountId}::uuid AND s.sequence_id = ${id}::uuid
@@ -264,33 +340,60 @@ export async function listSubscribers(ctx: TenantContext, id: string): Promise<S
 
 // ----------------------------------------------------------------- writes
 
-/** The sequence row (locked for a write so concurrent message edits queue), or not-found. */
-async function lockSequence(tx: TenantTransaction, accountId: string, id: string, forUpdate = true): Promise<{ status: SequenceStatus }> {
-  const rows = await tx.$queryRaw<{ status: SequenceStatus }[]>(Prisma.sql`
-    SELECT status FROM sequences WHERE account_id = ${accountId}::uuid AND id = ${id}::uuid AND channel = 'instagram'
+/**
+ * The sequence row (locked for a write so concurrent message edits queue), or
+ * not-found. An Instagram sequence is refused while Instagram is off.
+ */
+async function lockSequence(tx: TenantTransaction, accountId: string, id: string, forUpdate = true):
+  Promise<{ status: SequenceStatus; channel: SequenceChannel }> {
+  const rows = await tx.$queryRaw<{ status: SequenceStatus; channel: SequenceChannel }[]>(Prisma.sql`
+    SELECT status, channel FROM sequences WHERE account_id = ${accountId}::uuid AND id = ${id}::uuid
       AND status <> 'archived' ${forUpdate ? Prisma.sql`FOR UPDATE` : Prisma.empty}`);
   if (!rows.length) throw notFound();
+  if (rows[0].channel === 'instagram') requireInstagram();
   return rows[0];
 }
 
-export async function createSequence(ctx: TenantContext, name: string): Promise<SequenceDetail> {
+export async function createSequence(ctx: TenantContext, name: string, channel: SequenceChannel = 'instagram'): Promise<SequenceDetail> {
+  if (channel === 'instagram') requireInstagram();
   return withTenant(ctx, async (tx) => {
     // New sequences send as soon as they have live messages and subscribers; Pause holds them.
     const [row] = await tx.$queryRaw<{ id: string }[]>`
       INSERT INTO sequences(account_id, channel, name, status, created_by)
-      VALUES(${ctx.accountId}::uuid, 'instagram', ${name}, 'active', ${ctx.userId ?? null}::uuid)
+      VALUES(${ctx.accountId}::uuid, ${channel}, ${name}, 'active', ${ctx.userId ?? null}::uuid)
       RETURNING id::text AS id`;
     return loadDetail(tx, ctx.accountId, row.id);
   });
 }
 
+async function messageCount(tx: TenantTransaction, accountId: string, id: string): Promise<number> {
+  const [{ count }] = await tx.$queryRaw<{ count: number }[]>`
+    SELECT count(*)::int AS count FROM sequence_messages WHERE account_id = ${accountId}::uuid AND sequence_id = ${id}::uuid`;
+  return count;
+}
+
 export async function updateSequence(ctx: TenantContext, id: string, patch: SequencePatch): Promise<SequenceDetail> {
   assertId(id);
   return withTenant(ctx, async (tx) => {
-    await lockSequence(tx, ctx.accountId, id);
+    const current = await lockSequence(tx, ctx.accountId, id);
+    // The steps of the two channels differ (an automation vs. a message), so the channel changes only while there are none.
+    if (patch.channel && patch.channel !== current.channel) {
+      if (patch.channel === 'instagram') requireInstagram();
+      if (await messageCount(tx, ctx.accountId, id) > 0) throw new SequenceError('channelLocked', 409);
+    }
+    if (patch.exit_on_tag_id) {
+      const [tag] = await tx.$queryRaw<{ ok: boolean }[]>`
+        SELECT true AS ok FROM tags WHERE account_id = ${ctx.accountId}::uuid AND id = ${patch.exit_on_tag_id}::uuid`;
+      if (!tag) throw new SequenceError('tagNotFound', 404);
+    }
+    const clearTag = patch.exit_on_tag_id === null;
     await tx.$executeRaw`UPDATE sequences SET
         name = COALESCE(${patch.name ?? null}::text, name),
-        status = COALESCE(${patch.status ?? null}::text, status)
+        status = COALESCE(${patch.status ?? null}::text, status),
+        channel = COALESCE(${patch.channel ?? null}::text, channel),
+        exit_on_reply = COALESCE(${patch.exit_on_reply ?? null}::boolean, exit_on_reply),
+        exit_on_purchase = COALESCE(${patch.exit_on_purchase ?? null}::boolean, exit_on_purchase),
+        exit_on_tag_id = CASE WHEN ${clearTag} THEN NULL ELSE COALESCE(${patch.exit_on_tag_id ?? null}::uuid, exit_on_tag_id) END
       WHERE account_id = ${ctx.accountId}::uuid AND id = ${id}::uuid`;
     return loadDetail(tx, ctx.accountId, id);
   });
@@ -315,14 +418,45 @@ async function assertMessageFlow(tx: TenantTransaction, accountId: string, flowI
   if (!rows.length) throw new SequenceError('flowNotFound', 404);
 }
 
+/** A WhatsApp step's template must be an approved template of this workspace that a sequence can fill. */
+async function assertStepTemplate(tx: TenantTransaction, accountId: string, step: WhatsAppStep): Promise<void> {
+  if (!step.template) return;
+  const refusal = stepTemplateRefusal(await loadStepTemplate(tx, accountId, step.template.name, step.template.language));
+  if (refusal === 'template_not_found') throw new SequenceError('templateNotFound', 404);
+  if (refusal) throw new SequenceError('templateUnusable', 400);
+}
+
+/** The sequence_messages columns of a WhatsApp step. */
+function stepColumns(step: WhatsAppStep) {
+  return {
+    text: step.text, mediaType: step.media?.type ?? null, mediaUrl: step.media?.url ?? null, filename: step.media?.filename ?? null,
+    templateName: step.template?.name ?? null, templateLanguage: step.template?.language ?? null,
+    templateParams: JSON.stringify(step.template?.params ?? []),
+  };
+}
+
 export async function addMessage(ctx: TenantContext, id: string, input: MessageCreate): Promise<SequenceDetail> {
   assertId(id);
   if (!ctx.userId) throw new SequenceError('forbidden', 403);
   return withTenant(ctx, async (tx) => {
-    await lockSequence(tx, ctx.accountId, id);
-    const [{ count }] = await tx.$queryRaw<{ count: number }[]>`
-      SELECT count(*)::int AS count FROM sequence_messages WHERE account_id = ${ctx.accountId}::uuid AND sequence_id = ${id}::uuid`;
+    const { channel } = await lockSequence(tx, ctx.accountId, id);
+    // An Instagram step is an automation; a WhatsApp step is its own message.
+    if ((channel === 'whatsapp') !== (input.kind === 'whatsapp')) throw invalid();
+    const count = await messageCount(tx, ctx.accountId, id);
     if (count >= STAGE5_LIMITS.sequenceMessages) throw new SequenceError('tooManyMessages', 409);
+    // The first message goes out right after subscribing; later ones a day after the previous one.
+    const delay: SequenceDelay = (input.kind === 'whatsapp' && input.delay)
+      || (count === 0 ? { amount: 0, unit: 'minutes' } : { amount: 1, unit: 'days' });
+    if (input.kind === 'whatsapp') {
+      await assertStepTemplate(tx, ctx.accountId, input.step);
+      const c = stepColumns(input.step);
+      await tx.$executeRaw`INSERT INTO sequence_messages(account_id, sequence_id, position, delay_amount, delay_unit, wa_text, wa_media_type,
+          wa_media_url, wa_media_filename, template_name, template_language, template_params)
+        VALUES(${ctx.accountId}::uuid, ${id}::uuid, ${count}, ${delay.amount}, ${delay.unit}, ${c.text}, ${c.mediaType}, ${c.mediaUrl},
+          ${c.filename}, ${c.templateName}, ${c.templateLanguage}, ${c.templateParams}::jsonb)`;
+      await wakeWaiting(tx, ctx.accountId, id, count, delay);
+      return loadDetail(tx, ctx.accountId, id);
+    }
     let flowId: string;
     if (input.kind === 'existing') {
       await assertMessageFlow(tx, ctx.accountId, input.flowId);
@@ -335,35 +469,47 @@ export async function addMessage(ctx: TenantContext, id: string, input: MessageC
         RETURNING id::text AS id`;
       flowId = flow.id;
     }
-    // The first message goes out right after subscribing; later ones a day after the previous one.
-    const delay: SequenceDelay = count === 0 ? { amount: 0, unit: 'minutes' } : { amount: 1, unit: 'days' };
     await tx.$executeRaw`INSERT INTO sequence_messages(account_id, sequence_id, position, delay_amount, delay_unit, flow_id)
       VALUES(${ctx.accountId}::uuid, ${id}::uuid, ${count}, ${delay.amount}, ${delay.unit}, ${flowId}::uuid)`;
-    // Subscribers waiting for a message (subscribed while the sequence was empty, or past its end) get this one.
-    await tx.$executeRaw`UPDATE sequence_subscriptions SET next_due_at = ${dueAt(new Date(), delay)}
-      WHERE account_id = ${ctx.accountId}::uuid AND sequence_id = ${id}::uuid AND status = 'active'
-        AND next_due_at IS NULL AND next_position <= ${count}`;
+    await wakeWaiting(tx, ctx.accountId, id, count, delay);
     return loadDetail(tx, ctx.accountId, id);
   });
 }
 
+/** Subscribers waiting for a message (subscribed while the sequence was empty, or past its end) get the new one at `position`. */
+async function wakeWaiting(tx: TenantTransaction, accountId: string, id: string, position: number, delay: SequenceDelay): Promise<void> {
+  await tx.$executeRaw`UPDATE sequence_subscriptions SET next_due_at = ${dueAt(new Date(), delay)}
+    WHERE account_id = ${accountId}::uuid AND sequence_id = ${id}::uuid AND status = 'active'
+      AND next_due_at IS NULL AND next_position <= ${position}`;
+}
+
 interface LockedMessage { position: number; delay_amount: number; delay_unit: SequenceDelayUnit }
 
-async function lockMessage(tx: TenantTransaction, accountId: string, id: string, messageId: string): Promise<LockedMessage> {
+async function lockMessage(tx: TenantTransaction, accountId: string, id: string, messageId: string):
+  Promise<LockedMessage & { channel: SequenceChannel }> {
   assertId(messageId);
-  await lockSequence(tx, accountId, id);
+  const { channel } = await lockSequence(tx, accountId, id);
   const rows = await tx.$queryRaw<LockedMessage[]>`
     SELECT position, delay_amount, delay_unit FROM sequence_messages
     WHERE account_id = ${accountId}::uuid AND sequence_id = ${id}::uuid AND id = ${messageId}::uuid`;
   if (!rows.length) throw notFound();
-  return rows[0];
+  return { ...rows[0], channel };
 }
 
 export async function updateMessage(ctx: TenantContext, id: string, messageId: string, patch: MessagePatch): Promise<SequenceDetail> {
   assertId(id);
   return withTenant(ctx, async (tx) => {
     const current = await lockMessage(tx, ctx.accountId, id, messageId);
+    if ((patch.flowId && current.channel !== 'instagram') || (patch.whatsapp && current.channel !== 'whatsapp')) throw invalid();
     if (patch.flowId) await assertMessageFlow(tx, ctx.accountId, patch.flowId);
+    if (patch.whatsapp) {
+      await assertStepTemplate(tx, ctx.accountId, patch.whatsapp);
+      const c = stepColumns(patch.whatsapp);
+      await tx.$executeRaw`UPDATE sequence_messages SET wa_text = ${c.text}, wa_media_type = ${c.mediaType}, wa_media_url = ${c.mediaUrl},
+          wa_media_filename = ${c.filename}, template_name = ${c.templateName}, template_language = ${c.templateLanguage},
+          template_params = ${c.templateParams}::jsonb
+        WHERE account_id = ${ctx.accountId}::uuid AND id = ${messageId}::uuid`;
+    }
     await tx.$executeRaw`UPDATE sequence_messages SET
         delay_amount = COALESCE(${patch.delay?.amount ?? null}::int, delay_amount),
         delay_unit = COALESCE(${patch.delay?.unit ?? null}::text, delay_unit),

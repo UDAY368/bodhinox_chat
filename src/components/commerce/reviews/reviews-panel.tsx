@@ -8,13 +8,18 @@
 import { useCallback, useEffect, useState } from "react";
 import { useFormatter, useTranslations } from "next-intl";
 import { toast } from "sonner";
-import { Loader2 } from "lucide-react";
+import { Star } from "lucide-react";
 import { useCan } from "@/hooks/use-can";
 import { authFetch } from "@/lib/auth/client";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import type { ReviewView } from "@/lib/commerce/review-data";
 import type { ReviewStatus } from "@/lib/commerce/reviews";
+import { PageHeader } from "@/components/ui/page-header";
+import { SegmentedControl } from "@/components/ui/segmented-control";
+import { InlineError } from "@/components/ui/inline-error";
+import { PageLoading } from "@/components/ui/page-loading";
+import { EmptyState } from "@/components/ui/empty-state";
+import { GroupedList } from "@/components/ui/grouped-list";
 
 const FILTERS = ["all", "pending", "published", "hidden"] as const;
 type Filter = (typeof FILTERS)[number];
@@ -86,25 +91,22 @@ export function ReviewsPanel() {
 
   return (
     <div className="mx-auto w-full max-w-4xl space-y-5">
-      <div>
-        <h1 className="text-[22px] font-bold tracking-tight text-foreground">{t("title")}</h1>
-        <p className="text-sm text-muted-foreground">{t("subtitle")}</p>
-      </div>
-      <div className="flex flex-wrap gap-2" role="group" aria-label={t("filter")}>
-        {FILTERS.map((f) => (
-          <Button key={f} size="sm" variant={filter === f ? "default" : "outline"} aria-pressed={filter === f} onClick={() => setFilter(f)}>
-            {t(`filters.${f}`)}
-          </Button>
-        ))}
-      </div>
-      {failed && <p className="text-sm text-destructive" role="alert">{t("loadError")}</p>}
-      {loading && <Loader2 className="size-5 animate-spin text-muted-foreground" aria-label={t("loading")} />}
-      {!loading && !failed && reviews.length === 0 && <p className="text-sm text-muted-foreground">{t("empty")}</p>}
-      <ul className="space-y-3">
+      <PageHeader className="mb-0" title={t("title")} subtitle={t("subtitle")}>
+        <SegmentedControl
+          aria-label={t("filter")}
+          value={filter}
+          onValueChange={setFilter}
+          options={FILTERS.map((f) => ({ value: f, label: t(`filters.${f}`) }))}
+        />
+      </PageHeader>
+      {failed && <InlineError message={t("loadError")} onRetry={() => void reload(filter)} />}
+      {loading && <PageLoading rows={3} />}
+      {!loading && !failed && reviews.length === 0 && <EmptyState icon={Star} title={t("empty")} />}
+      {reviews.length > 0 && (
+      <GroupedList>
         {reviews.map((r) => (
-          <li key={r.id}>
-            <Card>
-              <CardContent className="flex flex-col gap-2 p-4">
+          <div key={r.id} className="border-separator not-first:border-t">
+              <div className="flex flex-col gap-2 p-4">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <p className="text-sm font-medium">{r.product_name}</p>
                   <span className="rounded-full border px-2 py-0.5 text-xs">{t(`status.${r.status}`)}</span>
@@ -126,11 +128,11 @@ export function ReviewsPanel() {
                     )}
                   </div>
                 )}
-              </CardContent>
-            </Card>
-          </li>
+              </div>
+          </div>
         ))}
-      </ul>
+      </GroupedList>
+      )}
       {next && !loading && <Button variant="outline" onClick={() => void more()}>{t("loadMore")}</Button>}
     </div>
   );

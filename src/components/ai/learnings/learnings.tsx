@@ -8,7 +8,9 @@ import { BookOpenCheck, Check, GraduationCap, Loader2, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { cn } from '@/lib/utils';
+import { EmptyState } from '@/components/ui/empty-state';
+import { PageLoading } from '@/components/ui/page-loading';
+import { SegmentedControl } from '@/components/ui/segmented-control';
 import type { UnansweredQuestion, UnansweredStatus } from '@/lib/ai/unanswered';
 
 const STATUSES: UnansweredStatus[] = ['open', 'answered', 'dismissed'];
@@ -137,34 +139,20 @@ export function AgentLearnings({ canPromote }: AgentLearningsProps) {
           <GraduationCap className="h-4 w-4 text-primary" /> {t('title')}
         </CardTitle>
         <CardDescription>{t('description')}</CardDescription>
-        <div role="tablist" aria-label={t('filterLabel')} className="mt-3 flex w-fit max-w-full gap-1 overflow-x-auto rounded-xl bg-muted p-[3px] [scrollbar-width:none]">
-          {STATUSES.map((s) => (
-            <button key={s} type="button" role="tab" aria-selected={status === s}
-              onClick={() => {
-                if (s === status) return;
-                setStatus(s); setItems([]); setEditing(null);
-              }}
-              className={cn(
-                'inline-flex h-[30px] shrink-0 items-center rounded-[9px] px-3 text-[13px] font-medium whitespace-nowrap transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                status === s ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',
-              )}>
-              {t(`status.${s}`)}
-              {status === s && !loading && <span className="ml-1.5 font-semibold tabular-nums text-muted-foreground">{total}</span>}
-            </button>
-          ))}
-        </div>
+        <SegmentedControl
+          aria-label={t('filterLabel')}
+          className="mt-3"
+          value={status}
+          onValueChange={(s) => { setStatus(s); setItems([]); setEditing(null); }}
+          options={STATUSES.map((s) => ({ value: s, label: t(`status.${s}`), count: status === s && !loading ? total : undefined }))}
+        />
       </CardHeader>
 
       <CardContent>
         {loading && items.length === 0 ? (
-          <div className="flex justify-center py-10 text-muted-foreground">
-            <Loader2 className="h-5 w-5 animate-spin" aria-label={t('loading')} />
-          </div>
+          <PageLoading rows={3} />
         ) : items.length === 0 ? (
-          <div className="flex flex-col items-center gap-2 py-10 text-center text-sm text-muted-foreground">
-            <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary"><BookOpenCheck className="h-5 w-5" /></span>
-            {t(`empty.${status}`)}
-          </div>
+          <EmptyState icon={BookOpenCheck} title={t(`empty.${status}`)} />
         ) : (
           <ul className="divide-y divide-border">
             {items.map((q) => {

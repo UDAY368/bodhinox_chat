@@ -147,18 +147,6 @@ interface ConversationRow {
 
 const RETRIEVE_K = 5
 
-/**
- * Whether the workspace's AI is set up and switched on, for the
- * activation check. Server only; false on any failure.
- */
-export async function isAiConfiguredForFlows(accountId: string): Promise<boolean> {
-  try {
-    return Boolean(await loadAiConfig(databaseAdmin({ accountId, role: 'owner' }), accountId))
-  } catch {
-    return false
-  }
-}
-
 /** Run one AI turn of an ai_reply step. Never throws. */
 export async function runFlowAiReply(args: RunFlowAiReplyArgs): Promise<FlowAiOutcome> {
   const { accountId, conversationId, contactId } = args

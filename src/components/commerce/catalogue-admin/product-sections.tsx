@@ -20,11 +20,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { MediaPicker } from "@/components/inbox/media-library/media-picker";
 import { createClient } from "@/lib/data/client";
 import { fetchInventory, type InventoryRow, type ShopProduct } from "./catalogue-api";
-import { selectClass } from "./catalogue-admin";
 import { MovementsList } from "./inventory-panel";
 import { PreorderFields } from "./product-options";
 import { SearchListingFields } from "./search-listing-fields";
 import { tagList, type FormErrors, type ProductFormState, type RowErrorKey, type VariantRow } from "./product-form-state";
+import { OptionSelect } from "@/components/ui/option-select";
 
 /** What every section gets: the shared form state, a patch function and read-only context. */
 export interface SectionProps {
@@ -181,17 +181,21 @@ function FollowUpSection({ form, update, ctx }: SectionProps) {
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="space-y-1">
           <Label htmlFor="pf-fut">{t("followUpTemplate")}</Label>
-          <select id="pf-fut" className={`${selectClass} w-full`} disabled={ctx.readOnly || templates === null} value={value}
-            onChange={(e) => {
-              const [name, language] = e.target.value.split("\u0000");
+          <OptionSelect fit
+            id="pf-fut"
+            className="w-full"
+            disabled={ctx.readOnly || templates === null}
+            value={value}
+            onValueChange={(v) => {
+              const [name, language] = v.split("\u0000");
               update(() => ({ follow_up_template: name ?? "", follow_up_template_language: language ?? "" }));
-            }}>
-            <option value="">{templates === null ? t("loadingTemplates") : t("noFollowUp")}</option>
-            {value && !known && <option value={value}>{t("templateNotApproved", { name: form.follow_up_template })}</option>}
-            {(templates ?? []).map((x) => (
-              <option key={x.id} value={`${x.name}\u0000${x.language ?? ""}`}>{x.language ? `${x.name} · ${x.language}` : x.name}</option>
-            ))}
-          </select>
+            }}
+            options={[
+              { value: "", label: templates === null ? t("loadingTemplates") : t("noFollowUp") },
+              ...(value && !known ? [{ value, label: t("templateNotApproved", { name: form.follow_up_template }) }] : []),
+              ...(templates ?? []).map((x) => ({ value: `${x.name}\u0000${x.language ?? ""}`, label: x.language ? `${x.name} · ${x.language}` : x.name })),
+            ]}
+          />
         </div>
         <div className="space-y-1">
           <Label htmlFor="pf-fud">{t("followUpDays")}</Label>

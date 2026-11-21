@@ -23,6 +23,7 @@ import { listFilter } from '@/lib/audience/lists';
 import { contactSearchSql, loadSegmentFilter } from '@/lib/audience/segments';
 import { PAUSE_MINUTES_CHOICES } from '@/lib/flows/types';
 import { markExplicitPause } from '@/lib/inbox/automation-pause';
+import { exitSequencesFor } from '@/lib/sequences/subscriptions';
 import { conversationVisibleSql } from '@/lib/inbox/inbox-scope';
 import { loadPhoneMask, maskContactIdentifier, maskContactRow } from '@/lib/inbox/masking-apply';
 import { normalizeFieldValue } from './custom-field-types';
@@ -39,7 +40,6 @@ const uuid = z.string().uuid();
 
 /** The contacts page's channel filter (Stage 5). */
 export const CONTACT_CHANNEL_FILTERS = ['whatsapp', 'instagram'] as const;
-export type ContactChannelFilter = (typeof CONTACT_CHANNEL_FILTERS)[number];
 
 export const bulkScopeSchema = z.object({
   segmentId: uuid.optional(),
@@ -81,8 +81,6 @@ const bulkSchema = z.object({
   /** The match count the user was shown. */
   expected: z.number().int().min(1),
 }).strict();
-
-export type BulkContactInput = z.input<typeof bulkSchema>;
 export type BulkAction = z.infer<typeof bulkSchema>['action'];
 
 /** The matching contacts changed since the page was loaded. */
@@ -307,6 +305,8 @@ export async function bulkContactAction(ctx: TenantContext, input: unknown): Pro
           INSERT INTO contact_tags(account_id,contact_id,tag_id)
           SELECT ${ctx.accountId}::uuid, id, ${action.tagId}::uuid FROM (${matching}) m(id)
           ON CONFLICT (contact_id, tag_id) DO NOTHING`);
+        // Sequences set to "Exit when tagged" with this tag stop for these contacts (no automations start).
+        await exitSequencesFor(tx, { accountId: ctx.accountId, contactId: ids, reason: 'tagged', tagId: action.tagId });
         break;
       }
       case 'delete':

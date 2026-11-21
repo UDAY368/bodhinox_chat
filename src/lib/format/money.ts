@@ -1,7 +1,7 @@
 /**
- * The standard money formatter for every screen (Batch 2 design foundation). New code formats money
- * with these two functions; older helpers (src/lib/commerce/money.ts formatMoney, src/lib/currency.ts
- * formatCurrency) are migrated by later batches.
+ * The standard money formatter for every screen (Batch 2 design foundation). Code formats money
+ * with these two functions. src/lib/currency.ts formatCurrency (deal values in the runtime locale)
+ * is the one older helper still in use.
  *
  * - formatMoney: amounts stored in minor units (paise, cents, yen, fils), as orders, payments and
  *   products store them. Uses the currency's own exponent (INR 2, JPY 0, KWD 3) and exact decimal

@@ -16,6 +16,7 @@ vi.mock('react', async (importOriginal) => {
 vi.mock('./flow-editor-state', () => ({ useFlowEditor: () => h.editor }))
 vi.mock('@/lib/auth/client', () => ({ authFetch: h.fetch }))
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }))
+vi.mock('@/components/ui/confirm-dialog', () => ({ useConfirm: () => async () => true }))
 vi.mock('next-intl', () => ({ useTranslations: () => (key: string) => key }))
 
 import { totalActiveRuns, VersionBar } from './version-bar'

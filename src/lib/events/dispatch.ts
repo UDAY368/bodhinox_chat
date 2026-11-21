@@ -6,6 +6,7 @@ import { runAutomationsForTrigger } from '@/lib/automations/engine';
 import { startFlowsForEvent } from '@/lib/flows/event-start';
 import { dispatchWebhookEvent } from '@/lib/webhooks/deliver';
 import { isWebhookEvent } from '@/lib/webhooks/events';
+import { exitSequencesFor } from '@/lib/sequences/subscriptions';
 import type { AutomationTriggerType } from '@/types';
 import { getDomainEvent, type DomainEventRow } from './store';
 import { triggerForEvent } from './types';
@@ -13,8 +14,6 @@ import { paymentLinkPaidData, webhookDataForEvent } from './webhook-data';
 import { eventVars } from './vars';
 
 export { eventVars } from './vars';
-
-export const EVENTS_DISPATCH_JOB = 'events.dispatch';
 
 /**
  * The 'events.dispatch' job: one per domain event, queued in the transaction that recorded it.
@@ -30,6 +29,9 @@ export async function handleEventDispatchJob(accountId: string, payload: Record<
   const loaded = await withTenant({ accountId, role: 'owner' }, async (tx) => {
     const event = await getDomainEvent(tx, accountId, eventId);
     if (!event) return null;
+    // Sequences set to "Exit when bought" stop for the buyer (idempotent, so a retried job is harmless).
+    if (event.contact_id && (event.type === 'order.paid' || (event.type === 'order.created' && event.data.status === 'paid')))
+      await exitSequencesFor(tx, { accountId, contactId: event.contact_id, reason: 'bought', at: event.occurred_at });
     const conversationId = await whatsappConversation(tx, accountId, event);
     return {
       event, conversationId,

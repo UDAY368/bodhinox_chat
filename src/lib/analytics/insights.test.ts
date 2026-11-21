@@ -66,11 +66,14 @@ describe('grouped metrics SQL', () => {
     expectScoped(last().text, last().values);
     expect(plain).toContain('FROM conversations c WHERE c.account_id=');
     expect(plain).toContain('FROM messages m JOIN scope s');
+    // The one first-reply definition (first-reply.ts), not a separate team-only measure.
+    expect(plain).toContain('first_replies AS (');
     expect(plain).not.toContain('human_first');
     expect(last().values).toContain(week.from.toISOString());
     expect(last().values).toContain(week.to.toISOString());
     await groupedMetrics(tx, ACCOUNT, week, 'agent');
-    expect(squash(last().text)).toContain('human_first AS (');
+    // Grouped by member, a wait is credited to the member who answered it.
+    expect(squash(last().text)).toContain("CASE WHEN fr.replier_type='agent' THEN COALESCE(fr.replier_id");
   });
 
   it('applies the channel and number filters and refuses invalid ones', async () => {

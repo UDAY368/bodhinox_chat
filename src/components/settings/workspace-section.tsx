@@ -18,6 +18,7 @@ import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { authFetch } from '@/lib/auth/client';
 import { syncLocale } from '@/lib/i18n/locale-client';
@@ -37,7 +38,8 @@ interface Draft {
 }
 
 const DEFAULT_RANGE: TimeRange = { start: '09:00', end: '18:00' };
-const selectClass = 'border-border bg-muted text-foreground h-9 w-full rounded-md border px-2 text-sm sm:max-w-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
+/** The language menu's "not set" choice (null). */
+const UNSET = '__unset__';
 
 function timeZones(): string[] {
   try {
@@ -213,16 +215,19 @@ export function WorkspaceSection() {
               </datalist>
             </SettingsRow>
             <SettingsRow label={t('language')} hint={t('languageHint')} htmlFor="workspace-language">
-              <select
-                id="workspace-language"
-                className={selectClass}
-                value={draft.default_language ?? ''}
+              <Select
+                value={draft.default_language ?? UNSET}
                 disabled={!editable}
-                onChange={(e) => setDraft({ ...draft, default_language: (e.target.value || null) as AppLocale | null })}
+                onValueChange={(v) => setDraft({ ...draft, default_language: (!v || v === UNSET ? null : v) as AppLocale | null })}
               >
-                <option value="">{t('languageUnset')}</option>
-                {APP_LOCALES.map((code) => <option key={code} value={code}>{tLang(code)}</option>)}
-              </select>
+                <SelectTrigger id="workspace-language" className="min-h-11 w-full bg-muted sm:min-h-9 sm:max-w-xs">
+                  <SelectValue>{(v: string) => (v === UNSET ? t('languageUnset') : tLang(v as AppLocale))}</SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={UNSET}>{t('languageUnset')}</SelectItem>
+                  {APP_LOCALES.map((code) => <SelectItem key={code} value={code}>{tLang(code)}</SelectItem>)}
+                </SelectContent>
+              </Select>
             </SettingsRow>
           </SettingsPanel>
 

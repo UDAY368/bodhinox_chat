@@ -30,6 +30,7 @@ import type {
 } from '@/lib/dashboard/types';
 
 import { MetricCard } from '@/components/dashboard/metric-card';
+import { BusinessCards } from '@/components/dashboard/business-cards';
 import { SkeletonCard } from '@/components/dashboard/skeleton';
 import { QuickActions } from '@/components/dashboard/quick-actions';
 import { ConversationsChart } from '@/components/dashboard/conversations-chart';
@@ -40,6 +41,7 @@ import { OperationsPanel } from '@/components/dashboard/operations-panel';
 import { OnboardingChecklist } from '@/components/dashboard/onboarding-checklist';
 import { ChannelPickerCard } from '@/components/dashboard/channel-picker-card';
 import { buttonVariants } from '@/components/ui/button';
+import { PageHeader } from '@/components/ui/page-header';
 import { InlineError } from '@/components/ui/inline-error';
 import { cn } from '@/lib/utils';
 
@@ -173,20 +175,17 @@ export default function DashboardPage() {
 
   return (
     <div className="mx-auto w-full max-w-[1440px] space-y-5">
-      {/* Header: title, one line, and the one primary action. */}
-      <header className="flex flex-wrap items-start justify-between gap-4">
-        <div className="min-w-0">
-          <h1 className="text-foreground text-[22px] leading-tight font-bold tracking-tight">
-            {t('title')}
-          </h1>
-          <p className="text-muted-foreground mt-1 max-w-2xl text-sm">
-            {t('description')}
-          </p>
-        </div>
-        <Link href="/inbox" className={buttonVariants({ size: 'lg' })}>
-          {t('openInbox')} <ArrowUpRight aria-hidden />
-        </Link>
-      </header>
+      {/* One large title, one line, and the one primary action. */}
+      <PageHeader
+        className="mb-0"
+        title={t('title')}
+        subtitle={t('description')}
+        primaryAction={
+          <Link href="/inbox" className={buttonVariants({ size: 'lg' })}>
+            {t('openInbox')} <ArrowUpRight aria-hidden />
+          </Link>
+        }
+      />
 
       <ChannelPickerCard />
       <OnboardingChecklist />
@@ -253,6 +252,9 @@ export default function DashboardPage() {
           </>
         )}
       </div>
+
+      {/* Business cards: revenue, bookings, ad spend, AI handled (each opens its records) */}
+      <BusinessCards currency={defaultCurrency} />
 
       {/* Quick actions, with the AI workspace as one more calm row */}
       <QuickActions />

@@ -7,7 +7,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useFormatter, useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 import { AlertTriangle, Send } from 'lucide-react';
-import { EmptyState } from '@/components/ads/ads-ui';
+import { EmptyState } from '@/components/ui/empty-state';
+import { OptionSelect } from '@/components/ui/option-select';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -177,27 +178,24 @@ export function ConversionsPanel({ canResolve }: ConversionsPanelProps) {
         </section>
       ) : null}
 
-      <label className="flex items-center gap-2 text-sm">
-        <span className="text-muted-foreground">{t('filterLabel')}</span>
-        <select
-          className="h-8 rounded-lg border border-border bg-card px-2.5 text-sm"
+      <div className="flex items-center gap-2 text-sm">
+        <span className="text-muted-foreground" aria-hidden>{t('filterLabel')}</span>
+        <OptionSelect
+          aria-label={t('filterLabel')}
+          className="w-auto min-w-40"
           value={filter}
-          onChange={(ev) => {
+          onValueChange={(next) => {
             // Drop the old filter's rows and cursor so "Load more" cannot mix two filters.
             setCursor(null);
             setEvents(null);
-            setFilter(ev.target.value as CapiListFilter | '');
+            setFilter(next as CapiListFilter | '');
           }}
-        >
-          <option value="">{t('filterAll')}</option>
-          {FILTERS.map((f) => (
-            <option key={f} value={f}>{t(`status.${f}`)}</option>
-          ))}
-        </select>
-      </label>
+          options={[{ value: '', label: t('filterAll') }, ...FILTERS.map((f) => ({ value: f, label: t(`status.${f}`) }))]}
+        />
+      </div>
 
       {events === null ? null : events.length === 0 ? (
-        <EmptyState icon={Send} title={t('empty')} body={t('emptyBody')} />
+        <EmptyState icon={Send} title={t('empty')} body={t('emptyBody')} className="rounded-group border border-separator bg-grouped-surface" />
       ) : (
         <div className="overflow-x-auto rounded-xl border border-border bg-card">
           <table className="w-full text-sm">

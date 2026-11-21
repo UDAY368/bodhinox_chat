@@ -5,14 +5,14 @@
  */
 import Link from 'next/link';
 import { getTranslations } from 'next-intl/server';
-import { formatMoney } from '@/lib/commerce/money';
+import { formatMoney } from '@/lib/format/money';
 import type { AccountOrderDetail, AccountOrders } from '@/lib/commerce/shop-customer';
 import { ReorderButton, SignOutButton } from './account-actions';
 
 const heading = { fontFamily: 'var(--shop-font-heading)' } as const;
 const money = (minor: number | null, currency: string, locale: string) => {
   if (minor === null) return '';
-  try { return formatMoney(minor, currency, locale); } catch { return String(minor); }
+  return formatMoney(minor, currency, { locale });
 };
 const day = (iso: string, locale: string) => new Intl.DateTimeFormat(locale, { dateStyle: 'medium' }).format(new Date(iso));
 

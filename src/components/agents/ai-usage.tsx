@@ -2,7 +2,6 @@
 import { authFetch } from "@/lib/auth/client";
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { toast } from 'sonner';
 import { useTranslations } from 'next-intl';
 import { BarChart3, Bot, PencilLine, Sparkles } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
@@ -14,13 +13,9 @@ import {
   CardTitle,
   CardDescription,
 } from '@/components/ui/card';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { SegmentedControl } from '@/components/ui/segmented-control';
+import { EmptyState } from '@/components/ui/empty-state';
+import { InlineError } from '@/components/ui/inline-error';
 import { Skeleton } from '@/components/dashboard/skeleton';
 import { BarChart } from '@/components/tremor/bar-chart';
 import { formatCompactNumber } from '@/lib/currency';
@@ -66,28 +61,31 @@ export function AiUsageCard() {
   const [days, setDays] = useState<number>(30);
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<UsageResponse | null>(null);
+  // The request failed: what happened, then Retry (never a skeleton forever).
+  const [failed, setFailed] = useState(false);
   const loadedRef = useRef<string | null>(null);
 
   const fetchUsage = useCallback(async (windowDays: number) => {
     setLoading(true);
+    setFailed(false);
     try {
       const res = await authFetch(`/api/ai/usage?days=${windowDays}`, {
         cache: 'no-store',
       });
       const json = await res.json().catch(() => null);
       if (!res.ok) {
-        toast.error(json?.error ?? t('loadFailed'));
+        setFailed(true);
         setData(null);
         return;
       }
       setData(json as UsageResponse);
     } catch {
-      toast.error(t('loadFailed'));
+      setFailed(true);
       setData(null);
     } finally {
       setLoading(false);
     }
-  }, [t]);
+  }, []);
 
   useEffect(() => {
     if (!canView || !accountId) return;
@@ -113,7 +111,7 @@ export function AiUsageCard() {
   return (
     <Card>
       <CardHeader>
-        <div className="flex items-start justify-between gap-4">
+        <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <CardTitle className="flex items-center gap-2 text-[15px] font-semibold">
               <BarChart3 className="h-4 w-4 text-primary" /> {t('title')}
@@ -122,34 +120,23 @@ export function AiUsageCard() {
               {t('description')}
             </CardDescription>
           </div>
-          <Select
+          <SegmentedControl
+            size="sm"
+            aria-label={t('period')}
             value={String(days)}
             onValueChange={(v) => setDays(Number(v))}
-          >
-            <SelectTrigger className="w-32 flex-shrink-0">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {WINDOWS.map((w) => (
-                <SelectItem key={w} value={String(w)}>
-                  {t('window', { days: w })}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+            options={WINDOWS.map((w) => ({ value: String(w), label: t('window', { days: w }) }))}
+            className="shrink-0"
+          />
         </div>
       </CardHeader>
       <CardContent className="space-y-5">
-        {loading || !data ? (
+        {failed ? (
+          <InlineError message={t('loadFailed')} onRetry={() => void fetchUsage(days)} />
+        ) : loading || !data ? (
           <Skeleton className="h-[220px] w-full" />
         ) : !hasSpend ? (
-          <div className="flex flex-col items-center justify-center gap-2 py-10 text-center text-sm text-muted-foreground">
-            <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary"><BarChart3 className="h-5 w-5" /></span>
-            <p className="text-foreground">{t('empty', { days: data.window_days })}</p>
-            <p className="text-xs">
-              {t('emptyHint')}
-            </p>
-          </div>
+          <EmptyState icon={BarChart3} title={t('empty', { days: data.window_days })} body={t('emptyHint')} />
         ) : (
           <>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">

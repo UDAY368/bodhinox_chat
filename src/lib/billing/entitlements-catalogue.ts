@@ -14,8 +14,6 @@ export type LimitKey = (typeof LIMITS)[number];
 /** Subscription lifecycle (account_subscriptions.status). */
 export const SUBSCRIPTION_STATUSES = ['trialing', 'active', 'past_due', 'grace', 'suspended', 'cancelled', 'incomplete'] as const;
 export type SubscriptionStatus = (typeof SUBSCRIPTION_STATUSES)[number];
-/** Statuses that do not grant the subscribed plan: the workspace gets 'free'. */
-export const NON_GRANTING_STATUSES: readonly SubscriptionStatus[] = ['suspended', 'cancelled', 'incomplete'];
 
 export const ADDON_KINDS = ['extra_seats', 'ai_messages', 'extra_numbers'] as const;
 export type AddonKind = (typeof ADDON_KINDS)[number];

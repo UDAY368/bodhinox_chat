@@ -5,6 +5,7 @@ import {
   loadInboxConversations,
   mergeConversations,
   nextSyncCursor,
+  upsertListRows,
   INBOX_SYNC_OVERLAP_MS,
 } from "./conversations";
 import type { Conversation } from "@/types";
@@ -111,6 +112,49 @@ describe('incremental inbox sync', () => {
     expect(mergeConversations(prev, [])).toBe(prev);
     expect(mergeConversations(prev, [conv('a', '2026-11-10T10:05:00Z', { unread_count: 3 })], 'a')[0].unread_count).toBe(0);
     expect(mergeConversations(prev, [conv('a', '2026-11-10T10:05:00Z', { unread_count: 3 })], 'other')[0].unread_count).toBe(3);
+  });
+});
+
+describe('server-paged list merges (batch 7)', () => {
+  const conv = (id: string, lastMessageAt: string | undefined, extra: Partial<Conversation> = {}) =>
+    ({ ...makeConversation(null), id, last_message_at: lastMessageAt, ...extra });
+  // Loaded: the first page of a longer list (more pages remain).
+  const loaded = [conv('a', '2026-11-10T10:00:00Z'), conv('b', '2026-11-10T09:00:00Z'), conv('c', '2026-11-10T08:00:00Z')];
+
+  it('adds a realtime row above the last loaded row, and leaves one below it to its page', () => {
+    const next = upsertListRows(loaded, [conv('n', '2026-11-10T09:30:00Z'), conv('old', '2026-11-10T07:00:00Z')], { order: 'recent', hasMore: true });
+    expect(next.map((c) => c.id)).toEqual(['a', 'n', 'b', 'c']);
+    // Every page loaded: nothing is left out.
+    expect(upsertListRows(loaded, [conv('old', '2026-11-10T07:00:00Z')], { order: 'recent', hasMore: false }).map((c) => c.id))
+      .toEqual(['a', 'b', 'c', 'old']);
+  });
+
+  it('drops a loaded row that moved below the last loaded row, so its page brings it back once (window order)', () => {
+    const queue = [
+      conv('w1', '2026-11-10T10:00:00Z', { last_customer_message_at: '2026-11-10T01:00:00Z' }),
+      conv('w2', '2026-11-10T10:00:00Z', { last_customer_message_at: '2026-11-10T02:00:00Z' }),
+      conv('w3', '2026-11-10T10:00:00Z', { last_customer_message_at: '2026-11-10T03:00:00Z' }),
+    ];
+    const moved = { ...queue[0], last_customer_message_at: '2026-11-10T09:00:00Z' };
+    expect(upsertListRows(queue, [moved], { order: 'window', hasMore: true }).map((c) => c.id)).toEqual(['w2', 'w3']);
+    // The open conversation is never dropped.
+    expect(upsertListRows(queue, [moved], { order: 'window', hasMore: true, activeId: 'w1' }).map((c) => c.id)).toEqual(['w2', 'w3', 'w1']);
+  });
+
+  it('removes rows that left the filter but keeps the open one, read', () => {
+    const next = upsertListRows(loaded, [conv('a', '2026-11-10T10:00:00Z', { unread_count: 4 })], {
+      order: 'recent', hasMore: true, activeId: 'a', removedIds: ['a', 'b'],
+    });
+    expect(next.map((c) => c.id)).toEqual(['a', 'c']);
+    expect(next[0].unread_count).toBe(0);
+    expect(upsertListRows(loaded, [], { order: 'recent', hasMore: true })).toBe(loaded);
+  });
+
+  it('merges a next page that repeats a loaded row without duplicating it', () => {
+    const page = [conv('c', '2026-11-10T08:00:00Z', { last_message_text: 'fresh' }), conv('d', '2026-11-10T07:00:00Z')];
+    const next = upsertListRows(loaded, page, { order: 'recent', hasMore: false });
+    expect(next.map((c) => c.id)).toEqual(['a', 'b', 'c', 'd']);
+    expect(next[2].last_message_text).toBe('fresh');
   });
 });
 

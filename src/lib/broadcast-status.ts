@@ -80,11 +80,16 @@ export const recipientStatusConfig: Record<RecipientStatus, StatusDisplay> = {
     label: "failed",
     classes: "bg-red-500/10 text-red-400 border-red-500/20",
   },
+  // "Cancel remaining": the campaign stopped before this person was sent.
+  cancelled: {
+    label: "cancelled",
+    classes: "bg-slate-500/10 text-muted-foreground border-slate-500/20",
+  },
 };
 
 /**
  * Tolerant lookup — callers often have a generic string status
- * coming from Supabase. Falls back to the "draft" / "pending"
+ * coming from the database. Falls back to the "draft" / "pending"
  * entry so the UI never crashes on an unknown value.
  */
 export function getBroadcastStatus(status: string): StatusDisplay {

@@ -94,14 +94,14 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('retargeting, CSV campaigns 
     const variables = { '1': { type: 'csv_column' as const, value: 'order' }, '2': { type: 'csv_column' as const, value: 'item' } };
     const params = async (id: string) => (await owner.query('SELECT template_params FROM broadcast_recipients WHERE broadcast_id=$1 ORDER BY created_at, template_params::text', [id])).rows.map((r) => r.template_params);
 
-    const once = await createCampaign(a, { name: 'CSV once', templateId, audience: { type: 'csv', csvContacts: rows }, variables });
+    const once = await createCampaign(a, { name: 'CSV once', templateId, audience: { type: 'csv', csvContacts: rows, consentConfirmed: true }, variables });
     expect(await params(once.id)).toEqual([['A1', 'Shoes']]);
-    const twice = await createCampaign(a, { name: 'CSV twice', templateId, audience: { type: 'csv', csvContacts: rows, allowDuplicates: true }, variables });
+    const twice = await createCampaign(a, { name: 'CSV twice', templateId, audience: { type: 'csv', csvContacts: rows, allowDuplicates: true, consentConfirmed: true }, variables });
     expect(await params(twice.id)).toEqual([['A1', 'Shoes'], ['A2', 'Bag']]);
     // The opted-out row (c5) is never a recipient.
     await expect(createCampaign(a, { name: 'Bad', templateId, audience: { type: 'all' }, variables })).rejects.toMatchObject({ status: 400 });
     // A mapping to a column the CSV does not have is refused, not sent blank.
-    await expect(createCampaign(a, { name: 'Bad', templateId, audience: { type: 'csv', csvContacts: rows },
+    await expect(createCampaign(a, { name: 'Bad', templateId, audience: { type: 'csv', csvContacts: rows, consentConfirmed: true },
       variables: { ...variables, '2': { type: 'csv_column', value: 'city' } } })).rejects.toThrow(/no "city" column/);
     await expect(createCampaign(a, { name: 'Bad', templateId, audience: { type: 'all', allowDuplicates: true }, variables: { '1': { type: 'static', value: 'x' }, '2': { type: 'static', value: 'y' } } })).rejects.toMatchObject({ status: 400 });
   });

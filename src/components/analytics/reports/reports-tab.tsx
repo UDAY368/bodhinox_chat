@@ -12,13 +12,19 @@
  */
 
 import { Fragment, useCallback, useEffect, useState } from "react";
-import { Download, Loader2, Share2 } from "lucide-react";
+import { Download, FileText, Loader2, Share2 } from "lucide-react";
 import { useFormatter, useTranslations } from "next-intl";
 
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
+import { EmptyState } from "@/components/ui/empty-state";
+import { InlineError } from "@/components/ui/inline-error";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PageLoading } from "@/components/ui/page-loading";
+import { SegmentedControl } from "@/components/ui/segmented-control";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { authFetch } from "@/lib/auth/client";
 import { REPORT_FORMATS, REPORT_KINDS, type ReportFormat, type RunKind } from "@/lib/analytics/report-kinds";
 import { SchedulesPanel } from "./schedules-panel";
@@ -47,7 +53,8 @@ export interface ReportRunView {
   expiresAt: string;
 }
 
-const selectClass = "border-border bg-card text-foreground h-9 w-full rounded-lg border px-2.5 text-[13px] transition-colors duration-150 hover:bg-muted outline-none focus-visible:ring-2 focus-visible:ring-ring/50";
+/** A form field's menu: full width, a 44px row on phones. */
+export const fieldTrigger = "min-h-11 w-full sm:min-h-9";
 const POLL_MS = 5_000;
 const statusClass: Record<Status, string> = {
   queued: "bg-muted text-muted-foreground",
@@ -140,21 +147,30 @@ export function ReportsTab({ canManage }: { canManage: boolean }) {
           <form className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-[1.5fr_1fr_1fr_auto_auto] lg:items-end" onSubmit={submit}>
             <div className="space-y-1.5">
               <Label htmlFor="report-kind">{t("kind")}</Label>
-              <select id="report-kind" value={kind} onChange={(e) => setKind(e.target.value as Kind)} className={selectClass}>
-                {REPORT_KIND_OPTIONS.map((k) => <option key={k} value={k}>{t(`kinds.${k}`)}</option>)}
-              </select>
+              <Select value={kind} onValueChange={(v) => { if (v) setKind(v as Kind); }}>
+                <SelectTrigger id="report-kind" className={fieldTrigger}>
+                  <SelectValue>{(v: string) => t(`kinds.${v as Kind}`)}</SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {REPORT_KIND_OPTIONS.map((k) => <SelectItem key={k} value={k}>{t(`kinds.${k}`)}</SelectItem>)}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="report-range">{t("range")}</Label>
-              <select id="report-range" value={preset} onChange={(e) => setPreset(e.target.value as Preset)} className={selectClass}>
-                {PRESETS.map((p) => <option key={p} value={p}>{t(`presets.${p}`)}</option>)}
-              </select>
+              <Select value={preset} onValueChange={(v) => { if (v) setPreset(v as Preset); }}>
+                <SelectTrigger id="report-range" className={fieldTrigger}>
+                  <SelectValue>{(v: string) => t(`presets.${v as Preset}`)}</SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {PRESETS.map((p) => <SelectItem key={p} value={p}>{t(`presets.${p}`)}</SelectItem>)}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="report-format">{t("format")}</Label>
-              <select id="report-format" value={fileFormat} onChange={(e) => setFileFormat(e.target.value as ReportFormat)} className={selectClass}>
-                {REPORT_FORMATS.map((f) => <option key={f} value={f}>{t(`formats.${f}`)}</option>)}
-              </select>
+              <span className="text-sm leading-none font-medium">{t("format")}</span>
+              <SegmentedControl aria-label={t("format")} value={fileFormat} onValueChange={setFileFormat}
+                options={REPORT_FORMATS.map((f) => ({ value: f, label: t(`formats.${f}`) }))} />
             </div>
             {preset === "custom" && (
               <>
@@ -171,12 +187,12 @@ export function ReportsTab({ canManage }: { canManage: boolean }) {
             {fileFormat === "pdf" && (
               <p className="text-xs text-muted-foreground sm:col-span-2 lg:col-span-5">{t("pdfNote")}</p>
             )}
-            <label className="flex items-center gap-2 text-sm text-foreground sm:col-span-2 lg:col-span-5">
-              <input type="checkbox" checked={email} onChange={(e) => setEmail(e.target.checked)} className="size-4" />
+            <label className="flex min-h-11 cursor-pointer items-center gap-2 text-sm text-foreground sm:col-span-2 lg:col-span-5">
+              <Checkbox checked={email} onCheckedChange={(checked) => setEmail(checked === true)} />
               {t("emailMe")}
             </label>
             <div className="sm:col-span-2 lg:col-span-5">
-              <Button type="submit" size="sm" disabled={submitting}>
+              <Button type="submit" className="min-h-11 sm:min-h-8" disabled={submitting}>
                 {submitting && <Loader2 className="size-4 animate-spin" />}
                 {t("request")}
               </Button>
@@ -193,11 +209,11 @@ export function ReportsTab({ canManage }: { canManage: boolean }) {
         </CardHeader>
         <CardContent>
           {loadFailed ? (
-            <p className="text-xs text-destructive">{t("loadFailed")}</p>
+            <InlineError message={t("loadFailed")} onRetry={() => void load()} />
           ) : loading ? (
-            <Loader2 className="size-4 animate-spin text-primary" />
+            <PageLoading rows={3} />
           ) : reports.length === 0 ? (
-            <p className="text-sm text-muted-foreground">{t("empty")}</p>
+            <EmptyState icon={FileText} title={t("empty")} />
           ) : (
             <div className="relative overflow-x-auto rounded-lg border border-border">
               <table className="w-full min-w-[40rem] text-sm">

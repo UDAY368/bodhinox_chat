@@ -18,9 +18,11 @@ import { useTranslations } from "next-intl";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useCan } from "@/hooks/use-can";
 import { authFetch } from "@/lib/auth/client";
 
@@ -39,7 +41,6 @@ interface ShiprocketStatus {
 }
 
 const ENDPOINT = "/api/integrations/shiprocket";
-const selectClass = "h-9 w-full rounded-md border border-border bg-background px-2 text-sm text-foreground";
 /** Shiprocket refuses webhook URLs containing these words (also in the hostname). */
 const BLOCKED_URL_WORDS = /shiprocket|kartrocket|sr|kr/i;
 
@@ -53,6 +54,7 @@ async function errorText(res: Response, fallback: string): Promise<string> {
 
 export function ShiprocketCard() {
   const t = useTranslations("Settings.shiprocket");
+  const confirm = useConfirm();
   const canEdit = useCan("edit-settings");
   const [status, setStatus] = useState<ShiprocketStatus | null>(null);
   const [loadFailed, setLoadFailed] = useState(false);
@@ -125,7 +127,7 @@ export function ShiprocketCard() {
   };
 
   const disconnect = async () => {
-    if (!window.confirm(t("disconnectConfirm"))) return;
+    if (!(await confirm({ title: t("disconnectConfirm"), confirmLabel: t("disconnect"), destructive: true }))) return;
     setBusy("remove");
     try {
       const res = await authFetch(ENDPOINT, { method: "DELETE" });
@@ -143,7 +145,7 @@ export function ShiprocketCard() {
   };
 
   const rotate = async () => {
-    if (status?.webhook_token_set && !window.confirm(t("regenerateConfirm"))) return;
+    if (status?.webhook_token_set && !(await confirm({ title: t("regenerateConfirm"), confirmLabel: t("regenerateToken"), destructive: true }))) return;
     setBusy("token");
     try {
       const res = await authFetch(`${ENDPOINT}/webhook-token`, { method: "POST" });
@@ -249,11 +251,14 @@ export function ShiprocketCard() {
               <div className="space-y-1.5">
                 <Label htmlFor="shiprocket-pickup" className="block text-xs text-muted-foreground">{t("pickupLocation")}</Label>
                 <div className="flex gap-2">
-                  <select id="shiprocket-pickup" className={selectClass} value={pickup} onChange={(e) => setPickup(e.target.value)}
-                    disabled={!locations?.length}>
-                    {!locations?.length && <option value="">{t("pickupHelp")}</option>}
-                    {locations?.map((name) => <option key={name} value={name}>{name}</option>)}
-                  </select>
+                  <Select value={pickup || null} onValueChange={(v) => setPickup(v ? String(v) : "")} disabled={!locations?.length}>
+                    <SelectTrigger id="shiprocket-pickup" className="min-h-11 w-full min-w-0 flex-1 bg-background sm:min-h-9">
+                      <SelectValue placeholder={t("pickupHelp")}>{(v: string | null) => v || t("pickupHelp")}</SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {locations?.map((name) => <SelectItem key={name} value={name}>{name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
                   <Button type="button" variant="outline" onClick={() => void test()}
                     disabled={!!busy || email.trim().length < 4 || (!password && !connected)}>
                     {busy === "test" && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}

@@ -27,6 +27,10 @@ import {
 import { formatDistanceToNow } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { InlineError } from "@/components/ui/inline-error";
+import { EmptyState } from "@/components/ui/empty-state";
+import { GroupedList, GroupedListRow } from "@/components/ui/grouped-list";
+import { PageHeader } from "@/components/ui/page-header";
+import { PageLoading } from "@/components/ui/page-loading";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { useTranslations } from "next-intl";
@@ -206,93 +210,79 @@ export default function NotificationsPage() {
 
   if (notifications === null) {
     return (
-      <div className="flex h-64 items-center justify-center">
-        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+      <div className="mx-auto w-full max-w-3xl">
+        <PageLoading rows={8} />
       </div>
     );
   }
 
   return (
-    <div className="mx-auto w-full max-w-3xl space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h1 className="text-[22px] font-bold tracking-tight text-foreground">{t("title")}</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {t("descriptionAll")}
-          </p>
-        </div>
-        <Button
-          variant="outline"
-          size="sm"
-          disabled={unreadIds.length === 0 || markingAll}
-          onClick={markAllRead}
-        >
-          {markingAll ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <CheckCheck className="h-4 w-4" />
-          )}
-          {t("markAllRead")}
-        </Button>
-      </div>
+    <div className="mx-auto w-full max-w-3xl">
+      <PageHeader
+        title={t("title")}
+        subtitle={t("descriptionAll")}
+        primaryAction={
+          <Button
+            variant="outline"
+            className="min-h-11 sm:min-h-8"
+            disabled={unreadIds.length === 0 || markingAll}
+            onClick={markAllRead}
+          >
+            {markingAll ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <CheckCheck className="h-4 w-4" />
+            )}
+            {t("markAllRead")}
+          </Button>
+        }
+      />
 
       {notifications.length === 0 ? (
-        <div className="flex flex-col items-center justify-center gap-2 rounded-xl border border-border bg-card px-4 py-12 text-center">
-          <div className="flex size-11 items-center justify-center rounded-xl bg-muted">
-            <Bell className="size-5 text-muted-foreground" />
-          </div>
-          <p className="mt-1 text-sm font-semibold text-foreground">
-            {t("emptyTitle")}
-          </p>
-          <p className="text-sm text-muted-foreground">
-            {t("emptyDescAll")}
-          </p>
-        </div>
+        <EmptyState icon={Bell} title={t("emptyTitle")} body={t("emptyDescAll")} />
       ) : (
-        <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-card">
+        <GroupedList>
           {notifications.map((n) => {
             const Icon = TYPE_ICON[n.type] ?? Bell;
             const typeLabel = n.type in TYPE_ICON ? t(`types.${n.type}`) : null;
             const isUnread = !n.read_at;
             return (
-              <li key={n.id}>
-                <button
-                  type="button"
-                  onClick={() => handleClick(n)}
-                  className={cn(
-                    "flex min-h-14 w-full items-center gap-3 px-4 py-3 text-left transition-colors duration-150 hover:bg-muted/60",
-                    isUnread && "bg-primary/[0.04]",
-                  )}
-                >
-                  <div
+              <GroupedListRow
+                key={n.id}
+                onClick={() => handleClick(n)}
+                className={cn("min-h-14", isUnread && "bg-primary/[0.04]")}
+                leading={
+                  <span
                     className={cn(
-                      "flex size-9 flex-shrink-0 items-center justify-center rounded-[10px]",
+                      "flex size-7 items-center justify-center rounded-[8px]",
                       isUnread ? "bg-primary/10" : "bg-muted",
                     )}
                     aria-hidden
                   >
                     <Icon
                       className={cn(
-                        "size-[18px]",
+                        "size-4",
                         isUnread ? "text-primary" : "text-muted-foreground",
                       )}
                     />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <span
-                      className={cn(
-                        "block truncate text-sm",
-                        isUnread ? "font-semibold text-foreground" : "font-medium text-foreground/80",
-                      )}
-                    >
-                      {n.title}
-                    </span>
-                    {n.body && (
-                      <p className="mt-0.5 truncate text-[13px] text-muted-foreground">
-                        {n.body}
-                      </p>
+                  </span>
+                }
+                title={
+                  <span
+                    className={cn(
+                      "text-sm",
+                      isUnread ? "font-semibold text-foreground" : "font-medium text-foreground/80",
                     )}
-                    <p className="mt-0.5 text-xs text-muted-foreground">
+                  >
+                    {n.title}
+                  </span>
+                }
+                subtitle={
+                  <>
+                    {n.body && (
+                      <span className="block truncate text-[13px]">{n.body}</span>
+                    )}
+                    <span className="block truncate text-xs">
                       {typeLabel && (
                         <span data-notification-type={n.type}>
                           {typeLabel} ·{" "}
@@ -303,19 +293,22 @@ export default function NotificationsPage() {
                           addSuffix: true,
                         })}
                       </span>
-                    </p>
-                  </div>
-                  {isUnread && (
+                    </span>
+                  </>
+                }
+                trailing={
+                  isUnread ? (
                     <span
+                      role="img"
                       aria-label={t("unread")}
-                      className="size-2 flex-shrink-0 rounded-full bg-primary"
+                      className="block size-2 rounded-full bg-primary"
                     />
-                  )}
-                </button>
-              </li>
+                  ) : undefined
+                }
+              />
             );
           })}
-        </ul>
+        </GroupedList>
       )}
     </div>
   );

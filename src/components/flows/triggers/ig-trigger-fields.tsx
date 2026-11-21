@@ -26,6 +26,7 @@ import { IgPostPicker, useInstagramAccounts, type PickerAccount } from "./ig-pos
 import { IgReplyVariants } from "./ig-reply-variants";
 import { addIds, addRefKeys, readStrings, replyDelayParts, setPostScope, setPublicReplies, setReplyDelay, setTriggerAccount, toggleMedia, type ReplyDelayUnit } from "./ig-trigger-config";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 import { FLOW_TRIGGER_LIMITS } from "@/lib/flows/types";
 
 type Config = Record<string, unknown>;
@@ -193,7 +194,7 @@ export function IgStoryReplyTriggerFields({ config, onChange }: Props) {
         keywords={readStrings(config.keywords)} mode={mode(config.match_mode)}
         onChange={({ keywords, mode: match_mode }) => onChange({ ...config, keywords, match_mode })} />
       <label className="flex items-center gap-2 text-xs">
-        <input type="checkbox" checked={config.reactions === true} onChange={(e) => onChange({ ...config, reactions: e.target.checked })} />
+        <Checkbox checked={config.reactions === true} onCheckedChange={(checked) => onChange({ ...config, reactions: checked })} />
         {t("reactions")}
       </label>
       <MessageAccessNote />

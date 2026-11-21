@@ -14,12 +14,13 @@ import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { formatMoney, minorToDecimalString, parseMoney } from "@/lib/commerce/money";
+import { minorToDecimalString, parseMoney } from "@/lib/commerce/money";
+import { formatMoney } from "@/lib/format/money";
 import { REFUND_REASONS, requestRefund, type CustomerPaymentItem, type RefundReason } from "./customer-payments-api";
 
 export function RefundDialog({ payment, open, onOpenChange, onRequested, defaultRestock = false }: {
@@ -83,12 +84,13 @@ export function RefundDialog({ payment, open, onOpenChange, onRequested, default
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>{t("title")}</DialogTitle>
-          <DialogDescription>{t("description", { amount: formatMoney(payment.refundable_minor, payment.currency, locale) })}</DialogDescription>
-        </DialogHeader>
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent size="md" className="w-full gap-0">
+        <SheetHeader>
+          <SheetTitle>{t("title")}</SheetTitle>
+          <SheetDescription>{t("description", { amount: formatMoney(payment.refundable_minor, payment.currency, { locale }) })}</SheetDescription>
+        </SheetHeader>
+        <div className="flex-1 space-y-4 overflow-y-auto px-4 pb-4">
         <div className="space-y-3">
           <div>
             <Label htmlFor="refund-amount" className="mb-1 block text-xs text-muted-foreground">{t("amount", { currency: payment.currency })}</Label>
@@ -96,7 +98,7 @@ export function RefundDialog({ payment, open, onOpenChange, onRequested, default
           </div>
           <div>
             <Label className="mb-1 block text-xs text-muted-foreground">{t("reason")}</Label>
-            <Select value={reason} onValueChange={(v) => v && setReason(v as RefundReason)}>
+            <Select value={reason} items={REFUND_REASONS.map((r) => ({ value: r, label: t(`reasons.${r}`) }))} onValueChange={(v) => v && setReason(v as RefundReason)}>
               <SelectTrigger className="w-full" aria-label={t("reason")}><SelectValue /></SelectTrigger>
               <SelectContent>
                 {REFUND_REASONS.map((r) => <SelectItem key={r} value={r}>{t(`reasons.${r}`)}</SelectItem>)}
@@ -126,14 +128,15 @@ export function RefundDialog({ payment, open, onOpenChange, onRequested, default
             </label>
           )}
         </div>
-        <DialogFooter>
+        </div>
+        <SheetFooter className="border-t border-border sm:flex-row sm:justify-end">
           <Button variant="outline" onClick={() => onOpenChange(false)}>{t("cancel")}</Button>
           <Button variant="destructive" onClick={() => void submit()} disabled={busy || !amount.trim() || !requestId}>
             {busy && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
             {t("submit")}
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </SheetFooter>
+      </SheetContent>
+    </Sheet>
   );
 }

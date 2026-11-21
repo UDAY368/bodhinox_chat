@@ -35,6 +35,12 @@ export interface AudienceConfig {
   allowDuplicates?: boolean;
   /** Wizard only, never sent to the server: the picked CSV file's text. */
   csvText?: string;
+  /** Leave out contacts sent a campaign or sequence message in the last N days (0/omitted = off). */
+  skipRecentDays?: number;
+  /** CSV only: "These people agreed to get WhatsApp messages from us" was ticked. */
+  consentConfirmed?: boolean;
+  /** CSV only: the picked file's name, kept with a saved draft. */
+  csvFileName?: string;
 }
 
 /** Optional conservative scan bound for scheduled work; never silently truncate. */
@@ -201,38 +207,4 @@ export async function resolveAudienceContacts(
   const wanted = [...ids].filter((id) => !excluded.has(id));
   if (wanted.length === 0) return [];
   return (await fetchContactsByIds(db, wanted, options.maxRows)).filter(keep);
-}
-
-export async function countAudience(
-  db: DataClient,
-  audience: AudienceConfig
-): Promise<number | null> {
-  if (audience.type === 'csv') {
-    return audience.csvContacts && audience.csvContacts.length > 0
-      ? audience.csvContacts.length
-      : null;
-  }
-
-  if (audience.type === 'all') {
-    const { count, error } = await db
-      .from('contacts')
-      .select('id', { count: 'exact', head: true })
-      .is('opted_out_at', null)
-      .is('blocked_at', null);
-    if (error) throw new Error(`Failed to count contacts: ${error.message}`);
-    const total = count ?? 0;
-    const excluded = await fetchExcludedIds(db, audience);
-    return Math.max(0, total - excluded.size);
-  }
-
-  if (audience.type === 'custom_field' && !audience.customField?.value) {
-    return null;
-  }
-
-  const ids = await fetchAudienceContactIds(db, audience);
-  if (!ids) return null;
-  const excluded = await fetchExcludedIds(db, audience);
-  let size = 0;
-  for (const id of ids) if (!excluded.has(id)) size++;
-  return size;
 }

@@ -18,6 +18,7 @@ import { FlaskConical, Loader2, RotateCcw, SendHorizontal, Undo2 } from 'lucide-
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { OptionSelect } from '@/components/ui/option-select';
 import { authFetch } from '@/lib/auth/client';
 import { createClient } from '@/lib/data/client';
 import type { DryRunInput, DryRunResult, WouldNote } from '@/lib/flows/dry-run';
@@ -27,8 +28,6 @@ import { useFlowEditor } from './flow-editor-state';
 
 interface VersionOption { id: string; version: number }
 interface ContactOption { id: string; name: string | null }
-
-const selectClass = 'border-border bg-muted h-9 w-full rounded-md border px-2 text-sm';
 
 export function DryRunPanel() {
   const t = useTranslations('Flows.dryRun');
@@ -126,50 +125,51 @@ export function DryRunPanel() {
         <span className="hidden @[96rem]:inline">{t('open')}</span>
       </Button>
       <Sheet open={open} onOpenChange={setOpen}>
-        <SheetContent side="right" className="flex w-full flex-col gap-0 overflow-hidden p-0 sm:max-w-md" data-testid="dry-run-panel">
+        <SheetContent side="right" size="md" className="flex w-full flex-col gap-0 overflow-hidden p-0" data-testid="dry-run-panel">
           <SheetHeader className="border-border border-b px-4 py-3">
             <SheetTitle>{t('title')}</SheetTitle>
             <SheetDescription>{t('subtitle')}</SheetDescription>
           </SheetHeader>
 
           <div className="border-border flex flex-col gap-2 border-b px-4 py-3 text-xs">
-            <label className="flex flex-col gap-1">
+            <div className="flex flex-col gap-1">
               <span className="text-muted-foreground font-medium">{t('source')}</span>
-              <select className={selectClass} value={source} onChange={(e) => setSource(e.target.value)} aria-label={t('source')}>
-                <option value="draft">{t('sourceDraft')}</option>
-                {versions.length > 0 && <option value="published">{t('sourcePublished')}</option>}
-                {versions.map((v) => <option key={v.id} value={v.id}>{t('sourceVersion', { version: v.version })}</option>)}
-              </select>
-            </label>
+              <OptionSelect value={source} onValueChange={setSource} aria-label={t('source')} options={[
+                { value: 'draft', label: t('sourceDraft') },
+                ...(versions.length > 0 ? [{ value: 'published', label: t('sourcePublished') }] : []),
+                ...versions.map((v) => ({ value: v.id, label: t('sourceVersion', { version: v.version }) })),
+              ]} />
+            </div>
             {source === 'draft' && dirty && <p className="text-amber-400">{t('unsavedNote')}</p>}
-            <label className="flex flex-col gap-1">
+            <div className="flex flex-col gap-1">
               <span className="text-muted-foreground font-medium">{t('contact')}</span>
               <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder={t('contactSearch')} aria-label={t('contactSearch')} className="h-8 text-xs" />
-              <select className={selectClass} value={contactId} onChange={(e) => setContactId(e.target.value)} aria-label={t('contact')}>
-                <option value="">{t('noContact')}</option>
-                {contacts.map((c) => <option key={c.id} value={c.id}>{c.name || t('unnamedContact')}</option>)}
-              </select>
-            </label>
+              <OptionSelect value={contactId} onValueChange={setContactId} aria-label={t('contact')} options={[
+                { value: '', label: t('noContact') },
+                ...contacts.map((c) => ({ value: c.id, label: c.name || t('unnamedContact') })),
+              ]} />
+            </div>
             {apiNodes.length > 0 && (
               <div className="flex flex-col gap-1">
                 <span className="text-muted-foreground font-medium">{t('apiPorts')}</span>
                 {apiNodes.map((node) => {
                   const routes = Array.isArray(node.config.routes) ? (node.config.routes as Array<{ status?: string }>) : [];
                   return (
-                    <label key={node.node_key} className="flex items-center gap-2">
+                    <div key={node.node_key} className="flex items-center gap-2">
                       <code className="bg-muted shrink-0 rounded px-1 text-[10px]">{node.node_key}</code>
-                      <select className={cn(selectClass, 'h-8 text-xs')} value={apiPorts[node.node_key] ?? ''} aria-label={t('apiPortFor', { node: node.node_key })}
-                        onChange={(e) => setApiPorts((p) => {
+                      <OptionSelect size="sm" className="text-xs" value={apiPorts[node.node_key] ?? ''} aria-label={t('apiPortFor', { node: node.node_key })}
+                        onValueChange={(value) => setApiPorts((p) => {
                           const next = { ...p };
-                          if (e.target.value) next[node.node_key] = e.target.value;
+                          if (value) next[node.node_key] = value;
                           else delete next[node.node_key];
                           return next;
-                        })}>
-                        <option value="">{t('apiPortAsk')}</option>
-                        {routes.map((r, i) => <option key={i} value={`route:${i}`}>{r.status || `#${i + 1}`}</option>)}
-                        <option value="fallback">{tPreview('branchFallback')}</option>
-                      </select>
-                    </label>
+                        })}
+                        options={[
+                          { value: '', label: t('apiPortAsk') },
+                          ...routes.map((r, i) => ({ value: `route:${i}`, label: r.status || `#${i + 1}` })),
+                          { value: 'fallback', label: tPreview('branchFallback') },
+                        ]} />
+                    </div>
                   );
                 })}
               </div>

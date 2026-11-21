@@ -40,7 +40,7 @@ vi.mock('@/lib/db/tenant', () => ({
 }));
 
 // These assertions all fire in the pure validation prologue, before
-// any Supabase call — a bare stub is enough.
+// any data-client call — a bare stub is enough.
 const db = {} as DataClient;
 
 describe('createBroadcast validation', () => {
@@ -72,7 +72,7 @@ describe('createBroadcast validation', () => {
   });
 });
 
-// Build a Supabase-shaped mock that gets createBroadcast past its config +
+// Build a data-client-shaped mock that gets createBroadcast past its config +
 // template lookups and into the create transaction.
 function makeDb(
   createRows: unknown[] | Error,

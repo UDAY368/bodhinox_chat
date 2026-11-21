@@ -6,7 +6,9 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import {
   ArrowLeft,
+  History,
   Loader2,
+  SearchX,
   ChevronDown,
   ChevronRight,
   ExternalLink,
@@ -18,6 +20,13 @@ import { flowRunDuration } from '@/lib/flows/run-duration';
 import { useTranslations } from "next-intl";
 
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
+import { GroupedList } from "@/components/ui/grouped-list";
+import { InlineError } from "@/components/ui/inline-error";
+import { PageHeader } from "@/components/ui/page-header";
+import { PageLoading } from "@/components/ui/page-loading";
+import { OptionSelect } from "@/components/ui/option-select";
 import { cn } from "@/lib/utils";
 import { RUN_STATUSES, STATUS_META, EventLine, runStatusKey, type EventRow, type RunRow } from "./run-shared";
 
@@ -48,6 +57,8 @@ export default function FlowRunsPage() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [notFound, setNotFound] = useState(false);
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [retryToken, setRetryToken] = useState(0);
 
   const fetchPage = useCallback(async (before: string | null) => {
     const query = new URLSearchParams();
@@ -70,6 +81,7 @@ export default function FlowRunsPage() {
     if (!params.id) return;
     let cancelled = false;
     (async () => {
+      setLoadFailed(false);
       try {
         const json = await fetchPage(null);
         if (cancelled) return;
@@ -85,7 +97,7 @@ export default function FlowRunsPage() {
       } catch (err) {
         if (!cancelled) {
           console.error(err);
-          toast.error(t("loadError"));
+          setLoadFailed(true);
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -94,7 +106,7 @@ export default function FlowRunsPage() {
     return () => {
       cancelled = true;
     };
-  }, [params.id, fetchPage, t]);
+  }, [params.id, fetchPage, retryToken]);
 
   async function loadMore() {
     if (!cursor) return;
@@ -123,24 +135,26 @@ export default function FlowRunsPage() {
   }
 
   if (loading) {
+    return <div className="mx-auto max-w-4xl p-6"><PageLoading /></div>;
+  }
+  if (loadFailed && !notFound) {
     return (
-      <div className="flex h-full items-center justify-center">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-      </div>
+      <InlineError
+        message={t("loadError")}
+        onRetry={() => {
+          setLoading(true);
+          setRetryToken((n) => n + 1);
+        }}
+      />
     );
   }
   if (notFound || !flow) {
     return (
-      <div className="flex h-full flex-col items-center justify-center gap-3">
-        <p className="text-sm text-muted-foreground">{tEdit("notFound")}</p>
-        <button
-          type="button"
-          onClick={() => router.push("/flows")}
-          className="text-sm text-primary hover:opacity-80"
-        >
-          {tEdit("backToFlows")}
-        </button>
-      </div>
+      <EmptyState
+        icon={SearchX}
+        title={tEdit("notFound")}
+        action={<Button variant="outline" onClick={() => router.push("/flows")}>{tEdit("backToFlows")}</Button>}
+      />
     );
   }
 
@@ -154,43 +168,37 @@ export default function FlowRunsPage() {
         <ArrowLeft className="h-3 w-3" />
         {flow.name}
       </button>
-      <h1 className="text-xl font-semibold text-foreground">{t("title")}</h1>
-      <p className="mt-1 text-sm text-muted-foreground">
-        {t("description")}
-      </p>
-
-      <div className="mt-4 flex flex-wrap items-center gap-2 text-xs">
-        <select
+      <PageHeader title={t("title")} subtitle={t("description")} className="mb-4">
+        <OptionSelect
+          size="sm"
+          className="w-auto text-xs"
           aria-label={t("filterStatus")}
           value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
-          className="h-8 rounded-md border border-border bg-muted px-2"
-        >
-          <option value="">{t("filterAllStatuses")}</option>
-          {RUN_STATUSES.map((s) => (
-            <option key={s} value={s}>{t(runStatusKey(s))}</option>
-          ))}
-        </select>
-        <select
+          onValueChange={setStatusFilter}
+          options={[
+            { value: "", label: t("filterAllStatuses") },
+            ...RUN_STATUSES.map((s) => ({ value: s, label: t(runStatusKey(s)) })),
+          ]}
+        />
+        <OptionSelect
+          size="sm"
+          className="w-auto text-xs"
           aria-label={t("filterVersion")}
           value={versionFilter}
-          onChange={(e) => setVersionFilter(e.target.value)}
-          className="h-8 rounded-md border border-border bg-muted px-2"
-        >
-          <option value="">{t("filterAllVersions")}</option>
-          {versions.map((v) => (
-            <option key={v.id} value={v.id}>{t("versionLabel", { version: v.version })}</option>
-          ))}
-          <option value="none">{t("filterUnversioned")}</option>
-        </select>
-      </div>
+          onValueChange={setVersionFilter}
+          options={[
+            { value: "", label: t("filterAllVersions") },
+            ...versions.map((v) => ({ value: v.id, label: t("versionLabel", { version: v.version }) })),
+            { value: "none", label: t("filterUnversioned") },
+          ]}
+        />
+      </PageHeader>
 
       {runs.length === 0 ? (
-        <div className="mt-6 rounded-lg border border-dashed border-border bg-card/50 px-6 py-12 text-center text-sm text-muted-foreground">
-          {t("emptyState")}
-        </div>
+        <EmptyState icon={History} title={t("emptyState")} />
       ) : (
-        <div className="mt-6 flex flex-col gap-2">
+        <div className="flex flex-col gap-2">
+          <GroupedList>
           {runs.map((run) => (
             <RunCard
               key={run.id}
@@ -202,6 +210,7 @@ export default function FlowRunsPage() {
               t={t}
             />
           ))}
+          </GroupedList>
           {cursor && (
             <button
               type="button"
@@ -240,11 +249,11 @@ function RunCard({
     run.contact?.name?.trim() || run.contact?.phone || t("unknownContact");
   const duration = flowRunDuration(run.started_at, run.ended_at);
   return (
-    <div className="rounded-lg border border-border bg-card">
+    <div className="border-t border-separator first:border-t-0">
       <button
         type="button"
         onClick={onToggle}
-        className="flex w-full items-center gap-3 px-4 py-3 text-left"
+        className="flex min-h-11 w-full items-center gap-3 px-4 py-3 text-left"
       >
         {expanded ? (
           <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />

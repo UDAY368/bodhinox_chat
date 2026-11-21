@@ -30,7 +30,6 @@ export const RULE_FIELDS = {
 } as const satisfies Record<string, { ops: readonly string[]; value: RuleValueKind }>;
 export type RuleField = keyof typeof RULE_FIELDS;
 export const RULE_FIELD_NAMES = Object.keys(RULE_FIELDS) as RuleField[];
-export type RuleOp = 'eq' | 'neq' | 'gt' | 'lt' | 'is';
 
 export type CollectionRule =
   | { field: 'tag' | 'brand' | 'product_type'; op: 'eq' | 'neq'; value: string }

@@ -12,8 +12,8 @@ describe('campaign actions by status', () => {
   it('offers the prototype menu, by status, with Delete last', () => {
     expect(availableActions(row('draft'), { canSend: true })).toEqual(['open', 'edit', 'duplicate', 'delete']);
     expect(availableActions(row('scheduled'), { canSend: true })).toEqual(['open', 'reschedule', 'sendNow', 'cancelSchedule', 'duplicate', 'delete']);
-    expect(availableActions(row('sending'), { canSend: true })).toEqual(['open', 'pause', 'duplicate', 'delete']);
-    expect(availableActions(row('paused'), { canSend: true })).toEqual(['open', 'resume', 'duplicate', 'delete']);
+    expect(availableActions(row('sending'), { canSend: true })).toEqual(['open', 'pause', 'cancelRemaining', 'duplicate', 'delete']);
+    expect(availableActions(row('paused'), { canSend: true })).toEqual(['open', 'resume', 'cancelRemaining', 'duplicate', 'delete']);
     expect(availableActions(row('sent', { failed_count: 3 }), { canSend: true })).toEqual(['open', 'retryFailed', 'duplicate', 'delete']);
     expect(availableActions(row('sent'), { canSend: true })).toEqual(['open', 'duplicate', 'delete']);
   });
@@ -24,9 +24,17 @@ describe('campaign actions by status', () => {
     expect(primaryAction(row('scheduled'), false)).toBeNull();
   });
 
-  it('cannot pause or duplicate an API campaign, and leaves the open action out of the campaign page', () => {
-    expect(availableActions(row('sending', { kind: 'api' }), { canSend: true, inDetail: true })).toEqual(['delete']);
+  it('cannot pause, cancel or duplicate an API campaign, and leaves the open action out of the campaign page', () => {
+    expect(availableActions(row('sending', { kind: 'api' }), { canSend: true, inDetail: true })).toEqual(['createSegment', 'delete']);
     expect(primaryAction(row('sending', { kind: 'api' }), true)).toBeNull();
+  });
+
+  it('offers "Create segment from this result" on the campaign page once it has sent, never on the list or a draft', () => {
+    expect(availableActions(row('sent'), { canSend: true, inDetail: true })).toEqual(['createSegment', 'duplicate', 'delete']);
+    expect(availableActions(row('cancelled'), { canSend: true, inDetail: true })).toEqual(['createSegment', 'duplicate', 'delete']);
+    expect(availableActions(row('sent'), { canSend: true })).not.toContain('createSegment');
+    expect(availableActions(row('draft'), { canSend: true, inDetail: true })).not.toContain('createSegment');
+    expect(availableActions(row('scheduled'), { canSend: true, inDetail: true })).not.toContain('createSegment');
   });
 
   it('leads the campaign page with the next step for its status', () => {

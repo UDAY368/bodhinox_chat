@@ -7,7 +7,8 @@
  * Amounts are integer minor units (see ./money).
  */
 
-import { formatMoney, isCurrencyCode, MAX_MINOR, MoneyError, parseMoney } from './money';
+import { isCurrencyCode, MAX_MINOR, MoneyError, parseMoney } from './money';
+import { formatMoney } from '@/lib/format/money';
 
 export const ORDER_STATUSES = [
   'new', 'confirmed', 'awaiting_payment', 'payment_review', 'paid', 'partially_shipped', 'dispatched', 'fulfilled', 'expired', 'cancelled',
@@ -148,14 +149,14 @@ export function orderItemsSummary(items: Pick<InboundOrderItem, 'quantity' | 'na
 
 /** The inbox text for a cart (messages.content_text and the conversation preview). */
 export function orderContentText(order: InboundOrder): string {
-  return `[Order] ${orderItemsSummary(order.items, 800)} — ${formatMoney(order.subtotal_minor, order.currency)}`;
+  return `[Order] ${orderItemsSummary(order.items, 800)} — ${formatMoney(order.subtotal_minor, order.currency, { locale: 'en' })}`;
 }
 
 /** Variables an order_received flow starts with. */
 export function orderFlowVars(order: OrderMessagePayload): Record<string, string> {
   return {
     order_id: order.order_id,
-    order_total: formatMoney(order.subtotal_minor, order.currency),
+    order_total: formatMoney(order.subtotal_minor, order.currency, { locale: 'en' }),
     order_total_minor: String(order.subtotal_minor),
     order_currency: order.currency,
     order_items_count: String(orderUnitCount(order.items)),

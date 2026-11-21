@@ -37,15 +37,15 @@ export interface PipelineDonutData {
 export interface ResponseTimeBucket {
   /** 0 = Mon … 6 = Sun (Monday-first). */
   dow: number
-  /** Average first-response time in minutes. Null means no samples. */
-  avgMinutes: number | null
+  /** Median first reply in minutes (first-reply.ts). Null means no samples. */
+  medianMinutes: number | null
   samples: number
 }
 
 export interface ResponseTimeSummary {
   buckets: ResponseTimeBucket[]
-  thisWeekAvg: number | null
-  lastWeekAvg: number | null
+  thisWeekMedian: number | null
+  lastWeekMedian: number | null
 }
 
 export type ActivityKind =
@@ -73,4 +73,17 @@ export interface DashboardCharts {
   responseTime: ResponseTimeSummary
   /** Open deals only. */
   dealsByStage: { stageId: string; count: number; value: number }[]
+}
+
+/** GET /api/dashboard/business: the Home business cards. Money and AI figures are null for viewers. */
+export interface BusinessCards {
+  timezone: string
+  /** Paid orders' revenue in minor units per currency (analytics_daily, today live). */
+  revenue: { todayMinor: Record<string, number>; last7DaysMinor: Record<string, number>; paidOrders7Days: number } | null
+  /** Booked (confirmed, completed, no-show) appointments, on each location's local day. */
+  bookings: { today: number; upcomingToday: number; next7Days: number }
+  /** Meta ads spend over the last 7 days per currency, from synced insights; null without access or ads data. */
+  adSpend: { last7Days: { currency: string; amount: number }[] } | null
+  /** Conversations the AI closed without a person ("AI handled"). */
+  aiHandled: { today: number; last7Days: number } | null
 }

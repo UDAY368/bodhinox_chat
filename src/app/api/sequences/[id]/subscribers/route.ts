@@ -13,7 +13,6 @@ import {
   changeSubscriber,
   listSubscribers,
   parseSubscriberAction,
-  requireInstagram,
   sequenceErrorResponse,
   sequenceHeaders,
   SEQUENCE_WRITE_LIMIT,
@@ -25,7 +24,6 @@ export async function GET(_request: Request, { params }: Params) {
   try {
     const { id } = await params;
     const ctx = await requireRole('viewer');
-    requireInstagram();
     return NextResponse.json({ subscribers: await listSubscribers(tenantOf(ctx), id) }, { headers: sequenceHeaders });
   } catch (error) {
     return sequenceErrorResponse(error);
@@ -36,7 +34,6 @@ export async function POST(request: Request, { params }: Params) {
   try {
     const { id } = await params;
     const ctx = await requireRole('agent');
-    requireInstagram();
     const limit = await checkRateLimit(`sequences:write:${ctx.userId}`, SEQUENCE_WRITE_LIMIT);
     if (!limit.success) return rateLimitResponse(limit);
     const input = parseSubscriberAction(await request.json().catch(() => null));

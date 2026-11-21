@@ -49,7 +49,7 @@ describe.skipIf(!ownerUrl||!workerUrl)('atomic authenticated campaign creation',
 
   it('deduplicates CSV numbers and reuses owned contacts without changing their names',async()=>{
     const input=payload();const phone=`+1${String(Date.now()).slice(-10)}`;
-    const result=await createCampaign(scope,{...input,audience:{type:'csv',csvContacts:[{phone:'+1 (415) 555-0123',name:'Do not overwrite'},{phone:phone,name:'CSV user'},{phone:phone.replace('+',''),name:'Duplicate'}]}});
+    const result=await createCampaign(scope,{...input,audience:{type:'csv',csvContacts:[{phone:'+1 (415) 555-0123',name:'Do not overwrite'},{phone:phone,name:'CSV user'},{phone:phone.replace('+',''),name:'Duplicate'}],consentConfirmed:true}});
     expect((await owner.query('SELECT total_recipients FROM broadcasts WHERE id=$1',[result.id])).rows[0].total_recipients).toBe(2);
     const rows=(await owner.query('SELECT r.template_params,c.name FROM broadcast_recipients r JOIN contacts c ON c.id=r.contact_id WHERE r.broadcast_id=$1 ORDER BY c.name',[result.id])).rows;
     expect(rows).toEqual([{template_params:['Asha','Gold'],name:'Asha'},{template_params:['CSV user',''],name:'CSV user'}]);
@@ -151,7 +151,7 @@ describe.skipIf(!ownerUrl||!workerUrl)('atomic authenticated campaign creation',
     await owner.query(`CREATE FUNCTION ${functionName}() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.tenant_id='${accountId}'::uuid AND NEW.type='broadcast.dispatch' THEN RAISE EXCEPTION 'Simulated campaign queue failure'; END IF; RETURN NEW; END $$`);
     await owner.query(`CREATE TRIGGER ${triggerName} BEFORE INSERT ON jobs FOR EACH ROW EXECUTE FUNCTION ${functionName}()`);
     try {
-      await expect(createCampaign(scope,{...input,audience:{type:'csv',csvContacts:[{phone,name:'Rolled back CSV'}]}})).rejects.toThrow();
+      await expect(createCampaign(scope,{...input,audience:{type:'csv',csvContacts:[{phone,name:'Rolled back CSV'}],consentConfirmed:true}})).rejects.toThrow();
       expect((await owner.query('SELECT count(*)::int AS count FROM broadcasts WHERE account_id=$1 AND name=$2',[accountId,input.name])).rows[0].count).toBe(0);
       expect((await owner.query("SELECT count(*)::int AS count FROM contacts WHERE account_id=$1 AND name='Rolled back CSV'",[accountId])).rows[0].count).toBe(0);
       expect((await owner.query("SELECT count(*)::int AS count FROM outbox_events WHERE account_id=$1 AND payload->'new'->>'name'=$2",[accountId,input.name])).rows[0].count).toBe(0);

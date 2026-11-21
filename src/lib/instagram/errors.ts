@@ -51,7 +51,3 @@ export class InstagramError extends Error {
     this.status = STATUS[code];
   }
 }
-
-export function isInstagramErrorCode(value: unknown): value is InstagramErrorCode {
-  return typeof value === 'string' && (INSTAGRAM_ERROR_CODES as readonly string[]).includes(value);
-}

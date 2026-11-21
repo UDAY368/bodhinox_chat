@@ -11,18 +11,14 @@ import { Check, Loader2, Search } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 
 import { Input } from "@/components/ui/input";
-import { formatMoney } from "@/lib/commerce/money";
+import { formatMoney } from "@/lib/format/money";
 import { cn } from "@/lib/utils";
 import { fetchProducts, type ProductPublic } from "./catalog-api";
 
 /** The price as the customer sees it, or null when the catalogue has none. */
 export function productPrice(product: Pick<ProductPublic, "price_minor" | "currency">, locale: string): string | null {
   if (product.price_minor === null || !product.currency) return null;
-  try {
-    return formatMoney(product.price_minor, product.currency, locale);
-  } catch {
-    return null;
-  }
+  return formatMoney(product.price_minor, product.currency, { locale });
 }
 
 export function ProductPicker({

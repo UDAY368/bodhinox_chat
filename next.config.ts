@@ -77,13 +77,20 @@ const APP_LOCALE = ["en", "pt", "es", "ko"].includes(process.env.NEXT_PUBLIC_APP
 const nextConfig: NextConfig = {
   turbopack: {
     resolveAlias: {
-      "@app-messages": `./messages/${APP_LOCALE}.json`,
+      // Browser code gets the catalogue the root layout already sent (src/i18n/browser-messages.ts)
+      // instead of bundling the whole file into every page.
+      "@app-messages": { browser: "./src/i18n/browser-messages.ts", default: `./messages/${APP_LOCALE}.json` },
     },
   },
   // Emit a self-contained server bundle (.next/standalone) so the
   // Docker image can run without node_modules or the Next CLI.
   // Harmless outside Docker: `next start` keeps working as before.
   output: "standalone",
+  // PDF reports (src/lib/analytics/report-pdf.ts) read the embedded Noto fonts from
+  // disk and load HarfBuzz's WebAssembly at run time; trace both into the bundle.
+  outputFileTracingIncludes: {
+    "/api/analytics/**": ["./src/lib/analytics/fonts/*.ttf", "./node_modules/harfbuzzjs/dist/*.wasm"],
+  },
 
   // Dev-only: don't forward browser console output into .next/dev/logs.
   // That log write is seen by the watcher, which rebuilds, reloads the

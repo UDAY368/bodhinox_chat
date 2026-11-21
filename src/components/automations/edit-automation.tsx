@@ -3,7 +3,6 @@ import { authFetch } from "@/lib/auth/client";
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { Loader2 } from "lucide-react"
 import { useTranslations } from "next-intl"
 
 import {
@@ -13,6 +12,7 @@ import {
   type ServerStepNode,
 } from "@/components/automations/automation-builder"
 import { channelPath } from "@/lib/channels/routes"
+import { PageLoading } from "@/components/ui/page-loading"
 import type { AutomationTriggerType, Channel } from "@/types"
 
 /** A row's channel; a row read without the column is WhatsApp. */
@@ -75,11 +75,7 @@ export function EditAutomation({ id, channel }: { id: string; channel: Channel }
   }
 
   if (!initial) {
-    return (
-      <div className="flex h-screen items-center justify-center">
-        <Loader2 className="h-6 w-6 animate-spin text-primary" />
-      </div>
-    )
+    return <PageLoading />
   }
 
   return <AutomationBuilder initial={initial} channel={channel} />

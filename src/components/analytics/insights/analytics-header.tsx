@@ -15,8 +15,10 @@ import { useFormatter, useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { quietSelect, segmentedItem, segmentedTrack } from '@/components/dashboard/segmented';
-import { NumberFilter, type Preset } from '@/components/analytics/range-picker';
+import { PageHeader } from '@/components/ui/page-header';
+import { SegmentedControl } from '@/components/ui/segmented-control';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { NONE, NumberFilter, filterTrigger, type Preset } from '@/components/analytics/range-picker';
 import { customRangeIssue } from '@/lib/analytics/saved-report-shape';
 import { useAnalyticsFilters } from './context';
 
@@ -101,43 +103,47 @@ export function AnalyticsHeader() {
   const customLabel = custom && range.from && range.to ? (range.from === range.to ? day(range.from) : `${day(range.from)} – ${day(range.to)}`) : tr('custom');
   const today = shown?.range.endDay && ENDS_TODAY.has(shown.range.preset ?? '') ? shown.range.endDay : browserToday();
 
+  const calendarPick = CALENDAR.includes(range.preset as (typeof CALENDAR)[number]) ? range.preset : NONE;
+
   return (
     <div className="space-y-3">
-      <header className="min-w-0">
-        <h1 className="text-[22px] leading-tight font-bold tracking-tight text-foreground">{t(`tabs.${tab}.title`)}</h1>
-        <p className="mt-1 max-w-2xl text-sm text-muted-foreground">{t(`tabs.${tab}.description`)}</p>
-      </header>
-      <div className="flex flex-wrap items-center gap-2">
-        <div role="group" aria-label={tr('label')} className={`${segmentedTrack} w-full min-[761px]:w-auto`}>
-          {QUICK.map((preset) => (
-            <button key={preset} type="button" aria-pressed={range.preset === preset} onClick={() => setRange({ preset })}
-              className={segmentedItem(range.preset === preset, 'flex-1 min-[761px]:flex-none')}>
-              {tr(preset)}
-            </button>
-          ))}
-          <button type="button" aria-pressed={custom} aria-haspopup="dialog" onClick={() => setCustomOpen(true)}
-            className={segmentedItem(custom, 'flex-1 min-[761px]:flex-none')}>
-            <CalendarDays aria-hidden />
-            {customLabel}
-          </button>
-        </div>
-        <select aria-label={tr('calendarLabel')} className={`${quietSelect} min-w-0 flex-1 min-[761px]:flex-none`}
-          value={CALENDAR.includes(range.preset as (typeof CALENDAR)[number]) ? range.preset : ''}
-          onChange={(e) => {
-            const preset = e.target.value as (typeof CALENDAR)[number];
-            if (CALENDAR.includes(preset)) setRange({ preset });
-          }}>
-          <option value="">{tr('calendar')}</option>
-          {CALENDAR.map((preset) => <option key={preset} value={preset}>{tr(preset)}</option>)}
-        </select>
-        <select aria-label={tc('label')} className={`${quietSelect} min-w-0 flex-1 min-[761px]:flex-none`} value={channel}
-          onChange={(e) => setChannel(e.target.value as typeof channel)}>
-          <option value="">{tc('all')}</option>
-          <option value="whatsapp">{tc('whatsapp')}</option>
-          <option value="instagram">{tc('instagram')}</option>
-        </select>
+      <PageHeader title={t(`tabs.${tab}.title`)} subtitle={t(`tabs.${tab}.description`)} className="mb-0">
+        <SegmentedControl
+          aria-label={tr('label')}
+          value={range.preset}
+          onValueChange={(preset) => setRange({ preset })}
+          options={QUICK.map((preset) => ({ value: preset, label: tr(preset) }))}
+          className="w-full min-[761px]:w-auto"
+        />
+        <Button type="button" variant="outline" aria-pressed={custom} aria-haspopup="dialog" onClick={() => setCustomOpen(true)}
+          className={`min-h-11 sm:min-h-9 ${custom ? 'border-primary text-foreground' : ''}`}>
+          <CalendarDays aria-hidden />
+          {customLabel}
+        </Button>
+        <Select value={calendarPick} onValueChange={(v) => {
+          const preset = v as (typeof CALENDAR)[number];
+          if (CALENDAR.includes(preset)) setRange({ preset });
+        }}>
+          <SelectTrigger aria-label={tr('calendarLabel')} className={filterTrigger}>
+            <SelectValue>{(v: string) => (v === NONE ? tr('calendar') : tr(v as (typeof CALENDAR)[number]))}</SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={NONE}>{tr('calendar')}</SelectItem>
+            {CALENDAR.map((preset) => <SelectItem key={preset} value={preset}>{tr(preset)}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <Select value={channel || NONE} onValueChange={(v) => setChannel(!v || v === NONE ? '' : (v as typeof channel))}>
+          <SelectTrigger aria-label={tc('label')} className={filterTrigger}>
+            <SelectValue>{(v: string) => (v === NONE ? tc('all') : tc(v as 'whatsapp' | 'instagram'))}</SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={NONE}>{tc('all')}</SelectItem>
+            <SelectItem value="whatsapp">{tc('whatsapp')}</SelectItem>
+            <SelectItem value="instagram">{tc('instagram')}</SelectItem>
+          </SelectContent>
+        </Select>
         {channel !== 'instagram' && <NumberFilter numbers={numbers} value={number} onChange={setNumber} />}
-      </div>
+      </PageHeader>
       {shown && (
         <p className="text-[13px] text-muted-foreground" aria-live="polite">
           {t('caption', {

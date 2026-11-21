@@ -13,6 +13,7 @@ import { toast } from 'sonner';
 import { useTranslations } from 'next-intl';
 
 import { Button } from '@/components/ui/button';
+import { useConfirm } from '@/components/ui/confirm-dialog';
 import { Card, CardContent } from '@/components/ui/card';
 import { authFetch } from '@/lib/auth/client';
 import { invalidatePlan } from '@/lib/billing/client';
@@ -42,6 +43,7 @@ async function post(url: string, body: unknown): Promise<{ status: number; json:
 
 export function BillingSection() {
   const t = useTranslations('Billing');
+  const confirm = useConfirm();
   const [overview, setOverview] = useState<BillingOverview | null>(null);
   const [prices, setPrices] = useState<PlanPrice[]>([]);
   const [profile, setProfile] = useState<BillingProfileView | null>(null);
@@ -161,7 +163,7 @@ export function BillingSection() {
   };
 
   const cancel = async () => {
-    if (!window.confirm(t('confirmCancel'))) return;
+    if (!(await confirm({ title: t('confirmCancel'), confirmLabel: t('subscription.cancel'), destructive: true }))) return;
     setBusyAction('cancel');
     try {
       const { status, json } = await post('/api/billing/subscription', { action: 'cancel' });

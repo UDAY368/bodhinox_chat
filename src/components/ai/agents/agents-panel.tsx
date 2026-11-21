@@ -8,15 +8,18 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslations } from 'next-intl';
-import { ArrowDown, ArrowUp, Clock, Copy, Loader2, MessageSquare, MoreHorizontal, Pencil, Plus, Search, Sparkles, Trash2 } from 'lucide-react';
+import { ArrowDown, ArrowUp, Clock, Copy, MessageSquare, MoreHorizontal, Pencil, Plus, Search, Sparkles, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { authFetch } from '@/lib/auth/client';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import { EmptyState } from '@/components/ui/empty-state';
+import { InlineError } from '@/components/ui/inline-error';
+import { PageLoading } from '@/components/ui/page-loading';
+import { SegmentedControl } from '@/components/ui/segmented-control';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Switch } from '@/components/ui/switch';
-import { segmentedItem, segmentedTrack } from '@/components/dashboard/segmented';
 import { cn } from '@/lib/utils';
 import { AgentDialog } from './agent-dialog';
 import { AgentTestPanel } from './agent-test-panel';
@@ -121,13 +124,10 @@ export function AgentsPanel({ canEdit, canTest, newRequest }: {
 
   if (failed) {
     return (
-      <div className="flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card p-4 text-sm">
-        <p className="text-destructive">{t('agents.toasts.loadFailed')}</p>
-        <Button type="button" size="sm" variant="outline" onClick={() => void load()}>{t('common.retry')}</Button>
-      </div>
+      <InlineError message={t('agents.toasts.loadFailed')} onRetry={() => void load()} />
     );
   }
-  if (!agents) return <div className="flex justify-center py-10"><Loader2 className="size-5 animate-spin text-muted-foreground" aria-label={t('common.loading')} /></div>;
+  if (!agents) return <PageLoading rows={3} />;
 
   const filters: [AgentFilter, string, number][] = [
     ['all', t('agents.filterAll'), agents.length], ['on', t('agents.filterOn'), onCount], ['off', t('agents.filterOff'), agents.length - onCount],
@@ -138,34 +138,34 @@ export function AgentsPanel({ canEdit, canTest, newRequest }: {
     <div className={cn('min-w-0', testing && 'xl:grid xl:grid-cols-[minmax(0,1fr)_360px] xl:items-start xl:gap-4')}>
       <div className="min-w-0 space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className={segmentedTrack} role="group" aria-label={t('agents.filterLabel')}>
-            {filters.map(([id, label, n]) => (
-              <button key={id} type="button" aria-pressed={filter === id} className={segmentedItem(filter === id)} onClick={() => setFilter(id)}>
-                {label} <b className="font-semibold tabular-nums">{n}</b>
-              </button>
-            ))}
-          </div>
-          <label className="relative flex h-9 w-full min-w-0 items-center sm:w-64">
+          <SegmentedControl
+            aria-label={t('agents.filterLabel')}
+            value={filter}
+            onValueChange={setFilter}
+            options={filters.map(([id, label, n]) => ({ value: id, label, count: n }))}
+          />
+          <label className="relative flex min-h-11 w-full min-w-0 items-center sm:w-64">
             <Search className="pointer-events-none absolute left-3 size-4 text-muted-foreground" aria-hidden />
             <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t('agents.search')} aria-label={t('agents.search')}
-              className="h-9 w-full rounded-full border border-border bg-card pr-3 pl-9 text-sm outline-none transition-colors duration-150 placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30" />
+              className="h-11 w-full rounded-full border border-border bg-card pr-3 pl-9 sm:h-9 text-sm outline-none transition-colors duration-150 placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30" />
           </label>
         </div>
         {agents.length > 1 && <p className="text-xs text-muted-foreground">{t('agents.orderHint')}</p>}
 
         {agents.length === 0 ? (
-          <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-border px-4 py-12 text-center">
-            <span className="flex size-11 items-center justify-center rounded-xl bg-primary-soft text-primary"><Sparkles className="size-5" aria-hidden /></span>
-            <h2 className="text-base font-semibold">{t('agents.emptyTitle')}</h2>
-            <p className="max-w-sm text-sm text-muted-foreground">{t('agents.emptyBody')}</p>
-            {canEdit && <Button type="button" variant="outline" onClick={() => setEditing({ agent: null, key: 'new' })}><Plus aria-hidden />{t('agents.createFirst')}</Button>}
-          </div>
+          <EmptyState
+            icon={Sparkles}
+            title={t('agents.emptyTitle')}
+            body={t('agents.emptyBody')}
+            action={canEdit ? <Button type="button" variant="outline" onClick={() => setEditing({ agent: null, key: 'new' })}><Plus aria-hidden />{t('agents.createFirst')}</Button> : undefined}
+          />
         ) : list.length === 0 ? (
-          <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-border px-4 py-12 text-center">
-            <h2 className="text-base font-semibold">{t('agents.noMatchTitle')}</h2>
-            <p className="text-sm text-muted-foreground">{t('agents.noMatchBody')}</p>
-            <Button type="button" variant="outline" onClick={() => { setFilter('all'); setQuery(''); }}>{t('agents.clearFilters')}</Button>
-          </div>
+          <EmptyState
+            icon={Search}
+            title={t('agents.noMatchTitle')}
+            body={t('agents.noMatchBody')}
+            action={<Button type="button" variant="outline" onClick={() => { setFilter('all'); setQuery(''); }}>{t('agents.clearFilters')}</Button>}
+          />
         ) : (
           <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,300px),1fr))] gap-3.5">
             {list.map((a) => {
@@ -218,7 +218,7 @@ export function AgentsPanel({ canEdit, canTest, newRequest }: {
                       {canEdit && !a.synthetic && (
                         <DropdownMenu>
                           <DropdownMenuTrigger aria-label={t('agents.more', { name: a.name })}
-                            className="inline-flex size-8 items-center justify-center rounded-full text-muted-foreground transition-colors duration-150 hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 data-[popup-open]:bg-muted">
+                            className="inline-flex size-11 items-center justify-center rounded-full text-muted-foreground sm:size-8 transition-colors duration-150 hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 data-[popup-open]:bg-muted">
                             <MoreHorizontal className="size-4" aria-hidden />
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
@@ -257,20 +257,16 @@ export function AgentsPanel({ canEdit, canTest, newRequest }: {
           }} />
       )}
 
-      <Dialog open={deleting !== null} onOpenChange={(open) => { if (!open) setDeleting(null); }}>
-        <DialogContent className="border-border bg-popover sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>{t('agents.deleteTitle', { name: deleting?.name ?? '' })}</DialogTitle>
-            <DialogDescription>{deleting?.enabled ? t('agents.deleteOn') : t('agents.deleteOff')}</DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setDeleting(null)}>{t('common.cancel')}</Button>
-            <Button type="button" variant="destructive" disabled={!deleting || pending === deleting.id} onClick={() => deleting && void remove(deleting)}>
-              {t('agents.deleteConfirm')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ConfirmDialog
+        open={deleting !== null}
+        onOpenChange={(open) => { if (!open) setDeleting(null); }}
+        title={t('agents.deleteTitle', { name: deleting?.name ?? '' })}
+        body={deleting?.enabled ? t('agents.deleteOn') : t('agents.deleteOff')}
+        cancelLabel={t('common.cancel')}
+        confirmLabel={t('agents.deleteConfirm')}
+        destructive
+        onConfirm={async () => { if (deleting) await remove(deleting); }}
+      />
     </div>
   );
 }

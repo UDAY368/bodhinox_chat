@@ -7,7 +7,8 @@ import { CalendarDays } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { quietSelect, segmentedItem, segmentedTrack } from '@/components/dashboard/segmented';
+import { SegmentedControl } from '@/components/ui/segmented-control';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 export type Preset = 'today' | '7d' | '30d' | '90d' | 'this_week' | 'last_week' | 'this_month' | 'last_month' | 'custom';
 export interface RangeValue {
@@ -19,6 +20,11 @@ export interface RangeValue {
 const PRESETS: Exclude<Preset, 'custom'>[] = ['today', '7d', '30d', '90d'];
 /** Calendar periods in the workspace timezone; weeks start on Monday. */
 const CALENDAR_PRESETS: Exclude<Preset, 'custom'>[] = ['this_week', 'last_week', 'this_month', 'last_month'];
+
+/** Select value standing for "no option picked" (base-ui Select has no clean empty value). */
+export const NONE = '__none';
+/** A filter menu in a toolbar: a 44px row on phones, compact from 640px. */
+export const filterTrigger = 'min-h-11 w-full sm:min-h-9 sm:w-auto';
 
 /** Range query values for a report request. */
 export function rangeParams(value: RangeValue) {
@@ -43,44 +49,40 @@ export function RangePicker({
 
   return (
     <div className="flex max-w-full flex-wrap items-center gap-2 sm:justify-end">
-      <div role="group" aria-label={t('label')} className={segmentedTrack}>
-        {PRESETS.map((preset) => (
-          <button
-            key={preset}
-            type="button"
-            className={segmentedItem(value.preset === preset && !custom)}
-            aria-pressed={value.preset === preset && !custom}
-            onClick={() => {
-              setCustom(false);
-              onChange({ preset });
-            }}
-          >
-            {t(preset)}
-          </button>
-        ))}
-        <button type="button" className={segmentedItem(custom)} aria-pressed={custom} onClick={() => setCustom(true)}>
-          <CalendarDays aria-hidden />
-          {t('custom')}
-        </button>
-      </div>
-      <select
-        aria-label={t('calendarLabel')}
-        className={quietSelect}
-        value={!custom && CALENDAR_PRESETS.includes(value.preset as Exclude<Preset, 'custom'>) ? value.preset : ''}
-        onChange={(e) => {
-          const preset = e.target.value as Exclude<Preset, 'custom'>;
+      <SegmentedControl
+        aria-label={t('label')}
+        value={custom ? 'custom' : value.preset}
+        onValueChange={(preset) => {
+          setCustom(false);
+          onChange({ preset: preset as Exclude<Preset, 'custom'> });
+        }}
+        options={PRESETS.map((preset) => ({ value: preset, label: t(preset) }))}
+      />
+      <Button type="button" variant="outline" className="min-h-11 sm:min-h-9" aria-pressed={custom} onClick={() => setCustom(true)}>
+        <CalendarDays aria-hidden />
+        {t('custom')}
+      </Button>
+      <Select
+        value={!custom && CALENDAR_PRESETS.includes(value.preset as Exclude<Preset, 'custom'>) ? value.preset : NONE}
+        onValueChange={(v) => {
+          const preset = v as Exclude<Preset, 'custom'>;
           if (!CALENDAR_PRESETS.includes(preset)) return;
           setCustom(false);
           onChange({ preset });
         }}
       >
-        <option value="">{t('calendar')}</option>
-        {CALENDAR_PRESETS.map((preset) => (
-          <option key={preset} value={preset}>
-            {t(preset)}
-          </option>
-        ))}
-      </select>
+        <SelectTrigger aria-label={t('calendarLabel')} className={filterTrigger}>
+          <SelectValue>{(v: string) => (v === NONE ? t('calendar') : t(v as Exclude<Preset, 'custom'>))}</SelectValue>
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value={NONE}>{t('calendar')}</SelectItem>
+          {CALENDAR_PRESETS.map((preset) => (
+            <SelectItem key={preset} value={preset}>
+              {t(preset)}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
       {custom && (
         <form
           className="flex basis-full flex-wrap items-end gap-2 sm:justify-end"
@@ -123,22 +125,25 @@ export function NumberFilter({
   if (numbers.length > 0 && numbers !== kept) setKept(numbers);
   const shown = numbers.length > 0 ? numbers : kept;
   if (shown.length < 2 && !value) return null;
+  const numberLabel = (id: string) => {
+    const i = shown.findIndex((number) => number.id === id);
+    if (i < 0) return t('label');
+    const number = shown[i];
+    return `${number.label || t('fallback', { n: i + 1 })}${number.isDefault ? ` ${t('default')}` : ''}`;
+  };
   return (
-    <label className="flex items-center gap-2 text-[13px]">
-      <span className="text-muted-foreground">{t('label')}</span>
-      <select
-        className={quietSelect}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-      >
-        <option value="">{t('all')}</option>
-        {shown.map((number, i) => (
-          <option key={number.id} value={number.id}>
-            {number.label || t('fallback', { n: i + 1 })}
-            {number.isDefault ? ` ${t('default')}` : ''}
-          </option>
+    <Select value={value || NONE} onValueChange={(v) => onChange(!v || v === NONE ? '' : v)}>
+      <SelectTrigger aria-label={t('label')} className={`${filterTrigger} max-w-full`}>
+        <SelectValue>{(v: string) => (v === NONE ? t('all') : numberLabel(v))}</SelectValue>
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value={NONE}>{t('all')}</SelectItem>
+        {shown.map((number) => (
+          <SelectItem key={number.id} value={number.id}>
+            {numberLabel(number.id)}
+          </SelectItem>
         ))}
-      </select>
-    </label>
+      </SelectContent>
+    </Select>
   );
 }

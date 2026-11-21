@@ -53,6 +53,7 @@ const EXPECTED: Record<string, string> = {
   '/forms/x1': 'campaigns',
   '/flows/x1/runs/x1': 'automation',
   '/instagram/sequences/x1': 'automation',
+  '/whatsapp/sequences/x1': 'automation',
   '/settings/audit-log': 'settings',
 };
 

@@ -48,6 +48,7 @@ import {
   type ReactNode,
 } from "react";
 import { useRouter } from "next/navigation";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import { toast } from "sonner";
 
 import {
@@ -553,6 +554,8 @@ export function FlowEditorProvider({
   const router = useRouter();
   const t = useTranslations("Flows.editorState");
   const tAuto = useTranslations("Flows.autosave");
+  const tHeader = useTranslations("Flows.header");
+  const confirm = useConfirm();
 
   // Authored state with undo / redo (use-history.ts). Status changes and the
   // first layout of a position-less flow are not edits (history.replace).
@@ -770,10 +773,15 @@ export function FlowEditorProvider({
     };
     const click = (e: MouseEvent) => {
       if (!isGuardedLinkClick(e, window.location.origin)) return;
-      if (!window.confirm(tAuto("leaveWarning"))) {
-        e.preventDefault();
-        e.stopPropagation();
-      }
+      // Hold the link, ask in the app's confirm sheet, then follow it on Leave.
+      const href = ((e.target as Element).closest("a[href]") as HTMLAnchorElement).href;
+      e.preventDefault();
+      e.stopPropagation();
+      void confirm({ title: tAuto("leaveWarning"), confirmLabel: tAuto("leave"), destructive: true }).then((leave) => {
+        if (!leave) return;
+        const url = new URL(href, window.location.origin);
+        router.push(url.pathname + url.search + url.hash);
+      });
     };
     window.addEventListener("beforeunload", beforeUnload);
     document.addEventListener("click", click, true);
@@ -781,7 +789,7 @@ export function FlowEditorProvider({
       window.removeEventListener("beforeunload", beforeUnload);
       document.removeEventListener("click", click, true);
     };
-  }, [unsaved, tAuto]);
+  }, [unsaved, tAuto, confirm, router]);
 
   // Applies a publish outcome. A draft another member changed is never
   // retried: the page reloads so the author sees what is saved now.
@@ -877,7 +885,7 @@ export function FlowEditorProvider({
 
   // ---- Delete ----
   const deleteFlow = useCallback(async () => {
-    const yes = window.confirm(t("deleteConfirm", { name: state.name }));
+    const yes = await confirm({ title: t("deleteConfirm", { name: state.name }), confirmLabel: tHeader("delete"), destructive: true });
     if (!yes) return;
     try {
       const res = await authFetch(`/api/flows/${initialFlow.id}`, {
@@ -898,7 +906,7 @@ export function FlowEditorProvider({
       const msg = err instanceof Error ? err.message : t("deleteFailed");
       toast.error(msg);
     }
-  }, [initialFlow.id, router, section, state.name, t, controller]);
+  }, [initialFlow.id, router, section, state.name, t, tHeader, confirm, controller]);
 
   // ---- Node mutations ----
   const updateNode = useCallback(

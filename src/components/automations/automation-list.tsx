@@ -16,14 +16,12 @@ import {
   Clock,
   Users,
   PhoneCall,
-  Loader2,
 } from "lucide-react"
 
 import { createClient } from "@/lib/data/client"
 import { useCan } from "@/hooks/use-can"
 import { useTranslations } from "next-intl"
 import type { Automation } from "@/types"
-import { Button } from "@/components/ui/button"
 import { GatedButton } from "@/components/ui/gated-button"
 import { Switch } from "@/components/ui/switch"
 import {
@@ -33,14 +31,12 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
+import { useConfirm } from "@/components/ui/confirm-dialog"
+import { EmptyState } from "@/components/ui/empty-state"
+import { GroupedList } from "@/components/ui/grouped-list"
+import { InlineError } from "@/components/ui/inline-error"
+import { PageHeader } from "@/components/ui/page-header"
+import { PageLoading } from "@/components/ui/page-loading"
 import { AUTOMATION_TEMPLATES, templateOnChannel, type TemplateSlug } from "@/lib/automations/templates"
 import { channelPath } from "@/lib/channels/routes"
 import type { Channel } from "@/types"
@@ -74,10 +70,10 @@ export function AutomationList({ channel }: { channel: Channel }) {
   const tGate = useTranslations("GatedButton")
   const [automations, setAutomations] = useState<Automation[] | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [pendingDelete, setPendingDelete] = useState<Automation | null>(null)
-  const [deleting, setDeleting] = useState(false)
+  const confirm = useConfirm()
 
   async function load() {
+    setError(null)
     try {
       const db = createClient()
       const { data, error: fetchErr } = await db
@@ -129,18 +125,21 @@ export function AutomationList({ channel }: { channel: Channel }) {
     load()
   }
 
-  async function confirmDelete() {
-    if (!pendingDelete) return
-    setDeleting(true)
-    const res = await authFetch(`/api/automations/${pendingDelete.id}`, { method: "DELETE" })
-    setDeleting(false)
+  async function handleDelete(a: Automation) {
+    const yes = await confirm({
+      title: t("deleteTitle"),
+      body: t("deleteDesc", { name: a.name }),
+      confirmLabel: t("delete"),
+      destructive: true,
+    })
+    if (!yes) return
+    const res = await authFetch(`/api/automations/${a.id}`, { method: "DELETE" })
     if (!res.ok) {
       const body = await res.json().catch(() => ({}))
       toast.error(body?.error ?? t("toasts.deleteError"))
       return
     }
     toast.success(t("toasts.deleted"))
-    setPendingDelete(null)
     load()
   }
 
@@ -149,22 +148,11 @@ export function AutomationList({ channel }: { channel: Channel }) {
   }
 
   if (error) {
-    return (
-      <div className="flex h-64 flex-col items-center justify-center gap-2">
-        <p className="text-sm text-destructive">{error}</p>
-        <Button variant="outline" onClick={() => window.location.reload()}>
-          {t("retry")}
-        </Button>
-      </div>
-    )
+    return <InlineError message={t("loadFailed")} onRetry={() => void load()} />
   }
 
   if (automations === null) {
-    return (
-      <div className="flex h-64 items-center justify-center">
-        <Loader2 className="h-6 w-6 animate-spin text-primary" />
-      </div>
-    )
+    return <PageLoading />
   }
 
   const showTemplates = automations.length < 3
@@ -172,27 +160,28 @@ export function AutomationList({ channel }: { channel: Channel }) {
 
   return (
     <div>
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div className="min-w-0">
-          <h1 className="text-[22px] font-bold tracking-tight text-foreground">
-            {tSection(channel === "instagram" ? "instagramTitle" : "whatsappTitle")}
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
+      <PageHeader
+        className="mb-0"
+        title={tSection(channel === "instagram" ? "instagramTitle" : "whatsappTitle")}
+        subtitle={
+          <>
             {tSection(channel === "instagram" ? "instagramDescription" : "whatsappDescription")}
-          </p>
-          {channel === "instagram" && (
-            <p className="mt-1 text-xs text-muted-foreground">{tSection("instagramWindowHint")}</p>
-          )}
-        </div>
-        <GatedButton
-          canAct={canCreate}
-          gateReason={tGate("reasons.createAutomations")}
-          onClick={() => router.push(channelPath(channel, "automationNew"))}
-        >
-          <Plus className="h-4 w-4" />
-          {t("create")}
-        </GatedButton>
-      </div>
+            {channel === "instagram" && (
+              <p className="mt-1 text-xs text-muted-foreground">{tSection("instagramWindowHint")}</p>
+            )}
+          </>
+        }
+        primaryAction={
+          <GatedButton
+            canAct={canCreate}
+            gateReason={tGate("reasons.createAutomations")}
+            onClick={() => router.push(channelPath(channel, "automationNew"))}
+          >
+            <Plus className="h-4 w-4" />
+            {t("create")}
+          </GatedButton>
+        }
+      />
 
       {showTemplates && templates.length > 0 && (
         <section className="mt-6">
@@ -220,17 +209,10 @@ export function AutomationList({ channel }: { channel: Channel }) {
       )}
 
       {automations.length === 0 ? (
-        <div className="mt-6 flex flex-col items-center gap-2 rounded-xl border border-border bg-card px-4 py-12 text-center">
-          <span className="mb-2 inline-flex h-[52px] w-[52px] items-center justify-center rounded-2xl bg-primary/10 text-primary">
-            <Zap className="h-6 w-6" />
-          </span>
-          <p className="text-[15px] font-semibold text-foreground">{t("emptyTitle")}</p>
-          <p className="text-sm text-muted-foreground">
-            {t("emptyDesc")}
-          </p>
-        </div>
+        <EmptyState className="mt-6" icon={Zap} title={t("emptyTitle")} body={t("emptyDesc")} />
       ) : (
-        <ul className="mt-6 divide-y divide-border/60 overflow-hidden rounded-xl border border-border bg-card">
+        <GroupedList className="mt-6">
+        <ul className="divide-y divide-border/60">
           {automations.map((a) => (
             <AutomationCard
               key={a.id}
@@ -239,40 +221,14 @@ export function AutomationList({ channel }: { channel: Channel }) {
               onEdit={() => router.push(channelPath(channel, "automations", a.id))}
               onDuplicate={() => duplicate(a)}
               onLogs={() => router.push(channelPath(channel, "automationLogs", a.id))}
-              onDelete={() => setPendingDelete(a)}
+              onDelete={() => void handleDelete(a)}
               t={t}
             />
           ))}
         </ul>
+        </GroupedList>
       )}
 
-      <Dialog open={!!pendingDelete} onOpenChange={(v) => !v && setPendingDelete(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{t("deleteTitle")}</DialogTitle>
-            <DialogDescription>
-              {t("deleteDesc", { name: pendingDelete?.name ?? "" })}
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button
-              variant="ghost"
-              onClick={() => setPendingDelete(null)}
-              disabled={deleting}
-            >
-              {t("cancel")}
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={confirmDelete}
-              disabled={deleting}
-            >
-              {deleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
-              {t("delete")}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   )
 }

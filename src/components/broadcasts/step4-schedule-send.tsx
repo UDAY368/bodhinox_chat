@@ -2,10 +2,13 @@
 
 import { useEffect, useState } from 'react';
 import type { AudienceConfig } from '@/lib/broadcast-audience';
-import { audienceReach } from '@/lib/audience/client';
+// send-window.ts reaches the database (server only); the same clock helpers live in this client-safe module.
+import { formatClock, parseClock } from '@/lib/notifications/quiet-hours';
 import { MessageTemplate } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { SegmentedControl } from '@/components/ui/segmented-control';
+import { Switch } from '@/components/ui/switch';
 import {
   Dialog,
   DialogContent,
@@ -27,7 +30,7 @@ import { UpgradeBadge } from '@/components/ui/upgrade-badge';
 import { NumberSelect } from '@/components/settings/numbers/number-select';
 import { CampaignCostEstimate } from '@/components/broadcasts/campaign-cost';
 import { numberLabel, useWhatsAppNumbers } from '@/components/settings/numbers/use-whatsapp-numbers';
-import { fetchWorkspaceTimeZone } from '@/lib/broadcasts/campaign-client';
+import { campaignReach, fetchWorkspaceTimeZone } from '@/lib/broadcasts/campaign-client';
 import { browserTimeZone, scheduleLocalToUtc } from '@/lib/broadcasts/schedule-time';
 
 const TEST_NUMBERS_KEY = 'bodhinox.campaignTestNumbers';
@@ -49,6 +52,16 @@ interface Step4Props {
   /** Location, offer end and coupon code chosen in step 3. */
   sendExtras?: CampaignSendExtras;
   onSaveDraft?: () => void;
+  /** Lifted to the wizard so a saved draft keeps them: send later, its time (datetime-local), the number. */
+  later: boolean;
+  onLaterChange: (later: boolean) => void;
+  scheduleAt: string;
+  onScheduleAtChange: (value: string) => void;
+  fromNumberId: string | null;
+  onFromNumberChange: (id: string | null) => void;
+  /** Quiet hours (minutes after midnight, workspace time zone); null = any time. */
+  sendWindow: { start: number; end: number } | null;
+  onSendWindowChange: (window: { start: number; end: number } | null) => void;
   onBack: () => void;
   isProcessing: boolean;
 }
@@ -63,11 +76,20 @@ export function Step4ScheduleSend({
   headerMediaUrl,
   sendExtras,
   onSaveDraft,
+  later,
+  onLaterChange: setLater,
+  scheduleAt,
+  onScheduleAtChange: setScheduleAt,
+  fromNumberId,
+  onFromNumberChange: setFromNumberId,
+  sendWindow,
+  onSendWindowChange,
   onBack,
   isProcessing,
 }: Step4Props) {
   const t = useTranslations('Broadcasts.wizard');
   const tUi = useTranslations('UiPrimitives');
+  const tc = useTranslations('Campaigns.sendControls');
   const tn = useTranslations('whatsappNumbers');
   const { numbers: allNumbers } = useWhatsAppNumbers();
   // A template is approved per WhatsApp Business Account, so only numbers in
@@ -75,16 +97,12 @@ export function Step4ScheduleSend({
   const templateWaba = (template as { waba_id?: string | null }).waba_id ?? null;
   const numbers = allNumbers.filter((n) => !templateWaba || !n.waba_id || n.waba_id === templateWaba);
   const defaultNumber = allNumbers.find((n) => n.is_default);
-  // null = the workspace default number.
-  const [fromNumberId, setFromNumberId] = useState<string | null>(null);
   // Shown in the summary and confirmation only when there is a choice to see.
   const sendingNumber = fromNumberId ? allNumbers.find((n) => n.id === fromNumberId) : defaultNumber;
   const sendFromLabel = allNumbers.length > 1 && sendingNumber ? numberLabel(sendingNumber, tn) : null;
   const [showConfirm, setShowConfirm] = useState(false);
   const canSchedule = planAllows(usePlan(), 'campaign_scheduling');
-  const [later, setLater] = useState(false);
   // datetime-local value, read in the workspace time zone (the browser's only if that cannot load).
-  const [scheduleAt, setScheduleAt] = useState('');
   const [timeZone, setTimeZone] = useState<string | null>(null);
   useEffect(() => {
     let live = true;
@@ -141,10 +159,10 @@ export function Step4ScheduleSend({
 
   useEffect(() => {
     let live = true;
-    audienceReach(audience)
-      .then((count) => {
+    campaignReach(audience)
+      .then((reach) => {
         if (!live) return;
-        setEstimatedReach(count ?? 0);
+        setEstimatedReach(reach.count);
         setReachState('ready');
       })
       .catch(() => { if (live) setReachState('failed'); });
@@ -275,16 +293,17 @@ export function Step4ScheduleSend({
       {/* When to send */}
       <div className="rounded-xl border border-border bg-card p-4 space-y-3">
         <p className="text-sm font-medium text-foreground">{t('scheduleSend.whenLabel')}</p>
-        <div className="flex flex-wrap gap-4 text-sm text-foreground">
-          <label className="flex items-center gap-2">
-            <input type="radio" name="send-when" checked={!later} onChange={() => setLater(false)} />
-            {t('scheduleSend.whenNow')}
-          </label>
-          <label className="flex items-center gap-2">
-            <input type="radio" name="send-when" checked={later} disabled={!canSchedule} onChange={() => setLater(true)} />
-            {t('scheduleSend.whenLater')}
-            {!canSchedule && <UpgradeBadge />}
-          </label>
+        <div className="flex flex-wrap items-center gap-2">
+          <SegmentedControl
+            aria-label={t('scheduleSend.whenLabel')}
+            value={later ? 'later' : 'now'}
+            onValueChange={(when) => setLater(when === 'later')}
+            options={[
+              { value: 'now', label: t('scheduleSend.whenNow') },
+              { value: 'later', label: t('scheduleSend.whenLater'), disabled: !canSchedule },
+            ]}
+          />
+          {!canSchedule && <UpgradeBadge />}
         </div>
         {later && (
           <div className="space-y-1">
@@ -310,6 +329,41 @@ export function Step4ScheduleSend({
         )}
       </div>
 
+      {/* Quiet hours: sends outside the window wait until it opens. */}
+      <div className="rounded-xl border border-border bg-card p-4 space-y-3">
+        <label className="flex min-h-11 cursor-pointer items-center justify-between gap-3 text-sm text-foreground">
+          <span>
+            {tc('quietHours')}
+            <span className="block text-xs text-muted-foreground">{tc('quietHoursHint')}</span>
+          </span>
+          <Switch
+            checked={sendWindow !== null}
+            onCheckedChange={(on) => onSendWindowChange(on ? { start: 9 * 60, end: 21 * 60 } : null)}
+          />
+        </label>
+        {sendWindow && (
+          <div className="flex flex-wrap items-center gap-2 text-sm text-foreground">
+            <Input
+              type="time"
+              aria-label={tc('windowFrom')}
+              value={formatClock(sendWindow.start)}
+              onChange={(e) => { const v = parseClock(e.target.value); if (v !== null) onSendWindowChange({ ...sendWindow, start: v }); }}
+              className="h-11 w-32 border-border bg-muted text-foreground"
+            />
+            <span className="text-muted-foreground">{tc('windowTo')}</span>
+            <Input
+              type="time"
+              aria-label={tc('windowUntil')}
+              value={formatClock(sendWindow.end)}
+              onChange={(e) => { const v = parseClock(e.target.value); if (v !== null) onSendWindowChange({ ...sendWindow, end: v }); }}
+              className="h-11 w-32 border-border bg-muted text-foreground"
+            />
+            <p className="w-full text-xs text-muted-foreground">
+              {sendWindow.start === sendWindow.end ? tc('windowSame') : tc('windowZone', { zone: timeZone ?? 'UTC' })}
+            </p>
+          </div>
+        )}
+      </div>
       {/* Creating the campaign: the server answers once it is queued; sent counts show on the campaign page. */}
       {isProcessing && (
         <p role="status" className="flex items-center gap-2 rounded-xl border border-primary/20 bg-primary/5 p-4 text-sm font-medium text-foreground">
@@ -346,7 +400,7 @@ export function Step4ScheduleSend({
           <DialogTrigger
             render={
               <Button
-                disabled={!name.trim() || isProcessing || !scheduleValid || reachState !== 'ready'}
+                disabled={!name.trim() || isProcessing || !scheduleValid || reachState !== 'ready' || (sendWindow !== null && sendWindow.start === sendWindow.end)}
                 className="bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
               />
             }
@@ -367,6 +421,11 @@ export function Step4ScheduleSend({
                 })}
                 {sendFromLabel && (
                   <span className="mt-2 block">{t('scheduleSend.confirmSendFrom', { number: sendFromLabel })}</span>
+                )}
+                {sendWindow && (
+                  <span className="mt-2 block">
+                    {tc('confirmWindow', { from: formatClock(sendWindow.start), until: formatClock(sendWindow.end), zone: timeZone ?? 'UTC' })}
+                  </span>
                 )}
                 {scheduledDate && (
                   <span className="mt-2 block">

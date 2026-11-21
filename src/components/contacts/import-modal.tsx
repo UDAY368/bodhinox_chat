@@ -52,7 +52,7 @@ import {
 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { useCustomFields } from './contacts-client';
-import { FIELD_SELECT } from './custom-field-input';
+import { OptionSelect } from '@/components/ui/option-select';
 
 const DEFAULT_TAG_COLOR = '#3b82f6';
 const PREVIEW_LIMIT = 5;
@@ -477,24 +477,17 @@ export function ImportModal({
                     <div key={i} className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] items-center gap-x-3 gap-y-1 px-3 py-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.2fr)]">
                       <strong className="min-w-0 truncate text-[13px]" title={header}>{header || tm('unnamedColumn', { n: i + 1 })}</strong>
                       <span className="order-3 col-span-2 min-w-0 truncate text-xs text-muted-foreground sm:order-none sm:col-span-1" title={sampleOf(i)}>{sampleOf(i) || '—'}</span>
-                      <select
+                      <OptionSelect
                         aria-label={tm('saveColumnTo', { column: header || tm('unnamedColumn', { n: i + 1 }) })}
                         value={targets[i] ?? ''}
-                        onChange={(e) => setTargets((prev) => prev.map((v, j) => (j === i ? (e.target.value as ImportTarget) : v)))}
-                        className={cn(FIELD_SELECT, 'h-8')}
-                      >
-                        <option value="">{tm('skip')}</option>
-                        {IMPORT_TARGETS.map((target) => (
-                          <option key={target} value={target}>{targetLabel(target)}</option>
-                        ))}
-                        {customFields.length > 0 && (
-                          <optgroup label={tr('profile.customFields')}>
-                            {customFields.map((f) => (
-                              <option key={f.id} value={`cf:${f.id}`}>{f.field_name}</option>
-                            ))}
-                          </optgroup>
-                        )}
-                      </select>
+                        onValueChange={(next) => setTargets((prev) => prev.map((v, j) => (j === i ? (next as ImportTarget) : v)))}
+                        className="min-w-0"
+                        options={[
+                          { value: '', label: tm('skip') },
+                          ...IMPORT_TARGETS.map((target) => ({ value: target, label: targetLabel(target) })),
+                          ...customFields.map((f) => ({ value: `cf:${f.id}`, label: f.field_name, group: tr('profile.customFields') })),
+                        ]}
+                      />
                     </div>
                   ))}
                 </div>
@@ -509,12 +502,8 @@ export function ImportModal({
               <div className="grid gap-3 sm:grid-cols-2">
                 <div className="space-y-1">
                   <Label htmlFor="import-everyone-tag" className="text-xs text-popover-foreground">{tm('everyoneTag')}</Label>
-                  <select id="import-everyone-tag" value={everyoneTagId} onChange={(e) => setEveryoneTagId(e.target.value)} className={cn(FIELD_SELECT, 'h-8')}>
-                    <option value="">{tm('noTag')}</option>
-                    {tags.map((tag) => (
-                      <option key={tag.id} value={tag.id}>{tag.name}</option>
-                    ))}
-                  </select>
+                  <OptionSelect id="import-everyone-tag" value={everyoneTagId} onValueChange={setEveryoneTagId}
+                    options={[{ value: '', label: tm('noTag') }, ...tags.map((tag) => ({ value: tag.id, label: tag.name }))]} />
                 </div>
                 <div className="space-y-1">
                   <Label htmlFor="import-country-code" className="text-xs text-popover-foreground">

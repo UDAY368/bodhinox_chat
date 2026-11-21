@@ -11,7 +11,7 @@ import {
   ActivityDetailBody, ActivityResults, AiActivity, INITIAL_ACTIVITY_STATE, createActivityLoader,
   type ActivityDetail, type ActivityEvent, type ActivityState, type Filters,
 } from './ai-activity';
-import { visibleAgentTabs } from './agent-tabs';
+import { requestedActivitySection, requestedTab, visibleActivitySections, visibleAgentTabs } from './agent-tabs';
 import { ALL_REPLY_EVENT_REASONS, REPLY_EVENT_OUTCOMES } from '@/lib/ai/reply-event-codes';
 
 type Catalogue = Record<string, Record<string, unknown>>;
@@ -149,9 +149,20 @@ describe('AI activity loader', () => {
 });
 
 describe('AI Agents tabs', () => {
-  it.each(['agent', 'viewer'] as const)('hides Activity and Usage from a %s', (role) => {
-    expect(visibleAgentTabs(role)).not.toContain('activity');
-    expect(visibleAgentTabs(role)).not.toContain('usage');
+  it('has at most five tabs, with Learnings, Usage and Quality inside Activity', () => {
+    expect(visibleAgentTabs('owner')).toEqual(['agents', 'knowledge', 'features', 'setup', 'activity']);
+    expect(visibleActivitySections('owner')).toEqual(['quality', 'learnings', 'usage', 'log']);
+  });
+
+  it('shows an agent only Learnings inside Activity', () => {
+    expect(visibleAgentTabs('agent')).toContain('activity');
+    expect(visibleAgentTabs('agent')).not.toContain('features');
+    expect(visibleActivitySections('agent')).toEqual(['learnings']);
+  });
+
+  it('hides Activity from a viewer', () => {
+    expect(visibleAgentTabs('viewer')).not.toContain('activity');
+    expect(visibleActivitySections('viewer')).toEqual([]);
   });
 
   it.each(['owner', 'admin'] as const)('shows Activity to an %s', (role) => {
@@ -160,5 +171,17 @@ describe('AI Agents tabs', () => {
 
   it('shows no admin tab before the role is known', () => {
     expect(visibleAgentTabs(null)).not.toContain('activity');
+  });
+
+  it('opens old Quality, Learnings and Usage links on Activity', () => {
+    expect(requestedTab('usage')).toBe('activity');
+    expect(requestedTab('learnings')).toBe('activity');
+    expect(requestedTab('quality')).toBe('activity');
+    expect(requestedTab('playground')).toBe('agents');
+    expect(requestedTab('nope')).toBeNull();
+    // Old links open their section inside Activity.
+    expect(requestedActivitySection('quality')).toBe('quality');
+    expect(requestedActivitySection('usage')).toBe('usage');
+    expect(requestedActivitySection('activity')).toBeNull();
   });
 });

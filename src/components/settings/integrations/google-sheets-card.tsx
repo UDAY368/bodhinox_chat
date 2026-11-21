@@ -16,6 +16,8 @@ import { useTranslations } from 'next-intl';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { InlineError } from '@/components/ui/inline-error';
+import { useConfirm } from '@/components/ui/confirm-dialog';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { authFetch } from '@/lib/auth/client';
 import type { SheetsConnectionDto } from '@/lib/integrations/google-sheets/connection';
@@ -28,6 +30,7 @@ export const SHEETS_OUTCOMES = [
 
 export function GoogleSheetsCard({ canEdit }: { canEdit: boolean }) {
   const t = useTranslations('Integrations.googleSheets');
+  const confirm = useConfirm();
   const searchParams = useSearchParams();
   const [state, setState] = useState<SheetsConnectionDto | null>(null);
   const [loadFailed, setLoadFailed] = useState(false);
@@ -70,7 +73,7 @@ export function GoogleSheetsCard({ canEdit }: { canEdit: boolean }) {
   };
 
   const disconnect = async () => {
-    if (!window.confirm(t('disconnectConfirm'))) return;
+    if (!(await confirm({ title: t('disconnectConfirm'), confirmLabel: t('disconnect'), destructive: true }))) return;
     setBusy(true);
     try {
       const res = await authFetch('/api/integrations/google-sheets', { method: 'DELETE' });
@@ -99,10 +102,7 @@ export function GoogleSheetsCard({ canEdit }: { canEdit: boolean }) {
       </CardHeader>
       <CardContent className="space-y-3 text-sm">
         {loadFailed && (
-          <div className="flex items-center gap-3">
-            <p className="text-destructive">{t('loadFailed')}</p>
-            <Button type="button" size="sm" variant="outline" onClick={() => void load()}>{t('retry')}</Button>
-          </div>
+          <InlineError message={t('loadFailed')} onRetry={() => void load()} />
         )}
         {!state && !loadFailed && <Loader2 className="text-muted-foreground size-4 animate-spin" aria-label={t('loading')} />}
         {state && !state.available && <p className="text-muted-foreground">{t('notEnabled')}</p>}

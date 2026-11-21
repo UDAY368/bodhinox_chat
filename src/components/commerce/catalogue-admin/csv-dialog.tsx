@@ -11,7 +11,7 @@ import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -82,12 +82,13 @@ export function CsvImportDialog({ open, onOpenChange, onDone }: { open: boolean;
   const importable = preview ? preview.create + preview.update : 0;
 
   return (
-    <Dialog open={open} onOpenChange={close}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>{t("title")}</DialogTitle>
-          <DialogDescription>{t("description")}</DialogDescription>
-        </DialogHeader>
+    <Sheet open={open} onOpenChange={close}>
+      <SheetContent size="lg" className="w-full gap-0">
+        <SheetHeader>
+          <SheetTitle>{t("title")}</SheetTitle>
+          <SheetDescription>{t("description")}</SheetDescription>
+        </SheetHeader>
+        <div className="flex-1 space-y-4 overflow-y-auto px-4 pb-4">
         <div className="space-y-3">
           <div className="space-y-1.5">
             <Label htmlFor="csv-file">{t("file")}</Label>
@@ -121,16 +122,17 @@ export function CsvImportDialog({ open, onOpenChange, onDone }: { open: boolean;
 
           {jobs.slice(0, 3).map((j) => <JobCard key={j.id} job={j} fieldName={fieldName} codeName={codeName} />)}
         </div>
-        <DialogFooter>
+        </div>
+        <SheetFooter className="border-t border-border sm:flex-row sm:justify-end">
           <Button variant="outline" onClick={() => close(false)}>{t("close")}</Button>
           {preview && (
             <Button disabled={busy || importable === 0} onClick={() => void confirm()}>
               {busy && <Loader2 className="h-4 w-4 animate-spin" />} {t("confirm", { count: importable })}
             </Button>
           )}
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </SheetFooter>
+      </SheetContent>
+    </Sheet>
   );
 }
 

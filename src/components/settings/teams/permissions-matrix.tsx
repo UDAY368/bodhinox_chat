@@ -14,6 +14,7 @@ import { toast } from "sonner";
 import { useTranslations } from "next-intl";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { InlineError } from "@/components/ui/inline-error";
 import { Switch } from "@/components/ui/switch";
 import { authFetch } from "@/lib/auth/client";
 import type { AccountRole } from "@/lib/auth/roles";
@@ -79,7 +80,7 @@ export function PermissionsMatrix({ canEdit }: { canEdit: boolean }) {
       </CardHeader>
       <CardContent>
         {loadFailed ? (
-          <p className="text-xs text-destructive">{t("loadFailed")}</p>
+          <InlineError message={t("loadFailed")} onRetry={() => void load()} />
         ) : !view ? (
           <Loader2 className="size-4 animate-spin text-primary" />
         ) : (

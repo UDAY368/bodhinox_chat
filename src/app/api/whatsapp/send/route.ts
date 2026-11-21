@@ -412,7 +412,7 @@ async function noteSuggestionUse(
   }
 }
 
-type SendSupabase = Awaited<ReturnType<typeof createClient>>
+type SendDb = Awaited<ReturnType<typeof createClient>>
 
 type ConversationRef = { id: string; whatsapp_config_id: string | null }
 
@@ -431,7 +431,7 @@ function conversationRows(data: unknown): ConversationRef[] {
  * requires account agent membership, which the caller already is.
  */
 async function findOrCreateConversation(
-  db: SendSupabase,
+  db: SendDb,
   accountId: string,
   userId: string,
   contactId: string,

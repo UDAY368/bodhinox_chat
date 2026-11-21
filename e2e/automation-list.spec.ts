@@ -22,7 +22,7 @@ test('a blank rule lists under Rules, renames from its menu, and a flow with pro
 
   // It lists under Rules, with its type.
   await page.goto('/automation?channel=whatsapp');
-  await page.getByRole('tab', { name: /^Rules/ }).click();
+  await page.getByRole('radio', { name: /^Rules/ }).click();
   await page.getByPlaceholder('Search automations').fill(`Rule ${runId}`);
   const row = page.locator('[data-automation-row^="rule:"]').filter({ hasText: `Rule ${runId}` });
   await expect(row).toHaveCount(1);
