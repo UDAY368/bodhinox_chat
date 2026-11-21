@@ -16,12 +16,11 @@ import { useTranslations } from "next-intl";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useConfirm } from "@/components/ui/confirm-dialog";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { useCan } from "@/hooks/use-can";
 import { authFetch } from "@/lib/auth/client";
 import { SettingsPanelHead } from "./settings-panel-head";
+import { SettingsBlock, SettingsGroup, SettingsRow, SettingsSwitchRow } from "./settings-row";
 
 interface RazorpayStatus {
   connected: boolean;
@@ -108,74 +107,74 @@ export function PaymentsCard() {
   return (
     <div>
       <SettingsPanelHead title={t("title")} description={t("description")} />
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
+      {/* Connect or replace is the one primary action; Disconnect sits in the group's more menu. */}
+      <SettingsGroup
+        title={
+          <span className="inline-flex items-center gap-2">
             <CreditCard className="h-4 w-4" />
             {t("razorpay")}
             {status?.connected && (
-              <Badge variant={status.mode === "live" ? "default" : "secondary"}>{status.mode === "live" ? t("live") : t("test")}</Badge>
+              <Badge variant={status.mode === "live" ? "default" : "secondary"} className="normal-case">{status.mode === "live" ? t("live") : t("test")}</Badge>
             )}
-          </CardTitle>
-          <CardDescription>
-            {loadFailed ? t("loadFailed") : !status ? t("loading") : status.connected
-              ? t("connectedAs", { keyId: status.key_id ?? "" })
-              : t("notConnected")}
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-5">
-          {status && (
-            <div className="space-y-1.5">
-              <Label className="text-xs text-muted-foreground">{t("webhookUrl")}</Label>
-              <div className="flex gap-2">
-                <Input readOnly value={status.webhook_url} className="bg-muted font-mono text-xs" onFocus={(e) => e.currentTarget.select()} />
-                <Button type="button" variant="outline" size="sm" onClick={() => void copy()} aria-label={t("copy")}>
-                  {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                </Button>
-              </div>
-              <p className="text-xs text-muted-foreground">{t("webhookHelp")}</p>
-              {status.connected && !status.webhook_secret_set && (
-                <p className="text-xs text-amber-600 dark:text-amber-400">{t("webhookSecretMissing")}</p>
-              )}
-            </div>
-          )}
-
-          {canEdit ? (
-            <div className="space-y-3">
-              <div>
-                <Label htmlFor="razorpay-key-id" className="mb-1 block text-xs text-muted-foreground">{t("keyId")}</Label>
-                <Input id="razorpay-key-id" value={keyId} autoComplete="off" spellCheck={false} maxLength={100}
-                  placeholder={status?.key_id ?? "rzp_live_…"} onChange={(e) => setKeyId(e.target.value)} className="font-mono" />
-              </div>
-              <div>
-                <Label htmlFor="razorpay-key-secret" className="mb-1 block text-xs text-muted-foreground">{t("keySecret")}</Label>
-                <Input id="razorpay-key-secret" type="password" value={keySecret} autoComplete="new-password" maxLength={200}
-                  onChange={(e) => setKeySecret(e.target.value)} />
-              </div>
-              <div>
-                <Label htmlFor="razorpay-webhook-secret" className="mb-1 block text-xs text-muted-foreground">{t("webhookSecret")}</Label>
-                <Input id="razorpay-webhook-secret" type="password" value={webhookSecret} autoComplete="new-password" maxLength={200}
-                  placeholder={status?.webhook_secret_set ? t("webhookSecretKeep") : undefined} onChange={(e) => setWebhookSecret(e.target.value)} />
-              </div>
-              <p className="text-xs text-muted-foreground">{t("keysHelp")}</p>
-              <div className="flex flex-wrap gap-2">
-                <Button onClick={() => void save()} disabled={!ready}>
-                  {saving && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
-                  {status?.connected ? t("replace") : t("connect")}
-                </Button>
-                {status?.connected && (
-                  <Button variant="outline" onClick={() => void disconnect()} disabled={removing}>
-                    {removing ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Unplug className="mr-1 h-4 w-4" />}
-                    {t("disconnect")}
-                  </Button>
+          </span>
+        }
+        footer={canEdit ? t("keysHelp") : t("adminOnly")}
+        more={[
+          { label: t("disconnect"), icon: Unplug, destructive: true, disabled: removing, hidden: !canEdit || !status?.connected, onSelect: () => void disconnect() },
+        ]}
+      >
+        <SettingsSwitchRow
+          title={t("razorpay")}
+          description={loadFailed ? t("loadFailed") : !status ? t("loading") : status.connected
+            ? t("connectedAs", { keyId: status.key_id ?? "" })
+            : t("notConnected")}
+          control={removing ? <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /> : null}
+        />
+        {status && (
+          <SettingsRow
+            label={t("webhookUrl")}
+            htmlFor="razorpay-webhook-url"
+            hint={
+              <>
+                {t("webhookHelp")}
+                {status.connected && !status.webhook_secret_set && (
+                  <span className="mt-1 block text-amber-600 dark:text-amber-400">{t("webhookSecretMissing")}</span>
                 )}
-              </div>
+              </>
+            }
+          >
+            <div className="flex gap-2">
+              <Input id="razorpay-webhook-url" readOnly value={status.webhook_url} className="bg-muted font-mono text-xs" onFocus={(e) => e.currentTarget.select()} />
+              <Button type="button" variant="outline" size="icon" onClick={() => void copy()} aria-label={t("copy")}>
+                {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+              </Button>
             </div>
-          ) : (
-            <p className="text-xs text-muted-foreground">{t("adminOnly")}</p>
-          )}
-        </CardContent>
-      </Card>
+          </SettingsRow>
+        )}
+
+        {canEdit && (
+          <>
+            <SettingsRow label={t("keyId")} htmlFor="razorpay-key-id">
+              <Input id="razorpay-key-id" value={keyId} autoComplete="off" spellCheck={false} maxLength={100}
+                placeholder={status?.key_id ?? "rzp_live_…"} onChange={(e) => setKeyId(e.target.value)} className="font-mono" />
+            </SettingsRow>
+            <SettingsRow label={t("keySecret")} htmlFor="razorpay-key-secret">
+              <Input id="razorpay-key-secret" type="password" value={keySecret} autoComplete="new-password" maxLength={200}
+                onChange={(e) => setKeySecret(e.target.value)} />
+            </SettingsRow>
+            <SettingsRow label={t("webhookSecret")} htmlFor="razorpay-webhook-secret">
+              <Input id="razorpay-webhook-secret" type="password" value={webhookSecret} autoComplete="new-password" maxLength={200}
+                placeholder={status?.webhook_secret_set ? t("webhookSecretKeep") : undefined} onChange={(e) => setWebhookSecret(e.target.value)} />
+            </SettingsRow>
+            <SettingsBlock className="flex justify-end py-2.5">
+              <Button onClick={() => void save()} disabled={!ready}>
+                {saving && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
+                {status?.connected ? t("replace") : t("connect")}
+              </Button>
+            </SettingsBlock>
+          </>
+        )}
+      </SettingsGroup>
     </div>
   );
 }

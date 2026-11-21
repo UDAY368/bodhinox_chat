@@ -556,17 +556,15 @@ async function doDelete(accountId: string, w: Work, rehost: boolean): Promise<bo
   });
 }
 
-type PassResult = { again: boolean; adopted?: boolean };
+type PassResult = { again: boolean };
 
-async function runPass(accountId: string, appointmentId: string, minVersion: number | null, meta: MeetingJobMeta,
-  only?: 'reconcile'): Promise<PassResult> {
+async function runPass(accountId: string, appointmentId: string, minVersion: number | null, meta: MeetingJobMeta): Promise<PassResult> {
   const pre = await asWorker(accountId, (tx) => loadSnapshot(tx, accountId, appointmentId, false));
   if (!pre) return { again: false };
   if (minVersion !== null && minVersion < pre.appt.version) return { again: false };
   const plan = decide(pre, new Date());
   if (plan.kind === 'none') return { again: false };
   if (plan.kind === 'busy') throw new MeetingSyncRetry('claim_busy');
-  if (only && plan.kind !== only) return { again: false };
   let token = '';
   const connectionId = pre.conn?.id ?? '';
   if (needsZoom(plan)) {
@@ -580,16 +578,9 @@ async function runPass(accountId: string, appointmentId: string, minVersion: num
   }
   const work = await claimOrApply(accountId, appointmentId, connectionId, token);
   if (!work) return { again: false };
-  if (only && work.plan.kind !== only) {
-    await release(accountId, work.meetingId, work.claim);
-    return { again: false };
-  }
   switch (work.plan.kind) {
     case 'create': return { again: await doCreate(accountId, work, meta) };
-    case 'reconcile': {
-      const adopted = await doReconcile(accountId, work, meta);
-      return { again: adopted, adopted };
-    }
+    case 'reconcile': return { again: await doReconcile(accountId, work, meta) };
     case 'patch': return { again: await doPatch(accountId, work) };
     case 'delete': return { again: await doDelete(accountId, work, work.plan.rehost) };
   }
@@ -607,25 +598,6 @@ export async function handleMeetingSyncJob(accountId: string, payload: MeetingSy
     const result = await runPass(accountId, payload.appointmentId, pass === 0 ? payload.version : null, meta);
     if (!result.again) return;
   }
-}
-
-/** Looks an ambiguous meeting up by its meeting_ref (never re-creates). */
-export async function reconcileMeeting(accountId: string, appointmentMeetingId: string): Promise<'adopted' | 'unknown' | 'skipped'> {
-  if (!zoomConfig()) return 'skipped';
-  const [row] = await asWorker(accountId, (tx) => tx.$queryRaw<{ appointment_id: string }[]>`SELECT appointment_id::text AS appointment_id
-    FROM appointment_meetings WHERE account_id=${accountId}::uuid AND id=${appointmentMeetingId}::uuid`);
-  if (!row) return 'skipped';
-  try {
-    // Not the last attempt: an unmatched reconcile stays unknown without opening the task.
-    const result = await runPass(accountId, row.appointment_id, null, { attempts: 0, maxAttempts: 1 }, 'reconcile');
-    if (result.adopted) return 'adopted';
-  } catch (error) {
-    if (error instanceof MeetingSyncRetry) return 'unknown';
-    throw error;
-  }
-  const [after] = await asWorker(accountId, (tx) => tx.$queryRaw<{ sync_state: string }[]>`SELECT sync_state FROM appointment_meetings
-    WHERE account_id=${accountId}::uuid AND id=${appointmentMeetingId}::uuid`);
-  return after?.sync_state === 'unknown' ? 'unknown' : 'skipped';
 }
 
 // ---------------------------------------------------------------------------

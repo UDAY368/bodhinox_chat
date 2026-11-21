@@ -11,13 +11,13 @@ import { toast } from 'sonner';
 import { useTranslations } from 'next-intl';
 
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { authFetch } from '@/lib/auth/client';
 import type { WorkspaceInboxSettings } from '@/lib/inbox/inbox-settings';
 import { AUTO_ASSIGN_MODES, INBOX_BEHAVIOUR_KEYS, type AccountMember, type AutoAssignMode, type InboxBehaviourSettings } from '@/types';
+import { SettingsBlock, SettingsGroup } from '../settings-row';
 
 /**
  * The PUT body that changes one Stage 5 setting: the loaded core settings
@@ -147,12 +147,8 @@ export function AssignmentModeCard({ canEdit }: { canEdit: boolean }) {
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-foreground">{t('title')}</CardTitle>
-        <CardDescription className="text-muted-foreground">{t('description')}</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-5">
+    <SettingsGroup title={t('title')} footer={t('description')}>
+      <SettingsBlock className="space-y-5">
         {loadFailed ? (
           <p className="text-destructive text-xs">{t('loadFailed')}</p>
         ) : !settings ? (
@@ -211,7 +207,7 @@ export function AssignmentModeCard({ canEdit }: { canEdit: boolean }) {
             )}
           </>
         )}
-      </CardContent>
-    </Card>
+      </SettingsBlock>
+    </SettingsGroup>
   );
 }

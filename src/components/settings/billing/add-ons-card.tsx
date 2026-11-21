@@ -14,10 +14,10 @@ import { useFormatter, useTranslations } from 'next-intl';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useConfirm } from '@/components/ui/confirm-dialog';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { authFetch } from '@/lib/auth/client';
 import type { AddonKind } from '@/lib/billing/entitlements-catalogue';
+import { SettingsBlock, SettingsGroup } from '../settings-row';
 
 export interface AddonPackView { kind: AddonKind; quantity: number; amountMinor: number; currency: string }
 export interface AddonRowView {
@@ -100,12 +100,8 @@ export function AddOnsCard({ onChanged }: { onChanged?: () => void }) {
   };
 
   return (
-    <Card data-testid="add-ons-card">
-      <CardHeader>
-        <CardTitle className="text-foreground">{t('title')}</CardTitle>
-        <CardDescription>{t('description')}</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
+    <SettingsGroup testId="add-ons-card" title={t('title')} footer={t('description')}>
+      <SettingsBlock className="space-y-4">
         {data === null ? (
           <Loader2 className="size-5 animate-spin text-primary" />
         ) : data === 'failed' ? (
@@ -118,9 +114,9 @@ export function AddOnsCard({ onChanged }: { onChanged?: () => void }) {
             {!data.configured ? (
               <p className="text-sm text-muted-foreground">{t('notConfigured')}</p>
             ) : (
-              <ul className="space-y-3">
+              <ul className="-mx-4 divide-y divide-separator border-y border-separator">
                 {data.packs.map((pack) => (
-                  <li key={pack.kind} className="flex flex-wrap items-center gap-3 rounded-md border border-border p-3">
+                  <li key={pack.kind} className="flex min-h-11 flex-wrap items-center gap-3 px-4 py-3">
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-medium text-foreground">{t(`kinds.${pack.kind}`, { count: pack.quantity })}</p>
                       <p className="text-xs text-muted-foreground">{t('perPack', { price: money(pack.amountMinor, pack.currency) })}</p>
@@ -160,7 +156,7 @@ export function AddOnsCard({ onChanged }: { onChanged?: () => void }) {
             )}
           </>
         )}
-      </CardContent>
-    </Card>
+      </SettingsBlock>
+    </SettingsGroup>
   );
 }

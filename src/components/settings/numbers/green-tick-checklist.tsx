@@ -9,8 +9,8 @@
 
 import { CheckCircle2, Circle, ExternalLink, XCircle } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { SettingsBlock, SettingsGroup } from "../settings-row";
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 type StepKey = "businessVerification" | "displayName" | "twoStep" | "notability" | "request";
 
@@ -32,12 +32,8 @@ export function GreenTickChecklist({ nameStatus }: { nameStatus?: string | null 
     key !== "displayName" || !name ? "todo" : APPROVED_NAMES.has(name) ? "done" : REJECTED_NAMES.has(name) ? "rejected" : "todo";
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{t("title")}</CardTitle>
-        <CardDescription>{t("description")}</CardDescription>
-      </CardHeader>
-      <CardContent>
+    <SettingsGroup title={t("title")} footer={t("description")}>
+      <SettingsBlock>
         <ol className="space-y-4">
           {STEPS.map(({ key, href }) => {
             const status = state(key);
@@ -72,7 +68,7 @@ export function GreenTickChecklist({ nameStatus }: { nameStatus?: string | null 
           })}
         </ol>
         <p className="mt-4 text-xs text-muted-foreground">{t("footnote")}</p>
-      </CardContent>
-    </Card>
+      </SettingsBlock>
+    </SettingsGroup>
   );
 }

@@ -14,11 +14,11 @@ import { toast } from "sonner";
 import { useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { authFetch } from "@/lib/auth/client";
 import { NumberSelect } from "./numbers/number-select";
 import { useWhatsAppNumbers } from "./numbers/use-whatsapp-numbers";
+import { SettingsBlock, SettingsGroup } from "./settings-row";
 
 const MAX = 4;
 const MAX_LENGTH = 80;
@@ -82,12 +82,8 @@ export function IceBreakersCard({ canEdit, numberId: initialNumberId = null }: {
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-foreground">{t("title")}</CardTitle>
-        <CardDescription className="text-muted-foreground">{t("description", { max: MAX })}</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-2">
+    <SettingsGroup title={t("title")} footer={t("description", { max: MAX })}>
+      <SettingsBlock className="space-y-2">
         {numbers.length > 1 && (
           <>
           <label htmlFor="ice-breakers-number" className="sr-only">{t("numberLabel")}</label>
@@ -134,7 +130,7 @@ export function IceBreakersCard({ canEdit, numberId: initialNumberId = null }: {
             </p>
           </>
         )}
-      </CardContent>
-    </Card>
+      </SettingsBlock>
+    </SettingsGroup>
   );
 }

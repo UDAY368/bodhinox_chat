@@ -10,12 +10,12 @@ import { useFormatter, useTranslations } from 'next-intl';
 import { authFetch } from '@/lib/auth/client';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { SegmentedControl } from '@/components/ui/segmented-control';
 import { Textarea } from '@/components/ui/textarea';
 import type { TenantSupportGrant } from '@/lib/platform/support';
+import { SettingsBlock, SettingsGroup } from '../settings-row';
 
 const DURATIONS = [60, 240, 1440] as const;
 const ERROR_CODES = ['invalid', 'not_found', 'grant_open', 'not_pending', 'not_active', 'request_expired'];
@@ -96,12 +96,8 @@ export function SupportAccess(): React.ReactElement | null {
   if (forbidden) return null;
   const date = (value: string) => format.dateTime(new Date(value), { dateStyle: 'medium', timeStyle: 'short' });
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-foreground">{t('title')}</CardTitle>
-        <CardDescription className="text-muted-foreground">{t('description')}</CardDescription>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-4">
+    <SettingsGroup title={t('title')} footer={t('description')}>
+      <SettingsBlock className="flex flex-col gap-4">
         {grants === null && !message && <p className="text-muted-foreground text-sm">{t('loading')}</p>}
         {grants !== null && grants.length === 0 && <p className="text-muted-foreground text-sm">{t('empty')}</p>}
         {grants !== null && grants.length > 0 && (
@@ -169,7 +165,7 @@ export function SupportAccess(): React.ReactElement | null {
             {message}
           </p>
         )}
-      </CardContent>
-    </Card>
+      </SettingsBlock>
+    </SettingsGroup>
   );
 }

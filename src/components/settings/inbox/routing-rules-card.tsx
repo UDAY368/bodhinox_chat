@@ -17,7 +17,6 @@ import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { InlineError } from "@/components/ui/inline-error";
 import { useConfirm } from "@/components/ui/confirm-dialog";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Input } from "@/components/ui/input";
@@ -30,6 +29,8 @@ import { createClient } from "@/lib/data/client";
 import { MAX_KEYWORDS, MAX_ROUTING_RULES, type AssignTo, type RoutingRule, type RoutingRuleInput } from "@/lib/inbox/routing-contract";
 import { NumberSelect } from "../numbers/number-select";
 import { useWhatsAppNumbers } from "../numbers/use-whatsapp-numbers";
+import { SETTINGS_ROW_HAIRLINE, SettingsBlock, SettingsGroup, SettingsMoreMenu } from "../settings-row";
+import { PageLoading } from "@/components/ui/page-loading";
 
 interface Member { user_id: string; full_name: string; email: string | null; role: string }
 interface Tag { id: string; name: string }
@@ -134,24 +135,28 @@ export function RoutingRulesCard({ canEdit }: { canEdit: boolean }) {
       : t("roundRobinSummary", { names: assignTo.user_ids.map(memberName).join(", ") });
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-foreground">{t("title")}</CardTitle>
-        <CardDescription className="text-muted-foreground">{t("description")}</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-3">
+    <SettingsGroup
+      title={t("title")}
+      footer={t("description")}
+      action={canEdit && !loading && !loadFailed && rules.length < MAX_ROUTING_RULES ? (
+        <Button type="button" variant="ghost" size="sm" disabled={busy || members.length === 0} onClick={() => setEditing("new")}>
+          <Plus className="size-3.5" /> {t("add")}
+        </Button>
+      ) : undefined}
+    >
         {!canEdit ? (
-          <p className="text-xs text-muted-foreground">{t("adminsOnly")}</p>
+          <SettingsBlock><p className="text-xs text-muted-foreground">{t("adminsOnly")}</p></SettingsBlock>
         ) : loading ? (
-          <Loader2 className="size-4 animate-spin text-primary" />
+          <SettingsBlock><PageLoading rows={2} /></SettingsBlock>
         ) : loadFailed ? (
-          <InlineError message={t("loadFailed")} onRetry={() => void load()} />
+          <SettingsBlock><InlineError message={t("loadFailed")} onRetry={() => void load()} /></SettingsBlock>
         ) : (
           <>
-            {rules.length === 0 && <p className="text-sm text-muted-foreground">{t("empty")}</p>}
-            <ol className="space-y-2">
+            {rules.length === 0 && <SettingsBlock><p className="text-sm text-muted-foreground">{t("empty")}</p></SettingsBlock>}
+            {/* The switch is each rule's control; edit, reorder and delete sit in its more menu. */}
+            <ol>
               {rules.map((rule, i) => (
-                <li key={rule.id} className="flex flex-wrap items-center gap-2 rounded-md border border-border p-2">
+                <li key={rule.id} className={`${SETTINGS_ROW_HAIRLINE} flex min-h-11 items-center gap-3 px-4 py-2.5`}>
                   <Switch checked={rule.enabled} disabled={busy} onCheckedChange={(on) => toggle(rule, on)}
                     aria-label={t("enabledLabel", { name: rule.name })} />
                   <div className="min-w-0 flex-1">
@@ -161,26 +166,15 @@ export function RoutingRulesCard({ canEdit }: { canEdit: boolean }) {
                       {rule.reassign_after_minutes ? ` · ${t("reassignSummary", { minutes: rule.reassign_after_minutes })}` : ""}
                     </p>
                   </div>
-                  <Button type="button" variant="ghost" size="sm" aria-label={t("moveUp")} disabled={busy || i === 0} onClick={() => move(i, -1)}>
-                    <ArrowUp className="size-3.5" />
-                  </Button>
-                  <Button type="button" variant="ghost" size="sm" aria-label={t("moveDown")} disabled={busy || i === rules.length - 1} onClick={() => move(i, 1)}>
-                    <ArrowDown className="size-3.5" />
-                  </Button>
-                  <Button type="button" variant="ghost" size="sm" aria-label={t("edit")} disabled={busy} onClick={() => setEditing(rule)}>
-                    <Pencil className="size-3.5" />
-                  </Button>
-                  <Button type="button" variant="ghost" size="sm" aria-label={t("delete")} disabled={busy} onClick={() => remove(rule)}>
-                    <Trash2 className="size-3.5" />
-                  </Button>
+                  <SettingsMoreMenu actions={[
+                    { label: t("edit"), icon: Pencil, disabled: busy, onSelect: () => setEditing(rule) },
+                    { label: t("moveUp"), icon: ArrowUp, disabled: busy || i === 0, onSelect: () => void move(i, -1) },
+                    { label: t("moveDown"), icon: ArrowDown, disabled: busy || i === rules.length - 1, onSelect: () => void move(i, 1) },
+                    { label: t("delete"), icon: Trash2, destructive: true, disabled: busy, onSelect: () => void remove(rule) },
+                  ]} />
                 </li>
               ))}
             </ol>
-            {rules.length < MAX_ROUTING_RULES && (
-              <Button type="button" variant="outline" size="sm" disabled={busy || members.length === 0} onClick={() => setEditing("new")}>
-                <Plus className="size-3.5" /> {t("add")}
-              </Button>
-            )}
             {editing && (
               <RuleDialog
                 rule={editing === "new" ? null : editing}
@@ -197,8 +191,7 @@ export function RoutingRulesCard({ canEdit }: { canEdit: boolean }) {
             )}
           </>
         )}
-      </CardContent>
-    </Card>
+    </SettingsGroup>
   );
 }
 

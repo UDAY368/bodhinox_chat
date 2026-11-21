@@ -12,8 +12,8 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent } from '@/components/ui/card';
 import { SettingsPanelHead } from './settings-panel-head';
+import { SettingsBlock, SettingsGroup } from './settings-row';
 
 export function InboxSettings() {
   const t = useTranslations('inboxSettings');
@@ -82,8 +82,8 @@ export function InboxSettings() {
   return (
     <section className="max-w-2xl">
       <SettingsPanelHead title={t('title')} description={t('description')} />
-      <Card>
-        <CardContent className="space-y-4">
+      <SettingsGroup>
+        <SettingsBlock className="space-y-4">
           {loading || profileLoading ? (
             <p role="status">{t('loading')}</p>
           ) : (
@@ -150,8 +150,8 @@ export function InboxSettings() {
               )}
             </>
           )}
-        </CardContent>
-      </Card>
+        </SettingsBlock>
+      </SettingsGroup>
     </section>
   );
 }

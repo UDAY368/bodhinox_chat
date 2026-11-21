@@ -12,15 +12,9 @@ import { PasswordInput } from '@/components/ui/password-input';
 import { PasswordRequirements } from '@/components/auth/password-requirements';
 import { MIN_PASSWORD_LENGTH, meetsPasswordRequirements } from '@/lib/auth/password-policy';
 import { Label } from '@/components/ui/label';
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-} from '@/components/ui/card';
 import { useTranslations } from 'next-intl';
 import { useRouter } from 'next/navigation';
+import { SettingsBlock, SettingsGroup } from './settings-row';
 
 const MIN_PASSWORD = MIN_PASSWORD_LENGTH;
 
@@ -79,18 +73,10 @@ export function PasswordForm() {
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-foreground">
-          <KeyRound className="size-4 text-primary" />
-          {t('passwordTitle')}
-        </CardTitle>
-        <CardDescription className="text-muted-foreground">
-          {t('passwordDesc', { min: MIN_PASSWORD })}
-        </CardDescription>
-      </CardHeader>
+    <SettingsGroup title={<><KeyRound className="size-4 text-primary" />
+          {t('passwordTitle')}</>} footer={t('passwordDesc', { min: MIN_PASSWORD })}>
 
-      <CardContent>
+      <SettingsBlock>
         <form onSubmit={onSubmit} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="current-password" className="text-foreground">
@@ -169,7 +155,7 @@ export function PasswordForm() {
             </Button>
           </div>
         </form>
-      </CardContent>
-    </Card>
+      </SettingsBlock>
+    </SettingsGroup>
   );
 }

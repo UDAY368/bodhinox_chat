@@ -12,13 +12,13 @@ import { toast } from 'sonner';
 import { useTranslations } from 'next-intl';
 
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { authFetch } from '@/lib/auth/client';
 import { PAUSE_MINUTES_CHOICES } from '@/lib/flows/types';
 import type { WorkspaceInboxSettings } from '@/lib/inbox/inbox-settings';
 import { INBOX_BEHAVIOUR_KEYS } from '@/types';
+import { SettingsBlock, SettingsGroup } from '../settings-row';
 
 const NEVER = 'never';
 const toValue = (minutes: number | null) => (minutes === null ? NEVER : String(minutes));
@@ -83,12 +83,8 @@ export function AutomationPauseCard({ canEdit }: { canEdit: boolean }) {
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-foreground">{t('title')}</CardTitle>
-        <CardDescription className="text-muted-foreground">{t('description')}</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
+    <SettingsGroup title={t('title')} footer={t('description')}>
+      <SettingsBlock className="space-y-4">
         {loading ? (
           <p className="text-muted-foreground flex items-center gap-2 text-sm">
             <Loader2 className="size-4 animate-spin" aria-hidden /> {tCommon('loading')}
@@ -121,7 +117,7 @@ export function AutomationPauseCard({ canEdit }: { canEdit: boolean }) {
             )}
           </>
         )}
-      </CardContent>
-    </Card>
+      </SettingsBlock>
+    </SettingsGroup>
   );
 }

@@ -13,9 +13,9 @@ import { useTranslations } from "next-intl";
 
 import { MediaLibraryBrowser, useFormatBytes, type StorageUsage } from "@/components/inbox/media-library/media-picker";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { authFetch } from "@/lib/auth/client";
+import { SettingsBlock, SettingsGroup } from "./settings-row";
 
 export function MediaLibraryCard({ className }: { className?: string }) {
   const t = useTranslations("MediaLibrary");
@@ -37,12 +37,8 @@ export function MediaLibraryCard({ className }: { className?: string }) {
   const percent = usage?.limit_bytes ? Math.min(100, Math.round((usage.used_bytes / usage.limit_bytes) * 100)) : null;
 
   return (
-    <Card className={className}>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2"><HardDrive className="size-4" aria-hidden />{t("settingsTitle")}</CardTitle>
-        <CardDescription>{t("settingsDescription")}</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
+    <SettingsGroup className={className} title={<><HardDrive className="size-4" aria-hidden />{t("settingsTitle")}</>} footer={t("settingsDescription")}>
+      <SettingsBlock className="space-y-4">
         {failed ? (
           <p className="text-sm text-destructive">{t("usageFailed")}</p>
         ) : !usage ? (
@@ -75,7 +71,7 @@ export function MediaLibraryCard({ className }: { className?: string }) {
           <FolderOpen className="size-4" aria-hidden />
           {t("manage")}
         </Button>
-      </CardContent>
+      </SettingsBlock>
 
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetContent size="lg" className="w-full gap-4 overflow-y-auto p-4">
@@ -86,6 +82,6 @@ export function MediaLibraryCard({ className }: { className?: string }) {
           {open && <MediaLibraryBrowser mode="manage" onUsage={onUsage} />}
         </SheetContent>
       </Sheet>
-    </Card>
+    </SettingsGroup>
   );
 }

@@ -4806,7 +4806,10 @@
       "maskOffHint": "Ocultar os números de telefone dos clientes para este membro",
       "maskedToast": "Os números de telefone agora estão ocultos para {name}",
       "unmaskedToast": "{name} agora pode ver os números de telefone completos",
-      "maskFailed": "Não foi possível atualizar a ocultação de números"
+      "maskFailed": "Não foi possível atualizar a ocultação de números",
+      "maskMenuOff": "Ocultar números de telefone",
+      "maskMenuOn": "Mostrar números completos",
+      "memberActions": "Mais ações para {name}"
     },
     "invite": {
       "inviteCreated": "Convite criado",
@@ -10628,7 +10631,8 @@
         "meta": "Vínculo com o catálogo da Meta",
         "collections": "Coleções",
         "locations": "Locais",
-        "purchaseOrders": "Ordens de compra"
+        "purchaseOrders": "Ordens de compra",
+        "stock": "Gestão de estoque"
       },
       "statuses": {
         "draft": "Oculto",

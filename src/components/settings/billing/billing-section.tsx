@@ -14,7 +14,6 @@ import { useTranslations } from 'next-intl';
 
 import { Button } from '@/components/ui/button';
 import { useConfirm } from '@/components/ui/confirm-dialog';
-import { Card, CardContent } from '@/components/ui/card';
 import { authFetch } from '@/lib/auth/client';
 import { invalidatePlan } from '@/lib/billing/client';
 import { AddOnsCard } from './add-ons-card';
@@ -26,6 +25,7 @@ import { PlanPicker } from './plan-picker';
 import { openCheckout, type CheckoutSession } from './razorpay-checkout';
 import { SubscriptionCard } from './subscription-card';
 import type { BillingOverview, BillingProfileView, Interval, InvoiceRow, PlanPrice } from './types';
+import { SettingsBlock, SettingsGroup } from '../settings-row';
 
 const POLL_MS = 3_000;
 const POLL_LIMIT = 20;
@@ -212,9 +212,9 @@ export function BillingSection() {
   if (!overview) return <Loader2 className="size-5 animate-spin text-primary" />;
   if (!overview.configured)
     return (
-      <Card data-testid="billing-unavailable">
-        <CardContent className="py-4 text-sm text-muted-foreground">{t('notConfigured')}</CardContent>
-      </Card>
+      <SettingsGroup testId="billing-unavailable">
+        <SettingsBlock className="py-4 text-sm text-muted-foreground">{t('notConfigured')}</SettingsBlock>
+      </SettingsGroup>
     );
 
   return (
@@ -222,20 +222,20 @@ export function BillingSection() {
       <h2 className="text-lg font-semibold text-foreground">{t('title')}</h2>
       <SubscriptionCard overview={overview} busy={busyAction} onCancel={cancel} onPay={pay} />
       {payLink && (
-        <Card data-testid="billing-pay-link">
-          <CardContent className="flex flex-wrap items-center justify-between gap-3 py-4 text-sm">
+        <SettingsGroup testId="billing-pay-link">
+          <SettingsBlock className="flex flex-wrap items-center justify-between gap-3 py-4 text-sm">
             <span className="text-foreground">{t('payLink.hint')}</span>
             <a className="font-medium text-primary hover:underline" href={payLink} target="_blank" rel="noopener noreferrer">{t('payLink.open')}</a>
-          </CardContent>
-        </Card>
+          </SettingsBlock>
+        </SettingsGroup>
       )}
       {overview.can_manage && overLimit && (
-        <Card data-testid="downgrade-notice" className="border-amber-500/30 bg-amber-500/5">
-          <CardContent className="flex flex-wrap items-center justify-between gap-3 py-4 text-sm">
+        <SettingsGroup testId="downgrade-notice">
+          <SettingsBlock className="flex flex-wrap items-center justify-between gap-3 py-4 text-sm">
             <span className="text-foreground">{t(overLimit.chosen ? 'downgrade.chosen' : 'downgrade.notice', { plan: overLimit.planName })}</span>
             <Button variant="outline" size="sm" onClick={() => setDowngradeOpen(true)}>{t(overLimit.chosen ? 'downgrade.change' : 'downgrade.choose')}</Button>
-          </CardContent>
-        </Card>
+          </SettingsBlock>
+        </SettingsGroup>
       )}
       {confirming && (
         <div className="flex items-center gap-2 text-sm text-muted-foreground" role="status">

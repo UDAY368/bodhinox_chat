@@ -18,9 +18,9 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { InlineError } from '@/components/ui/inline-error';
 import { useConfirm } from '@/components/ui/confirm-dialog';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { authFetch } from '@/lib/auth/client';
 import type { SheetsConnectionDto } from '@/lib/integrations/google-sheets/connection';
+import { SettingsBlock, SettingsGroup } from '../settings-row';
 
 /** ?google_sheets=<outcome> values the callback can send, and refusal codes of the routes. */
 export const SHEETS_OUTCOMES = [
@@ -91,16 +91,10 @@ export function GoogleSheetsCard({ canEdit }: { canEdit: boolean }) {
   const needsAttention = state?.status === 'error' || state?.status === 'revoked';
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <FileSpreadsheet className="size-4" aria-hidden="true" /> {t('title')}
+    <SettingsGroup title={<><FileSpreadsheet className="size-4" aria-hidden="true" /> {t('title')}
           {state?.connected && <Badge variant="secondary">{t('statusConnected')}</Badge>}
-          {needsAttention && <Badge variant="outline">{t('statusAttention')}</Badge>}
-        </CardTitle>
-        <CardDescription>{t('description')}</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-3 text-sm">
+          {needsAttention && <Badge variant="outline">{t('statusAttention')}</Badge>}</>} footer={t('description')}>
+      <SettingsBlock className="space-y-3 text-sm">
         {loadFailed && (
           <InlineError message={t('loadFailed')} onRetry={() => void load()} />
         )}
@@ -130,7 +124,7 @@ export function GoogleSheetsCard({ canEdit }: { canEdit: boolean }) {
         {state && !state.available && state.status && canEdit && (
           <Button type="button" variant="outline" size="sm" onClick={() => void disconnect()} disabled={busy}>{t('disconnect')}</Button>
         )}
-      </CardContent>
-    </Card>
+      </SettingsBlock>
+    </SettingsGroup>
   );
 }

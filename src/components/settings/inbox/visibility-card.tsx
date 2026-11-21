@@ -10,13 +10,13 @@ import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useTranslations } from 'next-intl';
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { authFetch } from '@/lib/auth/client';
 import type { WorkspaceInboxSettings } from '@/lib/inbox/inbox-settings';
 import type { AgentVisibility } from '@/types';
 import { saveBehaviour } from './assignment-mode-card';
+import { SettingsBlock, SettingsGroup } from '../settings-row';
 
 const OPTIONS: { value: AgentVisibility; key: 'all' | 'assignedOrTeam' }[] = [
   { value: 'all', key: 'all' },
@@ -52,12 +52,8 @@ export function VisibilityCard({ canEdit }: { canEdit: boolean }) {
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-foreground">{t('title')}</CardTitle>
-        <CardDescription className="text-muted-foreground">{t('description')}</CardDescription>
-      </CardHeader>
-      <CardContent>
+    <SettingsGroup title={t('title')} footer={t('description')}>
+      <SettingsBlock>
         {loadFailed ? (
           <p className="text-destructive text-xs">{t('loadFailed')}</p>
         ) : !settings ? (
@@ -77,7 +73,7 @@ export function VisibilityCard({ canEdit }: { canEdit: boolean }) {
             ))}
           </RadioGroup>
         )}
-      </CardContent>
-    </Card>
+      </SettingsBlock>
+    </SettingsGroup>
   );
 }

@@ -9,11 +9,11 @@
  */
 
 import { useCallback, useEffect, useState } from "react";
-import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslations } from "next-intl";
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { PageLoading } from "@/components/ui/page-loading";
+import { SettingsBlock, SettingsGroup } from "../settings-row";
 import { InlineError } from "@/components/ui/inline-error";
 import { Switch } from "@/components/ui/switch";
 import { authFetch } from "@/lib/auth/client";
@@ -73,21 +73,17 @@ export function PermissionsMatrix({ canEdit }: { canEdit: boolean }) {
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-foreground">{t("title")}</CardTitle>
-        <CardDescription className="text-muted-foreground">{t("description")}</CardDescription>
-      </CardHeader>
-      <CardContent>
+    <SettingsGroup title={t("title")} footer={<>{t("description")} {view ? t("footnote") : null}</>}>
+      <SettingsBlock>
         {loadFailed ? (
           <InlineError message={t("loadFailed")} onRetry={() => void load()} />
         ) : !view ? (
-          <Loader2 className="size-4 animate-spin text-primary" />
+          <PageLoading rows={4} />
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[32rem] text-sm">
               <thead>
-                <tr className="border-b border-border text-left text-xs text-muted-foreground">
+                <tr className="border-b border-separator text-left text-xs text-muted-foreground">
                   <th scope="col" className="py-2 pr-3 font-medium">{t("feature")}</th>
                   {view.roles.map((role) => (
                     <th key={role} scope="col" className="px-2 py-2 text-center font-medium">{tRoles(role)}</th>
@@ -96,7 +92,7 @@ export function PermissionsMatrix({ canEdit }: { canEdit: boolean }) {
               </thead>
               <tbody>
                 {view.permissions.map(({ key, minimum_role }) => (
-                  <tr key={key} className="border-b border-border last:border-0">
+                  <tr key={key} className="h-11 border-b border-separator last:border-0">
                     <th scope="row" className="py-2 pr-3 text-left font-normal text-foreground">
                       {t(`features.${labelKey(key)}`)}
                     </th>
@@ -122,10 +118,9 @@ export function PermissionsMatrix({ canEdit }: { canEdit: boolean }) {
                 ))}
               </tbody>
             </table>
-            <p className="mt-3 text-xs text-muted-foreground">{t("footnote")}</p>
           </div>
         )}
-      </CardContent>
-    </Card>
+      </SettingsBlock>
+    </SettingsGroup>
   );
 }

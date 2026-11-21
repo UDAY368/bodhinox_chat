@@ -8,14 +8,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-} from '@/components/ui/card';
 import { useTranslations } from 'next-intl';
+import { SettingsBlock, SettingsGroup } from './settings-row';
 
 interface DocSummary {
   id: string;
@@ -159,19 +153,11 @@ export function AiKnowledgeCard({
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-base">
-          <BookOpen className="h-4 w-4 text-primary" /> {t('title')}
-        </CardTitle>
-        <CardDescription>
-          {t('description', {
+    <SettingsGroup title={<><BookOpen className="h-4 w-4 text-primary" /> {t('title')}</>} footer={<>{t('description', {
             searchType: hasEmbeddingsKey ? t('semanticSearchOn') : t('keywordSearchOn')
           })}
-          <span className="mt-2 block">{t('connectionHint')}</span>
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
+          <span className="mt-2 block">{t('connectionHint')}</span></>}>
+      <SettingsBlock className="space-y-4">
         {loading ? (
           <div className="flex items-center py-4 text-sm text-muted-foreground">
             <Loader2 className="mr-2 h-4 w-4 animate-spin" /> {t('loading')}
@@ -185,11 +171,11 @@ export function AiKnowledgeCard({
             )}
 
             {docs.length > 0 && (
-              <ul className="divide-y divide-border rounded-md border border-border">
+              <ul className="-mx-4 divide-y divide-separator border-y border-separator">
                 {docs.map((doc) => (
                   <li
                     key={doc.id}
-                    className="flex items-center justify-between gap-2 px-3 py-2"
+                    className="flex min-h-11 items-center justify-between gap-2 px-4 py-2"
                   >
                     <span className="min-w-0 truncate text-sm text-foreground">
                       {doc.title}
@@ -281,7 +267,7 @@ export function AiKnowledgeCard({
             )}
           </>
         )}
-      </CardContent>
-    </Card>
+      </SettingsBlock>
+    </SettingsGroup>
   );
 }

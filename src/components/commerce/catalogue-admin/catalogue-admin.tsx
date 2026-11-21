@@ -2,7 +2,8 @@
 
 /**
  * Commerce → Catalogue (design section 6): the products Bodhinox sells, with
- * categories, inventory and the Meta catalogue link. Agents and above read;
+ * categories, collections, stock (inventory, locations and purchase orders in
+ * one tab) and the Meta catalogue link. Agents and above read;
  * admins edit (the API and RLS enforce it, the screen only hides controls).
  * Prices are integer minor units in the store currency.
  *
@@ -55,8 +56,11 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { InlineError } from "@/components/ui/inline-error";
 
 const PAGE = 50;
-const TABS = ["products", "categories", "collections", "inventory", "locations", "purchaseOrders", "meta"] as const;
+// Five tabs at most (design standard): stock on hand, locations and purchase orders share "Stock".
+const TABS = ["products", "categories", "collections", "stock", "meta"] as const;
 type Tab = (typeof TABS)[number];
+const STOCK_SECTIONS = ["inventory", "locations", "purchaseOrders"] as const;
+type StockSection = (typeof STOCK_SECTIONS)[number];
 
 /** The translated message for a failed call (Commerce.catalogue.errors.<code>, else by HTTP status). */
 export function useCatalogueError() {
@@ -103,6 +107,7 @@ export function VisibilityControl({ status, disabled, onChange }: {
 export function CatalogueAdmin() {
   const t = useTranslations("Commerce.catalogue");
   const [tab, setTab] = useState<Tab>("products");
+  const [stockSection, setStockSection] = useState<StockSection>("inventory");
   const canManage = useCan("edit-settings");
   return (
     <div className="space-y-5">
@@ -110,7 +115,7 @@ export function CatalogueAdmin() {
       <div role="tablist" aria-label={t("title")} className="flex flex-wrap gap-1 border-b border-border">
         {TABS.map((key) => (
           <button key={key} role="tab" type="button" aria-selected={tab === key} onClick={() => setTab(key)}
-            className={`-mb-px border-b-2 px-3 py-2 text-sm ${tab === key ? "border-primary font-medium text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"}`}>
+            className={`-mb-px min-h-11 border-b-2 px-3 py-2 text-sm sm:min-h-0 ${tab === key ? "border-primary font-medium text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"}`}>
             {t(`tabs.${key}`)}
           </button>
         ))}
@@ -119,9 +124,15 @@ export function CatalogueAdmin() {
         {tab === "products" && <ProductsTab canManage={canManage} onOpenCategories={() => setTab("categories")} />}
         {tab === "categories" && <CategoriesPanel canManage={canManage} />}
         {tab === "collections" && <CollectionsPanel canManage={canManage} />}
-        {tab === "inventory" && <InventoryPanel canManage={canManage} />}
-        {tab === "locations" && <LocationsPanel canManage={canManage} />}
-        {tab === "purchaseOrders" && <PurchaseOrdersPanel canManage={canManage} />}
+        {tab === "stock" && (
+          <div className="space-y-4">
+            <SegmentedControl aria-label={t("tabs.stock")} value={stockSection} onValueChange={setStockSection}
+              options={STOCK_SECTIONS.map((key) => ({ value: key, label: t(`tabs.${key}`) }))} />
+            {stockSection === "inventory" && <InventoryPanel canManage={canManage} />}
+            {stockSection === "locations" && <LocationsPanel canManage={canManage} />}
+            {stockSection === "purchaseOrders" && <PurchaseOrdersPanel canManage={canManage} />}
+          </div>
+        )}
         {tab === "meta" && <MetaLinkPanel canManage={canManage} />}
       </div>
     </div>

@@ -16,10 +16,10 @@ import { useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
 import { useConfirm } from "@/components/ui/confirm-dialog";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { authFetch } from "@/lib/auth/client";
 import { NumberSelect } from "./numbers/number-select";
 import { useWhatsAppNumbers } from "./numbers/use-whatsapp-numbers";
+import { SettingsBlock, SettingsGroup } from "./settings-row";
 
 type KeyStatus = { number_id: string | null; configured: boolean; uploaded_at: string | null };
 
@@ -65,12 +65,8 @@ export function FormsEncryptionCard({ canEdit, numberId: initialNumberId = null 
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-foreground">{t("title")}</CardTitle>
-        <CardDescription className="text-muted-foreground">{t("description")}</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-3">
+    <SettingsGroup title={t("title")} footer={t("description")}>
+      <SettingsBlock className="space-y-3">
         {numbers.length > 1 && (
           <>
             <label htmlFor="forms-encryption-number" className="sr-only">{t("numberLabel")}</label>
@@ -106,7 +102,7 @@ export function FormsEncryptionCard({ canEdit, numberId: initialNumberId = null 
             )}
           </>
         )}
-      </CardContent>
-    </Card>
+      </SettingsBlock>
+    </SettingsGroup>
   );
 }

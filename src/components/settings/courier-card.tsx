@@ -9,14 +9,14 @@
  */
 
 import { useCallback, useEffect, useState } from "react";
-import { Loader2, Truck, Unplug } from "lucide-react";
+import { FlaskConical, Loader2, Truck, Unplug } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslations } from "next-intl";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useConfirm } from "@/components/ui/confirm-dialog";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { SettingsBlock, SettingsGroup, SettingsRow } from "./settings-row";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useCan } from "@/hooks/use-can";
@@ -148,44 +148,55 @@ export function CourierCard({ provider }: { provider: CourierCardProvider }) {
   );
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex flex-wrap items-center gap-2 text-base">
+    // Save or Connect is the one primary action; Test and Disconnect sit in the group's more menu.
+    <SettingsGroup
+      title={
+        <span className="inline-flex flex-wrap items-center gap-2">
           <Truck className="h-4 w-4" />
           {name}
-          <Badge variant="outline">{t("notTestedBadge")}</Badge>
+          <Badge variant="outline" className="normal-case">{t("notTestedBadge")}</Badge>
           {connected && (reconnect
-            ? <Badge variant="destructive">{t("reconnectBadge")}</Badge>
-            : <Badge variant="secondary">{t("connectedBadge")}</Badge>)}
-        </CardTitle>
-        <CardDescription>{description}</CardDescription>
-      </CardHeader>
-      {status && (status.available || connected) && (
-        <CardContent className="space-y-5">
-          <p className="text-xs text-amber-600 dark:text-amber-400">{t("notTested", { name })}</p>
-          <p className="text-xs text-muted-foreground">{t(`${provider}.help`)}</p>
+            ? <Badge variant="destructive" className="normal-case">{t("reconnectBadge")}</Badge>
+            : <Badge variant="secondary" className="normal-case">{t("connectedBadge")}</Badge>)}
+        </span>
+      }
+      footer={status && (status.available || connected) ? (!canEdit ? <>{description} {t("adminOnly")}</> : description) : undefined}
+      more={[
+        { label: t("test"), icon: FlaskConical, hidden: !(canEdit && status?.available),
+          disabled: !!busy || label.trim().length === 0 || (!secret && !connected), onSelect: () => void test() },
+        { label: t("disconnect"), icon: Unplug, destructive: true, hidden: !canEdit || !connected, disabled: !!busy, onSelect: () => void disconnect() },
+      ]}
+    >
+      {status && (status.available || connected) ? (
+        <>
+          <SettingsBlock className="space-y-1">
+            <p className="text-xs text-amber-600 dark:text-amber-400">{t("notTested", { name })}</p>
+            <p className="text-xs text-muted-foreground">{t(`${provider}.help`)}</p>
+            {busy && busy !== "save" && (
+              <p role="status" className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                {busy === "test" ? t("test") : t("disconnect")}
+              </p>
+            )}
+          </SettingsBlock>
 
-          {canEdit && status.available ? (
-            <div className="space-y-3">
-              <div>
-                <Label htmlFor={`${provider}-label`} className="mb-1 block text-xs text-muted-foreground">{t(`${provider}.labelField`)}</Label>
+          {canEdit && status.available && (
+            <>
+              <SettingsRow label={t(`${provider}.labelField`)} htmlFor={`${provider}-label`}>
                 <Input id={`${provider}-label`} value={label} autoComplete="off" spellCheck={false} maxLength={120}
                   onChange={(e) => setLabel(e.target.value)} />
-              </div>
-              <div>
-                <Label htmlFor={`${provider}-secret`} className="mb-1 block text-xs text-muted-foreground">{t(`${provider}.secretField`)}</Label>
+              </SettingsRow>
+              <SettingsRow label={t(`${provider}.secretField`)} htmlFor={`${provider}-secret`}>
                 <Input id={`${provider}-secret`} type="password" value={secret} autoComplete="new-password" maxLength={200}
                   placeholder={connected ? t("secretKeep", { hint: status.secret_hint ?? "" }) : undefined}
                   onChange={(e) => setSecret(e.target.value)} />
-              </div>
+              </SettingsRow>
               {needsPickup && (
-                <div>
-                  <Label htmlFor={`${provider}-pickup`} className="mb-1 block text-xs text-muted-foreground">{t("warehouse")}</Label>
+                <SettingsRow label={t("warehouse")} htmlFor={`${provider}-pickup`} hint={t("warehouseHelp")}>
                   <Input id={`${provider}-pickup`} value={pickup} maxLength={100} onChange={(e) => setPickup(e.target.value)} />
-                  <p className="mt-1 text-xs text-muted-foreground">{t("warehouseHelp")}</p>
-                </div>
+                </SettingsRow>
               )}
-              <div>
+              <SettingsBlock>
                 <p className="mb-1 text-xs font-medium text-muted-foreground">{t("defaults")}</p>
                 <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                   {dimField("length_cm", t("length"), "0.1")}
@@ -193,34 +204,19 @@ export function CourierCard({ provider }: { provider: CourierCardProvider }) {
                   {dimField("height_cm", t("height"), "0.1")}
                   {dimField("weight_grams", t("weight"), "1")}
                 </div>
-              </div>
-              <div className="flex flex-wrap gap-2">
+              </SettingsBlock>
+              <SettingsBlock className="flex justify-end py-2.5">
                 <Button onClick={() => void save()} disabled={!ready}>
                   {busy === "save" && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
                   {connected ? t("save") : t("connect")}
                 </Button>
-                <Button variant="outline" onClick={() => void test()} disabled={!!busy || label.trim().length === 0 || (!secret && !connected)}>
-                  {busy === "test" && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
-                  {t("test")}
-                </Button>
-                {connected && (
-                  <Button variant="outline" onClick={() => void disconnect()} disabled={!!busy}>
-                    {busy === "remove" ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Unplug className="mr-1 h-4 w-4" />}
-                    {t("disconnect")}
-                  </Button>
-                )}
-              </div>
-            </div>
-          ) : canEdit && connected ? (
-            <Button variant="outline" onClick={() => void disconnect()} disabled={!!busy}>
-              {busy === "remove" ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Unplug className="mr-1 h-4 w-4" />}
-              {t("disconnect")}
-            </Button>
-          ) : (
-            !canEdit && <p className="text-xs text-muted-foreground">{t("adminOnly")}</p>
+              </SettingsBlock>
+            </>
           )}
-        </CardContent>
+        </>
+      ) : (
+        <SettingsBlock><p className="text-xs text-muted-foreground">{description}</p></SettingsBlock>
       )}
-    </Card>
+    </SettingsGroup>
   );
 }

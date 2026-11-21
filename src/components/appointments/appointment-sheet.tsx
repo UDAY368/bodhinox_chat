@@ -391,9 +391,9 @@ export function AppointmentSheet({
                 </ul>
                 {abilities.manage && (
                   <div className="flex flex-wrap items-end gap-2">
-                    <Input aria-label={t('tasks.titleLabel')} placeholder={t('tasks.titleLabel')} maxLength={200} className="h-8 flex-1"
+                    <Input aria-label={t('tasks.titleLabel')} placeholder={t('tasks.titleLabel')} maxLength={200} className="flex-1"
                       value={taskTitle} onChange={(e) => setTaskTitle(e.target.value)} />
-                    <Input aria-label={t('tasks.due')} type="date" className="h-8 w-36" value={taskDue} onChange={(e) => setTaskDue(e.target.value)} />
+                    <Input aria-label={t('tasks.due')} type="date" className="w-36" value={taskDue} onChange={(e) => setTaskDue(e.target.value)} />
                     <Button type="button" size="sm" variant="outline" disabled={busy || !taskTitle.trim()} onClick={() => void addTask()}>{t('sheet.createTask')}</Button>
                   </div>
                 )}

@@ -19,7 +19,7 @@ import { useTranslations } from "next-intl";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useConfirm } from "@/components/ui/confirm-dialog";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { SettingsBlock, SettingsGroup, SettingsRow } from "./settings-row";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -188,68 +188,83 @@ export function ShiprocketCard() {
   );
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-base">
+    // Save or Connect is the one primary action; the webhook token and Disconnect sit in the group's more menu.
+    <SettingsGroup
+      title={
+        <span className="inline-flex items-center gap-2">
           <Truck className="h-4 w-4" />
           {t("title")}
           {connected && (reconnect
-            ? <Badge variant="destructive">{t("reconnectBadge")}</Badge>
-            : <Badge variant="secondary">{t("connectedBadge")}</Badge>)}
-        </CardTitle>
-        <CardDescription>{description}</CardDescription>
-      </CardHeader>
-      {status && (status.available || connected) && (
-        <CardContent className="space-y-5">
-          <p className="text-xs text-muted-foreground">{t("walletNote")}</p>
+            ? <Badge variant="destructive" className="normal-case">{t("reconnectBadge")}</Badge>
+            : <Badge variant="secondary" className="normal-case">{t("connectedBadge")}</Badge>)}
+        </span>
+      }
+      footer={status && (status.available || connected) ? (!canEdit ? <>{description} {t("adminOnly")}</> : description) : undefined}
+      more={[
+        { label: status?.webhook_token_set ? t("regenerateToken") : t("generateToken"), icon: KeyRound,
+          hidden: !canEdit || !connected || !status?.webhook_url, disabled: !!busy, onSelect: () => void rotate() },
+        { label: t("disconnect"), icon: Unplug, destructive: true, hidden: !canEdit || !connected, disabled: !!busy, onSelect: () => void disconnect() },
+      ]}
+    >
+      {status && (status.available || connected) ? (
+        <>
+          <SettingsBlock className="space-y-1">
+            <p className="text-xs text-muted-foreground">{t("walletNote")}</p>
+            {(busy === "token" || busy === "remove") && (
+              <p role="status" className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                {busy === "token" ? t("regenerateToken") : t("disconnect")}
+              </p>
+            )}
+          </SettingsBlock>
 
           {connected && status.webhook_url && (
-            <div className="space-y-1.5">
-              <Label className="text-xs text-muted-foreground">{t("webhookUrl")}</Label>
-              <div className="flex gap-2">
-                <Input readOnly value={status.webhook_url} className="bg-muted font-mono text-xs" onFocus={(e) => e.currentTarget.select()} />
-                <Button type="button" variant="outline" size="sm" onClick={() => void copy("url", status.webhook_url!)} aria-label={t("copy")}>
-                  {copied === "url" ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                </Button>
-              </div>
-              <p className="text-xs text-muted-foreground">{t("webhookHelp")}</p>
-              {urlBlocked && <p className="text-xs text-amber-600 dark:text-amber-400">{t("hostnameWarning")}</p>}
-              <p className="text-xs text-muted-foreground">{status.webhook_token_set ? t("tokenSet") : t("tokenMissing")}</p>
-              {token && (
-                <div className="space-y-1">
-                  <div className="flex gap-2">
-                    <Input readOnly value={token} className="bg-muted font-mono text-xs" onFocus={(e) => e.currentTarget.select()} />
-                    <Button type="button" variant="outline" size="sm" onClick={() => void copy("token", token)} aria-label={t("copy")}>
-                      {copied === "token" ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                    </Button>
-                  </div>
-                  <p className="text-xs text-amber-600 dark:text-amber-400">{t("tokenOnce")}</p>
+            <SettingsRow
+              label={t("webhookUrl")}
+              htmlFor="shiprocket-webhook-url"
+              hint={
+                <>
+                  {t("webhookHelp")}
+                  {urlBlocked && <span className="mt-1 block text-amber-600 dark:text-amber-400">{t("hostnameWarning")}</span>}
+                  <span className="mt-1 block">{status.webhook_token_set ? t("tokenSet") : t("tokenMissing")}</span>
+                </>
+              }
+            >
+              <div className="space-y-2">
+                <div className="flex gap-2">
+                  <Input id="shiprocket-webhook-url" readOnly value={status.webhook_url} className="bg-muted font-mono text-xs" onFocus={(e) => e.currentTarget.select()} />
+                  <Button type="button" variant="outline" size="icon" onClick={() => void copy("url", status.webhook_url!)} aria-label={t("copy")}>
+                    {copied === "url" ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                  </Button>
                 </div>
-              )}
-              {canEdit && (
-                <Button type="button" variant="outline" size="sm" onClick={() => void rotate()} disabled={!!busy}>
-                  {busy === "token" ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <KeyRound className="mr-1 h-4 w-4" />}
-                  {status.webhook_token_set ? t("regenerateToken") : t("generateToken")}
-                </Button>
-              )}
-            </div>
+                {token && (
+                  <div className="space-y-1">
+                    <div className="flex gap-2">
+                      <Input readOnly value={token} className="bg-muted font-mono text-xs" onFocus={(e) => e.currentTarget.select()} />
+                      <Button type="button" variant="outline" size="icon" onClick={() => void copy("token", token)} aria-label={t("copy")}>
+                        {copied === "token" ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                      </Button>
+                    </div>
+                    <p className="text-xs text-amber-600 dark:text-amber-400">{t("tokenOnce")}</p>
+                  </div>
+                )}
+              </div>
+            </SettingsRow>
           )}
 
-          {canEdit && status.available ? (
-            <div className="space-y-3">
-              <p className="text-xs text-muted-foreground">{t("apiHelp")}</p>
-              <div>
-                <Label htmlFor="shiprocket-email" className="mb-1 block text-xs text-muted-foreground">{t("apiEmail")}</Label>
+          {canEdit && status.available && (
+            <>
+              <SettingsBlock className="py-2.5"><p className="text-xs text-muted-foreground">{t("apiHelp")}</p></SettingsBlock>
+              <SettingsRow label={t("apiEmail")} htmlFor="shiprocket-email">
                 <Input id="shiprocket-email" type="email" value={email} autoComplete="off" spellCheck={false} maxLength={254}
                   onChange={(e) => setEmail(e.target.value)} />
-              </div>
-              <div>
-                <Label htmlFor="shiprocket-password" className="mb-1 block text-xs text-muted-foreground">{t("apiPassword")}</Label>
+              </SettingsRow>
+              <SettingsRow label={t("apiPassword")} htmlFor="shiprocket-password">
                 <Input id="shiprocket-password" type="password" value={password} autoComplete="new-password" maxLength={200}
                   placeholder={connected ? t("passwordKeep") : undefined} onChange={(e) => setPassword(e.target.value)} />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="shiprocket-pickup" className="block text-xs text-muted-foreground">{t("pickupLocation")}</Label>
+              </SettingsRow>
+              <SettingsRow label={t("pickupLocation")} htmlFor="shiprocket-pickup">
+                {/* Test signs in and loads the pickup locations into this menu. */}
                 <div className="flex gap-2">
                   <Select value={pickup || null} onValueChange={(v) => setPickup(v ? String(v) : "")} disabled={!locations?.length}>
                     <SelectTrigger id="shiprocket-pickup" className="min-h-11 w-full min-w-0 flex-1 bg-background sm:min-h-9">
@@ -265,8 +280,8 @@ export function ShiprocketCard() {
                     {t("test")}
                   </Button>
                 </div>
-              </div>
-              <div>
+              </SettingsRow>
+              <SettingsBlock>
                 <p className="mb-1 text-xs font-medium text-muted-foreground">{t("defaults")}</p>
                 <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                   {dimField("length_cm", t("length"), "0.1")}
@@ -274,30 +289,19 @@ export function ShiprocketCard() {
                   {dimField("height_cm", t("height"), "0.1")}
                   {dimField("weight_grams", t("weight"), "1")}
                 </div>
-              </div>
-              <div className="flex flex-wrap gap-2">
+              </SettingsBlock>
+              <SettingsBlock className="flex justify-end py-2.5">
                 <Button onClick={() => void save()} disabled={!ready}>
                   {busy === "save" && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
                   {connected ? t("save") : t("connect")}
                 </Button>
-                {connected && (
-                  <Button variant="outline" onClick={() => void disconnect()} disabled={!!busy}>
-                    {busy === "remove" ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Unplug className="mr-1 h-4 w-4" />}
-                    {t("disconnect")}
-                  </Button>
-                )}
-              </div>
-            </div>
-          ) : canEdit && connected ? (
-            <Button variant="outline" onClick={() => void disconnect()} disabled={!!busy}>
-              {busy === "remove" ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Unplug className="mr-1 h-4 w-4" />}
-              {t("disconnect")}
-            </Button>
-          ) : (
-            !canEdit && <p className="text-xs text-muted-foreground">{t("adminOnly")}</p>
+              </SettingsBlock>
+            </>
           )}
-        </CardContent>
+        </>
+      ) : (
+        <SettingsBlock><p className="text-xs text-muted-foreground">{description}</p></SettingsBlock>
       )}
-    </Card>
+    </SettingsGroup>
   );
 }

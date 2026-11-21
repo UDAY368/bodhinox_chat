@@ -14,11 +14,11 @@ import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { authFetch } from '@/lib/auth/client';
 import type { RateCard, RateCategory } from '@/lib/analytics/rate-card';
+import { SettingsBlock, SettingsGroup } from './settings-row';
 
 const ENDPOINT = '/api/analytics/rate-card';
 // lib/analytics/rate-card's RATE_CATEGORIES (that module is server-only).
@@ -141,12 +141,8 @@ export function RateCardEditor() {
   };
 
   return (
-    <Card data-testid="rate-card-editor">
-      <CardHeader>
-        <CardTitle>{t('title')}</CardTitle>
-        <CardDescription>{t('description')}</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
+    <SettingsGroup testId="rate-card-editor" title={t('title')} footer={t('description')}>
+      <SettingsBlock className="space-y-4">
         <div className="flex flex-wrap gap-2">
           {RATE_CATEGORIES.map((c) => (
             <Button key={c} size="sm" variant={c === category ? 'default' : 'outline'} onClick={() => setCategory(c)}>
@@ -211,7 +207,7 @@ export function RateCardEditor() {
             {stepUp ? t('stepUpSubmit') : t('save')}
           </Button>
         </div>
-      </CardContent>
-    </Card>
+      </SettingsBlock>
+    </SettingsGroup>
   );
 }

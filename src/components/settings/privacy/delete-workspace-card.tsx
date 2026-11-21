@@ -9,10 +9,10 @@ import { useFormatter, useTranslations } from 'next-intl';
 import { Loader2 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { StepUpFields, sendJson, useActionError, useMfaState } from './step-up';
+import { SettingsBlock, SettingsGroup } from '../settings-row';
 
 /** Type-to-confirm: the typed name matches a workspace name that has loaded (never two empty strings). */
 export function deletionNameConfirmed(typed: string, workspaceName: string): boolean {
@@ -84,12 +84,8 @@ export function DeleteWorkspaceCard({
   };
 
   return (
-    <Card className="border-destructive/30">
-      <CardHeader>
-        <CardTitle className="text-foreground">{t('title')}</CardTitle>
-        <CardDescription>{t('description')}</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
+    <SettingsGroup title={t('title')} footer={t('description')}>
+      <SettingsBlock className="space-y-4">
         {closing ? (
           <div role="status" className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-foreground">
             {t('pending', {
@@ -140,7 +136,7 @@ export function DeleteWorkspaceCard({
             </div>
           </div>
         )}
-      </CardContent>
-    </Card>
+      </SettingsBlock>
+    </SettingsGroup>
   );
 }

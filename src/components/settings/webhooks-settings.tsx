@@ -19,7 +19,7 @@ import { AlertTriangle, Copy, History, Loader2, Plus, Trash2, Webhook } from 'lu
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { PageLoading } from '@/components/ui/page-loading';
-import { Card, CardContent } from '@/components/ui/card';
+import { EmptyState } from '@/components/ui/empty-state';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Input } from '@/components/ui/input';
@@ -42,6 +42,7 @@ import type { WebhookDelivery } from '@/lib/webhooks/manage';
 const DISABLE_AFTER_HOURS = 24;
 import { useTranslations } from 'next-intl';
 import { SettingsPanelHead } from './settings-panel-head';
+import { SETTINGS_ROW_HAIRLINE, SettingsGroup, SettingsMoreMenu } from './settings-row';
 
 function fmtDate(iso: string): string {
   return new Date(iso).toLocaleDateString(undefined, {
@@ -167,23 +168,16 @@ export function WebhooksSettings() {
       />
 
       {webhooks.length === 0 ? (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-10 text-center">
-            <Webhook className="text-muted-foreground size-6" />
-            <p className="text-muted-foreground mt-2 text-sm">{t('empty')}</p>
-            <p className="text-muted-foreground mt-1 text-xs">
-              {canEditSettings ? t('emptyAdminHint') : t('askAdminHint')}
-            </p>
-          </CardContent>
-        </Card>
+        <SettingsGroup footer={canEditSettings ? t('emptyAdminHint') : t('askAdminHint')}>
+          <EmptyState icon={Webhook} title={t('empty')} />
+        </SettingsGroup>
       ) : (
-        <Card>
-          <CardContent className="p-0">
-            <ul className="divide-border divide-y">
+        <SettingsGroup>
+            <ul>
               {webhooks.map((w) => (
                 <li
                   key={w.id}
-                  className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:gap-4"
+                  className={`${SETTINGS_ROW_HAIRLINE} flex min-h-11 flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:gap-4`}
                 >
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
@@ -226,33 +220,27 @@ export function WebhooksSettings() {
                   </div>
 
                   <RequireRole min="admin">
-                    <div className="flex items-center gap-3 self-start sm:self-auto">
-                      <Button variant="outline" size="sm" onClick={() => setLogFor(w)} aria-label={t('viewLog')}>
-                        <History className="size-4" />
-                      </Button>
+                    {/* The switch is the row's control; the delivery log and delete sit in its more menu. */}
+                    <div className="flex items-center gap-2 self-start sm:self-auto">
+                      {busy === w.id && <Loader2 className="text-muted-foreground size-4 animate-spin" />}
                       <Switch
                         checked={w.is_active}
                         disabled={busy === w.id}
                         onCheckedChange={(checked) => setActive(w, checked)}
                         aria-label={w.is_active ? t('pause') : t('resume')}
                       />
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => remove(w)}
-                        disabled={busy === w.id}
-                        aria-label={t('delete')}
-                        className="border-red-500/40 bg-red-500/10 text-red-700 dark:text-red-300 hover:border-red-500/60 hover:bg-red-500/20 hover:text-red-800 dark:hover:text-red-200"
-                      >
-                        {busy === w.id ? <Loader2 className="size-4 animate-spin" /> : <Trash2 className="size-4" />}
-                      </Button>
+                      <SettingsMoreMenu
+                        actions={[
+                          { label: t('viewLog'), icon: History, onSelect: () => setLogFor(w) },
+                          { label: t('delete'), icon: Trash2, destructive: true, disabled: busy === w.id, onSelect: () => void remove(w) },
+                        ]}
+                      />
                     </div>
                   </RequireRole>
                 </li>
               ))}
             </ul>
-          </CardContent>
-        </Card>
+        </SettingsGroup>
       )}
 
       <CreateWebhookDialog open={createOpen} onOpenChange={setCreateOpen} onCreated={load} showChannels={showChannels} />

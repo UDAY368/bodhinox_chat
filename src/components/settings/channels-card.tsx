@@ -18,8 +18,10 @@ import { toast } from 'sonner';
 import { useTranslations } from 'next-intl';
 
 import { Badge } from '@/components/ui/badge';
-import { Button, buttonVariants } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { buttonVariants } from '@/components/ui/button';
+import { InlineError } from '@/components/ui/inline-error';
+import { PageLoading } from '@/components/ui/page-loading';
+import { SETTINGS_ROW_HAIRLINE, SettingsBlock, SettingsGroup } from './settings-row';
 import { cn } from '@/lib/utils';
 import { Switch } from '@/components/ui/switch';
 import { useCan } from '@/hooks/use-can';
@@ -46,7 +48,6 @@ export function ChannelsCard() {
   const t = useTranslations('Channels.settings');
   const tErrors = useTranslations('Channels.errors');
   const tNames = useTranslations('Channels.names');
-  const tGate = useTranslations('ChannelGate');
   const canEdit = useCan('edit-settings');
   const { data, loading, error, refresh, save } = useWorkspaceChannels();
   const [saving, setSaving] = useState<Channel | null>(null);
@@ -67,31 +68,20 @@ export function ChannelsCard() {
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{t('title')}</CardTitle>
-        <CardDescription>{t('description')}</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        {!data && loading && <Loader2 className="text-muted-foreground size-4 animate-spin" aria-label={tGate('loading')} />}
-        {!data && !loading && error && (
-          <div className="flex items-center gap-3 text-sm">
-            <p className="text-destructive">{tErrors('loadFailed')}</p>
-            <Button type="button" variant="outline" size="sm" onClick={() => void refresh()}>{tGate('retry')}</Button>
-          </div>
-        )}
-        {data && (
-          <div className="divide-border border-border divide-y overflow-hidden rounded-xl border">
-            {CHANNELS.map((channel) => (
-              <ChannelRow key={channel} state={data.channels[channel]} block={switchBlock(data, channel)}
-                canEdit={canEdit} busy={saving !== null} saving={saving === channel}
-                onToggle={(on) => void toggle(channel, on)} />
-            ))}
-          </div>
-        )}
-        {data && !canEdit && <p className="text-muted-foreground text-xs">{t('adminOnly')}</p>}
-      </CardContent>
-    </Card>
+    <SettingsGroup
+      title={t('title')}
+      footer={data && !canEdit ? <>{t('description')} {t('adminOnly')}</> : t('description')}
+    >
+      {!data && loading && <SettingsBlock><PageLoading rows={2} /></SettingsBlock>}
+      {!data && !loading && error && (
+        <SettingsBlock><InlineError message={tErrors('loadFailed')} onRetry={() => void refresh()} /></SettingsBlock>
+      )}
+      {data && CHANNELS.map((channel) => (
+        <ChannelRow key={channel} state={data.channels[channel]} block={switchBlock(data, channel)}
+          canEdit={canEdit} busy={saving !== null} saving={saving === channel}
+          onToggle={(on) => void toggle(channel, on)} />
+      ))}
+    </SettingsGroup>
   );
 }
 
@@ -117,7 +107,7 @@ function ChannelRow({ state, block, canEdit, busy, saving, onToggle }: {
     : null;
 
   return (
-    <div className="flex min-h-14 flex-wrap items-center gap-3 px-4 py-3" data-channel-row={state.channel}
+    <div className={cn(SETTINGS_ROW_HAIRLINE, 'flex min-h-14 flex-wrap items-center gap-3 px-4 py-3')} data-channel-row={state.channel}
       data-channel-state={state.state}>
       {/* Channel marks are the one place brand colours (and the Instagram gradient) are allowed. */}
       <span className={cn('flex size-9 shrink-0 items-center justify-center rounded-[10px] text-white',

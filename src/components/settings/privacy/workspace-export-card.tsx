@@ -10,9 +10,9 @@ import { useFormatter, useTranslations } from 'next-intl';
 import { Download, Loader2 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { authFetch } from '@/lib/auth/client';
 import { StepUpFields, sendJson, useActionError, useMfaState } from './step-up';
+import { SettingsBlock, SettingsGroup } from '../settings-row';
 
 interface ExportItem {
   id: string;
@@ -96,12 +96,8 @@ export function WorkspaceExportCard() {
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-foreground">{t('title')}</CardTitle>
-        <CardDescription>{t('description')}</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
+    <SettingsGroup title={t('title')} footer={t('description')}>
+      <SettingsBlock className="space-y-4">
         {!configured ? (
           <p className="text-sm text-muted-foreground">{t('notConfigured')}</p>
         ) : (
@@ -115,9 +111,9 @@ export function WorkspaceExportCard() {
           </>
         )}
         {items && items.length > 0 ? (
-          <ul className="divide-y divide-border rounded-lg border border-border text-sm">
+          <ul className="-mx-4 divide-y divide-separator border-y border-separator text-sm">
             {items.map((item) => (
-              <li key={item.id} className="flex flex-wrap items-center justify-between gap-2 px-3 py-2">
+              <li key={item.id} className="flex min-h-11 flex-wrap items-center justify-between gap-2 px-4 py-2">
                 <span className="text-foreground">
                   {format.dateTime(new Date(item.createdAt), { dateStyle: 'medium', timeStyle: 'short' })}
                 </span>
@@ -145,7 +141,7 @@ export function WorkspaceExportCard() {
           </ul>
         ) : null}
         <p className="text-xs text-muted-foreground">{t('note')}</p>
-      </CardContent>
-    </Card>
+      </SettingsBlock>
+    </SettingsGroup>
   );
 }

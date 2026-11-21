@@ -75,7 +75,7 @@ function IdListInput({ ids, onChange, label, placeholder }: { ids: string[]; onC
   // An outside change (field switch, prefill) replaces the text; our own edits parse to the same ids.
   if (parseIds(text).join(',') !== ids.join(',')) setText(ids.join(', '));
   return (
-    <Input aria-label={label} className="h-8 w-64" inputMode="numeric" placeholder={placeholder} value={text}
+    <Input aria-label={label} className="w-64" inputMode="numeric" placeholder={placeholder} value={text}
       onChange={(e) => { setText(e.target.value); onChange(parseIds(e.target.value)); }} />
   );
 }
@@ -317,7 +317,7 @@ export function SegmentBuilderDialog({
                       onValueChange={(v) => update(index, { ...c, op: v as typeof c.op })}
                       options={(['is', 'is_not', 'contains', 'is_empty', 'is_not_empty'] as const).map((op) => ({ value: op, label: t(`ops.${op}`) }))} />
                     {['is', 'is_not', 'contains'].includes(c.op) && (
-                      <Input aria-label={t('valueLabel')} className="h-8 w-40" value={c.value ?? ''} onChange={(e) => update(index, { ...c, value: e.target.value })} />
+                      <Input aria-label={t('valueLabel')} className="w-40" value={c.value ?? ''} onChange={(e) => update(index, { ...c, value: e.target.value })} />
                     )}
                   </>
                 )}
@@ -328,7 +328,7 @@ export function SegmentBuilderDialog({
                       onValueChange={(v) => update(index, { ...c, op: v as typeof c.op })}
                       options={(['contains', 'is_empty', 'is_not_empty'] as const).map((op) => ({ value: op, label: t(`ops.${op}`) }))} />
                     {c.op === 'contains' && (
-                      <Input aria-label={t('valueLabel')} className="h-8 w-40" value={c.value ?? ''} onChange={(e) => update(index, { ...c, value: e.target.value })} />
+                      <Input aria-label={t('valueLabel')} className="w-40" value={c.value ?? ''} onChange={(e) => update(index, { ...c, value: e.target.value })} />
                     )}
                   </>
                 )}
@@ -338,7 +338,7 @@ export function SegmentBuilderDialog({
                     <OptionSelect aria-label={t('operatorLabel')} className={OPTION_SELECT} value={c.op}
                       onValueChange={(v) => update(index, { ...c, op: v as 'before' | 'after' })}
                       options={[{ value: 'after', label: t('ops.after') }, { value: 'before', label: t('ops.before') }]} />
-                    <Input aria-label={t('valueLabel')} type="date" className="h-8 w-40" value={c.value}
+                    <Input aria-label={t('valueLabel')} type="date" className="w-40" value={c.value}
                       onChange={(e) => update(index, { ...c, value: e.target.value })} />
                   </>
                 )}
@@ -366,7 +366,7 @@ export function SegmentBuilderDialog({
                     <OptionSelect aria-label={t('operatorLabel')} className={OPTION_SELECT} value={c.op}
                       onValueChange={(v) => update(index, { ...c, op: v as typeof c.op })}
                       options={[{ value: 'at_least', label: t('ops.at_least') }, { value: 'at_most', label: t('ops.at_most') }]} />
-                    <Input aria-label={t('followersLabel')} type="number" min={0} className="h-8 w-32" value={c.value}
+                    <Input aria-label={t('followersLabel')} type="number" min={0} className="w-32" value={c.value}
                       onChange={(e) => update(index, { ...c, value: Math.max(0, Math.floor(Number(e.target.value) || 0)) })} />
                     <span className="text-xs text-muted-foreground">{t('igFreshness')}</span>
                   </>
@@ -395,7 +395,7 @@ export function SegmentBuilderDialog({
                     <OptionSelect aria-label={t('operatorLabel')} className={OPTION_SELECT} value={c.op}
                       onValueChange={(v) => update(index, { ...c, op: v as typeof c.op })}
                       options={[{ value: 'at_least', label: t('ops.at_least') }, { value: 'at_most', label: t('ops.at_most') }]} />
-                    <Input aria-label={c.field === 'shop_orders' ? t('shopOrdersLabel') : t('shopSpendLabel')} type="number" min={0} className="h-8 w-32" value={c.value}
+                    <Input aria-label={c.field === 'shop_orders' ? t('shopOrdersLabel') : t('shopSpendLabel')} type="number" min={0} className="w-32" value={c.value}
                       onChange={(e) => update(index, { ...c, value: Math.max(0, Math.floor(Number(e.target.value) || 0)) })} />
                     <span className="text-xs text-muted-foreground">{c.field === 'shop_spend' ? t('shopSpendHint') : t('shopCounted')}</span>
                   </>
@@ -409,7 +409,7 @@ export function SegmentBuilderDialog({
                     <OptionSelect aria-label={t('operatorLabel')} className={OPTION_SELECT} value={c.op}
                       onValueChange={(v) => update(index, { ...c, op: v as 'before' | 'after' })}
                       options={[{ value: 'after', label: t('ops.after') }, { value: 'before', label: t('ops.before') }]} />
-                    <Input aria-label={t('valueLabel')} type="date" className="h-8 w-40" value={c.value}
+                    <Input aria-label={t('valueLabel')} type="date" className="w-40" value={c.value}
                       onChange={(e) => update(index, { ...c, value: e.target.value })} />
                   </>
                 )}

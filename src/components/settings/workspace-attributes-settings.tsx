@@ -13,13 +13,13 @@ import { Braces, Loader2, Lock, Plus, Trash2 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { authFetch } from '@/lib/auth/client';
 import type { WorkspaceAttribute } from '@/lib/workspace/attributes';
 import { planAllows, usePlan } from '@/lib/billing/client';
 import { UpgradeBadge } from '@/components/ui/upgrade-badge';
+import { SettingsBlock, SettingsGroup } from './settings-row';
 
 export function WorkspaceAttributesSettings() {
   const t = useTranslations('Settings.workspaceAttributes');
@@ -87,26 +87,18 @@ export function WorkspaceAttributesSettings() {
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-foreground">
-          <Braces className="size-4 text-primary" />
+    <SettingsGroup title={<><Braces className="size-4 text-primary" />
           {t('title')}
-          {!allowed && <UpgradeBadge />}
-        </CardTitle>
-        <CardDescription className="text-muted-foreground">
-          {t('description', { example: '{{workspace.support_email}}' })}
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
+          {!allowed && <UpgradeBadge />}</>} footer={t('description', { example: '{{workspace.support_email}}' })}>
+      <SettingsBlock className="space-y-4">
         {loading ? (
           <Loader2 className="size-5 animate-spin text-primary" />
         ) : attributes.length === 0 ? (
           <p className="text-sm text-muted-foreground">{t('empty')}</p>
         ) : (
-          <ul className="divide-y divide-border rounded-md border border-border">
+          <ul className="-mx-4 divide-y divide-separator border-y border-separator">
             {attributes.map((a) => (
-              <li key={a.key} className="flex items-center gap-3 px-3 py-2 text-sm">
+              <li key={a.key} className="flex min-h-11 items-center gap-3 px-4 py-2 text-sm">
                 <code className="shrink-0 font-mono text-xs text-foreground">{`{{workspace.${a.key}}}`}</code>
                 <span className="min-w-0 flex-1 truncate text-muted-foreground">
                   {a.is_secret ? (
@@ -136,7 +128,7 @@ export function WorkspaceAttributesSettings() {
           </Button>
         </div>
         <p className="text-xs text-muted-foreground">{t('secretHint')}</p>
-      </CardContent>
-    </Card>
+      </SettingsBlock>
+    </SettingsGroup>
   );
 }

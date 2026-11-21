@@ -25,14 +25,12 @@ import { authFetch } from "@/lib/auth/client";
 import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import {
-  AlertTriangle,
+  Eye,
   EyeOff,
-  Loader2,
   Mail,
   MailX,
   Plus,
   Trash2,
-  UsersRound,
 } from 'lucide-react';
 
 import {
@@ -49,15 +47,8 @@ import {
 } from '@/components/ui/tooltip';
 import { Button } from '@/components/ui/button';
 import { PageLoading } from '@/components/ui/page-loading';
-import { Card, CardContent } from '@/components/ui/card';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import { useConfirm } from '@/components/ui/confirm-dialog';
+import { EmptyState } from '@/components/ui/empty-state';
 import {
   Select,
   SelectContent,
@@ -77,6 +68,7 @@ import {
 } from '@/components/presence/presence-dot';
 import { InviteMemberDialog } from './invite-member-dialog';
 import { SettingsPanelHead } from './settings-panel-head';
+import { SETTINGS_ROW_HAIRLINE, SettingsGroup, SettingsMoreMenu } from './settings-row';
 import { ROLE_META } from './role-meta';
 
 interface Member {
@@ -140,7 +132,7 @@ export function MembersTab() {
   const [loading, setLoading] = useState(true);
 
   const [inviteOpen, setInviteOpen] = useState(false);
-  const [removingMember, setRemovingMember] = useState<Member | null>(null);
+  const confirm = useConfirm();
   const [pendingMemberAction, setPendingMemberAction] = useState<string | null>(
     null,
   );
@@ -264,8 +256,18 @@ export function MembersTab() {
     }
   }
 
-  async function handleRemove() {
-    if (!removingMember) return;
+  async function handleRemove(removingMember: Member) {
+    const ok = await confirm({
+      title: t('removeDialogTitle'),
+      body: t.rich('removeDialogDesc', {
+        name: removingMember.full_name || t('unnamed'),
+        bold: (chunks: React.ReactNode) => <strong>{chunks}</strong>,
+      }),
+      confirmLabel: t('removeBtn'),
+      cancelLabel: t('cancel'),
+      destructive: true,
+    });
+    if (!ok) return;
     setPendingMemberAction(removingMember.user_id);
     try {
       const res = await authFetch(
@@ -281,7 +283,6 @@ export function MembersTab() {
       setMembers((prev) =>
         prev.filter((m) => m.user_id !== removingMember.user_id),
       );
-      setRemovingMember(null);
     } catch (err) {
       console.error('[MembersTab] remove error:', err);
       toast.error(t('networkError'));
@@ -329,13 +330,14 @@ export function MembersTab() {
         }
       />
 
-      {/* Live presence summary across the roster. Updates without a
-          full refresh as heartbeats and the local re-derive tick land. */}
-      {members.length > 0 &&
-        (() => {
+      {/* Roster: one grouped list; the presence summary is its footer note.
+          Live: updates without a full refresh as heartbeats land. */}
+      <SettingsGroup
+        title={t('memberCount', { count: members.length })}
+        footer={members.length > 0 ? (() => {
           const counts = summarize(members.map((m) => getPresence(m.user_id)));
           return (
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+            <span className="flex flex-wrap items-center gap-x-4 gap-y-1">
               <span className="inline-flex items-center gap-1.5">
                 <PresenceDot status="online" />
                 {counts.online} {t('online')}
@@ -348,17 +350,11 @@ export function MembersTab() {
                 <PresenceDot status="offline" />
                 {counts.offline} {t('offline')}
               </span>
-              <span className="text-muted-foreground/70">
-                · {t('memberCount', { count: members.length })}
-              </span>
-            </div>
+            </span>
           );
-        })()}
-
-      {/* Roster */}
-      <Card>
-        <CardContent className="p-0">
-          <ul className="divide-y divide-border">
+        })() : undefined}
+      >
+          <ul>
             {members.map((member) => {
               const roleMeta = ROLE_META[member.role];
               const RoleIcon = roleMeta.icon;
@@ -381,7 +377,7 @@ export function MembersTab() {
                   // 128px width doesn't force the name into a 50-pixel
                   // truncation. Desktop (sm+): everything inline as
                   // before.
-                  className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:gap-4"
+                  className={`${SETTINGS_ROW_HAIRLINE} flex min-h-11 flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:gap-4`}
                 >
                   <div className="flex min-w-0 flex-1 items-center gap-4">
                     <Tooltip>
@@ -481,158 +477,95 @@ export function MembersTab() {
                       </span>
                     )}
 
-                    {/* Phone masking. Admin+ only, and only for agents
-                        and viewers: owners and admins always see full
-                        numbers. The server enforces the mask. */}
-                    {canManageMembers &&
-                      (member.role === 'agent' || member.role === 'viewer') && (
-                        <Tooltip>
-                          <TooltipTrigger
-                            render={
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                aria-pressed={member.mask_phone_numbers === true}
-                                aria-label={t('maskToggle', {
-                                  name: member.full_name || t('unnamed'),
-                                })}
-                                onClick={() =>
-                                  handleMaskChange(
-                                    member,
-                                    member.mask_phone_numbers !== true,
-                                  )
-                                }
-                                disabled={isBusy}
-                                className={
-                                  member.mask_phone_numbers
-                                    ? 'border-primary/50 bg-primary/10 text-primary'
-                                    : ''
-                                }
-                              >
-                                <EyeOff className="size-4" />
-                              </Button>
-                            }
-                          />
-                          <TooltipContent>
-                            {member.mask_phone_numbers
-                              ? t('maskOnHint')
-                              : t('maskOffHint')}
-                          </TooltipContent>
-                        </Tooltip>
-                      )}
-
-                    {/* Remove. Admin+ only; never on the owner row;
-                        never on yourself. Pre-polish styling was
-                        neutral-default + red-on-hover — the
-                        destructive intent was invisible until the
-                        user moused over. Now red is the default
-                        state with a darker shade on hover so the
-                        affordance reads at-a-glance. */}
-                    {canManageMembers && !isOwnerRow && !isSelf && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setRemovingMember(member)}
-                        aria-label={t('removeBtn')}
-                        disabled={isBusy}
-                        className="border-red-500/40 bg-red-500/10 text-red-700 dark:text-red-300 hover:bg-red-500/20 hover:border-red-500/60 hover:text-red-800 dark:hover:text-red-200"
-                      >
-                        <Trash2 className="size-4" />
-                      </Button>
+                    {/* Phone masking (agents and viewers only; owners and admins
+                        always see full numbers, the server enforces the
+                        mask) and Remove (never the owner or yourself) sit
+                        in the row's more menu. Admin+ only. */}
+                    {canManageMembers && (
+                      <SettingsMoreMenu
+                        label={t('memberActions', { name: member.full_name || t('unnamed') })}
+                        actions={[
+                          {
+                            label: member.mask_phone_numbers ? t('maskMenuOn') : t('maskMenuOff'),
+                            icon: member.mask_phone_numbers ? Eye : EyeOff,
+                            disabled: isBusy,
+                            hidden: member.role !== 'agent' && member.role !== 'viewer',
+                            onSelect: () => handleMaskChange(member, member.mask_phone_numbers !== true),
+                          },
+                          {
+                            label: t('removeBtn'),
+                            icon: Trash2,
+                            destructive: true,
+                            disabled: isBusy,
+                            hidden: isOwnerRow || isSelf,
+                            onSelect: () => void handleRemove(member),
+                          },
+                        ]}
+                      />
                     )}
                   </div>
                 </li>
               );
             })}
           </ul>
-        </CardContent>
-      </Card>
+      </SettingsGroup>
 
-      {/* Pending invitations — admin+ only */}
+      {/* Pending invitations — admin+ only. The footer states that links
+          can't be re-sent, so the missing "copy link again" doesn't read as a bug. */}
       <RequireRole min="admin">
-        <div>
-          <div className="mb-2 flex items-center gap-2">
-            <UsersRound className="size-4 text-muted-foreground" />
-            <h3 className="text-sm font-semibold text-foreground">
-              {t('pendingInvitations')}
-            </h3>
-            <Badge className="bg-muted text-muted-foreground border-border">
-              {invitations.length}
-            </Badge>
-          </div>
-          {/* P10 — make the no-resend design explicit. Admins were
-              confused why the pending list shows roles + expiry but
-              no "copy link again" button. Stating the constraint up
-              front (rather than letting the user discover it by
-              looking for a button) keeps it from feeling like a bug. */}
-          {invitations.length > 0 ? (
-            <p className="mb-3 text-xs text-muted-foreground">
-              {t('inviteHint')}
-            </p>
-          ) : null}
-
-          {invitations.length === 0 ? (
-            <Card>
-              <CardContent className="flex flex-col items-center justify-center py-8 text-center">
-                <Mail className="size-6 text-muted-foreground" />
-                <p className="mt-2 text-sm text-muted-foreground">
-                  {t('noPendingTitle')}
-                </p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {t.rich('noPendingDesc', { bold: (chunks) => <strong>{chunks}</strong> })}
-                </p>
-              </CardContent>
-            </Card>
-          ) : (
-            <Card>
-              <CardContent className="p-0">
-                <ul className="divide-y divide-border">
-                  {invitations.map((inv) => {
-                    const inviteRoleMeta = ROLE_META[inv.role];
-                    const InviteRoleIcon = inviteRoleMeta.icon;
-                    return (
-                    <li
-                      key={inv.id}
-                      className="flex items-center gap-4 px-4 py-3"
-                    >
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-medium text-foreground">
-                            {inv.label || t('untitledInvite')}
-                          </span>
-                          <span
-                            className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[11px] font-medium ${inviteRoleMeta.className}`}
-                          >
-                            <InviteRoleIcon className="size-3" />
-                            {tRoles(inv.role)}
-                          </span>
-                        </div>
-                        <p className="mt-0.5 text-xs text-muted-foreground">
-                          {t('created', { date: fmtDate(inv.created_at) })} · {fmtExpiresIn(inv.expires_at, t)}
-                        </p>
+        {invitations.length === 0 ? (
+          <SettingsGroup title={`${t('pendingInvitations')} · 0`}>
+            <EmptyState
+              icon={Mail}
+              title={t('noPendingTitle')}
+              action={
+                <Button variant="outline" onClick={() => setInviteOpen(true)}>
+                  <Plus className="size-4" />
+                  {t('inviteMember')}
+                </Button>
+              }
+              className="py-8"
+            />
+          </SettingsGroup>
+        ) : (
+          <SettingsGroup title={`${t('pendingInvitations')} · ${invitations.length}`} footer={t('inviteHint')}>
+            <ul>
+              {invitations.map((inv) => {
+                const inviteRoleMeta = ROLE_META[inv.role];
+                const InviteRoleIcon = inviteRoleMeta.icon;
+                return (
+                  <li key={inv.id} className={`${SETTINGS_ROW_HAIRLINE} flex min-h-11 items-center gap-4 px-4 py-3`}>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-sm font-medium text-foreground">
+                          {inv.label || t('untitledInvite')}
+                        </span>
+                        <span
+                          className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[11px] font-medium ${inviteRoleMeta.className}`}
+                        >
+                          <InviteRoleIcon className="size-3" />
+                          {tRoles(inv.role)}
+                        </span>
                       </div>
-
-                      {/* Revoke: red default state, mirrors the
-                          members-tab Remove button. Pre-polish version
-                          read as a neutral secondary button until
-                          hover. */}
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleRevoke(inv)}
-                        className="border-red-500/40 bg-red-500/10 text-red-700 dark:text-red-300 hover:bg-red-500/20 hover:border-red-500/60 hover:text-red-800 dark:hover:text-red-200"
-                      >
-                        <MailX className="size-4" />
-                        {t('revoke')}
-                      </Button>
-                    </li>
-                    );
-                  })}
-                </ul>
-              </CardContent>
-            </Card>
-          )}
-        </div>
+                      <p className="mt-0.5 text-xs text-muted-foreground">
+                        {t('created', { date: fmtDate(inv.created_at) })} · {fmtExpiresIn(inv.expires_at, t)}
+                      </p>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleRevoke(inv)}
+                      className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                    >
+                      <MailX className="size-4" />
+                      {t('revoke')}
+                    </Button>
+                  </li>
+                );
+              })}
+            </ul>
+          </SettingsGroup>
+        )}
       </RequireRole>
 
       <InviteMemberDialog
@@ -641,50 +574,6 @@ export function MembersTab() {
         onCreated={loadEverything}
       />
 
-      <Dialog
-        open={removingMember !== null}
-        onOpenChange={(open) => {
-          if (!open) setRemovingMember(null);
-        }}
-      >
-        <DialogContent className="bg-popover border-border sm:max-w-sm">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-popover-foreground">
-              <AlertTriangle className="size-4 text-amber-500" />
-              {t('removeDialogTitle')}
-            </DialogTitle>
-            <DialogDescription className="text-muted-foreground">
-              {t.rich('removeDialogDesc', { 
-                name: removingMember?.full_name || t('unnamed'),
-                bold: (chunks: React.ReactNode) => <strong>{chunks}</strong>
-              })}
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter className="bg-popover border-border">
-            <Button
-              variant="outline"
-              onClick={() => setRemovingMember(null)}
-              className="border-border text-muted-foreground hover:bg-muted"
-            >
-              {t('cancel')}
-            </Button>
-            <Button
-              onClick={handleRemove}
-              disabled={!!pendingMemberAction}
-              className="bg-red-600 hover:bg-red-700 text-white"
-            >
-              {pendingMemberAction ? (
-                <>
-                  <Loader2 className="size-4 animate-spin" />
-                  {t('removing')}
-                </>
-              ) : (
-                t('removeBtn')
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </section>
   );
 }

@@ -9,7 +9,8 @@ import { Loader2 } from 'lucide-react';
 import { useLocale, useTranslations } from 'next-intl';
 
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { SegmentedControl } from '@/components/ui/segmented-control';
+import { SETTINGS_ROW_HAIRLINE, SettingsGroup } from '../settings-row';
 import { cn } from '@/lib/utils';
 import { formatMajor } from '@/lib/format/money';
 import { type Interval, type PlanPrice, type SubscriptionView } from './types';
@@ -33,45 +34,39 @@ export function PlanPicker({ prices, subscription, canManage, busyPlan, onChoose
 
   if (!prices.length) return null;
   return (
-    <Card>
-      <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-3">
-        <CardTitle className="text-foreground">{live ? t('changeTitle') : t('title')}</CardTitle>
-        {hasYearly && (
-          <div className="inline-flex rounded-md border p-0.5 text-sm" role="group" aria-label={t('intervalLabel')}>
-            {(['month', 'year'] as const).map((i) => (
-              <button key={i} type="button" onClick={() => setInterval(i)} aria-pressed={interval === i}
-                className={cn('rounded px-3 py-1', interval === i ? 'bg-primary text-primary-foreground' : 'text-muted-foreground')}>
-                {t(`interval.${i}`)}
-              </button>
-            ))}
+    <SettingsGroup
+      title={live ? t('changeTitle') : t('title')}
+      footer={<>{t('gstNote')}{!canManage && <> {t('adminsOnly')}</>}{live && <> {t('changeHint')}</>}</>}
+      action={hasYearly ? (
+        <SegmentedControl
+          size="sm"
+          aria-label={t('intervalLabel')}
+          value={interval}
+          onValueChange={setInterval}
+          options={(['month', 'year'] as const).map((i) => ({ value: i, label: t(`interval.${i}`) }))}
+        />
+      ) : undefined}
+    >
+      {shown.map((p) => {
+        const current = live && subscription?.plan === p.plan && subscription.interval === p.interval;
+        return (
+          <div key={`${p.plan}-${p.interval}`} className={cn(SETTINGS_ROW_HAIRLINE, 'flex min-h-11 flex-wrap items-center gap-3 px-4 py-3', current && 'bg-primary/5')}>
+            <div className="min-w-0 flex-1">
+              <p className="font-medium text-foreground">{label(p.plan)}</p>
+              <p className="text-lg font-semibold text-foreground">
+                {formatMajor(p.amountMinor / 100, p.currency, { locale })}
+                <span className="text-sm font-normal text-muted-foreground"> / {t(`per.${p.interval}`)}</span>
+              </p>
+            </div>
+            <Button size="sm" variant={current ? 'outline' : 'default'}
+              disabled={!canManage || current || busyPlan !== null}
+              onClick={() => onChoose(p.plan, p.interval, live ? 'change' : 'subscribe')}>
+              {busyPlan === `${p.plan}:${p.interval}` && <Loader2 className="size-4 animate-spin" />}
+              {current ? t('current') : live ? t('switch') : t('subscribe')}
+            </Button>
           </div>
-        )}
-      </CardHeader>
-      <CardContent>
-        <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {shown.map((p) => {
-            const current = live && subscription?.plan === p.plan && subscription.interval === p.interval;
-            return (
-              <li key={`${p.plan}-${p.interval}`} className={cn('flex flex-col gap-2 rounded-lg border p-4', current && 'border-primary')}>
-                <span className="font-medium text-foreground">{label(p.plan)}</span>
-                <span className="text-2xl font-semibold text-foreground">
-                  {formatMajor(p.amountMinor / 100, p.currency, { locale })}
-                  <span className="text-sm font-normal text-muted-foreground"> / {t(`per.${p.interval}`)}</span>
-                </span>
-                <span className="text-xs text-muted-foreground">{t('gstNote')}</span>
-                <Button className="mt-auto" size="sm" variant={current ? 'outline' : 'default'}
-                  disabled={!canManage || current || busyPlan !== null}
-                  onClick={() => onChoose(p.plan, p.interval, live ? 'change' : 'subscribe')}>
-                  {busyPlan === `${p.plan}:${p.interval}` && <Loader2 className="size-4 animate-spin" />}
-                  {current ? t('current') : live ? t('switch') : t('subscribe')}
-                </Button>
-              </li>
-            );
-          })}
-        </ul>
-        {!canManage && <p className="mt-3 text-xs text-muted-foreground">{t('adminsOnly')}</p>}
-        {live && <p className="mt-3 text-xs text-muted-foreground">{t('changeHint')}</p>}
-      </CardContent>
-    </Card>
+        );
+      })}
+    </SettingsGroup>
   );
 }

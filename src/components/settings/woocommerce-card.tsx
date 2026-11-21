@@ -13,7 +13,6 @@ import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
 import { PageLoading } from '@/components/ui/page-loading';
 import { useConfirm } from '@/components/ui/confirm-dialog';
-import { Card, CardContent } from '@/components/ui/card';
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -22,6 +21,7 @@ import { authFetch } from '@/lib/auth/client';
 import type { CommerceEventName } from '@/lib/commerce/event-rules';
 import { CommerceRulesEditor } from './commerce-rules-editor';
 import { SettingsPanelHead } from './settings-panel-head';
+import { SettingsBlock, SettingsGroup, SettingsMoreMenu } from './settings-row';
 
 interface WooStore {
   id: string;
@@ -131,8 +131,8 @@ function WooCommerceCardInner() {
   return (
     <section>
       <SettingsPanelHead title={t('title')} description={t('description')} />
-      <Card>
-        <CardContent className="space-y-6 p-5">
+      <SettingsGroup>
+        <SettingsBlock className="space-y-6">
           {loading ? (
             <PageLoading rows={2} />
           ) : (
@@ -140,18 +140,17 @@ function WooCommerceCardInner() {
               {stores.length === 0 ? (
                 <p className="text-muted-foreground text-sm">{t('empty')}</p>
               ) : (
-                <ul className="space-y-3">
+                <ul className="-mx-4 divide-y divide-separator border-y border-separator">
                   {stores.map((store) => (
-                    <li key={store.id} className="border-border space-y-2 rounded-md border p-3">
+                    <li key={store.id} className="space-y-2 px-4 py-3">
                       <div className="flex items-center justify-between gap-3">
                         <div className="flex min-w-0 items-center gap-2">
                           <ShoppingBag className="text-muted-foreground h-4 w-4 shrink-0" />
                           <span className="text-foreground truncate text-sm font-medium">{store.store_url}</span>
                         </div>
-                        <Button variant="ghost" size="sm" disabled={busy} onClick={() => void disconnect(store.id)}>
-                          <Trash2 className="h-4 w-4" />
-                          {t('disconnect')}
-                        </Button>
+                        <SettingsMoreMenu actions={[
+                          { label: t('disconnect'), icon: Trash2, destructive: true, disabled: busy, onSelect: () => void disconnect(store.id) },
+                        ]} />
                       </div>
                       <div className="flex items-center gap-2">
                         <code className="bg-muted min-w-0 flex-1 truncate rounded px-2 py-1 text-xs">{store.delivery_url}</code>
@@ -210,8 +209,8 @@ function WooCommerceCardInner() {
               )}
             </>
           )}
-        </CardContent>
-      </Card>
+        </SettingsBlock>
+      </SettingsGroup>
 
       <Sheet open={created !== null} onOpenChange={(open) => !open && setCreated(null)}>
         <SheetContent size="md" className="w-full gap-4 overflow-y-auto p-4">

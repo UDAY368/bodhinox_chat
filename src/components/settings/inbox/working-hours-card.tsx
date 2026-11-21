@@ -14,7 +14,6 @@ import { toast } from "sonner";
 import { useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
@@ -30,6 +29,8 @@ import {
   type TimeRange,
   type Weekday,
 } from "@/lib/inbox/working-hours";
+import { SETTINGS_ROW_HAIRLINE, SettingsBlock, SettingsGroup, SettingsRow } from "../settings-row";
+import { PageLoading } from "@/components/ui/page-loading";
 
 const MAX_AWAY = 1024;
 const DEFAULT_RANGE: TimeRange = { start: "09:00", end: "18:00" };
@@ -121,20 +122,14 @@ export function WorkingHoursCard({ canEdit }: { canEdit: boolean }) {
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-foreground">{t("title")}</CardTitle>
-        <CardDescription className="text-muted-foreground">{t("description")}</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-5">
+    <SettingsGroup title={t("title")} footer={t("description")}>
         {loading ? (
-          <Loader2 className="size-4 animate-spin text-primary" />
+          <SettingsBlock><PageLoading rows={3} /></SettingsBlock>
         ) : loadFailed ? (
-          <p className="text-xs text-destructive">{t("loadFailed")}</p>
+          <SettingsBlock><p className="text-xs text-destructive">{t("loadFailed")}</p></SettingsBlock>
         ) : (
           <>
-            <div className="space-y-1.5">
-              <Label htmlFor="inbox-timezone">{t("timezone")}</Label>
+            <SettingsRow label={t("timezone")} htmlFor="inbox-timezone">
               <Input
                 id="inbox-timezone"
                 list="inbox-timezones"
@@ -147,15 +142,16 @@ export function WorkingHoursCard({ canEdit }: { canEdit: boolean }) {
               <datalist id="inbox-timezones">
                 {zones.map((zone) => <option key={zone} value={zone} />)}
               </datalist>
-            </div>
+            </SettingsRow>
 
-            <fieldset className="space-y-2">
-              <legend className="text-sm font-medium text-foreground">{t("hours")}</legend>
+            <SettingsBlock className="py-2.5">
+              <p className="text-sm font-medium text-foreground">{t("hours")}</p>
               <p className="text-xs text-muted-foreground">{t("hoursHint")}</p>
+            </SettingsBlock>
               {WEEKDAYS.map((day) => {
                 const ranges = settings.working_hours[day] ?? [];
                 return (
-                  <div key={day} className="flex flex-col gap-2 rounded-md border border-border p-2 sm:flex-row sm:items-start">
+                  <div key={day} className={`${SETTINGS_ROW_HAIRLINE} flex min-h-11 flex-col gap-2 px-4 py-3 sm:flex-row sm:items-start`}>
                     <label className="flex w-36 shrink-0 items-center gap-2 text-sm text-foreground">
                       <Switch
                         checked={ranges.length > 0}
@@ -204,9 +200,8 @@ export function WorkingHoursCard({ canEdit }: { canEdit: boolean }) {
                   </div>
                 );
               })}
-            </fieldset>
 
-            <div className="space-y-2 rounded-md border border-border p-3">
+            <div className={`${SETTINGS_ROW_HAIRLINE} space-y-2 px-4 py-3`}>
               <div className="flex items-center justify-between gap-4">
                 <div>
                   <p className="text-sm font-medium text-foreground">{t("awayTitle")}</p>
@@ -247,7 +242,7 @@ export function WorkingHoursCard({ canEdit }: { canEdit: boolean }) {
               )}
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className={`${SETTINGS_ROW_HAIRLINE} grid gap-4 px-4 py-3 sm:grid-cols-2`}>
               <div className="space-y-1.5">
                 <Label htmlFor="inbox-sla">{t("slaLabel")}</Label>
                 <Input id="inbox-sla" type="number" inputMode="numeric" min={1} max={10080} step={1}
@@ -264,16 +259,17 @@ export function WorkingHoursCard({ canEdit }: { canEdit: boolean }) {
               </div>
             </div>
 
-            {canEdit ? (
-              <Button type="button" size="sm" onClick={save} disabled={!editable}>
-                {saving && <Loader2 className="size-3.5 animate-spin" />} {t("save")}
-              </Button>
-            ) : (
-              <p className="text-xs text-muted-foreground">{t("adminsOnly")}</p>
-            )}
+            <SettingsBlock className="flex justify-end py-2.5">
+              {canEdit ? (
+                <Button type="button" onClick={save} disabled={!editable}>
+                  {saving && <Loader2 className="size-3.5 animate-spin" />} {t("save")}
+                </Button>
+              ) : (
+                <p className="w-full text-xs text-muted-foreground">{t("adminsOnly")}</p>
+              )}
+            </SettingsBlock>
           </>
         )}
-      </CardContent>
-    </Card>
+    </SettingsGroup>
   );
 }

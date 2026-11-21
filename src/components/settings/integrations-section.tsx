@@ -1,8 +1,8 @@
 'use client';
 
 /**
- * Settings › Integrations: the prototype's one card grid of connected tools
- * (status badge and a Manage or Set up button each), followed by every
+ * Settings › Integrations: one grouped list of connected tools (status badge
+ * and Manage or Set up on each row), followed by every
  * integration's full settings card, so nothing the app could do before is
  * lost. Old links keep working: ?tab=connections and ?tab=payments open this
  * section at Zoom and Razorpay. Webhooks open API keys & webhooks.
@@ -13,7 +13,7 @@ import { CreditCard, FileSpreadsheet, ShoppingBag, Store, Truck, Video, Webhook 
 
 import { useAuth } from '@/hooks/use-auth';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
+import { GroupedList, GroupedListRow } from '@/components/ui/grouped-list';
 import { authFetch } from '@/lib/auth/client';
 import type { HealthState, IntegrationHealthRow, IntegrationKind } from '@/lib/platform/health';
 import { GoogleSheetsCard } from './integrations/google-sheets-card';
@@ -89,32 +89,32 @@ export function IntegrationsSection({ focus, onOpenApi }: { focus?: 'payments' |
     <div key={accountId} className="space-y-10">
       <section>
         <SettingsPanelHead title={t('title')} description={t('description')} />
-        <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        {/* One grouped list of tools: tapping a row opens its settings below. */}
+        <GroupedList>
           {APPS.map(({ id, icon: Icon, kind }) => {
             const state = stateFor(rows, kind);
             return (
-              <li key={id} className="flex min-w-0 flex-col gap-3 rounded-xl border border-border bg-card p-4">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted text-primary" aria-hidden>
-                    <Icon className="size-[18px]" />
+              <GroupedListRow
+                key={id}
+                leading={
+                  <span className="flex size-7 items-center justify-center rounded-lg bg-muted text-primary" aria-hidden>
+                    <Icon className="size-4" />
                   </span>
-                  {kind ? badge(state) : null}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-semibold text-foreground">{t(`apps.${id}.name`)}</p>
-                  <p className="mt-0.5 text-xs text-muted-foreground">{t(`apps.${id}.text`)}</p>
-                </div>
-                <div>
-                  {/* The accessible name starts with the visible label (WCAG 2.5.3), then names the app. */}
-                  <Button type="button" variant={state ? 'outline' : 'default'} size="sm" onClick={() => open(id)}>
-                    {state || id === 'webhooks' || id === 'sheets' ? t('manage') : t('setUp')}
-                    <span className="sr-only">: {t(`apps.${id}.name`)}</span>
-                  </Button>
-                </div>
-              </li>
+                }
+                title={t(`apps.${id}.name`)}
+                subtitle={t(`apps.${id}.text`)}
+                trailing={
+                  <span className="flex items-center gap-2">
+                    {kind ? badge(state) : null}
+                    <span className="hidden sm:inline">{state || id === 'webhooks' || id === 'sheets' ? t('manage') : t('setUp')}</span>
+                  </span>
+                }
+                chevron
+                onClick={() => open(id)}
+              />
             );
           })}
-        </ul>
+        </GroupedList>
       </section>
 
       <IntegrationHealthCard />

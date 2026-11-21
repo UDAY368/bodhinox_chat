@@ -22,7 +22,6 @@ import { useTranslations } from 'next-intl';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { InlineError } from '@/components/ui/inline-error';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
@@ -33,6 +32,7 @@ import { authFetch } from '@/lib/auth/client';
 import { useWorkspaceChannels } from '@/hooks/use-workspace-channels';
 import { AUTO_REPLY_LEAD_FIELDS, autoReplyGoalsProblem } from '@/lib/ai/goal-rules';
 import { AI_GOAL_LIMITS, AI_GOAL_TYPES, type AiGoal, type AiGoalType } from '@/lib/flows/types';
+import { SettingsBlock, SettingsGroup } from './settings-row';
 
 export type AiToggle = 'summaries_enabled' | 'suggestions_enabled' | 'assessment_enabled' | 'insights_enabled';
 
@@ -276,14 +276,8 @@ export function AiAssistantSettings() {
   const status = view ? aiStatus(view) : null;
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Sparkles className="size-4" aria-hidden="true" /> {t('title')}
-        </CardTitle>
-        <CardDescription>{t('description')}</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-5">
+    <SettingsGroup title={<><Sparkles className="size-4" aria-hidden="true" /> {t('title')}</>} footer={t('description')}>
+      <SettingsBlock className="space-y-5">
         {loadFailed && (
           <InlineError message={t('loadFailed')} onRetry={() => void load()} />
         )}
@@ -305,9 +299,9 @@ export function AiAssistantSettings() {
 
             <p className="text-muted-foreground text-sm">{ts('staffReviewNote')}</p>
 
-            <div className="divide-border divide-y rounded-lg border">
+            <div className="-mx-4 divide-y divide-separator border-y border-separator">
               {AI_TOGGLES.map(({ key, feature }) => (
-                <label key={key} className="flex items-start gap-3 p-3 text-sm">
+                <label key={key} className="flex min-h-11 items-start gap-3 px-4 py-3 text-sm">
                   <Switch
                     checked={view.settings[key]}
                     onCheckedChange={(v: boolean) => void save({ [key]: v })}
@@ -355,7 +349,7 @@ export function AiAssistantSettings() {
             )}
           </>
         )}
-      </CardContent>
-    </Card>
+      </SettingsBlock>
+    </SettingsGroup>
   );
 }

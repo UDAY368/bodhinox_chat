@@ -2,7 +2,7 @@
 import { authFetch } from "@/lib/auth/client";
 
 import { useEffect, useState, type ReactNode } from 'react';
-import { ChevronRight, Loader2 } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 
 import { createClient } from '@/lib/data/client';
@@ -12,12 +12,12 @@ import { useWorkspaceChannels } from '@/hooks/use-workspace-channels';
 import { THEMES } from '@/lib/themes';
 import { CURRENCIES } from '@/lib/currency';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Card } from '@/components/ui/card';
-import { cn } from '@/lib/utils';
 
 import { SECTION_META, type SettingsSection } from './settings-sections';
 import { SettingsChip, StatusDot } from './settings-chip';
 import { ROLE_META } from './role-meta';
+import { SettingsPanel } from './settings-row';
+import { GroupedList, GroupedListRow } from '@/components/ui/grouped-list';
 
 interface OverviewCounts {
   members: number | null;
@@ -249,7 +249,7 @@ export function SettingsOverview({
   return (
     <section className="animate-in fade-in-50 duration-200">
       {/* Identity */}
-      <Card className="flex-row items-center gap-4 px-4 py-4">
+      <SettingsPanel className="flex min-h-11 items-center gap-4 px-4 py-4">
         <Avatar size="lg" className="size-14">
           {profile?.avatar_url ? (
             <AvatarImage src={profile.avatar_url} alt={displayName} />
@@ -274,47 +274,35 @@ export function SettingsOverview({
             {tRoles(accountRole!)}
           </SettingsChip>
         ) : null}
-      </Card>
+      </SettingsPanel>
 
       {/* Status tiles */}
-      <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+      <GroupedList className="mt-6">
         {tiles.filter(({ section }) => !hidden?.has(section)
-          // Instagram's tile shows once its channel state says it is in use.
+          // Instagram's row shows once its channel state says it is in use.
           && (section !== 'instagram' || instagram?.enabled === true)).map(({ section, loading, subtitle }) => {
           const meta = SECTION_META[section];
           const Icon = meta.icon;
           return (
-            <button
+            <GroupedListRow
               key={section}
-              type="button"
               onClick={() => onSelect(section)}
-              className={cn(
-                'group flex items-center gap-3 rounded-xl border border-border bg-card p-4 text-left transition-colors duration-150',
-                'hover:bg-muted/50',
-              )}
-            >
-              <span className="flex size-9 shrink-0 items-center justify-center rounded-[10px] bg-muted text-muted-foreground transition-colors duration-150 group-hover:text-primary">
-                <Icon className="size-[18px]" />
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="block text-sm font-semibold text-foreground">
-                  {tSections(section)}
+              chevron
+              leading={
+                <span className="flex size-7 items-center justify-center rounded-[8px] bg-muted text-muted-foreground">
+                  <Icon className="size-4" />
                 </span>
-                <span className="mt-0.5 flex items-center gap-1.5 text-xs text-muted-foreground">
-                  {loading ? (
-                    <>
-                      <Loader2 className="size-3 animate-spin" /> {t('loading')}
-                    </>
-                  ) : (
-                    subtitle
-                  )}
+              }
+              title={tSections(section)}
+              subtitle={loading ? (
+                <span className="inline-flex items-center gap-1.5">
+                  <Loader2 className="size-3 animate-spin" /> {t('loading')}
                 </span>
-              </span>
-              <ChevronRight className="size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
-            </button>
+              ) : subtitle}
+            />
           );
         })}
-      </div>
+      </GroupedList>
     </section>
   );
 }

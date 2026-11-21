@@ -20,7 +20,6 @@ import { useTranslations } from 'next-intl';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useConfirm } from '@/components/ui/confirm-dialog';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
@@ -30,6 +29,7 @@ import type { MetaAdConnectionDto } from '@/lib/meta-ads/connection';
 import { NumberSelect } from './numbers/number-select';
 import { MetaAdAccounts } from './meta-ad-accounts';
 import { useWhatsAppNumbers } from './numbers/use-whatsapp-numbers';
+import { SettingsBlock, SettingsGroup } from './settings-row';
 
 const SDK_SRC = 'https://connect.facebook.net/en_US/sdk.js';
 const GRAPH_VERSION = 'v27.0';
@@ -224,14 +224,8 @@ export function MetaAdsCard() {
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-foreground flex items-center gap-2">
-          <Megaphone className="size-4" /> {t('title')}
-        </CardTitle>
-        <CardDescription className="text-muted-foreground">{t('description')}</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
+    <SettingsGroup title={<><Megaphone className="size-4" /> {t('title')}</>} footer={t('description')}>
+      <SettingsBlock className="space-y-4">
         {!status && !loadFailed && <Loader2 className="size-4 animate-spin text-primary" />}
         {loadFailed && (
           <div className="flex items-center gap-2 text-sm text-destructive">
@@ -344,8 +338,8 @@ export function MetaAdsCard() {
             )}
           </>
         )}
-      </CardContent>
-    </Card>
+      </SettingsBlock>
+    </SettingsGroup>
   );
 }
 

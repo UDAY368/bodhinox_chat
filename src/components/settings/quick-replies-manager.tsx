@@ -24,6 +24,7 @@ import {
   type InteractiveMessagePayload,
 } from "@/lib/whatsapp/interactive";
 import type { QuickReply, QuickReplyKind } from "@/types";
+import { SETTINGS_ROW_HAIRLINE, SettingsGroup, SettingsMoreMenu } from "./settings-row";
 
 interface DraftState {
   id?: string;
@@ -167,11 +168,11 @@ export function QuickRepliesManager() {
         <EmptyState icon={Search} title={tSearch("noMatch")} body={tSearch("noMatchHint")}
           action={<Button type="button" variant="outline" className="min-h-11 sm:min-h-9" onClick={() => setQuery("")}>{tSearch("clear")}</Button>} />
       ) : (
-        <ul className="flex flex-col gap-2">
+        <SettingsGroup>
           {visible.map((qr) => (
-            <li
+            <div
               key={qr.id}
-              className="flex items-start gap-3 rounded-lg border border-border bg-card p-3"
+              className={`${SETTINGS_ROW_HAIRLINE} flex min-h-11 items-center gap-3 px-4 py-2.5`}
             >
               {qr.kind === "interactive" ? (
                 <Zap className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
@@ -186,23 +187,18 @@ export function QuickRepliesManager() {
                     : qr.content_text}
                 </p>
               </div>
-              <div className="flex shrink-0 gap-1">
-                <Button variant="ghost" size="icon-sm" onClick={() => openEdit(qr)} aria-label={t("edit")}>
+              {/* Edit is the row's action; delete sits in its more menu. */}
+              <div className="flex shrink-0 items-center gap-1">
+                <Button variant="ghost" size="icon" onClick={() => openEdit(qr)} aria-label={t("edit")}>
                   <Pencil className="h-4 w-4" />
                 </Button>
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  onClick={() => remove(qr.id)}
-                  aria-label={t("delete")}
-                  className="text-red-600 dark:text-red-400 hover:bg-red-500/10 hover:text-red-700 dark:hover:text-red-300"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
+                <SettingsMoreMenu actions={[
+                  { label: t("delete"), icon: Trash2, destructive: true, onSelect: () => void remove(qr.id) },
+                ]} />
               </div>
-            </li>
+            </div>
           ))}
-        </ul>
+        </SettingsGroup>
       )}
 
       <Sheet open={!!draft} onOpenChange={(o) => !o && setDraft(null)}>

@@ -23,14 +23,8 @@ import { Button } from '@/components/ui/button';
 import { PageLoading } from '@/components/ui/page-loading';
 import { useConfirm } from '@/components/ui/confirm-dialog';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-} from '@/components/ui/card';
+import { GroupedListRow } from '@/components/ui/grouped-list';
+import { SettingsBlock, SettingsGroup, SettingsMoreMenu, SettingsRow, SettingsSwitchRow } from './settings-row';
 import { IceBreakersCard } from './ice-breakers-card';
 import { FormsEncryptionCard } from './forms-encryption-card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -871,201 +865,156 @@ export function WhatsAppConfig() {
           )}
 
           {/* API Credentials */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-foreground">
-                {adding
-                  ? tn('settings.addingTitle')
-                  : selectedNumber && numbers.length > 1
-                    ? tn('settings.editing', { name: numberLabel(selectedNumber, tn) })
-                    : t('apiCredentialsTitle')}
-              </CardTitle>
-              <CardDescription className="text-muted-foreground">
-                {adding ? tn('settings.addingDesc') : t('apiCredentialsDesc')}
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label className="text-muted-foreground">
-                  {t('phoneNumberId')}
-                </Label>
-                <Input
-                  placeholder={t('phoneNumberIdPlaceholder')}
-                  value={phoneNumberId}
-                  // A saved number keeps its id: a different id is another
-                  // number, connected through "Add number manually".
-                  readOnly={Boolean(config)}
-                  onChange={(e) => setPhoneNumberId(e.target.value)}
-                  className="bg-muted border-border text-foreground placeholder:text-muted-foreground"
-                />
-                {config && (
-                  <p className="text-muted-foreground text-xs">
-                    {tn('settings.phoneLocked')}
-                  </p>
-                )}
-              </div>
+          <SettingsGroup
+            title={adding
+              ? tn('settings.addingTitle')
+              : selectedNumber && numbers.length > 1
+                ? tn('settings.editing', { name: numberLabel(selectedNumber, tn) })
+                : t('apiCredentialsTitle')}
+            footer={adding ? tn('settings.addingDesc') : t('apiCredentialsDesc')}
+          >
+            <SettingsRow label={t('phoneNumberId')} htmlFor="wa-phone-number-id" hint={config ? tn('settings.phoneLocked') : undefined}>
+              <Input
+                id="wa-phone-number-id"
+                placeholder={t('phoneNumberIdPlaceholder')}
+                value={phoneNumberId}
+                // A saved number keeps its id: a different id is another
+                // number, connected through "Add number manually".
+                readOnly={Boolean(config)}
+                onChange={(e) => setPhoneNumberId(e.target.value)}
+                className="bg-muted border-border text-foreground placeholder:text-muted-foreground"
+              />
+            </SettingsRow>
 
-              <div className="space-y-2">
-                <Label className="text-muted-foreground">{t('wabaId')}</Label>
-                <Input
-                  placeholder={t('wabaIdPlaceholder')}
-                  value={wabaId}
-                  onChange={(e) => setWabaId(e.target.value)}
-                  className="bg-muted border-border text-foreground placeholder:text-muted-foreground"
-                />
-              </div>
+            <SettingsRow label={t('wabaId')} htmlFor="wa-waba-id">
+              <Input
+                id="wa-waba-id"
+                placeholder={t('wabaIdPlaceholder')}
+                value={wabaId}
+                onChange={(e) => setWabaId(e.target.value)}
+                className="bg-muted border-border text-foreground placeholder:text-muted-foreground"
+              />
+            </SettingsRow>
 
-              <div className="space-y-2">
-                <Label className="text-muted-foreground">
-                  {t('accessToken')}
-                </Label>
-                <div className="relative">
-                  <Input
-                    type={showToken ? 'text' : 'password'}
-                    placeholder={t('accessTokenPlaceholder')}
-                    value={accessToken}
-                    onChange={(e) => {
-                      setAccessToken(e.target.value);
-                      setTokenEdited(true);
-                    }}
-                    onFocus={() => {
-                      if (accessToken === MASKED_TOKEN) {
-                        setAccessToken('');
-                        setTokenEdited(true);
-                      }
-                    }}
-                    className="bg-muted border-border text-foreground placeholder:text-muted-foreground pr-10"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowToken(!showToken)}
-                    className="text-muted-foreground hover:text-foreground absolute top-1/2 right-2 -translate-y-1/2 transition-colors"
-                  >
-                    {showToken ? (
-                      <EyeOff className="size-4" />
-                    ) : (
-                      <Eye className="size-4" />
-                    )}
-                  </button>
-                </div>
-                {config && !tokenEdited && (
-                  <p className="text-muted-foreground text-xs">
-                    {t('tokenHidden')}
-                  </p>
-                )}
-              </div>
-
-              <div className="space-y-2">
-                <Label className="text-muted-foreground">
-                  {t('webhookVerifyToken')}
-                </Label>
+            <SettingsRow label={t('accessToken')} htmlFor="wa-access-token" hint={config && !tokenEdited ? t('tokenHidden') : undefined}>
+              <div className="relative">
                 <Input
-                  placeholder={t('webhookVerifyTokenPlaceholder')}
-                  value={verifyToken}
+                  id="wa-access-token"
+                  type={showToken ? 'text' : 'password'}
+                  placeholder={t('accessTokenPlaceholder')}
+                  value={accessToken}
                   onChange={(e) => {
-                    setVerifyToken(e.target.value);
-                    setVerifyEdited(true);
+                    setAccessToken(e.target.value);
+                    setTokenEdited(true);
                   }}
                   onFocus={() => {
-                    if (verifyToken === MASKED_TOKEN) {
-                      setVerifyToken('');
-                      setVerifyEdited(true);
+                    if (accessToken === MASKED_TOKEN) {
+                      setAccessToken('');
+                      setTokenEdited(true);
                     }
                   }}
-                  className="bg-muted border-border text-foreground placeholder:text-muted-foreground"
+                  className="bg-muted border-border text-foreground placeholder:text-muted-foreground pr-11"
                 />
-                <p className="text-muted-foreground text-xs">
-                  {config?.verify_token && !verifyEdited
-                    ? t('webhookVerifyTokenSaved')
-                    : t('webhookVerifyTokenHint')}
-                </p>
+                <button
+                  type="button"
+                  onClick={() => setShowToken(!showToken)}
+                  className="text-muted-foreground hover:text-foreground absolute top-1/2 right-0 flex size-11 -translate-y-1/2 items-center justify-center transition-colors sm:size-9"
+                >
+                  {showToken ? (
+                    <EyeOff className="size-4" />
+                  ) : (
+                    <Eye className="size-4" />
+                  )}
+                </button>
               </div>
+            </SettingsRow>
 
-              <div className="space-y-2">
-                <Label className="text-muted-foreground">
-                  {t('twoStepPin')}
-                  <span className="text-muted-foreground ml-1">
-                    {t('optional')}
-                  </span>
-                </Label>
-                <Input
-                  type="text"
-                  inputMode="numeric"
-                  maxLength={6}
-                  placeholder={t('pinPlaceholder')}
-                  value={pin}
-                  onChange={(e) =>
-                    setPin(e.target.value.replace(/\D/g, '').slice(0, 6))
+            <SettingsRow
+              label={t('webhookVerifyToken')}
+              htmlFor="wa-verify-token"
+              hint={config?.verify_token && !verifyEdited ? t('webhookVerifyTokenSaved') : t('webhookVerifyTokenHint')}
+            >
+              <Input
+                id="wa-verify-token"
+                placeholder={t('webhookVerifyTokenPlaceholder')}
+                value={verifyToken}
+                onChange={(e) => {
+                  setVerifyToken(e.target.value);
+                  setVerifyEdited(true);
+                }}
+                onFocus={() => {
+                  if (verifyToken === MASKED_TOKEN) {
+                    setVerifyToken('');
+                    setVerifyEdited(true);
                   }
-                  className="bg-muted border-border text-foreground placeholder:text-muted-foreground tracking-widest"
-                />
-                <p className="text-muted-foreground text-xs leading-relaxed">
-                  <span dangerouslySetInnerHTML={{ __html: t('pinHint') }} />
-                </p>
-              </div>
-            </CardContent>
-          </Card>
+                }}
+                className="bg-muted border-border text-foreground placeholder:text-muted-foreground"
+              />
+            </SettingsRow>
+
+            <SettingsRow
+              label={<>{t('twoStepPin')}<span className="text-muted-foreground ml-1 font-normal">{t('optional')}</span></>}
+              htmlFor="wa-two-step-pin"
+              hint={<span dangerouslySetInnerHTML={{ __html: t('pinHint') }} />}
+            >
+              <Input
+                id="wa-two-step-pin"
+                type="text"
+                inputMode="numeric"
+                maxLength={6}
+                placeholder={t('pinPlaceholder')}
+                value={pin}
+                onChange={(e) =>
+                  setPin(e.target.value.replace(/\D/g, '').slice(0, 6))
+                }
+                className="bg-muted border-border text-foreground placeholder:text-muted-foreground tracking-widest"
+              />
+            </SettingsRow>
+          </SettingsGroup>
 
           {/* Webhook URL */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-foreground">
-                {t('webhookTitle')}
-              </CardTitle>
-              <CardDescription className="text-muted-foreground">
-                {t('webhookDesc')}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                <Label className="text-muted-foreground">
-                  {t('webhookUrl')}
-                </Label>
-                <div className="flex gap-2">
-                  <Input
-                    readOnly
-                    value={webhookUrl}
-                    className="bg-muted border-border text-muted-foreground font-mono text-sm"
-                  />
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={handleCopyWebhookUrl}
-                    aria-label={t('copyWebhookUrl')}
-                    className="border-border text-muted-foreground hover:text-foreground hover:bg-muted shrink-0"
-                  >
-                    <Copy className="size-4" />
-                  </Button>
-                </div>
+          <SettingsGroup title={t('webhookTitle')} footer={t('webhookDesc')}>
+            <SettingsRow label={t('webhookUrl')} htmlFor="wa-webhook-url">
+              <div className="flex gap-2">
+                <Input
+                  id="wa-webhook-url"
+                  readOnly
+                  value={webhookUrl}
+                  className="bg-muted border-border text-muted-foreground font-mono text-sm"
+                />
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={handleCopyWebhookUrl}
+                  aria-label={t('copyWebhookUrl')}
+                  className="border-border text-muted-foreground hover:text-foreground hover:bg-muted shrink-0"
+                >
+                  <Copy className="size-4" />
+                </Button>
               </div>
-            </CardContent>
-          </Card>
+            </SettingsRow>
+          </SettingsGroup>
 
           {/* The business profile of the number the form is showing (Meta's copy).
               Hidden for a removed number: it has no token, so the route answers 409. */}
           {config && selectedNumber && !selectedNumber.removed && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-foreground">{t('businessProfileTitle')}</CardTitle>
-                <CardDescription className="text-muted-foreground">
-                  {t('businessProfileDesc', { name: numberLabel(selectedNumber, tn) })}
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Button type="button" variant="outline" size="sm" onClick={() => setProfileOpen(true)}>
-                  <Store className="size-3.5" />
-                  {canEditSettings ? t('businessProfileEdit') : t('businessProfileView')}
-                </Button>
-                <BusinessProfileDialog
-                  key={selectedNumber.id}
-                  numberId={selectedNumber.id}
-                  numberLabel={numberLabel(selectedNumber, tn)}
-                  open={profileOpen}
-                  onOpenChange={setProfileOpen}
-                  canEdit={canEditSettings}
-                />
-              </CardContent>
-            </Card>
+            <SettingsGroup title={t('businessProfileTitle')}>
+              <GroupedListRow
+                leading={<Store className="size-4 text-muted-foreground" />}
+                title={canEditSettings ? t('businessProfileEdit') : t('businessProfileView')}
+                subtitle={t('businessProfileDesc', { name: numberLabel(selectedNumber, tn) })}
+                chevron
+                onClick={() => setProfileOpen(true)}
+              />
+              <BusinessProfileDialog
+                key={selectedNumber.id}
+                numberId={selectedNumber.id}
+                numberLabel={numberLabel(selectedNumber, tn)}
+                open={profileOpen}
+                onOpenChange={setProfileOpen}
+                canEdit={canEditSettings}
+              />
+            </SettingsGroup>
           )}
 
           {/* Both are per number; they start on the number the form is showing. */}
@@ -1077,43 +1026,33 @@ export function WhatsAppConfig() {
             connected, since it governs what the webhook does with
             inbound media. */}
           {config && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-foreground">
-                  {t('mediaTitle')}
-                </CardTitle>
-                <CardDescription className="text-muted-foreground">
-                  {t('mediaDesc')}
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="border-border flex items-center justify-between gap-4 rounded-md border p-3">
-                  <div>
-                    <p className="text-foreground text-sm font-medium">
-                      {t('mirrorInbound')}
-                    </p>
-                    <p className="text-muted-foreground text-xs">
-                      {t('mirrorInboundDesc')}
-                    </p>
+            <SettingsGroup title={t('mediaTitle')} footer={t('mediaDesc')}>
+              <SettingsSwitchRow
+                title={t('mirrorInbound')}
+                description={
+                  <>
+                    {t('mirrorInboundDesc')}
                     {!mirrorMedia && (
-                      <p className="mt-1 text-xs text-amber-600 dark:text-amber-500">
+                      <span className="mt-1 block text-amber-600 dark:text-amber-500">
                         {t('mirrorInboundOffWarning')}
-                      </p>
+                      </span>
                     )}
-                  </div>
+                  </>
+                }
+                control={
                   <Switch
                     checked={mirrorMedia}
                     onCheckedChange={handleToggleMirrorMedia}
                     disabled={savingMirror || !canEditSettings}
                     aria-label={t('mirrorInbound')}
                   />
-                </div>
-              </CardContent>
-            </Card>
+                }
+              />
+            </SettingsGroup>
           )}
 
-          {/* Action Buttons */}
-          <div className="flex flex-wrap gap-3">
+          {/* Save is the one primary action; Test connection and Disconnect sit in its more menu. */}
+          <div className="flex flex-wrap items-center gap-2">
             <Button
               onClick={handleSave}
               disabled={saving}
@@ -1139,59 +1078,25 @@ export function WhatsAppConfig() {
                 {tn('settings.cancel')}
               </Button>
             )}
-            <Button
-              variant="outline"
-              onClick={handleTestConnection}
-              disabled={testing || !config}
-              className="border-border text-muted-foreground hover:text-foreground hover:bg-muted"
-            >
-              {testing ? (
-                <>
-                  <Loader2 className="size-4 animate-spin" />
-                  {t('testing')}
-                </>
-              ) : (
-                <>
-                  <Zap className="size-4" />
-                  {t('testConnection')}
-                </>
-              )}
-            </Button>
-            {config && !numberDisconnected && (
-              <Button
-                variant="outline"
-                onClick={handleReset}
-                disabled={resetting}
-                className="border-red-500/30 text-red-600 dark:text-red-400 hover:bg-red-500/10 hover:text-red-700 dark:hover:text-red-300"
-              >
-                {resetting ? (
-                  <>
-                    <Loader2 className="size-4 animate-spin" />
-                    {t('resetting')}
-                  </>
-                ) : (
-                  <>
-                    <RotateCcw className="size-4" />
-                    {t('resetConfig')}
-                  </>
-                )}
-              </Button>
+            {(testing || resetting) && (
+              <span role="status" className="text-muted-foreground inline-flex items-center gap-1.5 text-sm">
+                <Loader2 className="size-4 animate-spin" />
+                {testing ? t('testing') : t('resetting')}
+              </span>
             )}
+            <SettingsMoreMenu
+              actions={[
+                { label: t('testConnection'), icon: Zap, disabled: testing || !config, onSelect: () => void handleTestConnection() },
+                { label: t('resetConfig'), icon: RotateCcw, destructive: true, disabled: resetting, hidden: !config || numberDisconnected, onSelect: () => void handleReset() },
+              ]}
+            />
           </div>
         </div>
 
         {/* Setup Instructions Sidebar */}
         <div className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-foreground text-base">
-                {t('setupInstructions')}
-              </CardTitle>
-              <CardDescription className="text-muted-foreground">
-                {t('setupInstructionsDesc')}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
+          <SettingsGroup title={t('setupInstructions')} footer={t('setupInstructionsDesc')}>
+            <SettingsBlock className="py-1">
               <Accordion>
                 <AccordionItem className="border-border">
                   <AccordionTrigger className="text-muted-foreground hover:text-foreground hover:no-underline">
@@ -1279,8 +1184,8 @@ export function WhatsAppConfig() {
                   </AccordionContent>
                 </AccordionItem>
               </Accordion>
-
-              <div className="border-border mt-4 border-t pt-4">
+            </SettingsBlock>
+            <SettingsBlock className="flex min-h-11 items-center py-2">
                 <a
                   href="https://developers.facebook.com/docs/whatsapp/cloud-api/get-started"
                   target="_blank"
@@ -1290,9 +1195,8 @@ export function WhatsAppConfig() {
                   <ExternalLink className="size-3.5" />
                   {t('metaDocs')}
                 </a>
-              </div>
-            </CardContent>
-          </Card>
+            </SettingsBlock>
+          </SettingsGroup>
 
           {/* Green tick guidance; the display-name step follows the shown number's name status. */}
           {config && <GreenTickChecklist nameStatus={selectedNumber?.name_status ?? null} />}
