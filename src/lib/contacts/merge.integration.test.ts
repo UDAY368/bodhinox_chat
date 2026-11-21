@@ -280,7 +280,7 @@ describe.skipIf(!ownerUrl || !appUrl)('Contact duplicates and merge on PostgreSQ
         expect({ table, n: (await one<{ n: number }>(`SELECT count(*)::int AS n FROM ${table} WHERE contact_id = $1`, [keep])).n })
           .toEqual({ table, n: 1 });
       }
-      expect(await one('SELECT subject_id FROM domain_events WHERE account_id = $1 AND contact_id = $2', [accountA, keep]))
+      expect(await one("SELECT subject_id FROM domain_events WHERE account_id = $1 AND contact_id = $2 AND subject_kind = 'contact'", [accountA, keep]))
         .toEqual({ subject_id: keep });
       expect(await one('SELECT count(*)::int AS n FROM contact_duplicate_dismissals WHERE account_id = $1', [accountA])).toEqual({ n: 0 });
 
