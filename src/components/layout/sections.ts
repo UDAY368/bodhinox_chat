@@ -140,7 +140,7 @@ export function sectionFor(pathname: string, sections: readonly Section[]): Sect
   if (/^\/(whatsapp|instagram)\/inbox(\/|$)/.test(pathname) || under(pathname, ALL_INBOXES_PATH)) {
     return sections.find((s) => s.id === 'inbox') ?? null;
   }
-  if (/^\/(flows|automations)(\/|$)/.test(pathname) || /^\/instagram(\/|$)/.test(pathname) || /^\/whatsapp\/(flows|automations)(\/|$)/.test(pathname)) {
+  if (/^\/(flows|automations)(\/|$)/.test(pathname) || /^\/instagram(\/|$)/.test(pathname) || /^\/whatsapp\/(flows|automations|sequences)(\/|$)/.test(pathname)) {
     return sections.find((s) => s.id === 'automation') ?? null;
   }
   return sections.find((s) => under(pathname, s.href) || s.tabs.some((tab) => under(pathname, tab.href))) ?? null;
@@ -151,7 +151,7 @@ export function activeTab(pathname: string, section: Section): SectionTab | null
   const matching = section.tabs.filter((tab) => under(pathname, tab.href));
   if (matching.length) return matching.sort((a, b) => b.href.length - a.href.length)[0];
   // Rules (the old channel-less URLs too), sequences and the Instagram automation rail open from the one Automation list.
-  if (/^\/((whatsapp|instagram)\/)?automations(\/|$)/.test(pathname) || /^\/instagram\/(sequences|basics)(\/|$)/.test(pathname)) {
+  if (/^\/((whatsapp|instagram)\/)?automations(\/|$)/.test(pathname) || /^\/(instagram\/(sequences|basics)|whatsapp\/sequences)(\/|$)/.test(pathname)) {
     return section.tabs.find((tab) => tab.href === '/automation') ?? null;
   }
   // Instagram tools other than its home page sit under the Instagram tools tab.
