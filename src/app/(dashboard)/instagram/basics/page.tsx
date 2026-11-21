@@ -8,6 +8,7 @@
 // followers" is listed as unavailable: Instagram does not let apps message new
 // followers. State comes from GET /api/instagram/home (any member); creating a
 // flow needs an agent or above (the server enforces role and CSRF).
+// Apple's way (b7): one large title, failed load with Retry, 44px actions.
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
@@ -19,6 +20,8 @@ import { AtSign, Ban, KeyRound, ListTree, Loader2, MessageSquareReply, MessagesS
 import { AutomationHubRail } from '@/components/flows/flow-list';
 import { Badge } from '@/components/ui/badge';
 import { Button, buttonVariants } from '@/components/ui/button';
+import { InlineError } from '@/components/ui/inline-error';
+import { PageHeader } from '@/components/ui/page-header';
 import { useAuth } from '@/hooks/use-auth';
 import { useCan } from '@/hooks/use-can';
 import { authFetch } from '@/lib/auth/client';
@@ -46,6 +49,7 @@ export default function InstagramBasicsPage() {
   const [defaults, setDefaults] = useState<Map<HomeDefaultKey, HomeDefault> | null>(null);
   const [failed, setFailed] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     if (!accountId) return;
@@ -63,7 +67,7 @@ export default function InstagramBasicsPage() {
     return () => {
       live = false;
     };
-  }, [accountId]);
+  }, [accountId, attempt]);
 
   async function createStoryMentionFlow() {
     setCreating(true);
@@ -87,11 +91,8 @@ export default function InstagramBasicsPage() {
     <div className="flex flex-col gap-6 md:flex-row">
       <AutomationHubRail active="basics" />
       <div className="min-w-0 flex-1 space-y-6" data-testid="instagram-basics">
-        <div>
-          <h1 className="text-[22px] font-bold tracking-tight text-foreground">{t('title')}</h1>
-          <p className="mt-1 text-sm text-muted-foreground">{t('description')}</p>
-        </div>
-        {failed && <p className="text-sm text-destructive" role="alert">{t('loadFailed')}</p>}
+        <PageHeader className="mb-0" title={t('title')} subtitle={t('description')} />
+        {failed && <InlineError message={t('loadFailed')} onRetry={() => { setFailed(false); setAttempt((n) => n + 1); }} className="py-6" />}
         <ul className="grid grid-cols-1 gap-3 lg:grid-cols-2">
           {CARDS.map(({ key, title, body, icon: Icon }) => {
             const state = defaults?.get(key);
@@ -113,7 +114,7 @@ export default function InstagramBasicsPage() {
                 </div>
                 <div className="mt-auto flex justify-end">
                   {createsFlow ? (
-                    <Button size="sm" disabled={!canCreate || creating} onClick={() => void createStoryMentionFlow()}
+                    <Button size="sm" className="min-h-11 sm:min-h-7" disabled={!canCreate || creating} onClick={() => void createStoryMentionFlow()}
                       aria-label={`${t('setUp')}: ${t(title)}`}>
                       {creating && <Loader2 className="h-4 w-4 animate-spin" />}
                       {t('setUp')}
@@ -121,11 +122,11 @@ export default function InstagramBasicsPage() {
                   ) : (
                     state ? (
                       <Link href={state.href} aria-label={`${action}: ${t(title)}`}
-                        className={buttonVariants({ size: 'sm', variant: state.on ? 'outline' : 'default' })}>
+                        className={buttonVariants({ size: 'sm', variant: state.on ? 'outline' : 'default', className: 'min-h-11 sm:min-h-7' })}>
                         {action}
                       </Link>
                     ) : (
-                      <Button size="sm" disabled>{t('setUp')}</Button>
+                      <Button size="sm" className="min-h-11 sm:min-h-7" disabled>{t('setUp')}</Button>
                     )
                   )}
                 </div>

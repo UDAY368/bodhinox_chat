@@ -5,18 +5,23 @@
 // approval queue. Nothing is posted in public until an admin approves a draft,
 // unless auto-approve is on. Waiting drafts show their comment as Instagram has
 // it now (Bodhinox stores no comment text). Members read; admins change and decide.
+// Apple's way (b7): grouped lists (settings, queue, history) instead of cards,
+// the shared loading, empty and failed states, 44px buttons.
 
 import { useCallback, useEffect, useState } from 'react';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 import { useTranslations } from 'next-intl';
 
 import { instagramCall, jsonInit } from '@/components/instagram/comment-rules-editor';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { EmptyState } from '@/components/ui/empty-state';
+import { GroupedList } from '@/components/ui/grouped-list';
+import { InlineError } from '@/components/ui/inline-error';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { PageLoading } from '@/components/ui/page-loading';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { useCan } from '@/hooks/use-can';
@@ -37,11 +42,12 @@ interface Item {
 interface Loaded { settings: Settings; items: Item[] }
 
 const INTENTS = new Set(['praise', 'question', 'purchase_intent', 'complaint', 'spam', 'other']);
+/** One row of a grouped list: a hairline above every row but the first. */
+const ROW = 'not-first:border-separator px-4 py-3 text-sm not-first:border-t';
 
 export function AiCommentsPanel() {
   const t = useTranslations('Instagram.aiComments');
   const tCommon = useTranslations('Flows.header');
-  const tRetry = useTranslations('Settings.instagram');
   const canEdit = useCan('edit-settings');
   const [pending, setPending] = useState<Loaded | null>(null);
   const [history, setHistory] = useState<Item[] | null>(null);
@@ -123,50 +129,43 @@ export function AiCommentsPanel() {
   const label = (group: 'sentiment' | 'intent' | 'status', value: string | null) =>
     value && (group !== 'intent' || INTENTS.has(value)) ? t(`${group}.${value}` as never) : null;
 
-  if (failed) {
-    return (
-      <div className="flex items-center gap-3 text-sm">
-        <p className="text-destructive">{t('loadFailed')}</p>
-        <Button type="button" variant="outline" size="sm" onClick={() => void load()}>{tRetry('retry')}</Button>
-      </div>
-    );
-  }
-  if (!pending) return <Loader2 className="text-muted-foreground size-4 animate-spin" aria-hidden />;
+  if (failed) return <InlineError message={t('loadFailed')} onRetry={() => void load()} />;
+  if (!pending) return <PageLoading rows={4} />;
   const { settings, items } = pending;
   const capValue = Number(cap);
   const capValid = Number.isInteger(capValue) && capValue >= 1 && capValue <= MAX_DAILY_CAP;
 
   return (
-    <div className="space-y-6">
-      <Card>
-        <CardHeader className="space-y-1">
-          <CardTitle className="text-base">{t('title')}</CardTitle>
+    <div className="space-y-8">
+      <section className="space-y-2" aria-labelledby="ai-comments-title">
+        <div className="px-1">
+          <h2 id="ai-comments-title" className="text-foreground text-base font-semibold">{t('title')}</h2>
           <p className="text-muted-foreground text-sm">{t('description')}</p>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {!settings.aiActive && <p className="text-muted-foreground text-sm">{t('needsAi')}</p>}
-          {!canEdit && <p className="text-muted-foreground text-sm">{t('adminOnly')}</p>}
-          <div className="flex items-center justify-between gap-3">
-            <Label htmlFor="ai-comments-enabled">{t('enabled')}</Label>
+          {!settings.aiActive && <p className="text-muted-foreground mt-1 text-sm">{t('needsAi')}</p>}
+          {!canEdit && <p className="text-muted-foreground mt-1 text-sm">{t('adminOnly')}</p>}
+        </div>
+        <GroupedList>
+          <div className={`${ROW} flex min-h-11 items-center justify-between gap-3 py-2`}>
+            <Label htmlFor="ai-comments-enabled" className="font-normal">{t('enabled')}</Label>
             <Switch id="ai-comments-enabled" checked={settings.enabled} disabled={!canEdit || saving || (!settings.aiActive && !settings.enabled)}
               onCheckedChange={(checked) => void save({ enabled: checked })} />
           </div>
-          <div className="space-y-1">
-            <div className="flex items-center justify-between gap-3">
-              <Label htmlFor="ai-comments-auto">{t('autoApprove')}</Label>
+          <div className={`${ROW} space-y-1 py-2`}>
+            <div className="flex min-h-11 items-center justify-between gap-3">
+              <Label htmlFor="ai-comments-auto" className="font-normal">{t('autoApprove')}</Label>
               <Switch id="ai-comments-auto" checked={settings.autoApprove} disabled={!canEdit || saving || !settings.enabled}
                 onCheckedChange={(checked) => void save({ auto_approve: checked })} />
             </div>
             <p className="text-muted-foreground text-xs">{t('autoApproveHelp')}</p>
             {settings.autoApprove && <p className="text-destructive text-xs">{t('autoApproveWarning')}</p>}
           </div>
-          <div className="space-y-1">
-            <Label htmlFor="ai-comments-cap">{t('dailyCap')}</Label>
+          <div className={`${ROW} space-y-1`}>
+            <Label htmlFor="ai-comments-cap" className="font-normal">{t('dailyCap')}</Label>
             <div className="flex items-center gap-2">
               <Input id="ai-comments-cap" type="number" min={1} max={MAX_DAILY_CAP} className="w-28" value={cap}
                 disabled={!canEdit || saving} onChange={(e) => setCap(e.target.value)} />
               {canEdit && (
-                <Button type="button" size="sm" variant="outline" disabled={saving || !capValid || capValue === settings.dailyCap}
+                <Button type="button" variant="outline" className="min-h-11 sm:min-h-8" disabled={saving || !capValid || capValue === settings.dailyCap}
                   onClick={() => void save({ daily_cap: capValue })}>
                   {saving && <Loader2 className="size-3.5 animate-spin" />}
                   {tCommon('save')}
@@ -175,18 +174,18 @@ export function AiCommentsPanel() {
             </div>
             <p className="text-muted-foreground text-xs">{t('dailyCapHelp', { max: MAX_DAILY_CAP })}</p>
           </div>
-        </CardContent>
-      </Card>
+        </GroupedList>
+      </section>
 
-      <Card>
-        <CardHeader><CardTitle className="text-base">{t('queue')}</CardTitle></CardHeader>
-        <CardContent className="space-y-4">
-          {items.length === 0 && <p className="text-muted-foreground text-sm">{t('empty')}</p>}
+      <section className="space-y-2" aria-labelledby="ai-comments-queue">
+        <h2 id="ai-comments-queue" className="text-foreground px-1 text-base font-semibold">{t('queue')}</h2>
+        {items.length === 0 ? <EmptyState icon={Sparkles} title={t('empty')} /> : (
+          <GroupedList>
           {items.map((item) => {
             const unavailable = item.comment?.available === false;
             const isEditing = editing?.id === item.id;
             return (
-              <div key={item.id} className="space-y-2 rounded-lg border p-3 text-sm">
+              <div key={item.id} className={`${ROW} space-y-2`}>
                 <div className="flex flex-wrap items-center gap-2">
                   <Badge variant={item.sentiment === 'negative' ? 'destructive' : 'secondary'}>{label('sentiment', item.sentiment)}</Badge>
                   {label('intent', item.intent) && <Badge variant="outline">{label('intent', item.intent)}</Badge>}
@@ -205,15 +204,15 @@ export function AiCommentsPanel() {
                 </div>
                 {canEdit && (
                   <div className="flex flex-wrap gap-2">
-                    <Button type="button" size="sm" disabled={busy !== null || unavailable} onClick={() => approveEdited(item)}>
+                    <Button type="button" className="min-h-11 sm:min-h-8" disabled={busy !== null || unavailable} onClick={() => approveEdited(item)}>
                       {busy === item.id && <Loader2 className="size-3.5 animate-spin" />}
                       {t('approve')}
                     </Button>
-                    <Button type="button" size="sm" variant="outline" disabled={busy !== null || unavailable}
+                    <Button type="button" variant="outline" className="min-h-11 sm:min-h-8" disabled={busy !== null || unavailable}
                       onClick={() => setEditing(isEditing ? null : { id: item.id, text: item.reply })}>
                       {t('edit')}
                     </Button>
-                    <Button type="button" size="sm" variant="ghost" disabled={busy !== null} onClick={() => void decide(item, { decision: 'reject' })}>
+                    <Button type="button" variant="ghost" className="min-h-11 sm:min-h-8" disabled={busy !== null} onClick={() => void decide(item, { decision: 'reject' })}>
                       {t('reject')}
                     </Button>
                   </div>
@@ -221,27 +220,26 @@ export function AiCommentsPanel() {
               </div>
             );
           })}
-        </CardContent>
-      </Card>
+          </GroupedList>
+        )}
+      </section>
 
       {!!history?.length && (
-        <Card>
-          <CardHeader><CardTitle className="text-base">{t('history')}</CardTitle></CardHeader>
-          <CardContent>
-            <ul className="divide-y">
+        <section className="space-y-2" aria-labelledby="ai-comments-history">
+          <h2 id="ai-comments-history" className="text-foreground px-1 text-base font-semibold">{t('history')}</h2>
+          <GroupedList>
               {history.map((item) => (
-                <li key={item.id} className="space-y-1 py-2 text-sm">
+                <div key={item.id} className={`${ROW} space-y-1`}>
                   <div className="flex flex-wrap items-center gap-2">
                     <Badge variant={item.status === 'sent' ? 'default' : 'secondary'}>{label('status', item.status)}</Badge>
                     {item.autoApproved && <Badge variant="outline">{t('autoApprovedBadge')}</Badge>}
                   </div>
                   <p className="text-muted-foreground whitespace-pre-wrap">{item.reply}</p>
                   {item.status === 'unknown' && <p className="text-destructive text-xs">{t('reconcile')}</p>}
-                </li>
+                </div>
               ))}
-            </ul>
-          </CardContent>
-        </Card>
+          </GroupedList>
+        </section>
       )}
     </div>
   );

@@ -6,22 +6,27 @@
 // (admins). The Instagram section layout already explains a channel that is
 // off or not available. Rules are admin-only on the server; members see the
 // accounts and a read-only note. Connection and health stay in Settings.
+// Apple's way (b7): one large title with "New comment flow" top right, a
+// segmented control for Flows / AI replies, and grouped lists.
 
 import { useCallback, useEffect, useState } from 'react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Loader2, Plus } from 'lucide-react';
+import { Loader2, MessageCircle, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import { useTranslations } from 'next-intl';
 
 import { InstagramCommentAccounts, type InstagramStatus } from '@/components/instagram/comment-accounts';
 import { instagramCall } from '@/components/instagram/comment-rules-editor';
 import { createInstagramFlow, useInstagramFlows } from '@/components/instagram/use-instagram-flows';
+import { AiCommentsPanel } from '@/components/instagram/ai-comments-panel';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { AiCommentsPanel } from '@/components/instagram/ai-comments-panel';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { EmptyState } from '@/components/ui/empty-state';
+import { GroupedList, GroupedListRow } from '@/components/ui/grouped-list';
+import { InlineError } from '@/components/ui/inline-error';
+import { PageHeader } from '@/components/ui/page-header';
+import { PageLoading } from '@/components/ui/page-loading';
+import { SegmentedControl } from '@/components/ui/segmented-control';
 import { useAuth } from '@/hooks/use-auth';
 import { useCan } from '@/hooks/use-can';
 import { channelPath } from '@/lib/channels/routes';
@@ -36,6 +41,7 @@ export default function InstagramCommentsPage() {
   const { accountId } = useAuth();
   const canEdit = useCan('edit-settings');
   const canCreateFlow = useCan('send-messages');
+  const [view, setView] = useState<'flows' | 'ai'>('flows');
   const [status, setStatus] = useState<InstagramStatus | null>(null);
   const [failed, setFailed] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -76,67 +82,58 @@ export default function InstagramCommentsPage() {
     }
   };
 
-  return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-foreground text-[22px] font-bold tracking-tight">{t('title')}</h1>
-        <p className="text-muted-foreground mt-1 text-sm">{t('description')}</p>
-      </div>
+  const newFlowButton = (
+    <Button type="button" onClick={() => void newFlow()} disabled={creating}>
+      {creating ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
+      {t('newFlow')}
+    </Button>
+  );
 
-      <Tabs defaultValue="flows">
-        <TabsList>
-          <TabsTrigger value="flows">{t('title')}</TabsTrigger>
-          <TabsTrigger value="ai">{tAi('tab')}</TabsTrigger>
-        </TabsList>
-        <TabsContent value="flows" className="mt-4 space-y-6">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between gap-3 space-y-0">
-              <CardTitle className="text-base">{t('flowsTitle')}</CardTitle>
-              {canCreateFlow && (
-                <Button type="button" size="sm" onClick={() => void newFlow()} disabled={creating}>
-                  {creating ? <Loader2 className="size-3.5 animate-spin" /> : <Plus className="size-3.5" />}
-                  {t('newFlow')}
-                </Button>
-              )}
-            </CardHeader>
-            <CardContent className="space-y-2">
-              {flowsFailed && (
-                <div className="flex items-center gap-3 text-sm">
-                  <p className="text-destructive">{tSettings('loadFailed')}</p>
-                  <Button type="button" variant="outline" size="sm" onClick={() => void reloadFlows()}>{tSettings('retry')}</Button>
-                </div>
-              )}
-              {!commentFlows && !flowsFailed && <Loader2 className="text-muted-foreground size-4 animate-spin" aria-label={tSettings('loading')} />}
-              {commentFlows?.length === 0 && <p className="text-muted-foreground text-sm">{t('noFlows')}</p>}
-              {!!commentFlows?.length && (
-                <ul className="divide-y">
-                  {commentFlows.map((flow) => (
-                    <li key={flow.id} className="flex items-center justify-between gap-3 py-2 text-sm">
-                      <Link href={channelPath('instagram', 'flows', flow.id)} className="text-foreground min-w-0 truncate font-medium hover:underline">
-                        {flow.name}
-                      </Link>
+  return (
+    <div>
+      <PageHeader
+        title={t('title')}
+        subtitle={t('description')}
+        primaryAction={view === 'flows' && canCreateFlow ? newFlowButton : undefined}
+      >
+        <SegmentedControl aria-label={t('title')} value={view} onValueChange={setView}
+          options={[{ value: 'flows', label: t('title') }, { value: 'ai', label: tAi('tab') }]} />
+      </PageHeader>
+
+      {view === 'flows' ? (
+        <div className="space-y-8">
+          <section className="space-y-2" aria-labelledby="ig-comment-flows">
+            <h2 id="ig-comment-flows" className="text-foreground px-1 text-base font-semibold">{t('flowsTitle')}</h2>
+            {flowsFailed && <InlineError message={tSettings('loadFailed')} onRetry={() => void reloadFlows()} />}
+            {!commentFlows && !flowsFailed && <PageLoading rows={3} />}
+            {commentFlows?.length === 0 && (
+              <EmptyState icon={MessageCircle} title={t('noFlows')} />
+            )}
+            {!!commentFlows?.length && (
+              <GroupedList>
+                {commentFlows.map((flow) => (
+                  <GroupedListRow key={flow.id} href={channelPath('instagram', 'flows', flow.id)} title={flow.name}
+                    trailing={(
                       <Badge variant={flow.status === 'active' ? 'default' : 'secondary'}>
                         {flow.status === 'active' ? tStatus('active') : tStatus('inactive')}
                       </Badge>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </CardContent>
-          </Card>
+                    )} />
+                ))}
+              </GroupedList>
+            )}
+          </section>
 
-          <div className="space-y-4">
-            <div>
-              <h2 className="text-foreground text-lg font-semibold">{tRules('title')}</h2>
+          <section className="space-y-4" aria-labelledby="ig-comment-rules">
+            <div className="px-1">
+              <h2 id="ig-comment-rules" className="text-foreground text-base font-semibold">{tRules('title')}</h2>
               <p className="text-muted-foreground mt-1 text-sm">{tRules('help')}</p>
             </div>
             <InstagramCommentAccounts status={status} failed={failed} canEdit={canEdit} onRetry={() => void load()} />
-          </div>
-        </TabsContent>
-        <TabsContent value="ai" className="mt-4">
-          <AiCommentsPanel />
-        </TabsContent>
-      </Tabs>
+          </section>
+        </div>
+      ) : (
+        <AiCommentsPanel />
+      )}
     </div>
   );
 }

@@ -6,6 +6,8 @@
 // (GET/PUT /api/instagram/consent-settings). An unsubscribed contact gets no
 // automated Instagram message; the team can still reply by hand. Every member
 // reads it; admins and owners save.
+// Apple's way (b7): one large title with Save top right, the shared loading
+// and failed states, 44px tap areas on the word chips.
 
 import { useEffect, useState, type KeyboardEvent } from 'react';
 import { Loader2, X } from 'lucide-react';
@@ -16,8 +18,11 @@ import { useInstagramFlows } from '@/components/instagram/use-instagram-flows';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { InlineError } from '@/components/ui/inline-error';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { PageHeader } from '@/components/ui/page-header';
+import { PageLoading } from '@/components/ui/page-loading';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useCan } from '@/hooks/use-can';
@@ -62,7 +67,8 @@ function KeywordEditor({ id, label, words, builtIn, disabled, onChange }: {
           <Badge key={word} variant="secondary" className="gap-1">
             {word}
             {!disabled && (
-              <button type="button" aria-label={`${label}: ${word}`} className="hover:text-foreground"
+              <button type="button" aria-label={`${label}: ${word}`}
+                className="hover:text-foreground relative after:absolute after:-inset-3.5 after:content-['']"
                 onClick={() => onChange(words.filter((w) => w !== word))}>
                 <X className="size-3" aria-hidden />
               </button>
@@ -133,7 +139,7 @@ export default function InstagramSubscriptionPage() {
     <div className="space-y-2">
       <Label htmlFor={id}>{label}</Label>
       <Select value={value ?? NONE} disabled={!editable} onValueChange={(v) => onChange(!v || v === NONE ? null : String(v))}>
-        <SelectTrigger id={id} className="w-full max-w-sm">
+        <SelectTrigger id={id} className="min-h-11 w-full max-w-sm sm:min-h-8">
           <SelectValue>{(v: string) => (v === NONE ? t('noFlow') : choices.find((f) => f.id === v)?.name ?? t('noFlow'))}</SelectValue>
         </SelectTrigger>
         <SelectContent>
@@ -154,17 +160,21 @@ export default function InstagramSubscriptionPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-foreground text-[22px] font-bold tracking-tight">{t('title')}</h1>
-        <p className="text-muted-foreground mt-1 text-sm">{t('description')}</p>
-      </div>
+      <PageHeader
+        className="mb-0"
+        title={t('title')}
+        subtitle={t('description')}
+        primaryAction={canEdit && !loading && !failed ? (
+          <Button onClick={() => void save()} disabled={saving}>
+            {saving && <Loader2 className="size-4 animate-spin" aria-hidden />}
+            {t('save')}
+          </Button>
+        ) : undefined}
+      />
       {loading ? (
-        <Loader2 className="text-muted-foreground size-4 animate-spin" aria-label={t('loading')} />
+        <PageLoading rows={4} />
       ) : failed ? (
-        <div className="flex items-center gap-3 text-sm">
-          <p className="text-destructive">{t('loadFailed')}</p>
-          <Button type="button" variant="outline" size="sm" onClick={() => void load()}>{t('retry')}</Button>
-        </div>
+        <InlineError message={t('loadFailed')} onRetry={() => void load()} />
       ) : (
         <>
           <div className="grid gap-6 lg:grid-cols-2">
@@ -198,14 +208,7 @@ export default function InstagramSubscriptionPage() {
               </CardContent>
             </Card>
           </div>
-          {canEdit ? (
-            <Button onClick={() => void save()} disabled={saving}>
-              {saving && <Loader2 className="size-4 animate-spin" aria-hidden />}
-              {t('save')}
-            </Button>
-          ) : (
-            <p className="text-muted-foreground text-xs">{t('adminOnly')}</p>
-          )}
+          {!canEdit && <p className="text-muted-foreground text-xs">{t('adminOnly')}</p>}
         </>
       )}
     </div>

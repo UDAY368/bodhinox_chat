@@ -76,7 +76,7 @@ export function ExitWhenSection({ t, settings, canEdit, busy, onChange }: {
             onCheckedChange={(on) => onChange({ exit_on_reply: on })} />
         </div>
         <div className="space-y-2 px-4 py-2">
-          <div className="flex min-h-9 items-center justify-between gap-3">
+          <div className="flex min-h-11 items-center justify-between gap-3">
             <Label htmlFor="exit-tagged" className="text-sm font-normal">{t('exit.tagged')}</Label>
             <Switch id="exit-tagged" checked={tagOn} disabled={!canEdit || busy}
               onCheckedChange={(on) => {
@@ -88,7 +88,7 @@ export function ExitWhenSection({ t, settings, canEdit, busy, onChange }: {
             tags.length === 0 ? <p className="text-muted-foreground text-xs">{t('exit.noTags')}</p> : (
               <Select value={settings.exit_on_tag_id ?? ''} disabled={!canEdit || busy}
                 onValueChange={(v) => { if (typeof v === 'string' && v) onChange({ exit_on_tag_id: v }); }}>
-                <SelectTrigger aria-label={t('exit.chooseTag')} className="w-full sm:w-64">
+                <SelectTrigger aria-label={t('exit.chooseTag')} className="min-h-11 w-full sm:min-h-8 sm:w-64">
                   <SelectValue>{tagName ?? t('exit.chooseTag')}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
@@ -208,7 +208,7 @@ export function WhatsAppStepSheet({ t, open, initial, initialDelay, first, busy,
                 <div className="border-border flex min-h-11 items-center gap-2 rounded-lg border px-3 text-sm">
                   <Paperclip className="text-muted-foreground size-4 shrink-0" />
                   <span className="min-w-0 flex-1 truncate">{media.filename ?? t(`whatsapp.mediaType.${media.type}`)}</span>
-                  <Button type="button" variant="ghost" size="icon-sm" aria-label={t('whatsapp.removeMedia')} onClick={() => setMedia(null)}>
+                  <Button type="button" variant="ghost" size="icon" className="-mr-3 size-11" aria-label={t('whatsapp.removeMedia')} onClick={() => setMedia(null)}>
                     <X className="size-4" />
                   </Button>
                 </div>
@@ -216,7 +216,7 @@ export function WhatsAppStepSheet({ t, open, initial, initialDelay, first, busy,
                 <div className="flex flex-wrap items-center gap-2">
                   <SegmentedControl aria-label={t('whatsapp.mediaKind')} size="sm" value={kind} onValueChange={setKind}
                     options={(['image', 'video', 'document'] as const).map((k) => ({ value: k, label: t(`whatsapp.mediaType.${k}`) }))} />
-                  <Button type="button" variant="outline" size="sm" disabled={uploading} onClick={() => fileRef.current?.click()}>
+                  <Button type="button" variant="outline" size="sm" className="min-h-11 sm:min-h-7" disabled={uploading} onClick={() => fileRef.current?.click()}>
                     {uploading ? <Loader2 className="size-4 animate-spin" /> : <Paperclip className="size-4" />}
                     {t('whatsapp.attach')}
                   </Button>

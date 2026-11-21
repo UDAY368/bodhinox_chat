@@ -19,6 +19,11 @@
 // and whether to reply under the comment (up to 3 rotating replies). The
 // link setup can also ask for an email and a follow before the link, and
 // carry up to 3 links. The preview is an Android phone.
+//
+// Apple's way (b7): one large title, the shared Checkbox, Select and segmented
+// control (preview tabs), placeholders while the templates load, 44px buttons.
+// The setup stays a wide dialog: it is two panes (form and phone preview),
+// wider than any sheet size.
 
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
@@ -32,9 +37,15 @@ import { IgPostPicker, useInstagramAccounts } from '@/components/flows/triggers/
 import { AndroidPhone } from '@/components/instagram/android-phone';
 import { TemplateGallery, type TemplateSummary } from '@/components/flows/template-gallery';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { EmptyState } from '@/components/ui/empty-state';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { PageHeader } from '@/components/ui/page-header';
+import { PageLoading } from '@/components/ui/page-loading';
+import { SegmentedControl } from '@/components/ui/segmented-control';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@/hooks/use-auth';
@@ -200,11 +211,16 @@ export default function InstagramQuickAutomationsPage() {
 
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="text-foreground text-[22px] font-bold tracking-tight">{t('title')}</h1>
-        <p className="text-muted-foreground mt-1 text-sm">{t('description')}</p>
-        {!canCreate && <p className="text-muted-foreground mt-2 text-sm" role="note">{t('noPermission')}</p>}
-      </div>
+      <PageHeader
+        className="mb-0"
+        title={t('title')}
+        subtitle={(
+          <>
+            {t('description')}
+            {!canCreate && <span className="mt-2 block" role="note">{t('noPermission')}</span>}
+          </>
+        )}
+      />
 
       <section className="space-y-3" aria-labelledby="ig-wizards-heading">
         <h2 id="ig-wizards-heading" className="text-foreground text-sm font-semibold">{t('wizards')}</h2>
@@ -215,7 +231,7 @@ export default function InstagramQuickAutomationsPage() {
               <span className="text-popover-foreground text-sm font-semibold">{t(`${key}.title`)}</span>
               <span className="text-muted-foreground text-xs leading-relaxed">{t(`${key}.description`)}</span>
               <div className="border-border mt-auto flex justify-end border-t pt-2">
-                <Button size="sm" disabled={!canCreate || creating} onClick={() => openWizard(id)}
+                <Button size="sm" className="min-h-11 sm:min-h-7" disabled={!canCreate || creating} onClick={() => openWizard(id)}
                   aria-label={`${t('start')}: ${t(`${key}.title`)}`}>
                   {t('start')}
                 </Button>
@@ -230,10 +246,8 @@ export default function InstagramQuickAutomationsPage() {
           <h2 id="ig-templates-heading" className="text-foreground text-sm font-semibold">{t('templates')}</h2>
           <p className="text-muted-foreground mt-1 text-xs">{t('templatesHelp')}</p>
         </div>
-        {templates === null ? null : templates.length === 0 ? (
-          <p className="border-border text-muted-foreground rounded-lg border border-dashed p-6 text-center text-sm" role="status">
-            {t('empty')}
-          </p>
+        {templates === null ? <PageLoading rows={2} /> : templates.length === 0 ? (
+          <EmptyState icon={Sparkles} title={t('empty')} />
         ) : (
           <TemplateGallery templates={templates} creating={creating || !canCreate} onUse={(slug) => void createFromTemplate(slug)} />
         )}
@@ -380,8 +394,8 @@ function WizardFields({
     return (
       <div className="space-y-3">
         {field('keywords', t('storyKeyword'), { help: t('storyKeywordHelp') })}
-        <label className="text-foreground flex items-center gap-2 text-sm">
-          <input type="checkbox" checked={reactions} onChange={(e) => onReactions(e.target.checked)} className="h-4 w-4" />
+        <label className="text-foreground flex min-h-11 cursor-pointer items-center gap-2 text-sm">
+          <Checkbox checked={reactions} onCheckedChange={(checked) => onReactions(checked === true)} />
           {t('reactions')}
         </label>
         {field('email_prompt', t('emailPrompt'), { long: true, required: true })}
@@ -410,13 +424,17 @@ function WizardFields({
             onChoose={() => onChoices({ postScope: 'specific' })}>
             <div className="space-y-2">
               {accounts.length > 1 && (
-                <label className="text-muted-foreground flex items-center gap-2 text-xs">
-                  {t('postsFrom')}
-                  <select value={pickerAccount ?? ''} onChange={(e) => setPostsAccount(e.target.value)}
-                    className="border-border bg-background text-foreground rounded-md border px-2 py-1 text-xs">
-                    {accounts.map((a) => <option key={a.id} value={a.id}>{a.label}</option>)}
-                  </select>
-                </label>
+                <div className="text-muted-foreground flex items-center gap-2 text-xs">
+                  <span>{t('postsFrom')}</span>
+                  <Select value={pickerAccount ?? ''} onValueChange={(v) => { if (typeof v === 'string' && v) setPostsAccount(v); }}>
+                    <SelectTrigger aria-label={t('postsFrom')} className="min-h-11 text-xs sm:min-h-8">
+                      <SelectValue>{accounts.find((a) => a.id === pickerAccount)?.label ?? ''}</SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {accounts.map((a) => <SelectItem key={a.id} value={a.id}>{a.label}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
               )}
               {pickerAccount ? (
                 <IgPostPicker key={pickerAccount} accountId={pickerAccount} selected={choices.mediaIds} onLoaded={onPosts}
@@ -446,7 +464,7 @@ function WizardFields({
                 <span className="text-muted-foreground">{t('wordsTry')}</span>
                 {examples.map((word) => (
                   <button key={word} type="button" onClick={() => addExample(word)}
-                    className="border-primary/30 bg-primary/5 text-primary hover:bg-primary/10 rounded-full border px-2.5 py-0.5 font-medium">
+                    className="border-primary/30 bg-primary/5 text-primary hover:bg-primary/10 relative rounded-full border px-2.5 py-0.5 font-medium after:absolute after:-inset-y-2.5 after:inset-x-0 after:content-['']">
                     {word}
                   </button>
                 ))}
@@ -463,7 +481,7 @@ function WizardFields({
                 <Input value={reply} aria-label={t('replyN', { n: i + 1 })} data-field="public_reply"
                   aria-invalid={error?.field === 'public_reply' || undefined} onChange={(e) => setReply(i, e.target.value)} />
                 {replies.length > 1 && (
-                  <Button type="button" variant="ghost" size="icon" aria-label={t('removeReply', { n: i + 1 })}
+                  <Button type="button" variant="ghost" size="icon" className="size-11" aria-label={t('removeReply', { n: i + 1 })}
                     onClick={() => onChoices({ replies: replies.filter((_, j) => j !== i) })}>
                     <X className="size-4" />
                   </Button>
@@ -471,7 +489,7 @@ function WizardFields({
               </div>
             ))}
             {replies.length < MAX_REPLIES && (
-              <Button type="button" variant="outline" size="sm" onClick={() => onChoices({ replies: [...replies, ''] })}>
+              <Button type="button" variant="outline" size="sm" className="min-h-11 sm:min-h-7" onClick={() => onChoices({ replies: [...replies, ''] })}>
                 <Plus className="size-3.5" />{t('addReply')}
               </Button>
             )}
@@ -516,14 +534,14 @@ function WizardFields({
                   <Label className="text-xs">{t('linkN', { n: i + 2 })}</Label>
                   <Input type="url" value={row.url} onChange={(e) => setLink(i, { url: e.target.value })} />
                 </div>
-                <Button type="button" variant="ghost" size="icon" aria-label={t('removeLink', { n: i + 2 })}
+                <Button type="button" variant="ghost" size="icon" className="size-11" aria-label={t('removeLink', { n: i + 2 })}
                   onClick={() => onChoices({ moreLinks: choices.moreLinks.filter((_, j) => j !== i) })}>
                   <X className="size-4" />
                 </Button>
               </div>
             ))}
             {choices.moreLinks.length < MAX_MORE_LINKS && (
-              <Button type="button" variant="outline" size="sm"
+              <Button type="button" variant="outline" size="sm" className="min-h-11 sm:min-h-7"
                 onClick={() => onChoices({ moreLinks: [...choices.moreLinks, { label: '', url: '' }] })}>
                 <Plus className="size-3.5" />{t('addLink')}
               </Button>
@@ -707,18 +725,11 @@ function WizardPreview({ wizard, values, choices, posts, tab, onTab }: {
   return (
     <aside aria-label={t('title')} className="space-y-2">
       {tabs.length > 1 && (
-        <div role="tablist" aria-label={t('title')} className="flex gap-1">
-          {tabs.map((name) => (
-            <button key={name} type="button" role="tab" aria-selected={tab === name} onClick={() => onTab(name)}
-              className={cn('flex-1 rounded-md px-2 py-1 text-xs font-medium transition-colors',
-                tab === name ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-muted hover:text-foreground')}>
-              {t(name)}
-            </button>
-          ))}
-        </div>
+        <SegmentedControl aria-label={t('title')} size="sm" value={tab} onValueChange={onTab}
+          options={tabs.map((name) => ({ value: name, label: t(name) }))} />
       )}
       <AndroidPhone label={t(tab)} header={header} footer={footer}>
-        <div role="tabpanel" aria-label={t(tab)}>{body}</div>
+        <div role="group" aria-label={t(tab)}>{body}</div>
       </AndroidPhone>
     </aside>
   );

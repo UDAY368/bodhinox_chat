@@ -12,7 +12,7 @@
 // when the 24-hour window is closed, edited in a sheet) and "Exit when".
 // Apple's way: one large title, one primary button ("Add message", which opens
 // a sheet), Rename / Pause / Delete in the "more" menu, deletes confirmed in
-// the in-app dialog.
+// the in-app dialog. Phase 2: 44px row buttons, subscribers in a grouped list.
 
 import { useCallback, useEffect, useState, type DragEvent, type FormEvent } from 'react';
 import Link from 'next/link';
@@ -24,8 +24,9 @@ import { useFormatter, useTranslations } from 'next-intl';
 import { useInstagramFlows } from '@/components/instagram/use-instagram-flows';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { useConfirm } from '@/components/ui/confirm-dialog';
+import { GroupedList } from '@/components/ui/grouped-list';
 import { InlineError } from '@/components/ui/inline-error';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -294,12 +295,12 @@ function MessageRow({ t, item, index, count, canEdit, busy, whatsapp, onEditStep
         <span>{scheduleText(t, item)}</span>
         {canEdit && !editing && (
           // A WhatsApp step's timing is edited in its sheet, with the rest of the step.
-          <Button type="button" variant="ghost" size="icon-xs" aria-label={t('editSchedule', { number })}
+          <Button type="button" variant="ghost" size="icon" className="size-11" aria-label={t('editSchedule', { number })}
             onClick={() => {
               if (whatsapp) { onEditStep(); return; }
               setAmount(String(item.delay_amount)); setUnit(item.delay_unit); setEditing(true);
             }}>
-            <Pencil className="size-3" />
+            <Pencil className="size-3.5" />
           </Button>
         )}
         {!whatsapp && windowWarning(item.delay_amount, item.delay_unit) && (
@@ -327,8 +328,8 @@ function MessageRow({ t, item, index, count, canEdit, busy, whatsapp, onEditStep
               </SelectContent>
             </Select>
           </div>
-          <Button type="submit" size="sm" disabled={busy || !delay}>{t('save')}</Button>
-          <Button type="button" size="sm" variant="ghost" onClick={() => setEditing(false)}>{t('cancel')}</Button>
+          <Button type="submit" className="min-h-11 sm:min-h-8" disabled={busy || !delay}>{t('save')}</Button>
+          <Button type="button" variant="ghost" className="min-h-11 sm:min-h-8" onClick={() => setEditing(false)}>{t('cancel')}</Button>
           {!delay && <p className="text-destructive w-full text-xs">{t('delayInvalid')}</p>}
           {delay && windowWarning(delay.amount, delay.unit) && <p className="w-full text-xs text-amber-600 dark:text-amber-400">{t('windowWarning')}</p>}
         </form>
@@ -336,7 +337,8 @@ function MessageRow({ t, item, index, count, canEdit, busy, whatsapp, onEditStep
       <Card className={dragOver ? 'ring-primary ring-2' : undefined}>
         <CardContent className="flex flex-wrap items-center gap-3 py-3">
           {canEdit && (
-            <span draggable aria-label={t('dragHandle', { number })} role="img" className="text-muted-foreground cursor-grab"
+            <span draggable aria-label={t('dragHandle', { number })} role="img"
+              className="text-muted-foreground -ml-2 flex size-11 cursor-grab items-center justify-center"
               onDragStart={(e) => { e.dataTransfer.setData('text/x-sequence-message', item.id); e.dataTransfer.effectAllowed = 'move'; }}>
               <GripVertical className="size-4" />
             </span>
@@ -379,16 +381,18 @@ function MessageRow({ t, item, index, count, canEdit, busy, whatsapp, onEditStep
           </dl>
           <div className="flex items-center gap-1">
             <Label className="text-muted-foreground mr-1 text-xs" htmlFor={`active-${item.id}`}>{t('active')}</Label>
-            <Switch id={`active-${item.id}`} aria-label={t('activeLabel', { number })} checked={item.active}
-              disabled={!canEdit || busy} onCheckedChange={(checked) => void onPatch({ active: checked })} />
+            <span className="flex min-h-11 items-center">
+              <Switch id={`active-${item.id}`} aria-label={t('activeLabel', { number })} checked={item.active}
+                disabled={!canEdit || busy} onCheckedChange={(checked) => void onPatch({ active: checked })} />
+            </span>
             {canEdit && (
               <>
-                <Button type="button" variant="ghost" size="icon-sm" aria-label={t('moveUp', { number })} disabled={busy || index === 0}
-                  onClick={() => onMove(-1)}><ArrowUp className="size-3.5" /></Button>
-                <Button type="button" variant="ghost" size="icon-sm" aria-label={t('moveDown', { number })} disabled={busy || index === count - 1}
-                  onClick={() => onMove(1)}><ArrowDown className="size-3.5" /></Button>
-                <Button type="button" variant="ghost" size="icon-sm" aria-label={t('removeMessage', { number })} disabled={busy}
-                  className="text-destructive" onClick={onRemove}><Trash2 className="size-3.5" /></Button>
+                <Button type="button" variant="ghost" size="icon" className="size-11" aria-label={t('moveUp', { number })} disabled={busy || index === 0}
+                  onClick={() => onMove(-1)}><ArrowUp className="size-4" /></Button>
+                <Button type="button" variant="ghost" size="icon" className="size-11" aria-label={t('moveDown', { number })} disabled={busy || index === count - 1}
+                  onClick={() => onMove(1)}><ArrowDown className="size-4" /></Button>
+                <Button type="button" variant="ghost" size="icon" aria-label={t('removeMessage', { number })} disabled={busy}
+                  className="text-destructive size-11" onClick={onRemove}><Trash2 className="size-4" /></Button>
               </>
             )}
           </div>
@@ -534,20 +538,18 @@ function Subscribers({ t, id, canEdit, reloadKey, onChanged }: {
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-base">{t('subscribersTitle')}</CardTitle>
-      </CardHeader>
-      <CardContent>
+    <section className="space-y-2" aria-labelledby="sequence-subscribers-title">
+      <h2 id="sequence-subscribers-title" className="text-foreground text-base font-semibold">{t('subscribersTitle')}</h2>
         {failed && <InlineError message={t('loadFailed')} onRetry={() => void load()} className="py-4" />}
         {!rows && !failed && <PageLoading rows={2} />}
         {rows?.length === 0 && <p className="text-muted-foreground text-sm">{t('noSubscribers')}</p>}
         {!!rows?.length && (
-          <ul className="divide-y">
+          <GroupedList>
             {rows.map((row) => {
               const running = row.status === 'active' || row.status === 'sending';
               return (
-                <li key={row.contact_id} className="flex min-h-11 flex-wrap items-center justify-between gap-2 py-2 text-sm">
+                <div key={row.contact_id}
+                  className="not-first:border-separator flex min-h-11 flex-wrap items-center justify-between gap-2 px-4 py-2 text-sm not-first:border-t">
                   <div className="min-w-0">
                     <p className="text-foreground truncate font-medium">{row.name || t('unnamedContact')}</p>
                     <p className="text-muted-foreground text-xs">
@@ -560,17 +562,16 @@ function Subscribers({ t, id, canEdit, reloadKey, onChanged }: {
                     </p>
                   </div>
                   {canEdit && running && (
-                    <Button type="button" variant="outline" size="sm" disabled={busy === row.contact_id}
+                    <Button type="button" variant="outline" className="min-h-11 sm:min-h-8" disabled={busy === row.contact_id}
                       onClick={() => void unsubscribe(row.contact_id)}>
                       {t('unsubscribe')}
                     </Button>
                   )}
-                </li>
+                </div>
               );
             })}
-          </ul>
+          </GroupedList>
         )}
-      </CardContent>
-    </Card>
+    </section>
   );
 }

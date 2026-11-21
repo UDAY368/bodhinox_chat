@@ -5,18 +5,24 @@
 // creating an "ig_ref" flow (its trigger lists the keys); the list is read from
 // GET /api/instagram/ref-links. The Instagram section layout already explains a
 // channel that is off or not available; connection stays in Settings.
+// Apple's way (b7): one large title with "New link" top right, a grouped
+// list, the shared loading, empty and failed states.
 
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Copy, Loader2, Plus } from 'lucide-react';
+import { Copy, Link2, Loader2, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import { useTranslations } from 'next-intl';
 
 import { createInstagramFlow } from '@/components/instagram/use-instagram-flows';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { EmptyState } from '@/components/ui/empty-state';
+import { GroupedList } from '@/components/ui/grouped-list';
+import { InlineError } from '@/components/ui/inline-error';
+import { PageHeader } from '@/components/ui/page-header';
+import { PageLoading } from '@/components/ui/page-loading';
 import { useAuth } from '@/hooks/use-auth';
 import { useCan } from '@/hooks/use-can';
 import { authFetch } from '@/lib/auth/client';
@@ -79,37 +85,28 @@ export default function InstagramRefLinksPage() {
   };
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-foreground text-[22px] font-bold tracking-tight">{t('title')}</h1>
-        <p className="text-muted-foreground mt-1 text-sm">{t('description')}</p>
-      </div>
-
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between gap-3 space-y-0">
-          <CardTitle className="text-base">{t('link')}</CardTitle>
-          {canCreate && (
-            <Button type="button" size="sm" onClick={() => void newLink()} disabled={creating}>
-              {creating ? <Loader2 className="size-3.5 animate-spin" /> : <Plus className="size-3.5" />}
-              {t('newLink')}
-            </Button>
-          )}
-        </CardHeader>
-        <CardContent className="space-y-2">
-          {failed && (
-            <div className="flex items-center gap-3 text-sm">
-              <p className="text-destructive">{t('loadFailed')}</p>
-              <Button type="button" variant="outline" size="sm" onClick={() => void load()}>{tSettings('retry')}</Button>
-            </div>
-          )}
-          {!links && !failed && <Loader2 className="text-muted-foreground size-4 animate-spin" aria-label={tSettings('loading')} />}
-          {links?.length === 0 && <p className="text-muted-foreground text-sm">{t('empty')}</p>}
-          {!!links?.length && (
-            <ul className="divide-y">
+    <div>
+      <PageHeader
+        title={t('title')}
+        subtitle={t('description')}
+        primaryAction={canCreate ? (
+          <Button type="button" onClick={() => void newLink()} disabled={creating}>
+            {creating ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
+            {t('newLink')}
+          </Button>
+        ) : undefined}
+      />
+      {failed && <InlineError message={t('loadFailed')} onRetry={() => void load()} />}
+      {!links && !failed && <PageLoading rows={3} />}
+      {links?.length === 0 && <EmptyState icon={Link2} title={t('empty')} />}
+      {!!links?.length && (
+        <GroupedList header={t('link')}>
               {links.map((row) => (
-                <li key={`${row.flowId}:${row.instagramAccountId}:${row.key}`} className="space-y-1 py-3 text-sm">
+                <div key={`${row.flowId}:${row.instagramAccountId}:${row.key}`}
+                  className="not-first:border-separator space-y-1 px-4 py-3 text-sm not-first:border-t">
                   <div className="flex flex-wrap items-center justify-between gap-2">
-                    <Link href={channelPath('instagram', 'flows', row.flowId)} className="text-foreground min-w-0 truncate font-medium hover:underline">
+                    <Link href={channelPath('instagram', 'flows', row.flowId)}
+                      className="text-foreground inline-flex min-h-11 min-w-0 items-center truncate font-medium hover:underline sm:min-h-0">
                       {row.flowName}
                     </Link>
                     {row.flowStatus === 'draft' && <Badge variant="secondary">{t('draft')}</Badge>}
@@ -121,7 +118,7 @@ export default function InstagramRefLinksPage() {
                   {row.url ? (
                     <div className="flex items-center gap-2">
                       <code className="bg-muted min-w-0 flex-1 truncate rounded px-2 py-1 text-xs">{row.url}</code>
-                      <Button type="button" variant="outline" size="sm" onClick={() => void copy(row.url!)}>
+                      <Button type="button" variant="outline" className="min-h-11 sm:min-h-8" onClick={() => void copy(row.url!)}>
                         <Copy className="size-3.5" />
                         {t('copy')}
                       </Button>
@@ -129,12 +126,10 @@ export default function InstagramRefLinksPage() {
                   ) : (
                     <p className="text-muted-foreground text-xs">{t('noUsername')}</p>
                   )}
-                </li>
+                </div>
               ))}
-            </ul>
-          )}
-        </CardContent>
-      </Card>
+        </GroupedList>
+      )}
     </div>
   );
 }
