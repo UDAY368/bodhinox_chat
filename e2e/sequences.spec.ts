@@ -2,8 +2,9 @@ import { expect, test, type Page, type Route } from '@playwright/test';
 import { fixtures, login } from './fixtures';
 
 // Stage 5 (5H): Instagram sequences. Local and CI runs leave INSTAGRAM_ENABLED
-// unset, so the real server must refuse the API with the fixed 503 and the page
-// must show the channel's "not available" state. The editor journey (create a
+// unset, so the real server must refuse to create an Instagram sequence with the
+// fixed 503 (WhatsApp sequences, batch 7, keep working) and the page must show the
+// channel's "not available" state. The editor journey (create a
 // sequence, add two messages, toggle Active) runs against an in-browser stand-in
 // for /api/sequences and an Instagram channel marked live, because nothing here
 // may reach Instagram; the server rules behind those calls (roles, tenancy, the
@@ -11,11 +12,16 @@ import { fixtures, login } from './fixtures';
 // src/lib/sequences/sequences.integration.test.ts.
 
 test.describe('sequences with INSTAGRAM_ENABLED unset', () => {
-  test('the API answers instagram_not_enabled and the page explains Instagram is not available', async ({ page }) => {
+  test('the API refuses an Instagram sequence with instagram_not_enabled and the page explains Instagram is not available', async ({ page }) => {
     await login(page, fixtures().users.agent);
-    const list = await page.request.get('/api/sequences');
-    expect(list.status()).toBe(503);
-    expect(await list.json()).toMatchObject({ code: 'instagram_not_enabled' });
+    await page.request.get('/api/auth/csrf');
+    const csrf = (await page.context().cookies()).find((c) => c.name === '__Host-bnx_csrf' || c.name === 'bnx_csrf');
+    const create = await page.request.post('/api/sequences', {
+      data: { name: 'Blocked', channel: 'instagram' },
+      headers: { origin: new URL(page.url()).origin, 'x-csrf-token': decodeURIComponent(csrf?.value ?? '') },
+    });
+    expect(create.status()).toBe(503);
+    expect(await create.json()).toMatchObject({ code: 'instagram_not_enabled' });
     await page.goto('/instagram/sequences');
     await expect(page.locator('[data-channel-gate="unavailable"]')).toBeVisible();
     await expect(page.getByRole('button', { name: 'New sequence' })).toHaveCount(0);
@@ -93,7 +99,8 @@ test.describe('sequence editor', () => {
     await expect(page.getByRole('heading', { name: 'Welcome series' })).toBeVisible();
 
     for (const name of ['Day one', 'Day two']) {
-      await page.getByRole('button', { name: /Create new/ }).click();
+      // "Add message" opens the add sheet, on "Create new" by default.
+      await page.getByRole('button', { name: 'Add message' }).click();
       await page.getByLabel('Name of the new automation').fill(name);
       await page.getByRole('button', { name: 'Add', exact: true }).click();
       await expect(page.getByRole('link', { name: new RegExp(name) })).toBeVisible();
