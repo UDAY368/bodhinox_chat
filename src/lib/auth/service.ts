@@ -7,6 +7,7 @@ import {
   verificationEmail,
 } from './email-content';
 import { getAuthPrisma } from '@/lib/db/prisma';
+import { userEmailLocale } from './user-email-locale';
 import {
   appOrigin,
   assertCsrf,
@@ -76,7 +77,9 @@ async function sendVerification(
   email: string,
   token: string,
   purpose: 'verify' | 'reset',
-  next = '/dashboard'
+  next = '/dashboard',
+  /** The known member's id: the email is in their language. */
+  userId?: string
 ) {
   const link = new URL('/auth/callback', appOrigin());
   link.searchParams.set('token', token);
@@ -85,7 +88,7 @@ async function sendVerification(
   await sendAuthEmail({
     from: process.env.AUTH_EMAIL_FROM,
     to: email,
-    ...verificationEmail(purpose, link.toString()),
+    ...verificationEmail(purpose, link.toString(), userId ? await userEmailLocale(userId) : undefined),
   });
 }
 async function createVerification(
@@ -243,7 +246,7 @@ export async function signup(input: {
     await sendAuthEmail({
       from: process.env.AUTH_EMAIL_FROM,
       to: email,
-      ...existingAccountEmail(signIn.toString(), join),
+      ...existingAccountEmail(signIn.toString(), join, await userEmailLocale(user.id)),
     });
   } else if (user)
     await sendVerification(
@@ -498,7 +501,8 @@ export async function requestEmail(input: {
     email,
     await createVerification(user.id, input.purpose),
     input.purpose,
-    input.next
+    input.next,
+    user.id
   );
 }
 export async function requestEmailChange(
@@ -535,18 +539,19 @@ export async function requestEmailChange(
     return user.email;
   });
   if (!oldEmail) return;
+  const locale = await userEmailLocale(context.userId, context.accountId);
   const link = new URL('/auth/callback', appOrigin());
   link.searchParams.set('token', token);
   link.searchParams.set('purpose', 'change_email');
   await sendAuthEmail({
     from: process.env.AUTH_EMAIL_FROM,
     to: newEmail,
-    ...emailChangeConfirmEmail(link.toString()),
+    ...emailChangeConfirmEmail(link.toString(), locale),
   });
   await emailTransport().sendMail({
     from: process.env.AUTH_EMAIL_FROM,
     to: oldEmail,
-    ...emailChangeNoticeEmail(newEmail),
+    ...emailChangeNoticeEmail(newEmail, locale),
   });
 }
 export async function confirmEmailChange(token: string): Promise<void> {

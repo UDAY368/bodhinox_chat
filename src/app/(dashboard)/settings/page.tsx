@@ -43,6 +43,8 @@ import { PrivacySection } from '@/components/settings/privacy/privacy-section';
 import { NeedsReviewPanel } from '@/components/settings/needs-review-panel';
 import { authFetch } from '@/lib/auth/client';
 import { HelpLink } from '@/components/help/help-link';
+import { RelatedSettings, SettingsSearch } from '@/components/settings/settings-search';
+import { SETTINGS_INDEX, type SettingsIndexEntry } from '@/lib/settings/settings-index';
 import {
   hiddenSections,
   railSection,
@@ -140,6 +142,31 @@ function SettingsPageInner() {
     router.replace(`/settings?${params.toString()}`, { scroll: false });
   };
 
+  // Search results and "Related" links: a settings entry opens its section (and
+  // scrolls to its card); an AI page entry opens that page.
+  const canOpen = (entry: SettingsIndexEntry) => {
+    if (entry.requires === 'edit-settings' && !canEditSettings) return false;
+    if (entry.requires === 'manage-members' && !canManageMembers) return false;
+    if (!entry.section || entry.section === AI_SECTION || entry.section === REVIEW_SECTION) return true;
+    return !hidden.has(entry.section);
+  };
+  const searchable = useMemo(
+    () => SETTINGS_INDEX.filter(canOpen),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [hidden, canEditSettings, canManageMembers],
+  );
+  const openEntry = (entry: SettingsIndexEntry) => {
+    if (!entry.section) {
+      router.push(entry.href);
+      return;
+    }
+    go(entry.section);
+    if (entry.anchor) {
+      const anchor = entry.anchor;
+      window.setTimeout(() => document.getElementById(anchor)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 150);
+    }
+  };
+
   // The Integrations grid's Webhooks card opens API & webhooks at the webhooks list.
   const openWebhooks = () => {
     go('api');
@@ -176,12 +203,13 @@ function SettingsPageInner() {
     inbox: (
       <div key={accountId} className="space-y-10">
         <InboxSettings />
-        <WorkingHoursCard canEdit={canEditSettings} />
-        <RoutingRulesCard canEdit={canEditSettings} />
+        {/* Ids are the settings search's anchors (settings-index.ts). */}
+        <div id="working-hours" className="scroll-mt-4"><WorkingHoursCard canEdit={canEditSettings} /></div>
+        <div id="routing" className="scroll-mt-4"><RoutingRulesCard canEdit={canEditSettings} /></div>
         {/* Stage 5: automation pause (5D), assignment mode and agent visibility (5E). */}
-        <AutomationPauseCard canEdit={canEditSettings} />
-        <AssignmentModeCard canEdit={canEditSettings} />
-        <VisibilityCard canEdit={canEditSettings} />
+        <div id="automation-pause" className="scroll-mt-4"><AutomationPauseCard canEdit={canEditSettings} /></div>
+        <div id="assignment" className="scroll-mt-4"><AssignmentModeCard canEdit={canEditSettings} /></div>
+        <div id="visibility" className="scroll-mt-4"><VisibilityCard canEdit={canEditSettings} /></div>
       </div>
     ),
     'conversion-events': <ConversionEventsSettings key={accountId} canEdit={canEditSettings} />,
@@ -211,11 +239,14 @@ function SettingsPageInner() {
 
   return (
     <div>
-      <div>
-        <h1 className="text-foreground text-[22px] font-bold tracking-tight">
-          {t('pageTitle')}
-        </h1>
-        <p className="text-muted-foreground mt-1 text-sm">{t('pageDesc')}</p>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <h1 className="text-foreground text-[22px] font-bold tracking-tight">
+            {t('pageTitle')}
+          </h1>
+          <p className="text-muted-foreground mt-1 text-sm">{t('pageDesc')}</p>
+        </div>
+        <SettingsSearch entries={searchable} onOpen={openEntry} />
       </div>
 
       <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-[224px_minmax(0,1fr)] lg:items-start lg:gap-8 xl:grid-cols-[232px_minmax(0,1fr)]">
@@ -225,6 +256,7 @@ function SettingsPageInner() {
             hidden={hidden} unsaved={unsaved} />
         </div>
         <div className="mx-auto w-full min-w-0 max-w-[880px] pb-16">
+          <RelatedSettings section={extra ?? section} canOpen={canOpen} onOpen={openEntry} />
           {showAi ? (
             <div key={accountId} className="space-y-10">
               <AiAssistantSettings />

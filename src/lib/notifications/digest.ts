@@ -17,9 +17,10 @@
  * entries unclaimed until the window ends (a mention passes when they let
  * mentions through). Nothing is scheduled while SMTP or the app URL is
  * not configured. Addresses, titles and provider errors are never logged.
+ * Each email is in the member's language (their own, else the workspace's).
  */
 import { authEmailTransport } from '@/lib/auth/email';
-import { getT } from '@/lib/i18n/translate';
+import { getLocaleT, staffEmailLocale } from '@/lib/i18n/email-locale';
 import { getWorkerPrisma } from '@/lib/db/prisma';
 import { withTenant } from '@/lib/db/tenant';
 import { maskPhonesInText } from '@/lib/inbox/masking';
@@ -55,6 +56,10 @@ export interface DigestEntry {
   wants_email: boolean;
   /** The member's numbers are masked (mask_phone_numbers, or no membership any more). */
   mask_phones?: boolean;
+  /** The member's own language (member_preferences.language). */
+  language?: string | null;
+  /** The workspace default language (accounts.default_language). */
+  workspace_language?: string | null;
 }
 
 export interface DigestEmail {
@@ -113,10 +118,10 @@ export function buildDigestEmails(entries: DigestEntry[], options: { origin: str
     byUser.set(entry.user_id, list);
   }
   const emails: DigestEmail[] = [];
-  const t = getT('AuthEmails.digest');
   for (const [userId, list] of byUser) {
     const to = list[0].address?.trim() ?? '';
     if (!ADDRESS.test(to)) continue;
+    const t = getLocaleT(staffEmailLocale(list[0].language, list[0].workspace_language), 'AuthEmails.digest');
     list.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
     const shown = list.slice(-DIGEST_MAX_ITEMS);
     const lines = shown.map((entry) => {
@@ -186,8 +191,10 @@ export async function sendNotificationDigest(
       SELECT q.id::text AS id, q.user_id::text AS user_id, q.event, q.title, q.link, q.created_at,
         pr.email AS address, (n.read_at IS NOT NULL) AS read, COALESCE(p.email, false) AS wants_email,
         COALESCE(m.role::text NOT IN ('owner','admin') AND m.mask_phone_numbers, true) AS mask_phones,
-        mp.quiet_enabled, mp.quiet_start, mp.quiet_end, mp.quiet_time_zone, mp.quiet_allow_mentions
+        mp.quiet_enabled, mp.quiet_start, mp.quiet_end, mp.quiet_time_zone, mp.quiet_allow_mentions,
+        mp.language, a.default_language AS workspace_language
       FROM notification_email_queue q
+      JOIN accounts a ON a.id=q.account_id
       LEFT JOIN account_memberships m ON m.account_id=q.account_id AND m.user_id=q.user_id
       LEFT JOIN notifications n ON n.account_id=q.account_id AND n.id=q.notification_id
       LEFT JOIN notification_preferences p ON p.account_id=q.account_id AND p.user_id=q.user_id AND p.event=q.event

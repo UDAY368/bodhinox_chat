@@ -3,7 +3,7 @@ import { authFetch } from "@/lib/auth/client";
 
 import { useEffect, useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
-import { BarChart3, BookOpen, GraduationCap, History, Plus, Settings2, ShieldCheck, SlidersHorizontal, Sparkles } from 'lucide-react';
+import { BookOpen, History, Plus, Settings2, SlidersHorizontal, Sparkles } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { AiUsageCard } from '@/components/agents/ai-usage';
@@ -17,7 +17,10 @@ import { FeaturesPanel } from '@/components/ai/features/features-panel';
 import { QualityPanel } from '@/components/ai/quality/quality-panel';
 import { useAuth } from '@/hooks/use-auth';
 import { canEditSettings, canSendMessages } from '@/lib/auth/roles';
-import { requestedTab, visibleAgentTabs, type AgentTab } from '@/components/agents/agent-tabs';
+import { SegmentedControl } from '@/components/ui/segmented-control';
+import {
+  requestedActivitySection, requestedTab, visibleActivitySections, visibleAgentTabs, type ActivitySection, type AgentTab,
+} from '@/components/agents/agent-tabs';
 
 type Tab = AgentTab;
 
@@ -25,18 +28,16 @@ const TAB_TRIGGERS = {
   agents: { icon: Sparkles, label: 'agents' },
   knowledge: { icon: BookOpen, label: 'knowledge' },
   features: { icon: SlidersHorizontal, label: 'features' },
-  quality: { icon: ShieldCheck, label: 'quality' },
   setup: { icon: Settings2, label: 'setup' },
-  learnings: { icon: GraduationCap, label: 'learnings' },
-  usage: { icon: BarChart3, label: 'usage' },
   activity: { icon: History, label: 'activity' },
 } as const;
 
 /**
- * The AI page: Agents (several agents with their test chat), Knowledge (the
- * ask box and the sources), Assistant features (switches, token budget and
- * where tokens went) and Quality, then Setup (business profile wizard and
- * provider settings), Learnings, Usage and Activity.
+ * The AI page, five tabs: Agents (several agents with their test chat),
+ * Knowledge (the ask box and the sources), Assistant features (switches, token
+ * budget and where tokens went), Setup (step 1 connects the provider, then the
+ * business profile wizard) and Activity (Quality, Learnings, Usage and the
+ * activity log: a segmented control over the sections the role may see).
  */
 export default function AgentsPage() {
   const t = useTranslations('AiStudio');
@@ -45,7 +46,9 @@ export default function AgentsPage() {
   const canSend = accountRole ? canSendMessages(accountRole) : false;
   // One list drives both the triggers and the panels (admin-only tabs are filtered out).
   const visible = visibleAgentTabs(accountRole);
+  const activitySections = visibleActivitySections(accountRole);
   const [tab, setTab] = useState<Tab>('agents');
+  const [activityPick, setActivityPick] = useState<ActivitySection | null>(null);
   const [decided, setDecided] = useState(false);
   const [hasEmbeddingsKey, setHasEmbeddingsKey] = useState(false);
   const [newAgent, setNewAgent] = useState<object | null>(null);
@@ -61,8 +64,10 @@ export default function AgentsPage() {
         const data = await res.json().catch(() => ({}));
         if (!cancelled) {
           // A link can open a tab directly (/agents?tab=features); otherwise land by setup state.
-          const asked = requestedTab(new URLSearchParams(window.location.search).get('tab'));
+          const raw = new URLSearchParams(window.location.search).get('tab');
+          const asked = requestedTab(raw);
           setTab(asked ?? (data?.configured ? 'agents' : 'setup'));
+          setActivityPick(requestedActivitySection(raw));
           setHasEmbeddingsKey(data?.has_embeddings_key === true);
         }
       } catch {
@@ -77,6 +82,9 @@ export default function AgentsPage() {
   }, []);
 
   const current = visible.includes(tab) ? tab : 'agents';
+  // A section this role cannot see (an old link) falls back to the first it can.
+  const activity = activityPick && activitySections.includes(activityPick) ? activityPick : activitySections[0];
+  const activityLabel = (section: ActivitySection) => (section === 'log' ? t('activityLog') : t(`tabs.${section}`));
   const headerAction = canEdit && current === 'agents'
     ? { label: t('newAgent'), run: () => setNewAgent({}) }
     : canEdit && current === 'knowledge'
@@ -130,14 +138,11 @@ export default function AgentsPage() {
             </TabsContent>
           )}
 
-          {/* How the AI's replies did (admins: it shows customer text). */}
-          {visible.includes('quality') && (
-            <TabsContent value="quality" className="mt-5">
-              <QualityPanel onWriteAnswer={canEdit ? (question) => { setAddSource({ preset: question }); setTab('knowledge'); } : undefined} />
-            </TabsContent>
-          )}
-
           <TabsContent value="setup" className="mt-5 space-y-6">
+            {/* Step 1: connect the provider (provider, model, key, Test connection), then behaviour and limits. */}
+            <div ref={providerRef} className="scroll-mt-4">
+              <AiConfig />
+            </div>
             <AgentSetupWizard
               canEdit={canEdit}
               knowledgeSlot={<KnowledgePanel canEdit={canEdit} hasEmbeddingsKey={hasEmbeddingsKey} />}
@@ -145,28 +150,28 @@ export default function AgentsPage() {
               onOpenProvider={() => providerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
               onFinished={() => setTab('agents')}
             />
-            {/* Provider, model, key and auto-reply limits. */}
-            <div ref={providerRef} className="scroll-mt-4">
-              <AiConfig />
-            </div>
           </TabsContent>
 
-          {visible.includes('learnings') && (
-            <TabsContent value="learnings" className="mt-5">
-              <AgentLearnings canPromote={canEdit} />
-            </TabsContent>
-          )}
-
-          {visible.includes('usage') && (
-            <TabsContent value="usage" className="mt-5">
-              <AiUsageCard />
-            </TabsContent>
-          )}
-
-          {/* What the auto-reply agents did with each customer message (admins: it holds customer text). */}
-          {visible.includes('activity') && (
-            <TabsContent value="activity" className="mt-5">
-              <AiActivity />
+          {/* The records, one at a time: Quality and the log hold customer text (admins). */}
+          {visible.includes('activity') && activity && (
+            <TabsContent value="activity" className="mt-5 space-y-5">
+              {activitySections.length > 1 && (
+                <SegmentedControl
+                  aria-label={t('tabs.activity')}
+                  value={activity}
+                  onValueChange={setActivityPick}
+                  options={activitySections.map((section) => ({ value: section, label: activityLabel(section) }))}
+                  className="w-full sm:w-auto"
+                />
+              )}
+              <section aria-label={activityLabel(activity)}>
+                {activity === 'quality' && (
+                  <QualityPanel onWriteAnswer={canEdit ? (question) => { setAddSource({ preset: question }); setTab('knowledge'); } : undefined} />
+                )}
+                {activity === 'learnings' && <AgentLearnings canPromote={canEdit} />}
+                {activity === 'usage' && <AiUsageCard />}
+                {activity === 'log' && <AiActivity />}
+              </section>
             </TabsContent>
           )}
         </Tabs>

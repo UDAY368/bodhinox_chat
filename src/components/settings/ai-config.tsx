@@ -12,6 +12,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
+import { useConfirm } from '@/components/ui/confirm-dialog';
+import { PageLoading } from '@/components/ui/page-loading';
 import {
   Card,
   CardContent,
@@ -28,7 +30,7 @@ import {
 } from '@/components/ui/select';
 import { SettingsPanelHead } from './settings-panel-head';
 import { AiKnowledgeCard } from './ai-knowledge';
-import { AI_PROVIDER_DEFAULT_MODEL } from '@/lib/ai/defaults';
+import { AI_PROVIDER_DEFAULT_MODEL, AI_PROVIDER_MODELS, OTHER_MODEL, modelChoice } from '@/lib/ai/defaults';
 import type { AiProvider } from '@/lib/ai/types';
 import { isOpenRouterBaseUrl, OPENROUTER_BASE_URL, OPENROUTER_FREE_MODEL, type OpenRouterModel } from '@/lib/ai/openrouter';
 import type { AccountMember } from '@/types';
@@ -58,10 +60,15 @@ export function AiConfig() {
   const { accountId, accountRole, profileLoading } = useAuth();
   const canEdit = accountRole ? canEditSettings(accountRole) : false;
   const t = useTranslations('Settings.aiConfig');
+  const confirm = useConfirm();
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
+  // The last "Test connection" answer, shown in words under the button.
+  const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null);
+  // The model picker shows "Other…" (free text) for an unlisted id, or when chosen.
+  const [otherModel, setOtherModel] = useState(false);
   const [removing, setRemoving] = useState(false);
 
   const [configured, setConfigured] = useState(false);
@@ -116,6 +123,7 @@ export function AiConfig() {
         setProvider(data.provider);
         setSavedProvider(data.provider);
         setModel(data.model);
+        setOtherModel(false);
         setBaseUrl(data.base_url ?? '');
         setSavedBaseUrl(data.base_url ?? '');
         setSystemPrompt(data.system_prompt ?? '');
@@ -136,7 +144,7 @@ export function AiConfig() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     if (!accountId || loadedAccountIdRef.current === accountId) return;
@@ -152,8 +160,13 @@ export function AiConfig() {
   // typed a custom model.
   const handleProviderChange = (next: AiProvider) => {
     setProvider(next);
-    const isDefaultModel = Object.values(AI_PROVIDER_DEFAULT_MODEL).includes(model) || model.trim() === '';
-    if (isDefaultModel) setModel(next === 'openai_compatible' ? '' : AI_PROVIDER_DEFAULT_MODEL[next]);
+    const isListedModel = Object.values(AI_PROVIDER_MODELS).some((list) => list.includes(model)) ||
+      Object.values(AI_PROVIDER_DEFAULT_MODEL).includes(model) || model.trim() === '';
+    if (isListedModel) {
+      setModel(next === 'openai_compatible' ? '' : AI_PROVIDER_DEFAULT_MODEL[next]);
+      setOtherModel(false);
+    }
+    setTestResult(null);
     const keyAvailable = next === savedProvider && hasStoredKey;
     setApiKey(keyAvailable && next !== 'gemini' ? MASKED_KEY : '');
     setKeyEdited(false);
@@ -210,6 +223,7 @@ export function AiConfig() {
 
   const handleTest = async () => {
     setTesting(true);
+    setTestResult(null);
     try {
       const res = await authFetch('/api/ai/test', {
         method: 'POST',
@@ -221,11 +235,12 @@ export function AiConfig() {
           api_key: keyPayload(),
         }),
       });
-      const data = await res.json();
-      if (res.ok) toast.success(t('testSuccess'));
-      else toast.error(data.error ?? t('testRejected'));
+      const data = await res.json().catch(() => ({}));
+      setTestResult(res.ok
+        ? { ok: true, message: t('testSuccess') }
+        : { ok: false, message: data.error ?? t('testRejected') });
     } catch {
-      toast.error(t('testNetworkError'));
+      setTestResult({ ok: false, message: t('testNetworkError') });
     } finally {
       setTesting(false);
     }
@@ -267,6 +282,13 @@ export function AiConfig() {
   };
 
   const handleRemove = async () => {
+    const ok = await confirm({
+      title: t('removeConfirmTitle'),
+      body: t('removeConfirmBody'),
+      confirmLabel: t('removeConfirmAction'),
+      destructive: true,
+    });
+    if (!ok) return;
     setRemoving(true);
     try {
       const res = await authFetch('/api/ai/config', { method: 'DELETE' });
@@ -295,14 +317,23 @@ export function AiConfig() {
 
   if (loading || profileLoading) {
     return (
-      <div className="flex items-center justify-center py-16 text-muted-foreground">
-        <Loader2 className="mr-2 h-4 w-4 animate-spin" /> {t('loadFailed')} {/* Re-using label or a global one, wait, loading is better. Let's use useTranslations from overview or just hardcode Loading... actually I should add loading to aiConfig */}
-        {/* Wait, I didn't add loading to aiConfig. I'll just use loading. */}
+      <div role="status" aria-label={t('loading')}>
+        <PageLoading rows={5} />
       </div>
     );
   }
 
   const disabled = !canEdit || saving;
+  const modelList = AI_PROVIDER_MODELS[provider];
+  const modelPick = otherModel || modelList.length === 0 ? OTHER_MODEL : modelChoice(provider, model);
+  // The key itself never comes back to the browser; only whether one is stored.
+  const connected = configured && savedProvider === provider && (provider === 'gemini' || hasStoredKey);
+  const testButton = (
+    <Button variant="outline" onClick={handleTest} disabled={disabled || testing} className="min-h-11 sm:min-h-9">
+      {testing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle2 className="mr-2 h-4 w-4" />}
+      {t('testConnection')}
+    </Button>
+  );
 
   return (
     <div>
@@ -321,8 +352,11 @@ export function AiConfig() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
-              <Sparkles className="h-4 w-4 text-primary" /> {t('providerAndKey')}
+              <Sparkles className="h-4 w-4 text-primary" /> {t('connectStep')}
             </CardTitle>
+            <p className="text-sm font-medium text-muted-foreground" role="status">
+              {connected ? t('connectedKeySaved') : t('notConnected')}
+            </p>
             <CardDescription>
               {provider === 'gemini' ? t('geminiSecurityNotice') : t('encryptionNotice')}
             </CardDescription>
@@ -354,23 +388,58 @@ export function AiConfig() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="ai-model">{t('model')}</Label>
-                <Input
-                  id="ai-model"
-                  value={model}
-                  onChange={(e) => setModel(e.target.value)}
-                  placeholder={AI_PROVIDER_DEFAULT_MODEL[provider]}
-                  disabled={disabled}
-                />
+                <Label htmlFor={modelList.length ? 'ai-model-pick' : 'ai-model'}>{t('model')}</Label>
+                {modelList.length > 0 && (
+                  <Select
+                    value={modelPick}
+                    onValueChange={(v) => {
+                      if (!v) return;
+                      if (v === OTHER_MODEL) { setOtherModel(true); return; }
+                      setOtherModel(false);
+                      setModel(v);
+                    }}
+                    disabled={disabled}
+                  >
+                    <SelectTrigger id="ai-model-pick">
+                      <SelectValue>
+                        {modelPick === OTHER_MODEL ? t('otherModel') : modelPick === modelList[0] ? t('recommendedModel', { model: modelPick }) : modelPick}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {modelList.map((id, i) => (
+                        <SelectItem key={id} value={id}>{i === 0 ? t('recommendedModel', { model: id }) : id}</SelectItem>
+                      ))}
+                      <SelectItem value={OTHER_MODEL}>{t('otherModel')}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                )}
+                {modelPick === OTHER_MODEL && (
+                  <Input
+                    id="ai-model"
+                    aria-label={t('modelId')}
+                    value={model}
+                    onChange={(e) => setModel(e.target.value)}
+                    placeholder={AI_PROVIDER_DEFAULT_MODEL[provider]}
+                    disabled={disabled}
+                  />
+                )}
                 {openRouter && (
                   <div className="space-y-2">
                     <Label htmlFor="ai-free-model">{t('freeModels')}</Label>
-                    <select id="ai-free-model" value={model} onChange={(e) => setModel(e.target.value)} disabled={disabled || modelsLoading}
-                      className="border-input bg-background h-10 w-full rounded-md border px-3 text-sm">
-                      <option value={OPENROUTER_FREE_MODEL}>{t('automaticFreeModel')}</option>
-                      {model !== OPENROUTER_FREE_MODEL && !freeModels.some(item => item.id === model) && <option value={model}>{model}</option>}
-                      {freeModels.filter(item => item.id !== OPENROUTER_FREE_MODEL).map(item => <option key={item.id} value={item.id}>{item.name} ({item.id})</option>)}
-                    </select>
+                    <Select value={model || OPENROUTER_FREE_MODEL} onValueChange={(v) => { if (v) setModel(v); }} disabled={disabled || modelsLoading}>
+                      <SelectTrigger id="ai-free-model">
+                        <SelectValue>
+                          {model === OPENROUTER_FREE_MODEL || !model ? t('automaticFreeModel') : freeModels.find((item) => item.id === model)?.name ?? model}
+                        </SelectValue>
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value={OPENROUTER_FREE_MODEL}>{t('automaticFreeModel')}</SelectItem>
+                        {model && model !== OPENROUTER_FREE_MODEL && !freeModels.some((item) => item.id === model) && <SelectItem value={model}>{model}</SelectItem>}
+                        {freeModels.filter((item) => item.id !== OPENROUTER_FREE_MODEL).map((item) => (
+                          <SelectItem key={item.id} value={item.id}>{item.name} ({item.id})</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                     <p className="text-xs text-muted-foreground">{modelsLoading ? t('loadingFreeModels') : !catalogAvailable ? t('freeModelsUnavailable') : t('openRouterHint')}</p>
                   </div>
                 )}
@@ -395,10 +464,7 @@ export function AiConfig() {
             {provider === 'gemini' ? (
               <div className="flex flex-wrap items-center gap-3 rounded-md border border-border bg-muted/40 p-3">
                 <p className="flex-1 text-sm text-muted-foreground">{t('geminiEnvHint')}</p>
-                <Button variant="outline" onClick={handleTest} disabled={disabled || testing}>
-                  {testing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  {t('testConnection')}
-                </Button>
+                {testButton}
               </div>
             ) : <div className="space-y-2">
               <Label htmlFor="ai-key">{t('apiKey')}</Label>
@@ -419,14 +485,16 @@ export function AiConfig() {
                       }
                     }}
                     placeholder={KEY_PLACEHOLDER[provider]}
+                    className="pr-11 sm:pr-9"
                     disabled={disabled}
                     autoComplete="off"
                   />
                   <button
                     type="button"
                     onClick={() => setShowKey((s) => !s)}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                    tabIndex={-1}
+                    aria-label={showKey ? t('hideKey') : t('showKey')}
+                    aria-pressed={showKey}
+                    className="absolute right-0 top-1/2 flex size-11 -translate-y-1/2 items-center justify-center text-muted-foreground hover:text-foreground sm:size-9"
                   >
                     {showKey ? (
                       <EyeOff className="h-4 w-4" />
@@ -435,20 +503,15 @@ export function AiConfig() {
                     )}
                   </button>
                 </div>
-                <Button
-                  variant="outline"
-                  onClick={handleTest}
-                  disabled={disabled || testing}
-                >
-                  {testing ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  ) : (
-                    <CheckCircle2 className="mr-2 h-4 w-4" />
-                  )}
-                  {t('testKey')}
-                </Button>
+                {testButton}
               </div>
             </div>}
+
+            {testResult && (
+              <p role="status" className={testResult.ok ? 'text-sm text-emerald-700 dark:text-emerald-400' : 'text-sm text-destructive'}>
+                {testResult.ok ? testResult.message : t('testFailed', { reason: testResult.message })}
+              </p>
+            )}
 
             <div className="space-y-2">
               <Label htmlFor="ai-embeddings-key">
@@ -625,7 +688,7 @@ export function AiConfig() {
               variant="ghost"
               onClick={handleRemove}
               disabled={!canEdit || removing}
-              className="text-destructive hover:text-destructive"
+              className="min-h-11 text-destructive hover:text-destructive sm:min-h-9"
             >
               {removing ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -638,7 +701,7 @@ export function AiConfig() {
             <span />
           )}
 
-          <Button onClick={handleSave} disabled={disabled}>
+          <Button onClick={handleSave} disabled={disabled} className="min-h-11 sm:min-h-9">
             {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             {t('save')}
           </Button>
