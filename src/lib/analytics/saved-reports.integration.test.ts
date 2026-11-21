@@ -48,13 +48,16 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('saved analytics reports', {
     await q("INSERT INTO accounts(id,name,owner_user_id) VALUES($1,'Reports A',$2),($3,'Reports B',$4)", [A, ownerA, B, ownerB]);
     await q("INSERT INTO account_memberships(account_id,user_id,role) VALUES($1,$2,'owner'),($1,$3,'agent'),($1,$4,'viewer'),($5,$6,'owner')",
       [A, ownerA, agentA, viewerA, B, ownerB]);
+    // Seconds after the start of today in UTC (never later than now): the report reads the 'today' range in UTC, and an
+    // hour-ago row would fall into yesterday for the first hour after midnight.
+    const TODAY = (s: number) => `least(now(), (date_trunc('day', now() AT TIME ZONE 'UTC') + interval '${s} seconds') AT TIME ZONE 'UTC')`;
     // One conversation per workspace today, with an agent reply; B's must never count for A.
     for (const [account, user, contact] of [[A, ownerA, contactA], [B, ownerB, contactB]]) {
       await q("INSERT INTO contacts(id,account_id,user_id,phone,name) VALUES($1,$2,$3,$4,'Customer')", [contact, account, user, `1415${Math.floor(1e6 + Math.random() * 8e6)}`]);
-      const conv = (await q("INSERT INTO conversations(account_id,user_id,contact_id,assigned_agent_id,created_at) VALUES($1,$2,$3,$2,now() - interval '1 hour') RETURNING id",
+      const conv = (await q("INSERT INTO conversations(account_id,user_id,contact_id,assigned_agent_id,created_at) VALUES($1,$2,$3,$2," + TODAY(1) + ") RETURNING id",
         [account, user, contact])).rows[0].id;
-      await q("INSERT INTO messages(account_id,conversation_id,sender_type,content_text,created_at) VALUES($1,$2,'customer','hi',now() - interval '50 minutes')", [account, conv]);
-      await q("INSERT INTO messages(account_id,conversation_id,sender_type,sender_id,content_text,created_at) VALUES($1,$2,'agent',$3,'hello',now() - interval '40 minutes')", [account, conv, user]);
+      await q("INSERT INTO messages(account_id,conversation_id,sender_type,content_text,created_at) VALUES($1,$2,'customer','hi'," + TODAY(2) + ")", [account, conv]);
+      await q("INSERT INTO messages(account_id,conversation_id,sender_type,sender_id,content_text,created_at) VALUES($1,$2,'agent',$3,'hello'," + TODAY(3) + ")", [account, conv, user]);
     }
   });
   afterAll(async () => {
