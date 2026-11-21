@@ -10,19 +10,26 @@
  */
 
 import { useCallback, useEffect, useState } from "react";
-import { Loader2, Pause, Play, Trash2 } from "lucide-react";
+import { CalendarClock, Loader2, Pause, Play, Trash2 } from "lucide-react";
 import { useFormatter, useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
+import { useConfirm } from "@/components/ui/confirm-dialog";
+import { EmptyState } from "@/components/ui/empty-state";
+import { InlineError } from "@/components/ui/inline-error";
 import { Label } from "@/components/ui/label";
+import { PageLoading } from "@/components/ui/page-loading";
+import { SegmentedControl } from "@/components/ui/segmented-control";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { fieldTrigger } from "./reports-tab";
 import { authFetch } from "@/lib/auth/client";
 import { REPORT_FORMATS, REPORT_KINDS, type ReportFormat, type ReportKind, type RunKind } from "@/lib/analytics/report-kinds";
 
 const CADENCES = ["daily", "weekly", "monthly"] as const;
 type Cadence = (typeof CADENCES)[number];
 const HOURS = Array.from({ length: 24 }, (_, h) => h);
-const selectClass = "border-border bg-card text-foreground h-9 w-full rounded-lg border px-2.5 text-[13px] transition-colors duration-150 hover:bg-muted outline-none focus-visible:ring-2 focus-visible:ring-ring/50";
 
 export interface ReportScheduleView {
   id: string;
@@ -53,6 +60,8 @@ export function SchedulesPanel() {
   const t = useTranslations("Analytics.reports.schedules");
   const tr = useTranslations("Analytics.reports");
   const format = useFormatter();
+  const confirm = useConfirm();
+  const [loadFailed, setLoadFailed] = useState(false);
   const [schedules, setSchedules] = useState<ReportScheduleView[] | null>(null);
   const [admins, setAdmins] = useState<Member[]>([]);
   const [kind, setKind] = useState<ReportKind>("campaign_summary");
@@ -68,11 +77,12 @@ export function SchedulesPanel() {
       const res = await authFetch("/api/analytics/reports/schedules", { cache: "no-store" });
       if (!res.ok) throw new Error();
       setSchedules(((await res.json()) as { schedules: ReportScheduleView[] }).schedules);
+      setLoadFailed(false);
     } catch {
-      setError(t("loadFailed"));
+      setLoadFailed(true);
       setSchedules([]);
     }
-  }, [t]);
+  }, []);
 
   useEffect(() => {
     void load();
@@ -136,7 +146,7 @@ export function SchedulesPanel() {
   };
 
   const remove = async (id: string) => {
-    if (!window.confirm(t("confirmDelete"))) return;
+    if (!(await confirm({ title: t("confirmDelete"), confirmLabel: t("delete"), destructive: true }))) return;
     setError(null);
     try {
       const res = await authFetch(`/api/analytics/reports/schedules/${id}`, { method: "DELETE" });
@@ -157,27 +167,35 @@ export function SchedulesPanel() {
         <form className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 lg:items-end" onSubmit={create}>
           <div className="space-y-1.5">
             <Label htmlFor="schedule-kind">{tr("kind")}</Label>
-            <select id="schedule-kind" value={kind} onChange={(e) => setKind(e.target.value as ReportKind)} className={selectClass}>
-              {REPORT_KINDS.map((k) => <option key={k} value={k}>{tr(`kinds.${k}`)}</option>)}
-            </select>
+            <Select value={kind} onValueChange={(v) => { if (v) setKind(v as ReportKind); }}>
+              <SelectTrigger id="schedule-kind" className={fieldTrigger}>
+                <SelectValue>{(v: string) => tr(`kinds.${v as ReportKind}`)}</SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {REPORT_KINDS.map((k) => <SelectItem key={k} value={k}>{tr(`kinds.${k}`)}</SelectItem>)}
+              </SelectContent>
+            </Select>
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="schedule-format">{tr("format")}</Label>
-            <select id="schedule-format" value={fileFormat} onChange={(e) => setFileFormat(e.target.value as ReportFormat)} className={selectClass}>
-              {REPORT_FORMATS.map((f) => <option key={f} value={f}>{tr(`formats.${f}`)}</option>)}
-            </select>
+            <p className="text-sm leading-none font-medium">{tr("format")}</p>
+            <SegmentedControl aria-label={tr("format")} value={fileFormat} onValueChange={setFileFormat}
+              options={REPORT_FORMATS.map((f) => ({ value: f, label: tr(`formats.${f}`) }))} />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="schedule-cadence">{t("cadence")}</Label>
-            <select id="schedule-cadence" value={cadence} onChange={(e) => setCadence(e.target.value as Cadence)} className={selectClass}>
-              {CADENCES.map((c) => <option key={c} value={c}>{t(`cadences.${c}`)}</option>)}
-            </select>
+            <p className="text-sm leading-none font-medium">{t("cadence")}</p>
+            <SegmentedControl aria-label={t("cadence")} value={cadence} onValueChange={setCadence}
+              options={CADENCES.map((c) => ({ value: c, label: t(`cadences.${c}`) }))} />
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="schedule-hour">{t("hour")}</Label>
-            <select id="schedule-hour" value={hour} onChange={(e) => setHour(Number(e.target.value))} className={selectClass}>
-              {HOURS.map((h) => <option key={h} value={h}>{hourLabel(h)}</option>)}
-            </select>
+            <Select value={String(hour)} onValueChange={(v) => { if (v) setHour(Number(v)); }}>
+              <SelectTrigger id="schedule-hour" className={fieldTrigger}>
+                <SelectValue>{(v: string) => hourLabel(Number(v))}</SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {HOURS.map((h) => <SelectItem key={h} value={String(h)}>{hourLabel(h)}</SelectItem>)}
+              </SelectContent>
+            </Select>
           </div>
           <fieldset className="space-y-1.5 sm:col-span-2 lg:col-span-4">
             <legend className="text-sm font-medium text-foreground">{t("recipients")}</legend>
@@ -186,8 +204,8 @@ export function SchedulesPanel() {
             ) : (
               <div className="flex flex-wrap gap-x-4 gap-y-1">
                 {admins.map((m) => (
-                  <label key={m.user_id} className="flex items-center gap-2 text-sm text-foreground">
-                    <input type="checkbox" className="size-4" checked={recipients.includes(m.user_id)} onChange={() => toggle(m.user_id)} />
+                  <label key={m.user_id} className="flex min-h-11 cursor-pointer items-center gap-2 text-sm text-foreground sm:min-h-8">
+                    <Checkbox checked={recipients.includes(m.user_id)} onCheckedChange={() => toggle(m.user_id)} />
                     {m.full_name || tr("formerMember")}
                   </label>
                 ))}
@@ -196,7 +214,7 @@ export function SchedulesPanel() {
             <p className="text-xs text-muted-foreground">{t("recipientsHelp")}</p>
           </fieldset>
           <div className="sm:col-span-2 lg:col-span-4">
-            <Button type="submit" size="sm" disabled={busy}>
+            <Button type="submit" className="min-h-11 sm:min-h-8" disabled={busy}>
               {busy && <Loader2 className="size-4 animate-spin" />}
               {t("create")}
             </Button>
@@ -204,10 +222,12 @@ export function SchedulesPanel() {
         </form>
         {error && <p className="text-xs text-destructive" role="alert">{error}</p>}
 
-        {schedules === null ? (
-          <Loader2 className="size-4 animate-spin text-primary" />
+        {loadFailed ? (
+          <InlineError message={t("loadFailed")} onRetry={() => void load()} />
+        ) : schedules === null ? (
+          <PageLoading rows={2} />
         ) : schedules.length === 0 ? (
-          <p className="text-sm text-muted-foreground">{t("empty")}</p>
+          <EmptyState icon={CalendarClock} title={t("empty")} />
         ) : (
           <div className="relative overflow-x-auto rounded-lg border border-border">
             <table className="w-full min-w-[40rem] text-sm">
@@ -241,11 +261,11 @@ export function SchedulesPanel() {
                       )}
                     </td>
                     <td className="px-3.5 py-2.5 text-right whitespace-nowrap">
-                      <Button type="button" size="sm" variant="ghost" onClick={() => patch(s.id, { paused: !s.pausedAt })}
+                      <Button type="button" size="icon" variant="ghost" className="size-11 sm:size-8" onClick={() => patch(s.id, { paused: !s.pausedAt })}
                         aria-label={s.pausedAt ? t("resume") : t("pause")}>
                         {s.pausedAt ? <Play className="size-4" /> : <Pause className="size-4" />}
                       </Button>
-                      <Button type="button" size="sm" variant="ghost" onClick={() => remove(s.id)} aria-label={t("delete")}>
+                      <Button type="button" size="icon" variant="ghost" className="size-11 sm:size-8" onClick={() => remove(s.id)} aria-label={t("delete")}>
                         <Trash2 className="size-4" />
                       </Button>
                     </td>

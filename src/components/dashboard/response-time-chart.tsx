@@ -4,7 +4,7 @@ import { Clock } from 'lucide-react'
 import { DOW_SHORT_MON_FIRST } from '@/lib/dashboard/date-utils'
 import type { ResponseTimeSummary } from '@/lib/dashboard/types'
 import { BarChart } from '@/components/tremor/bar-chart'
-import { EmptyState } from './empty-state'
+import { EmptyState } from '@/components/ui/empty-state'
 import { Skeleton } from './skeleton'
 
 interface ResponseTimeChartProps {
@@ -95,7 +95,7 @@ export function ResponseTimeChart({
           <EmptyState
             icon={Clock}
             title={t('noReplies')}
-            hint={t('noRepliesHint')}
+            className="h-full min-h-40" body={t('noRepliesHint')}
           />
         ) : (
           <BarChart

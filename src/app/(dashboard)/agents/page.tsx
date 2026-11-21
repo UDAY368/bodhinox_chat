@@ -6,6 +6,7 @@ import { useTranslations } from 'next-intl';
 import { BookOpen, History, Plus, Settings2, SlidersHorizontal, Sparkles } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
+import { PageHeader } from '@/components/ui/page-header';
 import { AiUsageCard } from '@/components/agents/ai-usage';
 import { AiActivity } from '@/components/agents/ai-activity';
 import { AiConfig } from '@/components/settings/ai-config';
@@ -93,15 +94,14 @@ export default function AgentsPage() {
 
   return (
     <div className="mx-auto max-w-6xl min-w-0">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0 flex-1">
-          <h1 className="text-[22px] font-bold tracking-tight text-foreground">{t('title')}</h1>
-          <p className="mt-1 max-w-3xl text-sm leading-relaxed text-muted-foreground">{t('description')}</p>
-        </div>
-        {decided && headerAction && (
-          <Button type="button" className="shrink-0" onClick={headerAction.run}><Plus aria-hidden />{headerAction.label}</Button>
-        )}
-      </div>
+      <PageHeader
+        className="mb-0"
+        title={t('title')}
+        subtitle={<span className="block max-w-3xl leading-relaxed">{t('description')}</span>}
+        primaryAction={decided && headerAction ? (
+          <Button type="button" className="min-h-11 sm:min-h-8" onClick={headerAction.run}><Plus aria-hidden />{headerAction.label}</Button>
+        ) : undefined}
+      />
 
       {decided && (
         <Tabs
@@ -114,7 +114,7 @@ export default function AgentsPage() {
             {visible.map((value) => {
               const { icon: Icon, label } = TAB_TRIGGERS[value];
               return (
-                <TabsTrigger key={value} value={value} className="h-[30px] flex-none rounded-[9px] px-3 text-[13px] text-muted-foreground transition-colors duration-150 data-active:bg-card data-active:text-foreground data-active:shadow-sm dark:data-active:border-transparent dark:data-active:bg-card">
+                <TabsTrigger key={value} value={value} className="h-[30px] pointer-coarse:h-11 flex-none rounded-[9px] px-3 text-[13px] text-muted-foreground transition-colors duration-150 data-active:bg-card data-active:text-foreground data-active:shadow-sm dark:data-active:border-transparent dark:data-active:bg-card">
                   <Icon className="h-4 w-4" aria-hidden /> {t(`tabs.${label}`)}
                 </TabsTrigger>
               );

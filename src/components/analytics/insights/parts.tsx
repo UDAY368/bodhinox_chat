@@ -4,9 +4,10 @@ import Link from 'next/link';
 import { useState, type ReactNode } from 'react';
 import { useTranslations } from 'next-intl';
 
-import { Button } from '@/components/ui/button';
+import { InlineError } from '@/components/ui/inline-error';
 import { Skeleton } from '@/components/dashboard/skeleton';
-import { segmentedItem, segmentedTrack } from '@/components/dashboard/segmented';
+import { EmptyState } from '@/components/ui/empty-state';
+import { SegmentedControl } from '@/components/ui/segmented-control';
 import { cn } from '@/lib/utils';
 import type { Delta } from './format';
 
@@ -78,23 +79,12 @@ export function Loadable({ loading, error, onRetry, height = 'h-48', children }:
   const t = useTranslations('Analytics');
   if (loading) return <Skeleton className={cn('w-full', height)} />;
   if (error)
-    return (
-      <div role="alert" className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
-        {t('loadFailed')}
-        <Button size="sm" variant="outline" onClick={onRetry}>{t('retry')}</Button>
-      </div>
-    );
+    return <InlineError message={t('loadFailed')} onRetry={onRetry} />;
   return <>{children}</>;
 }
 
 export function Empty({ title, text, action }: { title: string; text?: string; action?: ReactNode }) {
-  return (
-    <div className="flex flex-col items-center gap-1.5 px-4 py-8 text-center">
-      <strong className="text-sm font-semibold text-foreground">{title}</strong>
-      {text && <p className="max-w-sm text-xs text-muted-foreground">{text}</p>}
-      {action && <div className="mt-2">{action}</div>}
-    </div>
-  );
+  return <EmptyState title={title} body={text} action={action} className="py-8" />;
 }
 
 /** A two-option toggle in a card header (Counts / Rates, Runs / Click rate). */
@@ -102,13 +92,8 @@ export function MiniToggle<T extends string>({ label, value, options, onChange }
   label: string; value: T; options: [T, string][]; onChange: (value: T) => void;
 }) {
   return (
-    <div role="group" aria-label={label} className={segmentedTrack}>
-      {options.map(([v, text]) => (
-        <button key={v} type="button" aria-pressed={value === v} onClick={() => onChange(v)} className={segmentedItem(value === v, 'h-[26px] px-2.5 text-xs')}>
-          {text}
-        </button>
-      ))}
-    </div>
+    <SegmentedControl size="sm" aria-label={label} value={value} onValueChange={onChange}
+      options={options.map(([v, text]) => ({ value: v, label: text }))} />
   );
 }
 

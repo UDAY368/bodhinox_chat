@@ -73,10 +73,13 @@ describe('analytics panels', () => {
 
   it('keeps the number filter when a selected number is set but the list is reloading', () => {
     const html = render(<NumberFilter numbers={[]} value="n2" onChange={noop} />);
-    expect(html).toContain('<select');
+    expect(html).toContain('data-slot="select-trigger"');
     expect(render(<NumberFilter numbers={[]} value="" onChange={noop} />)).toBe('');
     const two = [{ id: 'n1', label: 'Main', isDefault: true }, { id: 'n2', label: null, isDefault: false }];
-    expect(render(<NumberFilter numbers={two} value="n2" onChange={noop} />)).toContain('value="n2" selected');
+    // The menu shows the chosen number's name, never its id.
+    const picked = render(<NumberFilter numbers={two} value="n2" onChange={noop} />);
+    expect(picked).toContain('Analytics.numbers.fallback');
+    expect(picked).not.toContain('>n2<');
   });
 
   it('pairs every chart with an accessible table', () => {
@@ -117,6 +120,7 @@ describe('analytics panels', () => {
       stats={{ started: 5, completed: 2, handedOff: 1, timedOut: 1, failed: 1, cancelled: 0, active: 0,
         dropOff: [{ flowId: 'f1', nodeKey: 'ask_name', nodeType: 'question', runs: 2 }] }} />);
     expect(flows).toContain('Welcome · ask_name (question)');
-    expect(flows).toContain('<select');
+    expect(flows).toContain('data-slot="select-trigger"');
+    expect(flows).toContain('Analytics.flows.allFlows');
   });
 });

@@ -13,9 +13,9 @@ import {
 import type { ComponentType } from 'react'
 import type { ActivityItem, ActivityKind } from '@/lib/dashboard/types'
 import { cn } from '@/lib/utils'
-import { EmptyState } from './empty-state'
+import { EmptyState } from '@/components/ui/empty-state'
 import { Skeleton } from './skeleton'
-import { segmentedItem, segmentedTrack } from './segmented'
+import { SegmentedControl } from '@/components/ui/segmented-control'
 
 interface ActivityFeedProps {
   items: ActivityItem[] | null
@@ -80,7 +80,7 @@ export function ActivityFeed({ items, loading }: ActivityFeedProps) {
           <EmptyState
             icon={Inbox}
             title={t('noActivity')}
-            hint={t('noActivityHint')}
+            className="h-full min-h-40" body={t('noActivityHint')}
           />
         </div>
       ) : (
@@ -126,23 +126,13 @@ export function ActivityFeed({ items, loading }: ActivityFeedProps) {
             </span>
             <div className="flex items-center gap-2">
               <span className="text-muted-foreground">{t('show')}</span>
-              <div className={segmentedTrack}>
-              {PAGE_SIZES.map((size, i) => {
-                const disabled = !isSizeUseful(size, i)
-                return (
-                  <button
-                    key={size}
-                    type="button"
-                    onClick={() => setPageSize(size)}
-                    disabled={disabled}
-                    aria-pressed={pageSize === size}
-                    className={segmentedItem(pageSize === size, 'h-6 px-2 text-xs tabular-nums')}
-                  >
-                    {size}
-                  </button>
-                )
-              })}
-              </div>
+              <SegmentedControl
+                size="sm"
+                aria-label={t('show')}
+                value={String(pageSize)}
+                onValueChange={(v) => setPageSize(Number(v) as PageSize)}
+                options={PAGE_SIZES.map((size, i) => ({ value: String(size), label: <span className="tabular-nums">{size}</span>, disabled: !isSizeUseful(size, i) }))}
+              />
             </div>
           </footer>
         </>

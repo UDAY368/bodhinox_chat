@@ -18,8 +18,10 @@ const campaign = (id: string, name: string) => ({ id, name, templateName: 't', a
 describe('calendar presets in the range picker', () => {
   it('offers this/last week and month and sends them as presets', () => {
     const html = render(<RangePicker value={{ preset: 'last_month' }} onChange={() => {}} />);
-    for (const preset of ['this_week', 'last_week', 'this_month', 'last_month']) expect(html).toContain(`Analytics.range.${preset}`);
-    expect(html).toMatch(/<option value="last_month" selected="">/);
+    // The calendar menu shows the chosen period's name; the quick ranges sit beside it.
+    expect(html).toContain('Analytics.range.last_month');
+    expect(html).not.toContain('>last_month<');
+    for (const preset of ['today', '7d', '30d', '90d']) expect(html).toContain(`Analytics.range.${preset}`);
     expect(reportQuery(rangeParams({ preset: 'this_week' }))).toBe('preset=this_week');
   });
 });

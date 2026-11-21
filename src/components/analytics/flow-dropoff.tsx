@@ -4,7 +4,8 @@ import { useFormatter, useTranslations } from 'next-intl';
 
 import type { FlowStats } from '@/lib/analytics/queries';
 import { BarChart } from '@/components/tremor/bar-chart';
-import { quietSelect } from '@/components/dashboard/segmented';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { NONE, filterTrigger } from './range-picker';
 import { ChartWithTable, Panel, ReportState } from './shared';
 
 /** Drop-off rows drawn in the chart; the table lists all of them. */
@@ -35,21 +36,19 @@ export function FlowDropOff({
   const node = (row: FlowStats['dropOff'][number]) =>
     `${flowId ? '' : `${names.get(row.flowId) ?? t('unknownFlow')} · `}${row.nodeKey}${row.nodeType ? ` (${row.nodeType})` : ''}`;
   const filter = (
-    <label className="flex items-center gap-2 text-[13px]">
-      <span className="text-muted-foreground">{t('filter')}</span>
-      <select
-        className={`${quietSelect} max-w-56`}
-        value={flowId}
-        onChange={(e) => onFlowChange(e.target.value)}
-      >
-        <option value="">{t('allFlows')}</option>
+    <Select value={flowId || NONE} onValueChange={(v) => onFlowChange(!v || v === NONE ? '' : v)}>
+      <SelectTrigger aria-label={t('filter')} className={`${filterTrigger} sm:max-w-56`}>
+        <SelectValue>{(v: string) => (v === NONE ? t('allFlows') : names.get(v) ?? t('unknownFlow'))}</SelectValue>
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value={NONE}>{t('allFlows')}</SelectItem>
         {flows.map((flow) => (
-          <option key={flow.id} value={flow.id}>
+          <SelectItem key={flow.id} value={flow.id}>
             {flow.name}
-          </option>
+          </SelectItem>
         ))}
-      </select>
-    </label>
+      </SelectContent>
+    </Select>
   );
   return (
     <Panel title={t('title')} description={t('description')} actions={flows.length > 0 ? filter : undefined}>

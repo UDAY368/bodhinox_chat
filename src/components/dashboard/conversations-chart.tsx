@@ -3,9 +3,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { MessageSquare } from 'lucide-react'
 import type { ConversationsSeriesPoint } from '@/lib/dashboard/types'
-import { EmptyState } from './empty-state'
+import { EmptyState } from '@/components/ui/empty-state'
 import { Skeleton } from './skeleton'
-import { segmentedItem, segmentedTrack } from './segmented'
+import { SegmentedControl } from '@/components/ui/segmented-control'
 
 type RangeDays = 7 | 30 | 90
 
@@ -55,19 +55,13 @@ export function ConversationsChart({ series, loading, range, onRangeChange }: Co
           <h2 className="text-[15px] font-semibold tracking-tight text-foreground">{t('title')}</h2>
           <p className="mt-0.5 text-xs text-muted-foreground">{t('description')}</p>
         </div>
-        <div className={segmentedTrack}>
-          {[7, 30, 90].map((r) => (
-            <button
-              key={r}
-              type="button"
-              aria-pressed={range === r}
-              onClick={() => onRangeChange(r as RangeDays)}
-              className={segmentedItem(range === r, 'h-[26px] px-2.5 text-xs')}
-            >
-              {t('days', { count: r })}
-            </button>
-          ))}
-        </div>
+        <SegmentedControl
+          size="sm"
+          aria-label={t('rangeLabel')}
+          value={String(range)}
+          onValueChange={(v) => onRangeChange(Number(v) as RangeDays)}
+          options={[7, 30, 90].map((r) => ({ value: String(r), label: t('days', { count: r }) }))}
+        />
       </header>
 
       <div className="flex-1 px-5 pt-4 pb-3">
@@ -77,7 +71,7 @@ export function ConversationsChart({ series, loading, range, onRangeChange }: Co
           <EmptyState
             icon={MessageSquare}
             title={t('noActivity')}
-            hint={t('noActivityHint')}
+            className="h-full min-h-40" body={t('noActivityHint')}
           />
         ) : (
           <LineSvg data={data} maxY={maxY} ticks={niceTicks} t={t} />

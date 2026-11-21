@@ -3,7 +3,7 @@
 import { GitBranch } from 'lucide-react'
 import type { PipelineDonutData } from '@/lib/dashboard/types'
 import { formatCurrencyShort } from '@/lib/currency'
-import { EmptyState } from './empty-state'
+import { EmptyState } from '@/components/ui/empty-state'
 import { Skeleton } from './skeleton'
 
 interface PipelineDonutProps {
@@ -33,7 +33,7 @@ export function PipelineDonut({ data, loading, currency }: PipelineDonutProps) {
           <EmptyState
             icon={GitBranch}
             title={t('noOpenDeals')}
-            hint={t('noOpenDealsHint')}
+            className="h-full min-h-40" body={t('noOpenDealsHint')}
           />
         ) : (
           <>

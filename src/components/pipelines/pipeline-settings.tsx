@@ -19,12 +19,13 @@ import { CSS } from "@dnd-kit/utilities";
 import { createClient } from "@/lib/data/client";
 import type { Pipeline, PipelineStage } from "@/types";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
+  Sheet,
+  SheetContent,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -32,7 +33,6 @@ import {
   Trash2,
   Plus,
   GripVertical,
-  AlertTriangle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslations } from "next-intl";
@@ -78,7 +78,6 @@ export function PipelineSettings({
   const [newStageColor, setNewStageColor] = useState(STAGE_COLORS[0]);
   const [saving, setSaving] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [deleting, setDeleting] = useState(false);
 
   // Reset form state when the dialog opens or its prop inputs change
   // — legitimate prop-driven sync.
@@ -183,13 +182,11 @@ export function PipelineSettings({
   }
 
   async function handleDeletePipeline() {
-    setDeleting(true);
     // ON DELETE CASCADE handles deals + stages.
     const { error } = await db
       .from("pipelines")
       .delete()
       .eq("id", pipeline.id);
-    setDeleting(false);
     if (error) {
       toast.error(t("toastFailedDeletePipeline"));
       return;
@@ -200,45 +197,14 @@ export function PipelineSettings({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md bg-popover border-border max-h-[85vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="text-popover-foreground">{t("managePipeline")}</DialogTitle>
-        </DialogHeader>
+    <>
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent side="right" size="md" className="gap-0 bg-popover border-border p-0">
+        <SheetHeader className="border-b border-border/50 pr-12">
+          <SheetTitle className="text-popover-foreground">{t("managePipeline")}</SheetTitle>
+        </SheetHeader>
 
-        {showDeleteConfirm ? (
-          <div className="py-4">
-            <div className="flex items-center gap-3 rounded-lg border border-destructive/30 bg-destructive/10 p-4">
-              <AlertTriangle className="h-5 w-5 shrink-0 text-destructive" />
-              <div>
-                <p className="text-sm font-medium text-destructive">
-                  {t("deletePipeline")}
-                </p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {t("deletePipelineDesc")}
-                </p>
-              </div>
-            </div>
-            <div className="mt-4 flex justify-end gap-2">
-              <Button
-                variant="outline"
-                onClick={() => setShowDeleteConfirm(false)}
-                className="border-border bg-transparent text-muted-foreground hover:bg-muted"
-              >
-                {t("cancel")}
-              </Button>
-              <Button
-                onClick={handleDeletePipeline}
-                disabled={deleting}
-                className="bg-red-600 text-white hover:bg-red-700"
-              >
-                {deleting ? t("deleting") : t("deletePipelineBtn")}
-              </Button>
-            </div>
-          </div>
-        ) : (
-          <>
-            <div className="grid gap-4 py-2">
+            <div className="grid flex-1 gap-4 overflow-y-auto p-4">
               <div className="grid gap-2">
                 <Label className="text-muted-foreground">{t("pipelineName")}</Label>
                 <Input
@@ -335,10 +301,11 @@ export function PipelineSettings({
               </Button>
             </div>
 
-            <DialogFooter className="border-border bg-popover/50">
+            <SheetFooter className="flex-row flex-wrap justify-end border-t border-border/50">
               <Button
+                variant="destructive"
                 onClick={() => setShowDeleteConfirm(true)}
-                className="mr-auto bg-red-600 text-white hover:bg-red-700"
+                className="mr-auto"
               >
                 {t("deletePipeline")}
               </Button>
@@ -356,11 +323,20 @@ export function PipelineSettings({
               >
                 {saving ? t("saving") : t("saveChanges")}
               </Button>
-            </DialogFooter>
-          </>
-        )}
-      </DialogContent>
-    </Dialog>
+            </SheetFooter>
+      </SheetContent>
+    </Sheet>
+    <ConfirmDialog
+      open={showDeleteConfirm}
+      onOpenChange={setShowDeleteConfirm}
+      title={t("deletePipeline")}
+      body={t("deletePipelineDesc")}
+      cancelLabel={t("cancel")}
+      confirmLabel={t("deletePipelineBtn")}
+      destructive
+      onConfirm={handleDeletePipeline}
+    />
+    </>
   );
 }
 

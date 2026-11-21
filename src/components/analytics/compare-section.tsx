@@ -15,6 +15,8 @@ import { formatMoney } from '@/lib/commerce/money';
 import { BarChart } from '@/components/tremor/bar-chart';
 import { THEME_SERIES } from '@/components/tremor/chart-colors';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Checkbox } from '@/components/ui/checkbox';
+import { cn } from '@/lib/utils';
 import { ChartWithTable, DataTable, Panel, ReportState, reportQuery, useReport } from './shared';
 
 const MAX_CAMPAIGNS = 5;
@@ -114,17 +116,17 @@ function CampaignCompare({ campaigns }: { campaigns: Campaign[] }) {
         <div className="flex max-h-40 flex-wrap gap-2 overflow-y-auto">
           {campaigns.map((campaign) => {
             const checked = selected.includes(campaign.id);
+            const disabled = !checked && selected.length >= MAX_CAMPAIGNS;
             return (
               <label
                 key={campaign.id}
-                className="flex h-8 cursor-pointer items-center gap-2 rounded-full border border-border px-3 text-[13px] font-medium text-muted-foreground transition-colors duration-150 hover:bg-muted has-[:checked]:border-transparent has-[:checked]:bg-primary/10 has-[:checked]:text-primary has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-50"
+                className={cn(
+                  'flex min-h-11 cursor-pointer items-center gap-2 rounded-full border border-border px-3 text-[13px] font-medium text-muted-foreground transition-colors duration-150 hover:bg-muted sm:min-h-8',
+                  checked && 'border-transparent bg-primary/10 text-primary',
+                  disabled && 'cursor-not-allowed opacity-50',
+                )}
               >
-                <input
-                  type="checkbox"
-                  checked={checked}
-                  disabled={!checked && selected.length >= MAX_CAMPAIGNS}
-                  onChange={() => toggle(campaign.id)}
-                />
+                <Checkbox checked={checked} disabled={disabled} onCheckedChange={() => toggle(campaign.id)} />
                 <span className="max-w-48 truncate">{campaign.name}</span>
               </label>
             );
