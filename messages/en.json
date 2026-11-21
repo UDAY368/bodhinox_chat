@@ -277,14 +277,14 @@
       "ariaLabel": "Pipeline value by stage"
     },
     "responseTimeChart": {
-      "title": "Average First Response Time",
-      "description": "Minutes to reply to a customer's first unreplied message, by weekday",
+      "title": "Median first reply",
+      "description": "Minutes from a customer message to the first reply by your team or the AI, by weekday",
       "target": "target {minutes}m",
       "thisWeek": "This week:",
       "lastWeek": "Last week:",
       "noReplies": "No replies recorded yet",
       "noRepliesHint": "This chart fills in as you reply to customer messages.",
-      "avgMinutes": "Avg minutes"
+      "avgMinutes": "Median minutes"
     },
     "emptyState": {
       "title": "Not enough data yet"
@@ -401,6 +401,18 @@
       "aiComments": "Reply to comments with AI",
       "leadCapture": "Collect leads with an automation",
       "open": "Open"
+    },
+    "business": {
+      "revenue": "Revenue today",
+      "revenueWeek": "{amount} in 7 days{more, plural, =0 {} other { + # more currencies}}",
+      "bookings": "Bookings today",
+      "bookingsSub": "{upcoming} still to come · {week} in 7 days",
+      "adSpend": "Ad spend, 7 days",
+      "adSpendSub": "From Meta ads{more, plural, =0 {} other { + # more currencies}}",
+      "adSpendNone": "Connect Meta ads to see spend",
+      "aiHandled": "AI handled today",
+      "aiHandledSub": "{week} in 7 days, closed without a person",
+      "failed": "Business figures didn't load."
     }
   },
   "Inbox": {
@@ -454,7 +466,28 @@
       "tabActive": "Active",
       "tabRequesting": "Requesting",
       "tabIntervened": "Intervened",
-      "loadFailed": "Couldn't load conversations."
+      "loadFailed": "Couldn't load conversations.",
+      "select": "Select",
+      "done": "Done",
+      "selectRow": "Select {name}",
+      "selectedCount": "{count, plural, =0 {Select conversations} one {# selected} other {# selected}}",
+      "selectAllLoaded": "Select All",
+      "deselectAll": "Deselect All",
+      "selectAllMatching": "Select all {count}",
+      "bulkActions": "Actions for selected conversations",
+      "bulkAssign": "Assign",
+      "bulkUnassign": "Unassign",
+      "bulkResolve": "Resolve",
+      "bulkLabel": "Label",
+      "bulkMarkRead": "Mark read",
+      "bulkDone": "{count, plural, =0 {Nothing to change} one {# conversation updated} other {# conversations updated}}",
+      "bulkRefused": "{count, plural, one {# conversation was skipped because you can't change it} other {# conversations were skipped because you can't change them}}",
+      "bulkFailed": "Couldn't update the conversations. Try again.",
+      "bulkTooMany": "At most {max} conversations at once. Narrow the filter.",
+      "bulkConfirmTitle": "{action} {count, plural, one {# conversation} other {# conversations}}?",
+      "bulkConfirmMatching": "This changes every conversation that matches the filter, including ones not loaded yet.",
+      "bulkConfirmResolve": "Resolved conversations move out of the Open view.",
+      "loadingMore": "Loading more"
     },
     "messageThread": {
       "backToConversations": "Back to conversations",
@@ -2042,6 +2075,70 @@
         "appointment_completed_named": "{service} completed",
         "appointment_no_show": "Missed a booking",
         "appointment_no_show_named": "Missed {service}"
+      }
+    },
+    "duplicates": {
+      "moreMenu": "More",
+      "findDuplicates": "Find duplicates",
+      "back": "Contacts",
+      "title": "Find duplicates",
+      "subtitle": "Contacts that look like the same person. Merge them or mark them as not duplicates.",
+      "adminsOnly": "Only admins and owners can find and merge duplicates.",
+      "loadFailed": "Couldn’t load duplicates.",
+      "retry": "Retry",
+      "empty": "No duplicates found.",
+      "showMore": "Show more",
+      "noName": "No name",
+      "whatsapp": "WhatsApp",
+      "instagram": "Instagram",
+      "conversations": "{count, plural, =1 {# conversation} other {# conversations}}",
+      "added": "Added {date}",
+      "reason": {
+        "phone": "Same number",
+        "email": "Same email",
+        "name": "Same name on Instagram and WhatsApp"
+      },
+      "notDuplicates": "Not duplicates",
+      "merge": "Merge",
+      "dismissed": "Marked as not duplicates",
+      "dismissFailed": "Couldn’t save. Try again.",
+      "mergeTitle": "Merge contacts",
+      "mergeDescription": "Everything moves to the contact you keep. The other contact is deleted. This can’t be undone.",
+      "keepLabel": "Keep",
+      "mergeInto": "{merged} will be merged into {keep}.",
+      "willMove": "What moves",
+      "previewFailed": "Couldn’t check this merge.",
+      "nothingMoves": "Nothing else to move.",
+      "combined": "{count, plural, =1 {# WhatsApp conversation on the same number is combined into one.} other {# WhatsApp conversations on the same number are combined into one.}}",
+      "rules": "Fields left blank on the kept contact are filled in. If either contact opted out or is blocked, the merged contact stays that way.",
+      "cancel": "Cancel",
+      "mergeConfirm": "Merge",
+      "confirmTitle": "Merge {merged} into {keep}?",
+      "confirmBody": "{merged} is deleted and everything moves to {keep}. This can’t be undone.",
+      "merged": "Contacts merged",
+      "mergeFailed": "Couldn’t merge. Try again.",
+      "refused": {
+        "phone_conflict": "These contacts have different WhatsApp numbers. A contact can hold one number.",
+        "identity_conflict": "Both contacts are on the same Instagram account. Unlink one identity first.",
+        "contact_busy": "An automation or message is in progress for this contact. Try again in a minute.",
+        "not_found": "One of these contacts no longer exists.",
+        "forbidden": "Only admins and owners can merge contacts."
+      },
+      "counts": {
+        "conversations": "Conversations",
+        "messages": "Messages",
+        "tags": "Tags",
+        "notes": "Notes",
+        "orders": "Orders",
+        "deals": "Deals",
+        "appointments": "Appointments",
+        "payments": "Payment links",
+        "formAnswers": "Form answers",
+        "sequences": "Sequences",
+        "customValues": "Custom fields",
+        "identities": "Instagram identities",
+        "lists": "Lists",
+        "tasks": "Tasks"
       }
     }
   },
@@ -5378,7 +5475,20 @@
         "autoReply": "Answer Instagram messages automatically",
         "autoReplyHelp": "Uses the same AI agent. Replies only within 24 hours of the customer’s last message.",
         "unavailable": "Connect Instagram to turn this on."
-      }
+      },
+      "loading": "Loading AI setup…",
+      "connectStep": "Step 1 · Connect provider",
+      "connectedKeySaved": "Connected · key saved",
+      "notConnected": "Not connected yet. Choose a provider, add the key and test the connection.",
+      "recommendedModel": "{model} (Recommended)",
+      "otherModel": "Other…",
+      "modelId": "Model ID",
+      "testFailed": "Could not connect: {reason}",
+      "removeConfirmTitle": "Remove the AI setup?",
+      "removeConfirmBody": "The saved key is deleted and the assistant and auto-replies turn off. You can set it up again later.",
+      "removeConfirmAction": "Remove",
+      "showKey": "Show key",
+      "hideKey": "Hide key"
     },
     "aiKnowledge": {
       "loadFailed": "Failed to load knowledge base",
@@ -13758,7 +13868,7 @@
       "noChange": "No change vs previous period",
       "change": "{change}% vs previous period",
       "started": "Conversations started",
-      "firstResponse": "Median first response",
+      "firstResponse": "Median first reply",
       "humanFirstResponse": "Median first reply from the team",
       "resolutionTime": "Median resolution time",
       "resolved": "Conversations resolved",
@@ -13786,7 +13896,7 @@
       "bySourceDescription": "Who started each new conversation. A campaign reply is a customer message within 72 hours of a campaign; an ad start is a conversation whose first message came from a click-to-WhatsApp ad.",
       "sourceColumn": "Source",
       "timingTitle": "Response and resolution time",
-      "timingDescription": "First response counts the first customer wait per conversation, answered by anyone, including bots, flows and the AI agent. First reply from the team counts only replies by a team member, timed from that wait or from the AI handoff. Resolution time runs from the start of the resolved cycle, so reopened conversations count from when they reopened.",
+      "timingDescription": "Median first reply counts every customer wait that starts in the period: from the first customer message after a reply to the next reply by a team member or the AI agent. Flow and automation messages do not count as replies. Resolution time runs from the start of the resolved cycle, so reopened conversations count from when they reopened.",
       "metricColumn": "Measure",
       "samples": "Conversations measured",
       "unanswered": "{count, plural, =1 {# conversation is} other {# conversations are}} still waiting for a first reply.",
@@ -13798,7 +13908,7 @@
       "member": "Member",
       "handled": "Conversations",
       "replies": "Replies",
-      "medianFirstResponse": "Median first response",
+      "medianFirstResponse": "Median first reply",
       "resolved": "Resolved",
       "unnamed": "Unnamed member",
       "none": "–",
@@ -13853,7 +13963,10 @@
       "replies": "AI replies",
       "conversations": "Conversations with AI",
       "handoffs": "Handed to a person",
-      "unanswered": "Unanswered questions"
+      "unanswered": "Unanswered questions",
+      "estimatedCost": "Estimated AI cost",
+      "estimatedCostNote": "Estimate from {tokens} tokens at list prices",
+      "estimatedCostUnpriced": "Estimate at list prices; {tokens} tokens of unpriced models left out"
     },
     "reports": {
       "title": "Reports",
@@ -14168,7 +14281,7 @@
         "stats": {
           "new": "New conversations",
           "resolved": "Resolved",
-          "firstResponse": "Median first response",
+          "firstResponse": "Median first reply",
           "resolution": "Median resolution time",
           "messages": "Messages sent",
           "teamReply": "Team first reply"
@@ -14218,7 +14331,7 @@
       },
       "conversations": {
         "stats": {
-          "firstResponse": "Median first response",
+          "firstResponse": "Median first reply",
           "p90": "90th percentile response",
           "resolution": "Median resolution time",
           "rate": "Resolution rate"
@@ -14236,15 +14349,15 @@
         "cols": {
           "new": "New",
           "resolved": "Resolved",
-          "firstResponse": "First response",
+          "firstResponse": "Median first reply",
           "resolution": "Resolution time",
           "failed": "Failed messages",
-          "firstResponseSeconds": "Median first response (seconds)",
+          "firstResponseSeconds": "Median first reply (seconds)",
           "resolutionSeconds": "Median resolution time (seconds)"
         },
         "fileName": "conversations",
-        "responseTitle": "First response time",
-        "responseSub": "How long a customer waits for the first reply",
+        "responseTitle": "Median first reply",
+        "responseSub": "How long a customer waits for a reply from your team or the AI",
         "minutesValue": "{value} min",
         "minutesAxis": "{value}m",
         "openTitle": "Open and closed",
@@ -14270,7 +14383,7 @@
         "stats": {
           "handled": "Handled by people",
           "resolved": "Resolved by the team",
-          "firstResponse": "Team first response",
+          "firstResponse": "Median first reply",
           "messages": "Messages sent by the team",
           "online": "Online now"
         },
@@ -14280,10 +14393,10 @@
           "handled": "Handled",
           "messages": "Messages sent",
           "resolved": "Resolved",
-          "firstResponse": "Median first response",
+          "firstResponse": "Median first reply",
           "status": "Status",
           "role": "Role",
-          "firstResponseSeconds": "Median first response (seconds)"
+          "firstResponseSeconds": "Median first reply (seconds)"
         },
         "openMember": "Open the detail for {name}",
         "presence": {
@@ -14478,7 +14591,9 @@
         "stopSending": "Stop sending",
         "saveSchedule": "Save schedule"
       }
-    }
+    },
+    "openRecords": "Open {name}",
+    "openRecordsLabel": "Open the records behind {chart}"
   },
   "Ads": {
     "title": "Ads",
@@ -17783,7 +17898,76 @@
         "busy": "A message is being sent right now. Try again in a moment.",
         "forbidden": "Your role cannot change sequences.",
         "instagram_not_enabled": "Instagram is not available for this workspace.",
-        "generic": "Something went wrong. Try again."
+        "generic": "Something went wrong. Try again.",
+        "channelLocked": "Remove every message before changing the channel.",
+        "tagNotFound": "That tag no longer exists. Choose another.",
+        "templateNotFound": "That template no longer exists. Choose another.",
+        "templateUnusable": "Choose an approved template that needs only body values."
+      },
+      "addMessageButton": "Add message",
+      "addMessageDescription": "Each Instagram message is an automation. Create a new draft one or choose one you already have.",
+      "removeMessageTitle": "Remove message {number}?",
+      "removeMessageBody": "Subscribers who have not had it yet skip it. Messages already sent are not affected.",
+      "removeMessageConfirm": "Remove message",
+      "channel": {
+        "label": "Channel",
+        "instagram": "Instagram",
+        "whatsapp": "WhatsApp",
+        "locked": "The channel can be changed only while the sequence has no messages."
+      },
+      "exit": {
+        "title": "Exit when",
+        "description": "A subscriber leaves the sequence as soon as one of these happens. Nothing more is sent to them.",
+        "replied": "They reply",
+        "tagged": "They get a tag",
+        "bought": "They buy",
+        "chooseTag": "Choose a tag",
+        "noTags": "There are no tags yet. Create one on the Contacts page."
+      },
+      "exitReason": {
+        "replied": "Replied",
+        "tagged": "Tagged",
+        "purchased": "Bought",
+        "opted_out": "Opted out",
+        "blocked": "Blocked"
+      },
+      "whatsapp": {
+        "windowNote": "WhatsApp allows free-form messages only within 24 hours of the person's last message. Later, the step's approved template is sent instead. A step without a template is skipped then.",
+        "sheetTitle": "WhatsApp message",
+        "sheetDescription": "What this step sends, when, and the template used when the 24-hour window has closed.",
+        "delayHint": "The 24-hour window is checked when the message is due, not now.",
+        "text": "Message",
+        "textPlaceholder": "Hi {{contact.name}}, …",
+        "textHint": "Use {{contact.name}} to fill in the contact's name.",
+        "media": "Attachment",
+        "mediaKind": "Attachment type",
+        "attach": "Attach file",
+        "removeMedia": "Remove attachment",
+        "fileTooLarge": "That file is too large.",
+        "uploadFailed": "The file could not be uploaded. Try again.",
+        "templateLabel": "Template after 24 hours",
+        "noTemplate": "No template",
+        "noTemplateHint": "Without a template, this step is skipped for anyone who has not written in the last 24 hours.",
+        "templateSummary": "Template after 24 hours: {name}",
+        "noTemplateSummary": "No template: skipped after 24 hours",
+        "skippedCount": "{count, plural, one {Skipped # time: no template} other {Skipped # times: no template}}",
+        "variable": "Value {number}",
+        "value": "Text",
+        "fallback": "If empty",
+        "editStep": "Edit message {number}",
+        "empty": "No message yet",
+        "mediaType": {
+          "image": "Image",
+          "video": "Video",
+          "document": "Document"
+        },
+        "field": {
+          "name": "Name",
+          "phone": "Phone",
+          "email": "Email",
+          "company": "Company",
+          "text": "Text"
+        }
       }
     },
     "subscription": {
@@ -18067,6 +18251,40 @@
       },
       "previewFailed": "Could not load the preview from Meta.",
       "previewNone": "Meta has no preview of this ad in that place."
+    },
+    "sendControls": {
+      "csvConsent": "These people agreed to get WhatsApp messages from us",
+      "csvConsentHint": "Required for a CSV. Only send to people who gave you their number for this.",
+      "skipRecent": "Skip people messaged recently",
+      "skipRecentHint": "Leave out anyone sent a campaign or sequence message in this time.",
+      "skipRecentOff": "Off",
+      "skipRecentDays": "{count, plural, one {Last # day} other {Last # days}}",
+      "quietHours": "Quiet hours",
+      "quietHoursHint": "Send only between these times. Messages outside them wait until the window opens.",
+      "windowFrom": "Send from",
+      "windowTo": "to",
+      "windowUntil": "Send until",
+      "windowSame": "Choose different start and end times.",
+      "windowZone": "Times are in {zone}.",
+      "confirmWindow": "Sends only between {from} and {until} ({zone}).",
+      "templateSearch": "Search templates",
+      "templateNoMatches": "No templates match your search.",
+      "templateClearSearch": "Clear search",
+      "templatePreview": "Preview",
+      "cancelRemaining": "Cancel remaining",
+      "cancelRemainingTitle": "Cancel the rest of this campaign?",
+      "cancelRemainingBody": "No more messages from \"{name}\" will be sent. People already sent stay as they are. This cannot be undone.",
+      "toastCancelled": "Campaign cancelled",
+      "heldForReview": "{count, plural, one {# message has an unknown outcome and is left for review} other {# messages have an unknown outcome and are left for review}}",
+      "createSegment": "Create segment",
+      "createSegmentHint": "Save the people with one result as a segment. It stays up to date as results change.",
+      "segmentResults": {
+        "read_not_replied": "Read, no reply",
+        "delivered_not_read": "Delivered, not read",
+        "failed": "Failed",
+        "clicked": "Clicked"
+      },
+      "toastSegmentCreated": "Segment \"{name}\" created"
     }
   },
   "Sales": {
@@ -18860,7 +19078,8 @@
       "needText": "Write a reply first.",
       "replaced": "Reply translated. Check it, then send.",
       "failed": "The translation did not work. Try again."
-    }
+    },
+    "activityLog": "Activity log"
   },
   "SettingsRedesign": {
     "saveBar": {
@@ -19463,6 +19682,62 @@
     "reasons": {
       "outcome_unknown": "No answer from the provider",
       "stuck_sending": "Sending did not finish"
+    }
+  },
+  "SettingsSearch": {
+    "label": "Search settings",
+    "placeholder": "Search settings",
+    "noResults": "No settings match.",
+    "related": "Related",
+    "entries": {
+      "overview": "Overview",
+      "profile": "Your profile",
+      "language": "Language",
+      "security": "Login & security",
+      "password": "Change password",
+      "two-factor": "Two-factor authentication",
+      "notifications": "Notifications",
+      "quiet-hours": "Quiet hours",
+      "appearance": "Appearance",
+      "privacy": "Privacy & access",
+      "workspace": "Workspace",
+      "workspace-language": "Default language",
+      "time-zone": "Time zone",
+      "channels": "Channels",
+      "whatsapp": "WhatsApp",
+      "whatsapp-numbers": "Phone numbers",
+      "instagram": "Instagram",
+      "members": "Team members",
+      "invite": "Invite a teammate",
+      "inbox": "Inbox",
+      "working-hours": "Working hours",
+      "away-message": "Away message",
+      "routing": "Routing rules",
+      "automation-pause": "Pause automations",
+      "assignment": "Assignment mode",
+      "visibility": "Agent visibility",
+      "media": "Media library",
+      "templates": "Templates",
+      "quick-replies": "Quick replies",
+      "fields": "Fields & tags",
+      "conversion-events": "Conversion events",
+      "deals": "Deals & currency",
+      "ai": "AI assistant",
+      "ai-setup": "AI provider and model",
+      "ai-knowledge": "AI knowledge",
+      "ai-usage": "AI usage",
+      "integrations": "Integrations",
+      "payments": "Payments",
+      "connections": "Meetings & shipping",
+      "ads": "Ads",
+      "api": "API & webhooks",
+      "webhooks": "Webhooks",
+      "plan": "Plan & usage",
+      "audit-log": "Audit log",
+      "contact-fields": "Contact fields",
+      "store-settings": "Store settings",
+      "booking-settings": "Booking settings",
+      "needs-review": "Needs review"
     }
   }
 }
