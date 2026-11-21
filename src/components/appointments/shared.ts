@@ -18,6 +18,7 @@ import type {
 } from '@/lib/appointments/types';
 import { APPOINTMENT_ERROR_CODES } from '@/lib/appointments/types';
 import { APPOINTMENT_TEMPLATE_REFUSALS } from '@/lib/appointments/template-check';
+import { currencyExponent } from '@/lib/commerce/money';
 
 // ------------------------------------------------------------ JSON over the wire
 
@@ -205,11 +206,15 @@ export function groupByLocalDate<T extends { local_date: string | Date; start_at
   return [...groups.entries()].sort(([a], [b]) => a.localeCompare(b));
 }
 
-/** Decimal places of a currency (2 when unknown). */
+/**
+ * Decimal places of a currency (2 when unknown): the ISO 4217 table every other reader uses
+ * (src/lib/commerce/money.ts: the public booking page, payment links, messages). Not the browser's
+ * Intl digits, which say 0 for PKR, IDR, HUF, COP and 13 more, and stored those prices 100x small.
+ */
 export function currencyDigits(currency: string | null | undefined): number {
   if (!currency) return 2;
   try {
-    return new Intl.NumberFormat('en', { style: 'currency', currency }).resolvedOptions().maximumFractionDigits ?? 2;
+    return currencyExponent(currency);
   } catch {
     return 2;
   }
@@ -229,15 +234,6 @@ export function fromMinor(minor: number | null | undefined, currency: string | n
   if (minor == null) return '';
   const digits = currencyDigits(currency);
   return (minor / 10 ** digits).toFixed(digits);
-}
-
-export function formatPrice(minor: number | null | undefined, currency: string | null, locale: string): string | null {
-  if (minor == null || !currency) return null;
-  try {
-    return new Intl.NumberFormat(locale, { style: 'currency', currency }).format(minor / 10 ** currencyDigits(currency));
-  } catch {
-    return null;
-  }
 }
 
 /** Time of an instant in the appointment's zone (never the viewer's). */

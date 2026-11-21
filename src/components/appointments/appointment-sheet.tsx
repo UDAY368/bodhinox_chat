@@ -6,6 +6,7 @@
  * with "mark resolved" for blocked or uncertain sends. Every change sends the
  * version it was based on; a 409 asks the user to reload instead of guessing.
  */
+import { formatMoney } from '@/lib/format/money';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { toast } from 'sonner';
@@ -28,7 +29,7 @@ import { MEETING_ERROR_CODES, type AppointmentMeetingView, type MeetingSyncState
 import { AppointmentStatusBadge } from './appointment-status-badge';
 import { SlotSelector } from './slot-selector';
 import {
-  apiRequest, dueAtFromDay, formatDateTime, formatPrice, formatTime, useFailureText, type Abilities, type AppointmentConfig, type ApiFailure,
+  apiRequest, dueAtFromDay, formatDateTime, formatTime, useFailureText, type Abilities, type AppointmentConfig, type ApiFailure,
 } from './shared';
 
 export interface AppointmentDetailDto {
@@ -206,7 +207,7 @@ export function AppointmentSheet({
   const location = a ? config.locations.find((l) => l.id === a.location_id) : null;
   const started = a ? new Date(a.start_at).getTime() <= loadedAt : false;
   const fmt = (iso: string) => (a ? formatDateTime(iso, a.timezone, locale) : '');
-  const price = a ? formatPrice(a.price_minor, a.currency, locale) : null;
+  const price = a && a.price_minor != null && a.currency ? formatMoney(a.price_minor, a.currency, { locale }) || null : null;
   const meeting = detail?.meeting ?? null;
   const links = detail?.links;
   const changedHere = () => { onChanged(); void load(); };

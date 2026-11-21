@@ -183,7 +183,8 @@ describe('when enabled', () => {
       expect(openPick({ ...admin, userId: OTHER }, pickCookie)).toBeNull();
       expect(openPick({ ...admin, accountId: OTHER }, pickCookie)).toBeNull();
       expect(openPick(admin, pickCookie, Date.now() + PAGE_LOGIN_TTL_MS + 5_000)).toBeNull();
-      expect(openPick(admin, `${pickCookie.slice(0, -2)}00`)).toBeNull();
+      // Always a different tail (a fixed "00" was a no-op when the cookie already ended in it).
+      expect(openPick(admin, `${pickCookie.slice(0, -2)}${pickCookie.endsWith('00') ? '11' : '00'}`)).toBeNull();
       expect(openPick(admin, null)).toBeNull();
       expect(openPick(admin, 'x'.repeat(4000))).toBeNull();
     });

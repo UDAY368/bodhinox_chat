@@ -8,6 +8,7 @@
  * needs a price above zero; the server also checks the store and Razorpay are
  * ready (field payment_required, detail price_required / payments_not_ready).
  */
+import { formatMoney } from '@/lib/format/money';
 import { Briefcase } from 'lucide-react';
 import { EmptyState } from '@/components/ui/empty-state';
 import { SegmentedControl } from '@/components/ui/segmented-control';
@@ -23,7 +24,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { WEEKDAYS } from '@/lib/inbox/working-hours';
 import {
-  apiRequest, formatPrice, fromMinor, toMinor, useFailureText,
+  apiRequest, fromMinor, toMinor, useFailureText,
   type AppointmentConfig, type ServiceDto,
 } from './shared';
 
@@ -124,7 +125,7 @@ export function ServicesPanel({ config, canEdit, onChanged }: { config: Appointm
             <div className="flex flex-wrap items-center gap-2">
               <span className="font-medium">{s.name}</span>
               <span className="text-xs text-muted-foreground">
-                {t(`services.modes.${s.mode}`)} · {s.duration_minutes}′ · {formatPrice(s.price_minor, s.currency, locale) ?? t('services.free')}
+                {t(`services.modes.${s.mode}`)} · {s.duration_minutes}′ · {(s.price_minor != null && s.currency ? formatMoney(s.price_minor, s.currency, { locale }) : '') || t('services.free')}
                 {s.allowed_weekdays ? ` · ${s.allowed_weekdays.map((d) => tDay(WEEKDAYS[d - 1])).join(', ')}` : ''}
               </span>
               {s.archived_at && <span className="text-xs text-muted-foreground">({t('services.archived')})</span>}

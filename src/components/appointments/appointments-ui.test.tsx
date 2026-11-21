@@ -84,6 +84,16 @@ describe('prices', () => {
     expect(fromMinor(49950, 'INR')).toBe('499.50');
     expect(fromMinor(null, 'INR')).toBe('');
   });
+
+  it('uses ISO 4217 decimals, as the booking page and payment links do, not the browser\'s', () => {
+    // Intl says 0 decimals for these; ISO 4217 (and every reader) says 2, or 3 for IQD.
+    expect(toMinor('1500', 'PKR')).toBe(150000);
+    expect(toMinor('250000', 'IDR')).toBe(25000000);
+    expect(toMinor('25000', 'IQD')).toBe(25000000);
+    expect(fromMinor(150000, 'PKR')).toBe('1500.00');
+    expect(fromMinor(3000, 'JPY')).toBe('3000');
+    expect(toMinor('10', 'XYZ1')).toBe(1000);
+  });
 });
 
 describe('serviceBody', () => {
