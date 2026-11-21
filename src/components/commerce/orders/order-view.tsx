@@ -5,8 +5,9 @@
  * Top to bottom: the reference with its status, ONE next-step button (from lib/commerce/order-state)
  * and the other actions in a "more" menu; then Payment (totals, payments and refunds), Shipment and
  * Customer; then closed sections for items and edits, returns, tax invoice, tags, history and notes.
- * Money actions (cancel, cancel and refund, record payment, refund) confirm in a dialog that shows
- * the amount and the order. The server re-checks every rule; this only offers what the state allows.
+ * Actions that take input (ship, send update, cancel and refund) open a sheet that stays open and
+ * says what went wrong when the server refuses; a plain cancel confirms in red and reports a failure
+ * in a toast. Money actions show the amount and the order. The server re-checks every rule; this only offers what the state allows.
  */
 
 import { useCallback, useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
@@ -22,13 +23,14 @@ import { useCan } from "@/hooks/use-can";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { InlineError } from "@/components/ui/inline-error";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Textarea } from "@/components/ui/textarea";
 import { OfflinePaymentDialog } from "@/components/commerce/payments/offline-payment-dialog";
 import { OrderPaymentsPanel } from "@/components/commerce/payments/customer-payments-table";
@@ -70,7 +72,7 @@ const STEP_ICON: Partial<Record<OrderAction, ReactNode>> = {
   deliver: <PackageCheck className="h-4 w-4" />,
 };
 
-type DialogKind = "ship" | "update" | "cancel" | "refund" | null;
+type SheetKind = "ship" | "update" | "refund" | null;
 
 export function OrderView({ orderId, onChanged, variant = "page", intent = null }: {
   orderId: string;
@@ -89,6 +91,7 @@ export function OrderView({ orderId, onChanged, variant = "page", intent = null 
   const format = useFormatter();
   const locale = useLocale();
   const router = useRouter();
+  const confirm = useConfirm();
   const canAct = useCan("send-messages");
   const canAdmin = useCan("edit-settings");
 
@@ -97,7 +100,9 @@ export function OrderView({ orderId, onChanged, variant = "page", intent = null 
   const [timeline, setTimeline] = useState<OrderTimeline | null>(null);
   const [returns, setReturns] = useState<OrderReturn[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
-  const [dialog, setDialog] = useState<DialogKind>(null);
+  const [dialog, setDialog] = useState<SheetKind>(null);
+  // What went wrong in the open action sheet (it stays open on failure).
+  const [sheetError, setSheetError] = useState<string | null>(null);
   const [paying, setPaying] = useState(false);
   const [tracking, setTracking] = useState("");
   const [updateText, setUpdateText] = useState("");
@@ -161,19 +166,24 @@ export function OrderView({ orderId, onChanged, variant = "page", intent = null 
     : r.code === "shipment_live" ? tLife("shipmentLive") : r.code === "order_refunded" ? tLife("refundedInFull")
       : r.code === "bad_transition" ? tLife("notAllowed") : tSales("stepFailed"));
 
-  async function run<T>(key: string, call: () => Promise<ApiResult<T>>, success: string | ((value: T) => string)): Promise<ApiResult<T> | null> {
+  /** Runs one action. From an action sheet (`inSheet`), a failure shows in the sheet instead of a toast. */
+  async function run<T>(key: string, call: () => Promise<ApiResult<T>>, success: string | ((value: T) => string), inSheet = false): Promise<ApiResult<T> | null> {
     setBusy(key);
+    if (inSheet) setSheetError(null);
     try {
       const r = await call();
       if (r.ok) toast.success(typeof success === "function" ? success(r.value) : success);
       else if (r.code === "offline_payment") {
         setOutsideNeeded(true);
-        toast.error(tLife("cancelRefundOutsideNeeded"));
-      } else toast.error(errorText(r));
+        // The refund sheet explains this beside its checkbox.
+        if (!inSheet) toast.error(tLife("cancelRefundOutsideNeeded"));
+      } else if (inSheet) setSheetError(errorText(r));
+      else toast.error(errorText(r));
       await reload();
       return r;
     } catch {
-      toast.error(tSales("stepFailed"));
+      if (inSheet) setSheetError(tSales("stepFailed"));
+      else toast.error(tSales("stepFailed"));
       return null;
     } finally {
       setBusy(null);
@@ -198,15 +208,16 @@ export function OrderView({ orderId, onChanged, variant = "page", intent = null 
   async function sendUpdate(o: OrderDetail) {
     if (!o.conversation_id || !updateText.trim()) return;
     setBusy("send_update");
+    setSheetError(null);
     try {
       const reason = await sendOrderUpdate(o.conversation_id, updateText.trim());
-      if (reason) toast.error(tSales("updateFailed", { reason }));
+      if (reason) setSheetError(tSales("updateFailed", { reason }));
       else {
         toast.success(tSales("updateSent"));
         setDialog(null);
       }
     } catch {
-      toast.error(tSales("updateFailed", { reason: tSales("stepFailed") }));
+      setSheetError(tSales("updateFailed", { reason: tSales("stepFailed") }));
     } finally {
       setBusy(null);
     }
@@ -217,16 +228,32 @@ export function OrderView({ orderId, onChanged, variant = "page", intent = null 
     if (r && !r.ok) setNote(o.note ?? "");
   }
 
+  async function confirmCancel(o: OrderDetail) {
+    const ok = await confirm({
+      title: tSales("cancelTitle", { ref: orderRef(o) }),
+      body: <><p>{tSales("cancelBody")}</p><p className="mt-2 text-foreground">{t("cancelAmount", { amount: money(o.total_minor ?? o.subtotal_minor, o.currency) })}</p></>,
+      confirmLabel: tSales("cancelOrder"),
+      cancelLabel: tSales("keep"),
+      destructive: true,
+    });
+    if (ok) await run("cancel", () => updateOrder(o.id, { status: "cancelled" }), tSales("cancelled"));
+  }
+
+  function openSheet(kind: Exclude<SheetKind, null>) {
+    setSheetError(null);
+    setDialog(kind);
+  }
+
   function start(action: OrderAction, o: OrderDetail) {
     switch (action) {
       case "confirm": void run("confirm", () => updateOrder(o.id, { status: "confirmed" }), tSales("stepDone")); break;
       case "send_payment_link": void sendLink(o); break;
       case "record_payment": setPaying(true); break;
-      case "ship": setTracking(""); setDialog("ship"); break;
+      case "ship": setTracking(""); openSheet("ship"); break;
       case "deliver": void run("deliver", () => deliverOrder(o.id, { from: o.status }), tLife("delivered")); break;
-      case "send_update": setUpdateText(tSales(`updateText.${updateTextKey(o.status)}`, { ref: orderRef(o) })); setDialog("update"); break;
-      case "cancel": setDialog("cancel"); break;
-      case "cancel_and_refund": setRefundNote(""); setOutsideNeeded(false); setOutsideConfirmed(false); setDialog("refund"); break;
+      case "send_update": setUpdateText(tSales(`updateText.${updateTextKey(o.status)}`, { ref: orderRef(o) })); openSheet("update"); break;
+      case "cancel": void confirmCancel(o); break;
+      case "cancel_and_refund": setRefundNote(""); setOutsideNeeded(false); setOutsideConfirmed(false); openSheet("refund"); break;
       case "change_status": break;
     }
   }
@@ -540,96 +567,63 @@ export function OrderView({ orderId, onChanged, variant = "page", intent = null 
         </AccordionItem>
       </Accordion>
 
-      <Dialog open={dialog === "ship"} onOpenChange={(v) => !v && setDialog(null)}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>{tSales("shipTitle", { ref })}</DialogTitle>
-            <DialogDescription>{tSales("trackingHelp")}</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-1.5">
-            <Label htmlFor="ship-tracking">{tSales("tracking")}</Label>
-            <Input id="ship-tracking" maxLength={TRACKING_MAX} value={tracking} onChange={(e) => setTracking(e.target.value)}
-              placeholder={tLife("trackingPlaceholder")} />
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDialog(null)}>{tSales("cancel")}</Button>
-            <Button disabled={busy !== null} onClick={async () => {
-              const r = await run("ship", () => dispatchOrder(order.id, { from: order.status, tracking_note: tracking.trim() || null }), tLife("dispatched"));
-              if (r?.ok) setDialog(null);
-            }}>
-              {busy === "ship" && <Loader2 className="h-4 w-4 animate-spin" />} {tSales("next.ship")}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ActionSheet open={dialog === "ship"} onClose={() => !busy && setDialog(null)} error={sheetError}
+        title={tSales("shipTitle", { ref })} description={tSales("trackingHelp")}
+        footer={<>
+          <Button className="min-h-11 sm:min-h-9" disabled={busy !== null} onClick={async () => {
+            const r = await run("ship", () => dispatchOrder(order.id, { from: order.status, tracking_note: tracking.trim() || null }), tLife("dispatched"), true);
+            if (r?.ok) setDialog(null);
+          }}>
+            {busy === "ship" && <Loader2 className="h-4 w-4 animate-spin" />} {tSales("next.ship")}
+          </Button>
+          <Button variant="ghost" className="min-h-11 sm:min-h-9" disabled={busy !== null} onClick={() => setDialog(null)}>{tSales("cancel")}</Button>
+        </>}>
+        <div className="space-y-1.5">
+          <Label htmlFor="ship-tracking">{tSales("tracking")}</Label>
+          <Input id="ship-tracking" maxLength={TRACKING_MAX} value={tracking} onChange={(e) => setTracking(e.target.value)}
+            placeholder={tLife("trackingPlaceholder")} />
+        </div>
+      </ActionSheet>
 
-      <Dialog open={dialog === "update"} onOpenChange={(v) => !v && setDialog(null)}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>{tSales("updateTitle")}</DialogTitle>
-            <DialogDescription>{tSales("updateHelp")}</DialogDescription>
-          </DialogHeader>
-          <Label htmlFor="order-update-text" className="sr-only">{tSales("updateTitle")}</Label>
-          <Textarea id="order-update-text" rows={3} maxLength={1000} value={updateText} onChange={(e) => setUpdateText(e.target.value)} />
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDialog(null)}>{tSales("cancel")}</Button>
-            <Button disabled={busy !== null || !updateText.trim() || !order.conversation_id} onClick={() => void sendUpdate(order)}>
-              {busy === "send_update" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />} {tSales("updateSend")}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ActionSheet open={dialog === "update"} onClose={() => !busy && setDialog(null)} error={sheetError}
+        title={tSales("updateTitle")} description={tSales("updateHelp")}
+        footer={<>
+          <Button className="min-h-11 sm:min-h-9" disabled={busy !== null || !updateText.trim() || !order.conversation_id} onClick={() => void sendUpdate(order)}>
+            {busy === "send_update" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />} {tSales("updateSend")}
+          </Button>
+          <Button variant="ghost" className="min-h-11 sm:min-h-9" disabled={busy !== null} onClick={() => setDialog(null)}>{tSales("cancel")}</Button>
+        </>}>
+        <Label htmlFor="order-update-text" className="sr-only">{tSales("updateTitle")}</Label>
+        <Textarea id="order-update-text" rows={5} maxLength={1000} value={updateText} onChange={(e) => setUpdateText(e.target.value)} />
+      </ActionSheet>
 
-      <Dialog open={dialog === "cancel"} onOpenChange={(v) => !v && setDialog(null)}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>{tSales("cancelTitle", { ref })}</DialogTitle>
-            <DialogDescription>{tSales("cancelBody")}</DialogDescription>
-          </DialogHeader>
-          <p className="text-sm">{t("cancelAmount", { amount: money(total, order.currency) })}</p>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDialog(null)}>{tSales("keep")}</Button>
-            <Button variant="destructive" disabled={busy !== null} onClick={async () => {
-              const r = await run("cancel", () => updateOrder(order.id, { status: "cancelled" }), tSales("cancelled"));
-              if (r?.ok) setDialog(null);
-            }}>
-              {busy === "cancel" && <Loader2 className="h-4 w-4 animate-spin" />} {tSales("cancelOrder")}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={dialog === "refund"} onOpenChange={(v) => !v && setDialog(null)}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>{t("refundTitle", { ref })}</DialogTitle>
-            <DialogDescription>{t("refundAmount", { amount: money(refundable, order.currency) })}</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-1.5">
-            <Label htmlFor="refund-note">{tLife("refundNotePlaceholder")}</Label>
-            <Textarea id="refund-note" rows={2} maxLength={500} value={refundNote} onChange={(e) => setRefundNote(e.target.value)} />
-          </div>
-          {outsideNeeded && (
-            <div className="space-y-2 rounded-lg bg-muted p-3">
-              <p className="text-xs text-muted-foreground">{tLife("cancelRefundOutsideNeeded")}</p>
-              <label className="flex min-h-11 items-start gap-2 text-sm sm:min-h-0">
-                <Checkbox checked={outsideConfirmed} onCheckedChange={(v) => setOutsideConfirmed(v === true)} />
-                <span>{tLife("cancelRefundOutsideConfirm")}</span>
-              </label>
-            </div>
-          )}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDialog(null)}>{tSales("keep")}</Button>
-            <Button variant="destructive" disabled={busy !== null || (outsideNeeded && !outsideConfirmed)} onClick={async () => {
+      <ActionSheet open={dialog === "refund"} onClose={() => !busy && setDialog(null)} error={sheetError}
+        title={t("refundTitle", { ref })} description={t("refundAmount", { amount: money(refundable, order.currency) })}
+        footer={<>
+          <Button variant="destructive" className="min-h-11 bg-destructive text-white hover:bg-destructive/90 sm:min-h-9"
+            disabled={busy !== null || (outsideNeeded && !outsideConfirmed)} onClick={async () => {
               const r = await run("cancel_and_refund", () => cancelAndRefundOrder(order.id, refundNote.trim() || null, outsideNeeded && outsideConfirmed),
-                (v) => (v.refundIds.length === 0 && v.refundedOutside ? tLife("cancelRefundDoneOutside") : tLife("cancelRefundDone")));
+                (v) => (v.refundIds.length === 0 && v.refundedOutside ? tLife("cancelRefundDoneOutside") : tLife("cancelRefundDone")), true);
               if (r?.ok) setDialog(null);
             }}>
-              {busy === "cancel_and_refund" && <Loader2 className="h-4 w-4 animate-spin" />} {tLife("cancelRefundGo")}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+            {busy === "cancel_and_refund" && <Loader2 className="h-4 w-4 animate-spin" />} {tLife("cancelRefundGo")}
+          </Button>
+          <Button variant="ghost" className="min-h-11 sm:min-h-9" disabled={busy !== null} onClick={() => setDialog(null)}>{tSales("keep")}</Button>
+        </>}>
+        <div className="space-y-1.5">
+          <Label htmlFor="refund-note">{tLife("refundNotePlaceholder")}</Label>
+          <Textarea id="refund-note" rows={3} maxLength={500} value={refundNote} onChange={(e) => setRefundNote(e.target.value)} />
+        </div>
+        {outsideNeeded && (
+          <div className="space-y-2 rounded-lg bg-muted p-3">
+            <p className="text-xs text-muted-foreground">{tLife("cancelRefundOutsideNeeded")}</p>
+            <label className="flex min-h-11 items-start gap-2 text-sm sm:min-h-0">
+              <Checkbox checked={outsideConfirmed} onCheckedChange={(v) => setOutsideConfirmed(v === true)} />
+              <span>{tLife("cancelRefundOutsideConfirm")}</span>
+            </label>
+          </div>
+        )}
+      </ActionSheet>
 
       <OfflinePaymentDialog orderId={order.id} currency={order.currency} dueMinor={due}
         open={paying} onOpenChange={setPaying} onRecorded={() => void reload()} />
@@ -650,6 +644,33 @@ export function OrderSheet({ orderId, open, onOpenChange, onChanged, intent = nu
     <Sheet open={open && orderId !== null} onOpenChange={onOpenChange}>
       <SheetContent side="right" size="lg" className="w-full gap-0 overflow-y-auto p-0">
         {orderId && <OrderView key={orderId} orderId={orderId} onChanged={onChanged} variant="sheet" intent={intent} />}
+      </SheetContent>
+    </Sheet>
+  );
+}
+
+/** An order action that takes input: a sheet that stays open and shows what went wrong on failure. */
+function ActionSheet({ open, onClose, title, description, error, footer, children }: {
+  open: boolean;
+  onClose: () => void;
+  title: string;
+  description: string;
+  error: string | null;
+  footer: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <Sheet open={open} onOpenChange={(v) => !v && onClose()}>
+      <SheetContent side="right" size="md" className="w-full">
+        <SheetHeader className="pr-12">
+          <SheetTitle>{title}</SheetTitle>
+          <SheetDescription>{description}</SheetDescription>
+        </SheetHeader>
+        <div className="flex-1 space-y-4 overflow-y-auto px-4">
+          {children}
+          {error && <InlineError message={error} className="py-4" />}
+        </div>
+        <SheetFooter>{footer}</SheetFooter>
       </SheetContent>
     </Sheet>
   );
