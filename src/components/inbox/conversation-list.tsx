@@ -994,7 +994,7 @@ export function ConversationList({
       </div>
   );
 
-  // AiSensy-style status tabs. Clicking the selected tab again goes back to every chat.
+  // Status tabs. Clicking the selected tab again goes back to every chat.
   const statusTabs = [
     {
       key: 'active',

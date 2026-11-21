@@ -218,7 +218,7 @@ export function ContactSidebar({
       <ScrollArea className="min-h-0 flex-1">
         <div className="studio-panel-body pb-5">
           {/* Who this is: avatar with its channel, name, handle and a way to the full contact. */}
-          {/* Compact, like AiSensy's chat profile: tools on one line, then the avatar beside name and number. */}
+          {/* Compact chat profile: tools on one line, then the avatar beside name and number. */}
           <div className="border-border border-b px-3 pt-2 pb-3">
             <div className="flex items-center justify-between">
               {onCollapse ? (
