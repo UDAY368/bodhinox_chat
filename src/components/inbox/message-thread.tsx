@@ -1513,7 +1513,11 @@ export function MessageThread({
               </span>
             </span>
           </button>
-          <div className="flex h-5 min-w-0 flex-1 flex-wrap content-start items-center gap-x-1.5 self-end overflow-hidden text-xs">
+          <div data-thread-chips className="flex h-5 min-w-0 flex-1 flex-wrap content-start items-center gap-x-1.5 self-end overflow-hidden text-xs">
+              {/* A flex line always keeps its first item, so a chip wider than the room
+                  left would be cut in half. This empty first item lets every chip that
+                  does not fit whole wrap onto the hidden second line instead. */}
+              <span aria-hidden className="-mr-1.5 h-5 w-0" />
               {!isInstagram && (
                 <span className="hidden shrink-0 @2xl:inline-flex">
                   <ConversationNumberBadge conversation={conversation} numbers={whatsappNumbers} />
