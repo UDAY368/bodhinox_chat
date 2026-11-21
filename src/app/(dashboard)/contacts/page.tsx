@@ -68,6 +68,7 @@ import {
   UserRound,
   Send,
   UserPlus,
+  UsersRound,
 } from 'lucide-react';
 import { authFetch } from '@/lib/auth/client';
 import { cn } from '@/lib/utils';
@@ -158,6 +159,7 @@ function ContactsPeople() {
   const t = useTranslations('Contacts.page');
   const tr = useTranslations('Contacts.redesign');
   const tGate = useTranslations('GatedButton');
+  const tDup = useTranslations('Contacts.duplicates');
   const locale = useLocale();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -803,6 +805,8 @@ function ContactsPeople() {
                 onSelect: () => exportCsv(exportQuery),
               }]
             : []),
+          // Find duplicates and merge are for admins and owners.
+          ...(canEditSettings ? [{ label: tDup('findDuplicates'), icon: UsersRound, href: '/contacts/duplicates' }] : []),
         ]}
       />
 
