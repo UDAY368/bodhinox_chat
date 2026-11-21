@@ -107,7 +107,7 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('inbox premium tables on Pos
       expect(row).toMatchObject({ lifecycle_state: 'resolved', reopened_count: 0, reopened_at: null });
       expect(row.resolved_at).not.toBeNull();
 
-      // Re-opening (as reopenClosedConversation does) starts a new cycle.
+      // Re-opening (as inbound ingest does for a closed thread) starts a new cycle.
       await app(asAgent, (tx) => tx.$executeRaw`UPDATE conversations SET status='open' WHERE id=${id}::uuid`);
       row = await conversation(id);
       expect(row).toMatchObject({ lifecycle_state: 'assigned', reopened_count: 1, resolved_at: null, first_responded_at: null });

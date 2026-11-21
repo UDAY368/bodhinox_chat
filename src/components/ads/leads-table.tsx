@@ -182,16 +182,16 @@ export function LeadsTable({ canManage }: LeadsTableProps) {
         </div>
         <label className="flex flex-col gap-1 text-xs text-muted-foreground">
           {t('leads.ad')}
-          <Input aria-label={t('leads.ad')} className="h-8 w-44" inputMode="numeric" maxLength={32} placeholder={t('leads.allAds')}
+          <Input aria-label={t('leads.ad')} className="w-44" inputMode="numeric" maxLength={32} placeholder={t('leads.allAds')}
             value={filters.adId} onChange={(e) => set('adId')(e.target.value.replace(/\D/g, ''))} />
         </label>
         <label className="flex flex-col gap-1 text-xs text-muted-foreground">
           {t('leads.from')}
-          <Input aria-label={t('leads.from')} type="date" className="h-8 w-40" value={filters.from} onChange={(e) => set('from')(e.target.value)} />
+          <Input aria-label={t('leads.from')} type="date" className="w-40" value={filters.from} onChange={(e) => set('from')(e.target.value)} />
         </label>
         <label className="flex flex-col gap-1 text-xs text-muted-foreground">
           {t('leads.to')}
-          <Input aria-label={t('leads.to')} type="date" className="h-8 w-40" value={filters.to} onChange={(e) => set('to')(e.target.value)} />
+          <Input aria-label={t('leads.to')} type="date" className="w-40" value={filters.to} onChange={(e) => set('to')(e.target.value)} />
         </label>
         <div className="ml-auto flex flex-wrap gap-2">
           {canSegment && (

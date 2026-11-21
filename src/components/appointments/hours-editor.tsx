@@ -22,10 +22,10 @@ export function RangesEditor({
     <div className="space-y-1.5">
       {ranges.map((range, i) => (
         <div key={i} className="flex items-center gap-2">
-          <Input type="time" className="h-8 w-28" aria-label={t('opensAt', { day: label })} value={range.start} disabled={disabled}
+          <Input type="time" className="w-28" aria-label={t('opensAt', { day: label })} value={range.start} disabled={disabled}
             onChange={(e) => onChange(ranges.map((r, j) => (j === i ? { ...r, start: e.target.value } : r)))} />
           <span className="text-xs text-muted-foreground">{t('to')}</span>
-          <Input type="time" className="h-8 w-28" aria-label={t('closesAt', { day: label })}
+          <Input type="time" className="w-28" aria-label={t('closesAt', { day: label })}
             value={range.end === '24:00' ? '23:59' : range.end} disabled={disabled}
             onChange={(e) => onChange(ranges.map((r, j) => (j === i ? { ...r, end: e.target.value === '23:59' ? '24:00' : e.target.value } : r)))} />
           {!disabled && (

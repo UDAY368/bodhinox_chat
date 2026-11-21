@@ -47,7 +47,7 @@ function ZoomHostEmail({ staff, canEdit, onSave }: { staff: StaffWithHostDto; ca
     <div className="flex w-full flex-wrap items-end gap-2">
       <div className="min-w-0 flex-1 space-y-1">
         <Label htmlFor={id} className="text-xs">{t('staff.zoomHostEmail')}</Label>
-        <Input id={id} type="email" maxLength={254} className="h-8" placeholder={t('staff.zoomHostPlaceholder')} value={value}
+        <Input id={id} type="email" maxLength={254} placeholder={t('staff.zoomHostPlaceholder')} value={value}
           disabled={!canEdit || busy || !!staff.archived_at} onChange={(e) => setValue(e.target.value)} />
       </div>
       {canEdit && value.trim() !== stored && (
