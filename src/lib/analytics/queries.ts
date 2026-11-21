@@ -8,19 +8,9 @@
 // numbers ever leave these queries.
 //
 // Definitions (kept here so reports and tests agree):
-// - A reply is an agent or bot message that did not fail and is not a template
-//   or system message (as on the dashboard). A customer "wait" is the run of
-//   customer messages between two replies; its response time runs from the
-//   first customer message of the run to the next reply, looking up to
-//   REPLY_LOOKAHEAD past the range end. A run that started before the range is
-//   measured from its first message inside the range.
-// - First response: each conversation's first wait in the range, ended by any
-//   reply (bot, flow and AI replies included).
-// - Team first response (humanFirstResponse, and the leaderboard): the first
-//   member (sender_type 'agent') reply after that same first wait, timed from
-//   the wait or, when the AI handed the conversation to staff between the wait
-//   and that reply, from ai_handoff_at. Bot replies never end it, so a
-//   bot-fronted conversation still credits the member who answered.
+// - First reply ("Median first reply"): the one definition in first-reply.ts,
+//   every customer wait that starts in the range and the next member or AI
+//   reply. A member is credited with the waits they answered.
 // - Resolution time: resolved_at - the start of the cycle that was resolved
 //   (reopened_at, stamped by the lifecycle trigger since 20261116060000, or
 //   created_at for a first cycle). A conversation reopened before reopened_at
@@ -54,10 +44,10 @@
 import { Prisma } from '@prisma/client';
 import { withTenant, type TenantContext, type TenantTransaction } from '@/lib/db/tenant';
 import { workspaceTimezone, type AnalyticsRange } from './range';
+import { firstRepliesSql } from './first-reply';
 
 /** Bounds every analytics statement so a heavy report cannot hold a connection. */
 export const ANALYTICS_STATEMENT_TIMEOUT_MS = 15_000;
-const REPLY_LOOKAHEAD = Prisma.sql`interval '7 days'`;
 const REPLY_WINDOW = Prisma.sql`interval '72 hours'`;
 /**
  * Before this instant agent rows never carried sender_id, so analytics falls
@@ -114,47 +104,8 @@ const numberOf = (column: string) => Prisma.sql`COALESCE(${Prisma.raw(column)}, 
 const isReply = (m: string) => Prisma.raw(
   `${m}.sender_type IN ('agent','bot') AND ${m}.status <> 'failed' AND ${m}.content_type NOT IN ('template','system')`);
 
-/**
- * CTE `human_first`: per conversation, the first member reply (sender_type
- * 'agent') at or after its first wait in the range, timed from that wait or,
- * when the AI handed off between the wait and the reply, from ai_handoff_at.
- * Needs the `msgs` CTE of waitsSql and `first_waits(conversation_id, wait_at)`.
- */
-export const humanFirstSql = (accountId: string) => Prisma.sql`human_first AS (
-      SELECT DISTINCT ON (f.conversation_id) f.conversation_id, c.assigned_agent_id, m.sender_id, m.created_at AS reply_at,
-        GREATEST(f.wait_at, CASE WHEN c.ai_handoff_at <= m.created_at THEN c.ai_handoff_at END) AS wait_at
-      FROM first_waits f JOIN msgs m ON m.conversation_id=f.conversation_id AND m.sender_type='agent' AND m.created_at >= f.wait_at
-      JOIN conversations c ON c.account_id=${accountId}::uuid AND c.id=f.conversation_id
-      ORDER BY f.conversation_id, m.created_at
-    )`;
 /** Resolved conversations whose cycle start is known: first cycles, and reopened ones since reopened_at. */
 const TIMED_RESOLUTION = Prisma.sql`FILTER (WHERE reopened_count=0 OR reopened_at IS NOT NULL)`;
-
-/**
- * Customer waits in the range and the reply that ended each one. `seg` counts
- * replies so far in a conversation, so a wait in segment n is answered by the
- * reply that opens segment n+1. `conversations` optionally limits the scan.
- */
-export function waitsSql(accountId: string, range: AnalyticsRange, conversations: Prisma.Sql = Prisma.empty) {
-  return Prisma.sql`
-    msgs AS (
-      SELECT m.conversation_id, m.created_at, m.sender_type, m.sender_id,
-        count(*) FILTER (WHERE m.sender_type <> 'customer')
-          OVER (PARTITION BY m.conversation_id ORDER BY m.created_at, m.arrival_sequence) AS seg
-      FROM messages m
-      WHERE m.account_id=${accountId}::uuid AND m.created_at >= ${from(range)} AND m.created_at < ${to(range)} + ${REPLY_LOOKAHEAD}
-        AND (m.sender_type='customer' OR (${isReply('m')})) ${conversations}
-    ), waits AS (
-      SELECT conversation_id, seg, min(created_at) AS wait_at FROM msgs
-      WHERE sender_type='customer' AND created_at < ${to(range)} GROUP BY conversation_id, seg
-    ), answers AS (
-      SELECT DISTINCT ON (conversation_id, seg) conversation_id, seg, created_at AS reply_at, sender_type, sender_id
-      FROM msgs WHERE sender_type <> 'customer' ORDER BY conversation_id, seg, created_at
-    ), responses AS (
-      SELECT w.conversation_id, w.wait_at, a.reply_at, a.sender_type, a.sender_id
-      FROM waits w LEFT JOIN answers a ON a.conversation_id=w.conversation_id AND a.seg=w.seg+1
-    )`;
-}
 
 /**
  * A conversation created before the range had a message inside it.
@@ -193,9 +144,8 @@ export interface ConversationStats {
   started: { total: number; inbound: number; business: number; campaignReply: number; ad: number };
   /** Current lifecycle state of conversations with activity in the range. */
   byLifecycle: { bot: number; requesting: number; assigned: number; resolved: number };
+  /** First reply (first-reply.ts): every wait started in the range; unanswered = no reply yet. */
   firstResponse: DurationStats & { unanswered: number };
-  /** First reply by a team member (bots, flows and AI excluded); see the header. */
-  humanFirstResponse: DurationStats;
   resolution: DurationStats & { resolved: number };
 }
 
@@ -242,10 +192,7 @@ export async function conversationStats(tx: TenantTransaction, accountId: string
     ), resolved AS (
       SELECT ${seconds('resolved_at', 'COALESCE(reopened_at, created_at)')} AS secs, reopened_count, reopened_at FROM scope
       WHERE resolved_at >= ${from(range)} AND resolved_at < ${to(range)}
-    ), ${waitsSql(accountId, range, filtered ? Prisma.sql`AND m.conversation_id IN (SELECT id FROM scope)` : Prisma.empty)},
-    first_waits AS (
-      SELECT DISTINCT ON (conversation_id) conversation_id, wait_at, reply_at FROM responses ORDER BY conversation_id, wait_at
-    ), ${humanFirstSql(accountId)}
+    ), ${firstRepliesSql(accountId, from(range), to(range), filtered ? Prisma.sql`AND m.conversation_id IN (SELECT id FROM scope)` : Prisma.empty)}
     SELECT json_build_object(
       'started', (SELECT json_build_object('total', count(*),
         'inbound', count(*) FILTER (WHERE inbound AND c.id IS NULL AND a.id IS NULL),
@@ -257,10 +204,7 @@ export async function conversationStats(tx: TenantTransaction, accountId: string
         'assigned', count(*) FILTER (WHERE lifecycle_state='assigned'), 'resolved', count(*) FILTER (WHERE lifecycle_state='resolved')) FROM active),
       'firstResponse', (SELECT json_build_object('count', count(reply_at), 'unanswered', count(*) - count(reply_at),
         'medianSeconds', ${pct(0.5, seconds('reply_at', 'wait_at'))},
-        'p90Seconds', ${pct(0.9, seconds('reply_at', 'wait_at'))}) FROM first_waits),
-      'humanFirstResponse', (SELECT json_build_object('count', count(*),
-        'medianSeconds', ${pct(0.5, seconds('reply_at', 'wait_at'))},
-        'p90Seconds', ${pct(0.9, seconds('reply_at', 'wait_at'))}) FROM human_first),
+        'p90Seconds', ${pct(0.9, seconds('reply_at', 'wait_at'))}) FROM first_replies),
       'resolution', (SELECT json_build_object('resolved', count(*), 'count', count(*) ${TIMED_RESOLUTION},
         'medianSeconds', ${pct(0.5, Prisma.sql`secs`, TIMED_RESOLUTION)},
         'p90Seconds', ${pct(0.9, Prisma.sql`secs`, TIMED_RESOLUTION)}) FROM resolved)
@@ -284,7 +228,7 @@ export interface AgentLeaderboardRow {
 /** Per member of the workspace, busiest first. Members without activity are listed with zeros. */
 export async function agentLeaderboard(tx: TenantTransaction, accountId: string, range: AnalyticsRange): Promise<AgentLeaderboardRow[]> {
   const rows = await tx.$queryRaw<{ board: AgentLeaderboardRow[] }[]>(Prisma.sql`
-    WITH ${waitsSql(accountId, range)},
+    WITH ${firstRepliesSql(accountId, from(range), to(range))},
     agent_replies AS (
       SELECT m.conversation_id, ${agentOf('m.sender_id', 'm.created_at', 'c.assigned_agent_id')} AS agent_id
       FROM messages m JOIN conversations c ON c.account_id=m.account_id AND c.id=m.conversation_id
@@ -292,13 +236,11 @@ export async function agentLeaderboard(tx: TenantTransaction, accountId: string,
         AND m.sender_type='agent' AND (${isReply('m')})
     ), reply_totals AS (
       SELECT agent_id, count(*) AS replies, count(DISTINCT conversation_id) AS handled FROM agent_replies GROUP BY agent_id
-    ), first_waits AS (
-      -- Each conversation's first wait only, as in conversationStats and the report.
-      SELECT DISTINCT ON (conversation_id) conversation_id, wait_at FROM responses ORDER BY conversation_id, wait_at
-    ), ${humanFirstSql(accountId)}, first_responses AS (
-      -- The first member reply to that wait, even when a bot answered it first.
-      SELECT ${agentOf('h.sender_id', 'h.reply_at', 'h.assigned_agent_id')} AS agent_id, ${seconds('h.reply_at', 'h.wait_at')} AS secs
-      FROM human_first h WHERE h.reply_at < ${to(range)}
+    ), first_responses AS (
+      -- The waits a member answered (first-reply.ts).
+      SELECT ${agentOf('f.replier_id', 'f.reply_at', 'c.assigned_agent_id')} AS agent_id, f.secs
+      FROM first_replies f JOIN conversations c ON c.account_id=${accountId}::uuid AND c.id=f.conversation_id
+      WHERE f.replier_type='agent'
     ), response_totals AS (
       SELECT agent_id, count(*) AS n, ${pct(0.5, Prisma.sql`secs`)} AS median
       FROM first_responses WHERE agent_id IS NOT NULL GROUP BY agent_id
@@ -474,29 +416,41 @@ export interface AiStats {
   handoffs: number;
   /** Questions first recorded in the range. RLS shows them to agents and above only, so a viewer sees 0. */
   unansweredRecorded: number;
-  /** Of aiConversations: resolved with no agent reply or AI handoff between the first AI reply and the resolve, and not paused for a person. */
+  /** "AI handled": conversations resolved in the range that the AI closed without a person (aiClosedSql). */
   resolvedByAi: number;
+  /** resolvedByAi / aiConversations. */
   resolutionRate: number | null;
 }
+
+/**
+ * CTE `ai_closed(conversation_id, resolved_at)`: "AI handled", the one
+ * definition the AI tab, the home card and the daily rollup share. A
+ * conversation resolved in [from, to) whose resolved cycle (from reopened_at,
+ * else created_at) has an AI reply, and no member message and no AI handoff
+ * between the first AI reply of that cycle and the resolve.
+ */
+export const aiClosedSql = (accountId: string, from: Prisma.Sql, to: Prisma.Sql) => Prisma.sql`ai_closed AS (
+      SELECT c.id AS conversation_id, c.resolved_at
+      FROM conversations c CROSS JOIN LATERAL (
+        SELECT min(m.created_at) AS first_ai_at FROM messages m
+        WHERE m.account_id=${accountId}::uuid AND m.conversation_id=c.id AND m.ai_generated AND m.sender_type <> 'customer'
+          AND m.status <> 'failed' AND m.created_at >= COALESCE(c.reopened_at, c.created_at) AND m.created_at <= c.resolved_at
+      ) ai
+      WHERE c.account_id=${accountId}::uuid AND c.resolved_at >= ${from} AND c.resolved_at < ${to} AND ai.first_ai_at IS NOT NULL
+        AND (c.ai_handoff_at IS NULL OR c.ai_handoff_at < ai.first_ai_at OR c.ai_handoff_at > c.resolved_at)
+        AND NOT EXISTS (SELECT 1 FROM messages h WHERE h.account_id=${accountId}::uuid AND h.conversation_id=c.id
+          AND h.sender_type='agent' AND h.content_type <> 'system' AND NOT h.ai_generated
+          AND h.created_at > ai.first_ai_at AND h.created_at <= c.resolved_at)
+    )`;
 
 export async function aiStats(tx: TenantTransaction, accountId: string, range: AnalyticsRange): Promise<AiStats> {
   const rows = await tx.$queryRaw<{ stats: AiStats }[]>(Prisma.sql`
     WITH ai AS (
-      SELECT conversation_id, min(created_at) AS first_ai_at, count(*) AS replies FROM messages
+      SELECT conversation_id, count(*) AS replies FROM messages
       WHERE account_id=${accountId}::uuid AND created_at >= ${from(range)} AND created_at < ${to(range)}
         AND ai_generated AND sender_type <> 'customer' AND status <> 'failed'
       GROUP BY conversation_id
-    ), resolved AS (
-      SELECT ai.conversation_id FROM ai JOIN conversations c ON c.account_id=${accountId}::uuid AND c.id=ai.conversation_id
-      -- Not handed to a person: no handoff between the first AI reply and the
-      -- resolve, no pending handoff note, and the bot not paused (agent sends
-      -- and manual takeovers pause it).
-      WHERE c.resolved_at >= ai.first_ai_at AND NOT c.bot_paused AND c.ai_handoff_summary IS NULL
-        AND (c.ai_handoff_at IS NULL OR c.ai_handoff_at < ai.first_ai_at OR c.ai_handoff_at > c.resolved_at)
-        AND NOT EXISTS (
-        SELECT 1 FROM messages m WHERE m.account_id=${accountId}::uuid AND m.conversation_id=ai.conversation_id
-          AND m.sender_type='agent' AND m.created_at > ai.first_ai_at AND m.created_at <= c.resolved_at)
-    )
+    ), ${aiClosedSql(accountId, from(range), to(range))}
     SELECT json_build_object(
       'aiReplies', (SELECT COALESCE(sum(replies), 0) FROM ai),
       'aiConversations', (SELECT count(*) FROM ai),
@@ -504,8 +458,8 @@ export async function aiStats(tx: TenantTransaction, accountId: string, range: A
         AND ai_handoff_at >= ${from(range)} AND ai_handoff_at < ${to(range)}),
       'unansweredRecorded', (SELECT count(*) FROM ai_unanswered_questions WHERE account_id=${accountId}::uuid
         AND created_at >= ${from(range)} AND created_at < ${to(range)}),
-      'resolvedByAi', (SELECT count(*) FROM resolved),
-      'resolutionRate', (SELECT round((SELECT count(*) FROM resolved)::numeric / NULLIF((SELECT count(*) FROM ai), 0), 4))
+      'resolvedByAi', (SELECT count(*) FROM ai_closed),
+      'resolutionRate', (SELECT round(LEAST((SELECT count(*) FROM ai_closed)::numeric / NULLIF((SELECT count(*) FROM ai), 0), 1), 4))
     ) AS stats`);
   return rows[0].stats;
 }

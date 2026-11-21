@@ -75,14 +75,15 @@ describe.skipIf(!ownerUrl || !appUrl)('dashboard charts on PostgreSQL', { timeou
     expect(charts.dealsByStage).toEqual([{ stageId: stage, count: 1100, value: 2200 }]);
   });
 
-  it('times each customer wait from its first message to the next reply', async () => {
+  it('times each customer wait from its first message to the next member or AI reply', async () => {
     const { responseTime } = await loadDashboardCharts({ accountId: A, userId: ownerA, role: 'agent' }, 30);
     expect(responseTime.buckets).toHaveLength(7);
-    // The busy conversation alternates customer/bot: 600 waits of 2 seconds; plus the 20-minute wait.
+    // The busy conversation's flow-bot messages are not replies (first-reply.ts), so its waits stay unanswered;
+    // the waited conversation's two customer messages are one wait, answered 20 minutes after the first.
     const samples = responseTime.buckets.reduce((sum, b) => sum + b.samples, 0);
-    expect(samples).toBe(601);
-    const total = responseTime.buckets.reduce((sum, b) => sum + (b.avgMinutes ?? 0) * b.samples, 0);
-    expect(total).toBeCloseTo(600 * (2 / 60) + 20, 3);
+    expect(samples).toBe(1);
+    expect(responseTime.buckets.find((b) => b.samples === 1)?.medianMinutes).toBeCloseTo(20, 3);
+    expect(responseTime.thisWeekMedian ?? responseTime.lastWeekMedian).toBeCloseTo(20, 3);
   });
 
   it('keeps each workspace to its own rows', async () => {

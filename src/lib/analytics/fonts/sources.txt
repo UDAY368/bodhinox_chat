@@ -1,0 +1,6 @@
+Embedded PDF report fonts (SIL Open Font License 1.1; licence texts in OFL-*.txt beside each font).
+
+NotoSans-Regular.ttf, NotoSans-Bold.ttf   https://github.com/notofonts/latin-greek-cyrillic
+NotoSansDevanagari-Regular.ttf           https://github.com/notofonts/devanagari
+NotoSansTelugu-Regular.ttf               https://github.com/notofonts/telugu
+NotoEmoji-Regular.ttf (monochrome)       https://github.com/googlefonts/noto-emoji

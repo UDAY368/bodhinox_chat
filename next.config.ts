@@ -84,6 +84,11 @@ const nextConfig: NextConfig = {
   // Docker image can run without node_modules or the Next CLI.
   // Harmless outside Docker: `next start` keeps working as before.
   output: "standalone",
+  // PDF reports (src/lib/analytics/report-pdf.ts) read the embedded Noto fonts from
+  // disk and load HarfBuzz's WebAssembly at run time; trace both into the bundle.
+  outputFileTracingIncludes: {
+    "/api/analytics/**": ["./src/lib/analytics/fonts/*.ttf", "./node_modules/harfbuzzjs/dist/*.wasm"],
+  },
 
   // Dev-only: don't forward browser console output into .next/dev/logs.
   // That log write is seen by the watcher, which rebuilds, reloads the

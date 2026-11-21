@@ -30,6 +30,7 @@ import type {
 } from '@/lib/dashboard/types';
 
 import { MetricCard } from '@/components/dashboard/metric-card';
+import { BusinessCards } from '@/components/dashboard/business-cards';
 import { SkeletonCard } from '@/components/dashboard/skeleton';
 import { QuickActions } from '@/components/dashboard/quick-actions';
 import { ConversationsChart } from '@/components/dashboard/conversations-chart';
@@ -253,6 +254,9 @@ export default function DashboardPage() {
           </>
         )}
       </div>
+
+      {/* Business cards: revenue, bookings, ad spend, AI handled (each opens its records) */}
+      <BusinessCards currency={defaultCurrency} />
 
       {/* Quick actions, with the AI workspace as one more calm row */}
       <QuickActions />

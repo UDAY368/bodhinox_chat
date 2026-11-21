@@ -8,7 +8,7 @@ vi.mock('@/lib/auth/client', () => ({ authFetch: vi.fn() }))
 const charts: DashboardCharts = {
   timezone: 'Asia/Kolkata',
   series: [{ day: '2026-11-10', incoming: 1500, outgoing: 1400 }],
-  responseTime: { buckets: [], thisWeekAvg: null, lastWeekAvg: null },
+  responseTime: { buckets: [], thisWeekMedian: null, lastWeekMedian: null },
   dealsByStage: [{ stageId: 's1', count: 1200, value: 2400 }],
 }
 

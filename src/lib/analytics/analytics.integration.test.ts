@@ -154,8 +154,6 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('analytics reports on Postgr
       started: { total: 4, inbound: 1, business: 1, campaignReply: 0, ad: 2 },
       byLifecycle: { bot: 0, requesting: 1, assigned: 2, resolved: 2 },
       firstResponse: { count: 4, unanswered: 1, medianSeconds: 210, p90Seconds: 510 },
-      // Only the member replies in v1 and v4: the AI replies in v2 and v5 do not count.
-      humanFirstResponse: { count: 2, medianSeconds: 450, p90Seconds: 570 },
       resolution: { resolved: 2, count: 2, medianSeconds: 5400, p90Seconds: 6840 },
     });
   });
@@ -200,7 +198,7 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('analytics reports on Postgr
     expect(row(owner)).toMatchObject({ conversationsHandled: 0, repliesSent: 0 });
   });
 
-  it("does not credit public-API sends to the assignee and counts only each conversation's first wait", async () => {
+  it('does not credit public-API sends to the assignee and credits each wait to the member who answered it', async () => {
     // After AGENT_ATTRIBUTION_CUTOFF, an agent row without sender_id is a public-API or integration send.
     const later = parseRange({ from: '2026-11-10', to: '2026-11-11' }, 'UTC', new Date('2026-12-01T00:00:00Z'));
     const contact = randomUUID(), api = randomUUID(), twoWaits = randomUUID();
@@ -211,7 +209,7 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('analytics reports on Postgr
     await msg(A, api, 'customer', '2026-11-10T09:00:00Z');
     await msg(A, api, 'agent', '2026-11-10T09:01:00Z');
     await msg(A, api, 'agent', '2026-11-10T09:02:00Z');
-    // Agent X answers the first wait; agent Y answers a later wait in the same conversation.
+    // Agent X answers the first wait; agent Y answers a later wait in the same conversation (first-reply.ts: every wait counts).
     await msg(A, twoWaits, 'customer', '2026-11-10T10:00:00Z');
     await msg(A, twoWaits, 'agent', '2026-11-10T10:05:00Z', { senderId: agentX });
     await msg(A, twoWaits, 'customer', '2026-11-10T11:00:00Z');
@@ -219,17 +217,17 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('analytics reports on Postgr
     const board = await runAnalytics(ctxA, (tx) => agentLeaderboard(tx, A, later));
     const row = (id: string) => board.find((r) => r.userId === id);
     expect(row(agentX)).toMatchObject({ conversationsHandled: 1, repliesSent: 1, firstResponseCount: 1, medianFirstResponseSeconds: 300 });
-    expect(row(agentY)).toMatchObject({ conversationsHandled: 1, repliesSent: 1, firstResponseCount: 0, medianFirstResponseSeconds: null });
+    expect(row(agentY)).toMatchObject({ conversationsHandled: 1, repliesSent: 1, firstResponseCount: 1, medianFirstResponseSeconds: 7200 });
     expect(row(owner)).toMatchObject({ conversationsHandled: 0, repliesSent: 0, firstResponseCount: 0 });
-    // The leaderboard agrees with the overview's first-response count (the API reply answered one wait).
+    // The overview counts the same three waits (the API reply answered one, uncredited).
     const overview = await runAnalytics(ctxA, (tx) => conversationStats(tx, A, later));
-    expect(overview.firstResponse.count).toBe(2);
+    expect(overview.firstResponse.count).toBe(3);
     // The agent_performance report uses the same attribution.
     const days = await runAnalytics(ctxA, (tx) => agentDayRows(tx, A, later));
-    expect(days.map((d) => [d.userId, d.repliesSent, d.firstResponses]).sort()).toEqual([[agentX, 1, 1], [agentY, 1, 0]].sort());
+    expect(days.map((d) => [d.userId, d.repliesSent, d.firstResponses]).sort()).toEqual([[agentX, 1, 1], [agentY, 1, 1]].sort());
   });
 
-  it('times the team reply after a bot answered first and resolutions of reopened conversations', async () => {
+  it('does not time a member reply that follows an AI answer, and times resolutions of reopened conversations', async () => {
     const days = parseRange({ from: '2026-10-16', to: '2026-10-17' }, 'UTC', new Date('2026-11-03T00:00:00Z'));
     const [h1, h2, h3] = [randomUUID(), randomUUID(), randomUUID()], botFirst = randomUUID(), reopened = randomUUID(), legacy = randomUUID();
     // One WhatsApp conversation per contact and number, so each conversation has its own contact.
@@ -256,17 +254,15 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('analytics reports on Postgr
 
     const stats = await runAnalytics(ctxA, (tx) => conversationStats(tx, A, days));
     expect(stats.firstResponse).toEqual({ count: 1, unanswered: 0, medianSeconds: 60, p90Seconds: 60 });
-    // Timed from the handoff (09:20), not from the customer's first message.
-    expect(stats.humanFirstResponse).toEqual({ count: 1, medianSeconds: 600, p90Seconds: 600 });
     // 45 minutes from the reopen, not a day from creation.
     expect(stats.resolution).toEqual({ resolved: 2, count: 1, medianSeconds: 2700, p90Seconds: 2700 });
 
-    // The member who answered after the bot gets the sample on the leaderboard and in the report.
+    // The AI answered the wait, so agent Y's later reply (no new customer message) is not a first reply.
     const board = await runAnalytics(ctxA, (tx) => agentLeaderboard(tx, A, days));
-    expect(board.find((r) => r.userId === agentY)).toMatchObject({ firstResponseCount: 1, medianFirstResponseSeconds: 600 });
+    expect(board.find((r) => r.userId === agentY)).toMatchObject({ firstResponseCount: 0, medianFirstResponseSeconds: null });
     const report = await runAnalytics(ctxA, (tx) => agentDayRows(tx, A, days));
     expect(report.filter((r) => r.userId === agentY).map((r) => [r.day, r.firstResponses, r.medianFirstResponseSeconds]))
-      .toEqual([['2026-10-16', 1, 600]]);
+      .toEqual([['2026-10-16', 0, null]]);
   });
 
   it('counts lifecycle only for conversations with activity inside the range', async () => {

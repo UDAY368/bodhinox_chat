@@ -24,7 +24,7 @@ import { useFormatter, useTranslations } from 'next-intl'
 // Single category, single colour — the data is "average minutes
 // per weekday". Tremor expects categories as the second tuple in
 // the row object, so we shape the buckets into
-// `{ day: 'Mon', 'Avg minutes': 4.2 }` rows below. The category name
+// `{ day: 'Mon', 'Median minutes': 4.2 }` rows below. The category name
 // doubles as the tooltip label, so it comes from the catalogue.
 
 export function ResponseTimeChart({
@@ -35,9 +35,9 @@ export function ResponseTimeChart({
   const t = useTranslations('Dashboard.responseTimeChart')
   const format = useFormatter()
   const category = t('avgMinutes')
-  const hasData = data?.buckets.some((b) => b.avgMinutes != null) ?? false
+  const hasData = data?.buckets.some((b) => b.medianMinutes != null) ?? false
 
-  // Map buckets → Tremor rows. Null `avgMinutes` (no samples)
+  // Map buckets → Tremor rows. Null `medianMinutes` (no samples)
   // collapses to 0; the chart will render an empty slot for it.
   // We attach `samples` on the row so a future customTooltip can
   // surface "no samples" copy without losing the data shape.
@@ -50,7 +50,7 @@ export function ResponseTimeChart({
           weekday: 'short',
           timeZone: 'UTC',
         }) || DOW_SHORT_MON_FIRST[i],
-      [category]: b.avgMinutes ?? 0,
+      [category]: b.medianMinutes ?? 0,
       samples: b.samples,
     })) ?? []
 
@@ -71,17 +71,17 @@ export function ResponseTimeChart({
               {t('target', { minutes: thresholdMinutes })}
             </span>
           )}
-          {data && (data.thisWeekAvg != null || data.lastWeekAvg != null) && (
+          {data && (data.thisWeekMedian != null || data.lastWeekMedian != null) && (
             <div>
               <div className="text-muted-foreground">
                 {t('thisWeek')}{' '}
                 <span className="font-medium text-foreground tabular-nums">
-                  {fmt(data.thisWeekAvg)}
+                  {fmt(data.thisWeekMedian)}
                 </span>
               </div>
               <div className="text-muted-foreground">
                 {t('lastWeek')}{' '}
-                <span className="tabular-nums">{fmt(data.lastWeekAvg)}</span>
+                <span className="tabular-nums">{fmt(data.lastWeekMedian)}</span>
               </div>
             </div>
           )}

@@ -207,7 +207,7 @@ describe.skipIf(!database || !authDatabase)(
         expect(waiting.attention).toMatchObject({ waiting: 1, expiring: 1, overTarget: 1, failed: 1 });
         expect(waiting.queue).toEqual([expect.objectContaining({ id, handedOff: true })]);
         expect((await db.from('conversations').select('last_reply_at').eq('id', id).single()).data!.last_reply_at).toBeNull();
-        expect((await db.from('messages').insert({ conversation_id: id, sender_type: 'bot', content_type: 'text', content_text: 'Actual answer', status: 'sent' })).error).toBeNull();
+        expect((await db.from('messages').insert({ conversation_id: id, sender_type: 'bot', content_type: 'text', content_text: 'Actual answer', status: 'sent', ai_generated: true })).error).toBeNull();
         const answered = await loadDashboardOperations(a, 7);
         expect(answered.attention.waiting).toBe(0);
         expect(answered.automated.replies).toBe(1);

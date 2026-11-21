@@ -142,9 +142,10 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('analytics CSV reports on Po
     const base = { userId: agentX, name: 'Xia', role: 'agent', conversationsHandled: 1, repliesSent: 1 };
     expect(rows).toEqual([
       { ...base, day: '2026-10-02', firstResponses: 1, medianFirstResponseSeconds: 300, resolved: 0 },
-      // Audit 31: the AI answered v2 first; Xia's 10:30 reply is the team's first response (09:00 to 10:30).
-      { ...base, day: '2026-10-03', firstResponses: 1, medianFirstResponseSeconds: 5400, resolved: 1 },
-      { ...base, day: '2026-10-04', firstResponses: 0, medianFirstResponseSeconds: null, resolved: 0 },
+      // first-reply.ts: the AI answered v2's first wait; Xia answered the next wait (09:30 to 10:30).
+      { ...base, day: '2026-10-03', firstResponses: 1, medianFirstResponseSeconds: 3600, resolved: 1 },
+      // Every wait counts: the 10-04 campaign reply was answered by an unstamped (pre-cutoff) reply, credited to the assignee.
+      { ...base, day: '2026-10-04', firstResponses: 1, medianFirstResponseSeconds: 600, resolved: 0 },
     ]);
   });
 

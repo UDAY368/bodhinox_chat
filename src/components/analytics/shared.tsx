@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, type ReactNode } from 'react';
+import Link from 'next/link';
 import { useFormatter, useTranslations } from 'next-intl';
 
 import { authFetch } from '@/lib/auth/client';
@@ -125,11 +126,14 @@ export function ChartWithTable({
   chart,
   columns,
   rows,
+  records,
 }: {
   label: string;
   chart: ReactNode;
   columns: string[];
   rows: (string | number)[][];
+  /** Links that open the records behind the chart (e.g. the inbox filtered to one state). */
+  records?: { name: string; href: string }[];
 }) {
   const t = useTranslations('Analytics');
   const format = useFormatter();
@@ -138,6 +142,16 @@ export function ChartWithTable({
       <div role="img" aria-label={label}>
         {chart}
       </div>
+      {records && records.length > 0 && (
+        <nav aria-label={t('openRecordsLabel', { chart: label })} className="flex flex-wrap gap-2">
+          {records.map((r) => (
+            <Link key={r.href} href={r.href}
+              className="inline-flex min-h-11 items-center rounded-lg border border-border px-3 text-xs font-medium text-foreground outline-none transition-colors duration-150 hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring/50">
+              {t('openRecords', { name: r.name })}
+            </Link>
+          ))}
+        </nav>
+      )}
       <details className="text-sm">
         <summary className="w-fit cursor-pointer rounded-md text-xs font-medium text-muted-foreground transition-colors duration-150 hover:text-foreground">{t('showTable')}</summary>
         <DataTable

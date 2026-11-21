@@ -152,7 +152,7 @@ describe('report queries', () => {
     const built = await buildReport(tx as never, A, 'campaign_summary', range, 'pdf');
     expect(new TextDecoder().decode(built.bytes.slice(0, 5))).toBe('%PDF-');
     expect(built).toMatchObject({ rowCount: PDF_MAX_ROWS, truncated: true });
-  });
+  }, 60_000); // 2,000 rows with embedded, subset fonts
 
   it('marks a report truncated past the row cap and keeps exactly the cap', async () => {
     const row = { day: '2026-10-01', userId: U, name: 'Xia', role: 'agent', conversationsHandled: 1, repliesSent: 2,
@@ -253,6 +253,21 @@ describe('worker job', () => {
     h.respond = (sql) => (sql.includes('FROM account_memberships m') ? [{ email: 'olu@example.test', role: 'agent' }] : base(sql));
     await handleReportJob(A, 'analytics.report', { reportId: R });
     expect(h.sent).toEqual([]);
+  });
+
+  it('writes the ready email in the recipient’s language, else the workspace’s', async () => {
+    Object.assign(process.env, { SMTP_URL: 'smtp://x', AUTH_EMAIL_FROM: 'reports@bodhinox.test', APP_URL: 'https://app.bodhinox.test' });
+    const base = claim({ email_requested: true });
+    h.respond = (sql) => (sql.includes('FROM account_memberships m')
+      ? [{ email: 'olu@example.test', role: 'admin', language: 'es', workspace_language: 'pt' }] : base(sql));
+    await handleReportJob(A, 'analytics.report', { reportId: R });
+    expect((h.sent[0] as { subject: string }).subject).toMatch(/^Tu informe está listo/);
+
+    h.sent = [];
+    h.respond = (sql) => (sql.includes('FROM account_memberships m')
+      ? [{ email: 'olu@example.test', role: 'admin', language: null, workspace_language: 'pt' }] : base(sql));
+    await handleReportJob(A, 'analytics.report', { reportId: R });
+    expect((h.sent[0] as { subject: string }).subject).toMatch(/^Seu relatório está pronto/);
   });
 
   it('deletes the uploaded file and sends no email when the row left running before the ready update', async () => {
