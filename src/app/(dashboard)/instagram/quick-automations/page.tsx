@@ -22,8 +22,8 @@
 //
 // Apple's way (b7): one large title, the shared Checkbox, Select and segmented
 // control (preview tabs), placeholders while the templates load, 44px buttons.
-// The setup stays a wide dialog: it is two panes (form and phone preview),
-// wider than any sheet size.
+// The setup opens in the widest side sheet (2xl): the form and the phone
+// preview side by side from lg up, stacked (preview under the form) on phones.
 
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
@@ -38,7 +38,6 @@ import { AndroidPhone } from '@/components/instagram/android-phone';
 import { TemplateGallery, type TemplateSummary } from '@/components/flows/template-gallery';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -46,6 +45,7 @@ import { PageHeader } from '@/components/ui/page-header';
 import { PageLoading } from '@/components/ui/page-loading';
 import { SegmentedControl } from '@/components/ui/segmented-control';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@/hooks/use-auth';
@@ -253,21 +253,21 @@ export default function InstagramQuickAutomationsPage() {
         )}
       </section>
 
-      <Dialog open={wizard !== null} onOpenChange={(open) => { if (!open && !creating) setWizard(null); }}>
-        <DialogContent className="bg-popover text-popover-foreground max-h-[92vh] overflow-y-auto sm:max-w-5xl">
+      <Sheet open={wizard !== null} onOpenChange={(open) => { if (!open && !creating) setWizard(null); }}>
+        <SheetContent side="right" size="2xl" className="gap-0 p-0">
           {active && (
             <form
-              className="space-y-4"
+              className="flex min-h-0 flex-1 flex-col"
               onSubmit={(event) => {
                 event.preventDefault();
                 void finishWizard();
               }}
             >
-              <DialogHeader>
-                <DialogTitle>{t(`${active.key}.title`)}</DialogTitle>
-                <DialogDescription className="text-muted-foreground">{t(`${active.key}.description`)}</DialogDescription>
-              </DialogHeader>
-              <div className="grid grid-cols-1 gap-6 md:grid-cols-[minmax(0,1fr)_19rem]">
+              <SheetHeader className="border-b border-border/50 pr-12">
+                <SheetTitle>{t(`${active.key}.title`)}</SheetTitle>
+                <SheetDescription>{t(`${active.key}.description`)}</SheetDescription>
+              </SheetHeader>
+              <div className="grid min-h-0 flex-1 grid-cols-1 content-start gap-6 overflow-y-auto p-4 lg:grid-cols-[minmax(0,1fr)_19rem]">
                 <div className="min-w-0" onFocusCapture={(event) => {
                   const name = (event.target as HTMLElement).closest<HTMLElement>('[data-field]')?.dataset.field;
                   if (name) setPreviewTab(FIELD_TAB[name] ?? 'dm');
@@ -284,18 +284,18 @@ export default function InstagramQuickAutomationsPage() {
                     error={fieldError}
                   />
                 </div>
-                <div className="md:sticky md:top-0 md:self-start">
+                <div className="lg:sticky lg:top-0 lg:self-start">
                   <WizardPreview wizard={active.id} values={values} choices={choices} posts={posts} tab={previewTab} onTab={setPreviewTab} />
                 </div>
               </div>
-              <DialogFooter>
+              <SheetFooter className="flex-row justify-end border-t border-border/50">
                 <Button type="button" variant="outline" disabled={creating} onClick={() => setWizard(null)}>{t('cancel')}</Button>
                 <Button type="submit" disabled={creating}>{creating ? t('creating') : t('finish')}</Button>
-              </DialogFooter>
+              </SheetFooter>
             </form>
           )}
-        </DialogContent>
-      </Dialog>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }

@@ -10,7 +10,7 @@ import { Loader2, Plus, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { authFetch } from '@/lib/auth/client';
@@ -58,12 +58,13 @@ export function LeadFormDialog({ open, onOpenChange, onCreated }: {
   };
 
   return (
-    <Dialog open={open} onOpenChange={(next) => { if (!busy) onOpenChange(next); }}>
-      <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-lg" data-testid="lead-form-dialog">
-        <DialogHeader>
-          <DialogTitle>{t('title')}</DialogTitle>
-          <DialogDescription>{t('description')}</DialogDescription>
-        </DialogHeader>
+    <Sheet open={open} onOpenChange={(next) => { if (!busy) onOpenChange(next); }}>
+      <SheetContent side="right" size="lg" className="gap-0 p-0" data-testid="lead-form-dialog">
+        <SheetHeader className="border-b border-border/50 pr-12">
+          <SheetTitle>{t('title')}</SheetTitle>
+          <SheetDescription>{t('description')}</SheetDescription>
+        </SheetHeader>
+        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4">
         <div className="space-y-4">
           <div className="space-y-1">
             <Label htmlFor="lead-form-name">{t('name')}</Label>
@@ -107,13 +108,14 @@ export function LeadFormDialog({ open, onOpenChange, onCreated }: {
             <Input id="lead-form-thanks" value={thankYou} maxLength={160} onChange={(e) => setThankYou(e.target.value)} placeholder={t('thankYouPlaceholder')} />
           </div>
         </div>
-        <DialogFooter>
+        </div>
+        <SheetFooter className="flex-row flex-wrap justify-end border-t border-border/50">
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={busy}>{t('cancel')}</Button>
           <Button type="button" onClick={() => void save()} disabled={!valid || busy}>
             {busy && <Loader2 className="size-3.5 animate-spin" />} {t('create')}
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </SheetFooter>
+      </SheetContent>
+    </Sheet>
   );
 }

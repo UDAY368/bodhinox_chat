@@ -1,7 +1,7 @@
 'use client';
 
 // ============================================================
-// SegmentBuilderDialog — create or edit a saved segment: a name and
+// SegmentBuilderDialog — a wide side sheet to create or edit a saved segment: a name and
 // a list of conditions that must all match, or (Stage 5) any one of
 // them (lib/audience/filter), with a live count of matching and
 // marketable contacts.
@@ -14,13 +14,13 @@ import { useTranslations } from 'next-intl';
 
 import { Button } from '@/components/ui/button';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+} from '@/components/ui/sheet';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { SegmentedControl } from '@/components/ui/segmented-control';
@@ -194,14 +194,14 @@ export function SegmentBuilderDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90dvh] overflow-y-auto border-border bg-popover sm:max-w-2xl">
-        <DialogHeader>
-          <DialogTitle className="text-popover-foreground">{segment ? t('editTitle') : t('newTitle')}</DialogTitle>
-          <DialogDescription className="text-muted-foreground">{t('builderDesc')}</DialogDescription>
-        </DialogHeader>
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent side="right" size="xl" className="gap-0 p-0">
+        <SheetHeader className="border-b border-border/50 pr-12">
+          <SheetTitle>{segment ? t('editTitle') : t('newTitle')}</SheetTitle>
+          <SheetDescription>{t('builderDesc')}</SheetDescription>
+        </SheetHeader>
 
-        <div className="space-y-4">
+        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4">
           <div className="space-y-1.5">
             <Label htmlFor="segment-name" className="text-muted-foreground">{t('nameLabel')}</Label>
             <Input id="segment-name" value={name} maxLength={100} onChange={(e) => setName(e.target.value)} placeholder={t('namePlaceholder')} />
@@ -464,7 +464,7 @@ export function SegmentBuilderDialog({
           </p>
         </div>
 
-        <DialogFooter>
+        <SheetFooter className="flex-row justify-end border-t border-border/50">
           <Button variant="outline" onClick={() => onOpenChange(false)} className="border-border text-muted-foreground hover:bg-muted">
             {t('cancel')}
           </Button>
@@ -472,8 +472,8 @@ export function SegmentBuilderDialog({
             {saving && <Loader2 className="size-4 animate-spin" />}
             {t('save')}
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </SheetFooter>
+      </SheetContent>
+    </Sheet>
   );
 }

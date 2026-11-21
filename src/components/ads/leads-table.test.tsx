@@ -11,7 +11,8 @@ vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn() }) }));
 vi.mock('@/lib/auth/client', () => ({ authFetch: vi.fn() }));
 
 import { ConfirmProvider } from '@/components/ui/confirm-dialog';
-import { LeadsTable, createRequestSequencer } from './leads-table';
+import type { LeadDto } from '@/lib/meta-ads/leads';
+import { LeadsTable, createRequestSequencer, leadSummary } from './leads-table';
 
 const render = (canManage: boolean) =>
   renderToStaticMarkup(
@@ -58,5 +59,22 @@ describe('createRequestSequencer', () => {
     const third = seq.next();
     expect(seq.isCurrent(second)).toBe(false);
     expect(seq.isCurrent(third)).toBe(true);
+  });
+});
+
+describe('leadSummary (phone rows)', () => {
+  const base: LeadDto = {
+    id: 'l1', leadgenId: 'g1', formId: 'f1', formName: 'Spring form', adId: '42', adName: null, campaignName: null,
+    status: 'fetched', answers: [{ name: 'email', values: ['a@example.com'] }, { name: 'city', values: ['Pune', 'Mumbai'] }],
+    contactId: null, contactName: null, leadCreatedAt: null, receivedAt: '2026-11-20T10:00:00.000Z',
+  };
+
+  it('lists the form, the ad and the answers after the time', () => {
+    const text = leadSummary(base, (k) => k);
+    expect(text).toContain('Spring form · 42 · a@example.com · Pune, Mumbai');
+  });
+
+  it('says why a lead has no answers yet', () => {
+    expect(leadSummary({ ...base, status: 'pending', answers: [] }, (k) => k)).toContain('leads.status.pending');
   });
 });

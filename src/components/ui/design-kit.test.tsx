@@ -9,6 +9,7 @@ import { ConfirmDialog, ConfirmProvider, useConfirm } from './confirm-dialog';
 import { GroupedList, GroupedListRow } from './grouped-list';
 import { PageHeader } from './page-header';
 import { SegmentedControl, nextIndex } from './segmented-control';
+import { SHEET_SIZES } from './sheet';
 
 const render = (node: React.ReactNode) =>
   renderToStaticMarkup(
@@ -134,5 +135,16 @@ describe('ConfirmDialog and useConfirm', () => {
   it('a closed dialog renders nothing', () => {
     const html = render(<ConfirmDialog open={false} onOpenChange={() => {}} title="Delete?" onConfirm={() => {}} />);
     expect(html).not.toContain('Delete?');
+  });
+});
+
+describe('Sheet sizes', () => {
+  it('offers wide side-sheet sizes for tables and two-pane forms, full width on phones', () => {
+    expect(SHEET_SIZES.xl).toContain('data-[side=right]:sm:max-w-3xl');
+    expect(SHEET_SIZES['2xl']).toContain('data-[side=right]:sm:max-w-5xl');
+    // Every width applies only from sm up, so a phone gets the full-width side sheet.
+    for (const cls of Object.values(SHEET_SIZES)) {
+      for (const token of cls.split(' ')) expect(token).toMatch(/:sm:max-w-/);
+    }
   });
 });
