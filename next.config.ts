@@ -77,7 +77,9 @@ const APP_LOCALE = ["en", "pt", "es", "ko"].includes(process.env.NEXT_PUBLIC_APP
 const nextConfig: NextConfig = {
   turbopack: {
     resolveAlias: {
-      "@app-messages": `./messages/${APP_LOCALE}.json`,
+      // Browser code gets the catalogue the root layout already sent (src/i18n/browser-messages.ts)
+      // instead of bundling the whole file into every page.
+      "@app-messages": { browser: "./src/i18n/browser-messages.ts", default: `./messages/${APP_LOCALE}.json` },
     },
   },
   // Emit a self-contained server bundle (.next/standalone) so the

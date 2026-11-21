@@ -31,11 +31,20 @@ export type Translate = (key: string, values?: TranslateValues) => string;
  * catalogue; literal WhatsApp `{{1}}` must be passed in as a value.
  */
 export function getT(namespace: string): Translate {
-  cached ??= loadCatalogue();
-  const t = createTranslator({
-    locale: cached.locale,
-    messages: cached.messages,
-    namespace: namespace as never,
-  }) as unknown as (key: string, values?: TranslateValues) => string;
-  return (key, values) => t(key, values);
+  // Made on the first call, not here: many modules call getT at load time, and in the browser
+  // the catalogue arrives when the root layout renders (src/i18n/browser-messages.ts). Until it
+  // has arrived nothing is cached, so the first translation after it is right.
+  let t: ((key: string, values?: TranslateValues) => string) | null = null;
+  return (key, values) => {
+    if (!t) {
+      cached ??= loadCatalogue();
+      if (!Object.keys(cached.messages).length) return `${namespace}.${key}`;
+      t = createTranslator({
+        locale: cached.locale,
+        messages: cached.messages,
+        namespace: namespace as never,
+      }) as unknown as (key: string, values?: TranslateValues) => string;
+    }
+    return t(key, values);
+  };
 }
