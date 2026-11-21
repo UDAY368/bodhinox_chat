@@ -5,16 +5,18 @@
 // points there only while platform billing is configured).
 
 import { useEffect, useState } from 'react';
-import { Check, Loader2, X } from 'lucide-react';
+import { Check, X } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 
 import { authFetch } from '@/lib/auth/client';
 import { FEATURES } from '@/lib/billing/entitlements-catalogue';
 import { usePlanState } from '@/lib/billing/client';
-import { Button } from '@/components/ui/button';
+import { GroupedListRow } from '@/components/ui/grouped-list';
+import { InlineError } from '@/components/ui/inline-error';
+import { PageLoading } from '@/components/ui/page-loading';
 import { SettingsPanelHead } from './settings-panel-head';
 import { UsageMeters } from './billing/usage-meters';
-import { SettingsBlock, SettingsGroup } from './settings-row';
+import { SettingsGroup } from './settings-row';
 
 export function PlanPanel() {
   const t = useTranslations('Settings.plan');
@@ -34,25 +36,19 @@ export function PlanPanel() {
     <section className="max-w-3xl animate-in fade-in-50 space-y-4 duration-200">
       <SettingsPanelHead title={t('title')} description={t('description')} />
       {plan === undefined ? (
-        <Loader2 className="size-5 animate-spin text-primary" />
+        <PageLoading rows={4} />
       ) : plan === null ? (
-        <div className="flex items-center gap-3 text-sm text-muted-foreground">
-          {t('loadFailed')}
-          <Button variant="outline" size="sm" onClick={reload}>{t('retry')}</Button>
-        </div>
+        <InlineError message={t('loadFailed')} onRetry={reload} />
       ) : (
         <>
           <SettingsGroup title={<span data-testid="plan-name">{t('current', { plan: plan.planName })}</span>}>
-            <SettingsBlock>
-              <ul className="grid gap-2 sm:grid-cols-2">
-                {FEATURES.map((feature) => (
-                  <li key={feature} className="flex items-center gap-2 text-sm">
-                    {plan.features[feature] ? <Check className="size-4 text-emerald-500" /> : <X className="size-4 text-muted-foreground" />}
-                    <span className={plan.features[feature] ? 'text-foreground' : 'text-muted-foreground'}>{t(`features.${feature}`)}</span>
-                  </li>
-                ))}
-              </ul>
-            </SettingsBlock>
+            {FEATURES.map((feature) => (
+              <GroupedListRow
+                key={feature}
+                leading={plan.features[feature] ? <Check className="size-4 text-emerald-500" aria-hidden /> : <X className="size-4 text-muted-foreground" aria-hidden />}
+                title={<span className={plan.features[feature] ? 'text-foreground' : 'text-muted-foreground'}>{t(`features.${feature}`)}</span>}
+              />
+            ))}
           </SettingsGroup>
           <UsageMeters plan={plan} />
           <p className="text-xs text-muted-foreground" data-testid="plan-upgrade-hint">{t(billingConfigured ? 'upgradeHintBilling' : 'upgradeHint')}</p>

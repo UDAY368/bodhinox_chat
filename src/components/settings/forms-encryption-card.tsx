@@ -19,7 +19,9 @@ import { useConfirm } from "@/components/ui/confirm-dialog";
 import { authFetch } from "@/lib/auth/client";
 import { NumberSelect } from "./numbers/number-select";
 import { useWhatsAppNumbers } from "./numbers/use-whatsapp-numbers";
-import { SettingsBlock, SettingsGroup } from "./settings-row";
+import { GroupedListRow } from "@/components/ui/grouped-list";
+import { cn } from "@/lib/utils";
+import { SETTINGS_ROW_HAIRLINE, SettingsGroup, SettingsRow } from "./settings-row";
 
 type KeyStatus = { number_id: string | null; configured: boolean; uploaded_at: string | null };
 
@@ -64,45 +66,48 @@ export function FormsEncryptionCard({ canEdit, numberId: initialNumberId = null 
     }
   };
 
+  const loading = !status && !loadFailed;
   return (
-    <SettingsGroup title={t("title")} footer={t("description")}>
-      <SettingsBlock className="space-y-3">
-        {numbers.length > 1 && (
-          <>
-            <label htmlFor="forms-encryption-number" className="sr-only">{t("numberLabel")}</label>
-            <NumberSelect
-              id="forms-encryption-number"
-              numbers={numbers}
-              value={numberId}
-              onChange={setNumberId}
-              emptyLabel={t("defaultNumber")}
-              disabled={working}
-            />
-          </>
-        )}
-        {!status && !loadFailed ? (
-          <Loader2 className="size-4 animate-spin text-primary" />
-        ) : (
-          <>
-            <p className={loadFailed ? "text-xs text-destructive" : "text-xs text-muted-foreground"}>
+    <SettingsGroup
+      title={t("title")}
+      footer={status?.configured && canEdit && !loadFailed ? <>{t("description")} {t("rotateHint")}</> : t("description")}
+      action={canEdit && !loadFailed && !loading ? (
+        <Button type="button" size="sm" className="min-h-11 sm:min-h-8" variant={status?.configured ? "outline" : "default"} onClick={generate} disabled={working}>
+          {working ? <Loader2 className="size-3.5 animate-spin" /> : <KeyRound className="size-3.5" />}
+          {status?.configured ? t("rotate") : t("generate")}
+        </Button>
+      ) : undefined}
+    >
+      {numbers.length > 1 && (
+        <SettingsRow label={t("numberLabel")} htmlFor="forms-encryption-number">
+          <NumberSelect
+            id="forms-encryption-number"
+            numbers={numbers}
+            value={numberId}
+            onChange={setNumberId}
+            emptyLabel={t("defaultNumber")}
+            disabled={working}
+          />
+        </SettingsRow>
+      )}
+      {loading ? (
+        <div className={cn(SETTINGS_ROW_HAIRLINE, "flex min-h-11 items-center px-4 py-3")} aria-busy="true">
+          <div className="h-3.5 w-1/2 animate-pulse rounded bg-muted" />
+        </div>
+      ) : (
+        <GroupedListRow
+          leading={<KeyRound className={loadFailed ? "size-4 text-destructive" : "size-4 text-muted-foreground"} aria-hidden />}
+          title={
+            <span className={loadFailed ? "text-sm text-destructive" : "text-sm"}>
               {loadFailed
                 ? t("loadFailed")
                 : status?.configured && status.uploaded_at
                   ? t("configuredAt", { date: new Date(status.uploaded_at).toLocaleString() })
                   : t("notConfigured")}
-            </p>
-            {canEdit && !loadFailed && (
-              <div className="space-y-1">
-                <Button type="button" size="sm" variant={status?.configured ? "outline" : "default"} onClick={generate} disabled={working}>
-                  {working ? <Loader2 className="size-3.5 animate-spin" /> : <KeyRound className="size-3.5" />}
-                  {status?.configured ? t("rotate") : t("generate")}
-                </Button>
-                {status?.configured && <p className="text-xs text-muted-foreground">{t("rotateHint")}</p>}
-              </div>
-            )}
-          </>
-        )}
-      </SettingsBlock>
+            </span>
+          }
+        />
+      )}
     </SettingsGroup>
   );
 }

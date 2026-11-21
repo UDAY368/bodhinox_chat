@@ -9,8 +9,8 @@ import { useTranslations } from 'next-intl';
 
 import { authFetch } from '@/lib/auth/client';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { PasswordInput } from '@/components/ui/password-input';
+import { SettingsBlock, SettingsRow } from '../settings-row';
 
 export interface MfaState {
   /** The user has a verified authenticator (a code is required). */
@@ -65,6 +65,11 @@ export async function sendJson<T = Record<string, unknown>>(url: string, method:
   }
 }
 
+/** An error line inside a group. */
+export function GroupError({ error }: { error: string | null }) {
+  return error ? <SettingsBlock className="py-3"><p role="alert" className="text-sm text-destructive">{error}</p></SettingsBlock> : null;
+}
+
 /** The translated text for a failed action (falls back to the server's message, then a generic one). */
 export function useActionError() {
   const t = useTranslations('Settings.privacy.errors');
@@ -78,6 +83,7 @@ export function useActionError() {
  * Password (when `identity` and the user has one) and authenticator code (when the
  * user has MFA) inputs. Google-only accounts re-confirm by signing in with Google
  * again; the server answers google_reauth_required and the card shows that text.
+ * Renders settings rows, so place it directly inside a SettingsGroup.
  */
 export function StepUpFields({
   idPrefix,
@@ -99,21 +105,19 @@ export function StepUpFields({
   const t = useTranslations('Settings.privacy.stepUp');
   const showPassword = identity && (mfa?.passwordSet ?? true);
   return (
-    <div className="grid gap-3 sm:grid-cols-2">
+    <>
       {showPassword ? (
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor={`${idPrefix}-password`}>{t('password')}</Label>
+        <SettingsRow label={t('password')} htmlFor={`${idPrefix}-password`}>
           <PasswordInput
             id={`${idPrefix}-password`}
             autoComplete="current-password"
             value={password}
             onChange={(e) => onPassword(e.target.value)}
           />
-        </div>
+        </SettingsRow>
       ) : null}
       {mfa?.enabled ? (
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor={`${idPrefix}-code`}>{t('code')}</Label>
+        <SettingsRow label={t('code')} htmlFor={`${idPrefix}-code`}>
           <Input
             id={`${idPrefix}-code`}
             inputMode="text"
@@ -122,11 +126,11 @@ export function StepUpFields({
             onChange={(e) => onCode(e.target.value.trim())}
             placeholder={t('codePlaceholder')}
           />
-        </div>
+        </SettingsRow>
       ) : null}
       {identity && mfa && !mfa.passwordSet ? (
-        <p className="text-xs text-muted-foreground sm:col-span-2">{t('googleHint')}</p>
+        <SettingsBlock className="py-3 text-xs text-muted-foreground">{t('googleHint')}</SettingsBlock>
       ) : null}
-    </div>
+    </>
   );
 }

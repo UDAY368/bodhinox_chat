@@ -11,9 +11,10 @@ import {
 } from '@/lib/settings/reply-target';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import { InlineError } from '@/components/ui/inline-error';
+import { cn } from '@/lib/utils';
 import { SettingsPanelHead } from './settings-panel-head';
-import { SettingsBlock, SettingsGroup } from './settings-row';
+import { SETTINGS_ROW_HAIRLINE, SettingsGroup, SettingsRow } from './settings-row';
 
 export function InboxSettings() {
   const t = useTranslations('inboxSettings');
@@ -79,78 +80,67 @@ export function InboxSettings() {
     }
   }
 
+  const ready = !(loading || profileLoading) && saved !== null;
+
   return (
     <section className="max-w-2xl">
       <SettingsPanelHead title={t('title')} description={t('description')} />
-      <SettingsGroup>
-        <SettingsBlock className="space-y-4">
-          {loading || profileLoading ? (
-            <p role="status">{t('loading')}</p>
-          ) : (
-            <>
-              {error && (
-                <p role="alert" className="text-destructive">
-                  {t('error')}
-                </p>
-              )}
-              {saved === null ? (
-                <Button onClick={() => setRetry((v) => v + 1)}>
-                  {t('retry')}
-                </Button>
-              ) : (
-                <>
-                  <div className="grid max-w-sm gap-2">
-                    <Label htmlFor="reply-target">{t('label')}</Label>
-                    <Input
-                      id="reply-target"
-                      type="number"
-                      min={REPLY_TARGET_MIN}
-                      max={REPLY_TARGET_MAX}
-                      step={1}
-                      value={value}
-                      disabled={!canEditSettings || saving}
-                      aria-describedby="reply-target-help"
-                      aria-invalid={parsed === null}
-                      onChange={(event) => {
-                        setValue(event.target.value);
-                        setSuccess(false);
-                      }}
-                    />
-                    <p
-                      id="reply-target-help"
-                      className="text-muted-foreground text-sm"
-                    >
-                      {t('help')}
-                    </p>
-                    {parsed === null && (
-                      <p role="alert" className="text-destructive text-sm">
-                        {t('invalid')}
-                      </p>
-                    )}
-                  </div>
-                  {!canEditSettings && (
-                    <p className="text-muted-foreground text-sm">
-                      {t('readOnly')}
-                    </p>
-                  )}
-                  {canEditSettings && (
-                    <Button
-                      disabled={saving || parsed === null || parsed === saved}
-                      onClick={() => void save()}
-                    >
-                      {t(saving ? 'saving' : 'save')}
-                    </Button>
-                  )}
-                  {success && (
-                    <p role="status" className="text-primary text-sm">
-                      {t('saved')}
-                    </p>
-                  )}
-                </>
-              )}
-            </>
-          )}
-        </SettingsBlock>
+      <SettingsGroup
+        footer={ready && !canEditSettings ? t('readOnly') : undefined}
+        action={ready && canEditSettings ? (
+          <Button
+            size="sm"
+            className="min-h-11 sm:min-h-8"
+            disabled={saving || parsed === null || parsed === saved}
+            onClick={() => void save()}
+          >
+            {t(saving ? 'saving' : 'save')}
+          </Button>
+        ) : undefined}
+      >
+        {loading || profileLoading ? (
+          <div className={cn(SETTINGS_ROW_HAIRLINE, 'flex min-h-11 items-center gap-4 px-4 py-3')} role="status" aria-label={t('loading')}>
+            <div className="h-4 flex-1 animate-pulse rounded bg-muted motion-reduce:animate-none" />
+            <div className="h-9 w-32 animate-pulse rounded-md bg-muted motion-reduce:animate-none" />
+          </div>
+        ) : saved === null ? (
+          <InlineError message={t('error')} onRetry={() => setRetry((v) => v + 1)} />
+        ) : (
+          <>
+            {error && (
+              <div className={cn(SETTINGS_ROW_HAIRLINE, 'px-4 py-3')}>
+                <p role="alert" className="text-destructive text-sm">{t('error')}</p>
+              </div>
+            )}
+            <SettingsRow
+              label={t('label')}
+              htmlFor="reply-target"
+              hint={<span id="reply-target-help">{t('help')}</span>}
+              error={parsed === null ? t('invalid') : null}
+            >
+              <Input
+                id="reply-target"
+                type="number"
+                min={REPLY_TARGET_MIN}
+                max={REPLY_TARGET_MAX}
+                step={1}
+                value={value}
+                disabled={!canEditSettings || saving}
+                aria-describedby="reply-target-help"
+                aria-invalid={parsed === null}
+                onChange={(event) => {
+                  setValue(event.target.value);
+                  setSuccess(false);
+                }}
+              />
+            </SettingsRow>
+            {success && (
+              <div className={cn(SETTINGS_ROW_HAIRLINE, 'px-4 py-3')}>
+                <p role="status" className="text-primary text-sm">{t('saved')}</p>
+              </div>
+            )}
+          </>
+        )}
       </SettingsGroup>
     </section>
   );

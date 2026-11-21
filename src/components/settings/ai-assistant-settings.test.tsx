@@ -92,8 +92,8 @@ describe('quality helpers', () => {
 
 describe('components', () => {
   it('render a loading state first (they fetch after mount)', () => {
-    expect(render(<AiAssistantSettings />)).toContain('animate-spin');
-    expect(render(<AiQuality />)).toContain('animate-spin');
+    expect(render(<AiAssistantSettings />)).toContain('animate-pulse');
+    expect(render(<AiQuality />)).toContain('animate-pulse');
   });
 
   it.skipIf(!messages.AiAssistantSettings || !messages.AiQuality)('every string they use exists in the catalogue', () => {

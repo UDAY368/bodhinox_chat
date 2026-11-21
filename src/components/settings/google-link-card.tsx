@@ -7,8 +7,8 @@ import { authFetch, createAuthClient } from '@/lib/auth/client';
 import { useAuth } from '@/hooks/use-auth';
 import { Button } from '@/components/ui/button';
 import { PasswordInput } from '@/components/ui/password-input';
-import { Label } from '@/components/ui/label';
-import { SettingsBlock, SettingsGroup } from './settings-row';
+import { GroupedListRow } from '@/components/ui/grouped-list';
+import { SettingsBlock, SettingsGroup, SettingsRow } from './settings-row';
 
 type Status = {
   configured: boolean;
@@ -100,30 +100,47 @@ export function GoogleLinkCard() {
     }
   }
 
+  const footer = status.linked ? t('linkedAs', { email: status.linked.email }) : t('description');
+  const messageRow = message ? (
+    <SettingsBlock className="py-3">
+      <p role="status" className="text-sm">
+        {message}
+      </p>
+    </SettingsBlock>
+  ) : null;
+
+  if (!status.passwordSet) {
+    return (
+      <SettingsGroup title={t('title')} footer={footer} testId="google-link-no-password">
+        <SettingsBlock className="py-3">
+          <p className="text-muted-foreground text-sm">{t('noPassword')}</p>
+        </SettingsBlock>
+        {messageRow}
+        <GroupedListRow
+          title={<span className={busy || !user?.email ? 'text-muted-foreground' : 'text-primary'}>{t('setPassword')}</span>}
+          onClick={busy || !user?.email ? undefined : () => void sendSetPasswordLink()}
+        />
+      </SettingsGroup>
+    );
+  }
+
   return (
-    <SettingsGroup title={t('title')} footer={status.linked ? t('linkedAs', { email: status.linked.email }) : t('description')}>
-      <SettingsBlock>
-        {!status.passwordSet ? (
-          <div className="flex flex-col gap-3" data-testid="google-link-no-password">
-            <p className="text-muted-foreground text-sm">{t('noPassword')}</p>
-            {message && (
-              <p role="status" className="text-sm">
-                {message}
-              </p>
-            )}
-            <Button type="button" variant="outline" disabled={busy || !user?.email} className="self-start" onClick={() => void sendSetPasswordLink()}>
-              {t('setPassword')}
-            </Button>
-          </div>
-        ) : (
-        <form
-          className="flex flex-col gap-3"
-          onSubmit={(event) => {
-            event.preventDefault();
-            void submit(status.linked ? 'DELETE' : 'POST');
-          }}
-        >
-          <Label htmlFor="google-link-password">{t('passwordLabel')}</Label>
+    <form
+      onSubmit={(event) => {
+        event.preventDefault();
+        void submit(status.linked ? 'DELETE' : 'POST');
+      }}
+    >
+      <SettingsGroup
+        title={t('title')}
+        footer={footer}
+        action={
+          <Button type="submit" size="sm" variant={status.linked ? 'outline' : 'default'} disabled={busy || !password} className="min-h-11 sm:min-h-8">
+            {status.linked ? t('unlink') : t('link')}
+          </Button>
+        }
+      >
+        <SettingsRow label={t('passwordLabel')} htmlFor="google-link-password" hint={status.linked ? t('unlinkHint') : undefined}>
           <PasswordInput
             id="google-link-password"
             autoComplete="current-password"
@@ -131,18 +148,9 @@ export function GoogleLinkCard() {
             onChange={(event) => setPassword(event.target.value)}
             required
           />
-          {status.linked && <p className="text-muted-foreground text-xs">{t('unlinkHint')}</p>}
-          {message && (
-            <p role="status" className="text-sm">
-              {message}
-            </p>
-          )}
-          <Button type="submit" variant="outline" disabled={busy || !password} className="self-start">
-            {status.linked ? t('unlink') : t('link')}
-          </Button>
-        </form>
-        )}
-      </SettingsBlock>
-    </SettingsGroup>
+        </SettingsRow>
+        {messageRow}
+      </SettingsGroup>
+    </form>
   );
 }

@@ -4884,7 +4884,8 @@
       "editAria": "{name} 편집",
       "save": "저장",
       "tagUpdated": "태그가 업데이트되었습니다",
-      "failedToUpdateTag": "태그를 업데이트할 수 없습니다"
+      "failedToUpdateTag": "태그를 업데이트할 수 없습니다",
+      "tagNameLabel": "태그 이름"
     },
     "templates": {
       "title": "메시지 템플릿",
@@ -5625,7 +5626,8 @@
       "deleted": "속성이 삭제되었습니다",
       "loadFailed": "속성을 불러올 수 없습니다",
       "saveFailed": "속성을 저장할 수 없습니다",
-      "deleteFailed": "속성을 삭제할 수 없습니다"
+      "deleteFailed": "속성을 삭제할 수 없습니다",
+      "add": "속성 추가"
     },
     "plan": {
       "title": "요금제 및 사용량",
@@ -15818,7 +15820,9 @@
       },
       "wholePage": "All services",
       "copy": "Copy",
-      "copyNamed": "Copy link for {name}"
+      "copyNamed": "Copy link for {name}",
+      "deleteConfirm": "이 예약 페이지를 삭제할까요?",
+      "deleteBody": "링크가 즉시 작동하지 않게 됩니다."
     },
     "tasks": {
       "title": "할 일",

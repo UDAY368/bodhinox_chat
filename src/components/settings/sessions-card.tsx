@@ -15,7 +15,8 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { useTranslations } from 'next-intl';
-import { SettingsBlock, SettingsGroup } from './settings-row';
+import { GroupedListRow } from '@/components/ui/grouped-list';
+import { SettingsGroup } from './settings-row';
 
 export function SessionsCard() {
   const t = useTranslations('Settings.profile');
@@ -47,16 +48,7 @@ export function SessionsCard() {
     <>
       <SettingsGroup title={<><LogOut className="size-4 text-primary" />
             {t('sessionsTitle')}</>} footer={t('sessionsDesc')}>
-        <SettingsBlock>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => setOpen(true)}
-          >
-            <LogOut className="size-4" />
-            {t('signOutAll')}
-          </Button>
-        </SettingsBlock>
+        <GroupedListRow destructive title={t('signOutAll')} onClick={() => setOpen(true)} />
       </SettingsGroup>
 
       <Dialog open={open} onOpenChange={setOpen}>

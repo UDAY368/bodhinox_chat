@@ -10,10 +10,9 @@ import { useTranslations } from 'next-intl';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { authFetch } from '@/lib/auth/client';
 import type { BillingProfileView } from './types';
-import { SettingsBlock, SettingsGroup } from '../settings-row';
+import { SettingsGroup, SettingsRow } from '../settings-row';
 
 type Form = Record<'legal_name' | 'gstin' | 'address_line1' | 'address_line2' | 'city' | 'state_code' | 'postal_code' | 'country' | 'email', string>;
 
@@ -50,33 +49,30 @@ export function BillingProfileForm({ profile, onSaved }: { profile: BillingProfi
     }
   };
 
-  const field = (key: keyof Form, opts: { required?: boolean; maxLength: number; type?: string; className?: string; autoComplete?: string }) => (
-    <div className={`space-y-1.5 ${opts.className ?? ''}`}>
-      <Label htmlFor={`billing-${key}`}>{t(`fields.${key}`)}</Label>
+  const field = (key: keyof Form, opts: { required?: boolean; maxLength: number; type?: string; autoComplete?: string; hint?: string }) => (
+    <SettingsRow label={t(`fields.${key}`)} htmlFor={`billing-${key}`} hint={opts.hint}>
       <Input id={`billing-${key}`} value={form[key]} onChange={set(key)} required={opts.required} maxLength={opts.maxLength}
         type={opts.type ?? 'text'} autoComplete={opts.autoComplete} />
-    </div>
+    </SettingsRow>
   );
 
   return (
-    <SettingsGroup title={t('title')} footer={t('description')}>
-      <SettingsBlock>
-        <form onSubmit={save} className="grid gap-4 sm:grid-cols-2">
-          {field('legal_name', { required: true, maxLength: 200, className: 'sm:col-span-2', autoComplete: 'organization' })}
-          {field('gstin', { maxLength: 15 })}
-          {field('email', { required: true, maxLength: 254, type: 'email', autoComplete: 'email' })}
-          {field('address_line1', { required: true, maxLength: 200, className: 'sm:col-span-2', autoComplete: 'address-line1' })}
-          {field('address_line2', { maxLength: 200, className: 'sm:col-span-2', autoComplete: 'address-line2' })}
-          {field('city', { required: true, maxLength: 100, autoComplete: 'address-level2' })}
-          {field('postal_code', { required: true, maxLength: 20, autoComplete: 'postal-code' })}
-          {field('state_code', { maxLength: 2 })}
-          {field('country', { required: true, maxLength: 2, autoComplete: 'country' })}
-          <p className="text-xs text-muted-foreground sm:col-span-2">{t('stateHint')}</p>
-          <div className="sm:col-span-2">
-            <Button type="submit" disabled={saving}>{saving && <Loader2 className="size-4 animate-spin" />}{t('save')}</Button>
-          </div>
-        </form>
-      </SettingsBlock>
-    </SettingsGroup>
+    <form onSubmit={save}>
+      <SettingsGroup
+        title={t('title')}
+        footer={t('description')}
+        action={<Button type="submit" size="sm" disabled={saving} className="min-h-11 sm:min-h-8">{saving && <Loader2 className="size-4 animate-spin" />}{t('save')}</Button>}
+      >
+        {field('legal_name', { required: true, maxLength: 200, autoComplete: 'organization' })}
+        {field('gstin', { maxLength: 15 })}
+        {field('email', { required: true, maxLength: 254, type: 'email', autoComplete: 'email' })}
+        {field('address_line1', { required: true, maxLength: 200, autoComplete: 'address-line1' })}
+        {field('address_line2', { maxLength: 200, autoComplete: 'address-line2' })}
+        {field('city', { required: true, maxLength: 100, autoComplete: 'address-level2' })}
+        {field('postal_code', { required: true, maxLength: 20, autoComplete: 'postal-code' })}
+        {field('state_code', { maxLength: 2, hint: t('stateHint') })}
+        {field('country', { required: true, maxLength: 2, autoComplete: 'country' })}
+      </SettingsGroup>
+    </form>
   );
 }

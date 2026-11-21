@@ -4884,7 +4884,8 @@
       "editAria": "Editar {name}",
       "save": "Guardar",
       "tagUpdated": "Etiqueta actualizada",
-      "failedToUpdateTag": "No se pudo actualizar la etiqueta"
+      "failedToUpdateTag": "No se pudo actualizar la etiqueta",
+      "tagNameLabel": "Nombre de la etiqueta"
     },
     "templates": {
       "title": "Plantillas de mensaje",
@@ -5625,7 +5626,8 @@
       "deleted": "Atributo eliminado",
       "loadFailed": "No se pudieron cargar los atributos",
       "saveFailed": "No se pudo guardar el atributo",
-      "deleteFailed": "No se pudo eliminar el atributo"
+      "deleteFailed": "No se pudo eliminar el atributo",
+      "add": "Añadir atributo"
     },
     "plan": {
       "title": "Plan y uso",
@@ -15818,7 +15820,9 @@
       },
       "wholePage": "All services",
       "copy": "Copy",
-      "copyNamed": "Copy link for {name}"
+      "copyNamed": "Copy link for {name}",
+      "deleteConfirm": "¿Eliminar esta página de reservas?",
+      "deleteBody": "Su enlace deja de funcionar al instante."
     },
     "tasks": {
       "title": "Tareas",

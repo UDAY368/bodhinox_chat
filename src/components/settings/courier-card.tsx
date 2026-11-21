@@ -18,7 +18,6 @@ import { Button } from "@/components/ui/button";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { SettingsBlock, SettingsGroup, SettingsRow } from "./settings-row";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { useCan } from "@/hooks/use-can";
 import { authFetch } from "@/lib/auth/client";
 
@@ -140,11 +139,10 @@ export function CourierCard({ provider }: { provider: CourierCardProvider }) {
     : !connected ? t("notConnected", { name }) : reconnect ? t("reconnectNeeded", { name }) : t("connectedAs", { label: status.label ?? "" });
 
   const dimField = (key: keyof Dims, text: string, step: string) => (
-    <div>
-      <Label htmlFor={`${provider}-${key}`} className="mb-1 block text-xs text-muted-foreground">{text}</Label>
+    <SettingsRow label={text} hint={key === "length_cm" ? t("defaults") : undefined} htmlFor={`${provider}-${key}`}>
       <Input id={`${provider}-${key}`} type="number" inputMode="decimal" min={0} step={step} value={dims[key]}
         onChange={(e) => setDims((d) => ({ ...d, [key]: e.target.value }))} />
-    </div>
+    </SettingsRow>
   );
 
   return (
@@ -161,6 +159,12 @@ export function CourierCard({ provider }: { provider: CourierCardProvider }) {
         </span>
       }
       footer={status && (status.available || connected) ? (!canEdit ? <>{description} {t("adminOnly")}</> : description) : undefined}
+      action={canEdit && status?.available ? (
+        <Button size="sm" className="min-h-11 sm:min-h-8" onClick={() => void save()} disabled={!ready}>
+          {busy === "save" && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
+          {connected ? t("save") : t("connect")}
+        </Button>
+      ) : undefined}
       more={[
         { label: t("test"), icon: FlaskConical, hidden: !(canEdit && status?.available),
           disabled: !!busy || label.trim().length === 0 || (!secret && !connected), onSelect: () => void test() },
@@ -196,21 +200,10 @@ export function CourierCard({ provider }: { provider: CourierCardProvider }) {
                   <Input id={`${provider}-pickup`} value={pickup} maxLength={100} onChange={(e) => setPickup(e.target.value)} />
                 </SettingsRow>
               )}
-              <SettingsBlock>
-                <p className="mb-1 text-xs font-medium text-muted-foreground">{t("defaults")}</p>
-                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                  {dimField("length_cm", t("length"), "0.1")}
-                  {dimField("breadth_cm", t("breadth"), "0.1")}
-                  {dimField("height_cm", t("height"), "0.1")}
-                  {dimField("weight_grams", t("weight"), "1")}
-                </div>
-              </SettingsBlock>
-              <SettingsBlock className="flex justify-end py-2.5">
-                <Button onClick={() => void save()} disabled={!ready}>
-                  {busy === "save" && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
-                  {connected ? t("save") : t("connect")}
-                </Button>
-              </SettingsBlock>
+              {dimField("length_cm", t("length"), "0.1")}
+              {dimField("breadth_cm", t("breadth"), "0.1")}
+              {dimField("height_cm", t("height"), "0.1")}
+              {dimField("weight_grams", t("weight"), "1")}
             </>
           )}
         </>

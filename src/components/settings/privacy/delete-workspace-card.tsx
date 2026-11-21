@@ -10,9 +10,10 @@ import { Loader2 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { StepUpFields, sendJson, useActionError, useMfaState } from './step-up';
-import { SettingsBlock, SettingsGroup } from '../settings-row';
+import { GroupedListRow } from '@/components/ui/grouped-list';
+import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { GroupError, StepUpFields, sendJson, useActionError, useMfaState } from './step-up';
+import { SettingsBlock, SettingsGroup, SettingsRow } from '../settings-row';
 
 /** Type-to-confirm: the typed name matches a workspace name that has loaded (never two empty strings). */
 export function deletionNameConfirmed(typed: string, workspaceName: string): boolean {
@@ -85,58 +86,68 @@ export function DeleteWorkspaceCard({
 
   return (
     <SettingsGroup title={t('title')} footer={t('description')}>
-      <SettingsBlock className="space-y-4">
-        {closing ? (
-          <div role="status" className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-foreground">
+      {closing ? (
+        <SettingsBlock className="py-3">
+          <p role="status" className="text-sm text-destructive">
             {t('pending', {
               date: lifecycle?.purgeAfter ? format.dateTime(new Date(lifecycle.purgeAfter), { dateStyle: 'long' }) : '-',
             })}
-          </div>
-        ) : null}
-        {notice ? <p className="text-sm text-muted-foreground">{notice}</p> : null}
-        {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}
-        {!isOwner ? (
-          <p className="text-sm text-muted-foreground">{t('ownerOnly')}</p>
-        ) : closing ? (
-          <Button variant="outline" onClick={cancel} disabled={busy}>
-            {busy ? <Loader2 className="size-4 animate-spin" /> : null}
-            {t('cancel')}
-          </Button>
-        ) : lifecycle?.status === 'admin_suspended' ? (
-          <p className="text-sm text-muted-foreground">{t('adminSuspended')}</p>
-        ) : !open ? (
-          <Button variant="destructive" onClick={() => setOpen(true)}>{t('start')}</Button>
-        ) : (
-          <div className="space-y-3">
+          </p>
+        </SettingsBlock>
+      ) : null}
+      {notice ? <SettingsBlock className="py-3"><p className="text-sm text-muted-foreground">{notice}</p></SettingsBlock> : null}
+      {!open ? <GroupError error={error} /> : null}
+      {!isOwner ? (
+        <SettingsBlock className="py-3"><p className="text-sm text-muted-foreground">{t('ownerOnly')}</p></SettingsBlock>
+      ) : closing ? (
+        <GroupedListRow
+          title={<span className="text-primary">{t('cancel')}</span>}
+          trailing={busy ? <Loader2 className="size-4 animate-spin" aria-hidden /> : undefined}
+          onClick={busy ? undefined : () => void cancel()}
+        />
+      ) : lifecycle?.status === 'admin_suspended' ? (
+        <SettingsBlock className="py-3"><p className="text-sm text-muted-foreground">{t('adminSuspended')}</p></SettingsBlock>
+      ) : (
+        <GroupedListRow destructive title={t('start')} onClick={() => setOpen(true)} />
+      )}
+      <Sheet open={open} onOpenChange={(next) => { if (!busy) setOpen(next); }}>
+        <SheetContent size="md" className="gap-4 overflow-y-auto">
+          <SheetHeader className="pr-12">
+            <SheetTitle>{t('title')}</SheetTitle>
+            <SheetDescription>{t('description')}</SheetDescription>
+          </SheetHeader>
+          <div className="space-y-4 px-4">
             <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
               <li>{t('effects.sending')}</li>
               <li>{t('effects.grace')}</li>
               <li>{t('effects.billing')}</li>
               <li>{t('effects.export')}</li>
             </ul>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="delete-workspace-name">{t('typeName', { name: workspaceName })}</Label>
-              <Input id="delete-workspace-name" value={confirmName} onChange={(e) => setConfirmName(e.target.value)} autoComplete="off" />
-            </div>
-            <StepUpFields
-              idPrefix="delete-workspace"
-              mfa={mfa}
-              identity
-              password={password}
-              onPassword={setPassword}
-              code={code}
-              onCode={setCode}
-            />
-            <div className="flex gap-2">
-              <Button variant="destructive" onClick={submit} disabled={busy || !deletionNameConfirmed(confirmName, workspaceName)}>
-                {busy ? <Loader2 className="size-4 animate-spin" /> : null}
-                {t('confirm')}
-              </Button>
-              <Button variant="ghost" onClick={() => setOpen(false)} disabled={busy}>{t('back')}</Button>
-            </div>
+            <SettingsGroup>
+              <SettingsRow label={t('typeName', { name: workspaceName })} htmlFor="delete-workspace-name">
+                <Input id="delete-workspace-name" value={confirmName} onChange={(e) => setConfirmName(e.target.value)} autoComplete="off" />
+              </SettingsRow>
+              <StepUpFields
+                idPrefix="delete-workspace"
+                mfa={mfa}
+                identity
+                password={password}
+                onPassword={setPassword}
+                code={code}
+                onCode={setCode}
+              />
+              <GroupError error={error} />
+            </SettingsGroup>
           </div>
-        )}
-      </SettingsBlock>
+          <SheetFooter>
+            <Button variant="destructive" className="min-h-11" onClick={submit} disabled={busy || !deletionNameConfirmed(confirmName, workspaceName)}>
+              {busy ? <Loader2 className="size-4 animate-spin" /> : null}
+              {t('confirm')}
+            </Button>
+            <Button variant="ghost" className="min-h-11" onClick={() => setOpen(false)} disabled={busy}>{t('back')}</Button>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
     </SettingsGroup>
   );
 }

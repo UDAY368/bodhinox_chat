@@ -13,14 +13,16 @@
  */
 
 import { useCallback, useEffect, useState } from 'react';
-import { AlertTriangle, Loader2, Megaphone } from 'lucide-react';
+import { AlertTriangle, Loader2, Megaphone, Unplug } from 'lucide-react';
 import { toast } from 'sonner';
 import { useTranslations } from 'next-intl';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useConfirm } from '@/components/ui/confirm-dialog';
-import { Label } from '@/components/ui/label';
+import { GroupedListRow } from '@/components/ui/grouped-list';
+import { InlineError } from '@/components/ui/inline-error';
+import { PageLoading } from '@/components/ui/page-loading';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { useAuth } from '@/hooks/use-auth';
@@ -29,7 +31,7 @@ import type { MetaAdConnectionDto } from '@/lib/meta-ads/connection';
 import { NumberSelect } from './numbers/number-select';
 import { MetaAdAccounts } from './meta-ad-accounts';
 import { useWhatsAppNumbers } from './numbers/use-whatsapp-numbers';
-import { SettingsBlock, SettingsGroup } from './settings-row';
+import { SettingsBlock, SettingsGroup, SettingsRow, SettingsSwitchRow } from './settings-row';
 
 const SDK_SRC = 'https://connect.facebook.net/en_US/sdk.js';
 const GRAPH_VERSION = 'v27.0';
@@ -223,123 +225,122 @@ export function MetaAdsCard() {
     }
   };
 
+  const missing = connection && connection.status !== 'pending' ? FEATURES.filter((f) => (status?.missingScopes[f].length ?? 0) > 0) : [];
+  const leadsNote = !!connection && connection.status === 'active' && status?.missingScopes.leads.length === 0 && !connection.pageSubscribedAt;
+  const notes = status?.enabled && connection ? (
+    <>
+      {missing.length > 0 && (
+        <ul className="space-y-1 text-xs text-amber-700 dark:text-amber-400">
+          {missing.map((f) => (
+            <li key={f} className="flex items-start gap-1.5">
+              <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
+              {t('missingScopes', { feature: t(`features.${f}`), scopes: status.missingScopes[f].join(', ') })}
+            </li>
+          ))}
+        </ul>
+      )}
+      {leadsNote && (
+        <p className="text-xs text-muted-foreground">{t('leadsNotSubscribed')}</p>
+      )}
+      {connection.lastErrorCode && (
+        <p className="text-xs text-muted-foreground">{t('lastError', { code: connection.lastErrorCode })}</p>
+      )}
+    </>
+  ) : null;
+  const hasNotes = missing.length > 0 || leadsNote || !!connection?.lastErrorCode;
+
+  const primary = !status?.enabled || !canEdit ? undefined
+    : !connection ? (
+      <Button type="button" size="sm" className="min-h-11 sm:min-h-8" onClick={() => void connect()} disabled={busy}>
+        {busy && <Loader2 className="size-3.5 animate-spin" />} {busy ? t('connecting') : t('connect')}
+      </Button>
+    ) : pending && choices ? (
+      <Button type="button" size="sm" className="min-h-11 sm:min-h-8" onClick={() => void finish()} disabled={busy || !adAccountId || !pageId}>
+        {busy && <Loader2 className="size-3.5 animate-spin" />} {t('finish')}
+      </Button>
+    ) : undefined;
+
   return (
-    <SettingsGroup title={<><Megaphone className="size-4" /> {t('title')}</>} footer={t('description')}>
-      <SettingsBlock className="space-y-4">
-        {!status && !loadFailed && <Loader2 className="size-4 animate-spin text-primary" />}
-        {loadFailed && (
-          <div className="flex items-center gap-2 text-sm text-destructive">
-            {t('loadFailed')}
-            <Button type="button" variant="outline" size="sm" onClick={() => void load()}>{t('retry')}</Button>
-          </div>
-        )}
-        {status && !status.enabled && <p className="text-sm text-muted-foreground">{t('notConfigured')}</p>}
+    <div className="space-y-6">
+      <SettingsGroup
+        title={<><Megaphone className="size-4" /> {t('title')}</>}
+        footer={status?.enabled && !connection && !canEdit ? <>{t('description')} {t('adminOnly')}</> : t('description')}
+        action={primary}
+        more={[{ label: t('disconnect'), icon: Unplug, destructive: true, disabled: busy, hidden: !canEdit || !status?.enabled || !connection, onSelect: () => void disconnect() }]}
+      >
+        {!status && !loadFailed && <SettingsBlock><PageLoading rows={2} /></SettingsBlock>}
+        {loadFailed && <SettingsBlock><InlineError message={t('loadFailed')} onRetry={() => void load()} /></SettingsBlock>}
+        {status && !status.enabled && <SettingsBlock><p className="text-sm text-muted-foreground">{t('notConfigured')}</p></SettingsBlock>}
         {status?.enabled && !connection && (
-          <div className="space-y-2">
-            <Badge variant="outline">{t('statusNotConnected')}</Badge>
-            {canEdit ? (
-              <div>
-                <Button type="button" onClick={() => void connect()} disabled={busy}>
-                  {busy && <Loader2 className="size-3.5 animate-spin" />} {busy ? t('connecting') : t('connect')}
-                </Button>
-              </div>
-            ) : (
-              <p className="text-xs text-muted-foreground">{t('adminOnly')}</p>
-            )}
-          </div>
+          <GroupedListRow title={t('title')} trailing={<Badge variant="outline">{t('statusNotConnected')}</Badge>} />
         )}
 
         {status?.enabled && connection && (
           <>
-            <div className="flex flex-wrap items-center gap-2 text-sm">
-              {connection.status === 'active' && <Badge variant="secondary">{t('statusActive')}</Badge>}
-              {connection.status === 'pending' && <Badge variant="outline">{t('statusPending')}</Badge>}
-              {connection.status === 'token_invalid' && <Badge variant="destructive">{t('statusTokenInvalid')}</Badge>}
-              {connection.adAccountName && (
-                <span className="text-foreground">{t('adAccount')}: <span className="font-medium">{connection.adAccountName}</span></span>
-              )}
-              {connection.pageName && (
-                <span className="text-foreground">{t('page')}: <span className="font-medium">{connection.pageName}</span></span>
-              )}
-              {canEdit && (
-                <Button type="button" variant="outline" size="sm" className="ml-auto" onClick={() => void disconnect()} disabled={busy}>
-                  {t('disconnect')}
-                </Button>
-              )}
-            </div>
+            <GroupedListRow
+              title={connection.adAccountName ? <>{t('adAccount')}: <span className="font-medium">{connection.adAccountName}</span></> : t('title')}
+              subtitle={connection.pageName ? <>{t('page')}: {connection.pageName}</> : undefined}
+              trailing={
+                connection.status === 'active' ? <Badge variant="secondary">{t('statusActive')}</Badge>
+                : connection.status === 'pending' ? <Badge variant="outline">{t('statusPending')}</Badge>
+                : connection.status === 'token_invalid' ? <Badge variant="destructive">{t('statusTokenInvalid')}</Badge>
+                : undefined
+              }
+              className="[&_.truncate]:whitespace-normal"
+            />
 
-            {pending && canEdit && (
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
-                {!choices ? (
-                  <Loader2 className="size-4 animate-spin text-primary" />
-                ) : (
-                  <>
-                    <div className="space-y-1">
-                      <Label htmlFor="meta-ad-account">{t('adAccount')}</Label>
-                      <Select value={adAccountId || null} onValueChange={(v) => setAdAccountId(v ? String(v) : '')}>
-                        <SelectTrigger id="meta-ad-account" className="min-h-11 w-full bg-card sm:min-h-9">
-                          <SelectValue placeholder={t('chooseAdAccount')}>{(v: string | null) => {
-                            const a = choices.adAccounts.find((x) => x.id === v);
-                            return a ? nameWithId(a) : t('chooseAdAccount');
-                          }}</SelectValue>
-                        </SelectTrigger>
-                        <SelectContent>
-                          {choices.adAccounts.map((a) => (
-                            <SelectItem key={a.id} value={a.id}>{nameWithId(a)}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-1">
-                      <Label htmlFor="meta-page">{t('page')}</Label>
-                      <Select value={pageId || null} onValueChange={(v) => setPageId(v ? String(v) : '')}>
-                        <SelectTrigger id="meta-page" className="min-h-11 w-full bg-card sm:min-h-9">
-                          <SelectValue placeholder={t('choosePage')}>{(v: string | null) => {
-                            const p = choices.pages.find((x) => x.id === v);
-                            return p ? nameWithId(p) : t('choosePage');
-                          }}</SelectValue>
-                        </SelectTrigger>
-                        <SelectContent>
-                          {choices.pages.map((p) => (
-                            <SelectItem key={p.id} value={p.id}>{nameWithId(p)}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <Button type="button" onClick={() => void finish()} disabled={busy || !adAccountId || !pageId}>
-                      {busy && <Loader2 className="size-3.5 animate-spin" />} {t('finish')}
-                    </Button>
-                  </>
-                )}
-              </div>
-            )}
+            {pending && canEdit && (!choices ? (
+              <SettingsBlock><PageLoading rows={2} /></SettingsBlock>
+            ) : (
+              <>
+                <SettingsRow label={t('adAccount')} htmlFor="meta-ad-account">
+                  <Select value={adAccountId || null} onValueChange={(v) => setAdAccountId(v ? String(v) : '')}>
+                    <SelectTrigger id="meta-ad-account" className="min-h-11 w-full bg-card sm:min-h-9">
+                      <SelectValue placeholder={t('chooseAdAccount')}>{(v: string | null) => {
+                        const a = choices.adAccounts.find((x) => x.id === v);
+                        return a ? nameWithId(a) : t('chooseAdAccount');
+                      }}</SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {choices.adAccounts.map((a) => (
+                        <SelectItem key={a.id} value={a.id}>{nameWithId(a)}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </SettingsRow>
+                <SettingsRow label={t('page')} htmlFor="meta-page">
+                  <Select value={pageId || null} onValueChange={(v) => setPageId(v ? String(v) : '')}>
+                    <SelectTrigger id="meta-page" className="min-h-11 w-full bg-card sm:min-h-9">
+                      <SelectValue placeholder={t('choosePage')}>{(v: string | null) => {
+                        const p = choices.pages.find((x) => x.id === v);
+                        return p ? nameWithId(p) : t('choosePage');
+                      }}</SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {choices.pages.map((p) => (
+                        <SelectItem key={p.id} value={p.id}>{nameWithId(p)}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </SettingsRow>
+              </>
+            ))}
 
-            {connection.status !== 'pending' && FEATURES.some((f) => status.missingScopes[f].length > 0) && (
-              <ul className="space-y-1 text-xs text-amber-700 dark:text-amber-400">
-                {FEATURES.filter((f) => status.missingScopes[f].length > 0).map((f) => (
-                  <li key={f} className="flex items-start gap-1.5">
-                    <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
-                    {t('missingScopes', { feature: t(`features.${f}`), scopes: status.missingScopes[f].join(', ') })}
-                  </li>
-                ))}
-              </ul>
-            )}
-            {connection.status === 'active' && status.missingScopes.leads.length === 0 && !connection.pageSubscribedAt && (
-              <p className="text-xs text-muted-foreground">{t('leadsNotSubscribed')}</p>
-            )}
-            {connection.lastErrorCode && (
-              <p className="text-xs text-muted-foreground">{t('lastError', { code: connection.lastErrorCode })}</p>
-            )}
+            {/* Permission gaps and the last error: an explanatory note, not a form. */}
+            {hasNotes && <SettingsBlock className="space-y-1">{notes}</SettingsBlock>}
 
-            {(connection.status === 'active' || connection.status === 'token_invalid') && <MetaAdAccounts canEdit={canEdit && connection.status === 'active'} />}
-
-            {connection.status === 'active' && (
-              <CapiSettings key={connection.capiWhatsappConfigId ?? ''} connection={connection} canEdit={canEdit} busy={busy} numbers={numbers} onSave={saveCapi} />
+            {(connection.status === 'active' || connection.status === 'token_invalid') && (
+              // The ad accounts list lays out its own rows.
+              <SettingsBlock><MetaAdAccounts canEdit={canEdit && connection.status === 'active'} /></SettingsBlock>
             )}
           </>
         )}
-      </SettingsBlock>
-    </SettingsGroup>
+      </SettingsGroup>
+
+      {status?.enabled && connection?.status === 'active' && (
+        <CapiSettings key={connection.capiWhatsappConfigId ?? ''} connection={connection} canEdit={canEdit} busy={busy} numbers={numbers} onSave={saveCapi} />
+      )}
+    </div>
   );
 }
 
@@ -362,46 +363,44 @@ function CapiSettings({
   const disabled = !canEdit || busy;
 
   return (
-    <div className="space-y-3 border-t border-border pt-4">
-      <div>
-        <h3 className="text-foreground text-sm font-semibold">{t('title')}</h3>
-        <p className="text-muted-foreground text-xs">{t('help')}</p>
-      </div>
-      <div className="space-y-1">
-        <Label htmlFor="meta-capi-number">{t('number')}</Label>
-        <div className="flex flex-col gap-2 sm:flex-row">
-          <NumberSelect id="meta-capi-number" numbers={numbers} value={numberId} onChange={setNumberId}
-            emptyLabel={t('chooseNumber')} disabled={disabled} />
-          {canEdit && numberId !== connection.capiWhatsappConfigId && (
-            <Button type="button" size="sm" variant="outline" disabled={disabled}
-              onClick={() => void onSave({ capiWhatsappConfigId: numberId })}>
-              {t('saveNumber')}
-            </Button>
-          )}
-        </div>
-        <p className="text-muted-foreground text-xs">{t('numberHelp')}</p>
-        {connection.capiDatasetId && <p className="text-muted-foreground text-xs">{t('dataset', { id: connection.capiDatasetId })}</p>}
-      </div>
-      <label className="flex items-start gap-3 text-sm">
-        <Switch checked={connection.capiEnabled} disabled={disabled || (!connection.capiEnabled && !connection.capiWhatsappConfigId)}
-          onCheckedChange={(v: boolean) => void onSave({ capiEnabled: v })} />
-        <span className="text-foreground font-medium">{t('enable')}</span>
-      </label>
-      <label className="flex items-start gap-3 text-sm">
-        <Switch checked={connection.capiAutoPurchase} disabled={disabled}
-          onCheckedChange={(v: boolean) => void onSave({ capiAutoPurchase: v })} />
-        <span className="text-foreground">{t('autoPurchase')}</span>
-      </label>
-      <label className="flex items-start gap-3 text-sm">
-        <Switch checked={connection.capiAutoLead} disabled={disabled}
-          onCheckedChange={(v: boolean) => void onSave({ capiAutoLead: v })} />
-        <span className="text-foreground">{t('autoLead')}</span>
-      </label>
-      <label className="flex items-start gap-3 text-sm">
-        <Switch checked={connection.capiDealEvents} disabled={disabled}
-          onCheckedChange={(v: boolean) => void onSave({ capiDealEvents: v })} />
-        <span className="text-foreground">{t('dealEvents')}</span>
-      </label>
-    </div>
+    <SettingsGroup
+      title={t('title')}
+      footer={t('help')}
+      action={canEdit && numberId !== connection.capiWhatsappConfigId ? (
+        <Button type="button" size="sm" className="min-h-11 sm:min-h-8" disabled={disabled}
+          onClick={() => void onSave({ capiWhatsappConfigId: numberId })}>
+          {t('saveNumber')}
+        </Button>
+      ) : undefined}
+    >
+      <SettingsRow
+        label={t('number')}
+        htmlFor="meta-capi-number"
+        hint={<>{t('numberHelp')}{connection.capiDatasetId && <span className="mt-0.5 block">{t('dataset', { id: connection.capiDatasetId })}</span>}</>}
+      >
+        <NumberSelect id="meta-capi-number" numbers={numbers} value={numberId} onChange={setNumberId}
+          emptyLabel={t('chooseNumber')} disabled={disabled} />
+      </SettingsRow>
+      <SettingsSwitchRow
+        title={t('enable')}
+        control={<Switch checked={connection.capiEnabled} disabled={disabled || (!connection.capiEnabled && !connection.capiWhatsappConfigId)}
+          onCheckedChange={(v: boolean) => void onSave({ capiEnabled: v })} aria-label={t('enable')} />}
+      />
+      <SettingsSwitchRow
+        title={t('autoPurchase')}
+        control={<Switch checked={connection.capiAutoPurchase} disabled={disabled}
+          onCheckedChange={(v: boolean) => void onSave({ capiAutoPurchase: v })} aria-label={t('autoPurchase')} />}
+      />
+      <SettingsSwitchRow
+        title={t('autoLead')}
+        control={<Switch checked={connection.capiAutoLead} disabled={disabled}
+          onCheckedChange={(v: boolean) => void onSave({ capiAutoLead: v })} aria-label={t('autoLead')} />}
+      />
+      <SettingsSwitchRow
+        title={t('dealEvents')}
+        control={<Switch checked={connection.capiDealEvents} disabled={disabled}
+          onCheckedChange={(v: boolean) => void onSave({ capiDealEvents: v })} aria-label={t('dealEvents')} />}
+      />
+    </SettingsGroup>
   );
 }

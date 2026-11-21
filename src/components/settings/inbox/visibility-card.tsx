@@ -6,7 +6,6 @@
 // everything; the default 'all' is the behaviour before Stage 5. Every member
 // reads it; admins and owners change it (PUT /api/inbox/settings checks again).
 import { useEffect, useState } from 'react';
-import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useTranslations } from 'next-intl';
 
@@ -16,7 +15,8 @@ import { authFetch } from '@/lib/auth/client';
 import type { WorkspaceInboxSettings } from '@/lib/inbox/inbox-settings';
 import type { AgentVisibility } from '@/types';
 import { saveBehaviour } from './assignment-mode-card';
-import { SettingsBlock, SettingsGroup } from '../settings-row';
+import { cn } from '@/lib/utils';
+import { SETTINGS_ROW_HAIRLINE, SettingsGroup } from '../settings-row';
 
 const OPTIONS: { value: AgentVisibility; key: 'all' | 'assignedOrTeam' }[] = [
   { value: 'all', key: 'all' },
@@ -53,27 +53,29 @@ export function VisibilityCard({ canEdit }: { canEdit: boolean }) {
 
   return (
     <SettingsGroup title={t('title')} footer={t('description')}>
-      <SettingsBlock>
         {loadFailed ? (
-          <p className="text-destructive text-xs">{t('loadFailed')}</p>
+          <div className={cn(SETTINGS_ROW_HAIRLINE, 'px-4 py-3')}><p className="text-destructive text-xs" role="alert">{t('loadFailed')}</p></div>
         ) : !settings ? (
-          <Loader2 className="text-primary size-4 animate-spin" />
+          <div className={cn(SETTINGS_ROW_HAIRLINE, 'space-y-2 px-4 py-3')} role="status" aria-busy="true">
+            <div className="h-5 w-2/3 animate-pulse rounded bg-muted motion-reduce:animate-none" />
+            <div className="h-5 w-1/2 animate-pulse rounded bg-muted motion-reduce:animate-none" />
+          </div>
         ) : (
           <RadioGroup
+            className="gap-0"
             value={settings.agent_visibility}
             onValueChange={(value) => void change(value as AgentVisibility)}
             disabled={!canEdit || saving}
             aria-label={t('title')}
           >
             {OPTIONS.map((option) => (
-              <Label key={option.value} className="flex items-center gap-2 text-sm font-normal">
+              <Label key={option.value} className={cn(SETTINGS_ROW_HAIRLINE, 'flex min-h-11 cursor-pointer items-center gap-3 px-4 py-3 text-sm font-normal has-disabled:cursor-default')}>
+                <span className="min-w-0 flex-1">{t(option.key)}</span>
                 <RadioGroupItem value={option.value} />
-                {t(option.key)}
               </Label>
             ))}
           </RadioGroup>
         )}
-      </SettingsBlock>
     </SettingsGroup>
   );
 }
