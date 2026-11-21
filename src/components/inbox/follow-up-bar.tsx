@@ -54,7 +54,7 @@ const SCHEDULED_ERRORS = [
   "tooLongInstagram", "tooLong", "notFound", "notPending", "forbidden",
 ] as const;
 
-interface FollowUpBarProps {
+interface FollowUpsOptions {
   conversationId: string;
   channel: Channel;
   /** The composer's current text, offered as the scheduled reply. */
@@ -65,18 +65,22 @@ interface FollowUpBarProps {
   scheduleDisabled: boolean;
   /** The reply was stored as scheduled: the composer clears its text. */
   onScheduled: () => void;
-  /** More composer tools on the same row (pause automations, typing hints). */
-  trailing?: React.ReactNode;
-  /** The thread shows reminders in its own banner (ReminderBanner); the bar then lists scheduled replies only. */
+  /** The thread shows reminders in its own banner (ReminderBanner); the list then shows scheduled replies only. */
   hideReminders?: boolean;
 }
 
+const TOOL_BUTTON =
+  "text-muted-foreground hover:bg-muted hover:text-foreground inline-flex size-8 pointer-coarse:size-11 shrink-0 items-center justify-center rounded-lg p-0 transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-50";
+
 /**
- * Reminders, snooze and scheduled replies for one conversation. The server
- * decides everything (role, channel, window); this only collects the time and
- * shows what is queued.
+ * Reminders, snooze and scheduled replies for one conversation, in three
+ * parts the composer places itself: `tools` (icon buttons for its tool row:
+ * Schedule send, and Remind me unless the thread banner has reminders),
+ * `list` (what is queued, above the text box; null when nothing is) and
+ * `dialogs` (always rendered). The server decides everything (role, channel,
+ * window); this only collects the time and shows what is queued.
  */
-export function FollowUpBar({ conversationId, channel, draftText, readOnly, scheduleDisabled, onScheduled, trailing, hideReminders = false }: FollowUpBarProps) {
+export function useFollowUps({ conversationId, channel, draftText, readOnly, scheduleDisabled, onScheduled, hideReminders = false }: FollowUpsOptions) {
   const t = useTranslations("Inbox.reminders");
   const ts = useTranslations("Inbox.scheduled");
   const format = useFormatter();
@@ -101,7 +105,7 @@ export function FollowUpBar({ conversationId, channel, draftText, readOnly, sche
       if (r.ok) setReminders(((await r.json()) as { reminders: ConversationReminder[] }).reminders);
       if (s.ok) setScheduled(((await s.json()) as { scheduled_replies: ScheduledReply[] }).scheduled_replies);
     } catch {
-      // The bar is an extra: a failed read shows nothing rather than an error over the thread.
+      // An extra: a failed read shows nothing rather than an error over the thread.
     }
   }, [conversationId]);
 
@@ -156,85 +160,83 @@ export function FollowUpBar({ conversationId, channel, draftText, readOnly, sche
     if (await send(`/api/inbox/scheduled-replies/${id}`, "PATCH", body, SCHEDULED_ERRORS, "scheduled")) await load();
   };
 
-  const openReminder = () => setReminderOpen(true);
   const openSchedule = () => { setWhen(toLocalInput(presetTime("oneHour"))); setScheduleOpen(true); };
 
   const visibleReminders = hideReminders ? [] : reminders.filter((r) => r.status === "pending" || r.status === "fired");
   const hasItems = visibleReminders.length > 0 || scheduled.length > 0;
+  const hasDraft = !!draftText.trim();
 
-  return (
-    <div className="pb-1" data-follow-up-bar>
-      <div className="flex min-w-0 items-center gap-1">
-        {!hideReminders && (
-          <Button type="button" variant="ghost" size="sm" disabled={readOnly} onClick={openReminder}
-            className="text-muted-foreground hover:text-foreground h-7 gap-1 px-2 text-xs">
-            <BellRing className="h-3.5 w-3.5" aria-hidden />
-            {t("add")}
-          </Button>
-        )}
-        <Button type="button" variant="ghost" size="sm" disabled={readOnly || scheduleDisabled || !draftText.trim()} onClick={openSchedule}
-          title={draftText.trim() ? undefined : ts("errors.empty")}
-          className="text-muted-foreground hover:text-foreground h-7 gap-1 px-2 text-xs">
-          <CalendarClock className="h-3.5 w-3.5" aria-hidden />
-          {ts("schedule")}
-        </Button>
-        {trailing}
-      </div>
-
-      {hasItems && (
-        <ul className="mb-1 space-y-1">
-          {visibleReminders.map((r) => (
-            <li key={r.id} className="bg-muted/50 flex items-center gap-2 rounded-md px-2 py-1 text-xs">
-              <Clock className="text-muted-foreground h-3.5 w-3.5 shrink-0" aria-hidden />
-              <span className="min-w-0 flex-1 truncate">
-                {r.status === "fired"
-                  ? t("due")
-                  : r.kind === "snooze"
-                    ? t("snoozedUntil", { when: when_(r.remind_at) })
-                    : t("reminderAt", { when: when_(r.remind_at) })}
-                {r.note ? ` · ${r.note}` : ""}
-              </span>
-              <Button type="button" variant="ghost" size="sm" className="h-6 px-2 text-xs"
-                onClick={() => void patchReminder(r.id, { status: r.status === "fired" ? "dismissed" : "cancelled" })}>
-                {r.status === "fired" ? t("dismiss") : r.kind === "snooze" ? t("wake") : t("cancel")}
-              </Button>
-            </li>
-          ))}
-          {scheduled.map((s) => (
-            <li key={s.id} className="bg-muted/50 rounded-md px-2 py-1 text-xs">
-              <div className="flex items-center gap-2">
-                <CalendarClock className="text-muted-foreground h-3.5 w-3.5 shrink-0" aria-hidden />
-                <span className="min-w-0 flex-1 truncate">
-                  {ts(`status.${s.status}` as never)} · {when_(s.send_at)} · {s.content}
-                </span>
-                {s.status === "pending" && (
-                  <Button type="button" variant="ghost" size="sm" className="h-6 px-2 text-xs"
-                    onClick={() => void patchScheduled(s.id, { status: "cancelled" })}>
-                    <X className="mr-1 h-3 w-3" aria-hidden />
-                    {ts("cancel")}
-                  </Button>
-                )}
-              </div>
-              {(s.status === "skipped" || s.status === "failed") && s.reason_code && (
-                <p className="text-muted-foreground mt-0.5 pl-5">{ts(`reason.${s.reason_code}` as never)}</p>
-              )}
-              {s.status === "unknown" && (
-                <div className="mt-1 pl-5">
-                  <p className="font-medium">{ts("reconcile.title")}</p>
-                  <p className="text-muted-foreground">{ts("reconcile.body")}</p>
-                  <div className="mt-1 flex gap-1">
-                    <Button type="button" variant="outline" size="sm" className="h-6 px-2 text-xs"
-                      onClick={() => void patchScheduled(s.id, { reconcile: "sent" })}>{ts("reconcile.markSent")}</Button>
-                    <Button type="button" variant="outline" size="sm" className="h-6 px-2 text-xs"
-                      onClick={() => void patchScheduled(s.id, { reconcile: "failed" })}>{ts("reconcile.markFailed")}</Button>
-                  </div>
-                </div>
-              )}
-            </li>
-          ))}
-        </ul>
+  const tools = (
+    <>
+      {!hideReminders && (
+        <button type="button" disabled={readOnly} onClick={() => setReminderOpen(true)}
+          aria-label={t("add")} title={t("add")} data-follow-up-remind className={TOOL_BUTTON}>
+          <BellRing className="h-4 w-4" aria-hidden />
+        </button>
       )}
+      <button type="button" disabled={readOnly || scheduleDisabled || !hasDraft} onClick={openSchedule}
+        aria-label={ts("schedule")} title={hasDraft ? ts("schedule") : ts("errors.empty")} data-follow-up-schedule className={TOOL_BUTTON}>
+        <CalendarClock className="h-4 w-4" aria-hidden />
+      </button>
+    </>
+  );
 
+  const list = hasItems ? (
+    <ul className="mb-1.5 space-y-1" data-follow-up-list>
+      {visibleReminders.map((r) => (
+        <li key={r.id} className="bg-muted/50 flex items-center gap-2 rounded-md px-2 py-1 text-xs">
+          <Clock className="text-muted-foreground h-3.5 w-3.5 shrink-0" aria-hidden />
+          <span className="min-w-0 flex-1 truncate">
+            {r.status === "fired"
+              ? t("due")
+              : r.kind === "snooze"
+                ? t("snoozedUntil", { when: when_(r.remind_at) })
+                : t("reminderAt", { when: when_(r.remind_at) })}
+            {r.note ? ` · ${r.note}` : ""}
+          </span>
+          <Button type="button" variant="ghost" size="sm" className="h-6 px-2 text-xs"
+            onClick={() => void patchReminder(r.id, { status: r.status === "fired" ? "dismissed" : "cancelled" })}>
+            {r.status === "fired" ? t("dismiss") : r.kind === "snooze" ? t("wake") : t("cancel")}
+          </Button>
+        </li>
+      ))}
+      {scheduled.map((s) => (
+        <li key={s.id} className="bg-muted/50 rounded-md px-2 py-1 text-xs">
+          <div className="flex items-center gap-2">
+            <CalendarClock className="text-muted-foreground h-3.5 w-3.5 shrink-0" aria-hidden />
+            <span className="min-w-0 flex-1 truncate">
+              {ts(`status.${s.status}` as never)} · {when_(s.send_at)} · {s.content}
+            </span>
+            {s.status === "pending" && (
+              <Button type="button" variant="ghost" size="sm" className="h-6 px-2 text-xs"
+                onClick={() => void patchScheduled(s.id, { status: "cancelled" })}>
+                <X className="mr-1 h-3 w-3" aria-hidden />
+                {ts("cancel")}
+              </Button>
+            )}
+          </div>
+          {(s.status === "skipped" || s.status === "failed") && s.reason_code && (
+            <p className="text-muted-foreground mt-0.5 pl-5">{ts(`reason.${s.reason_code}` as never)}</p>
+          )}
+          {s.status === "unknown" && (
+            <div className="mt-1 pl-5">
+              <p className="font-medium">{ts("reconcile.title")}</p>
+              <p className="text-muted-foreground">{ts("reconcile.body")}</p>
+              <div className="mt-1 flex gap-1">
+                <Button type="button" variant="outline" size="sm" className="h-6 px-2 text-xs"
+                  onClick={() => void patchScheduled(s.id, { reconcile: "sent" })}>{ts("reconcile.markSent")}</Button>
+                <Button type="button" variant="outline" size="sm" className="h-6 px-2 text-xs"
+                  onClick={() => void patchScheduled(s.id, { reconcile: "failed" })}>{ts("reconcile.markFailed")}</Button>
+              </div>
+            </div>
+          )}
+        </li>
+      ))}
+    </ul>
+  ) : null;
+
+  const dialogs = (
+    <>
       <ReminderDialog conversationId={conversationId} open={reminderOpen} onOpenChange={setReminderOpen} />
 
       <Dialog open={scheduleOpen} onOpenChange={setScheduleOpen}>
@@ -256,8 +258,10 @@ export function FollowUpBar({ conversationId, channel, draftText, readOnly, sche
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </>
   );
+
+  return { tools, list, dialogs };
 }
 
 interface ReminderDialogProps {
@@ -268,7 +272,7 @@ interface ReminderDialogProps {
   reminder?: Pick<ConversationReminder, "id" | "remind_at" | "note"> | null;
 }
 
-/** Set a reminder or snooze for one conversation. Opened from the follow-up bar and the thread header's bell. */
+/** Set a reminder or snooze for one conversation. Opened from the composer's tools and the thread header's bell. */
 export function ReminderDialog({ conversationId, open, onOpenChange, reminder = null }: ReminderDialogProps) {
   const t = useTranslations("Inbox.reminders");
   const [when, setWhen] = useState("");

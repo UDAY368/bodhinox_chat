@@ -100,6 +100,15 @@ test('the inbox fits every common screen size', async ({ page }) => {
       const bubble = (await message.boundingBox())!;
       expect(bubble.x + bubble.width).toBeLessThanOrEqual(threadBox.x + threadBox.width + 1);
 
+      // The messages get most of the height: a slim header, banner and composer around them.
+      const messagesBox = (await page.locator('.studio-messages').boundingBox())!;
+      console.log(`messages-height ${size.name}: ${Math.round(messagesBox.height)}px of ${size.height}px`);
+      if (size.width >= 1280) {
+        expect(messagesBox.height, 'the message area is squeezed').toBeGreaterThanOrEqual(size.height * 0.6);
+      }
+      // Desktop shows the open-window avatars in the app header, not above the list.
+      if (size.width >= 1024) await expect(page.locator('[data-inbox-list-head] [data-window-strip]')).toHaveCount(0);
+
       // The composer's text box keeps a usable width.
       const box = (await page.getByPlaceholder('Type a message').boundingBox())!;
       expect(box.width).toBeGreaterThanOrEqual(Math.min(240, size.width - 160));

@@ -51,11 +51,14 @@ export function WindowStrip({
   now,
   activeConversationId,
   onSelect,
+  compact = false,
 }: {
   conversations: Conversation[];
   now: number;
   activeConversationId: string | null;
   onSelect: (conversation: Conversation) => void;
+  /** In the 60px app header: the rings only; the name stays in the label and tooltip. */
+  compact?: boolean;
 }) {
   const t = useTranslations('Inbox.conversationList');
   const scroller = useRef<HTMLUListElement>(null);
@@ -73,7 +76,7 @@ export function WindowStrip({
     'text-muted-foreground hover:bg-muted hover:text-foreground flex size-6 shrink-0 items-center justify-center rounded-full transition-colors duration-150';
 
   return (
-    <div data-window-strip role="group" aria-label={t('windowStrip')} className="flex max-w-full min-w-0 items-center gap-0.5">
+    <div data-window-strip role="group" aria-label={t('windowStrip')} data-compact={compact ? '' : undefined} className="flex max-w-full min-w-0 items-center gap-0.5">
       <button type="button" onClick={() => page(-1)} aria-label={t('windowStripPrev')} className={arrow}>
         <ChevronLeft className="size-4" aria-hidden />
       </button>
@@ -91,7 +94,7 @@ export function WindowStrip({
                 aria-current={isActive ? 'true' : undefined}
                 aria-label={label}
                 title={label}
-                className="flex w-14 flex-col items-center gap-0.5 rounded-lg py-0.5 hover:bg-muted/60"
+                className={cn('flex flex-col items-center gap-0.5 rounded-lg py-0.5 hover:bg-muted/60', compact ? 'w-12' : 'w-14')}
               >
                 <span className="relative flex size-10 items-center justify-center">
                   <svg viewBox="0 0 44 44" className="absolute inset-0 -rotate-90" aria-hidden>
@@ -128,7 +131,7 @@ export function WindowStrip({
                     {w.left}
                   </span>
                 </span>
-                <span className="text-foreground mt-0.5 w-full truncate text-center text-[11px] leading-none">{name.split(' ')[0]}</span>
+                {!compact && <span className="text-foreground mt-0.5 w-full truncate text-center text-[11px] leading-none">{name.split(' ')[0]}</span>}
               </button>
             </li>
           );

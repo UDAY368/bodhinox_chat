@@ -3,6 +3,9 @@
 import './inbox.css';
 import { avatarTone, initials } from '@/lib/ui/avatar-tone';
 import { WindowRing, WindowStrip, WINDOW_TEXT, rowWindow } from './session-rail';
+import { createPortal } from 'react-dom';
+import { useHeaderSlot } from '@/components/layout/header-slot';
+import { useMatchMedia } from '@/hooks/use-match-media';
 import type { ConsentFilter } from '@/lib/contacts/consent-view';
 import { contactHandle } from '@/lib/whatsapp/wa-identity';
 
@@ -789,8 +792,12 @@ export function ConversationList({
     return map;
   }, [folders?.reminders]);
 
+  // Desktop: the open-window avatars sit in the app header's middle; phones and tablets keep them in the list.
+  const headerSlot = useHeaderSlot();
+  const desktop = useMatchMedia('(min-width: 1024px)');
+  const stripInHeader = desktop && headerSlot !== null;
   const windowStrip = (
-    <WindowStrip conversations={filtered} now={now} activeConversationId={activeConversationId} onSelect={handleSelect} />
+    <WindowStrip conversations={filtered} now={now} activeConversationId={activeConversationId} onSelect={handleSelect} compact={stripInHeader} />
   );
 
   const searchBox = (
@@ -1038,7 +1045,7 @@ export function ConversationList({
     </div>
   );
 
-  // Search, filters and the open-window avatars head the list at every width; the top bar is only the breadcrumb.
+  // Search and filters head the list; the open-window avatars join them below lg (desktop puts them in the app header).
   const listHead = (
     <div data-inbox-list-head className="studio-chat-filters bg-card flex flex-col">
       <div className="flex flex-col gap-2 px-3 pt-3 pb-2">
@@ -1046,7 +1053,7 @@ export function ConversationList({
           {moreViews}
           {tools}
         </div>
-        {windowStrip}
+        {!stripInHeader && windowStrip}
         {searchBox}
         {channelTabs}
         <SavedFilterChips store={savedStore} current={currentFilters} onApply={applySavedFilters} scope={scope} />
@@ -1060,6 +1067,7 @@ export function ConversationList({
 
   return (
     <div className="studio-conversation-list border-border bg-card flex h-full w-full min-w-0 flex-col border-r lg:w-72 xl:w-80 2xl:w-[340px]">
+      {stripInHeader && createPortal(windowStrip, headerSlot)}
       {listHead}
 
       {/* Conversation Items.

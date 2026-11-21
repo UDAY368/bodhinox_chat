@@ -1458,7 +1458,7 @@ export function MessageThread({
           the room the thread actually has (the list and contact panel take their
           share), not on the window: the name and Resolve / assignee / ⋯ always fit;
           the handle row's extras appear as space allows. */}
-      <div className="studio-thread-header border-border bg-card flex min-h-16 items-center gap-2 border-b px-2 py-2 @md:gap-3 @md:px-4">
+      <div className="studio-thread-header border-border bg-card flex min-h-14 items-center gap-2 border-b px-2 py-1.5 @md:gap-3 @md:px-4">
         <div className="flex min-w-0 flex-1 items-center gap-2 @md:gap-3">
           {/* Back to the list — below lg, where the list and thread take turns. */}
           {onBack && (

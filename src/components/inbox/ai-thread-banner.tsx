@@ -163,14 +163,11 @@ export function AiThreadBanner({
   if (paused) {
     return (
       <Banner tone="muted">
-        <div className="min-w-0 flex-1">
-          <p className="font-medium text-foreground">{t("pausedTitle")}</p>
-          {handoffSummary && (
-            <p className="truncate text-muted-foreground" title={handoffSummary}>
-              {handoffSummary}
-            </p>
-          )}
-        </div>
+        {/* One line: the title, then the handoff note cut short (the tooltip has all of it). */}
+        <p className="min-w-0 flex-1 truncate" title={handoffSummary ?? undefined}>
+          <span className="font-medium text-foreground">{t("pausedTitle")}</span>
+          {handoffSummary && <span className="text-muted-foreground"> · {handoffSummary}</span>}
+        </p>
         <BannerButton onClick={() => toggle(false)} busy={busy} icon={Undo2}>
           {t("resume")}
         </BannerButton>
@@ -182,7 +179,7 @@ export function AiThreadBanner({
   // offer the existing explicit release action; never unassign automatically.
   if (assignedAgentId) return (
     <Banner tone="muted">
-      <p className="min-w-0 flex-1 text-muted-foreground">{t("humanOwned")}</p>
+      <p className="min-w-0 flex-1 truncate text-muted-foreground" title={t("humanOwned")}>{t("humanOwned")}</p>
       <BannerButton onClick={() => toggle(false)} busy={busy} icon={Undo2}>
         {t("resume")}
       </BannerButton>
@@ -193,7 +190,7 @@ export function AiThreadBanner({
   return (
     <Banner tone="primary">
       <div className="flex min-w-0 flex-1 items-center gap-1.5">
-        <KhagaIcon className="h-5 w-5" />
+        <KhagaIcon className="h-4 w-4 shrink-0" />
         <span className="truncate font-medium text-foreground">
           {t("activeText")}
         </span>
@@ -215,7 +212,8 @@ function Banner({
   return (
     <div
       className={cn(
-        "flex items-center gap-3 border-b px-3 py-2 text-xs sm:px-4",
+        // One slim row (about 37px) so the messages keep the height.
+        "flex min-h-9 items-center gap-3 border-b px-3 py-1 text-xs sm:px-4",
         tone === "primary"
           ? "border-primary/20 bg-primary/5"
           : "border-border bg-muted/40",
@@ -242,7 +240,8 @@ function BannerButton({
       type="button"
       onClick={onClick}
       disabled={busy}
-      className="inline-flex flex-shrink-0 items-center gap-1 rounded-md border border-border bg-card px-2.5 py-1 font-medium text-foreground transition-colors hover:bg-muted disabled:opacity-60"
+      // 28px to look at; the after: box makes the touch target 44px tall.
+      className="relative inline-flex h-7 flex-shrink-0 items-center gap-1 rounded-full border border-border bg-card px-2.5 font-medium text-foreground transition-colors after:absolute after:-inset-y-2 after:inset-x-0 after:content-[''] hover:bg-muted disabled:opacity-60"
     >
       {busy ? (
         <Loader2 className="h-3 w-3 animate-spin" />

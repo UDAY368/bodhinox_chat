@@ -20,6 +20,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { HeaderSlot, hasHeaderSlot } from '@/components/layout/header-slot';
 import { ModeToggle } from '@/components/layout/mode-toggle';
 import { PageSearch } from '@/components/layout/page-search';
 import { breadcrumbFor, buildSections } from '@/components/layout/sections';
@@ -88,8 +89,10 @@ export function Header({ onOpenSidebar, showMenuToggle = false, menuExpanded }: 
         )}
       </div>
 
+      {/* Desktop inbox: the open-windows strip sits in the middle (see header-slot.tsx). */}
+      {hasHeaderSlot(pathname) && <HeaderSlot />}
 
-      <div className="flex items-center gap-1 sm:gap-1.5">
+      <div className="flex shrink-0 items-center gap-1 sm:gap-1.5">
         <PageSearch />
         <Link
           href="/notifications"
