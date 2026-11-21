@@ -94,7 +94,7 @@ export function SavedFiltersMenu({ current, onApply, scope = 'all', store, iconO
           title={iconOnly ? (active ? `${t('views')}: ${active.name}` : t('views')) : undefined}
           className={cn(
             iconOnly
-              ? 'inline-flex size-8 shrink-0 items-center justify-center rounded-lg transition-colors duration-150'
+              ? 'inline-flex size-8 pointer-coarse:size-11 shrink-0 items-center justify-center rounded-lg transition-colors duration-150'
               : 'inline-flex h-8 max-w-48 shrink-0 items-center justify-center gap-1.5 rounded-full border px-3 text-[13px] font-medium whitespace-nowrap transition-colors duration-150',
             iconOnly
               ? active ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-muted hover:text-foreground'

@@ -632,7 +632,7 @@ export function ConversationList({
   };
 
   const chip =
-    'bg-muted text-foreground hover:bg-muted/70 inline-flex h-7 shrink-0 items-center gap-1 rounded-full px-2.5 text-xs transition-colors duration-150';
+    'bg-muted text-foreground hover:bg-muted/70 inline-flex h-7 pointer-coarse:h-11 shrink-0 items-center gap-1 rounded-full px-2.5 text-xs transition-colors duration-150';
 
   const viewCount = (value: InboxFilter) => quickViews.find((v) => v.value === value)?.count;
 
@@ -809,7 +809,7 @@ export function ConversationList({
 
   const chipClass = (on: boolean) =>
     cn(
-      'inline-flex h-7 shrink-0 items-center gap-1 rounded-full px-2.5 text-xs font-medium whitespace-nowrap transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-offset-1',
+      'inline-flex h-7 pointer-coarse:h-11 shrink-0 items-center gap-1 rounded-full px-2.5 text-xs font-medium whitespace-nowrap transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-offset-1',
       on ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-muted hover:text-foreground'
     );
   const inMoreMenu = (filter !== 'all' && !TAB_VIEWS.includes(filter)) || sessionFilter === 'expired';
@@ -960,7 +960,7 @@ export function ConversationList({
           aria-label={t('newMessage')}
           title={t('newMessage')}
           data-new-message
-          className="text-muted-foreground hover:bg-muted hover:text-foreground inline-flex size-8 shrink-0 items-center justify-center rounded-lg transition-colors duration-150"
+          className="text-muted-foreground hover:bg-muted hover:text-foreground inline-flex size-8 pointer-coarse:size-11 shrink-0 items-center justify-center rounded-lg transition-colors duration-150"
         >
           <SquarePen className="h-4 w-4" aria-hidden />
         </button>

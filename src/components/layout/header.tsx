@@ -60,7 +60,7 @@ export function Header({ onOpenSidebar, showMenuToggle = false, menuExpanded }: 
           onClick={onOpenSidebar}
           aria-label={t('openMenu')}
           aria-expanded={showMenuToggle ? menuExpanded : undefined}
-          className={`text-muted-foreground hover:bg-muted hover:text-foreground flex h-10 w-10 items-center justify-center rounded-lg transition-colors${showMenuToggle ? '' : ' lg:hidden'}`}
+          className={`text-muted-foreground hover:bg-muted hover:text-foreground flex h-10 w-10 pointer-coarse:size-11 items-center justify-center rounded-lg transition-colors${showMenuToggle ? '' : ' lg:hidden'}`}
         >
           <Menu className="h-5 w-5" />
         </button>
@@ -95,7 +95,7 @@ export function Header({ onOpenSidebar, showMenuToggle = false, menuExpanded }: 
           href="/notifications"
           aria-label={unreadNotifications ? t('notificationsUnread', { count: unreadNotifications }) : t('notifications')}
           title={t('notifications')}
-          className="text-muted-foreground hover:bg-muted hover:text-foreground relative flex h-9 w-9 items-center justify-center rounded-lg transition-colors"
+          className="text-muted-foreground hover:bg-muted hover:text-foreground relative flex h-9 w-9 pointer-coarse:size-11 items-center justify-center rounded-lg transition-colors"
         >
           <Bell className="h-[18px] w-[18px]" />
           {unreadNotifications > 0 && (

@@ -65,7 +65,7 @@ export function EmojiPicker({ onPick, disabled }: { onPick: (emoji: string) => v
         aria-label={t("emoji")}
         title={t("emoji")}
         data-composer-emoji
-        className="text-muted-foreground hover:bg-muted hover:text-foreground inline-flex size-8 shrink-0 items-center justify-center rounded-lg p-0 transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-50"
+        className="text-muted-foreground hover:bg-muted hover:text-foreground inline-flex size-8 pointer-coarse:size-11 shrink-0 items-center justify-center rounded-lg p-0 transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-50"
       >
         <Smile className="h-4 w-4" />
       </PopoverTrigger>
