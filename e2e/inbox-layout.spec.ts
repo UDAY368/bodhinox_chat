@@ -96,6 +96,16 @@ test('the inbox fits every common screen size', async ({ page }) => {
       const more = header.getByRole('button', { name: 'More actions' });
       await expect(more).toBeVisible();
 
+      // The chips beside the name (window time, number, consent…) show whole or not at all.
+      const cut = await header.locator('[data-thread-chips]').evaluate((row) => {
+        const box = row.getBoundingClientRect();
+        return Array.from(row.children)
+          .map((chip) => chip.getBoundingClientRect())
+          .filter((r) => r.width > 0 && r.top < box.bottom && r.bottom > box.top)
+          .filter((r) => r.left < box.left - 1 || r.right > box.right + 1).length;
+      });
+      expect(cut, 'a header chip is cut off').toBe(0);
+
       // A long link stays inside its bubble and inside the chat column.
       const bubble = (await message.boundingBox())!;
       expect(bubble.x + bubble.width).toBeLessThanOrEqual(threadBox.x + threadBox.width + 1);
