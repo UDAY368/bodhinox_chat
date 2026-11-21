@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { SegmentedControl } from '@/components/ui/segmented-control';
 import { Textarea } from '@/components/ui/textarea';
 import type { TenantSupportGrant } from '@/lib/platform/support';
 
@@ -151,19 +152,13 @@ export function SupportAccess(): React.ReactElement | null {
             <Textarea id="support-grant-reason" required minLength={10} maxLength={1000} value={reason} onChange={(e) => setReason(e.target.value)} />
           </div>
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="support-grant-minutes">{t('grant.duration')}</Label>
-            <select
-              id="support-grant-minutes"
-              className="border-input bg-background h-9 rounded-md border px-2 text-sm"
-              value={minutes}
-              onChange={(e) => setMinutes(Number(e.target.value))}
-            >
-              {DURATIONS.map((value) => (
-                <option key={value} value={value}>
-                  {t(`grant.durations.${value}`)}
-                </option>
-              ))}
-            </select>
+            <p className="text-sm font-medium">{t('grant.duration')}</p>
+            <SegmentedControl
+              aria-label={t('grant.duration')}
+              value={String(minutes)}
+              onValueChange={(v) => setMinutes(Number(v))}
+              options={DURATIONS.map((value) => ({ value: String(value), label: t(`grant.durations.${value}`) }))}
+            />
           </div>
           <Button type="submit" className="self-start" disabled={busy !== null || reason.trim().length < 10 || !email.includes('@')}>
             {t('grant.submit')}

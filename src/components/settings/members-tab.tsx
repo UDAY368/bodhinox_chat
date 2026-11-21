@@ -48,6 +48,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { Button } from '@/components/ui/button';
+import { PageLoading } from '@/components/ui/page-loading';
 import { Card, CardContent } from '@/components/ui/card';
 import {
   Dialog,
@@ -309,9 +310,7 @@ export function MembersTab() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="size-6 animate-spin text-primary" />
-      </div>
+      <PageLoading rows={5} />
     );
   }
 

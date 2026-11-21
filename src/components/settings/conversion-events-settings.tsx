@@ -3,10 +3,13 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
-import { Archive, Loader2, Pencil, Plus, RotateCcw } from 'lucide-react';
+import { Archive, Loader2, Pencil, Plus, RotateCcw, Target } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { EmptyState } from '@/components/ui/empty-state';
+import { InlineError } from '@/components/ui/inline-error';
+import { PageLoading } from '@/components/ui/page-loading';
 import { Input } from '@/components/ui/input';
 import { authFetch } from '@/lib/auth/client';
 import { SettingsPanelHead } from './settings-panel-head';
@@ -124,11 +127,11 @@ export function ConversionEventsSettings({ canEdit }: { canEdit: boolean }) {
       )}
 
       {failed ? (
-        <p className="text-sm text-destructive" role="alert">{t('loadFailed')}</p>
+        <InlineError message={t('loadFailed')} onRetry={() => void load()} />
       ) : types === null ? (
-        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" aria-hidden />
+        <PageLoading rows={3} />
       ) : types.length === 0 ? (
-        <p className="rounded-lg border border-dashed border-border p-6 text-center text-sm text-muted-foreground">{t('empty')}</p>
+        <EmptyState icon={Target} title={t('empty')} />
       ) : (
         <ul className="divide-y divide-border rounded-lg border border-border">
           {types.map((type) => (

@@ -10,6 +10,9 @@ import Link from 'next/link';
 import { useFormatter, useTranslations } from 'next-intl';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { InlineError } from '@/components/ui/inline-error';
+import { PageHeader } from '@/components/ui/page-header';
+import { PageLoading } from '@/components/ui/page-loading';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import type { PlatformHealth } from '@/lib/platform/health';
@@ -27,11 +30,11 @@ export default function PlatformHealthPage() {
   const load = useCallback(() => platformApi<PlatformHealth>('/api/platform/health').then(setData, () => setFailed(true)), []);
   useEffect(() => { void load(); }, [load]);
 
-  if (failed) return <p role="status" className="text-sm">{t('loadFailed')}</p>;
-  if (!data) return <p className="text-muted-foreground text-sm">{t('loading')}</p>;
+  if (failed) return <InlineError message={t('loadFailed')} onRetry={() => { setFailed(false); void load(); }} />;
+  if (!data) return <PageLoading />;
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="text-xl font-semibold">{t('title')}</h1>
+      <PageHeader title={t('title')} className="mb-0" />
       {!data.sharedKeyCheck && <p className="text-muted-foreground text-xs">{t('sharedKeyOff')}</p>}
       <section className="flex flex-col gap-2">
         <h2 className="font-medium">{t('integrations')}</h2>

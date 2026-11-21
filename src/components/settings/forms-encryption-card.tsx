@@ -15,6 +15,7 @@ import { toast } from "sonner";
 import { useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { authFetch } from "@/lib/auth/client";
 import { NumberSelect } from "./numbers/number-select";
@@ -28,6 +29,7 @@ const endpoint = (numberId: string | null) =>
 /** `numberId` preselects a number (the one the settings form is editing; remount with a key to change it); null means the default. */
 export function FormsEncryptionCard({ canEdit, numberId: initialNumberId = null }: { canEdit: boolean; numberId?: string | null }) {
   const t = useTranslations("Settings.formsEncryption");
+  const confirm = useConfirm();
   const { numbers } = useWhatsAppNumbers();
   const [numberId, setNumberId] = useState<string | null>(initialNumberId);
   const [status, setStatus] = useState<KeyStatus | null>(null);
@@ -46,7 +48,7 @@ export function FormsEncryptionCard({ canEdit, numberId: initialNumberId = null 
   }, [numberId]);
 
   const generate = async () => {
-    if (status?.configured && !window.confirm(t("rotateConfirm"))) return;
+    if (status?.configured && !(await confirm({ title: t("rotateConfirm"), confirmLabel: t("rotate"), destructive: true }))) return;
     setWorking(true);
     try {
       // Rotate the number whose status is shown, even if the default changed meanwhile.

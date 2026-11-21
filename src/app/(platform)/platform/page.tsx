@@ -4,6 +4,7 @@
 import Link from 'next/link';
 import { getTranslations } from 'next-intl/server';
 import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { PageHeader } from '@/components/ui/page-header';
 
 const AREAS = [
   ['tenants', '/platform/tenants'],
@@ -18,10 +19,7 @@ export default async function PlatformHome() {
   const t = await getTranslations('Platform');
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="text-xl font-semibold">{t('title')}</h1>
-        <p className="text-muted-foreground text-sm">{t('overview.intro')}</p>
-      </div>
+      <PageHeader title={t('title')} subtitle={t('overview.intro')} className="mb-0" />
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {AREAS.map(([key, href]) => (
           <Link key={key} href={href} className="block">

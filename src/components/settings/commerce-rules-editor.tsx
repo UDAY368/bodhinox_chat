@@ -16,8 +16,10 @@ import { Loader2, Trash2 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 
 import { Button } from '@/components/ui/button';
+import { PageLoading } from '@/components/ui/page-loading';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { NumberSelect } from '@/components/settings/numbers/number-select';
 import { useWhatsAppNumbers } from '@/components/settings/numbers/use-whatsapp-numbers';
@@ -43,7 +45,8 @@ interface Draft {
   variableMap: Record<string, string>;
 }
 
-const SELECT_CLASS = 'border-border bg-card text-foreground h-9 w-full rounded-md border px-2 text-sm';
+/** The menu value standing for an empty choice. */
+const NONE = '__none__';
 
 /** Highest positional {{n}} in a template body (0 when none). */
 export function templateVariableCount(body: string | null | undefined): number {
@@ -75,6 +78,7 @@ export function CommerceRulesEditor({
   fields: string[];
 }) {
   const t = useTranslations('Integrations.commerceRules');
+  const fieldLabel = (f: string) => (t.has(`fields.${f}`) ? t(`fields.${f}`) : f);
   const { canEditSettings } = useAuth();
   const { numbers } = useWhatsAppNumbers();
   const [templates, setTemplates] = useState<TemplateOption[]>([]);
@@ -184,9 +188,7 @@ export function CommerceRulesEditor({
 
   if (loading) {
     return (
-      <div className="flex justify-center py-6">
-        <Loader2 className="text-muted-foreground h-5 w-5 animate-spin" />
-      </div>
+      <PageLoading rows={3} />
     );
   }
 
@@ -219,23 +221,26 @@ export function CommerceRulesEditor({
             <div className="grid gap-3 sm:grid-cols-3">
               <div className="space-y-1 sm:col-span-2">
                 <Label htmlFor={`${id}-template`} className="text-muted-foreground text-xs">{t('template')}</Label>
-                <select
-                  id={`${id}-template`}
-                  className={SELECT_CLASS}
-                  value={draft.templateKey}
+                <Select
+                  value={draft.templateKey || NONE}
                   disabled={disabled}
-                  onChange={(e) => patch(event, { templateKey: e.target.value })}
+                  onValueChange={(v) => patch(event, { templateKey: !v || v === NONE ? '' : String(v) })}
                 >
-                  <option value="">{t('chooseTemplate')}</option>
-                  {draft.templateKey && !template && (
-                    <option value={draft.templateKey}>{draft.templateKey.replace('|', ' · ')}</option>
-                  )}
-                  {templates.map((tpl) => (
-                    <option key={tpl.id} value={keyOf(tpl.name, tpl.language)}>
-                      {tpl.name}{tpl.language ? ` · ${tpl.language}` : ''}
-                    </option>
-                  ))}
-                </select>
+                  <SelectTrigger id={`${id}-template`} className="min-h-11 w-full bg-card sm:min-h-9">
+                    <SelectValue>{(v: string) => (v === NONE ? t('chooseTemplate') : v.replace('|', ' · '))}</SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={NONE}>{t('chooseTemplate')}</SelectItem>
+                    {draft.templateKey && !template && (
+                      <SelectItem value={draft.templateKey}>{draft.templateKey.replace('|', ' · ')}</SelectItem>
+                    )}
+                    {templates.map((tpl) => (
+                      <SelectItem key={tpl.id} value={keyOf(tpl.name, tpl.language)}>
+                        {tpl.name}{tpl.language ? ` · ${tpl.language}` : ''}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-1">
                 <Label htmlFor={`${id}-delay`} className="text-muted-foreground text-xs">{t('delay')}</Label>
@@ -267,20 +272,24 @@ export function CommerceRulesEditor({
                 <p className="text-muted-foreground text-xs">{t('variables')}</p>
                 <div className="grid gap-2 sm:grid-cols-2">
                   {Array.from({ length: count }, (_, i) => String(i + 1)).map((n) => (
-                    <label key={n} className="flex items-center gap-2 text-sm">
+                    <div key={n} className="flex items-center gap-2 text-sm">
                       <span className="text-muted-foreground w-12 shrink-0 font-mono text-xs">{`{{${n}}}`}</span>
-                      <select
-                        className={SELECT_CLASS}
-                        value={draft.variableMap[n] ?? ''}
+                      <Select
+                        value={draft.variableMap[n] || NONE}
                         disabled={disabled}
-                        onChange={(e) => patch(event, { variableMap: { ...draft.variableMap, [n]: e.target.value } })}
+                        onValueChange={(v) => patch(event, { variableMap: { ...draft.variableMap, [n]: !v || v === NONE ? '' : String(v) } })}
                       >
-                        <option value="">{t('noValue')}</option>
-                        {fields.map((f) => (
-                          <option key={f} value={f}>{t.has(`fields.${f}`) ? t(`fields.${f}`) : f}</option>
-                        ))}
-                      </select>
-                    </label>
+                        <SelectTrigger aria-label={`{{${n}}}`} className="min-h-11 w-full bg-card sm:min-h-9">
+                          <SelectValue>{(v: string) => (v === NONE ? t('noValue') : fieldLabel(v))}</SelectValue>
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value={NONE}>{t('noValue')}</SelectItem>
+                          {fields.map((f) => (
+                            <SelectItem key={f} value={f}>{fieldLabel(f)}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
                   ))}
                 </div>
               </div>

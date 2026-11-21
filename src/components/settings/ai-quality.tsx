@@ -12,7 +12,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 
-import { Button } from '@/components/ui/button';
+import { InlineError } from '@/components/ui/inline-error';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { authFetch } from '@/lib/auth/client';
 
@@ -85,10 +85,7 @@ export function AiQuality() {
       </CardHeader>
       <CardContent className="space-y-5">
         {loadFailed && (
-          <div className="flex items-center gap-3 text-sm">
-            <p className="text-destructive">{t('loadFailed')}</p>
-            <Button type="button" size="sm" variant="outline" onClick={() => void load()}>{t('retry')}</Button>
-          </div>
+          <InlineError message={t('loadFailed')} onRetry={() => void load()} />
         )}
         {!view && !loadFailed && <Loader2 className="text-muted-foreground size-4 animate-spin" aria-label={t('loading')} />}
         {view && (

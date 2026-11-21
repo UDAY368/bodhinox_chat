@@ -19,8 +19,10 @@ import { useTranslations } from 'next-intl';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { useConfirm } from '@/components/ui/confirm-dialog';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { useAuth } from '@/hooks/use-auth';
 import { authFetch } from '@/lib/auth/client';
@@ -75,10 +77,11 @@ function loadSdk(appId: string): Promise<FbSdk> {
   return sdkPromise;
 }
 
-const selectClass = 'border-border bg-card text-foreground h-9 w-full rounded-md border px-2 text-sm';
+const nameWithId = (x: { id: string; name?: string | null }) => (x.name ? `${x.name} (${x.id})` : x.id);
 
 export function MetaAdsCard() {
   const t = useTranslations('Settings.metaAds');
+  const confirm = useConfirm();
   const { canEditSettings: canEdit } = useAuth();
   const { numbers } = useWhatsAppNumbers();
   const [status, setStatus] = useState<Status | null>(null);
@@ -209,7 +212,7 @@ export function MetaAdsCard() {
   };
 
   const disconnect = async () => {
-    if (!window.confirm(t('disconnectConfirm'))) return;
+    if (!(await confirm({ title: t('disconnectConfirm'), confirmLabel: t('disconnect'), destructive: true }))) return;
     const json = await call('/api/meta-ads/connection', { method: 'DELETE' });
     if (json) {
       toast.success(t('disconnected'));
@@ -279,21 +282,35 @@ export function MetaAdsCard() {
                   <>
                     <div className="space-y-1">
                       <Label htmlFor="meta-ad-account">{t('adAccount')}</Label>
-                      <select id="meta-ad-account" className={selectClass} value={adAccountId} onChange={(e) => setAdAccountId(e.target.value)}>
-                        <option value="">{t('chooseAdAccount')}</option>
-                        {choices.adAccounts.map((a) => (
-                          <option key={a.id} value={a.id}>{a.name ? `${a.name} (${a.id})` : a.id}</option>
-                        ))}
-                      </select>
+                      <Select value={adAccountId || null} onValueChange={(v) => setAdAccountId(v ? String(v) : '')}>
+                        <SelectTrigger id="meta-ad-account" className="min-h-11 w-full bg-card sm:min-h-9">
+                          <SelectValue placeholder={t('chooseAdAccount')}>{(v: string | null) => {
+                            const a = choices.adAccounts.find((x) => x.id === v);
+                            return a ? nameWithId(a) : t('chooseAdAccount');
+                          }}</SelectValue>
+                        </SelectTrigger>
+                        <SelectContent>
+                          {choices.adAccounts.map((a) => (
+                            <SelectItem key={a.id} value={a.id}>{nameWithId(a)}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
                     <div className="space-y-1">
                       <Label htmlFor="meta-page">{t('page')}</Label>
-                      <select id="meta-page" className={selectClass} value={pageId} onChange={(e) => setPageId(e.target.value)}>
-                        <option value="">{t('choosePage')}</option>
-                        {choices.pages.map((p) => (
-                          <option key={p.id} value={p.id}>{p.name ? `${p.name} (${p.id})` : p.id}</option>
-                        ))}
-                      </select>
+                      <Select value={pageId || null} onValueChange={(v) => setPageId(v ? String(v) : '')}>
+                        <SelectTrigger id="meta-page" className="min-h-11 w-full bg-card sm:min-h-9">
+                          <SelectValue placeholder={t('choosePage')}>{(v: string | null) => {
+                            const p = choices.pages.find((x) => x.id === v);
+                            return p ? nameWithId(p) : t('choosePage');
+                          }}</SelectValue>
+                        </SelectTrigger>
+                        <SelectContent>
+                          {choices.pages.map((p) => (
+                            <SelectItem key={p.id} value={p.id}>{nameWithId(p)}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
                     <Button type="button" onClick={() => void finish()} disabled={busy || !adAccountId || !pageId}>
                       {busy && <Loader2 className="size-3.5 animate-spin" />} {t('finish')}

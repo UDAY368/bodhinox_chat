@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { PasswordInput } from '@/components/ui/password-input';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card, CardContent } from '@/components/ui/card';
 import { useLocale, useTranslations } from 'next-intl';
@@ -28,6 +29,8 @@ const ALLOWED_MIME = new Set([
 ]);
 
 // The server performs the authoritative validation and verified email change.
+/** The language menu's "use the workspace language" choice (null). */
+const INHERIT = '__workspace__';
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export function ProfileForm() {
@@ -265,6 +268,9 @@ export function ProfileForm() {
         day: 'numeric',
       })
     : '—';
+  const inheritLabel = workspaceLanguage
+    ? tProfile('languageWorkspace', { language: tLang(workspaceLanguage) })
+    : tProfile('languageDefault');
 
   return (
     <section className="animate-in fade-in-50 max-w-2xl duration-200">
@@ -398,18 +404,19 @@ export function ProfileForm() {
               <Label htmlFor="profile-language" className="text-foreground">
                 {tProfile('language')}
               </Label>
-              <select
-                id="profile-language"
-                value={language ?? ''}
+              <Select
+                value={language ?? INHERIT}
                 disabled={saving}
-                onChange={(e) => setLanguage((e.target.value || null) as AppLocale | null)}
-                className="border-input bg-transparent text-foreground h-9 w-full rounded-md border px-2 text-sm sm:max-w-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                onValueChange={(v) => setLanguage((!v || v === INHERIT ? null : v) as AppLocale | null)}
               >
-                <option value="">
-                  {workspaceLanguage ? tProfile('languageWorkspace', { language: tLang(workspaceLanguage) }) : tProfile('languageDefault')}
-                </option>
-                {APP_LOCALES.map((code) => <option key={code} value={code}>{tLang(code)}</option>)}
-              </select>
+                <SelectTrigger id="profile-language" className="min-h-11 w-full sm:min-h-9 sm:max-w-xs">
+                  <SelectValue>{(v: string) => (v === INHERIT ? inheritLabel : tLang(v as AppLocale))}</SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={INHERIT}>{inheritLabel}</SelectItem>
+                  {APP_LOCALES.map((code) => <SelectItem key={code} value={code}>{tLang(code)}</SelectItem>)}
+                </SelectContent>
+              </Select>
               <p className="text-muted-foreground text-xs">{tProfile('languageHint')}</p>
             </div>
 

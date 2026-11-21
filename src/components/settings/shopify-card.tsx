@@ -16,8 +16,10 @@ import { useTranslations } from "next-intl";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { useAuth } from "@/hooks/use-auth";
 import { authFetch } from "@/lib/auth/client";
@@ -67,6 +69,9 @@ interface State {
 }
 
 const templateKey = (t: { name: string; language: string | null }) => `${t.name}::${t.language ?? ""}`;
+const templateLabel = (t: { name: string; language: string | null }) => (t.language ? `${t.name} (${t.language})` : t.name);
+/** The menu value standing for an empty choice. */
+const NONE = "__none__";
 const emptyRule = (event: EventName): RuleDto => ({
   event, enabled: false, template_name: "", template_language: null, whatsapp_config_id: null,
   delay_minutes: event === "checkout_abandoned" ? 60 : 0, variable_map: {},
@@ -74,6 +79,7 @@ const emptyRule = (event: EventName): RuleDto => ({
 
 export function ShopifyCard() {
   const t = useTranslations("Settings.shopify");
+  const confirm = useConfirm();
   const { canEditSettings: canEdit } = useAuth();
   const searchParams = useSearchParams();
   const [state, setState] = useState<State | null>(null);
@@ -124,7 +130,7 @@ export function ShopifyCard() {
   };
 
   const disconnect = async () => {
-    if (!window.confirm(t("disconnectConfirm"))) return;
+    if (!(await confirm({ title: t("disconnectConfirm"), confirmLabel: t("disconnect"), destructive: true }))) return;
     setBusy(true);
     try {
       const res = await authFetch("/api/integrations/shopify", { method: "DELETE" });
@@ -286,7 +292,6 @@ function RuleEditor({ initial, templates, fields, canEdit, errorText, onSaved }:
   };
 
   const disabled = !canEdit || saving;
-  const selectClass = "border-border bg-card text-foreground h-9 w-full rounded-md border px-2 text-sm";
   return (
     <fieldset className="border-border space-y-3 rounded-md border p-3">
       <legend className="sr-only">{t(`events.${rule.event}`)}</legend>
@@ -300,23 +305,29 @@ function RuleEditor({ initial, templates, fields, canEdit, errorText, onSaved }:
         <div className="space-y-1">
           <label htmlFor={`${id}-number`} className="text-muted-foreground text-xs">{t("number")}</label>
           <NumberSelect id={`${id}-number`} numbers={numbers} value={rule.whatsapp_config_id} disabled={disabled}
-            onChange={(v) => setRule({ ...rule, whatsapp_config_id: v })} emptyLabel={t("defaultNumber")} className={selectClass} />
+            onChange={(v) => setRule({ ...rule, whatsapp_config_id: v })} emptyLabel={t("defaultNumber")} />
         </div>
         <div className="space-y-1">
           <label htmlFor={`${id}-template`} className="text-muted-foreground text-xs">{t("template")}</label>
-          <select id={`${id}-template`} className={selectClass} disabled={disabled}
-            value={selected ? templateKey(selected) : ""}
-            onChange={(e) => {
-              const tpl = templates.find((x) => templateKey(x) === e.target.value);
+          <Select disabled={disabled}
+            value={selected ? templateKey(selected) : NONE}
+            onValueChange={(v) => {
+              const tpl = templates.find((x) => templateKey(x) === v);
               setRule({ ...rule, template_name: tpl?.name ?? "", template_language: tpl?.language ?? null, enabled: tpl ? rule.enabled : false });
             }}>
-            <option value="">{t("chooseTemplate")}</option>
-            {options.map((tpl) => (
-              <option key={templateKey(tpl)} value={templateKey(tpl)}>
-                {tpl.language ? `${tpl.name} (${tpl.language})` : tpl.name}
-              </option>
-            ))}
-          </select>
+            <SelectTrigger id={`${id}-template`} className="min-h-11 w-full bg-card sm:min-h-9">
+              <SelectValue>{(v: string) => {
+                const tpl = templates.find((x) => templateKey(x) === v);
+                return tpl ? templateLabel(tpl) : t("chooseTemplate");
+              }}</SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={NONE}>{t("chooseTemplate")}</SelectItem>
+              {options.map((tpl) => (
+                <SelectItem key={templateKey(tpl)} value={templateKey(tpl)}>{templateLabel(tpl)}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
         <div className="space-y-1">
           <label htmlFor={`${id}-delay`} className="text-muted-foreground text-xs">{t("delay")}</label>
@@ -329,11 +340,16 @@ function RuleEditor({ initial, templates, fields, canEdit, errorText, onSaved }:
           {Array.from({ length: Math.min(variableCount, 20) }, (_, i) => String(i + 1)).map((n) => (
             <div key={n} className="space-y-1">
               <label htmlFor={`${id}-var-${n}`} className="text-muted-foreground text-xs">{t("variable", { n })}</label>
-              <select id={`${id}-var-${n}`} className={selectClass} disabled={disabled} value={rule.variable_map[n] ?? ""}
-                onChange={(e) => setRule({ ...rule, variable_map: { ...rule.variable_map, [n]: e.target.value } })}>
-                <option value="">{t("fieldNone")}</option>
-                {fields.map((f) => <option key={f} value={f}>{t(`fields.${f}`)}</option>)}
-              </select>
+              <Select disabled={disabled} value={rule.variable_map[n] || NONE}
+                onValueChange={(v) => setRule({ ...rule, variable_map: { ...rule.variable_map, [n]: !v || v === NONE ? "" : String(v) } })}>
+                <SelectTrigger id={`${id}-var-${n}`} className="min-h-11 w-full bg-card sm:min-h-9">
+                  <SelectValue>{(v: string) => (v === NONE ? t("fieldNone") : t(`fields.${v}`))}</SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={NONE}>{t("fieldNone")}</SelectItem>
+                  {fields.map((f) => <SelectItem key={f} value={f}>{t(`fields.${f}`)}</SelectItem>)}
+                </SelectContent>
+              </Select>
             </div>
           ))}
         </div>

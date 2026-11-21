@@ -7,6 +7,7 @@ import { createClient } from '@/lib/data/client';
 import { useAuth } from '@/hooks/use-auth';
 import { groupTagsByCategory } from '@/lib/contacts/tag-groups';
 import { Button } from '@/components/ui/button';
+import { PageLoading } from '@/components/ui/page-loading';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -189,9 +190,7 @@ export function TagManager() {
       </CardHeader>
       <CardContent className="space-y-4">
         {loading ? (
-          <div className="flex items-center justify-center py-8">
-            <Loader2 className="size-6 animate-spin text-primary" />
-          </div>
+          <PageLoading rows={4} />
         ) : (
           <>
             {tags.length > 0 ? (

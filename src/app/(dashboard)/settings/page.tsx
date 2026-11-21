@@ -8,6 +8,8 @@ import { ClipboardCheck, Sparkles } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { useTheme } from '@/hooks/use-theme';
 import { useWorkspaceChannels } from '@/hooks/use-workspace-channels';
+import { useConfirm } from '@/components/ui/confirm-dialog';
+import { PageHeader } from '@/components/ui/page-header';
 import { SettingsRail, type RailExtraItem } from '@/components/settings/settings-rail';
 import { SettingsOverview } from '@/components/settings/settings-overview';
 import { ProfileForm } from '@/components/settings/profile-form';
@@ -84,6 +86,7 @@ function SettingsPageInner() {
   const { accountId, defaultCurrency, canEditSettings, canManageMembers } = useAuth();
   const unsaved = useUnsavedSections();
   const tLeave = useTranslations('SettingsRedesign.saveBar');
+  const confirm = useConfirm();
   const { mode } = useTheme();
   const t = useTranslations('Settings');
   const tAi = useTranslations('AiAssistantSettings');
@@ -130,17 +133,21 @@ function SettingsPageInner() {
   ];
   const extra: ExtraSection | null = showAi ? AI_SECTION : showReview ? REVIEW_SECTION : null;
 
-  const go = (next: SettingsSection | ExtraSection) => {
+  /** Opens a section. Resolves false when the person chose to stay (unsaved changes). */
+  const go = async (next: SettingsSection | ExtraSection): Promise<boolean> => {
     // Leaving a section with unsaved changes drops them; ask first.
     const current = extra ?? section;
-    if (next !== current && unsaved.size > 0 && !window.confirm(tLeave('leaveConfirm'))) return;
+    if (next !== current && unsaved.size > 0
+      && !(await confirm({ title: tLeave('leaveConfirm'), confirmLabel: tLeave('discard'), destructive: true }))) return false;
     // A section that lives on its own page (Templates) opens that page.
     const href = next === AI_SECTION || next === REVIEW_SECTION ? undefined : SECTION_META[next].href;
-    if (href) { router.push(href); return; }
+    if (href) { router.push(href); return true; }
     const params = new URLSearchParams(searchParams.toString());
     params.set('tab', next);
     router.replace(`/settings?${params.toString()}`, { scroll: false });
+    return true;
   };
+  const select = (next: SettingsSection | ExtraSection) => { void go(next); };
 
   // Search results and "Related" links: a settings entry opens its section (and
   // scrolls to its card); an AI page entry opens that page.
@@ -160,17 +167,19 @@ function SettingsPageInner() {
       router.push(entry.href);
       return;
     }
-    go(entry.section);
-    if (entry.anchor) {
-      const anchor = entry.anchor;
-      window.setTimeout(() => document.getElementById(anchor)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 150);
-    }
+    const anchor = entry.anchor;
+    void go(entry.section).then((opened) => {
+      if (opened && anchor) {
+        window.setTimeout(() => document.getElementById(anchor)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 150);
+      }
+    });
   };
 
   // The Integrations grid's Webhooks card opens API & webhooks at the webhooks list.
   const openWebhooks = () => {
-    go('api');
-    window.setTimeout(() => document.getElementById('webhooks')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 150);
+    void go('api').then((opened) => {
+      if (opened) window.setTimeout(() => document.getElementById('webhooks')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 150);
+    });
   };
 
   // Cheap, fetch-free rail hints. The Overview landing carries the
@@ -185,16 +194,16 @@ function SettingsPageInner() {
   );
 
   const panel: Record<SettingsSection, ReactNode> = {
-    overview: <SettingsOverview onSelect={go} hidden={hidden} />,
+    overview: <SettingsOverview onSelect={select} hidden={hidden} />,
     profile: <ProfileForm />,
     security: <SecurityPanel />,
     appearance: <AppearancePanel />,
     notifications: <NotificationPreferences key={accountId} />,
     privacy: <PrivacySection key={accountId} />,
     workspace: <WorkspaceSection key={accountId} />,
-    channels: <ChannelsSection active="channels" hidden={hidden} onSelect={go} />,
-    whatsapp: <ChannelsSection active="whatsapp" hidden={hidden} onSelect={go} />,
-    instagram: <ChannelsSection active="instagram" hidden={hidden} onSelect={go} />,
+    channels: <ChannelsSection active="channels" hidden={hidden} onSelect={select} />,
+    whatsapp: <ChannelsSection active="whatsapp" hidden={hidden} onSelect={select} />,
+    instagram: <ChannelsSection active="instagram" hidden={hidden} onSelect={select} />,
     // Campaigns > Templates is the one templates screen (next.config.ts redirects ?tab=templates).
     templates: null,
     'quick-replies': <QuickRepliesManager />,
@@ -239,20 +248,14 @@ function SettingsPageInner() {
 
   return (
     <div>
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div className="min-w-0">
-          <h1 className="text-foreground text-[22px] font-bold tracking-tight">
-            {t('pageTitle')}
-          </h1>
-          <p className="text-muted-foreground mt-1 text-sm">{t('pageDesc')}</p>
-        </div>
+      <PageHeader title={t('pageTitle')} subtitle={t('pageDesc')} className="mb-0">
         <SettingsSearch entries={searchable} onOpen={openEntry} />
-      </div>
+      </PageHeader>
 
       <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-[224px_minmax(0,1fr)] lg:items-start lg:gap-8 xl:grid-cols-[232px_minmax(0,1fr)]">
         <div className="min-w-0 lg:sticky lg:top-0 lg:self-start lg:border-r lg:border-border lg:pr-3">
-          <SettingsRail active={extra ?? railSection(section)} onSelect={go} hints={hints}
-            extraItems={extraItems} onSelectExtra={(id) => go(id === REVIEW_SECTION ? REVIEW_SECTION : AI_SECTION)}
+          <SettingsRail active={extra ?? railSection(section)} onSelect={select} hints={hints}
+            extraItems={extraItems} onSelectExtra={(id) => select(id === REVIEW_SECTION ? REVIEW_SECTION : AI_SECTION)}
             hidden={hidden} unsaved={unsaved} />
         </div>
         <div className="mx-auto w-full min-w-0 max-w-[880px] pb-16">

@@ -15,6 +15,7 @@ import { authFetch } from '@/lib/auth/client';
 import { cn } from '@/lib/utils';
 import { ACCOUNT_ISSUE_EVENTS } from '@/lib/whatsapp/account-issue';
 import { Button } from '@/components/ui/button';
+import { useConfirm } from '@/components/ui/confirm-dialog';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { numberLabel, type WhatsAppNumberDto } from './use-whatsapp-numbers';
@@ -39,6 +40,7 @@ interface NumbersListProps {
 
 export function NumbersList({ numbers, selectedId, adding, canEdit, onSelect, onAdd, onChanged }: NumbersListProps) {
   const t = useTranslations('whatsappNumbers');
+  const confirm = useConfirm();
   const [busyId, setBusyId] = useState<string | null>(null);
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [draftName, setDraftName] = useState('');
@@ -87,7 +89,7 @@ export function NumbersList({ numbers, selectedId, adding, canEdit, onSelect, on
   }
 
   async function disconnect(n: WhatsAppNumberDto) {
-    if (!confirm(t('settings.disconnectConfirmHold', { name: numberLabel(n, t), isDefault: String(n.is_default) }))) return;
+    if (!(await confirm({ title: t('settings.disconnectConfirmHold', { name: numberLabel(n, t), isDefault: String(n.is_default) }), confirmLabel: t('settings.disconnect'), destructive: true }))) return;
     const body = await change(n, { method: 'DELETE' });
     if (!body) return;
     // The server says what happened: new default, flows drafted, campaigns held.

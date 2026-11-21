@@ -13,9 +13,11 @@ import { toast } from "sonner";
 import { useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { InlineError } from "@/components/ui/inline-error";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { authFetch } from "@/lib/auth/client";
@@ -36,6 +38,7 @@ async function call<T>(url: string, init: RequestInit, fallback: string): Promis
 
 export function TeamsCard({ canEdit }: { canEdit: boolean }) {
   const t = useTranslations("Settings.teams");
+  const confirm = useConfirm();
   const [teams, setTeams] = useState<TeamView[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
   const [loading, setLoading] = useState(canEdit);
@@ -72,7 +75,7 @@ export function TeamsCard({ canEdit }: { canEdit: boolean }) {
   };
 
   const remove = async (team: TeamView) => {
-    if (!window.confirm(t("deleteConfirm", { name: team.name }))) return;
+    if (!(await confirm({ title: t("deleteConfirm", { name: team.name }), confirmLabel: t("delete", { name: team.name }), destructive: true }))) return;
     setBusy(true);
     try {
       await call(`${ENDPOINT}/${team.id}`, { method: "DELETE" }, t("deleteFailed"));
@@ -95,7 +98,7 @@ export function TeamsCard({ canEdit }: { canEdit: boolean }) {
         {loading ? (
           <Loader2 className="size-4 animate-spin text-primary" />
         ) : loadFailed ? (
-          <p className="text-xs text-destructive">{t("loadFailed")}</p>
+          <InlineError message={t("loadFailed")} onRetry={() => void load()} />
         ) : (
           <>
             {teams.length === 0 && <p className="text-sm text-muted-foreground">{t("empty")}</p>}
@@ -169,12 +172,12 @@ function TeamDialog({ team, members, onClose, onSaved }: {
   };
 
   return (
-    <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
-      <DialogContent className="border-border bg-popover max-h-[90vh] overflow-y-auto sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle className="text-popover-foreground">{team ? t("editTitle") : t("addTitle")}</DialogTitle>
-          <DialogDescription className="text-muted-foreground">{t("dialogDescription")}</DialogDescription>
-        </DialogHeader>
+    <Sheet open onOpenChange={(open) => { if (!open) onClose(); }}>
+      <SheetContent size="md" className="w-full gap-4 overflow-y-auto p-4">
+        <SheetHeader className="p-0 pr-8">
+          <SheetTitle className="text-popover-foreground">{team ? t("editTitle") : t("addTitle")}</SheetTitle>
+          <SheetDescription className="text-muted-foreground">{t("dialogDescription")}</SheetDescription>
+        </SheetHeader>
         <div className="space-y-4">
           <div className="space-y-1.5">
             <Label htmlFor="team-name">{t("name")}</Label>
@@ -197,13 +200,13 @@ function TeamDialog({ team, members, onClose, onSaved }: {
             </div>
           </fieldset>
         </div>
-        <DialogFooter>
+        <SheetFooter className="flex-row flex-wrap justify-end p-0">
           <Button type="button" variant="outline" onClick={onClose} disabled={saving}>{t("cancel")}</Button>
           <Button type="button" onClick={save} disabled={saving || !name.trim()}>
             {saving && <Loader2 className="size-3.5 animate-spin" />} {t("save")}
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </SheetFooter>
+      </SheetContent>
+    </Sheet>
   );
 }

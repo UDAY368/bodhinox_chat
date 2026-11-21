@@ -11,6 +11,7 @@ import type { NotificationPreference } from '@/lib/notifications/preferences';
 import { currentPushSubscription, disablePush, enablePush, pushSupported, type PushStatus } from '@/lib/notifications/push-client';
 import { QUIET_HOURS_EVENT } from '@/lib/notifications/quiet-hours-store';
 import { Button } from '@/components/ui/button';
+import { InlineError } from '@/components/ui/inline-error';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
@@ -212,10 +213,7 @@ export function NotificationPreferences({ className }: { className?: string }) {
           <p role="status" className="text-sm text-muted-foreground">{t('loading')}</p>
         </div>
       ) : error || !draft || !loaded ? (
-        <div className="flex flex-col items-start gap-3 rounded-xl border border-border bg-card px-4 py-5">
-          <p role="alert" className="text-sm text-destructive">{t('loadFailed')}</p>
-          <Button variant="outline" size="sm" onClick={() => setRetry((v) => v + 1)}>{t('retry')}</Button>
-        </div>
+        <InlineError message={t('loadFailed')} onRetry={() => setRetry((v) => v + 1)} />
       ) : (
         <>
           <div className="space-y-3">

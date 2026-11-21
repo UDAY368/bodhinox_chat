@@ -18,16 +18,10 @@ import { AlertTriangle, Copy, History, Loader2, Plus, Trash2, Webhook } from 'lu
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { PageLoading } from '@/components/ui/page-loading';
 import { Card, CardContent } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
@@ -153,9 +147,7 @@ export function WebhooksSettings() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="text-primary size-6 animate-spin" />
-      </div>
+      <PageLoading rows={3} />
     );
   }
 
@@ -298,21 +290,19 @@ function DeliveryLogDialog({ hook, onClose }: { hook: ApiWebhookEndpoint; onClos
   }, [id]);
 
   return (
-    <Dialog open onOpenChange={(open) => (open ? undefined : onClose())}>
-      <DialogContent className="border-border bg-popover sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle className="text-popover-foreground">{t('viewLog')}</DialogTitle>
-          <DialogDescription className="text-muted-foreground">
+    <Sheet open onOpenChange={(open) => (open ? undefined : onClose())}>
+      <SheetContent size="lg" className="w-full gap-4 overflow-y-auto p-4">
+        <SheetHeader className="p-0 pr-8">
+          <SheetTitle className="text-popover-foreground">{t('viewLog')}</SheetTitle>
+          <SheetDescription className="text-muted-foreground">
             <span className="block truncate font-mono text-xs">{hook.url}</span>
             {t('logDesc')}
-          </DialogDescription>
-        </DialogHeader>
+          </SheetDescription>
+        </SheetHeader>
         {failed ? (
           <p className="text-sm text-red-600 dark:text-red-400">{t('logLoadFailed')}</p>
         ) : rows === null ? (
-          <div className="flex justify-center py-6">
-            <Loader2 className="text-primary size-5 animate-spin" />
-          </div>
+          <PageLoading rows={3} />
         ) : rows.length === 0 ? (
           <p className="text-muted-foreground text-sm">{t('logEmpty')}</p>
         ) : (
@@ -339,8 +329,8 @@ function DeliveryLogDialog({ hook, onClose }: { hook: ApiWebhookEndpoint; onClos
             ))}
           </ul>
         )}
-      </DialogContent>
-    </Dialog>
+      </SheetContent>
+    </Sheet>
   );
 }
 
@@ -453,14 +443,14 @@ function CreateWebhookDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={(next) => (next ? onOpenChange(true) : close())}>
-      <DialogContent className="border-border bg-popover sm:max-w-md">
+    <Sheet open={open} onOpenChange={(next) => (next ? onOpenChange(true) : close())}>
+      <SheetContent size="md" className="w-full gap-4 overflow-y-auto p-4">
         {secret ? (
           <>
-            <DialogHeader>
-              <DialogTitle className="text-popover-foreground">{t('secretTitle')}</DialogTitle>
-              <DialogDescription className="text-muted-foreground">{t('secretDesc')}</DialogDescription>
-            </DialogHeader>
+            <SheetHeader className="p-0 pr-8">
+              <SheetTitle className="text-popover-foreground">{t('secretTitle')}</SheetTitle>
+              <SheetDescription className="text-muted-foreground">{t('secretDesc')}</SheetDescription>
+            </SheetHeader>
             <div className="flex gap-2">
               <Input readOnly value={secret} className="font-mono text-xs" onFocus={(e) => e.currentTarget.select()} />
               <Button type="button" variant="outline" onClick={copySecret}>
@@ -468,16 +458,16 @@ function CreateWebhookDialog({
                 {t('copy')}
               </Button>
             </div>
-            <DialogFooter>
+            <SheetFooter className="flex-row flex-wrap justify-end p-0">
               <Button onClick={close}>{t('done')}</Button>
-            </DialogFooter>
+            </SheetFooter>
           </>
         ) : (
           <>
-            <DialogHeader>
-              <DialogTitle className="text-popover-foreground">{t('newTitle')}</DialogTitle>
-              <DialogDescription className="text-muted-foreground">{t('newDesc')}</DialogDescription>
-            </DialogHeader>
+            <SheetHeader className="p-0 pr-8">
+              <SheetTitle className="text-popover-foreground">{t('newTitle')}</SheetTitle>
+              <SheetDescription className="text-muted-foreground">{t('newDesc')}</SheetDescription>
+            </SheetHeader>
             <div className="space-y-4">
               <div className="space-y-1.5">
                 <Label htmlFor="webhook-url" className="text-muted-foreground">
@@ -520,7 +510,7 @@ function CreateWebhookDialog({
                 <ChannelChecks idPrefix="webhook-new" value={channels} disabled={submitting} onChange={setChannels} />
               )}
             </div>
-            <DialogFooter>
+            <SheetFooter className="flex-row flex-wrap justify-end p-0">
               <Button
                 variant="outline"
                 onClick={close}
@@ -532,10 +522,10 @@ function CreateWebhookDialog({
                 {submitting ? <Loader2 className="size-4 animate-spin" /> : null}
                 {t('create')}
               </Button>
-            </DialogFooter>
+            </SheetFooter>
           </>
         )}
-      </DialogContent>
-    </Dialog>
+      </SheetContent>
+    </Sheet>
   );
 }

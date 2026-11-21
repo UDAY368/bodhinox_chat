@@ -22,16 +22,10 @@ import { Copy, KeyRound, Loader2, Plus, Trash2 } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { PageLoading } from '@/components/ui/page-loading';
 import { Card, CardContent } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RequireRole } from '@/components/auth/require-role';
@@ -129,9 +123,7 @@ export function ApiKeysSettings() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="text-primary size-6 animate-spin" />
-      </div>
+      <PageLoading rows={3} />
     );
   }
 
@@ -349,24 +341,24 @@ function CreateKeyDialog({
   }
 
   return (
-    <Dialog
+    <Sheet
       open={open}
       onOpenChange={(next) => {
         if (!next) reset();
         onOpenChange(next);
       }}
     >
-      <DialogContent className="border-border bg-popover sm:max-w-md">
+      <SheetContent size="md" className="w-full gap-4 overflow-y-auto p-4">
         {createdKey ? (
           <>
-            <DialogHeader>
-              <DialogTitle className="text-popover-foreground">
+            <SheetHeader className="p-0 pr-8">
+              <SheetTitle className="text-popover-foreground">
                 {t('copyTitle')}
-              </DialogTitle>
-              <DialogDescription className="text-muted-foreground">
+              </SheetTitle>
+              <SheetDescription className="text-muted-foreground">
                 {t('copyDesc')}
-              </DialogDescription>
-            </DialogHeader>
+              </SheetDescription>
+            </SheetHeader>
 
             <div className="space-y-1.5">
               <Label className="text-muted-foreground">{t('apiKeyLabel')}</Label>
@@ -384,7 +376,7 @@ function CreateKeyDialog({
               </div>
             </div>
 
-            <DialogFooter>
+            <SheetFooter className="flex-row flex-wrap justify-end p-0">
               <Button
                 onClick={() => {
                   reset();
@@ -393,18 +385,18 @@ function CreateKeyDialog({
               >
                 {t('done')}
               </Button>
-            </DialogFooter>
+            </SheetFooter>
           </>
         ) : (
           <>
-            <DialogHeader>
-              <DialogTitle className="text-popover-foreground">
+            <SheetHeader className="p-0 pr-8">
+              <SheetTitle className="text-popover-foreground">
                 {t('newKeyTitle')}
-              </DialogTitle>
-              <DialogDescription className="text-muted-foreground">
+              </SheetTitle>
+              <SheetDescription className="text-muted-foreground">
                 {t('newKeyDesc')}
-              </DialogDescription>
-            </DialogHeader>
+              </SheetDescription>
+            </SheetHeader>
 
             <div className="space-y-4">
               <div className="space-y-1.5">
@@ -456,7 +448,7 @@ function CreateKeyDialog({
               </div>
             </div>
 
-            <DialogFooter>
+            <SheetFooter className="flex-row flex-wrap justify-end p-0">
               <Button
                 variant="outline"
                 onClick={() => {
@@ -477,10 +469,10 @@ function CreateKeyDialog({
                   t('createKey')
                 )}
               </Button>
-            </DialogFooter>
+            </SheetFooter>
           </>
         )}
-      </DialogContent>
-    </Dialog>
+      </SheetContent>
+    </Sheet>
   );
 }

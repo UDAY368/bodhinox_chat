@@ -15,6 +15,7 @@ import { useTranslations } from "next-intl";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -46,6 +47,7 @@ async function errorText(res: Response, fallback: string): Promise<string> {
 
 export function CourierCard({ provider }: { provider: CourierCardProvider }) {
   const t = useTranslations("Settings.couriers");
+  const confirm = useConfirm();
   const canEdit = useCan("edit-settings");
   const endpoint = `/api/integrations/couriers/${provider}`;
   const [status, setStatus] = useState<CourierStatus | null>(null);
@@ -113,7 +115,7 @@ export function CourierCard({ provider }: { provider: CourierCardProvider }) {
   };
 
   const disconnect = async () => {
-    if (!window.confirm(t("disconnectConfirm", { name: t(`${provider}.name`) }))) return;
+    if (!(await confirm({ title: t("disconnectConfirm", { name: t(`${provider}.name`) }), confirmLabel: t("disconnect"), destructive: true }))) return;
     setBusy("remove");
     try {
       const res = await authFetch(endpoint, { method: "DELETE" });

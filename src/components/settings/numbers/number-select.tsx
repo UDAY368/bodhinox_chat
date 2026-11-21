@@ -1,12 +1,15 @@
 'use client';
 
-// A plain <select> of the workspace's WhatsApp numbers. `emptyLabel` names
-// what the empty value means where it is used ("All numbers" for a flow
-// trigger, "Default number" for a campaign); value '' maps to null.
+// A menu of the workspace's WhatsApp numbers. `emptyLabel` names what no
+// number means where it is used ("All numbers" for a flow trigger, "Default
+// number" for a campaign); that choice maps to null.
 // Disconnected numbers are not offered, except the current value, which keeps
 // its name with a "(disconnected)" marker so saving does not silently change it.
 
 import { useTranslations } from 'next-intl';
+
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { cn } from '@/lib/utils';
 import { numberLabel, type WhatsAppNumberDto } from './use-whatsapp-numbers';
 
 /**
@@ -31,6 +34,34 @@ export function numberOptionLabel(
   return n.removed ? t('picker.disconnectedSuffix', { name }) : name;
 }
 
+/** The menu value standing for "no number" (null). */
+export const NO_NUMBER = '__none__';
+
+type NumberT = (key: 'unnamedNumber' | 'picker.disconnectedSuffix' | 'picker.disconnectedNumber' | 'defaultBadge', values?: Record<string, string>) => string;
+
+/**
+ * The picker's choices in order (pure): the empty choice, the pickable numbers,
+ * and a stored id the list does not have at all (another WABA, or gone), so it
+ * still shows.
+ */
+export function numberSelectOptions(
+  numbers: WhatsAppNumberDto[],
+  value: string | null,
+  emptyLabel: string,
+  t: NumberT,
+): { value: string; label: string }[] {
+  const options = pickableNumbers(numbers, value);
+  const known = value === null || options.some((n) => n.id === value);
+  return [
+    { value: NO_NUMBER, label: emptyLabel },
+    ...options.map((n) => ({
+      value: n.id,
+      label: `${numberOptionLabel(n, (key, values) => t(key, values))}${n.is_default ? ` · ${t('defaultBadge')}` : ''}`,
+    })),
+    ...(!known && value !== null ? [{ value, label: t('picker.disconnectedNumber') }] : []),
+  ];
+}
+
 interface NumberSelectProps {
   id?: string;
   numbers: WhatsAppNumberDto[];
@@ -43,25 +74,22 @@ interface NumberSelectProps {
 
 export function NumberSelect({ id, numbers, value, onChange, emptyLabel, disabled, className }: NumberSelectProps) {
   const t = useTranslations('whatsappNumbers');
-  const options = pickableNumbers(numbers, value);
-  // A stored id the list does not have at all (another WABA, or gone) still shows.
-  const known = value === null || options.some((n) => n.id === value);
+  const options = numberSelectOptions(numbers, value, emptyLabel, t as unknown as NumberT);
+  const labelOf = (v: string) => options.find((o) => o.value === v)?.label ?? v;
   return (
-    <select
-      id={id}
-      value={value ?? ''}
+    <Select
+      value={value ?? NO_NUMBER}
       disabled={disabled}
-      onChange={(event) => onChange(event.target.value || null)}
-      className={className ?? 'border-border bg-card text-foreground h-9 w-full rounded-md border px-2 text-sm'}
+      onValueChange={(next) => onChange(!next || next === NO_NUMBER ? null : String(next))}
     >
-      <option value="">{emptyLabel}</option>
-      {options.map((n) => (
-        <option key={n.id} value={n.id}>
-          {numberOptionLabel(n, t)}
-          {n.is_default ? ` · ${t('defaultBadge')}` : ''}
-        </option>
-      ))}
-      {!known && <option value={value ?? ''}>{t('picker.disconnectedNumber')}</option>}
-    </select>
+      <SelectTrigger id={id} className={cn('min-h-11 w-full bg-card sm:min-h-9', className)}>
+        <SelectValue>{(v: string) => labelOf(v)}</SelectValue>
+      </SelectTrigger>
+      <SelectContent>
+        {options.map((o) => (
+          <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   );
 }

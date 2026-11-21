@@ -9,6 +9,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { CURRENCIES } from "@/lib/currency";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Card,
   CardContent,
@@ -18,6 +19,11 @@ import {
 } from "@/components/ui/card";
 import { useTranslations } from "next-intl";
 import { SettingsPanelHead } from "./settings-panel-head";
+
+function currencyLabel(code: string): string {
+  const c = CURRENCIES.find((x) => x.code === code);
+  return c ? `${c.code} — ${c.label}` : code;
+}
 
 /**
  * Deals settings — account-wide default currency.
@@ -87,19 +93,23 @@ export function DealsSettings() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid gap-2 sm:max-w-xs">
-            <Label className="text-muted-foreground">{t("currencyLabel")}</Label>
-            <select
+            <Label htmlFor="deals-currency" className="text-muted-foreground">{t("currencyLabel")}</Label>
+            <Select
               value={selected}
-              onChange={(e) => setSelected(e.target.value)}
+              onValueChange={(v) => { if (v) setSelected(String(v)); }}
               disabled={!canEditSettings || profileLoading}
-              className="h-9 w-full rounded-lg border border-border bg-muted px-2.5 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {CURRENCIES.map((c) => (
-                <option key={c.code} value={c.code}>
-                  {c.code} — {c.label}
-                </option>
-              ))}
-            </select>
+              <SelectTrigger id="deals-currency" className="min-h-11 w-full bg-muted sm:min-h-9">
+                <SelectValue>{(v: string) => currencyLabel(v)}</SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {CURRENCIES.map((c) => (
+                  <SelectItem key={c.code} value={c.code}>
+                    {c.code} — {c.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             {!canEditSettings && (
               <p className="text-xs text-muted-foreground">
                 {t("adminOnlyHint")}

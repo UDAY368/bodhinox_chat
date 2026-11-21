@@ -13,16 +13,10 @@ import { toast } from "sonner";
 import { useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { authFetch } from "@/lib/auth/client";
 import {
@@ -142,12 +136,12 @@ export function BusinessProfileDialog({
     setForm((f) => (f ? { ...f, [key]: e.target.value } : f));
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle>{t("title")}</DialogTitle>
-          <DialogDescription>{numberLabel ? t("descriptionFor", { number: numberLabel }) : t("description")}</DialogDescription>
-        </DialogHeader>
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent size="lg" className="w-full gap-4 overflow-y-auto p-4">
+        <SheetHeader className="p-0 pr-8">
+          <SheetTitle>{t("title")}</SheetTitle>
+          <SheetDescription>{numberLabel ? t("descriptionFor", { number: numberLabel }) : t("description")}</SheetDescription>
+        </SheetHeader>
         {loading ? (
           <Loader2 className="mx-auto size-5 animate-spin text-primary" />
         ) : loadError ? (
@@ -193,22 +187,26 @@ export function BusinessProfileDialog({
               </div>
             </Field>
             <Field id="bp-vertical" label={t("vertical")}>
-              <select
-                id="bp-vertical"
-                className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm text-foreground disabled:opacity-50"
-                value={form.vertical}
-                onChange={set("vertical")}
+              <Select
+                value={form.vertical || null}
+                onValueChange={(v) => { if (v) set("vertical")({ target: { value: String(v) } }); }}
                 disabled={!editable}
               >
-                {form.vertical === "" ? <option value="">{t("verticalNone")}</option> : null}
-                {BUSINESS_VERTICALS.map((v) => (
-                  <option key={v} value={v}>{t(`verticals.${v}`)}</option>
-                ))}
-              </select>
+                <SelectTrigger id="bp-vertical" className="min-h-11 w-full sm:min-h-9">
+                  <SelectValue placeholder={t("verticalNone")}>
+                    {(v: string | null) => (v ? t(`verticals.${v as (typeof BUSINESS_VERTICALS)[number]}`) : t("verticalNone"))}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {BUSINESS_VERTICALS.map((v) => (
+                    <SelectItem key={v} value={v}>{t(`verticals.${v}`)}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </Field>
           </div>
         ) : null}
-        <DialogFooter>
+        <SheetFooter className="flex-row flex-wrap justify-end p-0">
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>{t("close")}</Button>
           {canEdit ? (
             <Button type="button" onClick={save} disabled={!editable || !dirty || saving}>
@@ -216,9 +214,9 @@ export function BusinessProfileDialog({
               {t("save")}
             </Button>
           ) : null}
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </SheetFooter>
+      </SheetContent>
+    </Sheet>
   );
 }
 
