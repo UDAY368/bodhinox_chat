@@ -1,11 +1,9 @@
 'use client';
 
 // Small shared pieces for the Ads tabs: the status chip (Meta's delivery
-// status in plain words), the loading placeholder, and the empty state.
+// status in plain words) and the loading placeholder.
 
-import type { ReactNode } from 'react';
 import { useTranslations } from 'next-intl';
-import type { LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export type StatusTone = 'active' | 'paused' | 'review' | 'rejected' | 'issues' | 'ended' | 'billing' | 'other';
@@ -63,18 +61,6 @@ export function LoadingRows({ rows = 5, label }: { rows?: number; label?: string
           <div className="hidden h-3 w-16 animate-pulse rounded bg-muted sm:block" />
         </div>
       ))}
-    </div>
-  );
-}
-
-/** What the tab will show and, when there is one, the action that fills it. */
-export function EmptyState({ icon: Icon, title, body, action }: { icon: LucideIcon; title: string; body?: string; action?: ReactNode }) {
-  return (
-    <div className="flex flex-col items-center rounded-xl border border-dashed border-border bg-card px-4 py-10 text-center">
-      <span className="flex size-10 items-center justify-center rounded-full bg-primary/10 text-primary"><Icon className="size-5" aria-hidden /></span>
-      <p className="mt-3 text-sm font-medium text-foreground">{title}</p>
-      {body && <p className="mx-auto mt-1 max-w-md text-xs text-muted-foreground">{body}</p>}
-      {action && <div className="mt-4">{action}</div>}
     </div>
   );
 }

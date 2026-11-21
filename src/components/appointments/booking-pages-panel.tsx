@@ -5,6 +5,8 @@
  * optional location, the WhatsApp number that receives the customer's
  * "BOOK <code>" confirmation (default number when unset) and an active flag.
  */
+import { EmptyState } from '@/components/ui/empty-state';
+import { OptionSelect } from '@/components/contacts/option-select';
 import { useCallback, useEffect, useState } from 'react';
 import { Copy, Link2 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -17,7 +19,7 @@ import { GroupedList, GroupedListRow } from '@/components/ui/grouped-list';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Switch } from '@/components/ui/switch';
 import { useWhatsAppNumbers } from '@/components/settings/numbers/use-whatsapp-numbers';
-import { apiRequest, selectClass, useFailureText, type AppointmentConfig } from './shared';
+import { apiRequest, useFailureText, type AppointmentConfig } from './shared';
 
 export interface BookingPageDto {
   id: string; slug: string; title: string; active: boolean; location_id: string | null; whatsapp_config_id: string | null; service_ids: string[];
@@ -135,17 +137,13 @@ export function BookingPagesPanel({ config, canEdit }: { config: AppointmentConf
       </div>
       <div className="space-y-1">
         <Label htmlFor="page-location">{t('pages.location')}</Label>
-        <select id="page-location" className={selectClass} value={draft.locationId} onChange={(e) => set('locationId')(e.target.value)}>
-          <option value="">{t('schedule.all')}</option>
-          {config.locations.filter((l) => !l.archived_at).map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
-        </select>
+        <OptionSelect id="page-location" value={draft.locationId} onValueChange={set('locationId')}
+          options={[{ value: '', label: t('schedule.all') }, ...config.locations.filter((l) => !l.archived_at).map((l) => ({ value: l.id, label: l.name }))]} />
       </div>
       <div className="space-y-1">
         <Label htmlFor="page-number">{t('pages.number')}</Label>
-        <select id="page-number" className={selectClass} value={draft.numberId} onChange={(e) => set('numberId')(e.target.value)}>
-          <option value="">{t('pages.defaultNumber')}</option>
-          {numbers.filter((n) => !n.removed).map((n) => <option key={n.id} value={n.id}>{n.display_name || n.phone_number_id}</option>)}
-        </select>
+        <OptionSelect id="page-number" value={draft.numberId} onValueChange={set('numberId')}
+          options={[{ value: '', label: t('pages.defaultNumber') }, ...numbers.filter((n) => !n.removed).map((n) => ({ value: n.id, label: n.display_name || n.phone_number_id }))]} />
       </div>
       <div className="space-y-1 sm:col-span-2">
         <Label>{t('pages.services')}</Label>
@@ -176,7 +174,7 @@ export function BookingPagesPanel({ config, canEdit }: { config: AppointmentConf
         {canEdit && editing === null && <Button type="button" size="sm" onClick={() => edit('new')}>{t('pages.add')}</Button>}
       </div>
       {editing === 'new' && form}
-      {pages && pages.length === 0 && editing !== 'new' && <p className="text-sm text-muted-foreground">{t('pages.empty')}</p>}
+      {pages && pages.length === 0 && editing !== 'new' && <EmptyState icon={Link2} title={t('pages.empty')} />}
       <ul className="space-y-2">
         {(pages ?? []).map((p) => (
           <li key={p.id}>
@@ -198,7 +196,7 @@ export function BookingPagesPanel({ config, canEdit }: { config: AppointmentConf
       </ul>
 
       <Sheet open={linksPage !== null} onOpenChange={(open) => { if (!open) setLinksFor(null); }}>
-        <SheetContent className="w-full overflow-y-auto sm:max-w-md">
+        <SheetContent size="md" className="overflow-y-auto">
           {linksPage && (
             <>
               <SheetHeader className="pr-12">

@@ -106,7 +106,7 @@ export function AdDetailDrawer({ row, level, adAccountId, range, onClose }: {
 
   return (
     <Sheet open={row !== null} onOpenChange={(open) => { if (!open) onClose(); }}>
-      <SheetContent className="w-full overflow-y-auto sm:max-w-md">
+      <SheetContent size="md" className="w-full overflow-y-auto">
         {row && (
           <>
             <SheetHeader className="pr-12">

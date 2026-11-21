@@ -18,6 +18,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Textarea } from '@/components/ui/textarea';
+import { SegmentedControl } from '@/components/ui/segmented-control';
+import { OptionSelect } from '@/components/contacts/option-select';
 import type {
   AppointmentEventKind, AppointmentMessageKind, AppointmentMessageStatus, AppointmentStatus, Slot, TaskKind, TaskStatus,
 } from '@/lib/appointments/types';
@@ -26,7 +28,7 @@ import { MEETING_ERROR_CODES, type AppointmentMeetingView, type MeetingSyncState
 import { AppointmentStatusBadge } from './appointment-status-badge';
 import { SlotSelector } from './slot-selector';
 import {
-  apiRequest, dueAtFromDay, formatDateTime, formatPrice, formatTime, selectClass, useFailureText, type Abilities, type AppointmentConfig, type ApiFailure,
+  apiRequest, dueAtFromDay, formatDateTime, formatPrice, formatTime, useFailureText, type Abilities, type AppointmentConfig, type ApiFailure,
 } from './shared';
 
 export interface AppointmentDetailDto {
@@ -315,9 +317,8 @@ export function AppointmentSheet({
                   {a.staff_id && staffOptions.length > 1 && (
                     <div className="space-y-1">
                       <Label htmlFor="appt-new-staff">{t('sheet.practitioner')}</Label>
-                      <select id="appt-new-staff" className={selectClass} value={newStaff} onChange={(e) => { setNewStaff(e.target.value); setSlot(null); }}>
-                        {staffOptions.map((s) => <option key={s.id} value={s.id}>{s.display_name}</option>)}
-                      </select>
+                      <OptionSelect id="appt-new-staff" value={newStaff} onValueChange={(v) => { setNewStaff(v); setSlot(null); }}
+                        options={staffOptions.map((s) => ({ value: s.id, label: s.display_name }))} />
                     </div>
                   )}
                   <SlotSelector
@@ -337,11 +338,10 @@ export function AppointmentSheet({
                 <div className="space-y-3 rounded-xl border border-destructive/40 p-3">
                   <p>{t('sheet.cancelConfirm')}</p>
                   <div className="space-y-1">
-                    <Label htmlFor="appt-cancel-reason">{t('sheet.cancelReason')}</Label>
-                    <select id="appt-cancel-reason" className={selectClass} value={cancelReason}
-                      onChange={(e) => setCancelReason(e.target.value as typeof cancelReason)}>
-                      {(['staff', 'customer', 'other'] as const).map((r) => <option key={r} value={r}>{t(`cancelReasons.${r}`)}</option>)}
-                    </select>
+                    <p className="text-sm font-medium">{t('sheet.cancelReason')}</p>
+                    <SegmentedControl aria-label={t('sheet.cancelReason')} value={cancelReason}
+                      onValueChange={setCancelReason}
+                      options={(['staff', 'customer', 'other'] as const).map((r) => ({ value: r, label: t(`cancelReasons.${r}`) }))} />
                   </div>
                   <div className="flex gap-2">
                     <Button type="button" size="sm" variant="destructive" disabled={busy}
@@ -359,10 +359,8 @@ export function AppointmentSheet({
                   <div className="flex flex-wrap items-end gap-2">
                     <div className="space-y-1">
                       <Label htmlFor="appt-score">{t('sheet.feedbackScore')}</Label>
-                      <select id="appt-score" className={`${selectClass} w-24`} value={score} disabled={!abilities.manage || busy} onChange={(e) => setScore(e.target.value)}>
-                        <option value="">—</option>
-                        {[1, 2, 3, 4, 5].map((n) => <option key={n} value={n}>{n}</option>)}
-                      </select>
+                      <OptionSelect id="appt-score" className="w-24" value={score} disabled={!abilities.manage || busy} onValueChange={setScore}
+                        options={[{ value: '', label: '—' }, ...[1, 2, 3, 4, 5].map((n) => ({ value: String(n), label: n }))]} />
                     </div>
                     {abilities.manage && (
                       <Button type="button" size="sm" variant="outline" disabled={busy}

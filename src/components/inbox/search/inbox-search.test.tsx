@@ -38,7 +38,8 @@ describe('InboxSearch', () => {
       </NextIntlClientProvider>
     );
     expect(html).toContain('type="search"');
-    expect(html).toContain('value="unassigned"');
+    expect(html).toContain('aria-label="assignee"');
+    expect(html).toContain('>unassigned<');
     expect(html).toContain('type="date"');
     expect(html).toContain('hint');
     expect(html).not.toContain('whatsapp_config_id');

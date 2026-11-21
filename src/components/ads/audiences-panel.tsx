@@ -12,10 +12,11 @@ import { LoadingRows } from '@/components/ads/ads-ui';
 import { toast } from 'sonner';
 import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
+import { OptionSelect } from '@/components/contacts/option-select';
 import { authFetch } from '@/lib/auth/client';
 import { fetchSegments, type SegmentSummary } from '@/lib/audience/client';
 import { cn } from '@/lib/utils';
@@ -25,7 +26,6 @@ import { formatNumber } from './ads-shared';
 
 const POLL_MS = 5_000;
 const MAX_POLLS = 60;
-const SELECT = 'h-9 w-full rounded-lg border border-border bg-card px-2.5 text-sm';
 
 async function post(body: Record<string, unknown>): Promise<{ audience?: AudienceDto }> {
   const res = await authFetch('/api/meta-ads/audiences', {
@@ -250,13 +250,13 @@ function NewAudienceDialog({ creating, accounts, onClose, onCreated }: {
   };
 
   return (
-    <Dialog open onOpenChange={(next) => { if (!next && !busy) onClose(); }}>
-      <DialogContent className="sm:max-w-lg" data-testid="new-audience-dialog">
-        <DialogHeader>
-          <DialogTitle>{lookalike ? t('newLookalikeTitle') : source === 'contacts' ? t('newTitle') : t('newRuleTitle')}</DialogTitle>
-          <DialogDescription>{lookalike ? t('newLookalikeDescription', { name: lookalike.name }) : source === 'contacts' ? t('newDescription') : t('newRuleDescription')}</DialogDescription>
-        </DialogHeader>
-        <div className="space-y-4">
+    <Sheet open onOpenChange={(next) => { if (!next && !busy) onClose(); }}>
+      <SheetContent size="md" className="w-full overflow-y-auto" data-testid="new-audience-dialog">
+        <SheetHeader>
+          <SheetTitle>{lookalike ? t('newLookalikeTitle') : source === 'contacts' ? t('newTitle') : t('newRuleTitle')}</SheetTitle>
+          <SheetDescription>{lookalike ? t('newLookalikeDescription', { name: lookalike.name }) : source === 'contacts' ? t('newDescription') : t('newRuleDescription')}</SheetDescription>
+        </SheetHeader>
+        <div className="space-y-4 px-4">
           {!lookalike && (
             <div role="radiogroup" aria-label={t('source')} className="grid gap-2 sm:grid-cols-2" data-testid="audience-source">
               {(['contacts', 'page', 'instagram', 'pixel'] as const).map((k) => (
@@ -280,9 +280,8 @@ function NewAudienceDialog({ creating, accounts, onClose, onCreated }: {
               )}
               <div className="space-y-1">
                 <Label htmlFor="audience-retention">{t('retention')}</Label>
-                <select id="audience-retention" value={retention} onChange={(e) => setRetention(Number(e.target.value))} className={SELECT}>
-                  {[30, 60, 90, 180, 365].map((d) => <option key={d} value={d}>{t('days', { days: d })}</option>)}
-                </select>
+                <OptionSelect id="audience-retention" value={String(retention)} onValueChange={(v) => setRetention(Number(v))}
+                  options={[30, 60, 90, 180, 365].map((d) => ({ value: String(d), label: t('days', { days: d }) }))} />
               </div>
             </div>
           )}
@@ -292,11 +291,9 @@ function NewAudienceDialog({ creating, accounts, onClose, onCreated }: {
               {segments === null ? <Loader2 className="size-4 animate-spin text-muted-foreground" />
                 : segments.length === 0 ? <p className="text-xs text-muted-foreground">{t('noSegments')}</p>
                 : (
-                  <select id="audience-segment" value={segmentId} className={SELECT}
-                    onChange={(e) => { setSegmentId(e.target.value); if (!name) setName(segments.find((s) => s.id === e.target.value)?.name ?? ''); }}>
-                    <option value="">{t('chooseSegment')}</option>
-                    {segments.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-                  </select>
+                  <OptionSelect id="audience-segment" value={segmentId} placeholder={t('chooseSegment')}
+                    onValueChange={(v) => { setSegmentId(v); if (!name) setName(segments.find((s) => s.id === v)?.name ?? ''); }}
+                    options={segments.map((s) => ({ value: s.id, label: s.name }))} />
                 )}
               <p className="text-xs text-muted-foreground">{t('segmentHelp')}</p>
             </div>
@@ -308,25 +305,22 @@ function NewAudienceDialog({ creating, accounts, onClose, onCreated }: {
           {!lookalike && accounts.length > 1 && (
             <div className="space-y-1">
               <Label htmlFor="audience-account">{t('adAccount')}</Label>
-              <select id="audience-account" value={adAccountId} onChange={(e) => setAdAccountId(e.target.value)} className={SELECT}>
-                {accounts.map((a) => <option key={a.adAccountId} value={a.adAccountId}>{a.name ?? a.adAccountId}</option>)}
-              </select>
+              <OptionSelect id="audience-account" value={adAccountId} onValueChange={setAdAccountId}
+                options={accounts.map((a) => ({ value: a.adAccountId, label: a.name ?? a.adAccountId }))} />
             </div>
           )}
           {lookalike ? (
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-1">
                 <Label htmlFor="audience-country">{t('country')}</Label>
-                <select id="audience-country" value={country} onChange={(e) => setCountry(e.target.value)} className={SELECT}>
-                  {[...new Set([country, ...COUNTRIES])].map((c) => <option key={c} value={c}>{c}</option>)}
-                </select>
+                <OptionSelect id="audience-country" value={country} onValueChange={setCountry}
+                  options={[...new Set([country, ...COUNTRIES])].map((c) => ({ value: c, label: c }))} />
               </div>
               <div className="space-y-1">
                 <Label htmlFor="audience-percent">{t('size')}</Label>
-                <select id="audience-percent" value={percent} className={SELECT}
-                  onChange={(e) => { const p = Number(e.target.value); setPercent(p); setName(t('lookalikeName', { name: lookalike.name, percent: p })); }}>
-                  {Array.from({ length: 10 }, (_, i) => i + 1).map((p) => <option key={p} value={p}>{t('percent', { percent: p })}</option>)}
-                </select>
+                <OptionSelect id="audience-percent" value={String(percent)}
+                  onValueChange={(v) => { const p = Number(v); setPercent(p); setName(t('lookalikeName', { name: lookalike.name, percent: p })); }}
+                  options={Array.from({ length: 10 }, (_, i) => i + 1).map((p) => ({ value: String(p), label: t('percent', { percent: p }) }))} />
                 <p className="text-xs text-muted-foreground">{t('sizeHelp')}</p>
               </div>
             </div>
@@ -338,13 +332,13 @@ function NewAudienceDialog({ creating, accounts, onClose, onCreated }: {
           )}
           {error && <p className="text-sm text-destructive" role="alert">{error}</p>}
         </div>
-        <DialogFooter>
+        <SheetFooter className="flex-row justify-end">
           <Button type="button" variant="outline" onClick={onClose} disabled={busy}>{t('cancel')}</Button>
           <Button type="button" onClick={() => void submit()} disabled={!valid || busy}>
             {busy && <Loader2 className="size-4 animate-spin" />} {t('create')}
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </SheetFooter>
+      </SheetContent>
+    </Sheet>
   );
 }

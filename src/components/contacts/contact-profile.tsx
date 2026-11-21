@@ -51,7 +51,10 @@ import { ContactPayments } from './contact-payments';
 import { ContactTimeline } from './contact-timeline';
 import { ContactAppointmentsCard } from '@/components/appointments/contact-appointments-card';
 import { bookingTimelineEvent } from '@/lib/appointments/contact-bookings';
-import { CustomFieldInput, FIELD_SELECT } from './custom-field-input';
+import { CustomFieldInput } from './custom-field-input';
+import { OptionSelect } from './option-select';
+import { EmptyState } from '@/components/ui/empty-state';
+import { PageLoading } from '@/components/ui/page-loading';
 import { downloadContactsCsv, memberName, saveContactField, useContactMembers, useCustomFields } from './contacts-client';
 import { formatDay, formatLastSeen, formatWhen } from './format';
 
@@ -430,16 +433,17 @@ export function ContactProfile({ contactId }: { contactId: string }) {
 
   if (missing) {
     return (
-      <div className="flex flex-col items-center gap-3 rounded-2xl border border-border bg-card px-6 py-16 text-center">
-        <span className="flex size-12 items-center justify-center rounded-xl bg-muted text-muted-foreground"><UserRound className="size-5" /></span>
-        <h1 className="text-base font-semibold text-foreground">{t('profile.notFoundTitle')}</h1>
-        <p className="text-sm text-muted-foreground">{t('profile.notFoundText')}</p>
-        <Link href="/contacts" className={buttonVariants({ variant: 'outline' })}>{t('profile.backToPeople')}</Link>
-      </div>
+      <EmptyState
+        icon={UserRound}
+        title={t('profile.notFoundTitle')}
+        body={t('profile.notFoundText')}
+        className="py-16"
+        action={<Link href="/contacts" className={buttonVariants({ variant: 'outline' })}>{t('profile.backToPeople')}</Link>}
+      />
     );
   }
   if (!contact) {
-    return <div className="flex justify-center py-24"><Loader2 className="size-6 animate-spin text-primary" aria-label={t('loading')} /></div>;
+    return <PageLoading rows={6} />;
   }
 
   const displayName = contact.name || contactHandle(contact) || tp('unnamed');
@@ -555,19 +559,18 @@ export function ContactProfile({ contactId }: { contactId: string }) {
               ))}
               <div className="min-w-0 space-y-1">
                 <Label htmlFor="ct-owner" className="text-xs text-muted-foreground">{t('fields.owner')}</Label>
-                <select
+                <OptionSelect
                   id="ct-owner"
                   value={contact.owner_id ?? ''}
                   disabled={!canEdit}
-                  onChange={(e) => void saveOwner(e.target.value)}
-                  className={cn(FIELD_SELECT, 'border-transparent bg-muted')}
-                >
-                  <option value="">{t('owner.noOne')}</option>
-                  {members.map((m) => (
-                    <option key={m.user_id} value={m.user_id}>{m.full_name || t('owner.unnamedMember')}</option>
-                  ))}
-                  {ownerOptionMissing && <option value={contact.owner_id!}>{t('owner.formerMember')}</option>}
-                </select>
+                  onValueChange={(v) => void saveOwner(v)}
+                  className="h-9 border-transparent bg-muted"
+                  options={[
+                    { value: '', label: t('owner.noOne') },
+                    ...members.map((m) => ({ value: m.user_id, label: m.full_name || t('owner.unnamedMember') })),
+                    ...(ownerOptionMissing ? [{ value: contact.owner_id!, label: t('owner.formerMember') }] : []),
+                  ]}
+                />
                 {fieldErrors.owner && <p className="text-xs font-medium text-destructive">{fieldErrors.owner}</p>}
               </div>
             </div>

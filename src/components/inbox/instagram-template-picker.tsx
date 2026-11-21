@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 import { authFetch } from '@/lib/auth/client';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { SegmentedControl } from '@/components/ui/segmented-control';
 import { cn } from '@/lib/utils';
 import { cardViews, IgButtonsPreview, IgCardsPreview } from './instagram-template-preview';
 
@@ -376,15 +377,17 @@ function ButtonsEditor({ buttons, min, onChange }: { buttons: ButtonDraft[]; min
       {buttons.map((button, index) => (
         <div key={index} className="bg-muted/40 space-y-2 rounded-xl p-2">
           <div className="flex items-center gap-2">
-            <select
+            <SegmentedControl<ButtonDraft['type']>
               aria-label={t('buttonType')}
+              size="sm"
+              className="shrink-0"
               value={button.type}
-              onChange={(e) => setButton(index, { type: e.target.value as ButtonDraft['type'] })}
-              className="border-border bg-card h-9 shrink-0 rounded-lg border px-2 text-[13px]"
-            >
-              <option value="reply">{t('buttonReply')}</option>
-              <option value="web_url">{t('buttonLink')}</option>
-            </select>
+              onValueChange={(type) => setButton(index, { type })}
+              options={[
+                { value: 'reply', label: t('buttonReply') },
+                { value: 'web_url', label: t('buttonLink') },
+              ]}
+            />
             <input className={cn(inputClass, 'min-w-0 flex-1')} aria-label={t('buttonTitle')} placeholder={t('buttonTitle')} value={button.title} onChange={(e) => setButton(index, { title: e.target.value })} />
             {buttons.length > min && (
               <Button type="button" variant="ghost" size="icon-sm" className="shrink-0" aria-label={t('removeButton')} onClick={() => onChange(buttons.filter((_, i) => i !== index))}>

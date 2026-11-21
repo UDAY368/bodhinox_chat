@@ -5,7 +5,10 @@
  * appointment_staff limit) and weekly hours per practitioner (or the shared
  * calendar) at each location.
  */
-import { useCallback, useEffect, useState } from 'react';
+import { Users } from 'lucide-react';
+import { EmptyState } from '@/components/ui/empty-state';
+import { OptionSelect } from '@/components/contacts/option-select';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
@@ -14,7 +17,7 @@ import { Label } from '@/components/ui/label';
 import { parseWorkingHours, type WorkingHours } from '@/lib/inbox/working-hours';
 import { compactHours, WeeklyHoursEditor } from './hours-editor';
 import {
-  apiRequest, memberLabel, selectClass, useFailureText, useMembers, type AppointmentConfig, type StaffDto,
+  apiRequest, memberLabel, useFailureText, useMembers, type AppointmentConfig, type StaffDto,
 } from './shared';
 
 interface HoursDto { id: string; staff_id: string | null; location_id: string; hours: WorkingHours }
@@ -59,6 +62,7 @@ export function StaffPanel({ config, canEdit, onChanged }: { config: Appointment
   const t = useTranslations('Appointments');
   const failureText = useFailureText();
   const members = useMembers();
+  const memberOptions = useMemo(() => [{ value: '', label: t('staff.noMember') }, ...members.map((m) => ({ value: m.user_id, label: memberLabel(m) }))], [members, t]);
   const [name, setName] = useState('');
   const [linked, setLinked] = useState('');
   const [busy, setBusy] = useState(false);
@@ -84,17 +88,14 @@ export function StaffPanel({ config, canEdit, onChanged }: { config: Appointment
     <div className="space-y-6">
       <section className="space-y-3">
         <h2 className="text-base font-semibold tracking-tight">{t('staff.title')}</h2>
-        {config.staff.length === 0 && <p className="text-sm text-muted-foreground">{t('staff.empty')}</p>}
-        <ul className="divide-y divide-border rounded-xl border border-border bg-card text-sm">
+        {config.staff.length === 0 && <EmptyState icon={Users} title={t('staff.empty')} />}
+        {config.staff.length > 0 && <ul className="divide-y divide-separator rounded-group border border-separator bg-grouped-surface text-sm">
           {config.staff.map((s) => (
             <li key={s.id} className="flex flex-wrap items-center gap-2 p-3">
               <span className="font-medium">{s.display_name}</span>
               {s.archived_at && <span className="text-xs text-muted-foreground">({t('services.archived')})</span>}
-              <select aria-label={t('staff.linkedMember')} className={`${selectClass} ml-auto w-48`} disabled={!canEdit || !!s.archived_at}
-                value={s.user_id ?? ''} onChange={(e) => void update(s, { user_id: e.target.value || null })}>
-                <option value="">{t('staff.noMember')}</option>
-                {members.map((m) => <option key={m.user_id} value={m.user_id}>{memberLabel(m)}</option>)}
-              </select>
+              <OptionSelect aria-label={t('staff.linkedMember')} className="ml-auto w-48" disabled={!canEdit || !!s.archived_at}
+                value={s.user_id ?? ''} onValueChange={(v) => void update(s, { user_id: v || null })} options={memberOptions} />
               {canEdit && (
                 <Button type="button" size="sm" variant="ghost" onClick={() => void update(s, { archived: !s.archived_at })}>
                   {s.archived_at ? t('services.restore') : t('staff.archive')}
@@ -106,7 +107,7 @@ export function StaffPanel({ config, canEdit, onChanged }: { config: Appointment
               )}
             </li>
           ))}
-        </ul>
+        </ul>}
         {canEdit && (
           <div className="flex flex-wrap items-end gap-2">
             <div className="space-y-1">
@@ -115,10 +116,7 @@ export function StaffPanel({ config, canEdit, onChanged }: { config: Appointment
             </div>
             <div className="space-y-1">
               <Label htmlFor="staff-member">{t('staff.linkedMember')}</Label>
-              <select id="staff-member" className={`${selectClass} w-48`} value={linked} onChange={(e) => setLinked(e.target.value)}>
-                <option value="">{t('staff.noMember')}</option>
-                {members.map((m) => <option key={m.user_id} value={m.user_id}>{memberLabel(m)}</option>)}
-              </select>
+              <OptionSelect id="staff-member" className="w-48" value={linked} onValueChange={setLinked} options={memberOptions} />
             </div>
             <Button type="button" disabled={busy || !name.trim()} onClick={() => void add()}>{t('staff.add')}</Button>
           </div>
@@ -175,13 +173,10 @@ function HoursSection({ config, canEdit }: { config: AppointmentConfig; canEdit:
     <section className="space-y-3">
       <h2 className="text-base font-semibold tracking-tight">{t('staff.hours')}</h2>
       <div className="flex flex-wrap gap-2">
-        <select aria-label={t('sheet.location')} className={`${selectClass} w-48`} value={locationId} onChange={(e) => setLocationId(e.target.value)}>
-          {locations.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
-        </select>
-        <select aria-label={t('sheet.practitioner')} className={`${selectClass} w-48`} value={staffId} onChange={(e) => setStaffId(e.target.value)}>
-          <option value="">{t('staff.poolHours')}</option>
-          {staff.map((s) => <option key={s.id} value={s.id}>{s.display_name}</option>)}
-        </select>
+        <OptionSelect aria-label={t('sheet.location')} className="w-48" value={locationId} onValueChange={setLocationId}
+          options={locations.map((l) => ({ value: l.id, label: l.name }))} />
+        <OptionSelect aria-label={t('sheet.practitioner')} className="w-48" value={staffId} onValueChange={setStaffId}
+          options={[{ value: '', label: t('staff.poolHours') }, ...staff.map((s) => ({ value: s.id, label: s.display_name }))]} />
       </div>
       {location && <p className="text-xs text-muted-foreground">{t('staff.hoursAt', { location: location.name })} · {location.timezone}</p>}
       <WeeklyHoursEditor hours={hours} onChange={setHours} disabled={!canEdit || busy} />

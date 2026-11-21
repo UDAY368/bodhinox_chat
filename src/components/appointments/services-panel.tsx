@@ -8,6 +8,10 @@
  * needs a price above zero; the server also checks the store and Razorpay are
  * ready (field payment_required, detail price_required / payments_not_ready).
  */
+import { Briefcase } from 'lucide-react';
+import { EmptyState } from '@/components/ui/empty-state';
+import { SegmentedControl } from '@/components/ui/segmented-control';
+import { OptionSelect } from '@/components/contacts/option-select';
 import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { useLocale, useTranslations } from 'next-intl';
@@ -19,7 +23,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { WEEKDAYS } from '@/lib/inbox/working-hours';
 import {
-  apiRequest, formatPrice, fromMinor, selectClass, toMinor, useFailureText,
+  apiRequest, formatPrice, fromMinor, toMinor, useFailureText,
   type AppointmentConfig, type ServiceDto,
 } from './shared';
 
@@ -113,7 +117,7 @@ export function ServicesPanel({ config, canEdit, onChanged }: { config: Appointm
         <h2 className="text-base font-semibold tracking-tight">{t('services.title')}</h2>
         {canEdit && <Button type="button" size="sm" onClick={() => open('new')}>{t('services.add')}</Button>}
       </div>
-      {config.services.length === 0 && <p className="text-sm text-muted-foreground">{t('services.empty')}</p>}
+      {config.services.length === 0 && <EmptyState icon={Briefcase} title={t('services.empty')} />}
       <ul className="space-y-3">
         {config.services.map((s) => (
           <li key={s.id} className="rounded-xl border border-border bg-card p-3 text-sm">
@@ -150,10 +154,8 @@ export function ServicesPanel({ config, canEdit, onChanged }: { config: Appointm
               <Input id="svc-name" maxLength={120} value={draft.name} onChange={(e) => set('name')(e.target.value)} />
             </Field>
             <Field label={t('services.mode')} id="svc-mode">
-              <select id="svc-mode" className={selectClass} value={draft.mode} onChange={(e) => set('mode')(e.target.value as ServiceDraft['mode'])}>
-                <option value="offline">{t('services.modes.offline')}</option>
-                <option value="online">{t('services.modes.online')}</option>
-              </select>
+              <SegmentedControl<ServiceDraft['mode']> aria-label={t('services.mode')} value={draft.mode} onValueChange={set('mode')}
+                options={[{ value: 'offline', label: t('services.modes.offline') }, { value: 'online', label: t('services.modes.online') }]} />
             </Field>
             <Field label={t('services.duration')} id="svc-duration">
               <Input id="svc-duration" type="number" min={5} max={480} value={draft.duration} onChange={(e) => set('duration')(e.target.value)} />
@@ -322,11 +324,12 @@ function IntakeFormPicker({ serviceId, value, intake, onChanged }: { serviceId: 
     <div className="mt-3 space-y-1">
       <Label htmlFor={id}>{t('label')}</Label>
       <div className="flex flex-wrap items-center gap-2">
-        <select id={id} className={`${selectClass} max-w-xs`} value={value ?? ''} disabled={busy} onChange={(e) => void choose(e.target.value)}>
-          <option value="">{t('none')}</option>
-          {value && !forms.some((f) => f.id === value) && <option value={value}>…</option>}
-          {forms.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
-        </select>
+        <OptionSelect id={id} className="max-w-xs" value={value ?? ''} disabled={busy} onValueChange={(v) => void choose(v)}
+          options={[
+            { value: '', label: t('none') },
+            ...(value && !forms.some((f) => f.id === value) ? [{ value, label: '…' }] : []),
+            ...forms.map((f) => ({ value: f.id, label: f.name })),
+          ]} />
         {next && <Button type="button" size="sm" variant="ghost" onClick={intake.more}>{t('loadMore')}</Button>}
       </div>
       <p className="text-[11px] text-muted-foreground">{t('help')}</p>

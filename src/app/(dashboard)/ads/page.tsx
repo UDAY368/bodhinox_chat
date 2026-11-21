@@ -13,11 +13,15 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { ExternalLink, Loader2, MoreHorizontal, Plus } from 'lucide-react';
+import { ExternalLink, Megaphone, Plus } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 
 import { Button } from '@/components/ui/button';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { EmptyState } from '@/components/ui/empty-state';
+import { InlineError } from '@/components/ui/inline-error';
+import { PageHeader } from '@/components/ui/page-header';
+import { PageLoading } from '@/components/ui/page-loading';
+import { SegmentedControl } from '@/components/ui/segmented-control';
 import { AdsSetupChecklist, setupSteps } from '@/components/ads/ads-setup-checklist';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { AdsNotEnabled } from '@/components/ads/ads-not-enabled';
@@ -32,7 +36,6 @@ import { CreateAdDialog } from '@/components/ads/create-ad-dialog';
 import { LeadsTable } from '@/components/ads/leads-table';
 import { ConversionsPanel } from '@/components/ads/conversions-panel';
 import { customRange, presetRange, type AdsRange } from '@/components/ads/ads-shared';
-import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/use-auth';
 import { authFetch } from '@/lib/auth/client';
 import { hasMinRole } from '@/lib/auth/roles';
@@ -142,41 +145,27 @@ export default function AdsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div className="min-w-0 flex-1 basis-64">
-          <h1 className="text-[22px] font-bold leading-tight tracking-tight text-foreground">{tc('title')}</h1>
-          <p className="mt-1 text-sm text-muted-foreground">{tc('blurbs.ads')}</p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {canCreate && (
-            <Button type="button" className="rounded-full" onClick={() => setCreating(true)} data-testid="create-ad">
-              <Plus className="size-4" /> {t('createAd')}
-            </Button>
-          )}
-          {active && managerAccount && !canCreate && (
-            <a
-              href={adsManagerUrl(managerAccount)}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex h-9 items-center gap-1.5 rounded-full bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors duration-150 hover:bg-primary/90"
-            >
-              {t('createInAdsManager')} <ExternalLink className="size-3.5" />
-            </a>
-          )}
-          {active && managerAccount && canCreate && (
-            <DropdownMenu>
-              <DropdownMenuTrigger render={<Button type="button" variant="outline" size="icon" className="rounded-full" aria-label={t('moreActions')} data-testid="ads-more" />}>
-                <MoreHorizontal className="size-4" />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem render={<a href={adsManagerUrl(managerAccount)} target="_blank" rel="noopener noreferrer" />}>
-                  <ExternalLink className="size-3.5" /> {t('openAdsManager')}
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
-        </div>
-      </div>
+      <PageHeader
+        title={tc('title')}
+        subtitle={tc('blurbs.ads')}
+        primaryAction={canCreate ? (
+          <Button type="button" onClick={() => setCreating(true)} data-testid="create-ad">
+            <Plus className="size-4" /> {t('createAd')}
+          </Button>
+        ) : active && managerAccount ? (
+          <Button
+            render={<a href={adsManagerUrl(managerAccount)} target="_blank" rel="noopener noreferrer" />}
+            nativeButton={false}
+          >
+            {t('createInAdsManager')} <ExternalLink className="size-3.5" />
+          </Button>
+        ) : undefined}
+        moreActions={active && managerAccount && canCreate ? [{
+          label: t('openAdsManager'),
+          icon: ExternalLink,
+          onSelect: () => { window.open(adsManagerUrl(managerAccount), '_blank', 'noopener,noreferrer'); },
+        }] : undefined}
+      />
       {isAdmin && status?.enabled && (connection === null || active) && (connection === null || create !== null) && (
         <AdsSetupChecklist steps={setupSteps({
           connected: active, adAccounts: accounts.length, pageId: connection?.pageId ?? null,
@@ -184,21 +173,16 @@ export default function AdsPage() {
         })} />
       )}
 
-      {!status && !failed && <Loader2 className="size-5 animate-spin text-primary" />}
-      {failed && (
-        <div className="flex items-center gap-2 text-sm text-destructive">
-          {t('loadFailed')}
-          <Button type="button" variant="outline" size="sm" onClick={() => void load()}>{t('retry')}</Button>
-        </div>
-      )}
+      {!status && !failed && <PageLoading />}
+      {failed && <InlineError message={t('loadFailed')} onRetry={() => void load()} />}
       {status && !status.enabled && <AdsNotEnabled reason={status.reason} />}
       {status?.enabled && !active && connection?.status !== 'token_invalid' && (
-        <div className="flex flex-col items-center gap-2 rounded-xl border border-border bg-card px-4 py-12 text-center text-sm">
-          <p className="text-muted-foreground">{t('notConnected')}</p>
-          {isAdmin && (
-            <Link href="/settings?tab=ads" className="mt-2 inline-flex h-8 items-center rounded-full border border-border px-3.5 font-medium text-foreground transition-colors duration-150 hover:bg-muted">{t('openSettings')}</Link>
-          )}
-        </div>
+        <EmptyState
+          icon={Megaphone}
+          title={t('notConnected')}
+          className="rounded-group border border-separator bg-grouped-surface py-12"
+          action={isAdmin ? <Button variant="outline" render={<Link href="/settings?tab=ads" />} nativeButton={false}>{t('openSettings')}</Button> : undefined}
+        />
       )}
       {reporting && (
         <>
@@ -217,15 +201,12 @@ export default function AdsPage() {
               <AdsOverview range={range} adAccountId={adAccountId} />
             </TabsContent>
             <TabsContent value="campaigns" className="space-y-4 pt-4">
-              <div role="radiogroup" aria-label={t('campaignView.label')} className="inline-flex gap-0.5 rounded-xl bg-muted p-[3px]" data-testid="campaign-view">
-                {(['performance', 'manage'] as const).map((key) => (
-                  <button key={key} type="button" role="radio" aria-checked={view === key} onClick={() => setView(key)}
-                    className={cn('h-8 rounded-[9px] px-3 text-xs font-medium outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-ring',
-                      view === key ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground')}>
-                    {t(`campaignView.${key}`)}
-                  </button>
-                ))}
-              </div>
+              <SegmentedControl
+                aria-label={t('campaignView.label')}
+                value={view}
+                onValueChange={setView}
+                options={(['performance', 'manage'] as const).map((key) => ({ value: key, label: t(`campaignView.${key}`) }))}
+              />
               {view === 'performance'
                 ? <AdsTable canManage={isAdmin && active} canSegment={isAgent} range={range} adAccountId={adAccountId} />
                 : (

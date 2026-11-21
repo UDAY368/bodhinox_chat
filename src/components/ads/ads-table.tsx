@@ -16,7 +16,8 @@ import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { downloadCsv } from '@/components/analytics/insights/csv';
-import { EmptyState, LoadingRows, MetricHeader, StatusChip } from '@/components/ads/ads-ui';
+import { LoadingRows, MetricHeader, StatusChip } from '@/components/ads/ads-ui';
+import { EmptyState } from '@/components/ui/empty-state';
 import { SegmentBuilderDialog } from '@/components/contacts/segment-builder-dialog';
 import { authFetch } from '@/lib/auth/client';
 import type { AudienceCondition } from '@/lib/audience/filter';
@@ -185,7 +186,7 @@ export function AdsTable({ canManage, canSegment, range, adAccountId }: AdsTable
           <Button type="button" variant="outline" size="sm" onClick={() => void load()}>{tAds('retry')}</Button>
         </div>
       )}
-      {rows && rows.length === 0 && <EmptyState icon={BarChart3} title={t('empty')} body={t('emptyBody')} />}
+      {rows && rows.length === 0 && <EmptyState icon={BarChart3} title={t('empty')} body={t('emptyBody')} className="rounded-group border border-separator bg-grouped-surface" />}
       {rows && rows.length > 0 && (
         <ul className="space-y-2 md:hidden" data-testid="ads-cards">
           {rows.map((row) => {

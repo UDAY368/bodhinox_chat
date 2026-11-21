@@ -8,6 +8,7 @@
  * the booking's own zone; the window follows the filtered location's zone
  * (else the first location's). A list cut at its limit says so.
  */
+import { OptionSelect } from '@/components/contacts/option-select';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { CalendarDays, ChevronLeft, ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';
@@ -22,7 +23,7 @@ import { SegmentedControl } from '@/components/ui/segmented-control';
 import { Switch } from '@/components/ui/switch';
 import { AppointmentStatusBadge } from './appointment-status-badge';
 import {
-  apiRequest, browserZone, FILTER_STATUSES, formatDateTime, formatDay, formatTime, groupByLocalDate, scheduleWindow, selectClass,
+  apiRequest, browserZone, FILTER_STATUSES, formatDateTime, formatDay, formatTime, groupByLocalDate, scheduleWindow,
   useFailureText, zonedStartIso, type Abilities, type AppointmentConfig, type ScheduleViewName,
 } from './shared';
 import { addDays, localDay, zoneLabel } from '@/lib/appointments/time';
@@ -266,22 +267,14 @@ export function ScheduleView({
       </div>
 
       <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
-        <select aria-label={t('schedule.filterStatus')} className={selectClass} value={filters.status} onChange={(e) => set('status')(e.target.value)}>
-          <option value="">{t('schedule.filterStatus')}: {t('schedule.all')}</option>
-          {FILTER_STATUSES.map((s) => <option key={s} value={s}>{t(`status.${s}`)}</option>)}
-        </select>
-        <select aria-label={t('schedule.filterService')} className={selectClass} value={filters.serviceId} onChange={(e) => set('serviceId')(e.target.value)}>
-          <option value="">{t('schedule.filterService')}: {t('schedule.all')}</option>
-          {config.services.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-        </select>
-        <select aria-label={t('schedule.filterStaff')} className={selectClass} value={filters.staffId} onChange={(e) => set('staffId')(e.target.value)}>
-          <option value="">{t('schedule.filterStaff')}: {t('schedule.all')}</option>
-          {config.staff.map((s) => <option key={s.id} value={s.id}>{s.display_name}</option>)}
-        </select>
-        <select aria-label={t('schedule.filterLocation')} className={selectClass} value={filters.locationId} onChange={(e) => set('locationId')(e.target.value)}>
-          <option value="">{t('schedule.filterLocation')}: {t('schedule.all')}</option>
-          {config.locations.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
-        </select>
+        <OptionSelect aria-label={t('schedule.filterStatus')} value={filters.status} onValueChange={set('status')}
+          options={[{ value: '', label: `${t('schedule.filterStatus')}: ${t('schedule.all')}` }, ...FILTER_STATUSES.map((s) => ({ value: s, label: t(`status.${s}`) }))]} />
+        <OptionSelect aria-label={t('schedule.filterService')} value={filters.serviceId} onValueChange={set('serviceId')}
+          options={[{ value: '', label: `${t('schedule.filterService')}: ${t('schedule.all')}` }, ...config.services.map((s) => ({ value: s.id, label: s.name }))]} />
+        <OptionSelect aria-label={t('schedule.filterStaff')} value={filters.staffId} onValueChange={set('staffId')}
+          options={[{ value: '', label: `${t('schedule.filterStaff')}: ${t('schedule.all')}` }, ...config.staff.map((s) => ({ value: s.id, label: s.display_name }))]} />
+        <OptionSelect aria-label={t('schedule.filterLocation')} value={filters.locationId} onValueChange={set('locationId')}
+          options={[{ value: '', label: `${t('schedule.filterLocation')}: ${t('schedule.all')}` }, ...config.locations.map((l) => ({ value: l.id, label: l.name }))]} />
         <label className="flex min-h-11 items-center gap-2 text-sm">
           <Switch checked={filters.needsOutcome} onCheckedChange={(v) => set('needsOutcome')(v)} aria-label={t('schedule.needsOutcome')} />
           {t('schedule.needsOutcome')}

@@ -1,6 +1,10 @@
 'use client';
 
 /** Locations: name, address, type and the IANA time zone every booking time is checked in. */
+import { MapPin } from 'lucide-react';
+import { EmptyState } from '@/components/ui/empty-state';
+import { SegmentedControl } from '@/components/ui/segmented-control';
+import { OptionSelect } from '@/components/contacts/option-select';
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { useTranslations } from 'next-intl';
@@ -8,7 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { currentZoneName } from '@/lib/appointments/time-zone-names';
-import { apiRequest, browserZone, selectClass, useFailureText, type AppointmentConfig, type LocationDto } from './shared';
+import { apiRequest, browserZone, useFailureText, type AppointmentConfig, type LocationDto } from './shared';
 
 function timeZones(): string[] {
   try {
@@ -62,11 +66,9 @@ export function LocationsPanel({ config, canEdit, onChanged }: { config: Appoint
         <Input id="loc-name" maxLength={120} value={draft.name} onChange={(e) => set('name')(e.target.value)} />
       </div>
       <div className="space-y-1">
-        <Label htmlFor="loc-kind">{t('locations.kind')}</Label>
-        <select id="loc-kind" className={selectClass} value={draft.kind} onChange={(e) => set('kind')(e.target.value as Draft['kind'])}>
-          <option value="physical">{t('locations.kinds.physical')}</option>
-          <option value="online">{t('locations.kinds.online')}</option>
-        </select>
+        <p className="text-sm font-medium">{t('locations.kind')}</p>
+        <SegmentedControl<Draft['kind']> aria-label={t('locations.kind')} value={draft.kind} onValueChange={set('kind')}
+          options={[{ value: 'physical', label: t('locations.kinds.physical') }, { value: 'online', label: t('locations.kinds.online') }]} />
       </div>
       <div className="space-y-1 sm:col-span-2">
         <Label htmlFor="loc-address">{t('locations.address')}</Label>
@@ -75,10 +77,8 @@ export function LocationsPanel({ config, canEdit, onChanged }: { config: Appoint
       <div className="space-y-1 sm:col-span-2">
         <Label htmlFor="loc-tz">{t('locations.timezone')}</Label>
         {zones.length ? (
-          <select id="loc-tz" className={selectClass} value={draft.timezone} onChange={(e) => set('timezone')(e.target.value)}>
-            {!zones.includes(draft.timezone) && <option value={draft.timezone}>{draft.timezone}</option>}
-            {zones.map((z) => <option key={z} value={z}>{z}</option>)}
-          </select>
+          <OptionSelect id="loc-tz" value={draft.timezone} onValueChange={set('timezone')}
+            options={[...(zones.includes(draft.timezone) ? [] : [draft.timezone]), ...zones].map((z) => ({ value: z, label: z }))} />
         ) : <Input id="loc-tz" value={draft.timezone} onChange={(e) => set('timezone')(e.target.value)} />}
         <p className="text-[11px] text-muted-foreground">{t('locations.timezoneHelp')}</p>
       </div>
@@ -96,7 +96,7 @@ export function LocationsPanel({ config, canEdit, onChanged }: { config: Appoint
         {canEdit && editing === null && <Button type="button" size="sm" onClick={() => edit('new')}>{t('locations.add')}</Button>}
       </div>
       {editing === 'new' && form}
-      {config.locations.length === 0 && editing !== 'new' && <p className="text-sm text-muted-foreground">{t('locations.empty')}</p>}
+      {config.locations.length === 0 && editing !== 'new' && <EmptyState icon={MapPin} title={t('locations.empty')} />}
       <ul className="space-y-2">
         {config.locations.map((l) => (
           <li key={l.id}>

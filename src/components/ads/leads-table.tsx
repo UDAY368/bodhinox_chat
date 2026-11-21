@@ -9,10 +9,14 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
-import { Download, Loader2, Megaphone, Trash2 } from 'lucide-react';
+import { Download, Inbox, Loader2, Megaphone, Trash2 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { useConfirm } from '@/components/ui/confirm-dialog';
+import { EmptyState } from '@/components/ui/empty-state';
+import { InlineError } from '@/components/ui/inline-error';
+import { OptionSelect } from '@/components/contacts/option-select';
 import { useAuth } from '@/hooks/use-auth';
 import { authFetch } from '@/lib/auth/client';
 import { hasMinRole } from '@/lib/auth/roles';
@@ -25,7 +29,6 @@ export interface LeadsTableProps {
 
 type Filters = { formId: string; adId: string; from: string; to: string };
 const EMPTY: Filters = { formId: '', adId: '', from: '', to: '' };
-const selectClass = 'h-8 rounded-lg border border-border bg-card px-2.5 text-sm text-foreground';
 
 /** Hands out request tokens; only the latest token may still update state. */
 export function createRequestSequencer() {
@@ -47,6 +50,7 @@ function query(filters: Filters, cursor?: string | null): string {
 export function LeadsTable({ canManage }: LeadsTableProps) {
   const t = useTranslations('Ads');
   const router = useRouter();
+  const confirm = useConfirm();
   const { accountRole } = useAuth();
   const canSegment = !!accountRole && hasMinRole(accountRole, 'agent');
   const [filters, setFilters] = useState<Filters>(EMPTY);
@@ -124,7 +128,7 @@ export function LeadsTable({ canManage }: LeadsTableProps) {
   }
 
   async function remove(lead: LeadDto) {
-    if (!window.confirm(t('leads.deleteConfirm'))) return;
+    if (!(await confirm({ title: t('leads.deleteConfirm'), confirmLabel: t('leads.deleteLead'), destructive: true }))) return;
     setBusy(lead.id);
     try {
       const res = await authFetch(`/api/meta-ads/leads/${lead.id}`, { method: 'DELETE' });
@@ -171,13 +175,11 @@ export function LeadsTable({ canManage }: LeadsTableProps) {
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-end gap-2">
-        <label className="flex flex-col gap-1 text-xs text-muted-foreground">
-          {t('leads.form')}
-          <select aria-label={t('leads.form')} className={selectClass} value={filters.formId} onChange={(e) => set('formId')(e.target.value)}>
-            <option value="">{t('leads.allForms')}</option>
-            {forms.map((f) => <option key={f.id} value={f.id}>{f.name || f.id}</option>)}
-          </select>
-        </label>
+        <div className="flex flex-col gap-1 text-xs text-muted-foreground">
+          <span aria-hidden>{t('leads.form')}</span>
+          <OptionSelect aria-label={t('leads.form')} className="min-w-44" value={filters.formId} onValueChange={set('formId')}
+            options={[{ value: '', label: t('leads.allForms') }, ...forms.map((f) => ({ value: f.id, label: f.name || f.id }))]} />
+        </div>
         <label className="flex flex-col gap-1 text-xs text-muted-foreground">
           {t('leads.ad')}
           <Input aria-label={t('leads.ad')} className="h-8 w-44" inputMode="numeric" maxLength={32} placeholder={t('leads.allAds')}
@@ -210,12 +212,11 @@ export function LeadsTable({ canManage }: LeadsTableProps) {
       <p className="text-xs text-muted-foreground">{t('leads.notOptedIn')}</p>
 
       {failed ? (
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          {t('loadFailed')}
-          <Button type="button" variant="ghost" size="sm" onClick={() => load(filters, null)}>{t('retry')}</Button>
-        </div>
+        <InlineError message={t('loadFailed')} onRetry={() => void load(filters, null)} />
       ) : !loading && leads.length === 0 ? (
-        <p className="rounded-xl border border-border bg-card px-4 py-12 text-center text-sm text-muted-foreground" data-testid="leads-empty">{t('leads.empty')}</p>
+        <div data-testid="leads-empty" className="rounded-group border border-separator bg-grouped-surface">
+          <EmptyState icon={Inbox} title={t('leads.empty')} />
+        </div>
       ) : (
         <div className="overflow-x-auto rounded-xl border border-border bg-card">
           <table className="w-full text-sm">

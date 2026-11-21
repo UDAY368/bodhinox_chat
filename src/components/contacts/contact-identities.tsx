@@ -10,6 +10,7 @@ import { AtSign, Link2, Loader2, Undo2 } from 'lucide-react';
 import { authFetch } from '@/lib/auth/client';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
+import { useConfirm } from '@/components/ui/confirm-dialog';
 import { LinkIdentityDialog, type LinkableIdentity } from './link-identity-dialog';
 
 interface IdentityRow {
@@ -32,6 +33,7 @@ export function identityLabel(row: Pick<IdentityRow, 'username' | 'display_name'
 
 export function ContactIdentities({ contactId, onChanged }: { contactId: string; onChanged: () => void }) {
   const t = useTranslations('Contacts.identity');
+  const confirm = useConfirm();
   const [data, setData] = useState<IdentitiesResponse | null>(null);
   const [linking, setLinking] = useState<LinkableIdentity | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -53,7 +55,7 @@ export function ContactIdentities({ contactId, onChanged }: { contactId: string;
 
   async function unlink(row: IdentityRow) {
     const label = identityLabel(row, t('instagram'));
-    if (!window.confirm(t('confirmUnlink', { identity: label }))) return;
+    if (!(await confirm({ title: t('confirmUnlink', { identity: label }), confirmLabel: t('unlink') }))) return;
     setBusyId(row.id);
     try {
       const res = await authFetch(`/api/contacts/${contactId}/identities/unlink`, {

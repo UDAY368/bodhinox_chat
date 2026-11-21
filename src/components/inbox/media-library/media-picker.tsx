@@ -17,6 +17,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import { authFetch } from "@/lib/auth/client";
 import { cn } from "@/lib/utils";
 
@@ -79,6 +80,7 @@ export function MediaLibraryBrowser({ mode, onPick, onUsage, initialKind = "all"
   initialKind?: MediaKind | "all";
 }) {
   const t = useTranslations("MediaLibrary");
+  const confirm = useConfirm();
   const formatBytes = useFormatBytes();
   const [kind, setKind] = useState<MediaKind | "all">(initialKind);
   const [search, setSearch] = useState("");
@@ -146,7 +148,7 @@ export function MediaLibraryBrowser({ mode, onPick, onUsage, initialKind = "all"
   };
 
   const remove = async (item: LibraryItem) => {
-    if (!window.confirm(t("deleteConfirm", { name: item.filename }))) return;
+    if (!(await confirm({ title: t("deleteConfirm", { name: item.filename }), confirmLabel: t("deleteAction"), destructive: true }))) return;
     setDeleting(item.id);
     try {
       const res = await authFetch(`${ENDPOINT}/${item.id}`, { method: "DELETE" });

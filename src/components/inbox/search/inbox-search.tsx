@@ -11,6 +11,7 @@ import { useFormatter, useTranslations } from 'next-intl';
 import { Loader2, Search, X } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { SegmentedControl } from '@/components/ui/segmented-control';
 import { NumberSelect } from '@/components/settings/numbers/number-select';
 import { useWhatsAppNumbers } from '@/components/settings/numbers/use-whatsapp-numbers';
 import { splitSnippet } from '@/lib/inbox/search-snippet';
@@ -152,26 +153,28 @@ export function InboxSearch({ onOpen }: InboxSearchProps) {
             className={SELECT_CLASS}
           />
         )}
-        <select
+        <SegmentedControl<InboxSearchFilterState['status']>
           aria-label={t('status')}
+          size="sm"
           value={filters.status}
-          onChange={(e) => setFilter('status', e.target.value as InboxSearchFilterState['status'])}
-          className={SELECT_CLASS}
-        >
-          <option value="">{t('anyStatus')}</option>
-          <option value="open">{t('statusOpen')}</option>
-          <option value="closed">{t('statusClosed')}</option>
-        </select>
-        <select
+          onValueChange={(v) => setFilter('status', v)}
+          options={[
+            { value: '', label: t('anyStatus') },
+            { value: 'open', label: t('statusOpen') },
+            { value: 'closed', label: t('statusClosed') },
+          ]}
+        />
+        <SegmentedControl<InboxSearchFilterState['assignee']>
           aria-label={t('assignee')}
+          size="sm"
           value={filters.assignee}
-          onChange={(e) => setFilter('assignee', e.target.value as InboxSearchFilterState['assignee'])}
-          className={SELECT_CLASS}
-        >
-          <option value="">{t('anyAssignee')}</option>
-          <option value="me">{t('assignedToMe')}</option>
-          <option value="unassigned">{t('unassigned')}</option>
-        </select>
+          onValueChange={(v) => setFilter('assignee', v)}
+          options={[
+            { value: '', label: t('anyAssignee') },
+            { value: 'me', label: t('assignedToMe') },
+            { value: 'unassigned', label: t('unassigned') },
+          ]}
+        />
         <label className="text-muted-foreground flex items-center gap-1 text-xs">
           {t('from')}
           <input

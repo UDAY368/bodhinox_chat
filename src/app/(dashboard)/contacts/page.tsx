@@ -88,7 +88,9 @@ import { useConfirm } from '@/components/ui/confirm-dialog';
 import { InlineError } from '@/components/ui/inline-error';
 import { EmptyState } from '@/components/ui/empty-state';
 import { PageLoading } from '@/components/ui/page-loading';
-import { CustomFieldInput, FIELD_SELECT } from '@/components/contacts/custom-field-input';
+import { CustomFieldInput } from '@/components/contacts/custom-field-input';
+import { OptionSelect } from '@/components/contacts/option-select';
+import { SegmentedControl } from '@/components/ui/segmented-control';
 import { downloadContactsCsv, useContactMembers, useCustomFields } from '@/components/contacts/contacts-client';
 import { formatLastSeen } from '@/components/contacts/format';
 import { useCan } from '@/hooks/use-can';
@@ -102,12 +104,10 @@ import type { ContactSort } from '@/lib/contacts/bulk';
 const PAGE_SIZE = 25;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-/** A filter rendered as a soft chip (a native select or a popover trigger). */
+/** A filter rendered as a soft chip (a menu or a popover trigger). */
 const CHIP =
   'h-8 max-w-56 shrink-0 cursor-pointer truncate rounded-full border border-border bg-card px-3 text-[13px] text-muted-foreground transition-colors duration-150 hover:bg-muted focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50';
 const CHIP_ON = 'border-transparent bg-primary/10 font-semibold text-primary hover:bg-primary/15';
-const MENU_SELECT =
-  'h-9 w-full cursor-pointer rounded-lg border border-border bg-card px-2.5 text-sm text-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50';
 
 /** One filter in use, shown under the bar with a way to remove it. */
 function FilterChip({ label, onRemove, removeLabel }: { label: string; onRemove: () => void; removeLabel: string }) {
@@ -409,6 +409,8 @@ function ContactsPeople() {
   }
 
   async function deleteSelectedList() {
+    const name = lists.find((l) => l.id === listId)?.name ?? '';
+    if (!(await confirm({ title: t('lists.deleteConfirm', { name }), confirmLabel: t('lists.deleteList'), destructive: true }))) return;
     const res = await authFetch(`/api/lists/${listId}`, { method: 'DELETE' }).catch(() => null);
     if (!res?.ok) {
       toast.error(t('lists.deleteFailed'));
@@ -494,6 +496,8 @@ function ContactsPeople() {
   }
 
   async function deleteSelectedSegment() {
+    const name = segments.find((s) => s.id === segmentId)?.name ?? '';
+    if (!(await confirm({ title: t('segments.deleteConfirm', { name }), confirmLabel: t('segments.deleteSegment'), destructive: true }))) return;
     const res = await authFetch(`/api/segments/${segmentId}`, { method: 'DELETE' }).catch(() => null);
     if (!res?.ok) {
       toast.error(t('segments.deleteFailed'));
@@ -831,17 +835,13 @@ function ContactsPeople() {
             />
           </div>
 
-          <select
+          <OptionSelect
             aria-label={t('segments.selectLabel')}
             value={segmentId}
-            onChange={(e) => selectSegment(e.target.value)}
-            className={cn(CHIP, segmentId && CHIP_ON)}
-          >
-            <option value="">{t('segments.allContacts')}</option>
-            {segments.map((s) => (
-              <option key={s.id} value={s.id}>{s.name}</option>
-            ))}
-          </select>
+            onValueChange={selectSegment}
+            className={cn(CHIP, 'w-auto', segmentId && CHIP_ON)}
+            options={[{ value: '', label: t('segments.allContacts') }, ...segments.map((s) => ({ value: s.id, label: s.name }))]}
+          />
           {canEdit && selectedSegment && (
             <>
               <Button
@@ -865,17 +865,13 @@ function ContactsPeople() {
             </>
           )}
 
-          <select
+          <OptionSelect
             aria-label={t('lists.selectLabel')}
             value={listId}
-            onChange={(e) => selectList(e.target.value)}
-            className={cn(CHIP, listId && CHIP_ON)}
-          >
-            <option value="">{t('lists.none')}</option>
-            {lists.map((l) => (
-              <option key={l.id} value={l.id}>{l.name} ({l.member_count})</option>
-            ))}
-          </select>
+            onValueChange={selectList}
+            className={cn(CHIP, 'w-auto', listId && CHIP_ON)}
+            options={[{ value: '', label: t('lists.none') }, ...lists.map((l) => ({ value: l.id, label: `${l.name} (${l.member_count})` }))]}
+          />
           {canEdit && listId && (
             <Button
               variant="ghost"
@@ -911,60 +907,61 @@ function ContactsPeople() {
                 )}
               </div>
               <div className="max-h-[70vh] space-y-3 overflow-y-auto p-3">
-                <label className="block space-y-1">
+                <div className="space-y-1">
                   <span className="text-xs font-medium text-muted-foreground">{tr('filters.owner')}</span>
-                  <select
+                  <OptionSelect
                     aria-label={tr('filters.owner')}
                     value={ownerFilter}
-                    onChange={(e) => {
-                      setOwnerFilter(e.target.value);
+                    onValueChange={(v) => {
+                      setOwnerFilter(v);
                       setPage(0);
                     }}
-                    className={MENU_SELECT}
-                  >
-                    <option value="">{tr('filters.anyOwner')}</option>
-                    {members.map((m) => (
-                      <option key={m.user_id} value={m.user_id}>{m.full_name || tr('owner.unnamedMember')}</option>
-                    ))}
-                    <option value="none">{tr('owner.noOne')}</option>
-                  </select>
-                </label>
+                    className="h-9"
+                    options={[
+                      { value: '', label: tr('filters.anyOwner') },
+                      ...members.map((m) => ({ value: m.user_id, label: m.full_name || tr('owner.unnamedMember') })),
+                      { value: 'none', label: tr('owner.noOne') },
+                    ]}
+                  />
+                </div>
 
-                <label className="block space-y-1">
+                <div className="space-y-1">
                   <span className="text-xs font-medium text-muted-foreground">{tr('filters.consent')}</span>
-                  <select
+                  <SegmentedControl<ConsentFilter>
                     aria-label={tr('filters.consent')}
+                    size="sm"
                     value={consentFilter}
-                    onChange={(e) => {
-                      setConsentFilter(e.target.value as ConsentFilter);
+                    onValueChange={(v) => {
+                      setConsentFilter(v);
                       setPage(0);
                     }}
-                    className={MENU_SELECT}
-                  >
-                    <option value="">{tr('filters.anyConsent')}</option>
-                    <option value="opted_in">{tr('filters.optedIn')}</option>
-                    <option value="opted_out">{tr('filters.optedOut')}</option>
-                  </select>
-                </label>
+                    options={[
+                      { value: '', label: tr('filters.anyConsent') },
+                      { value: 'opted_in', label: tr('filters.optedIn') },
+                      { value: 'opted_out', label: tr('filters.optedOut') },
+                    ]}
+                  />
+                </div>
 
                 {showChannelFilters && (
                   <>
-                    <label className="block space-y-1">
+                    <div className="space-y-1">
                       <span className="text-xs font-medium text-muted-foreground">{tc('channel')}</span>
-                      <select
+                      <SegmentedControl<ChannelView>
                         aria-label={tc('channel')}
+                        size="sm"
                         value={channelView}
-                        onChange={(e) => {
-                          setChannelView(e.target.value as ChannelView);
+                        onValueChange={(v) => {
+                          setChannelView(v);
                           setPage(0);
                         }}
-                        className={MENU_SELECT}
-                      >
-                        <option value="">{tc('allChannels')}</option>
-                        <option value="whatsapp">{tc('hasWhatsApp')}</option>
-                        <option value="instagram">{tc('hasInstagram')}</option>
-                      </select>
-                    </label>
+                        options={[
+                          { value: '', label: tc('allChannels') },
+                          { value: 'whatsapp', label: tc('hasWhatsApp') },
+                          { value: 'instagram', label: tc('hasInstagram') },
+                        ]}
+                      />
+                    </div>
                     <div className="flex items-center justify-between gap-2">
                       <Label htmlFor="contacts-subscribed-only" className="text-sm font-normal text-popover-foreground">
                         {tc('subscribedOnly')}
@@ -1633,20 +1630,16 @@ function ContactsPeople() {
           <div className="space-y-3">
             <div className="space-y-1.5">
               <Label htmlFor="bulk-field" className="text-muted-foreground">{tb('field')}</Label>
-              <select
+              <OptionSelect
                 id="bulk-field"
                 value={bulkFieldId}
-                onChange={(e) => {
-                  setBulkFieldId(e.target.value);
+                onValueChange={(v) => {
+                  setBulkFieldId(v);
                   setBulkFieldValue('');
                 }}
-                className={FIELD_SELECT}
-              >
-                <option value="">{tb('chooseField')}</option>
-                {customFields.map((f) => (
-                  <option key={f.id} value={f.id}>{f.field_name}</option>
-                ))}
-              </select>
+                className="h-9"
+                options={[{ value: '', label: tb('chooseField') }, ...customFields.map((f) => ({ value: f.id, label: f.field_name }))]}
+              />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="bulk-field-value" className="text-muted-foreground">{tb('value')}</Label>

@@ -5,9 +5,8 @@
 import { useTranslations } from 'next-intl';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
+import { OptionSelect } from './option-select';
 
-export const FIELD_SELECT =
-  'h-9 w-full min-w-0 rounded-lg border border-border bg-card px-2.5 text-sm text-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-60';
 
 export function CustomFieldInput({
   id,
@@ -34,23 +33,22 @@ export function CustomFieldInput({
   const t = useTranslations('Contacts.redesign');
   if (type === 'choice')
     return (
-      <select
+      <OptionSelect
         id={id}
         aria-label={ariaLabel}
         value={value}
         disabled={disabled}
-        onChange={(e) => {
-          onChange(e.target.value);
-          onCommit?.(e.target.value);
+        onValueChange={(next) => {
+          onChange(next);
+          onCommit?.(next);
         }}
-        className={cn(FIELD_SELECT, className)}
-      >
-        <option value="">{t('fieldsTab.notSet')}</option>
-        {choices.map((c) => (
-          <option key={c} value={c}>{c}</option>
-        ))}
-        {value && !choices.includes(value) && <option value={value}>{value}</option>}
-      </select>
+        className={cn('h-9', className)}
+        options={[
+          { value: '', label: t('fieldsTab.notSet') },
+          ...choices.map((c) => ({ value: c, label: c })),
+          ...(value && !choices.includes(value) ? [{ value, label: value }] : []),
+        ]}
+      />
     );
   return (
     <Input

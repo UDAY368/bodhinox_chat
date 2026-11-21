@@ -11,15 +11,16 @@ import { LoadingRows } from '@/components/ads/ads-ui';
 import { toast } from 'sonner';
 import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
+import { SegmentedControl } from '@/components/ui/segmented-control';
+import { OptionSelect } from '@/components/contacts/option-select';
 import { authFetch } from '@/lib/auth/client';
 import { cn } from '@/lib/utils';
 import type { AdRuleActionDto, AdRuleDto } from '@/lib/meta-ads/rules';
 
-const SELECT = 'h-9 w-full rounded-lg border border-border bg-card px-2.5 text-sm';
 const LEVELS = ['campaign', 'adset', 'ad'] as const;
 const METRICS = ['cost_per_result', 'spend', 'ctr', 'cpm'] as const;
 const WINDOWS = [1, 3, 7] as const;
@@ -179,43 +180,37 @@ function NewRuleDialog({ canPause, onClose, onCreated }: { canPause: boolean; on
   };
 
   return (
-    <Dialog open onOpenChange={(next) => { if (!next && !busy) onClose(); }}>
-      <DialogContent className="sm:max-w-lg" data-testid="new-rule-dialog">
-        <DialogHeader>
-          <DialogTitle>{t('newTitle')}</DialogTitle>
-          <DialogDescription>{t('newDescription')}</DialogDescription>
-        </DialogHeader>
-        <div className="grid gap-3 sm:grid-cols-2">
+    <Sheet open onOpenChange={(next) => { if (!next && !busy) onClose(); }}>
+      <SheetContent size="md" className="w-full overflow-y-auto" data-testid="new-rule-dialog">
+        <SheetHeader>
+          <SheetTitle>{t('newTitle')}</SheetTitle>
+          <SheetDescription>{t('newDescription')}</SheetDescription>
+        </SheetHeader>
+        <div className="grid gap-3 px-4 sm:grid-cols-2">
           <div className="space-y-1 sm:col-span-2">
             <Label htmlFor="rule-name">{t('name')}</Label>
             <Input id="rule-name" value={name} maxLength={120} onChange={(e) => setName(e.target.value)} placeholder={t('namePlaceholder')} />
           </div>
           <div className="space-y-1">
-            <Label htmlFor="rule-action">{t('then')}</Label>
-            <select id="rule-action" value={ruleAction} onChange={(e) => setRuleAction(e.target.value as 'pause' | 'notify')} className={SELECT}>
-              <option value="pause" disabled={!canPause}>{t('actions.pause')}</option>
-              <option value="notify">{t('actions.notify')}</option>
-            </select>
+            <Label>{t('then')}</Label>
+            <SegmentedControl aria-label={t('then')} value={ruleAction} onValueChange={setRuleAction}
+              options={[{ value: 'pause', label: t('actions.pause'), disabled: !canPause }, { value: 'notify', label: t('actions.notify') }]} />
           </div>
           <div className="space-y-1">
-            <Label htmlFor="rule-level">{t('anyActive')}</Label>
-            <select id="rule-level" value={level} onChange={(e) => setLevel(e.target.value as typeof level)} className={SELECT}>
-              {LEVELS.map((l) => <option key={l} value={l}>{t(`levels.${l}`)}</option>)}
-            </select>
+            <Label>{t('anyActive')}</Label>
+            <SegmentedControl aria-label={t('anyActive')} value={level} onValueChange={setLevel}
+              options={LEVELS.map((l) => ({ value: l, label: t(`levels.${l}`) }))} />
           </div>
           <div className="space-y-1">
             <Label htmlFor="rule-metric">{t('when')}</Label>
-            <select id="rule-metric" value={metric} onChange={(e) => setMetric(e.target.value as typeof metric)} className={SELECT}>
-              {METRICS.map((m) => <option key={m} value={m}>{t(`metrics.${m}`)}</option>)}
-            </select>
+            <OptionSelect id="rule-metric" value={metric} onValueChange={(v) => setMetric(v as typeof metric)}
+              options={METRICS.map((m) => ({ value: m, label: t(`metrics.${m}`) }))} />
           </div>
-          <div className="grid grid-cols-[6rem_1fr] gap-2">
+          <div className="grid grid-cols-[auto_1fr] gap-2">
             <div className="space-y-1">
-              <Label htmlFor="rule-operator">{t('is')}</Label>
-              <select id="rule-operator" value={operator} onChange={(e) => setOperator(e.target.value as 'gt' | 'lt')} className={SELECT}>
-                <option value="gt">{t('operators.gt')}</option>
-                <option value="lt">{t('operators.lt')}</option>
-              </select>
+              <Label>{t('is')}</Label>
+              <SegmentedControl aria-label={t('is')} value={operator} onValueChange={setOperator}
+                options={(['gt', 'lt'] as const).map((o) => ({ value: o, label: t(`operators.${o}`) }))} />
             </div>
             <div className="space-y-1">
               <Label htmlFor="rule-threshold">{metric === 'ctr' ? t('percent') : t('amount')}</Label>
@@ -223,23 +218,22 @@ function NewRuleDialog({ canPause, onClose, onCreated }: { canPause: boolean; on
             </div>
           </div>
           <div className="space-y-1">
-            <Label htmlFor="rule-window">{t('over')}</Label>
-            <select id="rule-window" value={windowDays} onChange={(e) => setWindowDays(Number(e.target.value))} className={SELECT}>
-              {WINDOWS.map((w) => <option key={w} value={w}>{t('days', { days: w })}</option>)}
-            </select>
+            <Label>{t('over')}</Label>
+            <SegmentedControl aria-label={t('over')} value={String(windowDays)} onValueChange={(v) => setWindowDays(Number(v))}
+              options={WINDOWS.map((w) => ({ value: String(w), label: t('days', { days: w }) }))} />
           </div>
           <div className="space-y-1">
             <Label htmlFor="rule-min">{t('minSpend')}</Label>
             <Input id="rule-min" inputMode="decimal" value={minSpend} onChange={(e) => setMinSpend(e.target.value)} placeholder="0" />
           </div>
         </div>
-        <p className="text-xs text-muted-foreground">{t('currencyHelp')}</p>
-        {error && <p className="text-sm text-destructive" role="alert">{error}</p>}
-        <DialogFooter>
+        <p className="px-4 text-xs text-muted-foreground">{t('currencyHelp')}</p>
+        {error && <p className="px-4 text-sm text-destructive" role="alert">{error}</p>}
+        <SheetFooter className="flex-row justify-end">
           <Button type="button" variant="outline" onClick={onClose} disabled={busy}>{t('cancel')}</Button>
           <Button type="button" onClick={() => void submit()} disabled={!valid || busy}>{busy && <Loader2 className="size-4 animate-spin" />} {t('create')}</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </SheetFooter>
+      </SheetContent>
+    </Sheet>
   );
 }
