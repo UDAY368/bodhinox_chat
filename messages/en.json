@@ -259,6 +259,7 @@
       "title": "Conversations Over Time",
       "description": "Daily message volume by direction",
       "days": "{count} days",
+      "rangeLabel": "Date range",
       "noActivity": "No message activity in this range",
       "noActivityHint": "Send or receive messages to start populating this chart.",
       "incoming": "Incoming",
@@ -1039,7 +1040,8 @@
         "blue": "Blue",
         "violet": "Violet",
         "pink": "Pink"
-      }
+      },
+      "deleteAction": "Delete"
     },
     "favourites": {
       "add": "Add to favourites",
@@ -1312,7 +1314,8 @@
         "loadFailed": "Could not load segments",
         "exportAll": "Export CSV",
         "exportSegment": "Export segment",
-        "exportFailed": "Could not export contacts"
+        "exportFailed": "Could not export contacts",
+        "deleteConfirm": "Delete the segment \"{name}\"? The contacts in it are kept."
       },
       "otherTags": "Other",
       "lists": {
@@ -1335,7 +1338,8 @@
         "removeFromList": "Remove from list",
         "removed": "{count} removed from the list",
         "changeFailed": "Could not update the list",
-        "exportList": "Export list"
+        "exportList": "Export list",
+        "deleteConfirm": "Delete the list \"{name}\"? The contacts in it are kept."
       },
       "rowActions": "Actions for {name}",
       "previousPage": "Previous page",
@@ -4067,6 +4071,7 @@
       "actionFailed": "That did not work. Try again.",
       "replayQueued": "Replay queued",
       "cancelDone": "Run cancelled",
+      "cancelConfirm": "Cancel this run? The customer gets no further messages from this flow.",
       "intentsTitle": "Messages and calls",
       "noIntents": "This run has not sent anything.",
       "intentsHelp": "\"unknown\" means the provider did not confirm the send: check the conversation; it is never re-sent automatically.",
@@ -4449,7 +4454,8 @@
       "conflictBody": "Someone saved a newer version of this draft. Reload to see it, or overwrite it with your changes.",
       "reload": "Reload",
       "overwrite": "Overwrite",
-      "leaveWarning": "Your latest changes are still saving. Leave anyway?"
+      "leaveWarning": "Your latest changes are still saving. Leave anyway?",
+      "leave": "Leave"
     },
     "multiTrigger": {
       "when": "When…",
@@ -6826,6 +6832,7 @@
       "title": "Token usage",
       "description": "Tokens spent on your provider key by drafts and the auto-reply bot. Counts only — no message content is stored here.",
       "window": "Last {days} days",
+      "period": "Period",
       "loadFailed": "Failed to load usage",
       "empty": "No AI usage in the last {days} days yet.",
       "emptyHint": "This fills in as the assistant drafts and auto-replies.",
@@ -13267,7 +13274,8 @@
     "libraryCount": "{count, plural, =0 {No files in the library} one {# file in the library ({size})} other {# files in the library ({size})}}",
     "manage": "Manage files",
     "manageTitle": "Manage media library",
-    "manageDescription": "Agents can delete their own uploads; admins can delete any file. Files used by a message in the last {days} days, a template or a flow are only removed from the library."
+    "manageDescription": "Agents can delete their own uploads; admins can delete any file. Files used by a message in the last {days} days, a template or a flow are only removed from the library.",
+    "deleteAction": "Delete"
   },
   "NotificationPreferences": {
     "title": "Notification preferences",
@@ -15777,7 +15785,8 @@
       "customHours": "Custom hours",
       "reason": "Reason",
       "empty": "No exceptions.",
-      "delete": "Delete"
+      "delete": "Delete",
+      "deleteConfirm": "Delete this exception?"
     },
     "pages": {
       "title": "Booking pages",

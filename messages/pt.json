@@ -259,6 +259,7 @@
       "title": "Conversas ao longo do tempo",
       "description": "Volume diário de mensagens por direção",
       "days": "{count} dias",
+      "rangeLabel": "Intervalo de datas",
       "noActivity": "Nenhuma atividade de mensagens neste período",
       "noActivityHint": "Envie ou receba mensagens para começar a preencher este gráfico.",
       "incoming": "Recebidas",
@@ -1039,7 +1040,8 @@
         "blue": "Azul",
         "violet": "Violeta",
         "pink": "Rosa"
-      }
+      },
+      "deleteAction": "Excluir"
     },
     "favourites": {
       "add": "Adicionar aos favoritos",
@@ -1312,7 +1314,8 @@
         "loadFailed": "Não foi possível carregar os segmentos",
         "exportAll": "Exportar CSV",
         "exportSegment": "Exportar segmento",
-        "exportFailed": "Não foi possível exportar os contatos"
+        "exportFailed": "Não foi possível exportar os contatos",
+        "deleteConfirm": "Excluir o segmento \"{name}\"? Os contatos são mantidos."
       },
       "otherTags": "Outras",
       "lists": {
@@ -1335,7 +1338,8 @@
         "removeFromList": "Remover da lista",
         "removed": "{count} removidos da lista",
         "changeFailed": "Não foi possível atualizar a lista",
-        "exportList": "Exportar lista"
+        "exportList": "Exportar lista",
+        "deleteConfirm": "Excluir a lista \"{name}\"? Os contatos são mantidos."
       },
       "rowActions": "Ações para {name}",
       "previousPage": "Página anterior",
@@ -4067,6 +4071,7 @@
       "actionFailed": "Não funcionou. Tente novamente.",
       "replayQueued": "Repetição na fila",
       "cancelDone": "Execução cancelada",
+      "cancelConfirm": "Cancelar esta execução? O cliente não receberá mais mensagens deste fluxo.",
       "intentsTitle": "Mensagens e chamadas",
       "noIntents": "Esta execução não enviou nada.",
       "intentsHelp": "\"unknown\" significa que o provedor não confirmou o envio: verifique a conversa; nunca é reenviado automaticamente.",
@@ -4449,7 +4454,8 @@
       "conflictBody": "Alguém salvou uma versão mais recente deste rascunho. Recarregue para vê-la ou substitua-a pelas suas alterações.",
       "reload": "Recarregar",
       "overwrite": "Substituir",
-      "leaveWarning": "Suas últimas alterações ainda estão sendo salvas. Sair mesmo assim?"
+      "leaveWarning": "Suas últimas alterações ainda estão sendo salvas. Sair mesmo assim?",
+      "leave": "Sair"
     },
     "multiTrigger": {
       "when": "Quando…",
@@ -6826,6 +6832,7 @@
       "title": "Uso de tokens",
       "description": "Tokens gastos com a chave do seu provedor por rascunhos e pelo bot de resposta automática. Apenas contagens — nenhum conteúdo de mensagem é armazenado aqui.",
       "window": "Últimos {days} dias",
+      "period": "Período",
       "loadFailed": "Falha ao carregar o uso",
       "empty": "Nenhum uso de IA nos últimos {days} dias ainda.",
       "emptyHint": "Isto é preenchido conforme o assistente redige e responde automaticamente.",
@@ -13267,7 +13274,8 @@
     "libraryCount": "{count, plural, =0 {Nenhum arquivo na biblioteca} one {# arquivo na biblioteca ({size})} other {# arquivos na biblioteca ({size})}}",
     "manage": "Gerenciar arquivos",
     "manageTitle": "Gerenciar biblioteca de mídia",
-    "manageDescription": "Agentes podem excluir os próprios envios; administradores podem excluir qualquer arquivo. Arquivos usados por uma mensagem dos últimos {days} dias, um modelo ou um fluxo são apenas removidos da biblioteca."
+    "manageDescription": "Agentes podem excluir os próprios envios; administradores podem excluir qualquer arquivo. Arquivos usados por uma mensagem dos últimos {days} dias, um modelo ou um fluxo são apenas removidos da biblioteca.",
+    "deleteAction": "Excluir"
   },
   "NotificationPreferences": {
     "title": "Preferências de notificação",
@@ -15777,7 +15785,8 @@
       "customHours": "Horário especial",
       "reason": "Motivo",
       "empty": "Nenhuma exceção.",
-      "delete": "Excluir"
+      "delete": "Excluir",
+      "deleteConfirm": "Excluir esta exceção?"
     },
     "pages": {
       "title": "Páginas de agendamento",

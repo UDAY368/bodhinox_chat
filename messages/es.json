@@ -259,6 +259,7 @@
       "title": "Conversaciones a lo largo del tiempo",
       "description": "Volumen diario de mensajes por dirección",
       "days": "{count} días",
+      "rangeLabel": "Rango de fechas",
       "noActivity": "No hay actividad de mensajes en este rango",
       "noActivityHint": "Envía o recibe mensajes para empezar a llenar este gráfico.",
       "incoming": "Entrantes",
@@ -1039,7 +1040,8 @@
         "blue": "Azul",
         "violet": "Violeta",
         "pink": "Rosa"
-      }
+      },
+      "deleteAction": "Eliminar"
     },
     "favourites": {
       "add": "Añadir a favoritos",
@@ -1312,7 +1314,8 @@
         "loadFailed": "No se pudieron cargar los segmentos",
         "exportAll": "Exportar CSV",
         "exportSegment": "Exportar segmento",
-        "exportFailed": "No se pudieron exportar los contactos"
+        "exportFailed": "No se pudieron exportar los contactos",
+        "deleteConfirm": "¿Eliminar el segmento \"{name}\"? Los contactos se conservan."
       },
       "otherTags": "Otras",
       "lists": {
@@ -1335,7 +1338,8 @@
         "removeFromList": "Quitar de la lista",
         "removed": "{count} quitados de la lista",
         "changeFailed": "No se pudo actualizar la lista",
-        "exportList": "Exportar lista"
+        "exportList": "Exportar lista",
+        "deleteConfirm": "¿Eliminar la lista \"{name}\"? Los contactos se conservan."
       },
       "rowActions": "Acciones para {name}",
       "previousPage": "Página anterior",
@@ -4067,6 +4071,7 @@
       "actionFailed": "No funcionó. Inténtalo de nuevo.",
       "replayQueued": "Repetición en cola",
       "cancelDone": "Ejecución cancelada",
+      "cancelConfirm": "¿Cancelar esta ejecución? El cliente no recibirá más mensajes de este flujo.",
       "intentsTitle": "Mensajes y llamadas",
       "noIntents": "Esta ejecución no ha enviado nada.",
       "intentsHelp": "\"unknown\" significa que el proveedor no confirmó el envío: revisa la conversación; nunca se reenvía automáticamente.",
@@ -4449,7 +4454,8 @@
       "conflictBody": "Alguien guardó una versión más reciente de este borrador. Recarga para verla o sobrescríbela con tus cambios.",
       "reload": "Recargar",
       "overwrite": "Sobrescribir",
-      "leaveWarning": "Tus últimos cambios aún se están guardando. ¿Salir de todos modos?"
+      "leaveWarning": "Tus últimos cambios aún se están guardando. ¿Salir de todos modos?",
+      "leave": "Salir"
     },
     "multiTrigger": {
       "when": "Cuando…",
@@ -6826,6 +6832,7 @@
       "title": "Uso de tokens",
       "description": "Tokens gastados con la clave de tu proveedor por los borradores y el bot de respuesta automática. Solo conteos; aquí no se guarda contenido de mensajes.",
       "window": "Últimos {days} días",
+      "period": "Periodo",
       "loadFailed": "Error al cargar el uso",
       "empty": "Aún no hay uso de IA en los últimos {days} días.",
       "emptyHint": "Esto se llena a medida que el asistente redacta y responde automáticamente.",
@@ -13267,7 +13274,8 @@
     "libraryCount": "{count, plural, =0 {No hay archivos en la biblioteca} one {# archivo en la biblioteca ({size})} other {# archivos en la biblioteca ({size})}}",
     "manage": "Gestionar archivos",
     "manageTitle": "Gestionar la biblioteca de medios",
-    "manageDescription": "Los agentes pueden eliminar sus propios archivos; los administradores, cualquiera. Los archivos usados por un mensaje de los últimos {days} días, una plantilla o un flujo solo se quitan de la biblioteca."
+    "manageDescription": "Los agentes pueden eliminar sus propios archivos; los administradores, cualquiera. Los archivos usados por un mensaje de los últimos {days} días, una plantilla o un flujo solo se quitan de la biblioteca.",
+    "deleteAction": "Eliminar"
   },
   "NotificationPreferences": {
     "title": "Preferencias de notificaciones",
@@ -15777,7 +15785,8 @@
       "customHours": "Horario especial",
       "reason": "Motivo",
       "empty": "No hay excepciones.",
-      "delete": "Eliminar"
+      "delete": "Eliminar",
+      "deleteConfirm": "¿Eliminar esta excepción?"
     },
     "pages": {
       "title": "Páginas de reserva",
