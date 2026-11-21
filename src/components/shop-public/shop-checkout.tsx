@@ -105,7 +105,8 @@ export function ShopCheckout({ handle, token }: { handle: string; token: string 
   );
 
   return (
-    <div style={THEMED} className="mx-auto flex w-full max-w-2xl flex-col gap-6 text-[var(--shop-text)]">
+    // Phone-sized fields: the app's inputs are 32px (its buttons already grow to 44px on a touch screen, pointer-coarse).
+    <div style={THEMED} className="mx-auto flex w-full max-w-2xl flex-col gap-6 text-[var(--shop-text)] [&_[data-slot=input]]:h-11">
       <h1 className="text-2xl font-semibold" style={{ fontFamily: 'var(--shop-font-heading)' }}>{t('title')}</h1>
       {!view || session.loadState !== 'ready' || !settled
         ? <CheckoutLoadState session={session.loadState === 'ready' && !settled ? { ...session, loadState: 'loading' } : session}

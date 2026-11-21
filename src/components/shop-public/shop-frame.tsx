@@ -218,7 +218,7 @@ export function ShopFrameView({ shop, t, children, preview = false }: { shop: Fr
       {footer}
       {shop.whatsappPhone && (
         <a href={`https://wa.me/${shop.whatsappPhone}`} target="_blank" rel="noopener noreferrer"
-          className={`${preview ? 'absolute' : 'fixed'} bottom-4 right-4 z-30 flex h-12 items-center gap-2 rounded-full bg-[#25d366] px-4 text-sm font-semibold text-black shadow-lg`}
+          className={`${preview ? 'absolute' : 'fixed'} bottom-4 right-4 z-30 flex h-12 max-md:[body:has([data-shop-buy-bar])_&]:bottom-20 items-center gap-2 rounded-full bg-[#25d366] px-4 text-sm font-semibold text-black shadow-lg`}
           aria-label={t('chatOnWhatsApp')}>
           <MessageCircle className="size-5" aria-hidden />
           <span className="hidden @2xl:inline">{t('chatOnWhatsApp')}</span>

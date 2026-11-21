@@ -17,7 +17,7 @@ export const dynamic = 'force-dynamic';
 type Params = { params: Promise<{ handle: string; mediaId: string }> };
 
 export async function GET(request: Request, { params }: Params) {
-  if (!(await burstAllowed('read', request))) return tooMany();
+  if (!(await burstAllowed('image', request))) return tooMany();
   try {
     const { handle, mediaId } = await params;
     if (!isShopHandleFormat(handle) || !isUuid(mediaId)) return notFound();

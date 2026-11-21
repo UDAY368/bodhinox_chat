@@ -252,7 +252,7 @@ export function ProductBuy({ handle, product, currency, canNotify, layout, whats
       </div>
 
       {barShown && variant && (
-        <div role="region" aria-label={t('buy.buyBar')}
+        <div role="region" aria-label={t('buy.buyBar')} data-shop-buy-bar
           className="fixed inset-x-0 bottom-0 z-30 flex items-center gap-3 border-t border-black/10 bg-[var(--shop-surface)] px-4 pt-2 shadow-[0_-4px_16px_rgba(0,0,0,0.08)] motion-safe:animate-in motion-safe:slide-in-from-bottom md:hidden"
           style={{ paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom))' }}>
           <div className="min-w-0 flex-1">
