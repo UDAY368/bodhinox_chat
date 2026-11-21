@@ -17,7 +17,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { formatMoney, parseMoney } from "@/lib/commerce/money";
+import { parseMoney } from "@/lib/commerce/money";
+import { formatMoney } from "@/lib/format/money";
 import { poReceivable, poTransition } from "@/lib/commerce/stock-rules";
 import {
   changePurchaseOrderStatus, createPurchaseOrder, fetchLocations, fetchPurchaseOrder, fetchPurchaseOrders, fetchShopProducts, receivePurchaseOrder,
@@ -25,7 +26,7 @@ import {
 } from "./catalogue-api";
 import { useCatalogueError } from "./catalogue-admin";
 import { variantLabel, VariantPicker } from "./locations-panel";
-import { OptionSelect } from "@/components/commerce/option-select";
+import { OptionSelect } from "@/components/ui/option-select";
 import { PageLoading } from "@/components/ui/page-loading";
 
 type DraftLine = { variant: InventoryRow; qty: string; cost: string };
@@ -81,7 +82,7 @@ export function PurchaseOrdersPanel({ canManage }: { canManage: boolean }) {
                   <TableCell className="max-w-[16rem] truncate">{o.supplier_name}{o.reference && <span className="ml-2 font-mono text-xs text-muted-foreground">{o.reference}</span>}</TableCell>
                   <TableCell><Badge variant={o.status === "cancelled" ? "outline" : o.status === "received" || o.status === "closed" ? "default" : "secondary"}>{t(`statuses.${o.status}`)}</Badge></TableCell>
                   <TableCell className="text-right tabular-nums">{o.units_received} / {o.units_ordered}</TableCell>
-                  <TableCell className="text-right tabular-nums">{formatMoney(o.total_cost_minor, o.currency, locale)}</TableCell>
+                  <TableCell className="text-right tabular-nums">{formatMoney(o.total_cost_minor, o.currency, { locale })}</TableCell>
                   <TableCell className="whitespace-nowrap text-xs text-muted-foreground">{new Date(o.created_at).toLocaleDateString(locale, { dateStyle: "medium" })}</TableCell>
                   <TableCell className="text-right"><Button size="sm" variant="ghost" onClick={() => setOpen(open === o.id ? null : o.id)}>{open === o.id ? t("hide") : t("view")}</Button></TableCell>
                 </TableRow>
@@ -222,7 +223,7 @@ function OrderDetail({ id, canManage, onChanged }: { id: string; canManage: bool
                 <TableCell className="max-w-[16rem] truncate">{l.product_name} <span className="font-mono text-xs text-muted-foreground">{l.sku}</span></TableCell>
                 <TableCell className="text-right tabular-nums">{l.qty_ordered}</TableCell>
                 <TableCell className="text-right tabular-nums">{l.qty_received}</TableCell>
-                <TableCell className="text-right tabular-nums">{formatMoney(l.unit_cost_minor, order.currency, locale)}</TableCell>
+                <TableCell className="text-right tabular-nums">{formatMoney(l.unit_cost_minor, order.currency, { locale })}</TableCell>
                 {canReceive && (
                   <TableCell className="text-right">
                     <Input className="ml-auto h-8 w-20 text-right" inputMode="numeric" aria-label={t("colReceiveNow")} disabled={l.qty_received >= l.qty_ordered}
@@ -240,7 +241,7 @@ function OrderDetail({ id, canManage, onChanged }: { id: string; canManage: bool
             <>
               <div className="space-y-1">
                 <Label htmlFor="po-location">{t("receiveAt")}</Label>
-                <OptionSelect
+                <OptionSelect fit
                   id="po-location"
                   value={location}
                   onValueChange={(v) => setLocation(v)}

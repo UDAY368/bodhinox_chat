@@ -4,7 +4,7 @@ import { getT } from "@/lib/i18n/translate";
 const t = getT("LibErrors");
 
 /**
- * Shared media-upload helper for Supabase Storage buckets that use the
+ * Shared media-upload helper for storage buckets that use the
  * account-scoped path convention introduced in migration 020
  * (`flow-media`) and reused by migration 023 (`chat-media`):
  *
@@ -38,7 +38,7 @@ export const MEDIA_MAX_BYTES_BY_KIND = {
 
 /**
  * Build the account-scoped object path for an upload. Pure + exported so
- * it can be unit-tested without a Supabase client.
+ * it can be unit-tested without a storage client.
  *
  * - `basename` is stripped of its extension, lower-cased non-safe chars
  *   are collapsed to `_`, and it's capped at 40 chars (falls back to

@@ -5,7 +5,7 @@
 import { useTranslations } from 'next-intl';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
-import { OptionSelect } from './option-select';
+import { OptionSelect } from '@/components/ui/option-select';
 
 
 export function CustomFieldInput({

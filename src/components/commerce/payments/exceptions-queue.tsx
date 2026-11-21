@@ -17,7 +17,7 @@ import { Button } from "@/components/ui/button";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { formatMoney } from "@/lib/commerce/money";
+import { formatMoney } from "@/lib/format/money";
 import { listExceptions, resolveException, type PaymentExceptionItem, type Resolution } from "./customer-payments-api";
 import { PageLoading } from "@/components/ui/page-loading";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -94,7 +94,7 @@ export function ExceptionsQueue() {
                     <span className="font-medium">{t(`kinds.${row.kind}`)}</span>
                     <span className="block text-xs text-muted-foreground">{t(`help.${row.kind}`)}</span>
                   </TableCell>
-                  <TableCell className="whitespace-nowrap">{row.amount_minor !== null && row.currency ? formatMoney(row.amount_minor, row.currency, locale) : "—"}</TableCell>
+                  <TableCell className="whitespace-nowrap">{row.amount_minor !== null && row.currency ? formatMoney(row.amount_minor, row.currency, { locale }) : "—"}</TableCell>
                   <TableCell className="text-xs">
                     {row.order_id ? <Link href={`/commerce/orders/${row.order_id}`} className="text-primary hover:underline">{t("order")}</Link>
                       : row.appointment_id ? <Link href={`/appointments?id=${row.appointment_id}`} className="text-primary hover:underline">{t("appointment")}</Link> : "—"}

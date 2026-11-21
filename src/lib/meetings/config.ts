@@ -13,9 +13,6 @@ export interface ZoomConfig {
   webhookSecretToken: string;
 }
 
-export type ZoomDisabledReason = 'flag_off' | 'not_configured';
-export type ZoomStatus = { enabled: true } | { enabled: false; reason: ZoomDisabledReason };
-
 const trimmed = (value: string | undefined): string | null => {
   const v = value?.trim();
   return v ? v : null;
@@ -33,10 +30,4 @@ export function zoomConfig(env: Env = process.env): ZoomConfig | null {
   const webhookSecretToken = trimmed(env.ZOOM_WEBHOOK_SECRET_TOKEN);
   if (!clientId || !clientSecret || !webhookSecretToken) return null;
   return { clientId, clientSecret, webhookSecretToken };
-}
-
-/** What the browser may know: never a secret. */
-export function zoomStatus(env: Env = process.env): ZoomStatus {
-  if (!zoomEnabled(env)) return { enabled: false, reason: 'flag_off' };
-  return zoomConfig(env) ? { enabled: true } : { enabled: false, reason: 'not_configured' };
 }

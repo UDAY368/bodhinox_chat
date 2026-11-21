@@ -89,7 +89,7 @@ import { InlineError } from '@/components/ui/inline-error';
 import { EmptyState } from '@/components/ui/empty-state';
 import { PageLoading } from '@/components/ui/page-loading';
 import { CustomFieldInput } from '@/components/contacts/custom-field-input';
-import { OptionSelect } from '@/components/contacts/option-select';
+import { OptionSelect } from '@/components/ui/option-select';
 import { SegmentedControl } from '@/components/ui/segmented-control';
 import { downloadContactsCsv, useContactMembers, useCustomFields } from '@/components/contacts/contacts-client';
 import { formatLastSeen } from '@/components/contacts/format';

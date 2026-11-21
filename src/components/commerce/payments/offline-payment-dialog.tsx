@@ -17,7 +17,8 @@ import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetT
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { formatMoney, minorToDecimalString } from "@/lib/commerce/money";
+import { minorToDecimalString } from "@/lib/commerce/money";
+import { formatMoney } from "@/lib/format/money";
 import { OFFLINE_METHODS, recordOfflinePayment, type OfflineMethod } from "./customer-payments-api";
 
 export function OfflinePaymentDialog({ orderId, currency, dueMinor, open, onOpenChange, onRecorded }: {
@@ -66,7 +67,7 @@ export function OfflinePaymentDialog({ orderId, currency, dueMinor, open, onOpen
       <SheetContent size="md" className="w-full gap-0">
         <SheetHeader>
           <SheetTitle>{t("title")}</SheetTitle>
-          <SheetDescription>{t("description", { amount: formatMoney(Math.max(dueMinor, 0), currency, locale) })}</SheetDescription>
+          <SheetDescription>{t("description", { amount: formatMoney(Math.max(dueMinor, 0), currency, { locale }) })}</SheetDescription>
         </SheetHeader>
         <div className="flex-1 space-y-4 overflow-y-auto px-4 pb-4">
         <div className="space-y-3">

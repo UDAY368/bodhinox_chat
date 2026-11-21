@@ -204,7 +204,7 @@ export async function executeHandoff(
 /**
  * Resolve a condition node's subject value from DB / run state, then
  * call the pure `evaluateConditionPredicate`. Splits out so the
- * predicate itself stays unit-testable without a Supabase mock.
+ * predicate itself stays unit-testable without a database mock.
  *
  * Subject sources:
  *   - `var` → `flow_runs.vars[subject_key]` (captured by collect_input

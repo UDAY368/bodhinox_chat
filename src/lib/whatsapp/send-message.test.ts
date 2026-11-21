@@ -236,7 +236,7 @@ const customerWindow = { lastAt: null as string | null, reads: 0 };
 const anHourAgo = () => new Date(Date.now() - 3_600_000).toISOString();
 
 /**
- * Supabase fake covering the tables the send path touches. Each table
+ * Data-client fake covering the tables the send path touches. Each table
  * gets a builder that is both chainable and awaitable, so the same
  * object serves `.single()` lookups and the bare `select().eq().eq()`
  * the template resolver uses.

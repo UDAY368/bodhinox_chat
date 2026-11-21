@@ -22,7 +22,7 @@ import { CUSTOM_FIELD_TYPES, MAX_FIELD_NAME, checkChoices, parseChoices, type Cu
 import { useCan } from '@/hooks/use-can';
 import { cn } from '@/lib/utils';
 import { useCustomFields, type CustomFieldSummary } from './contacts-client';
-import { OptionSelect } from './option-select';
+import { OptionSelect } from '@/components/ui/option-select';
 import { EmptyState } from '@/components/ui/empty-state';
 import { PageLoading } from '@/components/ui/page-loading';
 

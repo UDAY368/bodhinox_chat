@@ -14,7 +14,7 @@ import { assertMessageTemplate } from '@/lib/whatsapp/template-row-guard';
 import { cardVariableKey, templateSendNeeds, type CampaignCardExtras } from '@/lib/whatsapp/template-send-params';
 import { templateKindOf } from '@/lib/whatsapp/template-validators';
 import type { MessageTemplate } from '@/types';
-import { formatMoney } from './money';
+import { formatMoney } from '@/lib/format/money';
 import { resolvePublicShop } from './public-shop';
 import { loadProductsWith } from './shop-products';
 
@@ -30,7 +30,6 @@ const inputSchema = z.object({
   scheduledAt: z.string().datetime({ offset: true }).optional(),
   whatsappConfigId: z.string().uuid().nullish(),
 }).strict();
-export type NewArrivalsInput = z.infer<typeof inputSchema>;
 
 /** A product as the cards need it: name, cheapest price and its first image link. */
 export interface CardProduct { id: string; name: string; priceMinor: number; currency: string; imageUrl: string }
@@ -60,7 +59,7 @@ export function mapNewArrivalCards(
     const product = products[i];
     if ((template.cards?.[i]?.header_type ?? 'image') !== 'image') refuse(`Card ${i + 1} must have an image header`);
     if (card.bodyVars.length > 2) refuse(`Card ${i + 1} uses more than a name and a price`);
-    const values = [product.name.slice(0, 200), formatMoney(product.priceMinor, product.currency, locale)];
+    const values = [product.name.slice(0, 200), formatMoney(product.priceMinor, product.currency, { locale })];
     card.bodyVars.forEach((n, at) => { variables[cardVariableKey(i, n)] = { type: 'static', value: values[at] }; });
     const buttonParams: Record<number, string> = {};
     for (const button of card.urlButtons) buttonParams[button.index] = `p/${product.id}`;

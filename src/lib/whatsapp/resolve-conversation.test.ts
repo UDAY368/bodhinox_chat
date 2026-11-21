@@ -5,7 +5,7 @@ import { resolveConversationByPhone } from './resolve-conversation';
 import { SendMessageError } from './send-message';
 
 // ------------------------------------------------------------
-// Chainable Supabase stub, scripted per table. Terminal methods
+// Chainable data-client stub, scripted per table. Terminal methods
 // (like/maybeSingle/single) resolve to configured data; the builder
 // itself is thenable so an awaited `update().eq()` resolves cleanly.
 // ------------------------------------------------------------

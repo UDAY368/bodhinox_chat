@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { SegmentedControl } from '@/components/ui/segmented-control';
-import { OptionSelect } from '@/components/automations/option-select';
+import { OptionSelect } from '@/components/ui/option-select';
 import { toast } from 'sonner';
 import {
   Users,

@@ -216,7 +216,3 @@ export function numberErrorText(error: NoNumberError | TemplateNumberMismatchErr
   const dot = key.lastIndexOf('.');
   return getT(key.slice(0, dot))(key.slice(dot + 1), values);
 }
-
-export function isNumberError(error: unknown): error is NoNumberError | TemplateNumberMismatchError {
-  return error instanceof NoNumberError || error instanceof TemplateNumberMismatchError;
-}

@@ -73,7 +73,3 @@ export async function writeQuietHours(tx: TenantTransaction, accountId: string, 
     ON CONFLICT (account_id,user_id) DO UPDATE SET quiet_enabled=EXCLUDED.quiet_enabled, quiet_start=EXCLUDED.quiet_start,
       quiet_end=EXCLUDED.quiet_end, quiet_time_zone=EXCLUDED.quiet_time_zone, quiet_allow_mentions=EXCLUDED.quiet_allow_mentions`;
 }
-
-export async function readQuietHours(tx: TenantTransaction, accountId: string, userId: string): Promise<QuietHours> {
-  return (await read(tx, accountId, userId)).quiet_hours;
-}

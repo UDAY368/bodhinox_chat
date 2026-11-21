@@ -18,7 +18,7 @@ import { useLocale, useTranslations } from 'next-intl';
 import { Bell, Check, Heart, Loader2, MessageCircle, Minus, Plus, Share2 } from 'lucide-react';
 import type { PublicProduct } from '@/lib/commerce/public-shop';
 import type { ShopLayout } from '@/lib/commerce/shop-templates';
-import { formatMoney } from '@/lib/commerce/money';
+import { formatMoney } from '@/lib/format/money';
 import { formatShipDate } from '@/lib/commerce/selling-rules';
 import { addToCart } from './cart-store';
 import { PincodeCheck } from './pincode-check';
@@ -53,7 +53,7 @@ export function ProductBuy({ handle, product, currency, canNotify, layout, whats
   // "Save for later": kept in this browser until the visitor comes in through a shop session, which saves it to their contact.
   const savedIds = useSyncExternalStore(subscribeWishlist, wishlistSnapshot, () => '');
   const saved = variant ? savedIds.split(',').includes(variant.id) : false;
-  const money = (minor: number) => (currency ? formatMoney(minor, currency, locale) : '');
+  const money = (minor: number) => (currency ? formatMoney(minor, currency, { locale }) : '');
 
   // The phone's buy bar: shown once the main button has scrolled up out of view (no scroll polling).
   const buyButton = useRef<HTMLButtonElement>(null);

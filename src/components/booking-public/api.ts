@@ -108,18 +108,6 @@ export function slotDates(slots: PublicSlot[]): string[] {
   return [...new Set(slots.map((s) => s.localDate))];
 }
 
-/** A price in minor units, in its currency; null when there is none. */
-export function formatPrice(minor: number | null, currency: string | null, locale: string): string | null {
-  if (minor === null || !currency) return null;
-  try {
-    const format = new Intl.NumberFormat(locale, { style: 'currency', currency });
-    const digits = format.resolvedOptions().maximumFractionDigits ?? 2;
-    return format.format(minor / 10 ** digits);
-  } catch {
-    return null;
-  }
-}
-
 /** A date and time in the appointment's zone (never the viewer's). */
 export function formatWhen(iso: string, timeZone: string, locale: string): string {
   return new Intl.DateTimeFormat(locale, { dateStyle: 'full', timeStyle: 'short', timeZone }).format(new Date(iso));

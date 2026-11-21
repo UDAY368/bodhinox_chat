@@ -22,7 +22,7 @@ import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetT
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { formatMoney } from "@/lib/commerce/money";
+import { formatMoney } from "@/lib/format/money";
 import {
   createEditBalanceLink, getOrderEditState, listSellableVariants, previewOrderEdit, saveOrderEdit,
   type OrderEditBody, type OrderEditPreview, type OrderEditState, type SellableVariant,
@@ -62,7 +62,7 @@ export function OrderEditPanel({ orderId, canEdit, onChanged }: {
 
   if (!state) return null;
   const money = (minor: number) => {
-    try { return formatMoney(minor, state.currency, locale); } catch { return `${state.currency} ${minor}`; }
+    return formatMoney(minor, state.currency, { locale });
   };
   const latest = state.edits[0];
   const showButton = canEdit && state.blocked !== "not_editable";

@@ -19,7 +19,7 @@ import { Label } from '@/components/ui/label';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Textarea } from '@/components/ui/textarea';
 import { SegmentedControl } from '@/components/ui/segmented-control';
-import { OptionSelect } from '@/components/contacts/option-select';
+import { OptionSelect } from '@/components/ui/option-select';
 import type {
   AppointmentEventKind, AppointmentMessageKind, AppointmentMessageStatus, AppointmentStatus, Slot, TaskKind, TaskStatus,
 } from '@/lib/appointments/types';

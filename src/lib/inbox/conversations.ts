@@ -156,12 +156,6 @@ export function normalizeConversation(raw: RawConversation): Conversation {
   };
 }
 
-export function normalizeConversations(
-  rows: RawConversation[],
-): Conversation[] {
-  return rows.map(normalizeConversation);
-}
-
 export interface ContactFilters {
   /** Tag ids; a conversation matches if its contact has ANY of them (OR). */
   tagIds: string[];

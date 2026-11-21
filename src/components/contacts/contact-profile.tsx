@@ -32,7 +32,7 @@ import { authFetch } from '@/lib/auth/client';
 import { createClient } from '@/lib/data/client';
 import { addContactTag, deleteContactTag } from '@/lib/contacts/tag-api';
 import { formatCurrency } from '@/lib/currency';
-import { formatMoney } from '@/lib/commerce/money';
+import { formatMoney } from '@/lib/format/money';
 import { conversationInboxPath } from '@/lib/inbox/inbox-scope';
 import { MASK_CHAR } from '@/lib/inbox/masking';
 import { planAllows, usePlan } from '@/lib/billing/client';
@@ -52,7 +52,7 @@ import { ContactTimeline } from './contact-timeline';
 import { ContactAppointmentsCard } from '@/components/appointments/contact-appointments-card';
 import { bookingTimelineEvent } from '@/lib/appointments/contact-bookings';
 import { CustomFieldInput } from './custom-field-input';
-import { OptionSelect } from './option-select';
+import { OptionSelect } from '@/components/ui/option-select';
 import { EmptyState } from '@/components/ui/empty-state';
 import { PageLoading } from '@/components/ui/page-loading';
 import { downloadContactsCsv, memberName, saveContactField, useContactMembers, useCustomFields } from './contacts-client';
@@ -808,7 +808,7 @@ export function ContactProfile({ contactId }: { contactId: string }) {
                         <strong className="block truncate text-[13px] font-semibold text-foreground">{t('profile.orderName', { ref: orderRef(o) })}</strong>
                         <small className="block text-xs text-muted-foreground">{formatDay(o.created_at, locale)} · {o.status}</small>
                       </span>
-                      <b className="shrink-0 text-[13px] font-semibold tabular-nums text-foreground">{formatMoney(o.total_minor, o.currency, locale)}</b>
+                      <b className="shrink-0 text-[13px] font-semibold tabular-nums text-foreground">{formatMoney(o.total_minor, o.currency, { locale })}</b>
                     </Link>
                   </li>
                 ))}

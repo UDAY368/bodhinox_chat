@@ -11,7 +11,7 @@
 import { Briefcase } from 'lucide-react';
 import { EmptyState } from '@/components/ui/empty-state';
 import { SegmentedControl } from '@/components/ui/segmented-control';
-import { OptionSelect } from '@/components/contacts/option-select';
+import { OptionSelect } from '@/components/ui/option-select';
 import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { useLocale, useTranslations } from 'next-intl';

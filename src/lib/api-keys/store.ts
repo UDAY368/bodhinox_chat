@@ -2,7 +2,7 @@
 // API key store — the *auth-path* data access for public API keys.
 //
 // Only the read side lives here, and deliberately so: it runs with
-// the service-role client because a public-API caller has no Supabase
+// the service-role client because a public-API caller has no cookie
 // session, so RLS (which keys off `auth.uid()`) can't scope the
 // lookup. The management side (list / create / revoke) runs in the
 // dashboard under a real cookie session and goes through the RLS

@@ -22,7 +22,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { SegmentedControl } from '@/components/ui/segmented-control';
-import { OptionSelect } from '@/components/contacts/option-select';
+import { OptionSelect } from '@/components/ui/option-select';
 import { authFetch } from '@/lib/auth/client';
 import { isCurrencyCode, parseMoney } from '@/lib/commerce/money';
 import { cn } from '@/lib/utils';

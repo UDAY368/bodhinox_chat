@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { Input } from '@/components/ui/input';
-import { OptionSelect } from '@/components/automations/option-select';
+import { OptionSelect } from '@/components/ui/option-select';
 import {
   uploadAccountMedia,
   MEDIA_MAX_BYTES_BY_KIND,

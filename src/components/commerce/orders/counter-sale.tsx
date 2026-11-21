@@ -21,7 +21,7 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { searchContacts, type ContactOption } from "@/lib/contacts/contact-search";
-import { formatMoney } from "@/lib/commerce/money";
+import { formatMoney } from "@/lib/format/money";
 import { createCounterSale, documentUrl, getOrderTimeline, listSellableVariants, type CounterSaleResult, type SellableVariant } from "./order-api";
 import { orderRef } from "@/lib/commerce/order-state";
 import { SegmentedControl } from "@/components/ui/segmented-control";
@@ -95,7 +95,7 @@ export function CounterSale() {
 
   const money = (minor: number, cur = currency) => {
     if (!cur) return String(minor);
-    try { return formatMoney(minor, cur, locale); } catch { return `${cur} ${minor}`; }
+    return formatMoney(minor, cur, { locale });
   };
   const estimate = cart.reduce((n, l) => n + l.variant.price_minor * l.qty, 0);
   const room = (v: SellableVariant) => (v.available === null ? MAX_QTY : Math.min(MAX_QTY, v.available));

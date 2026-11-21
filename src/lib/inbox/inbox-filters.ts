@@ -156,19 +156,6 @@ export interface InboxListQuery {
   session: ListSession;
 }
 
-export const DEFAULT_LIST_QUERY: InboxListQuery = {
-  scope: 'all',
-  filter: 'all',
-  channel: null,
-  numberId: null,
-  agent: null,
-  tagIds: [],
-  company: null,
-  consent: 'any',
-  search: '',
-  session: 'all',
-};
-
 export const MAX_LIST_TAGS = 50;
 export const MAX_LIST_TEXT = 200;
 const LIST_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -220,11 +207,6 @@ export function parseListQuery(params: URLSearchParams): InboxListQuery {
     search: (params.get('q') ?? '').trim().slice(0, MAX_LIST_TEXT),
     session: pick(params.get('session'), SESSIONS, 'all'),
   };
-}
-
-/** Whether every visible conversation of the inbox (but snoozed ones) matches: no view and no narrowing. */
-export function isUnfilteredList(query: InboxListQuery): boolean {
-  return listQueryParams({ ...query, scope: 'all' }).size === 0;
 }
 
 export function matchesAgentFilter(

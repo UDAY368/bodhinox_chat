@@ -18,7 +18,7 @@ import { FlaskConical, Loader2, RotateCcw, SendHorizontal, Undo2 } from 'lucide-
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
-import { OptionSelect } from '@/components/automations/option-select';
+import { OptionSelect } from '@/components/ui/option-select';
 import { authFetch } from '@/lib/auth/client';
 import { createClient } from '@/lib/data/client';
 import type { DryRunInput, DryRunResult, WouldNote } from '@/lib/flows/dry-run';

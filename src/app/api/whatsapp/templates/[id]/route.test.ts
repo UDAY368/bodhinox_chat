@@ -34,7 +34,7 @@ let templateWaba: string | null = null
 const templateUpdates: Record<string, unknown>[] = []
 let templateDeletes = 0
 
-function makeSupabaseMock() {
+function makeDbMock() {
   function builder(table: string) {
     const result = () => {
       switch (table) {
@@ -97,10 +97,10 @@ function makeSupabaseMock() {
   }
 }
 
-let supabaseMock = makeSupabaseMock()
+let dbMock = makeDbMock()
 
 vi.mock('@/lib/data/server', () => ({
-  createClient: vi.fn(async () => supabaseMock),
+  createClient: vi.fn(async () => dbMock),
 }))
 
 vi.mock('@/lib/whatsapp/encryption', () => ({
@@ -155,7 +155,7 @@ beforeEach(() => {
   callerRole = 'admin'
   numbers = null
   templateWaba = null
-  supabaseMock = makeSupabaseMock()
+  dbMock = makeDbMock()
   meta.editMessageTemplate.mockClear()
   meta.deleteMessageTemplate.mockClear()
   history.record.mockClear()

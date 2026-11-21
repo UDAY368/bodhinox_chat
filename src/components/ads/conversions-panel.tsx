@@ -8,7 +8,7 @@ import { useFormatter, useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 import { AlertTriangle, Send } from 'lucide-react';
 import { EmptyState } from '@/components/ui/empty-state';
-import { OptionSelect } from '@/components/contacts/option-select';
+import { OptionSelect } from '@/components/ui/option-select';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';

@@ -25,7 +25,7 @@ import type { ShopSiteView } from "@/lib/commerce/shop-site";
 import { ShopAccessCard } from "./shop-access-card";
 import { RedirectsCard } from "./redirects-card";
 import { encodeQr, qrSvgPath } from "@/lib/qr/encode";
-import { OptionSelect } from "@/components/commerce/option-select";
+import { OptionSelect } from "@/components/ui/option-select";
 import { PageHeader } from "@/components/ui/page-header";
 
 function QrCode({ url, label }: { url: string; label: string }) {
@@ -209,7 +209,7 @@ export function StoreSitePanel() {
         <CardContent className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-1.5 sm:col-span-2">
             <Label htmlFor="shop-number">{t("number")}</Label>
-            <OptionSelect
+            <OptionSelect fit
               id="shop-number"
               className="w-full"
               disabled={!canEdit}
@@ -229,7 +229,7 @@ export function StoreSitePanel() {
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="shop-otp-template">{t("otpTemplate")}</Label>
-            <OptionSelect
+            <OptionSelect fit
               id="shop-otp-template"
               className="w-full"
               disabled={!canEdit || !draft.whatsappConfigId}

@@ -19,13 +19,14 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { authFetch } from "@/lib/auth/client";
 import { createClient } from "@/lib/data/client";
-import { formatMoney, minorToDecimalString, parseMoney } from "@/lib/commerce/money";
+import { minorToDecimalString, parseMoney } from "@/lib/commerce/money";
+import { formatMoney } from "@/lib/format/money";
 import type { CustomerGroupView, DiscountRuleView, GiftRuleView, PriceListView } from "@/lib/commerce/price-rules-store";
 import type { ContactBalances, LoyaltySettingsView } from "@/lib/commerce/store-credit";
 import { listSellableVariants, type SellableVariant } from "../orders/order-api";
 import { storeApi } from "./settings-api";
 import { useReportDirty } from "./section-dirty";
-import { OptionSelect } from "@/components/commerce/option-select";
+import { OptionSelect } from "@/components/ui/option-select";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 
 type Result<T> = { ok: true; value: T } | { ok: false; code?: string; error?: string };
@@ -72,7 +73,7 @@ function Field({ id, label, help, children, wide }: { id: string; label: string;
 
 function Picker({ id, value, onChange, options, empty }: { id: string; value: string; onChange: (v: string) => void; options: Option[]; empty?: string }) {
   return (
-    <OptionSelect
+    <OptionSelect fit
       id={id}
       className="w-full"
       value={value}
@@ -259,7 +260,7 @@ function CustomerGroups({ groups, canEdit, reload }: { groups: CustomerGroupView
                   {canEdit && (
                     <div className="grid gap-2 sm:grid-cols-[1fr_1fr_auto]">
                       <Input aria-label={t("searchCustomer")} placeholder={t("searchCustomer")} value={search} maxLength={80} onChange={(e) => setSearch(e.target.value)} />
-                      <OptionSelect
+                      <OptionSelect fit
                         className="w-full"
                         aria-label={t("customer")}
                         value={contactId}
@@ -396,7 +397,7 @@ function DiscountRules({ currency, canEdit, pickers }: { currency: string; canEd
     combinable: r.combinable, active, starts_at: r.starts_at, ends_at: r.ends_at,
   });
   const describe = (r: DiscountRuleView) => [
-    r.kind === "percent" ? t("percentOff", { percent: r.value / 100 }) : t("amountOffEach", { amount: formatMoney(r.value, currency) }),
+    r.kind === "percent" ? t("percentOff", { percent: r.value / 100 }) : t("amountOffEach", { amount: formatMoney(r.value, currency, { locale: "en" }) }),
     r.product_id ? r.product_name ?? "" : r.category_id ? r.category_name ?? "" : t("everyProduct"),
     r.group_id ? r.group_name ?? t("groupMissing") : t("everyone"),
     r.combinable ? t("combines") : t("doesNotCombine"),
@@ -511,7 +512,7 @@ function GiftRules({ currency, canEdit, pickers }: { currency: string; canEdit: 
         <ul className="divide-y text-sm">
           {api.rows.map((r) => (
             <RuleRow key={r.id} title={r.name} active={r.active} canEdit={canEdit}
-              detail={`${r.min_subtotal_minor !== null ? t("spendAtLeast", { amount: formatMoney(r.min_subtotal_minor, currency) }) : t("buyProduct", { product: r.trigger_product_name ?? "" })} → ${r.gift_name ?? ""}`}
+              detail={`${r.min_subtotal_minor !== null ? t("spendAtLeast", { amount: formatMoney(r.min_subtotal_minor, currency, { locale: "en" }) }) : t("buyProduct", { product: r.trigger_product_name ?? "" })} → ${r.gift_name ?? ""}`}
               onToggle={() => void api.patch(r.id, stored(r, !r.active))} onDelete={() => void api.remove(r.id)}
               onEdit={() => { api.setError(null); setDraft({
                 id: r.id, version: r.version, name: r.name, condition: r.min_subtotal_minor !== null ? "spend" : "product", spend: text(r.min_subtotal_minor, currency),
@@ -659,7 +660,7 @@ function Balances({ currency, canEdit }: { currency: string; canEdit: boolean })
         <div className="grid gap-3 sm:grid-cols-2">
           <Field id="bal-search" label={t("searchCustomer")}><Input id="bal-search" value={search} maxLength={80} onChange={(e) => setSearch(e.target.value)} /></Field>
           <Field id="bal-contact" label={t("customer")}>
-            <OptionSelect
+            <OptionSelect fit
               className="w-full"
               id="bal-contact"
               value={contactId}
@@ -674,7 +675,7 @@ function Balances({ currency, canEdit }: { currency: string; canEdit: boolean })
         {balances && (
           <>
             <p className="text-sm">
-              <span className="font-medium">{t("storeCredit")}:</span> {formatMoney(balances.store_credit_minor, balances.currency ?? currency, locale)}
+              <span className="font-medium">{t("storeCredit")}:</span> {formatMoney(balances.store_credit_minor, balances.currency ?? currency, { locale })}
               <span className="mx-2 text-muted-foreground">·</span>
               <span className="font-medium">{t("points")}:</span> {balances.points}
             </p>
@@ -683,7 +684,7 @@ function Balances({ currency, canEdit }: { currency: string; canEdit: boolean })
               {balances.credit_entries.map((e, i) => (
                 <li key={`c${i}`} className="flex justify-between gap-3 py-1.5">
                   <span>{t(`entryKinds.${e.kind}` as never)}{e.reason ? ` · ${e.reason}` : ""}<span className="block text-xs text-muted-foreground">{when(e.created_at)}</span></span>
-                  <span className="tabular-nums">{e.amount < 0 ? "−" : "+"}{formatMoney(Math.abs(e.amount), balances.currency ?? currency, locale)}</span>
+                  <span className="tabular-nums">{e.amount < 0 ? "−" : "+"}{formatMoney(Math.abs(e.amount), balances.currency ?? currency, { locale })}</span>
                 </li>
               ))}
               {balances.point_entries.map((e, i) => (

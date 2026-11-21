@@ -2,7 +2,8 @@
  * Phase 6 commerce helper.
  * Money is always an integer count of the currency's minor unit (paise, cents,
  * yen, fils). Floats never hold an amount: they are only produced for display
- * by Intl, and parsing works on the decimal string, not on a float.
+ * by Intl, and parsing works on the decimal string, not on a float. Display
+ * formatting lives in src/lib/format/money.ts.
  */
 
 /** ISO 4217 minor-unit exponents that differ from 2. Every other code uses 2. */
@@ -54,28 +55,6 @@ export function minorToDecimalString(minor: number | bigint, currency: string): 
   const whole = exponent === 0 ? digits : digits.slice(0, -exponent);
   const fraction = exponent === 0 ? '' : digits.slice(-exponent);
   return `${negative ? '-' : ''}${whole}${fraction ? `.${fraction}` : ''}`;
-}
-
-/**
- * Localised display, e.g. formatMoney(123450, 'INR', 'en-IN') → "₹1,234.50".
- * Uses the currency's own exponent so JPY shows no decimals and KWD three.
- */
-export function formatMoney(minor: number | bigint, currency: string, locale = 'en'): string {
-  const code = currency.toUpperCase();
-  const exponent = currencyExponent(code);
-  const decimal = minorToDecimalString(minor, code);
-  let formatter: Intl.NumberFormat;
-  try {
-    formatter = new Intl.NumberFormat(locale, {
-      style: 'currency', currency: code, minimumFractionDigits: exponent, maximumFractionDigits: exponent,
-    });
-  } catch {
-    formatter = new Intl.NumberFormat('en', {
-      style: 'currency', currency: code, minimumFractionDigits: exponent, maximumFractionDigits: exponent,
-    });
-  }
-  // Intl accepts an exact decimal string (ES2023), so no float rounding is involved.
-  return formatter.format(decimal as unknown as number);
 }
 
 /**

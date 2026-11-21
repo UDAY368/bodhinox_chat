@@ -9,7 +9,7 @@ import Link from 'next/link';
 import { useFormatter, useLocale, useTranslations } from 'next-intl';
 import { ChevronRight } from 'lucide-react';
 
-import { formatMoney } from '@/lib/commerce/money';
+import { formatMoney } from '@/lib/format/money';
 import type { ContactCommerceSummary } from '@/lib/contacts/commerce-summary';
 import { authFetch } from '@/lib/auth/client';
 
@@ -59,11 +59,7 @@ export function SidebarCommerce({ contactId, summary }: { contactId: string; sum
   const format = useFormatter();
   const profile = `/contacts/${encodeURIComponent(contactId)}`;
   const money = (minor: number, currency: string) => {
-    try {
-      return formatMoney(minor, currency, locale);
-    } catch {
-      return `${currency} ${minor}`;
-    }
+    return formatMoney(minor, currency, { locale });
   };
   const dealValue = (value: number, currency: string | null) => {
     try {

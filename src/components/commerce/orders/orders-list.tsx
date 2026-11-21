@@ -18,7 +18,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectSeparator, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { formatMoney } from "@/lib/commerce/money";
+import { formatMoney } from "@/lib/format/money";
 import { ORDER_SOURCES, ORDER_STATUSES, type OrderSource, type OrderStatus } from "@/lib/commerce/order-format";
 import type { OrderListItem } from "./order-api";
 import {
@@ -217,11 +217,7 @@ function OrdersTab({ reloadKey, onOpenOrder, onNewOrder, onQueryChange }: {
   }, [cursor, query, t]);
 
   const money = (minor: number, currency: string) => {
-    try {
-      return formatMoney(minor, currency, locale);
-    } catch {
-      return `${currency} ${minor}`;
-    }
+    return formatMoney(minor, currency, { locale });
   };
 
   const filtered = Boolean(q || status || source || tag || codConfirmation || payment || range.from || range.to);

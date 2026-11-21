@@ -16,7 +16,7 @@ import { Input } from '@/components/ui/input';
 import { useConfirm } from '@/components/ui/confirm-dialog';
 import { EmptyState } from '@/components/ui/empty-state';
 import { InlineError } from '@/components/ui/inline-error';
-import { OptionSelect } from '@/components/contacts/option-select';
+import { OptionSelect } from '@/components/ui/option-select';
 import { useAuth } from '@/hooks/use-auth';
 import { authFetch } from '@/lib/auth/client';
 import { hasMinRole } from '@/lib/auth/roles';

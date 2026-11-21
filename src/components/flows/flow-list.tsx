@@ -34,7 +34,7 @@ import { GroupedList } from "@/components/ui/grouped-list";
 import { PageHeader } from "@/components/ui/page-header";
 import { PageLoading } from "@/components/ui/page-loading";
 import { SegmentedControl } from "@/components/ui/segmented-control";
-import { OptionSelect } from "@/components/automations/option-select";
+import { OptionSelect } from "@/components/ui/option-select";
 import { Switch } from "@/components/ui/switch";
 import {
   Dialog,

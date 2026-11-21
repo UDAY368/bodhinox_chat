@@ -23,12 +23,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { searchContacts, type ContactOption } from "@/lib/contacts/contact-search";
-import { formatMoney } from "@/lib/commerce/money";
+import { formatMoney } from "@/lib/format/money";
 import { createManualOrder, createQuote, listSellableVariants, type OrderDetail, type SellableVariant } from "./order-api";
 import { sendOrderPaymentLink } from "./order-actions";
 import { orderRef } from "@/lib/commerce/order-state";
 import { withChosenOption } from "./customer-options";
-import { OptionSelect } from "@/components/commerce/option-select";
+import { OptionSelect } from "@/components/ui/option-select";
 
 const MAX_QTY = 99;
 
@@ -126,11 +126,7 @@ export function NewOrderDialog({ open, mode = "order", onOpenChange, onCreated, 
   const total = lines.reduce((sum, l) => sum + (byId.get(l.variantId)?.price_minor ?? 0) * qtyOf(l), 0);
   const money = (minor: number) => {
     if (!currency) return String(minor);
-    try {
-      return formatMoney(minor, currency, locale);
-    } catch {
-      return `${currency} ${minor}`;
-    }
+    return formatMoney(minor, currency, { locale });
   };
 
   const update = (key: number, patch: Partial<Line>) => setLines((prev) => prev.map((l) => (l.key === key ? { ...l, ...patch } : l)));
@@ -211,7 +207,7 @@ export function NewOrderDialog({ open, mode = "order", onOpenChange, onCreated, 
           <div className="space-y-1.5">
             <Label htmlFor="new-order-customer-search">{t("customer")}</Label>
             <Input id="new-order-customer-search" placeholder={t("customerSearch")} value={search} onChange={(e) => setSearch(e.target.value)} />
-            <OptionSelect
+            <OptionSelect fit
               aria-label={t("customer")}
               invalid={!!errors.contact}
               value={contactId}
@@ -239,7 +235,7 @@ export function NewOrderDialog({ open, mode = "order", onOpenChange, onCreated, 
               const v = byId.get(l.variantId);
               return (
                 <div key={l.key} className="flex flex-wrap items-center gap-2">
-                  <OptionSelect
+                  <OptionSelect fit
                     aria-label={t("product")}
                     className="flex-1 basis-48"
                     value={l.variantId}
@@ -282,7 +278,7 @@ export function NewOrderDialog({ open, mode = "order", onOpenChange, onCreated, 
           {quote ? (
             <div className="space-y-1.5">
               <Label htmlFor="new-quote-hours">{tQuote("expires")}</Label>
-              <OptionSelect
+              <OptionSelect fit
                 id="new-quote-hours"
                 value={hours}
                 onValueChange={(v) => setHours(v)}

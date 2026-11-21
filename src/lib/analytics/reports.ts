@@ -80,7 +80,6 @@ export class ReportError extends Error {
   }
 }
 
-
 export interface ReportParams {
   from: string;
   to: string;
@@ -796,10 +795,6 @@ export async function scheduleReportSweeps(now: number = Date.now(), force = fal
       ON CONFLICT(dedupe_key) DO NOTHING`;
   lastSweepSchedule = now;
   return accounts.length;
-}
-
-export function resetReportSweepScheduleForTests(): void {
-  lastSweepSchedule = Number.NEGATIVE_INFINITY;
 }
 
 /** Fails requests stuck for six hours, then deletes expired files and marks their rows expired. */

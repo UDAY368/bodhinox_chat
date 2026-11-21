@@ -18,7 +18,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { formatMoney } from "@/lib/commerce/money";
+import { formatMoney } from "@/lib/format/money";
 import { listCustomerPayments, listRefunds, refundAction, type CustomerPaymentItem, type CustomerRefundItem } from "./customer-payments-api";
 import { RefundDialog } from "./refund-dialog";
 import { PageLoading } from "@/components/ui/page-loading";
@@ -95,9 +95,9 @@ export function CustomerPaymentsTable({ orderId, restockByDefault = false }: { o
                 <TableRow key={p.id}>
                   <TableCell className="whitespace-nowrap text-xs text-muted-foreground">{date(p.captured_at ?? p.created_at)}</TableCell>
                   <TableCell className="whitespace-nowrap font-medium">
-                    {formatMoney(p.amount_minor, p.currency, locale)}
+                    {formatMoney(p.amount_minor, p.currency, { locale })}
                     {p.refunded_minor > 0 && (
-                      <span className="block text-xs text-muted-foreground">{t("refunded", { amount: formatMoney(p.refunded_minor, p.currency, locale) })}</span>
+                      <span className="block text-xs text-muted-foreground">{t("refunded", { amount: formatMoney(p.refunded_minor, p.currency, { locale }) })}</span>
                     )}
                   </TableCell>
                   <TableCell className="text-xs">
@@ -148,7 +148,7 @@ export function CustomerPaymentsTable({ orderId, restockByDefault = false }: { o
                 {refunds.map((r) => (
                   <TableRow key={r.id}>
                     <TableCell className="whitespace-nowrap text-xs text-muted-foreground">{date(r.processed_at ?? r.created_at)}</TableCell>
-                    <TableCell className="whitespace-nowrap font-medium">{formatMoney(r.amount_minor, r.currency, locale)}</TableCell>
+                    <TableCell className="whitespace-nowrap font-medium">{formatMoney(r.amount_minor, r.currency, { locale })}</TableCell>
                     <TableCell className="text-xs">
                       {r.source === "external" ? tr("external") : tr(`reasons.${r.reason_code}`)}
                       {r.restock && <span className="block text-muted-foreground">{tr("restocks")}</span>}

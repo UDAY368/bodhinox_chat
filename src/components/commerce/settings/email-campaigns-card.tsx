@@ -22,7 +22,7 @@ import { Textarea } from "@/components/ui/textarea";
 import type { AudiencePreview, CampaignView } from "@/lib/commerce/email-campaigns";
 import { EMAIL_LIMITS } from "@/lib/commerce/email-limits";
 import { useReportDirty } from "./section-dirty";
-import { OptionSelect } from "@/components/commerce/option-select";
+import { OptionSelect } from "@/components/ui/option-select";
 
 type Segment = { id: string; name: string };
 
@@ -104,7 +104,7 @@ export function EmailCampaignsCard({ canEdit, connected }: { canEdit: boolean; c
               </div>
               <div className="space-y-1">
                 <Label htmlFor="ec-audience">{t("audience")}</Label>
-                <OptionSelect
+                <OptionSelect fit
                   id="ec-audience"
                   value={form.segment_id}
                   onValueChange={(v) => setForm({ ...form, segment_id: v })}

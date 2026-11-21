@@ -23,7 +23,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { formatSpend } from '@/components/ads/ads-table';
 import { authFetch } from '@/lib/auth/client';
-import { formatMoney, isCurrencyCode, parseMoney } from '@/lib/commerce/money';
+import { isCurrencyCode, parseMoney } from '@/lib/commerce/money';
+import { formatMoney } from '@/lib/format/money';
 import type { AdChangeDto, AdChangeField, AdManageView, AdObjectDto } from '@/lib/meta-ads/manage';
 import { cn } from '@/lib/utils';
 
@@ -39,7 +40,7 @@ const POLL_MS = 4000;
 const POLL_LIMIT = 30;
 
 const money = (minor: number | null, currency: string | null) =>
-  minor === null ? '-' : currency && isCurrencyCode(currency) ? formatMoney(minor, currency) : minor.toLocaleString();
+  minor === null ? '-' : currency && isCurrencyCode(currency) ? formatMoney(minor, currency, { locale: 'en' }) : minor.toLocaleString();
 
 /** A local date-time input value (YYYY-MM-DDTHH:mm) for an ISO time. */
 const localInput = (iso: string | null) => {

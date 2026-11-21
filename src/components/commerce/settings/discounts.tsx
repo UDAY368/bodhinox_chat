@@ -13,11 +13,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
-import { formatMoney } from "@/lib/commerce/money";
+import { formatMoney } from "@/lib/format/money";
 import { useReportDirty } from "./section-dirty";
 import { Field, bpsToPercent, minorText, percentToBps, toMinor, useErrorText } from "./settings-fields";
 import { storeApi, type AutoDiscountView, type CouponView } from "./settings-api";
-import { OptionSelect } from "@/components/commerce/option-select";
+import { OptionSelect } from "@/components/ui/option-select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 
@@ -71,7 +71,7 @@ export function Coupons({ currency, canEdit }: { currency: string; canEdit: bool
     await reload();
   }
 
-  const describe = (c: CouponView) => (c.kind === "percent" ? `${c.value / 100}%` : formatMoney(c.value, currency));
+  const describe = (c: CouponView) => (c.kind === "percent" ? `${c.value / 100}%` : formatMoney(c.value, currency, { locale: "en" }));
   return (
     <Card>
       <CardHeader>
@@ -220,8 +220,8 @@ export function AutoDiscounts({ currency, canEdit }: { currency: string; canEdit
 
   const describe = (r: AutoDiscountView) => {
     const what = r.kind === "buy_x_get_y" ? `${r.buy_qty} + ${r.get_qty}`
-      : r.percent_bps !== null ? `${r.percent_bps / 100}%` : r.amount_minor !== null ? formatMoney(r.amount_minor, currency) : "";
-    const over = r.min_subtotal_minor > 0 ? t("autoOver", { amount: formatMoney(r.min_subtotal_minor, currency) }) : "";
+      : r.percent_bps !== null ? `${r.percent_bps / 100}%` : r.amount_minor !== null ? formatMoney(r.amount_minor, currency, { locale: "en" }) : "";
+    const over = r.min_subtotal_minor > 0 ? t("autoOver", { amount: formatMoney(r.min_subtotal_minor, currency, { locale: "en" }) }) : "";
     return [t(`autoKinds.${r.kind}`), what, over].filter(Boolean).join(" · ");
   };
   const set = (patch: Partial<AutoDraft>) => setDraft((d) => (d ? { ...d, ...patch } : d));
@@ -263,7 +263,7 @@ export function AutoDiscounts({ currency, canEdit }: { currency: string; canEdit
           <div className="grid gap-3 rounded-md border p-3 sm:grid-cols-2">
             <Field id="ad-name" label={t("autoName")}><Input id="ad-name" maxLength={80} value={draft.name} onChange={(e) => set({ name: e.target.value })} /></Field>
             <Field id="ad-kind" label={t("autoKind")}>
-              <OptionSelect
+              <OptionSelect fit
                 id="ad-kind"
                 value={draft.kind}
                 onValueChange={(v) => set({ kind: v as AutoKind })}

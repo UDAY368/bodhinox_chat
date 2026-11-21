@@ -24,7 +24,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { SegmentedControl } from '@/components/ui/segmented-control';
-import { OptionSelect } from '@/components/contacts/option-select';
+import { OptionSelect } from '@/components/ui/option-select';
 import { authFetch } from '@/lib/auth/client';
 import { previewSegment, type ListSummary, type SegmentSummary } from '@/lib/audience/client';
 import type { AudienceCondition, AudienceFilter, AudienceMatch } from '@/lib/audience/filter';

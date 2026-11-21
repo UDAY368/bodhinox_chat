@@ -60,11 +60,6 @@ export async function scheduleReconcileSweeps(now: number = Date.now(), force = 
   return accounts.length;
 }
 
-/** Test hook. */
-export function resetReconcileScheduleForTests(): void {
-  lastSchedule = Number.NEGATIVE_INFINITY;
-}
-
 export interface SweepSummary {
   links: number;
   refunds: number;

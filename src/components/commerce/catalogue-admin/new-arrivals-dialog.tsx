@@ -22,7 +22,7 @@ import { templateSendNeeds } from "@/lib/whatsapp/template-send-params";
 import { templateKindOf } from "@/lib/whatsapp/template-validators";
 import type { MessageTemplate } from "@/types";
 import { sendNewArrivals } from "./catalogue-api";
-import { OptionSelect } from "@/components/commerce/option-select";
+import { OptionSelect } from "@/components/ui/option-select";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 
 type AudienceKind = "all" | "segment" | "list";
@@ -84,7 +84,7 @@ export function NewArrivalsDialog({ open, onOpenChange, productIds, onDone }: {
           <div className="space-y-3">
             <div className="space-y-1.5">
               <Label htmlFor="na-template">{t("template")}</Label>
-              <OptionSelect
+              <OptionSelect fit
                 id="na-template"
                 value={templateId}
                 onValueChange={(v) => setTemplateId(v)}
@@ -115,7 +115,7 @@ export function NewArrivalsDialog({ open, onOpenChange, productIds, onDone }: {
                 ]}
               />
               {kind !== "all" && (
-                <OptionSelect
+                <OptionSelect fit
                   aria-label={t("audience")}
                   value={targetId}
                   onValueChange={(v) => setTargetId(v)}

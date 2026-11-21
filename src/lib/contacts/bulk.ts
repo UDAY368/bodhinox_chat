@@ -40,7 +40,6 @@ const uuid = z.string().uuid();
 
 /** The contacts page's channel filter (Stage 5). */
 export const CONTACT_CHANNEL_FILTERS = ['whatsapp', 'instagram'] as const;
-export type ContactChannelFilter = (typeof CONTACT_CHANNEL_FILTERS)[number];
 
 export const bulkScopeSchema = z.object({
   segmentId: uuid.optional(),
@@ -82,8 +81,6 @@ const bulkSchema = z.object({
   /** The match count the user was shown. */
   expected: z.number().int().min(1),
 }).strict();
-
-export type BulkContactInput = z.input<typeof bulkSchema>;
 export type BulkAction = z.infer<typeof bulkSchema>['action'];
 
 /** The matching contacts changed since the page was loaded. */

@@ -16,7 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { formatMoney } from "@/lib/commerce/money";
+import { formatMoney } from "@/lib/format/money";
 import { fetchReconciliation, type ReconciliationReport as Report } from "./customer-payments-api";
 import { PageLoading } from "@/components/ui/page-loading";
 
@@ -44,7 +44,7 @@ export function ReconciliationReport() {
 
   useEffect(() => { void load({}); }, [load]);
 
-  const money = (minor: number, currency: string) => formatMoney(minor, currency, locale);
+  const money = (minor: number, currency: string) => formatMoney(minor, currency, { locale });
 
   return (
     <div>

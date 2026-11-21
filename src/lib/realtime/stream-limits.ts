@@ -39,7 +39,3 @@ export function acquireStreamSlot(userId: string): (() => void) | null {
     else streams.delete(userId);
   };
 }
-
-export function openStreamCount(userId: string): number {
-  return open().get(userId) ?? 0;
-}

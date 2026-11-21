@@ -92,7 +92,7 @@ describe('findOrCreateContact', () => {
 
 describe('setContactTags', () => {
   /**
-   * Fake just enough of the Supabase query builder for the two
+   * Fake just enough of the data-client query builder for the two
    * `contact_tags` calls `setContactTags` makes: the current-joins read
    * and the diff delete. Records which tag ids were removed.
    */

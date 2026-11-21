@@ -21,7 +21,7 @@ import {
   cancelPlatformImport, fetchPlatformStatus, startPlatformImport, type PlatformImportView, type PlatformStatus,
 } from "./catalogue-api";
 import { useCatalogueError } from "./catalogue-admin";
-import { OptionSelect } from "@/components/commerce/option-select";
+import { OptionSelect } from "@/components/ui/option-select";
 
 const SETTINGS = "/settings?tab=integrations";
 
@@ -115,7 +115,7 @@ export function PlatformImportDialog({ open, onOpenChange, onDone }: { open: boo
                     {stores.length > 1 ? (
                       <div className="space-y-1.5">
                         <Label htmlFor="pi-store">{t("store")}</Label>
-                        <OptionSelect
+                        <OptionSelect fit
                           id="pi-store"
                           value={store.id}
                           onValueChange={(v) => setStoreId(v)}

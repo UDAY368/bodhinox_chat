@@ -39,7 +39,7 @@ import { PRODUCT_SECTIONS, type SectionProps } from "./product-sections";
 import {
   archivedPool, bodyOf, emptyForm, formOf, hasErrors, validate, type ProductFormState, type VariantRow,
 } from "./product-form-state";
-import { OptionSelect } from "@/components/commerce/option-select";
+import { OptionSelect } from "@/components/ui/option-select";
 import { Checkbox } from "@/components/ui/checkbox";
 
 export function ProductForm({ id, currency: listCurrency, onSaved, onDirtyChange, onClose }: {
@@ -254,7 +254,7 @@ export function ProductForm({ id, currency: listCurrency, onSaved, onDirtyChange
           )}
           <div className="space-y-1 sm:max-w-sm">
             <Label htmlFor="pf-cat">{t("category")}</Label>
-            <OptionSelect
+            <OptionSelect fit
               id="pf-cat"
               value={form.category_id}
               onValueChange={(v) => update(() => ({ category_id: v }))}

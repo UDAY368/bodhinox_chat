@@ -7,7 +7,7 @@
  * message (appointmentTemplateRefusal) is listed but not selectable, with the
  * reason; the server checks again on save.
  */
-import { OptionSelect } from '@/components/contacts/option-select';
+import { OptionSelect } from '@/components/ui/option-select';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { useTranslations } from 'next-intl';

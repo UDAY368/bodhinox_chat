@@ -11,7 +11,8 @@
  */
 import { getWorkerPrisma } from '@/lib/db/prisma';
 import { withTenant, type TenantContext, type TenantTransaction } from '@/lib/db/tenant';
-import { formatMoney, minorFromDb, mulDivHalfUp } from './money';
+import { minorFromDb, mulDivHalfUp } from './money';
+import { formatMoney } from '@/lib/format/money';
 import { lineTaxableMinor, placeOfSupply as placeOfSupplyOf, taxInvoiceSplit } from './tax-invoice';
 
 /**
@@ -545,7 +546,7 @@ export interface DocumentLabels {
  * Every value is escaped; amounts are formatted from integer minor units.
  */
 export function renderCommerceDocumentHtml(doc: CommerceDocument, labels: DocumentLabels, locale = 'en'): string {
-  const m = (minor: number) => escapeHtml(formatMoney(minor, doc.currency, locale));
+  const m = (minor: number) => escapeHtml(formatMoney(minor, doc.currency, { locale }));
   const business = doc.buyer.gstin !== null;
   const invoice = doc.kind === 'tax_invoice';
   const title = doc.kind === 'credit_note' ? labels.creditNote : invoice || doc.seller.gstin ? labels.taxInvoice : labels.receipt;

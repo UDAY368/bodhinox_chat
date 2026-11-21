@@ -33,7 +33,6 @@ export const AUDIT_CATEGORIES = {
   settings: ['settings.%', 'workspace.%', 'account.%', 'inbox.%', 'quick_repl%', 'tags.%', 'custom_fields.%', 'audit_log.%'],
 } as const;
 export type AuditCategory = keyof typeof AUDIT_CATEGORIES;
-export const AUDIT_CATEGORY_IDS = Object.keys(AUDIT_CATEGORIES) as AuditCategory[];
 
 export const isAuditCategory = (value: unknown): value is AuditCategory =>
   typeof value === 'string' && Object.prototype.hasOwnProperty.call(AUDIT_CATEGORIES, value);

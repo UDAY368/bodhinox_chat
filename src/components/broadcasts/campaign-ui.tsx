@@ -95,24 +95,6 @@ export function StatusPill({
   );
 }
 
-export function ProgressBar({ pct, className, label }: { pct: number; className?: string; label?: string }) {
-  const width = Math.max(0, Math.min(100, pct));
-  return (
-    <div className={cn('h-1.5 w-20 overflow-hidden rounded-full bg-muted', className)} title={label}>
-      <div className="h-full rounded-full bg-primary transition-[width] duration-300" style={{ width: `${width}%` }} />
-    </div>
-  );
-}
-
-export function StatBlock({ label, value, className }: { label: ReactNode; value: ReactNode; className?: string }) {
-  return (
-    <div className={cn('flex min-w-0 flex-col leading-tight', className)}>
-      <b className="text-sm font-semibold tabular-nums text-foreground">{value}</b>
-      <small className="truncate text-[11px] text-muted-foreground">{label}</small>
-    </div>
-  );
-}
-
 export function IconTile({ icon: Icon, className }: { icon: ComponentType<{ className?: string }>; className?: string }) {
   return (
     <span className={cn('inline-flex size-9 shrink-0 items-center justify-center rounded-[10px] bg-primary/10 text-primary', className)} aria-hidden>

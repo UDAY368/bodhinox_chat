@@ -25,18 +25,6 @@ import type { BillingInterval } from './provider';
 /** SAC for online information / SaaS services. */
 export const SAC_CODE = '998314';
 
-export interface BuyerAddress {
-  legalName: string;
-  gstin: string | null;
-  addressLine1: string;
-  addressLine2: string | null;
-  city: string;
-  stateCode: string | null;
-  postalCode: string;
-  country: string;
-  email: string;
-}
-
 export interface InvoiceSplit {
   subtotal: number;
   gst: GstBreakdown;

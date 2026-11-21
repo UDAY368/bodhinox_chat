@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import type { AudienceConfig } from '@/lib/broadcast-audience';
-import { formatClock, parseClock } from '@/lib/broadcasts/send-window';
+// send-window.ts reaches the database (server only); the same clock helpers live in this client-safe module.
+import { formatClock, parseClock } from '@/lib/notifications/quiet-hours';
 import { MessageTemplate } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';

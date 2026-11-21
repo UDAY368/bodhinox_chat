@@ -6,7 +6,7 @@
 import { useTranslations } from 'next-intl';
 import { Input } from '@/components/ui/input';
 import { SegmentedControl } from '@/components/ui/segmented-control';
-import { OptionSelect } from '@/components/contacts/option-select';
+import { OptionSelect } from '@/components/ui/option-select';
 import type { LinkedAdAccount } from '@/lib/meta-ads/accounts';
 import { customRange, presetRange, type AdsRange, type RangePreset } from './ads-shared';
 

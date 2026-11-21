@@ -11,7 +11,7 @@ import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 
 import { createClient } from "@/lib/data/client";
-import { OptionSelect } from "./option-select";
+import { OptionSelect } from "@/components/ui/option-select";
 import { usePublishedForms } from "@/components/flows/forms/use-pickers";
 import { EVENT_ORDER_SOURCES, EVENT_TRIGGER_FILTERS, EVENT_TRIGGER_VARS, isAppointmentTrigger } from "@/lib/events/trigger-filters";
 import type { EventTriggerType } from "@/lib/events/types";

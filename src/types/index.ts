@@ -79,25 +79,6 @@ export interface AccountMember {
   mask_phone_numbers?: boolean;
 }
 
-/**
- * Outstanding invite link row. `token_hash` is intentionally
- * absent — it lives only in the DB and on the server. The
- * plaintext token is returned once at creation time and surfaced
- * via the invite URL; never re-emitted.
- */
-export interface AccountInvitation {
-  id: string;
-  account_id: string;
-  /** Roles offered via invite — owner is never offered. */
-  role: Exclude<AccountRole, 'owner'>;
-  created_by_user_id: string | null;
-  label: string | null;
-  created_at: string;
-  expires_at: string;
-  accepted_at: string | null;
-  accepted_by_user_id: string | null;
-}
-
 export interface Contact {
   id: string;
   user_id: string;
@@ -196,47 +177,9 @@ export type Channel = 'whatsapp' | 'instagram';
 /** The channel a conversation is on (Phase 11). Read-only for the browser. */
 export type ConversationChannel = Channel;
 
-/**
- * One conversation starter as stored in instagram_accounts.ice_breakers
- * (Stage 2, at most 4). The Meta payload for its tap is `ib:<flow_id>`
- * (src/lib/instagram/postback-payloads.ts); the flow must be an Instagram flow
- * of the same workspace.
- */
-export interface InstagramIceBreaker {
-  question: string;
-  flow_id: string;
-}
-
-/** Instagram profile facts on contact_channel_identities (Stage 2). Null means unknown. */
-export interface InstagramProfileFactsRow {
-  follows_business: boolean | null;
-  business_follows: boolean | null;
-  is_verified: boolean | null;
-  ig_follower_count: number | null;
-  profile_checked_at: string | null;
-}
-
-/**
- * One persistent menu item as stored in instagram_accounts.persistent_menu
- * (Stage 3, at most 20). A postback item starts its flow (Meta payload
- * `menu:<flow_id>`, src/lib/instagram/postback-payloads.ts; the flow must be an
- * Instagram flow of the same workspace); a link item opens its https URL.
- */
-export type InstagramMenuItem =
-  | { type: 'postback'; title: string; flow_id: string }
-  | { type: 'web_url'; title: string; url: string };
-
-/** The ref link a person last opened a chat from (contact_channel_identities, Stage 3). Null means none. */
-export interface InstagramRefRow {
-  last_ref: string | null;
-  last_ref_at: string | null;
-}
-
 /** AI comment replies (Stage 3): the comment's classified tone and what it asks for. */
 export const INSTAGRAM_AI_COMMENT_SENTIMENTS = ['positive', 'neutral', 'negative'] as const;
-export type InstagramAiCommentSentiment = (typeof INSTAGRAM_AI_COMMENT_SENTIMENTS)[number];
 export const INSTAGRAM_AI_COMMENT_INTENTS = ['praise', 'question', 'purchase_intent', 'complaint', 'spam', 'other'] as const;
-export type InstagramAiCommentIntent = (typeof INSTAGRAM_AI_COMMENT_INTENTS)[number];
 
 /**
  * Where an AI-drafted comment reply is (instagram_ai_comment_queue.status):
@@ -244,37 +187,6 @@ export type InstagramAiCommentIntent = (typeof INSTAGRAM_AI_COMMENT_INTENTS)[num
  * an ambiguous outcome: reconcile, never re-send), failed, expired.
  */
 export const INSTAGRAM_AI_COMMENT_STATUSES = ['pending', 'approved', 'rejected', 'sent', 'unknown', 'failed', 'expired'] as const;
-export type InstagramAiCommentStatus = (typeof INSTAGRAM_AI_COMMENT_STATUSES)[number];
-
-/** An instagram_ai_comment_queue row as members read it. No comment text is stored. */
-export interface InstagramAiCommentQueueRow {
-  id: string;
-  instagram_account_id: string;
-  comment_event_id: string;
-  comment_id: string;
-  media_id: string | null;
-  sentiment: InstagramAiCommentSentiment;
-  intent: InstagramAiCommentIntent | null;
-  reply_text: string;
-  status: InstagramAiCommentStatus;
-  auto_approved: boolean;
-  decided_by: string | null;
-  decided_at: string | null;
-  public_reply_id: string | null;
-  error_code: string | null;
-  created_at: string;
-  updated_at: string;
-}
-
-/** The workspace's AI comment switches (ai_configs, Stage 3). All off by default; the cap defaults to 50 a day. */
-export interface InstagramAiCommentSettings {
-  instagram_ai_comments_enabled: boolean;
-  instagram_ai_comments_auto_approve: boolean;
-  instagram_ai_comments_daily_cap: number;
-}
-
-/** The channels an outbound webhook endpoint receives events for (webhook_endpoints.channels; default ['whatsapp']). */
-export type WebhookEndpointChannels = Channel[];
 
 // ------------------------------------------------------------ Stage 4 (Instagram Phase 3)
 
@@ -906,10 +818,6 @@ export type AutomationStepType =
   | 'start_flow'
   /** Batch 5: moves the contact's newest open deal in a pipeline to a stage (src/lib/actions/deals.ts). */
   | 'move_deal_stage';
-
-/** The automation trigger and step types added in Stage 5 (activation refused until 5D implements them). */
-export const STAGE5_AUTOMATION_TRIGGERS = ['tag_removed', 'field_changed'] as const;
-export const STAGE5_AUTOMATION_STEPS = ['start_flow'] as const;
 
 /** `field_changed`: which field, as UpdateContactFieldStepConfig.field (`email`, `custom:<id>`, …). */
 export interface FieldChangedTriggerConfig {

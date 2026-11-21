@@ -11,7 +11,7 @@ import { useLocale, useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
 import { TablePagination } from '@/components/ui/table-pagination';
 import { authFetch } from '@/lib/auth/client';
-import { formatMoney } from '@/lib/commerce/money';
+import { formatMoney } from '@/lib/format/money';
 import type { SummaryPayment } from '@/lib/contacts/commerce-summary';
 import { cn } from '@/lib/utils';
 import { formatDay } from './format';
@@ -49,11 +49,7 @@ export function ContactPayments({ contactId, className, titleClassName }: { cont
   }, [load, page]);
 
   const money = (minor: number, currency: string) => {
-    try {
-      return formatMoney(minor, currency, locale);
-    } catch {
-      return `${currency} ${minor}`;
-    }
+    return formatMoney(minor, currency, { locale });
   };
   const totalPages = result ? Math.max(1, Math.ceil(result.total / result.pageSize)) : 1;
 

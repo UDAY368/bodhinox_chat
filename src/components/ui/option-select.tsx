@@ -1,11 +1,11 @@
 "use client";
 
 /**
- * A plain value-and-label menu built on the shared Select (src/components/ui/select.tsx), for
- * screens that used a native <select>. The trigger always shows the option's label, never the raw
- * value, and an option whose value is "" (an "Any" / "None" row) still works: Base UI treats ""
- * as no selection, so it is swapped for a private sentinel inside. Options with a `group` are
- * listed under that heading, after the ungrouped ones.
+ * A plain value-and-label menu on the shared Select, for screens that keep a string in state.
+ * The trigger always shows the option's label (via `items`), never the raw value. An option whose
+ * value is "" (an "Any" / "None" row) still works: Base UI treats "" as no selection, so it is
+ * swapped for a private sentinel inside. Options with a `group` are listed under that heading,
+ * after the ungrouped ones. The trigger fills its container unless `fit` is set.
  */
 
 import * as React from "react";
@@ -23,9 +23,9 @@ import {
 
 export type SelectOption = { value: string; label: React.ReactNode; disabled?: boolean; group?: string };
 
-const EMPTY = "__option_select_empty__";
-const toInner = (v: string) => (v === "" ? EMPTY : v);
-const toOuter = (v: string) => (v === EMPTY ? "" : v);
+export const OPTION_SELECT_EMPTY = "__option_select_empty__";
+const toInner = (v: string) => (v === "" ? OPTION_SELECT_EMPTY : v);
+const toOuter = (v: string) => (v === OPTION_SELECT_EMPTY ? "" : v);
 
 function Item({ option }: { option: SelectOption }) {
   return (
@@ -42,9 +42,12 @@ export function OptionSelect({
   id,
   placeholder,
   disabled,
+  invalid,
+  fit,
   className,
   size,
   "aria-label": ariaLabel,
+  "aria-labelledby": ariaLabelledBy,
 }: {
   value: string;
   onValueChange: (value: string) => void;
@@ -52,9 +55,13 @@ export function OptionSelect({
   id?: string;
   placeholder?: string;
   disabled?: boolean;
+  invalid?: boolean;
+  /** Size the trigger to its label instead of filling the container. */
+  fit?: boolean;
   className?: string;
   size?: "sm" | "default";
   "aria-label"?: string;
+  "aria-labelledby"?: string;
 }) {
   const items = React.useMemo(() => options.map((o) => ({ value: toInner(o.value), label: o.label })), [options]);
   const known = options.some((o) => o.value === value);
@@ -68,18 +75,25 @@ export function OptionSelect({
       }}
       disabled={disabled}
     >
-      <SelectTrigger id={id} aria-label={ariaLabel} size={size} className={cn("w-full", className)}>
+      <SelectTrigger
+        id={id}
+        aria-label={ariaLabel}
+        aria-labelledby={ariaLabelledBy}
+        aria-invalid={invalid || undefined}
+        size={size}
+        className={cn(fit ? "max-w-full" : "w-full", className)}
+      >
         <SelectValue placeholder={placeholder} />
       </SelectTrigger>
       <SelectContent>
         {options.filter((o) => !o.group).map((o) => (
-          <Item key={o.value || EMPTY} option={o} />
+          <Item key={o.value || OPTION_SELECT_EMPTY} option={o} />
         ))}
         {groups.map((group) => (
           <SelectGroup key={group}>
             <SelectLabel>{group}</SelectLabel>
             {options.filter((o) => o.group === group).map((o) => (
-              <Item key={o.value || EMPTY} option={o} />
+              <Item key={o.value || OPTION_SELECT_EMPTY} option={o} />
             ))}
           </SelectGroup>
         ))}

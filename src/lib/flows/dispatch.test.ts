@@ -7,7 +7,7 @@ vi.mock('@/lib/jobs/dispatch', () => ({ dispatchOnce: (_account: string, _key: s
 // ============================================================
 // Entry-trigger dispatch (issue #490).
 //
-// Drives the real `dispatchInboundToFlows` against a fake Supabase so
+// Drives the real `dispatchInboundToFlows` against a fake data client so
 // the assertion is "a run was actually started", not "a helper returned
 // true". The bug was that a button tap never reached the keyword
 // matcher at all, so a helper-level test would have missed it.

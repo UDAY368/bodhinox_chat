@@ -11,7 +11,7 @@
  */
 import { withTenant, type TenantContext, type TenantTransaction } from '@/lib/db/tenant';
 import { MAX_MINOR, minorFromDb } from './money';
-import { couponDiscount, type PricingCoupon } from './pricing';
+import type { PricingCoupon } from './pricing';
 import { auditStoreChange, isUuid, lockStoreCurrencyShared, StoreError } from './store-settings';
 
 export const COUPON_CODE = /^[A-Z0-9_-]{3,32}$/;
@@ -58,11 +58,6 @@ export function normaliseCouponCode(value: unknown): string | null {
   if (typeof value !== 'string') return null;
   const code = value.trim().toUpperCase();
   return COUPON_CODE.test(code) ? code : null;
-}
-
-/** Pure check of a coupon against a subtotal (used for display; checkout re-checks under the lock). */
-export function validateCoupon(coupon: PricingCoupon, subtotalMinor: number, now = new Date()) {
-  return couponDiscount(coupon, subtotalMinor, now);
 }
 
 export async function findCouponTx(tx: TenantTransaction, accountId: string, code: string): Promise<CouponRow | null> {

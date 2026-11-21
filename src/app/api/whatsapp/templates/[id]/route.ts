@@ -55,7 +55,7 @@ const EDITABLE_STATUSES = new Set(['APPROVED', 'REJECTED', 'PAUSED'])
 
 // uuid v4 plus the looser shape Postgres gen_random_uuid emits.
 // We don't need exhaustive RFC parsing — just enough to reject
-// "../etc/passwd"-style payloads before they hit Supabase.
+// "../etc/passwd"-style payloads before they hit the database.
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 

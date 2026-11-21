@@ -11,7 +11,7 @@
  * paths or https URLs, and unknown keys are dropped. Client-safe.
  */
 import {
-  isShopTemplateId, MEDIA_REF, mediaIdOf, parseImageRef, parseThemeSettings, plainText, safeHttpsUrl, ShopThemeError,
+  isShopTemplateId, mediaIdOf, parseImageRef, parseThemeSettings, plainText, safeHttpsUrl, ShopThemeError,
   type ShopTemplateId, type ShopThemeSettings,
 } from './shop-templates';
 
@@ -55,7 +55,6 @@ export interface SectionSpec {
 }
 
 export const PRODUCT_SORTS = ['featured', 'price_asc', 'price_desc', 'name'] as const;
-export type ProductSort = (typeof PRODUCT_SORTS)[number];
 
 /** The fixed icons a trust badge may show (drawn by our own icon set, never an uploaded file). */
 export const TRUST_ICONS = ['truck', 'shield', 'returns', 'cash', 'leaf', 'star', 'support', 'badge'] as const;
@@ -429,8 +428,6 @@ export function contentMediaIds(theme: ShopThemeSettings, content: ShopContent):
   }
   return [...new Set(refs.map((r) => mediaIdOf(r)).filter((id): id is string => !!id))];
 }
-
-export const isMediaRef = (value: unknown): value is string => typeof value === 'string' && MEDIA_REF.test(value);
 
 /** Whether the shop has an About, Contact or FAQ page to link to. */
 export function pagesOn(content: ShopContent): Record<'about' | 'contact' | 'faq', boolean> {

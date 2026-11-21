@@ -43,7 +43,6 @@ export const PO_STATUSES = ['draft', 'ordered', 'partially_received', 'received'
 export type PoStatus = (typeof PO_STATUSES)[number];
 export const PO_ACTIONS = ['order', 'cancel', 'close'] as const;
 export type PoAction = (typeof PO_ACTIONS)[number];
-export const isPoStatus = (value: unknown): value is PoStatus => (PO_STATUSES as readonly unknown[]).includes(value);
 export const isPoAction = (value: unknown): value is PoAction => (PO_ACTIONS as readonly unknown[]).includes(value);
 
 /**

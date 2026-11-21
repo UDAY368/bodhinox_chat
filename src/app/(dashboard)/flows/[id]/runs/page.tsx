@@ -26,7 +26,7 @@ import { GroupedList } from "@/components/ui/grouped-list";
 import { InlineError } from "@/components/ui/inline-error";
 import { PageHeader } from "@/components/ui/page-header";
 import { PageLoading } from "@/components/ui/page-loading";
-import { OptionSelect } from "@/components/automations/option-select";
+import { OptionSelect } from "@/components/ui/option-select";
 import { cn } from "@/lib/utils";
 import { RUN_STATUSES, STATUS_META, EventLine, runStatusKey, type EventRow, type RunRow } from "./run-shared";
 

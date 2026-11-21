@@ -20,7 +20,7 @@ import { CUSTOM_FIELD_TYPES, EXTRAS_LIMITS } from "@/lib/commerce/checkout-extra
 import type { CustomField } from "@/lib/commerce/checkout-extras";
 import type { BuyerSettings } from "@/lib/commerce/buyer-settings";
 import { useReportDirty } from "./section-dirty";
-import { OptionSelect } from "@/components/commerce/option-select";
+import { OptionSelect } from "@/components/ui/option-select";
 
 const newId = () => Math.random().toString(36).slice(2, 8);
 
@@ -135,7 +135,7 @@ export function BuyerSettingsPanel({ canEdit }: { canEdit: boolean }) {
               <div className="grid gap-2 sm:grid-cols-[1fr_9rem]">
                 <Input aria-label={t("fieldLabel")} placeholder={t("fieldLabel")} maxLength={EXTRAS_LIMITS.fieldLabel} disabled={!canEdit} value={f.label}
                   onChange={(e) => setField(f.id, { label: e.target.value })} />
-                <OptionSelect
+                <OptionSelect fit
                   aria-label={t("fieldType")}
                   value={f.type}
                   onValueChange={(v) => setField(f.id, { type: v as CustomField["type"], options: v === "select" ? (f.options.length ? f.options : ["", ""]) : [] })}

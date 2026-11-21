@@ -17,7 +17,7 @@ import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { OptionSelect } from "@/components/automations/option-select";
+import { OptionSelect } from "@/components/ui/option-select";
 import { resolveFallbackPolicy } from "@/lib/flows/fallback";
 import type { FallbackMessage, FlowRow } from "@/lib/flows/types";
 import { uploadAccountMedia } from "@/lib/storage/upload-media";

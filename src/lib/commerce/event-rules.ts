@@ -15,7 +15,8 @@ import { resolveConversationByPhone } from '@/lib/whatsapp/resolve-conversation'
 import { assertTemplateOnNumber } from '@/lib/whatsapp/sender-config';
 import { resolveTemplateRow } from '@/lib/whatsapp/template-body';
 import { templateSendRefusal } from '@/lib/whatsapp/template-send-params';
-import { formatMoney, isCurrencyCode } from './money';
+import { isCurrencyCode } from './money';
+import { formatMoney } from '@/lib/format/money';
 
 /**
  * Store events (Shopify, WooCommerce) → WhatsApp template sends.
@@ -108,7 +109,7 @@ export function minimiseCommercePayload(payload: Record<string, unknown>, name?:
     for (const [key, value] of Object.entries(out)) {
       const base = key.endsWith('_minor') ? key.slice(0, -'_minor'.length) : '';
       if (base && FIELD.test(base) && out[base] === undefined && typeof value === 'number' && Number.isSafeInteger(value))
-        out[base] = formatMoney(value, currency, 'en');
+        out[base] = formatMoney(value, currency, { locale: 'en' });
     }
   }
   return out;

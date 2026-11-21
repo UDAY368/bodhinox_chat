@@ -3,7 +3,7 @@
 /**
  * Products page: linked catalogues on top, then the mirrored products with
  * search, availability and catalogue filters. Prices are formatted from
- * integer minor units with lib/commerce/money.
+ * integer minor units with lib/format/money.
  */
 
 import { useEffect, useState } from "react";
@@ -18,7 +18,7 @@ import { useCan } from "@/hooks/use-can";
 import { CatalogManager } from "./catalog-manager";
 import { fetchProducts, type CatalogPublic, type ProductFilter, type ProductPublic } from "./catalog-api";
 import { productPrice } from "./product-picker";
-import { OptionSelect } from "@/components/commerce/option-select";
+import { OptionSelect } from "@/components/ui/option-select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { PageHeader } from "@/components/ui/page-header";
 import { SegmentedControl } from "@/components/ui/segmented-control";
@@ -101,7 +101,7 @@ export function ProductsView() {
             ]}
           />
           {catalogs.length > 1 && (
-            <OptionSelect
+            <OptionSelect fit
               aria-label={t("catalogFilter")}
               value={catalogId}
               onValueChange={(v) => filterChanged(setCatalogId)(v)}

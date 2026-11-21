@@ -11,7 +11,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import { useLocale, useTranslations } from 'next-intl';
 
-import { OptionSelect } from '@/components/automations/option-select';
+import { OptionSelect } from '@/components/ui/option-select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { authFetch } from '@/lib/auth/client';
 import type { AudienceCostEstimate, CampaignCostComparison } from '@/lib/analytics/campaign-cost';

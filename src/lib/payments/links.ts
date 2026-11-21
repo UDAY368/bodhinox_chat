@@ -28,7 +28,8 @@ import { withTenant, type TenantContext, type TenantTransaction } from '@/lib/db
 import { dispatchOnce } from '@/lib/jobs/dispatch';
 import { LONG_RETRY_ATTEMPTS } from '@/lib/jobs/retry';
 import { getT } from '@/lib/i18n/translate';
-import { formatMoney, isCurrencyCode, MAX_MINOR, minorFromDb } from '@/lib/commerce/money';
+import { isCurrencyCode, MAX_MINOR, minorFromDb } from '@/lib/commerce/money';
+import { formatMoney } from '@/lib/format/money';
 import { checkInstagramButtonTemplate, checkInstagramText, loadInstagramTarget, sendInstagramButtonTemplate, sendInstagramText, storeInstagramSentMessage, type InstagramSendContext, type InstagramTarget } from '@/lib/channels/sender';
 import { paymentCard, paymentCardPayload } from './payment-card';
 import { InstagramError } from '@/lib/instagram/errors';
@@ -652,7 +653,7 @@ export async function notifyPaid(tx: TenantTransaction, row: LinkRow): Promise<v
   const targets = recipients.length ? recipients : await tx.$queryRaw<{ user_id: string }[]>`
     SELECT user_id FROM account_memberships WHERE account_id=${row.account_id}::uuid AND role IN ('owner','admin')`;
   const title = t('paidTitle');
-  const body = t('paidBody', { amount: formatMoney(minorFromDb(row.amount_minor) ?? 0, row.currency) });
+  const body = t('paidBody', { amount: formatMoney(minorFromDb(row.amount_minor) ?? 0, row.currency, { locale: 'en' }) });
   const dedupeKey = `payment:${row.id}:paid`;
   for (const { user_id } of targets) {
     await tx.$executeRaw`INSERT INTO notifications(account_id,user_id,type,conversation_id,contact_id,title,body,dedupe_key)

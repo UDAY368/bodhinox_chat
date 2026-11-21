@@ -140,8 +140,6 @@ export const agentProfileInputSchema = z.object({
   complete_setup: z.boolean().optional(),
 }).strict()
 
-export type AgentProfileInput = z.input<typeof agentProfileInputSchema>
-
 /** Coerce stored jsonb into complete rules; anything malformed falls back to the default. */
 export function parseHandoffRules(value: unknown): HandoffRules {
   const parsed = handoffRulesSchema.safeParse(value && typeof value === 'object' ? value : {})

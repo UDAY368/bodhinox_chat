@@ -29,7 +29,7 @@ import {
 } from "./catalogue-api";
 import { useCatalogueError } from "./catalogue-admin";
 import { moneyInput, moneyText } from "./catalogue-format";
-import { OptionSelect } from "@/components/commerce/option-select";
+import { OptionSelect } from "@/components/ui/option-select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { PageLoading } from "@/components/ui/page-loading";
@@ -204,7 +204,7 @@ function CollectionDialog({ collection, canManage, categories, currency, onClose
             </div>
             <div className="space-y-1">
               <Label htmlFor="col-sort">{t("sort")}</Label>
-              <OptionSelect
+              <OptionSelect fit
                 id="col-sort"
                 value={sort}
                 onValueChange={(v) => setSort(v)}
@@ -271,7 +271,7 @@ function SmartRules({ rules, setRules, match, setMatch, categories, currency, ro
       {rules.length === 0 && <p className="text-xs text-muted-foreground">{t("noRules")}</p>}
       {rules.map((r, i) => (
         <div key={i} className="flex flex-wrap items-center gap-2">
-          <OptionSelect
+          <OptionSelect fit
             aria-label={t("field")}
             value={r.field}
             onValueChange={(v) => { const field = v as RuleField; set(i, { field, op: RULE_FIELDS[field].ops[0], value: field === "on_sale" ? "true" : "" }); }}
@@ -280,7 +280,7 @@ function SmartRules({ rules, setRules, match, setMatch, categories, currency, ro
               ...RULE_FIELD_NAMES.map((f) => ({ value: f, label: t(`fields.${f}`) })),
             ]}
           />
-          <OptionSelect
+          <OptionSelect fit
             aria-label={t("operator")}
             value={r.op}
             onValueChange={(v) => set(i, { op: v })}
@@ -290,7 +290,7 @@ function SmartRules({ rules, setRules, match, setMatch, categories, currency, ro
             ]}
           />
           {r.field === "category" ? (
-            <OptionSelect
+            <OptionSelect fit
               aria-label={t("value")}
               value={r.value}
               onValueChange={(v) => set(i, { value: v })}

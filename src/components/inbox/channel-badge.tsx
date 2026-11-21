@@ -14,10 +14,6 @@ export function conversationChannel(conversation: Pick<Conversation, 'channel'> 
   return conversation?.channel === 'instagram' ? 'instagram' : 'whatsapp';
 }
 
-export function isInstagramConversation(conversation: Pick<Conversation, 'channel'> | null | undefined): boolean {
-  return conversationChannel(conversation) === 'instagram';
-}
-
 interface ChannelBadgeProps {
   channel: ConversationChannel;
   /** Mark WhatsApp too (the workspace has more than one channel). */

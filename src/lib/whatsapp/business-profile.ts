@@ -39,7 +39,6 @@ export const BUSINESS_VERTICALS = [
   'PHYSICAL_GAMBLING',
   'OTC_DRUGS',
 ] as const;
-export type BusinessVertical = (typeof BUSINESS_VERTICALS)[number];
 
 /** Profile photo: Meta accepts JPEG or PNG up to 5 MB. */
 export const PROFILE_PHOTO_TYPES = ['image/jpeg', 'image/png'] as const;

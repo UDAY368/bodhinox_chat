@@ -6,7 +6,7 @@
  * "BOOK <code>" confirmation (default number when unset) and an active flag.
  */
 import { EmptyState } from '@/components/ui/empty-state';
-import { OptionSelect } from '@/components/contacts/option-select';
+import { OptionSelect } from '@/components/ui/option-select';
 import { useCallback, useEffect, useState } from 'react';
 import { Copy, Link2 } from 'lucide-react';
 import { toast } from 'sonner';

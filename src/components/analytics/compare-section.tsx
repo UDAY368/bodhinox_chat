@@ -11,7 +11,7 @@ import { useFormatter, useLocale, useTranslations } from 'next-intl';
 
 import type { ProductStatsRow } from '@/lib/analytics/products';
 import type { CampaignFunnel, FunnelCounts } from '@/lib/analytics/queries';
-import { formatMoney } from '@/lib/commerce/money';
+import { formatMoney } from '@/lib/format/money';
 import { BarChart } from '@/components/tremor/bar-chart';
 import { THEME_SERIES } from '@/components/tremor/chart-colors';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -219,7 +219,7 @@ function ProductCompare({ query }: { query: string }) {
       <div className="space-y-6">
         {currencies.map((currency) => {
           const inCurrency = rows.filter((row) => row.currency === currency);
-          const money = (minor: number) => formatMoney(minor, currency, locale);
+          const money = (minor: number) => formatMoney(minor, currency, { locale });
           const net = t('products.net');
           return (
             <section key={currency} aria-label={currency} className="space-y-3">

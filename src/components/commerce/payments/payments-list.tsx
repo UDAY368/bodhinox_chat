@@ -32,7 +32,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { formatMoney, minorToDecimalString } from "@/lib/commerce/money";
+import { minorToDecimalString } from "@/lib/commerce/money";
+import { formatMoney } from "@/lib/format/money";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CreatePaymentLinkDialog } from "./create-payment-link-dialog";
 import { CustomerPaymentsTable } from "./customer-payments-table";
@@ -80,11 +81,7 @@ function LinkStatsCards({ stats }: { stats: LinkStatsRow[] }) {
   if (stats.length === 0) return null;
   const row = stats.find((s) => s.currency === defaultCurrency) ?? stats[0];
   const money = (minor: number) => {
-    try {
-      return formatMoney(minor, row.currency, locale);
-    } catch {
-      return `${row.currency} ${minor}`;
-    }
+    return formatMoney(minor, row.currency, { locale });
   };
   const closed = row.paid.count + row.expired.count;
   const card = "flex min-w-0 flex-col gap-1 rounded-xl border border-border bg-card px-3 py-2.5 sm:px-4 sm:py-3.5";
@@ -319,7 +316,7 @@ export function PaymentLinksList() {
                         <span className="block">{ts("expires", { date: format.dateTime(new Date(link.expires_at), { dateStyle: "medium" }) })}</span>
                       )}
                     </TableCell>
-                    <TableCell className="whitespace-nowrap font-medium tabular-nums">{formatMoney(link.amount_minor, link.currency, locale)}</TableCell>
+                    <TableCell className="whitespace-nowrap font-medium tabular-nums">{formatMoney(link.amount_minor, link.currency, { locale })}</TableCell>
                     <TableCell className="max-w-[240px] truncate text-sm">{link.description || "—"}</TableCell>
                     <TableCell><PaymentStatusBadge status={link.status} /></TableCell>
                     <TableCell className="text-xs">

@@ -7,7 +7,7 @@
  */
 import { Users } from 'lucide-react';
 import { EmptyState } from '@/components/ui/empty-state';
-import { OptionSelect } from '@/components/contacts/option-select';
+import { OptionSelect } from '@/components/ui/option-select';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { useTranslations } from 'next-intl';

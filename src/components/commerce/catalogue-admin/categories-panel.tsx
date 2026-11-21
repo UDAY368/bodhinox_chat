@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { fetchCategories, saveCategory, type ShopCategory } from "./catalogue-api";
 import { useCatalogueError } from "./catalogue-admin";
-import { OptionSelect } from "@/components/commerce/option-select";
+import { OptionSelect } from "@/components/ui/option-select";
 import { PageLoading } from "@/components/ui/page-loading";
 
 export function CategoriesPanel({ canManage }: { canManage: boolean }) {
@@ -57,7 +57,7 @@ export function CategoriesPanel({ canManage }: { canManage: boolean }) {
       {canManage && (
         <form className="flex flex-wrap items-center gap-2" onSubmit={(e) => { e.preventDefault(); void add(); }}>
           <Input value={name} maxLength={80} onChange={(e) => setName(e.target.value)} placeholder={t("name")} aria-label={t("name")} className="max-w-xs" />
-          <OptionSelect
+          <OptionSelect fit
             aria-label={t("parent")}
             value={parent}
             onValueChange={(v) => setParent(v)}
@@ -102,7 +102,7 @@ function CategoryRow({ category, tops, canManage, busy, onSave }: {
       {category.archived && <Badge variant="outline">{t("archived")}</Badge>}
       {canManage && (
         <span className="ml-auto flex items-center gap-2">
-          <OptionSelect
+          <OptionSelect fit
             aria-label={t("parent")}
             value={category.parent_id ?? ""}
             onValueChange={(v) => void onSave({ parent_id: v || null })}

@@ -81,8 +81,8 @@ export async function PATCH(request: Request) {
       );
     }
 
-    // RLS allows this UPDATE because accounts_update requires
-    // `is_account_member(id, 'admin')`, and requireRole already
+    // RLS allows this UPDATE because the accounts tenant_update policy
+    // requires `app_write_allowed('admin')`, and requireRole already
     // guaranteed the caller is admin+.
     const { data, error } = await ctx.db
       .from("accounts")

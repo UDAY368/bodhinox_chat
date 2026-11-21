@@ -6,7 +6,7 @@
  * empty or absent filter matches every event of the type. Appointment triggers keep the
  * `service_ids` list they always had.
  */
-import { EVENT_TRIGGER_TYPES, type EventTriggerType } from './types';
+import type { EventTriggerType } from './types';
 
 /** The order sources a `source` filter may name (orders_source_check). */
 export const EVENT_ORDER_SOURCES = ['whatsapp', 'shopify', 'woocommerce', 'manual', 'storefront'] as const;
@@ -31,9 +31,6 @@ export const EVENT_TRIGGER_FILTERS: Record<EventTriggerType, readonly string[]> 
 };
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-/** The domain-feed triggers that are new in batch 5 (the appointment ones existed before). */
-export const NEW_EVENT_TRIGGER_TYPES = EVENT_TRIGGER_TYPES.filter((t) => !t.startsWith('appointment_')) as EventTriggerType[];
 
 export function isAppointmentTrigger(trigger: string): boolean {
   return trigger.startsWith('appointment_');

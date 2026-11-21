@@ -62,7 +62,7 @@ function looksLikeUuid(v: unknown): v is string {
 export async function POST(request: Request) {
   try {
     // `requireRole('owner')` is belt-and-braces — the RPC checks
-    // this too, but failing fast here saves a Supabase round trip
+    // this too, but failing fast here saves a database round trip
     // on the obvious "admin trying to transfer" case.
     const ctx = await requireRole('owner');
 

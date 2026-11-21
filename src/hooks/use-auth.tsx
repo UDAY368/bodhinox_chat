@@ -49,7 +49,7 @@ interface AccountSummary {
  * Whether we managed to establish what this user may do.
  *
  * `unlinked` and `error` are the states worth surfacing: every RLS
- * policy checks `is_account_member(account_id, …)` and every `useCan`
+ * policy checks `account_id = app_account_id()` and every `useCan`
  * gate returns false without a role, so in both the app silently
  * becomes read-only — the whole UI renders, and nothing saves. That is
  * indistinguishable from a bug unless we say so (issue #471).

@@ -21,7 +21,7 @@ import { minorToDecimalString, parseMoney } from "@/lib/commerce/money";
 import { useReportDirty } from "./section-dirty";
 import { Field, bpsToPercent, percentToBps, useErrorText } from "./settings-fields";
 import { storeApi, type StoreSettings, type StoreSettingsInput } from "./settings-api";
-import { OptionSelect } from "@/components/commerce/option-select";
+import { OptionSelect } from "@/components/ui/option-select";
 
 export type CorePart = "general" | "checkout" | "taxes" | "notifications" | "advanced";
 
@@ -216,7 +216,7 @@ function CheckoutTemplateField({ value, canEdit, onChange }: {
   const templateKey = value.checkout_template_name ? `${value.checkout_template_name}|${value.checkout_template_language ?? ""}` : "";
   return (
     <Field id="ss-template" label={t("checkoutTemplate")} help={t("checkoutTemplateHelp")}>
-      <OptionSelect
+      <OptionSelect fit
         id="ss-template"
         className="w-full"
         disabled={!canEdit}

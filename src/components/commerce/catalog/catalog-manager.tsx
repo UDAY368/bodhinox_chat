@@ -15,7 +15,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { GatedButton } from "@/components/ui/gated-button";
 import { Label } from "@/components/ui/label";
-import { OptionSelect } from "@/components/commerce/option-select";
+import { OptionSelect } from "@/components/ui/option-select";
 import { Switch } from "@/components/ui/switch";
 import {
   Dialog,
@@ -313,7 +313,7 @@ function ConnectCatalogDialog({ open, onOpenChange, onConnected }: {
         <div className="flex-1 space-y-4 overflow-y-auto px-4 pb-4">
           <div className="space-y-1.5">
             <Label htmlFor="catalog-connect-number">{t("number")}</Label>
-            <OptionSelect
+            <OptionSelect fit
               id="catalog-connect-number"
               className="w-full"
               value={numberId}
@@ -326,7 +326,7 @@ function ConnectCatalogDialog({ open, onOpenChange, onConnected }: {
           {numberId && (
             <div className="space-y-1.5">
               <Label htmlFor="catalog-connect-catalog">{t("catalog")}</Label>
-              <OptionSelect
+              <OptionSelect fit
                 id="catalog-connect-catalog"
                 className="w-full"
                 value={catalogId}

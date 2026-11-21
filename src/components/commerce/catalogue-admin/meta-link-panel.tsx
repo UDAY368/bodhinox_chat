@@ -12,7 +12,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
-import { formatMoney } from "@/lib/commerce/money";
+import { formatMoney } from "@/lib/format/money";
 import { fetchMetaLink, importMetaProducts, type MetaLinkReport } from "./catalogue-api";
 import { useCatalogueError } from "./catalogue-admin";
 import { MetaSyncSection } from "./meta-sync-section";
@@ -40,7 +40,7 @@ export function MetaLinkPanel({ canManage }: { canManage: boolean }) {
     void load();
   }, [load]);
 
-  const money = (minor: number | null, currency: string | null) => (minor !== null && currency ? formatMoney(minor, currency, locale) : "—");
+  const money = (minor: number | null, currency: string | null) => (minor !== null && currency ? formatMoney(minor, currency, { locale }) : "—");
 
   const runImport = async () => {
     setBusy(true);

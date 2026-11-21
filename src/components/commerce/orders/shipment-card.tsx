@@ -28,7 +28,7 @@ import { authFetch } from "@/lib/auth/client";
 import type { OrderStatus } from "@/lib/commerce/order-format";
 import { isReadyToShip } from "@/lib/commerce/order-state";
 import { shipmentTrackingUrl, type OrderShipmentView } from "@/lib/fulfilment/types";
-import { OptionSelect } from "@/components/commerce/option-select";
+import { OptionSelect } from "@/components/ui/option-select";
 
 export interface ShipmentCardProps {
   orderId: string;
@@ -311,7 +311,7 @@ export function ShipmentCard({ orderId, orderStatus, unpaidCod = false, refunded
           {couriers.length > 1 && (
             <div>
               <Label htmlFor={`shipment-${orderId}-courier`} className="mb-1 block text-xs text-muted-foreground">{t("chooseCourier")}</Label>
-              <OptionSelect
+              <OptionSelect fit
                 id={`shipment-${orderId}-courier`}
                 value={chosen?.id ?? ""}
                 onValueChange={(v) => setCourierId(v)}

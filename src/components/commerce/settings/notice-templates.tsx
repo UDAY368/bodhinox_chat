@@ -17,7 +17,7 @@ import { authFetch } from "@/lib/auth/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import type { NoticeTemplatesView } from "@/lib/commerce/notice-templates";
-import { OptionSelect } from "@/components/commerce/option-select";
+import { OptionSelect } from "@/components/ui/option-select";
 
 async function readView(res: Response): Promise<{ view: NoticeTemplatesView | null; code: string | null; error: string | null }> {
   const json = (await res.json().catch(() => ({}))) as { templates?: NoticeTemplatesView; code?: string; error?: string };
@@ -76,7 +76,7 @@ export function NoticeTemplates({ canEdit }: { canEdit: boolean }) {
           return (
             <div key={s.kind} className="space-y-1">
               <Label htmlFor={`nt-${s.kind}`}>{t(`kinds.${s.kind}`)}</Label>
-              <OptionSelect
+              <OptionSelect fit
                 id={`nt-${s.kind}`}
                 className="w-full"
                 disabled={!canEdit || saving !== null}

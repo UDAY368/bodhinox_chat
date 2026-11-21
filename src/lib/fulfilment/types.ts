@@ -33,9 +33,6 @@ export type ShipmentExceptionKind = (typeof SHIPMENT_EXCEPTION_KINDS)[number];
 export const SHIPMENT_EXCEPTION_RESOLUTIONS = ['accept_correction', 'dismiss', 'recreate', 'manual'] as const;
 export type ShipmentExceptionResolution = (typeof SHIPMENT_EXCEPTION_RESOLUTIONS)[number];
 
-export const ORDER_NOTICE_TEMPLATE_KINDS = ['dispatched', 'delivered', 'feedback', 'repeat_purchase'] as const;
-export type OrderNoticeTemplateKind = (typeof ORDER_NOTICE_TEMPLATE_KINDS)[number];
-
 /** Job types (routed by src/lib/jobs/handlers.ts). */
 export const CREATE_SHIPMENT_JOB = 'commerce.create_shipment';
 export const SHIPMENT_TRACK_JOB = 'commerce.shipment_track';

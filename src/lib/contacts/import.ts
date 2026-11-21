@@ -46,8 +46,6 @@ const batchSchema = z.object({
   updateExisting: z.boolean().default(false),
 }).strict();
 
-export type ImportBatchInput = z.input<typeof batchSchema>;
-
 export interface ImportBatchResult {
   /** New contacts created. */
   imported: number;

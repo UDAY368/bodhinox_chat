@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { fixtures, login } from './fixtures';
+import { pickOption } from './ui';
 
 // Phase 10 (click-to-WhatsApp ads). Local and CI runs leave META_ADS_ENABLED
 // unset, so every Meta-calling part must show its "not enabled" state and no
@@ -67,7 +68,7 @@ test.describe('ads with META_ADS_ENABLED unset', () => {
     const dialog = page.getByRole('dialog');
     await dialog.getByLabel('Name', { exact: true }).fill(`Ad clickers ${fixtures().runId}`);
     const row = dialog.getByTestId('segment-condition');
-    await row.getByLabel('Field').selectOption('ad');
+    await pickOption(page, row.getByLabel('Field'), 'Clicked an ad');
     await expect(dialog.getByTestId('segment-count')).toBeVisible();
     await dialog.getByRole('button', { name: 'Save segment' }).click();
     await expect(dialog).toBeHidden();
@@ -75,8 +76,8 @@ test.describe('ads with META_ADS_ENABLED unset', () => {
     const card = page.locator('article').filter({ hasText: `Ad clickers ${fixtures().runId}` });
     await card.getByRole('button', { name: 'View people' }).click();
     await expect(page).toHaveURL(/\/contacts\?segment=/);
-    await expect(page.getByLabel('Segment', { exact: true })).toHaveValue(/.+/);
-    const segmentId = await page.getByLabel('Segment', { exact: true }).inputValue();
+    await expect(page.getByLabel('Segment', { exact: true })).toContainText(`Ad clickers ${fixtures().runId}`);
+    const segmentId = new URL(page.url()).searchParams.get('segment')!;
 
     // "Broadcast to these leads" opens /broadcasts/new?segmentId=...; the
     // audience step must start on that segment, not on all contacts.
@@ -84,7 +85,7 @@ test.describe('ads with META_ADS_ENABLED unset', () => {
     await page.goto(`/broadcasts/new?segmentId=${encodeURIComponent(segmentId)}`);
     await page.getByRole('button', { name: /e2e_template/ }).click();
     await page.getByRole('button', { name: 'Next', exact: true }).click();
-    await expect(page.getByLabel('Choose a segment')).toHaveValue(segmentId);
+    await expect(page.getByLabel('Choose a segment')).toContainText(`Ad clickers ${fixtures().runId}`);
 
     // An id that is not one of this workspace's segments is ignored.
     await page.goto('/broadcasts/new?segmentId=00000000-0000-0000-0000-000000000000');

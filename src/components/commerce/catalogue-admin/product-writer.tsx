@@ -16,7 +16,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { authFetch } from "@/lib/auth/client";
 import { WRITER_LIMITS, WRITER_TONES, type WriterTone } from "@/lib/ai/product-writer-limits";
-import { OptionSelect } from "@/components/commerce/option-select";
+import { OptionSelect } from "@/components/ui/option-select";
 
 export function ProductWriter({ name, onUse }: { name: string; onUse: (text: string) => void }) {
   const t = useTranslations("Commerce.catalogue.editor.writer");
@@ -61,7 +61,7 @@ export function ProductWriter({ name, onUse }: { name: string; onUse: (text: str
       <div className="flex flex-wrap items-end gap-2">
         <div className="space-y-1">
           <Label htmlFor="pw-tone">{t("tone")}</Label>
-          <OptionSelect
+          <OptionSelect fit
             id="pw-tone"
             value={tone}
             onValueChange={(v) => setTone(v as WriterTone)}

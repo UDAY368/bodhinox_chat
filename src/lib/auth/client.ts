@@ -14,7 +14,6 @@ export interface Session {
   role: AccountRole;
   mfaRequired?: boolean;
 }
-export type PublicSession = Session;
 type AuthFailure = { message: string; code?: string };
 type AuthEvent =
   'SIGNED_IN' | 'SIGNED_OUT' | 'USER_UPDATED' | 'TOKEN_REFRESHED';
@@ -157,7 +156,6 @@ export async function authFetch(
   }
   return first;
 }
-export const csrfFetch = authFetch;
 async function authRequest(
   action: string,
   payload?: unknown

@@ -59,7 +59,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { OptionSelect } from './option-select';
+import { OptionSelect } from '@/components/ui/option-select';
 import {
   DropdownMenu,
   DropdownMenuContent,

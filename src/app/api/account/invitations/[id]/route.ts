@@ -41,7 +41,7 @@ export async function DELETE(
     const { id } = await params;
 
     // No `eq('account_id', ctx.accountId)` — the RLS policy
-    // (`is_account_member(account_id, 'admin')`) already scopes
+    // (`account_id = app_account_id() AND app_write_allowed('admin')`) already scopes
     // the DELETE to invites in the caller's account. Adding the
     // filter would be redundant; omitting it surfaces a
     // cross-account attempt as a silent 0-row delete (which is

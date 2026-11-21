@@ -2,7 +2,7 @@
 // Webhook payload signing — pure, server-side.
 //
 // Every delivery carries an `X-Wacrm-Signature` header so receivers
-// can verify the request really came from wacrm and wasn't tampered
+// can verify the request really came from Bodhinox and wasn't tampered
 // with or replayed. The scheme is Stripe-style:
 //
 //   X-Wacrm-Signature: t=<unix_seconds>,v1=<hex HMAC-SHA256>
@@ -33,7 +33,7 @@ export function buildSignatureHeader(
 }
 
 /**
- * Verify a signature header. Exposed so a wacrm-to-wacrm integration
+ * Verify a signature header. Exposed so a Bodhinox-to-Bodhinox integration
  * (or a test) can validate deliveries; receivers in other stacks
  * reimplement the same three lines. `toleranceSeconds` bounds replay.
  */

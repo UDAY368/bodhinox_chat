@@ -11,7 +11,7 @@ import { Banknote, Receipt, RotateCcw, ShoppingBag, Wallet } from 'lucide-react'
 import { useFormatter, useLocale, useTranslations } from 'next-intl';
 
 import type { CommerceCurrencyStats, CommerceStats } from '@/lib/analytics/commerce';
-import { formatMoney } from '@/lib/commerce/money';
+import { formatMoney } from '@/lib/format/money';
 import { MetricCard } from '@/components/dashboard/metric-card';
 import { Panel, ReportState, useReport } from './shared';
 
@@ -46,7 +46,7 @@ function CurrencyBlock({ stats, showCode }: { stats: CommerceCurrencyStats; show
   const t = useTranslations('Analytics.commerce');
   const locale = useLocale();
   const format = useFormatter();
-  const money = (minor: number) => formatMoney(minor, stats.currency, locale);
+  const money = (minor: number) => formatMoney(minor, stats.currency, { locale });
   return (
     <section aria-label={stats.currency} className="space-y-3">
       {showCode && <h3 className="text-xs font-semibold text-muted-foreground">{stats.currency}</h3>}

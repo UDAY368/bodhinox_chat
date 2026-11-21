@@ -39,10 +39,10 @@ const CONTACT = {
   phone: '+15551234567',
 }
 
-// Chainable Supabase mock. A fresh builder per `.from()` call tracks whether
+// Chainable data-client mock. A fresh builder per `.from()` call tracks whether
 // `.insert()` ran so the terminal resolves to the inserted row for creates
 // and the canned select row otherwise.
-function makeSupabaseMock() {
+function makeDbMock() {
   function builder(table: string) {
     let didInsert = false
     const filters: Record<string, unknown> = {}
@@ -156,10 +156,10 @@ function makeSupabaseMock() {
   }
 }
 
-let supabaseMock = makeSupabaseMock()
+let dbMock = makeDbMock()
 
 vi.mock('@/lib/data/server', () => ({
-  createClient: vi.fn(async () => supabaseMock),
+  createClient: vi.fn(async () => dbMock),
 }))
 
 vi.mock('@/lib/flows/admin-client', () => ({
@@ -226,7 +226,7 @@ describe('POST /api/whatsapp/send — contact_id template path', () => {
     conversationList = null
     contactRow = CONTACT
     callerRole = 'admin'
-    supabaseMock = makeSupabaseMock()
+    dbMock = makeDbMock()
     sendTemplateMessage.mockClear()
   })
 
@@ -343,7 +343,7 @@ describe('POST /api/whatsapp/send — role enforcement', () => {
     conversationList = null
     contactRow = CONTACT
     callerRole = 'admin'
-    supabaseMock = makeSupabaseMock()
+    dbMock = makeDbMock()
     sendTemplateMessage.mockClear()
   })
 
@@ -426,7 +426,7 @@ describe('POST /api/whatsapp/send — contact_id with two numbers', () => {
       { id: 'conv-a', account_id: 'acct-1', contact_id: 'contact-1', whatsapp_config_id: NUMBER_A },
       { id: 'conv-b', account_id: 'acct-1', contact_id: 'contact-1', whatsapp_config_id: NUMBER_B },
     ]
-    supabaseMock = makeSupabaseMock()
+    dbMock = makeDbMock()
     sendTemplateMessage.mockClear()
   })
 

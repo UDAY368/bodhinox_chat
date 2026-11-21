@@ -27,12 +27,6 @@ import { marketingSuppression, type ConsentState } from '@/lib/contacts/consent'
 /** Which recipients a resume pass picks up. */
 export type ResumeScope = 'pending' | 'failed' | 'all';
 
-export const RESUME_SCOPES: readonly ResumeScope[] = [
-  'pending',
-  'failed',
-  'all',
-];
-
 /**
  * Recipients delivered per worker pass. The cap keeps a 5 000-recipient
  * backlog from being one un-completable job; the handler queues the next
@@ -141,7 +135,7 @@ interface RecipientRow {
 }
 type RecipientContact = { phone?: string | null } & ConsentState;
 
-/** Supabase renders an embedded to-one join as an object or a 1-array. */
+/** The data client renders an embedded to-one join as an object or a 1-array. */
 function recipientContact(row: RecipientRow): RecipientContact | null {
   return (Array.isArray(row.contact) ? row.contact[0] : row.contact) ?? null;
 }
@@ -301,19 +295,4 @@ export async function planBroadcastResume(
   };
 
   return { plan, remaining, unsendable: rows.length - sendable.length };
-}
-
-/**
- * Put the broadcast back into `sending` for the duration of the pass,
- * so the detail page reads as in-flight rather than as a finished
- * campaign that is quietly still working.
- */
-export async function markBroadcastSending(
-  db: DataClient,
-  broadcastId: string
-): Promise<void> {
-  await db
-    .from('broadcasts')
-    .update({ status: 'sending', updated_at: new Date().toISOString() })
-    .eq('id', broadcastId);
 }

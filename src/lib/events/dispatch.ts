@@ -15,8 +15,6 @@ import { eventVars } from './vars';
 
 export { eventVars } from './vars';
 
-export const EVENTS_DISPATCH_JOB = 'events.dispatch';
-
 /**
  * The 'events.dispatch' job: one per domain event, queued in the transaction that recorded it.
  *

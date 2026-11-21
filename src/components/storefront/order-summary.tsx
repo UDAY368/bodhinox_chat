@@ -10,7 +10,7 @@ import { useTranslations } from 'next-intl';
 import { CheckCircle2, Clock, ExternalLink, Loader2, XCircle } from 'lucide-react';
 import { buttonVariants } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { formatMoney } from '@/lib/commerce/money';
+import { formatMoney } from '@/lib/format/money';
 import { formatShipDate } from '@/lib/commerce/selling-rules';
 import type { StorefrontOrderView } from './api';
 import { BuyerReturns } from './buyer-returns';
@@ -20,11 +20,7 @@ const CLOSED = new Set(['expired', 'cancelled']);
 
 export function money(minor: number | null, currency: string, locale: string): string {
   if (minor === null) return '';
-  try {
-    return formatMoney(minor, currency, locale);
-  } catch {
-    return String(minor);
-  }
+  return formatMoney(minor, currency, { locale });
 }
 
 /**

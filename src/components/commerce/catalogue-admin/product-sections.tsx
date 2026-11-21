@@ -24,7 +24,7 @@ import { MovementsList } from "./inventory-panel";
 import { PreorderFields } from "./product-options";
 import { SearchListingFields } from "./search-listing-fields";
 import { tagList, type FormErrors, type ProductFormState, type RowErrorKey, type VariantRow } from "./product-form-state";
-import { OptionSelect } from "@/components/commerce/option-select";
+import { OptionSelect } from "@/components/ui/option-select";
 
 /** What every section gets: the shared form state, a patch function and read-only context. */
 export interface SectionProps {
@@ -181,7 +181,7 @@ function FollowUpSection({ form, update, ctx }: SectionProps) {
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="space-y-1">
           <Label htmlFor="pf-fut">{t("followUpTemplate")}</Label>
-          <OptionSelect
+          <OptionSelect fit
             id="pf-fut"
             className="w-full"
             disabled={ctx.readOnly || templates === null}

@@ -21,7 +21,7 @@ import {
   type InventoryRow, type LocationQuantity, type StockLocation, type StockTransfer,
 } from "./catalogue-api";
 import { useCatalogueError } from "./catalogue-admin";
-import { OptionSelect } from "@/components/commerce/option-select";
+import { OptionSelect } from "@/components/ui/option-select";
 import { PageLoading } from "@/components/ui/page-loading";
 
 export const variantLabel = (row: Pick<InventoryRow, "product_name" | "option_values" | "sku">) =>
@@ -194,7 +194,7 @@ function TransferForm({ locations, onDone }: { locations: StockLocation[]; onDon
       <form className="grid gap-3 sm:grid-cols-4" onSubmit={(e) => { e.preventDefault(); void submit(); }}>
         <div className="space-y-1">
           <Label htmlFor="tr-from">{t("from")}</Label>
-          <OptionSelect
+          <OptionSelect fit
             id="tr-from"
             value={from}
             onValueChange={(v) => { setFrom(v); fresh(); }}
@@ -206,7 +206,7 @@ function TransferForm({ locations, onDone }: { locations: StockLocation[]; onDon
         </div>
         <div className="space-y-1">
           <Label htmlFor="tr-to">{t("to")}</Label>
-          <OptionSelect
+          <OptionSelect fit
             id="tr-to"
             value={to}
             onValueChange={(v) => { setTo(v); fresh(); }}

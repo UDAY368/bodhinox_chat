@@ -42,9 +42,6 @@ const bulkSchema = z.object({
   ]),
 }).strict();
 
-export type BulkConversationInput = z.input<typeof bulkSchema>;
-export type BulkConversationAction = z.infer<typeof bulkSchema>['action'];
-
 export class BulkConversationError extends Error {
   constructor(readonly code: 'invalid_request' | 'too_many', readonly status = 400, readonly matched?: number) {
     super(code);

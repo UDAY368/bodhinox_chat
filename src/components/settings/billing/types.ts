@@ -62,11 +62,6 @@ export interface InvoiceRow {
   status: 'issued' | 'paid' | 'void';
 }
 
-/** ₹1,234.50 from paise. */
-export function formatAmount(minor: number, currency: string, locale?: string): string {
-  return new Intl.NumberFormat(locale, { style: 'currency', currency, minimumFractionDigits: minor % 100 ? 2 : 0 }).format(minor / 100);
-}
-
 export function formatDay(iso: string | null, locale?: string): string {
   return iso ? new Date(iso).toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric' }) : '';
 }

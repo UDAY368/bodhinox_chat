@@ -127,7 +127,7 @@ export function WhatsAppConfig() {
     useState<WabaSubscription | null>(null);
   // Guards against re-hydrating the form when the load effect below
   // re-runs for reasons unrelated to actually switching accounts —
-  // e.g. Supabase's onAuthStateChange fires a token refresh (new
+  // e.g. the auth client's onAuthStateChange fires a token refresh (new
   // `user` object, profileLoading flips true/false) when the browser
   // tab regains focus. Without this, that churn calls fetchConfig()
   // again and overwrites whatever the user typed but hadn't saved yet.
@@ -358,7 +358,7 @@ export function WhatsAppConfig() {
 
       // Always POST through the API — it verifies with Meta and encrypts
       // the access_token server-side with ENCRYPTION_KEY. Skipping this
-      // and writing direct to Supabase stores the token in plaintext,
+      // and writing direct to the database stores the token in plaintext,
       // which then fails decryption on every subsequent health check.
       const payload: Record<string, unknown> = {
         phone_number_id: phoneNumberId.trim(),

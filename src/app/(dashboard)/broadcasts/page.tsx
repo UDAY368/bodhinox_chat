@@ -31,11 +31,11 @@ import { GroupedList } from '@/components/ui/grouped-list';
 import { PageHeader } from '@/components/ui/page-header';
 import { PageLoading } from '@/components/ui/page-loading';
 import { SegmentedControl } from '@/components/ui/segmented-control';
-import { OptionSelect } from '@/components/automations/option-select';
+import { OptionSelect } from '@/components/ui/option-select';
 
 /**
  * Poll cadence while any broadcast is sending. Kept modest so we don't
- * beat on Supabase — the aggregate trigger in migration 003 keeps
+ * beat on the database — the aggregate trigger in migration 003 keeps
  * counts consistent; we just need to surface the freshest snapshot.
  */
 const POLL_INTERVAL_MS = 5_000;
@@ -162,7 +162,7 @@ export default function BroadcastsPage() {
       pollTimer.current = null;
     }
 
-    // Pause polling while the tab is hidden — keeps Supabase cold when
+    // Pause polling while the tab is hidden — keeps the database quiet when
     // the user is away, and ensures a fresh fetch the moment they
     // refocus so they don't see stale data on return.
     function handleVisibilityChange() {

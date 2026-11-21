@@ -52,7 +52,7 @@ import {
 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { useCustomFields } from './contacts-client';
-import { OptionSelect } from './option-select';
+import { OptionSelect } from '@/components/ui/option-select';
 
 const DEFAULT_TAG_COLOR = '#3b82f6';
 const PREVIEW_LIMIT = 5;

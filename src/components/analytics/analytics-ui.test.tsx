@@ -4,8 +4,6 @@ import { NextIntlClientProvider } from 'next-intl';
 import { describe, expect, it } from 'vitest';
 
 import type { ConversationStats } from '@/lib/analytics/queries';
-import { AgentLeaderboard } from './agent-leaderboard';
-import { CampaignFunnel, rate } from './campaign-funnel';
 import { FlowDropOff } from './flow-dropoff';
 import { ConversationCharts, OverviewTiles, percentChange, type OverviewReport } from './overview-section';
 import { NumberFilter, rangeParams } from './range-picker';
@@ -29,12 +27,10 @@ const stats = (over: Partial<ConversationStats> = {}): ConversationStats => ({
 });
 
 describe('analytics helpers', () => {
-  it('computes changes and rates only with a baseline', () => {
+  it('computes changes only with a baseline', () => {
     expect(percentChange(15, 10)).toBe(50);
     expect(percentChange(5, 0)).toBeNull();
     expect(percentChange(null, 10)).toBeNull();
-    expect(rate(1, 3)).toBe(33);
-    expect(rate(1, 0)).toBeNull();
   });
 
   it('builds report queries from presets or custom days, dropping empty filters', () => {
@@ -103,18 +99,7 @@ describe('analytics panels', () => {
     expect(render(<ConversationCharts data={empty} loading={false} error={false} onRetry={noop} />)).toContain('Analytics.emptyTitle');
   });
 
-  it('lists the leaderboard, campaign funnel and flow drop-off as tables', () => {
-    const board = render(<AgentLeaderboard loading={false} error={false} onRetry={noop} agents={[
-      { userId: 'u1', name: 'Asha', role: 'agent', conversationsHandled: 3, repliesSent: 9, firstResponseCount: 2, medianFirstResponseSeconds: 30, resolved: 1 }]} />);
-    expect(board).toContain('Asha');
-    expect(board).toContain('<table');
-
-    const totals = { recipients: 100, sent: 90, delivered: 80, read: 40, replied: 9, clicked: 4, failed: 10 };
-    const funnel = render(<CampaignFunnel loading={false} error={false} onRetry={noop}
-      funnel={{ totals, broadcasts: [{ ...totals, id: 'b1', name: 'Diwali', templateName: 'offer', at: null }] }} />);
-    expect(funnel).toContain('Diwali');
-    expect(funnel).toContain('Analytics.campaigns.percent');
-
+  it('lists the flow drop-off as a table', () => {
     const flows = render(<FlowDropOff loading={false} error={false} onRetry={noop} flowId="" onFlowChange={noop}
       flows={[{ id: 'f1', name: 'Welcome' }]}
       stats={{ started: 5, completed: 2, handedOff: 1, timedOut: 1, failed: 1, cancelled: 0, active: 0,

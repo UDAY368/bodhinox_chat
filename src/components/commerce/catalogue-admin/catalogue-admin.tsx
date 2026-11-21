@@ -48,7 +48,7 @@ import {
   publishShopProduct, saveVariant, unpublishShopProduct,
   type ApiResult, type BulkAction, type ProductListFilter, type ProductPage, type ShopCategory, type ShopProductSummary,
 } from "./catalogue-api";
-import { OptionSelect } from "@/components/commerce/option-select";
+import { OptionSelect } from "@/components/ui/option-select";
 import { PageHeader } from "@/components/ui/page-header";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -403,7 +403,7 @@ function ProductsTab({ canManage, onOpenCategories }: { canManage: boolean; onOp
           <Search className="pointer-events-none absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input type="search" value={filter.q ?? ""} onChange={(e) => update({ q: e.target.value })} placeholder={t("search")} aria-label={t("search")} className="pl-8" />
         </div>
-        <OptionSelect
+        <OptionSelect fit
           aria-label={t("statusFilter")}
           value={filter.status ?? ""}
           onValueChange={(v) => update({ status: (v || undefined) as ProductListFilter["status"] })}

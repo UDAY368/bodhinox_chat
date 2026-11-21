@@ -39,7 +39,7 @@ import { holdCommentRun, startIceBreakerFlow } from "./engine/start";
 
 // ============================================================
 // Pure helpers — extracted so engine.test.ts can exercise them
-// without a Supabase / Meta mock.
+// without a database / Meta mock.
 // ============================================================
 
 export { SKIP_REPLY_ID, cardPostbackRoutes, cardWaits, closureForActiveRun, entryTriggerTexts, evaluateConditionPredicate, isAskNode, isAutoAdvancing, isSuspending, isTerminal, matchReplyId, messageText, nodeCards, nodeDelaySeconds, nodeTimeout, staleSince, templateWaits } from "./engine/helpers";

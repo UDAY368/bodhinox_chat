@@ -6,8 +6,6 @@
 
 export const APPOINTMENT_STATUSES = ['held', 'confirmed', 'cancelled', 'completed', 'no_show', 'expired'] as const;
 export type AppointmentStatus = (typeof APPOINTMENT_STATUSES)[number];
-/** Statuses that occupy a slot (a held row only until hold_expires_at). */
-export const ACTIVE_STATUSES = ['held', 'confirmed'] as const satisfies readonly AppointmentStatus[];
 
 export const APPOINTMENT_SOURCES = ['staff', 'public', 'flow'] as const;
 export type AppointmentSource = (typeof APPOINTMENT_SOURCES)[number];
@@ -334,14 +332,6 @@ export const APPOINTMENT_WEBHOOK_EVENTS = [
   'appointment.booked', 'appointment.cancelled', 'appointment.rescheduled', 'appointment.completed', 'appointment.no_show',
 ] as const;
 export type AppointmentWebhookEvent = (typeof APPOINTMENT_WEBHOOK_EVENTS)[number];
-
-export const APPOINTMENT_NOTIFICATION_TYPES = [
-  'appointment_booked', 'appointment_cancelled', 'appointment_rescheduled',
-] as const;
-export type AppointmentNotificationType = (typeof APPOINTMENT_NOTIFICATION_TYPES)[number];
-
-/** Permission keys (FEATURE_PERMISSIONS in src/lib/auth/permissions.ts). */
-export const APPOINTMENT_PERMISSIONS = { manage: 'appointments.manage', settings: 'appointments.settings' } as const;
 
 /** Inbound `BOOK <CODE>` confirmation text (after trim + upper-case). */
 export const HOLD_CODE_MESSAGE = /^BOOK ([A-HJ-NP-Z2-9]{6})$/;

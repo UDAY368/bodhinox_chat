@@ -38,7 +38,7 @@ import {
   resolveTheme, SHOP_COLOR_KEYS, SHOP_FONT_IDS, SHOP_FONTS, SHOP_TEMPLATES, SHOP_TEXT_LIMITS,
   type ShopColors, type ShopThemeSettings,
 } from "@/lib/commerce/shop-templates";
-import { OptionSelect } from "@/components/commerce/option-select";
+import { OptionSelect } from "@/components/ui/option-select";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 
 type Tab = "sections" | "theme" | "menu" | "pages" | "history";
@@ -199,7 +199,7 @@ export function ThemeEditor() {
     const known = value === null || linkOptions.some((o) => o.value === value);
     return (
       <div className="flex flex-col gap-1.5">
-        <OptionSelect
+        <OptionSelect fit
           id={id}
           value={value === null ? "" : known ? value : "__url"}
           onValueChange={(v) => onChange(v === "" ? null : v === "__url" ? "https://" : v)}
@@ -242,7 +242,7 @@ export function ThemeEditor() {
       case "video": return <Field id={id} label={label} hint={t("videoHint")}><Input id={id} disabled={!canEdit} placeholder="https://youtu.be/…" value={(value as string) ?? ""} onChange={(e) => set(e.target.value || null)} /></Field>;
       case "category": return (
         <Field id={id} label={label}>
-          <OptionSelect
+          <OptionSelect fit
             id={id}
             value={(value as string) ?? ""}
             onValueChange={(v) => set(v || null)}
@@ -256,7 +256,7 @@ export function ThemeEditor() {
       );
       case "collection": return (
         <Field id={id} label={label} hint={t("collectionHint")}>
-          <OptionSelect
+          <OptionSelect fit
             id={id}
             value={(value as string) ?? ""}
             onValueChange={(v) => set(v || null)}
@@ -270,7 +270,7 @@ export function ThemeEditor() {
       );
       case "choice": return (
         <Field id={id} label={label}>
-          <OptionSelect
+          <OptionSelect fit
             id={id}
             value={(value as string) ?? field.options[0]}
             onValueChange={(v) => set(v)}
@@ -410,7 +410,7 @@ export function ThemeEditor() {
                 </ul>
                 {canEdit && (
                   <div className="flex gap-2">
-                    <OptionSelect
+                    <OptionSelect fit
                       aria-label={t("sectionType")}
                       value={adding}
                       onValueChange={(v) => setAdding(v as ShopSectionType)}
@@ -449,7 +449,7 @@ export function ThemeEditor() {
                 </div>
                 {(["heading", "body"] as const).map((key) => (
                   <Field key={key} id={`theme-font-${key}`} label={ts(`font.${key}`)}>
-                    <OptionSelect
+                    <OptionSelect fit
                       id={`theme-font-${key}`}
                       className="w-full"
                       disabled={!canEdit}
@@ -597,7 +597,7 @@ export function ThemeEditor() {
                 { value: "desktop", label: <><Monitor className="size-4" />{t("desktop")}</> },
               ]}
             />
-            <OptionSelect
+            <OptionSelect fit
               aria-label={t("previewOf")}
               value={page}
               onValueChange={(v) => setPage(v as typeof page)}

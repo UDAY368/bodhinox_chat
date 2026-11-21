@@ -15,7 +15,7 @@
 import { createHash } from 'node:crypto';
 import { resolveAuditUserId } from '@/lib/api/v1/contacts';
 import { isSuspended } from '@/lib/billing/suspension';
-import { formatMoney } from '@/lib/commerce/money';
+import { formatMoney } from '@/lib/format/money';
 import { createAdminClient } from '@/lib/data/admin';
 import { getWorkerPrisma } from '@/lib/db/prisma';
 import { withTenant, type TenantTransaction } from '@/lib/db/tenant';
@@ -191,7 +191,7 @@ export async function handleAppointmentPaymentLinkJob(
   const message = t('paymentLink', {
     service: row.service_name,
     time: formatAppointmentTime(row.start_at, row.timezone),
-    amount: formatMoney(amountMinor, currency),
+    amount: formatMoney(amountMinor, currency, { locale: 'en' }),
   });
   try {
     const userId = await resolveAuditUserId(createAdminClient({ accountId, role: 'owner' }), accountId);

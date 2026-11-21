@@ -32,7 +32,7 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "
 import { Textarea } from "@/components/ui/textarea";
 import { OfflinePaymentDialog } from "@/components/commerce/payments/offline-payment-dialog";
 import { OrderPaymentsPanel } from "@/components/commerce/payments/customer-payments-table";
-import { formatMoney } from "@/lib/commerce/money";
+import { formatMoney } from "@/lib/format/money";
 import { ORDER_LIMITS, type OrderStatus } from "@/lib/commerce/order-format";
 import {
   allowedActions, amountDue, amountRefundable, canStartReturn, COD_CONFIRM_TONE, isUnpaidCodOrder, nextStep, nextStepAction,
@@ -154,11 +154,7 @@ export function OrderView({ orderId, onChanged, variant = "page", intent = null 
   }, [load, onChanged, tOrders]);
 
   const money = (minor: number, currency: string) => {
-    try {
-      return formatMoney(minor, currency, locale);
-    } catch {
-      return `${currency} ${minor}`;
-    }
+    return formatMoney(minor, currency, { locale });
   };
 
   const errorText = (r: ApiResult<unknown>) => (r.ok ? "" : r.code === "conflict" ? tLife("conflict") : r.status === 403 ? tLife("forbidden")

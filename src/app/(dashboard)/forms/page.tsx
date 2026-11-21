@@ -17,7 +17,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { GroupedList } from "@/components/ui/grouped-list";
 import { PageLoading } from "@/components/ui/page-loading";
 import { InlineError } from "@/components/ui/inline-error";
-import { OptionSelect } from "@/components/automations/option-select";
+import { OptionSelect } from "@/components/ui/option-select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { FormStatusBadge } from "@/components/forms/form-status-badge";
 import { CampaignEmpty, CampaignHeader, SearchField } from "@/components/broadcasts/campaign-ui";

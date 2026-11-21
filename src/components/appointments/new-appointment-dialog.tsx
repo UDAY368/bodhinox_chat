@@ -6,7 +6,7 @@
  * re-checks the slot under its locks and confirms at once; the customer's
  * confirmation and reminders are queued with the booking.
  */
-import { OptionSelect } from '@/components/contacts/option-select';
+import { OptionSelect } from '@/components/ui/option-select';
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { useLocale, useTranslations } from 'next-intl';

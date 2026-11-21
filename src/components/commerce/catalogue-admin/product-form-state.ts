@@ -2,7 +2,7 @@
 // photos, options, every variant row and the selling options. Pure functions:
 // read a product into a form, validate it, and turn it into the one Save body.
 
-import { cleanOptions, optionsOf, type ProductOption } from "@/lib/commerce/catalogue/variant-matrix";
+import { optionsOf, type ProductOption } from "@/lib/commerce/catalogue/variant-matrix";
 import type { ProductFormBody, ShopProduct, VariantRowBody } from "./catalogue-api";
 import { searchListingPayload, searchListingValid, searchListingValues, type SearchListingValues } from "./search-listing-fields";
 import { bpsToPercent, moneyInput, moneyText, percentToBps } from "./catalogue-format";
@@ -241,6 +241,3 @@ export function bodyOf(f: ProductFormState, currency: string | null, base: Produ
     ...(f.bundle ? { parts: f.parts.map((p) => ({ variant_id: p.variantId, quantity: Number(p.quantity) })) } : {}),
   };
 }
-
-/** The options as they will be saved (blank names and values dropped). */
-export const savedOptions = (f: ProductFormState) => cleanOptions(f.options);

@@ -28,7 +28,7 @@ import { Label } from '@/components/ui/label';
 import { Loader2, AlertTriangle } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { saveContactField, useContactMembers } from './contacts-client';
-import { OptionSelect } from './option-select';
+import { OptionSelect } from '@/components/ui/option-select';
 
 interface ContactFormProps {
   open: boolean;

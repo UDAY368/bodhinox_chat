@@ -3,7 +3,7 @@ import type { PublicProduct } from '@/lib/commerce/public-shop';
 import { CARD_IMAGE_SIZES, imageSrcSet } from '@/lib/commerce/shop-images';
 import { productPath } from '@/lib/commerce/shop-paths';
 import type { ShopLayout } from '@/lib/commerce/shop-templates';
-import { formatMoney } from '@/lib/commerce/money';
+import { formatMoney } from '@/lib/format/money';
 import { Stars } from './product-reviews';
 import { QuickAdd } from './quick-add';
 import type { ShopT } from './shop-link';
@@ -35,7 +35,7 @@ export function ProductCard({ handle, product, currency, layout, locale, labels 
   const cheapest = [...product.variants].sort((a, b) => a.priceMinor - b.priceMinor)[0];
   const varied = new Set(product.variants.map((v) => v.priceMinor)).size > 1;
   const soldOut = product.variants.every((v) => !v.inStock);
-  const money = (minor: number) => (currency ? formatMoney(minor, currency, locale) : '');
+  const money = (minor: number) => (currency ? formatMoney(minor, currency, { locale }) : '');
   const onSale = !!cheapest && cheapest.compareAtMinor !== null && cheapest.compareAtMinor > cheapest.priceMinor;
   const percent = onSale ? Math.round((1 - cheapest.priceMinor / cheapest.compareAtMinor!) * 100) : 0;
   // Quick add only when there is nothing to choose: one variant, in stock.
