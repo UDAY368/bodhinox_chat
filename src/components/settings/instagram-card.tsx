@@ -140,48 +140,50 @@ export function InstagramCard() {
   const live = accounts.filter((a) => a.status !== 'disconnected');
 
   return (
-    <SettingsGroup
-      title={<><AtSign className="size-4" aria-hidden="true" /> {t('title')}</>}
-      footer={status?.enabled && !canEdit ? <>{t('description')} {t('memberReadOnly')}</> : t('description')}
-      action={status?.enabled && canEdit ? (
-        <Button type="button" size="sm" className="min-h-11 sm:min-h-8" onClick={() => void connect()} disabled={!!busy}>
-          {busy === 'connect' && <Loader2 className="size-3.5 animate-spin" />}
-          {busy === 'connect' ? t('connecting') : live.length ? t('connectAnother') : t('connect')}
-        </Button>
-      ) : undefined}
-    >
-      {loadFailed && <SettingsBlock><InlineError message={t('loadFailed')} onRetry={() => void load()} /></SettingsBlock>}
-      {!status && !loadFailed && <SettingsBlock><PageLoading rows={2} /></SettingsBlock>}
+    <div className="space-y-6">
+      <SettingsGroup
+        title={<><AtSign className="size-4" aria-hidden="true" /> {t('title')}</>}
+        footer={status?.enabled && !canEdit ? <>{t('description')} {t('memberReadOnly')}</> : t('description')}
+        action={status?.enabled && canEdit ? (
+          <Button type="button" size="sm" className="min-h-11 sm:min-h-8" onClick={() => void connect()} disabled={!!busy}>
+            {busy === 'connect' && <Loader2 className="size-3.5 animate-spin" />}
+            {busy === 'connect' ? t('connecting') : live.length ? t('connectAnother') : t('connect')}
+          </Button>
+        ) : undefined}
+      >
+        {loadFailed && <SettingsBlock><InlineError message={t('loadFailed')} onRetry={() => void load()} /></SettingsBlock>}
+        {!status && !loadFailed && <SettingsBlock><PageLoading rows={2} /></SettingsBlock>}
 
-      {status && !status.enabled && (
-        <GroupedListRow
-          title={t('notEnabled')}
-          subtitle={status.reason === 'not_configured' ? t('reasonNotConfigured') : t('reasonFlagOff')}
-          className="[&_.truncate]:whitespace-normal"
-        />
-      )}
+        {status && !status.enabled && (
+          <GroupedListRow
+            title={t('notEnabled')}
+            subtitle={status.reason === 'not_configured' ? t('reasonNotConfigured') : t('reasonFlagOff')}
+            className="[&_.truncate]:whitespace-normal"
+          />
+        )}
 
-      {status?.enabled && (
-        <>
-          {accounts.length === 0 && <GroupedListRow title={<span className="text-muted-foreground">{t('noAccounts')}</span>} />}
-          {accounts.map((account) => (
-            <AccountRow key={account.id} account={account} canEdit={canEdit} busy={busy}
-              onReconnect={connect} onDisconnect={disconnect} onCheck={checkNow} />
-          ))}
-          {canEdit && (
-            <SettingsSwitchRow
-              title={t('includeComments')}
-              description={t('includeCommentsHelp')}
-              control={<Switch checked={withComments} onCheckedChange={(v: boolean) => setWithComments(v)} disabled={!!busy} aria-label={t('includeComments')} />}
-            />
-          )}
-          {status.pageLoginAvailable && (
-            // The Facebook Page login lays out its own form.
-            <SettingsBlock><InstagramPageLogin canEdit={canEdit} onConnected={() => void load()} /></SettingsBlock>
-          )}
-        </>
+        {status?.enabled && (
+          <>
+            {accounts.length === 0 && <GroupedListRow title={<span className="text-muted-foreground">{t('noAccounts')}</span>} />}
+            {accounts.map((account) => (
+              <AccountRow key={account.id} account={account} canEdit={canEdit} busy={busy}
+                onReconnect={connect} onDisconnect={disconnect} onCheck={checkNow} />
+            ))}
+            {canEdit && (
+              <SettingsSwitchRow
+                title={t('includeComments')}
+                description={t('includeCommentsHelp')}
+                control={<Switch checked={withComments} onCheckedChange={(v: boolean) => setWithComments(v)} disabled={!!busy} aria-label={t('includeComments')} />}
+              />
+            )}
+          </>
+        )}
+      </SettingsGroup>
+      {status?.enabled && status.pageLoginAvailable && (
+        // The Facebook Page login is its own group under the accounts.
+        <InstagramPageLogin canEdit={canEdit} onConnected={() => void load()} />
       )}
-    </SettingsGroup>
+    </div>
   );
 }
 

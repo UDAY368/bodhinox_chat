@@ -1998,7 +1998,9 @@
         },
         "choiceInSegment": "Estos segmentos guardados filtran por una opción que eliminaste: {names}. Al guardar se quitarán esas condiciones.",
         "choiceSegmentNeedsField": "Estos segmentos solo filtran por opciones eliminadas: {names}. Edítalos primero.",
-        "saveAndUpdateSegments": "Guardar y actualizar segmentos"
+        "saveAndUpdateSegments": "Guardar y actualizar segmentos",
+        "edit": "Editar",
+        "moreFor": "Más opciones de {name}"
       },
       "importMap": {
         "desc": "Elige un archivo CSV y relaciona sus columnas con los campos del contacto. Se necesita una columna de teléfono.",
@@ -7051,7 +7053,7 @@
     "PAUSED": "Pausada",
     "DISABLED": "Desactivada",
     "IN_APPEAL": "En apelación",
-    "PENDING_DELETION": "Eliminación pendiente"
+    "PENDING_DELETION": "En eliminación"
   },
   "StarterAutomations": {
     "welcome_message": {
@@ -13138,7 +13140,16 @@
         "number_invalid": "Elige uno de tus números de WhatsApp.",
         "delay_invalid": "El retraso debe estar entre 0 y 10080 minutos (7 días).",
         "variables_invalid": "Asigna cada variable a un campo del pedido."
-      }
+      },
+      "on": "Activado",
+      "off": "Desactivado",
+      "edit": "Editar",
+      "cancel": "Cancelar",
+      "notSetUp": "Sin configurar",
+      "delayMinutes": "{count, plural, =0 {se envía al instante} one {tras # minuto} other {tras # minutos}}",
+      "moreFor": "Más opciones de {event}",
+      "removeTitle": "¿Quitar el mensaje \"{event}\"?",
+      "removeBody": "Los clientes dejarán de recibir este mensaje. Puedes configurarlo de nuevo más tarde."
     },
     "googleSheets": {
       "title": "Google Sheets",
@@ -15196,7 +15207,11 @@
       "noneAvailable": "Este inicio de sesión de Facebook no ve otras cuentas publicitarias.",
       "choose": "Cuenta que añadir",
       "addThis": "Añadir",
-      "cancel": "Cancelar"
+      "cancel": "Cancelar",
+      "moreFor": "Más opciones de {name}",
+      "removeConfirm": "¿Quitar {name}?",
+      "removeBody": "Los informes y la lista de campañas dejarán de incluir esta cuenta publicitaria. Puedes añadirla de nuevo más tarde.",
+      "removeAction": "Quitar"
     },
     "audiences": {
       "title": "Audiencias",
@@ -17857,7 +17872,7 @@
       "rename": "Cambiar el nombre de la secuencia",
       "statusLabel": {
         "draft": "Borrador",
-        "active": "Enviando",
+        "active": "Activa",
         "paused": "En pausa",
         "archived": "Eliminada"
       },

@@ -1998,7 +1998,9 @@
         },
         "choiceInSegment": "These saved segments filter on a choice you removed: {names}. Saving removes those conditions from them.",
         "choiceSegmentNeedsField": "These segments only filter on removed choices: {names}. Edit them first.",
-        "saveAndUpdateSegments": "Save and update segments"
+        "saveAndUpdateSegments": "Save and update segments",
+        "edit": "Edit",
+        "moreFor": "More for {name}"
       },
       "importMap": {
         "desc": "Choose a CSV file, then match its columns to contact fields. A phone column is required.",
@@ -7051,7 +7053,7 @@
     "PAUSED": "Paused",
     "DISABLED": "Disabled",
     "IN_APPEAL": "In Appeal",
-    "PENDING_DELETION": "Pending Deletion"
+    "PENDING_DELETION": "Being deleted"
   },
   "StarterAutomations": {
     "welcome_message": {
@@ -13138,7 +13140,16 @@
         "number_invalid": "Choose one of your WhatsApp numbers.",
         "delay_invalid": "The delay must be between 0 and 10080 minutes (7 days).",
         "variables_invalid": "Map each variable to an order field."
-      }
+      },
+      "on": "On",
+      "off": "Off",
+      "edit": "Edit",
+      "cancel": "Cancel",
+      "notSetUp": "Not set up",
+      "delayMinutes": "{count, plural, =0 {sent right away} one {after # minute} other {after # minutes}}",
+      "moreFor": "More for {event}",
+      "removeTitle": "Remove the \"{event}\" message?",
+      "removeBody": "Customers stop getting this message. You can set it up again later."
     },
     "googleSheets": {
       "title": "Google Sheets",
@@ -15196,7 +15207,11 @@
       "noneAvailable": "This Facebook login cannot see any other ad accounts.",
       "choose": "Ad account to add",
       "addThis": "Add",
-      "cancel": "Cancel"
+      "cancel": "Cancel",
+      "moreFor": "More for {name}",
+      "removeConfirm": "Remove {name}?",
+      "removeBody": "Reports and the campaign list stop covering this ad account. You can add it again later.",
+      "removeAction": "Remove"
     },
     "audiences": {
       "title": "Audiences",
@@ -17857,7 +17872,7 @@
       "rename": "Rename sequence",
       "statusLabel": {
         "draft": "Draft",
-        "active": "Sending",
+        "active": "Live",
         "paused": "Paused",
         "archived": "Deleted"
       },

@@ -14,8 +14,11 @@ import { toast } from 'sonner';
 import { useLocale, useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
 import { GroupedList, GroupedListRow } from '@/components/ui/grouped-list';
+import { InlineError } from '@/components/ui/inline-error';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { SegmentedControl } from '@/components/ui/segmented-control';
+import { Sheet, SheetContent, SheetFooter, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import type { TimeRange } from '@/lib/inbox/working-hours';
 import type { ExceptionRow } from '@/lib/appointments/types';
 import { localDay } from '@/lib/appointments/time';
@@ -39,6 +42,8 @@ export function ExceptionsPanel({ config, canEdit }: { config: AppointmentConfig
   const [ranges, setRanges] = useState<TimeRange[]>([{ start: '09:00', end: '13:00' }]);
   const [reason, setReason] = useState('');
   const [busy, setBusy] = useState(false);
+  const [adding, setAdding] = useState(false);
+  const [addError, setAddError] = useState<string | null>(null);
 
   const [version, setVersion] = useState(0);
   const load = () => setVersion((v) => v + 1);
@@ -57,13 +62,15 @@ export function ExceptionsPanel({ config, canEdit }: { config: AppointmentConfig
 
   async function add() {
     setBusy(true);
+    setAddError(null);
     const r = await apiRequest('/api/appointments/exceptions', {
       method: 'POST',
       body: { location_id: locationId, staff_id: staffId || null, starts_on: from, ends_on: to < from ? from : to, ranges: closed ? null : ranges, reason: reason.trim() || null },
     });
     setBusy(false);
-    if (!r.ok) return void toast.error(failureText(r));
+    if (!r.ok) return void setAddError(failureText(r));
     setReason('');
+    setAdding(false);
     load();
   }
 
@@ -83,6 +90,11 @@ export function ExceptionsPanel({ config, canEdit }: { config: AppointmentConfig
         <h2 className="text-base font-semibold tracking-tight">{t('exceptions.title')}</h2>
         <OptionSelect aria-label={t('sheet.location')} className="ml-auto w-48" value={locationId} onValueChange={setLocationId}
           options={locations.map((l) => ({ value: l.id, label: l.name }))} />
+        {canEdit && (
+          <Button type="button" className="min-h-11 sm:min-h-8" size="sm" onClick={() => { setAddError(null); setAdding(true); }}>
+            {t('exceptions.add')}
+          </Button>
+        )}
       </div>
       {rows && rows.length === 0 && <EmptyState icon={CalendarOff} title={t('exceptions.empty')} />}
       {!!rows?.length && (
@@ -99,36 +111,40 @@ export function ExceptionsPanel({ config, canEdit }: { config: AppointmentConfig
           ))}
         </GroupedList>
       )}
-      {canEdit && (
-        <div className="grid gap-3 rounded-xl border border-border p-3 text-sm sm:grid-cols-2">
-          <div className="font-medium sm:col-span-2">{t('exceptions.add')}</div>
-          <div className="space-y-1">
-            <Label htmlFor="exc-scope">{t('exceptions.scope')}</Label>
-            <OptionSelect id="exc-scope" value={staffId} onValueChange={setStaffId}
-              options={[{ value: '', label: t('exceptions.scopeLocation') }, ...staff.map((s) => ({ value: s.id, label: `${t('exceptions.scopeStaff')}: ${s.display_name}` }))]} />
+      <Sheet open={adding} onOpenChange={(v) => { if (!v) setAdding(false); }}>
+        <SheetContent size="md" className="overflow-y-auto">
+          <SheetHeader className="pr-12"><SheetTitle>{t('exceptions.add')}</SheetTitle></SheetHeader>
+          <div className="grid gap-3 px-4 pb-4 text-sm sm:grid-cols-2">
+            <div className="space-y-1">
+              <Label htmlFor="exc-scope">{t('exceptions.scope')}</Label>
+              <OptionSelect id="exc-scope" value={staffId} onValueChange={setStaffId}
+                options={[{ value: '', label: t('exceptions.scopeLocation') }, ...staff.map((s) => ({ value: s.id, label: `${t('exceptions.scopeStaff')}: ${s.display_name}` }))]} />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="exc-reason">{t('exceptions.reason')}</Label>
+              <Input id="exc-reason" maxLength={120} value={reason} onChange={(e) => setReason(e.target.value)} />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="exc-from">{t('exceptions.from')}</Label>
+              <Input id="exc-from" type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="exc-to">{t('exceptions.to')}</Label>
+              <Input id="exc-to" type="date" min={from} value={to} onChange={(e) => setTo(e.target.value)} />
+            </div>
+            <div className="sm:col-span-2">
+              <SegmentedControl<'closed' | 'custom'> aria-label={t('exceptions.customHours')} value={closed ? 'closed' : 'custom'}
+                onValueChange={(v) => setClosed(v === 'closed')}
+                options={[{ value: 'closed', label: t('exceptions.closed') }, { value: 'custom', label: t('exceptions.customHours') }]} />
+            </div>
+            {!closed && <div className="sm:col-span-2"><RangesEditor ranges={ranges} onChange={setRanges} label={t('exceptions.customHours')} /></div>}
+            {addError && <InlineError className="py-4 sm:col-span-2" message={addError} onRetry={() => void add()} />}
           </div>
-          <div className="space-y-1">
-            <Label htmlFor="exc-reason">{t('exceptions.reason')}</Label>
-            <Input id="exc-reason" maxLength={120} value={reason} onChange={(e) => setReason(e.target.value)} />
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="exc-from">{t('exceptions.from')}</Label>
-            <Input id="exc-from" type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="exc-to">{t('exceptions.to')}</Label>
-            <Input id="exc-to" type="date" min={from} value={to} onChange={(e) => setTo(e.target.value)} />
-          </div>
-          <div className="flex gap-4 sm:col-span-2">
-            <label className="flex items-center gap-1.5"><input type="radio" checked={closed} onChange={() => setClosed(true)} /> {t('exceptions.closed')}</label>
-            <label className="flex items-center gap-1.5"><input type="radio" checked={!closed} onChange={() => setClosed(false)} /> {t('exceptions.customHours')}</label>
-          </div>
-          {!closed && <div className="sm:col-span-2"><RangesEditor ranges={ranges} onChange={setRanges} label={t('exceptions.customHours')} /></div>}
-          <div className="sm:col-span-2">
-            <Button type="button" size="sm" disabled={busy || !from || (!closed && ranges.length === 0)} onClick={() => void add()}>{t('exceptions.add')}</Button>
-          </div>
-        </div>
-      )}
+          <SheetFooter className="flex-row flex-wrap justify-end border-t border-border/50">
+            <Button type="button" disabled={busy || !from || (!closed && ranges.length === 0)} onClick={() => void add()}>{t('exceptions.add')}</Button>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }

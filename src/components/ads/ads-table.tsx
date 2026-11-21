@@ -18,6 +18,7 @@ import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMe
 import { downloadCsv } from '@/components/analytics/insights/csv';
 import { LoadingRows, MetricHeader, RowMoreMenu, StatusChip } from '@/components/ads/ads-ui';
 import { GroupedList, GroupedListRow } from '@/components/ui/grouped-list';
+import { SegmentedControl } from '@/components/ui/segmented-control';
 import { cn } from '@/lib/utils';
 import { EmptyState } from '@/components/ui/empty-state';
 import { SegmentBuilderDialog } from '@/components/contacts/segment-builder-dialog';
@@ -159,14 +160,16 @@ export function AdsTable({ canManage, canSegment, range, adAccountId }: AdsTable
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-3">
-        <div role="radiogroup" aria-label={t('level')} className="flex gap-0.5 rounded-xl bg-muted p-[3px]">
-          {(['campaign', 'adset', 'ad'] as const).map((value) => (
-            <button key={value} type="button" role="radio" aria-checked={level === value} onClick={() => setLevel(value)}
-              className={`h-8 rounded-[9px] px-3 text-xs font-medium outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-ring ${level === value ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>
-              {value === 'campaign' ? t('levelCampaign') : value === 'adset' ? t('levelAdset') : t('levelAd')}
-            </button>
-          ))}
-        </div>
+        <SegmentedControl<AdsLevel>
+          aria-label={t('level')}
+          value={level}
+          onValueChange={setLevel}
+          options={[
+            { value: 'campaign', label: t('levelCampaign') },
+            { value: 'adset', label: t('levelAdset') },
+            { value: 'ad', label: t('levelAd') },
+          ]}
+        />
         <div className="ml-auto flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
           <DropdownMenu>
             <DropdownMenuTrigger render={<Button type="button" variant="outline" size="sm" data-testid="ads-columns" />}>

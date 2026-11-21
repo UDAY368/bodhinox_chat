@@ -5,8 +5,10 @@
  * when the status says pageLoginAvailable (INSTAGRAM_PAGE_LOGIN_ENABLED and the
  * Facebook app configured). Admins press Continue with Facebook, come back from the
  * callback with ?instagram_pl=select, pick one of the Instagram accounts their Pages
- * link, and connect it. Everything with a token happens on the server: this card
- * only ever sees ids, usernames and Page names.
+ * link (one row each), and connect it. Its own settings group: Continue with Facebook,
+ * then Connect, is the group's one primary action. Disconnecting a connected account
+ * lives in the Instagram group's account rows. Everything with a token happens on the
+ * server: this card only ever sees ids, usernames and Page names.
  */
 
 import { useCallback, useEffect, useState } from 'react';
@@ -17,6 +19,9 @@ import { useTranslations } from 'next-intl';
 
 import { instagramCall, jsonInit } from '@/components/instagram/comment-rules-editor';
 import { Button } from '@/components/ui/button';
+import { GroupedListRow } from '@/components/ui/grouped-list';
+import { PageLoading } from '@/components/ui/page-loading';
+import { SettingsBlock, SettingsGroup } from './settings-row';
 
 const FACEBOOK_PREFIX = 'https://www.facebook.com/';
 
@@ -39,6 +44,7 @@ export function InstagramPageLogin({ canEdit, onConnected }: { canEdit: boolean;
   const searchParams = useSearchParams();
   const [busy, setBusy] = useState<string | null>(null);
   const [choices, setChoices] = useState<Choice[] | null>(null);
+  const [picked, setPicked] = useState<string | null>(null);
 
   const fail = useCallback((code: unknown) => toast.error(t(`errors.${pageLoginErrorKey(typeof code === 'string' ? code : null)}`)), [t]);
 
@@ -53,7 +59,9 @@ export function InstagramPageLogin({ canEdit, onConnected }: { canEdit: boolean;
     try {
       const { ok, json } = await instagramCall('/api/instagram/page-login/pages', jsonInit('POST', {}));
       if (!ok) return fail(json.error);
-      setChoices(Array.isArray(json.accounts) ? (json.accounts as Choice[]) : []);
+      const accounts = Array.isArray(json.accounts) ? (json.accounts as Choice[]) : [];
+      setChoices(accounts);
+      setPicked(accounts[0]?.instagramUserId ?? null);
     } catch {
       fail(null);
     } finally {
@@ -97,39 +105,42 @@ export function InstagramPageLogin({ canEdit, onConnected }: { canEdit: boolean;
     }
   };
 
+  const chosen = choices?.find((c) => c.instagramUserId === picked) ?? null;
+  const action = !canEdit ? undefined : choices === null ? (
+    <Button type="button" size="sm" className="min-h-11 sm:min-h-8" onClick={() => void start()} disabled={!!busy}>
+      {busy === 'start' && <Loader2 className="size-3.5 animate-spin" />}
+      {t('button')}
+    </Button>
+  ) : chosen ? (
+    <Button type="button" size="sm" className="min-h-11 sm:min-h-8" onClick={() => void connect(chosen)} disabled={!!busy}>
+      {busy === `connect:${chosen.instagramUserId}` && <Loader2 className="size-3.5 animate-spin" />}
+      {t('connect')}
+    </Button>
+  ) : undefined;
+
   return (
-    <div className="space-y-3 border-t pt-4">
-      <div className="space-y-1">
-        <p className="text-foreground text-sm font-medium">{t('title')}</p>
-        <p className="text-muted-foreground text-xs">{t('description')}</p>
-      </div>
-      {!canEdit && <p className="text-muted-foreground text-xs">{t('adminOnly')}</p>}
-      {canEdit && choices === null && (
-        <Button type="button" variant="outline" onClick={() => void start()} disabled={!!busy}>
-          {busy === 'start' && <Loader2 className="size-3.5 animate-spin" />}
-          {t('button')}
-        </Button>
+    <SettingsGroup title={t('title')} footer={t('tokenNote')} action={action}>
+      {canEdit && choices !== null ? (
+        <GroupedListRow title={t('selectTitle')} subtitle={t('selectHelp')} className="[&_.truncate]:whitespace-normal" />
+      ) : (
+        <GroupedListRow
+          title={t('description')}
+          subtitle={canEdit ? undefined : t('adminOnly')}
+          className="text-subhead [&_.truncate]:whitespace-normal"
+        />
       )}
-      {canEdit && busy === 'pages' && <Loader2 className="text-muted-foreground size-4 animate-spin" aria-hidden="true" />}
-      {canEdit && choices !== null && (
-        <div className="space-y-2">
-          <p className="text-foreground text-sm font-medium">{t('selectTitle')}</p>
-          <p className="text-muted-foreground text-xs">{t('selectHelp')}</p>
-          {choices.length === 0 && <p className="text-muted-foreground text-sm">{t('noPages')}</p>}
-          {choices.map((choice) => (
-            <div key={choice.instagramUserId} className="border-border flex flex-wrap items-center gap-2 rounded-lg border p-3 text-sm">
-              <span className="text-foreground">
-                {t('pageOption', { username: choice.username ? `@${choice.username}` : choice.instagramUserId, page: choice.pageName ?? choice.pageId })}
-              </span>
-              <Button type="button" size="sm" className="ml-auto" onClick={() => void connect(choice)} disabled={!!busy}>
-                {busy === `connect:${choice.instagramUserId}` && <Loader2 className="size-3.5 animate-spin" />}
-                {t('connect')}
-              </Button>
-            </div>
-          ))}
-        </div>
+      {canEdit && busy === 'pages' && <SettingsBlock><PageLoading rows={2} /></SettingsBlock>}
+      {canEdit && choices?.length === 0 && (
+        <GroupedListRow title={<span className="text-muted-foreground">{t('noPages')}</span>} className="[&_.truncate]:whitespace-normal" />
       )}
-      <p className="text-muted-foreground text-xs">{t('tokenNote')}</p>
-    </div>
+      {canEdit && choices?.map((choice) => (
+        <GroupedListRow
+          key={choice.instagramUserId}
+          title={t('pageOption', { username: choice.username ? `@${choice.username}` : choice.instagramUserId, page: choice.pageName ?? choice.pageId })}
+          selected={choice.instagramUserId === picked}
+          onClick={() => setPicked(choice.instagramUserId)}
+        />
+      ))}
+    </SettingsGroup>
   );
 }

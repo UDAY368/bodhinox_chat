@@ -196,12 +196,7 @@ function WooCommerceCardInner() {
           </SettingsGroup>
 
           {stores.length > 0 && (
-            <SettingsGroup title={t('rulesTitle')}>
-              {/* The shared commerce rules editor lays out its own per-event rules. */}
-              <SettingsBlock>
-                <CommerceRulesEditor source="woocommerce" events={WOO_EVENTS} fields={WOO_FIELDS} />
-              </SettingsBlock>
-            </SettingsGroup>
+            <CommerceRulesEditor title={t('rulesTitle')} source="woocommerce" events={WOO_EVENTS} fields={WOO_FIELDS} />
           )}
         </div>
       )}

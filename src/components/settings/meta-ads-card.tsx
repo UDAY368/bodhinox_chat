@@ -328,14 +328,14 @@ export function MetaAdsCard() {
 
             {/* Permission gaps and the last error: an explanatory note, not a form. */}
             {hasNotes && <SettingsBlock className="space-y-1">{notes}</SettingsBlock>}
-
-            {(connection.status === 'active' || connection.status === 'token_invalid') && (
-              // The ad accounts list lays out its own rows.
-              <SettingsBlock><MetaAdAccounts canEdit={canEdit && connection.status === 'active'} /></SettingsBlock>
-            )}
           </>
         )}
       </SettingsGroup>
+
+      {status?.enabled && (connection?.status === 'active' || connection?.status === 'token_invalid') && (
+        // The ad accounts are their own group under the connection.
+        <MetaAdAccounts canEdit={canEdit && connection.status === 'active'} />
+      )}
 
       {status?.enabled && connection?.status === 'active' && (
         <CapiSettings key={connection.capiWhatsappConfigId ?? ''} connection={connection} canEdit={canEdit} busy={busy} numbers={numbers} onSave={saveCapi} />
