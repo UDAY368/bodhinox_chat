@@ -1998,7 +1998,9 @@
         },
         "choiceInSegment": "Estes segmentos salvos filtram por uma opção que você removeu: {names}. Ao salvar, essas condições serão removidas deles.",
         "choiceSegmentNeedsField": "Estes segmentos só filtram por opções removidas: {names}. Edite-os primeiro.",
-        "saveAndUpdateSegments": "Salvar e atualizar segmentos"
+        "saveAndUpdateSegments": "Salvar e atualizar segmentos",
+        "edit": "Editar",
+        "moreFor": "Mais opções de {name}"
       },
       "importMap": {
         "desc": "Escolha um arquivo CSV e relacione as colunas aos campos do contato. É preciso ter uma coluna de telefone.",
@@ -7051,7 +7053,7 @@
     "PAUSED": "Pausado",
     "DISABLED": "Desativado",
     "IN_APPEAL": "Em recurso",
-    "PENDING_DELETION": "Exclusão pendente"
+    "PENDING_DELETION": "Sendo excluído"
   },
   "StarterAutomations": {
     "welcome_message": {
@@ -13138,7 +13140,16 @@
         "number_invalid": "Escolha um dos seus números de WhatsApp.",
         "delay_invalid": "O atraso deve estar entre 0 e 10080 minutos (7 dias).",
         "variables_invalid": "Associe cada variável a um campo do pedido."
-      }
+      },
+      "on": "Ativado",
+      "off": "Desativado",
+      "edit": "Editar",
+      "cancel": "Cancelar",
+      "notSetUp": "Não configurado",
+      "delayMinutes": "{count, plural, =0 {enviada na hora} one {após # minuto} other {após # minutos}}",
+      "moreFor": "Mais opções de {event}",
+      "removeTitle": "Remover a mensagem \"{event}\"?",
+      "removeBody": "Os clientes deixam de receber esta mensagem. Você pode configurá-la de novo depois."
     },
     "googleSheets": {
       "title": "Google Sheets",
@@ -15196,7 +15207,11 @@
       "noneAvailable": "Este login do Facebook não vê outras contas de anúncios.",
       "choose": "Conta a adicionar",
       "addThis": "Adicionar",
-      "cancel": "Cancelar"
+      "cancel": "Cancelar",
+      "moreFor": "Mais opções de {name}",
+      "removeConfirm": "Remover {name}?",
+      "removeBody": "Os relatórios e a lista de campanhas deixam de incluir esta conta de anúncios. Você pode adicioná-la de novo depois.",
+      "removeAction": "Remover"
     },
     "audiences": {
       "title": "Públicos",
@@ -17857,7 +17872,7 @@
       "rename": "Renomear sequência",
       "statusLabel": {
         "draft": "Rascunho",
-        "active": "Enviando",
+        "active": "Ativa",
         "paused": "Pausada",
         "archived": "Excluída"
       },

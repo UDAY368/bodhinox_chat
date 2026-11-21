@@ -59,18 +59,9 @@ export function CustomFieldsTab({ createOpen, onCreateOpenChange, onCount }: {
   async function remove() {
     if (!deleting) return;
     setBusy(true);
-    const res = await authFetch(`/api/custom-fields/${deleting.id}`, { method: 'DELETE' }).catch(() => null);
-    const payload = (await res?.json().catch(() => null)) as { error?: string; segments?: string[] } | null;
+    const ok = await deleteField(deleting, t);
     setBusy(false);
-    if (res?.status === 409 && payload?.segments) {
-      toast.error(t('fieldsTab.segmentNeedsField', { names: payload.segments.join(', ') }));
-      return;
-    }
-    if (!res?.ok) {
-      toast.error(t('fieldsTab.deleteFailed'));
-      return;
-    }
-    toast.success(t('fieldsTab.deleted', { name: deleting.field_name }));
+    if (!ok) return;
     setDeleting(null);
     await reload();
   }
@@ -157,11 +148,7 @@ export function CustomFieldsTab({ createOpen, onCreateOpenChange, onCount }: {
           <DialogHeader>
             <DialogTitle>{t('fieldsTab.deleteTitle', { name: deleting?.field_name ?? '' })}</DialogTitle>
             <DialogDescription>
-              {[
-                deleting?.filled ? t('fieldsTab.deleteLosesValues', { count: deleting.filled }) : '',
-                deleting?.segments ? t('fieldsTab.deleteSegments', { count: deleting.segments }) : '',
-                t('fieldsTab.cannotUndo'),
-              ].filter(Boolean).join(' ')}
+              {deleting ? deleteFieldWarning(deleting, t) : null}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="bg-popover border-border">
@@ -177,9 +164,36 @@ export function CustomFieldsTab({ createOpen, onCreateOpenChange, onCount }: {
   );
 }
 
+type FieldsT = ReturnType<typeof useTranslations<'Contacts.redesign'>>;
+
+/** Deletes a field through /api/custom-fields and toasts the outcome; true when it was deleted. */
+export async function deleteField(field: CustomFieldSummary, t: FieldsT): Promise<boolean> {
+  const res = await authFetch(`/api/custom-fields/${field.id}`, { method: 'DELETE' }).catch(() => null);
+  const payload = (await res?.json().catch(() => null)) as { error?: string; segments?: string[] } | null;
+  if (res?.status === 409 && payload?.segments) {
+    toast.error(t('fieldsTab.segmentNeedsField', { names: payload.segments.join(', ') }));
+    return false;
+  }
+  if (!res?.ok) {
+    toast.error(t('fieldsTab.deleteFailed'));
+    return false;
+  }
+  toast.success(t('fieldsTab.deleted', { name: field.field_name }));
+  return true;
+}
+
+/** The delete warning: how many contacts lose a value and segments lose a condition. */
+export function deleteFieldWarning(field: CustomFieldSummary, t: FieldsT): string {
+  return [
+    field.filled ? t('fieldsTab.deleteLosesValues', { count: field.filled }) : '',
+    field.segments ? t('fieldsTab.deleteSegments', { count: field.segments }) : '',
+    t('fieldsTab.cannotUndo'),
+  ].filter(Boolean).join(' ');
+}
+
 const SERVER_ERRORS = ['name_required', 'name_too_long', 'name_taken', 'name_reserved', 'invalid_type', 'too_few', 'too_many', 'too_long'] as const;
 
-function FieldDialog({ field, onClose, onSaved }: { field: CustomFieldSummary | null; onClose: () => void; onSaved: () => Promise<void> }) {
+export function FieldDialog({ field, onClose, onSaved }: { field: CustomFieldSummary | null; onClose: () => void; onSaved: () => Promise<void> }) {
   const t = useTranslations('Contacts.redesign');
   const [name, setName] = useState(field?.field_name ?? '');
   const [type, setType] = useState<CustomFieldType>(field?.field_type ?? 'text');
