@@ -19,10 +19,16 @@ import { requireFeature, requireWithinLimit } from '@/lib/billing/entitlements';
 import { requireSendingAllowed } from '@/lib/billing/suspension';
 import { requireCampaignSendRoom } from '@/lib/billing/limits';
 import { campaignNumberId } from './api-campaign';
+import { workspaceTimezone } from '@/lib/analytics/range';
 
 // Recipients and their frozen parameters are built in SQL, so the cap bounds one insert, not request memory.
 // parameterCells bounds recipients × variables, so one request cannot freeze an unbounded amount of data.
 export const CAMPAIGN_LIMITS={bodyBytes:5*1024*1024,recipients:50_000,csvRows:10_000,csvColumns:20,tags:100,variables:50,parameterCells:500_000,maxScheduleDays:90} as const;
+/** "Skip people messaged in the last X days" goes up to a year (matches the column check). */
+export const MAX_SKIP_RECENT_DAYS=365;
+/** Quiet hours as minutes after local midnight; the time zone is the workspace's, read on the server. */
+export const sendWindowSchema=z.object({start:z.number().int().min(0).max(1439),end:z.number().int().min(0).max(1439)}).strict()
+  .refine(w=>w.start!==w.end,'The send window must start and end at different times');
 export const variableMapping=z.discriminatedUnion('type',[
   z.object({type:z.literal('static'),value:z.string().max(1024)}).strict(),
   z.object({type:z.literal('field'),value:z.enum(['name','phone','email','company'])}).strict(),
@@ -36,7 +42,7 @@ const csvRow=z.object({
   values:z.record(z.string().max(64),z.string().max(1024)).refine(v=>Object.keys(v).length<=CAMPAIGN_LIMITS.csvColumns,'Too many CSV columns').optional(),
 }).strict();
 /** Exported for the cost estimate (lib/analytics/campaign-cost), which counts the same audience. */
-export const audienceSchema=z.object({
+export const audienceBaseSchema=z.object({
   type:z.enum(['all','tags','custom_field','csv','segment','list']),
   segmentId:z.string().uuid().optional(),
   listId:z.string().uuid().optional(),
@@ -46,7 +52,12 @@ export const audienceSchema=z.object({
   csvContacts:z.array(csvRow).max(CAMPAIGN_LIMITS.csvRows).optional(),
   /** CSV only: send once per row even when a number repeats (each row keeps its own values). */
   allowDuplicates:z.boolean().optional(),
-}).strict().superRefine((a,ctx)=>{
+  /** Leave out contacts sent a campaign or sequence message in the last N days (0 or omitted = off). */
+  skipRecentDays:z.number().int().min(0).max(MAX_SKIP_RECENT_DAYS).optional(),
+  /** CSV only: the sender confirmed these people agreed to get WhatsApp messages (required to create). */
+  consentConfirmed:z.boolean().optional(),
+}).strict();
+export const audienceSchema=audienceBaseSchema.superRefine((a,ctx)=>{
   if((a.type==='tags'&&!a.tagIds?.length)||(a.type==='custom_field'&&!a.customField)||(a.type==='csv'&&!a.csvContacts?.length)||(a.type==='segment'&&!a.segmentId)||(a.type==='list'&&!a.listId))
     ctx.addIssue({code:'custom',message:'Audience configuration is incomplete'});
 });
@@ -64,6 +75,8 @@ const inputSchema=z.object({
   whatsappConfigId:z.string().uuid().nullish(),
   /** One id per wizard session: a repeated create with it returns the campaign already created. */
   clientRequestId:z.string().uuid().optional(),
+  /** Quiet hours: send only inside this daily window (workspace time zone); omitted = any time. */
+  sendWindow:sendWindowSchema.nullish(),
 }).strict();
 export type CampaignInput=z.infer<typeof inputSchema>;
 const FIELD_COLUMNS={name:Prisma.sql`c.name`,phone:Prisma.sql`c.phone`,email:Prisma.sql`c.email`,company:Prisma.sql`c.company`};
@@ -111,15 +124,7 @@ export async function audienceSource(tx:TenantTransaction,scope:TenantContext,in
   const conditions:Prisma.Sql[]=[Prisma.sql`c.account_id=${accountId}::uuid`];
   let from=Prisma.sql`contacts c`,order=Prisma.sql`c.id`;
   if(audience.type==='csv'){
-    const byPhone=new Map<string,{phone:string;name:string|null}>();
-    const sendRows:{ord:number;phone:string;vals:Record<string,string>}[]=[];
-    for(const row of audience.csvContacts!){
-      if(!/^\+?[\d\s().-]+$/.test(row.phone))invalid('CSV phones must contain international numbers');
-      const phone=normalizePhone(row.phone);if(!isValidE164(phone))invalid('CSV phones must contain 8–15 international digits');
-      const repeat=byPhone.has(phone);
-      if(!repeat)byPhone.set(phone,{phone,name:row.name?.trim()||null});
-      if(!repeat||audience.allowDuplicates)sendRows.push({ord:sendRows.length,phone,vals:row.values??{}});
-    }
+    const {byPhone,sendRows}=csvSendRows(audience);
     // Canonical sorting gives concurrent overlapping imports the same unique-index lock order.
     const rows=[...byPhone.values()].sort((a,b)=>a.phone.localeCompare(b.phone));
     await tx.$executeRaw`INSERT INTO contacts(account_id,user_id,phone,name)
@@ -151,8 +156,27 @@ export async function audienceSource(tx:TenantTransaction,scope:TenantContext,in
     const match=f.operator==='is'?Prisma.sql`v.value=${f.value}`:f.operator==='is_not'?Prisma.sql`v.value<>${f.value}`:Prisma.sql`strpos(lower(v.value),lower(${f.value}))>0`;
     conditions.push(Prisma.sql`EXISTS(SELECT 1 FROM contact_custom_values v WHERE v.account_id=${accountId}::uuid AND v.contact_id=c.id AND v.custom_field_id=${f.fieldId}::uuid AND ${match})`);
   }
+  conditions.push(...sendableConditions(accountId,audience,channel));
+  return {from,where:Prisma.join(conditions,' AND '),order};
+}
+
+/**
+ * "Skip people messaged in the last X days": no campaign message sent (Meta accepted it and it did not fail)
+ * and no sequence message sent to the contact since the cutoff. Uses broadcast_recipients_contact_sent_idx
+ * and sequence_message_sends_contact_sent_idx.
+ */
+export function recentlyMessagedSql(accountId:string,days:number):Prisma.Sql{
+  const since=Prisma.sql`now()-make_interval(days=>${days}::int)`;
+  return Prisma.sql`(EXISTS(SELECT 1 FROM broadcast_recipients rr WHERE rr.account_id=${accountId}::uuid AND rr.contact_id=c.id
+      AND rr.sent_at IS NOT NULL AND rr.sent_at>=${since} AND rr.status IN ('sent','delivered','read','replied'))
+    OR EXISTS(SELECT 1 FROM sequence_message_sends sm WHERE sm.account_id=${accountId}::uuid AND sm.contact_id=c.id
+      AND sm.status='sent' AND sm.updated_at>=${since}))`;
+}
+
+/** The rules every audience shares over `contacts c`: consent, a channel address, excluded tags and the frequency cap. */
+export function sendableConditions(accountId:string,audience:Pick<CampaignInput['audience'],'excludeTagIds'|'skipRecentDays'>,channel:'whatsapp'|'instagram'='whatsapp'):Prisma.Sql[]{
   // Opted-out and blocked contacts never receive campaigns (lib/contacts/consent).
-  conditions.push(Prisma.sql`c.opted_out_at IS NULL AND c.blocked_at IS NULL`);
+  const conditions=[Prisma.sql`c.opted_out_at IS NULL AND c.blocked_at IS NULL`];
   if(channel==='instagram'){
     // An Instagram campaign needs an Instagram conversation and the Instagram subscription (lib/broadcasts/instagram).
     conditions.push(Prisma.sql`c.instagram_opted_out_at IS NULL`);
@@ -162,7 +186,48 @@ export async function audienceSource(tx:TenantTransaction,scope:TenantContext,in
     conditions.push(Prisma.sql`(c.phone_normalized<>'' OR c.wa_user_id IS NOT NULL)`);
   }
   if(audience.excludeTagIds?.length)conditions.push(Prisma.sql`NOT EXISTS(SELECT 1 FROM contact_tags t WHERE t.account_id=${accountId}::uuid AND t.contact_id=c.id AND t.tag_id IN (${jsonIds(audience.excludeTagIds)}))`);
-  return {from,where:Prisma.join(conditions,' AND '),order};
+  if(audience.skipRecentDays&&audience.skipRecentDays>0)conditions.push(Prisma.sql`NOT ${recentlyMessagedSql(accountId,audience.skipRecentDays)}`);
+  return conditions;
+}
+
+/** Normalised CSV send rows (one per row, or one per number unless duplicates are allowed); refuses a bad number. */
+export function csvSendRows(audience:CampaignInput['audience']):{byPhone:Map<string,{phone:string;name:string|null}>;sendRows:{ord:number;phone:string;vals:Record<string,string>}[]}{
+  const byPhone=new Map<string,{phone:string;name:string|null}>();
+  const sendRows:{ord:number;phone:string;vals:Record<string,string>}[]=[];
+  for(const row of audience.csvContacts??[]){
+    if(!/^\+?[\d\s().-]+$/.test(row.phone))invalid('CSV phones must contain international numbers');
+    const phone=normalizePhone(row.phone);if(!isValidE164(phone))invalid('CSV phones must contain 8–15 international digits');
+    const repeat=byPhone.has(phone);
+    if(!repeat)byPhone.set(phone,{phone,name:row.name?.trim()||null});
+    if(!repeat||audience.allowDuplicates)sendRows.push({ord:sendRows.length,phone,vals:row.values??{}});
+  }
+  return {byPhone,sendRows};
+}
+
+/**
+ * How many recipients a campaign with this audience would get now, by the same rules createCampaign
+ * applies (so the count matches what is sent). Read-only: a CSV row counts unless its number belongs to an
+ * existing contact that the rules leave out (a new number becomes a fresh contact at creation).
+ */
+export async function campaignReach(scope:TenantContext,raw:unknown):Promise<{count:number;timeZone:string}>{
+  const parsed=z.object({audience:audienceSchema}).strict().safeParse(raw);
+  if(!parsed.success)invalid('Invalid campaign configuration');
+  const {audience}=parsed.data;
+  if(audience.type!=='csv'&&audience.allowDuplicates)invalid('Duplicates can only be allowed for a CSV audience');
+  return withTenant(scope,async tx=>{
+    const timeZone=await workspaceTimezone(tx,scope.accountId);
+    if(audience.type==='csv'){
+      const {sendRows}=csvSendRows(audience);
+      const [{n}]=await tx.$queryRaw<{n:number}[]>(Prisma.sql`SELECT count(*)::int AS n
+        FROM jsonb_to_recordset(${JSON.stringify(sendRows.map(r=>({phone:r.phone})))}::jsonb) AS x(phone text)
+        LEFT JOIN contacts c ON c.account_id=${scope.accountId}::uuid AND c.phone_normalized=x.phone
+        WHERE c.id IS NULL OR (${Prisma.join(sendableConditions(scope.accountId,audience),' AND ')})`);
+      return {count:Math.min(n,CAMPAIGN_LIMITS.recipients+1),timeZone};
+    }
+    const {from,where}=await audienceSource(tx,scope,{audience});
+    const [{n}]=await tx.$queryRaw<{n:number}[]>(Prisma.sql`SELECT count(*)::int AS n FROM (SELECT 1 FROM ${from} WHERE ${where} LIMIT ${CAMPAIGN_LIMITS.recipients+1}) m`);
+    return {count:n,timeZone};
+  },getWorkerPrisma());
 }
 
 /** Each recipient's frozen template parameters as a SQL jsonb array, resolved per contact row. */
@@ -197,6 +262,9 @@ export async function createCampaign(scope:TenantContext,raw:unknown,now=new Dat
   if(Object.keys(input.variables).length>CAMPAIGN_LIMITS.variables)invalid('Too many template variables');
   if(input.audience.type!=='csv'&&Object.values(input.variables).some(v=>v.type==='csv_column'))invalid('CSV columns can only be used with a CSV audience');
   if(input.audience.type!=='csv'&&input.audience.allowDuplicates)invalid('Duplicates can only be allowed for a CSV audience');
+  // A CSV adds people who may never have written to the business: the sender must confirm their consent.
+  if(input.audience.type==='csv'&&input.audience.consentConfirmed!==true)invalid('Confirm that these people agreed to get WhatsApp messages from you');
+  if(input.audience.type!=='csv'&&input.audience.consentConfirmed)invalid('Consent is confirmed only for a CSV audience');
   if(input.audience.type==='csv'){
     const columns=new Set(input.audience.csvContacts!.flatMap(row=>Object.keys(row.values??{})));
     const missing=Object.values(input.variables).find(v=>v.type==='csv_column'&&!columns.has(v.value));
@@ -251,9 +319,14 @@ export async function createCampaign(scope:TenantContext,raw:unknown,now=new Dat
     if(matched*keys.length>CAMPAIGN_LIMITS.parameterCells)invalid('This audience is too large for this many template variables; narrow the audience or use fewer variables');
     const {csvContacts:_,...audienceFilter}=input.audience;void _;
     const trackedUrl=tracked>=0?input.trackedUrl!:null;
+    // Quiet hours run in the workspace's time zone as it is now; the campaign keeps that zone.
+    const window=input.sendWindow?{...input.sendWindow,timeZone:await workspaceTimezone(tx,scope.accountId)}:null;
+    const csvConsent=input.audience.type==='csv';
     // A concurrent create with the same request id waits on the unique index; the loser returns the winner's campaign.
-    const broadcasts=await tx.$queryRaw<{id:string}[]>`INSERT INTO broadcasts(account_id,user_id,name,template_name,template_language,template_variables,audience_filter,status,scheduled_at,total_recipients,tracked_url,whatsapp_config_id,client_request_id)
-      VALUES(${scope.accountId}::uuid,${scope.userId}::uuid,${input.name},${template.name},${template.language||'en_US'},${JSON.stringify(Object.keys(extras.value).length?{...input.variables,[CAMPAIGN_SEND_EXTRAS_KEY]:extras.value}:input.variables)}::jsonb,${JSON.stringify(audienceFilter)}::jsonb,${scheduledAt?'scheduled':'sending'},${scheduledAt},0,${trackedUrl},${numberId}::uuid,${input.clientRequestId??null}::uuid)
+    const broadcasts=await tx.$queryRaw<{id:string}[]>`INSERT INTO broadcasts(account_id,user_id,name,template_name,template_language,template_variables,audience_filter,status,scheduled_at,total_recipients,tracked_url,whatsapp_config_id,client_request_id,
+        skip_recent_days,send_window_start,send_window_end,send_window_time_zone,csv_consent_user_id,csv_consent_at)
+      VALUES(${scope.accountId}::uuid,${scope.userId}::uuid,${input.name},${template.name},${template.language||'en_US'},${JSON.stringify(Object.keys(extras.value).length?{...input.variables,[CAMPAIGN_SEND_EXTRAS_KEY]:extras.value}:input.variables)}::jsonb,${JSON.stringify(audienceFilter)}::jsonb,${scheduledAt?'scheduled':'sending'},${scheduledAt},0,${trackedUrl},${numberId}::uuid,${input.clientRequestId??null}::uuid,
+        ${input.audience.skipRecentDays??0}::smallint,${window?.start??null}::smallint,${window?.end??null}::smallint,${window?.timeZone??null},${csvConsent?scope.userId:null}::uuid,${csvConsent?now:null}::timestamptz)
       ON CONFLICT (account_id,client_request_id) DO NOTHING RETURNING id`;
     if(!broadcasts[0]){
       const winner=await existingCampaign(tx,scope.accountId,input.clientRequestId);

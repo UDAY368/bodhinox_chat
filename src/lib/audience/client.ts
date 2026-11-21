@@ -1,7 +1,7 @@
 'use client';
 import { authFetch } from '@/lib/auth/client';
-import { createClient } from '@/lib/data/client';
-import { countAudience, type AudienceConfig } from '@/lib/broadcast-audience';
+import type { AudienceConfig } from '@/lib/broadcast-audience';
+import { campaignReach } from '@/lib/broadcasts/campaign-client';
 import type { AudienceFilter } from './filter';
 
 export interface SegmentSummary { id: string; name: string; filter: AudienceFilter }
@@ -41,12 +41,13 @@ export async function changeListMembers(listId: string, change: { add?: string[]
   if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Could not update the list');
 }
 
-/** Campaign reach: exact and consent-aware for segments and lists, an estimate otherwise. */
+/**
+ * WhatsApp campaign reach, counted on the server by the rules creation applies (consent, a WhatsApp address,
+ * excluded tags, skip-recent), so the number shown is the number sent. null while the audience is incomplete.
+ */
 export async function audienceReach(audience: AudienceConfig): Promise<number | null> {
-  if (audience.type === 'segment') return audience.segmentId ? (await previewSegment({ segmentId: audience.segmentId })).sendable : null;
-  if (audience.type === 'list')
-    return audience.listId
-      ? (await previewSegment({ filter: { conditions: [{ field: 'list', op: 'in_any', listIds: [audience.listId] }] } })).sendable
-      : null;
-  return countAudience(createClient(), audience);
+  if ((audience.type === 'segment' && !audience.segmentId) || (audience.type === 'list' && !audience.listId)
+    || (audience.type === 'tags' && !audience.tagIds?.length) || (audience.type === 'csv' && !audience.csvContacts?.length)
+    || (audience.type === 'custom_field' && !(audience.customField?.fieldId && audience.customField.value))) return null;
+  return (await campaignReach(audience)).count;
 }

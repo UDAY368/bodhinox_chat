@@ -15,6 +15,8 @@ const h = vi.hoisted(() => ({
   igCalls: [] as unknown[][],
   timedOut: false,
   deliverOptions: null as null | Record<string, unknown>,
+  windowWaits: [] as unknown[][],
+  outsideWindow: false,
 }));
 
 vi.mock('@/lib/db/prisma', () => ({ getWorkerPrisma: () => ({}) }));
@@ -37,6 +39,9 @@ vi.mock('@/lib/broadcasts/schedule', () => ({
   prepareFailedRetry: async (_account: string, _broadcast: string, retryId: string) => { h.steps.push(`prepare:${retryId}`); return 1; },
 }));
 vi.mock('@/lib/broadcasts/pause', () => ({ broadcastHalted: async () => false }));
+vi.mock('@/lib/broadcasts/send-window', () => ({
+  requeueForSendWindow: async (...args: unknown[]) => { h.windowWaits.push(args); return h.outsideWindow; },
+}));
 vi.mock('@/lib/broadcasts/instagram', () => ({
   broadcastChannel: async () => h.channel,
   deliverInstagramBroadcast: async (...args: unknown[]) => { h.igCalls.push(args); return h.igPass; },
@@ -69,13 +74,18 @@ import type { Job } from './queue';
 
 const ACCOUNT = '11111111-1111-4111-8111-11111111111a';
 const BROADCAST = '22222222-2222-4222-8222-22222222222b';
+/** Every describe resets every field, so no test inherits another block's state. */
+function reset() {
+  Object.assign(h, {
+    planError: null, claimed: 0, delivered: 0, finalized: 0, unlocked: 0, enqueued: [], steps: [], throttled: false, stopped: false,
+    channel: 'whatsapp', igPass: { sent: 1, failed: 0, remaining: 0, stopped: false }, igCalls: [], timedOut: false, deliverOptions: null,
+    windowWaits: [], outsideWindow: false,
+  });
+}
 const job = { id: 'job-1', type: 'broadcast.dispatch', tenant_id: ACCOUNT, payload: { broadcastId: BROADCAST, scope: 'pending' } } as unknown as Job;
 
 describe('broadcast.dispatch on a disconnected number', () => {
-  beforeEach(() => {
-    Object.assign(h, { planError: null, claimed: 0, delivered: 0, finalized: 0, unlocked: 0, enqueued: [], steps: [], throttled: false,
-      stopped: false, channel: 'whatsapp', igPass: { sent: 1, failed: 0, remaining: 0, stopped: false }, igCalls: [] });
-  });
+  beforeEach(reset);
 
   it('holds the campaign: completes without retry, status untouched, one reason logged', async () => {
     h.planError = new BroadcastError('whatsapp_number_disconnected', 'This WhatsApp number was disconnected.', 409);
@@ -108,10 +118,7 @@ describe('broadcast.dispatch on a disconnected number', () => {
 describe('broadcast.dispatch for one "Retry failed" request (audit finding 11)', () => {
   const RETRY = '33333333-3333-4333-8333-33333333333c';
   const retryJob = { ...job, payload: { broadcastId: BROADCAST, scope: 'failed', retryId: RETRY } } as unknown as Job;
-  beforeEach(() => {
-    Object.assign(h, { planError: null, claimed: 0, delivered: 0, finalized: 0, unlocked: 0, enqueued: [], steps: [], throttled: false,
-      stopped: false, channel: 'whatsapp', igPass: { sent: 1, failed: 0, remaining: 0, stopped: false }, igCalls: [] });
-  });
+  beforeEach(reset);
 
   it('applies the retry generation before planning the pass', async () => {
     await handleJob(retryJob);
@@ -135,10 +142,7 @@ describe('broadcast.dispatch for one "Retry failed" request (audit finding 11)',
 });
 
 describe('broadcast.dispatch pause and Instagram campaigns', () => {
-  beforeEach(() => {
-    Object.assign(h, { planError: null, claimed: 0, delivered: 0, finalized: 0, unlocked: 0, enqueued: [], steps: [], throttled: false,
-      stopped: false, channel: 'whatsapp', igPass: { sent: 1, failed: 0, remaining: 0, stopped: false }, igCalls: [] });
-  });
+  beforeEach(reset);
 
   it('a paused WhatsApp pass queues no follow-up and leaves the status alone', async () => {
     h.stopped = true;
@@ -178,10 +182,7 @@ describe('broadcast.dispatch pause and Instagram campaigns', () => {
 });
 
 describe('broadcast.dispatch time box (batch 5)', () => {
-  beforeEach(() => {
-    Object.assign(h, { planError: null, claimed: 0, delivered: 0, finalized: 0, unlocked: 0, enqueued: [], steps: [], throttled: false,
-      stopped: false, channel: 'whatsapp', igPass: { sent: 1, failed: 0, remaining: 0, stopped: false }, igCalls: [], timedOut: false, deliverOptions: null });
-  });
+  beforeEach(reset);
 
   it('gives a pending pass about 30 s and queues the next pass when it runs out, after the lock is released', async () => {
     h.timedOut = true;
@@ -211,5 +212,40 @@ describe('broadcast.dispatch time box (batch 5)', () => {
     h.channel = 'instagram';
     await handleJob(job);
     expect((h.igCalls[0][3] as Record<string, unknown>).deadline).toEqual(expect.any(Number));
+  });
+});
+
+describe('broadcast.dispatch quiet hours (send window)', () => {
+  beforeEach(reset);
+
+  it('outside the window the pass sends nothing, takes no lock and waits in one requeued job', async () => {
+    h.outsideWindow = true;
+    await handleJob(job);
+    expect(h.windowWaits).toEqual([[ACCOUNT, BROADCAST, { broadcastId: BROADCAST, scope: 'pending' }, 'job-1']]);
+    expect(h.delivered).toBe(0);
+    expect(h.claimed).toBe(0);
+    expect(h.unlocked).toBe(0);
+  });
+
+  it('a pass stopped mid-way asks the window to requeue the rest, without the applied retry id', async () => {
+    h.stopped = true;
+    await handleJob({ ...job, payload: { broadcastId: BROADCAST, scope: 'failed', retryId: '33333333-3333-4333-8333-33333333333c' } } as unknown as Job);
+    expect(h.delivered).toBe(1);
+    expect(h.windowWaits).toHaveLength(2);
+    expect(h.windowWaits[1]).toEqual([ACCOUNT, BROADCAST, { broadcastId: BROADCAST, scope: 'failed' }, 'job-1']);
+    expect(h.finalized).toBe(0);
+  });
+
+  it('a stopped Instagram pass asks the window to requeue the rest and does not settle', async () => {
+    h.channel = 'instagram';
+    h.igPass = { sent: 2, failed: 0, remaining: 4, stopped: true };
+    await handleJob(job);
+    expect(h.windowWaits).toEqual([
+      [ACCOUNT, BROADCAST, { broadcastId: BROADCAST, scope: 'pending' }, 'job-1'],
+      [ACCOUNT, BROADCAST, { broadcastId: BROADCAST, scope: 'pending' }, 'job-1'],
+    ]);
+    expect(h.enqueued).toEqual([]);
+    expect(h.finalized).toBe(0);
+    expect(h.unlocked).toBe(1);
   });
 });

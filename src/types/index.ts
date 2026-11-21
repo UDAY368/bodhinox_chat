@@ -769,7 +769,7 @@ export interface Deal {
 export type BroadcastStatus =
   'draft' | 'scheduled' | 'sending' | 'sent' | 'failed' | 'cancelled' | 'paused';
 export type RecipientStatus =
-  'pending' | 'sent' | 'delivered' | 'read' | 'replied' | 'failed';
+  'pending' | 'sent' | 'delivered' | 'read' | 'replied' | 'failed' | 'cancelled';
 
 export interface Broadcast {
   id: string;

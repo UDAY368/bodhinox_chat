@@ -3,7 +3,6 @@
 import { Suspense, useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/data/client';
-import { useAuth } from '@/hooks/use-auth';
 import { toast } from 'sonner';
 import { MessageTemplate } from '@/types';
 import { Step0Details, type CampaignChannel } from '@/components/broadcasts/step0-details';
@@ -18,7 +17,7 @@ import { useBroadcastSending } from '@/hooks/use-broadcast-sending';
 import { useWorkspaceChannels } from '@/hooks/use-workspace-channels';
 import type { AudienceConfig, CsvAudienceRow } from '@/lib/broadcast-audience';
 import type { VariableMapping } from '@/lib/broadcast-create';
-import { createInstagramCampaign } from '@/lib/broadcasts/campaign-client';
+import { createInstagramCampaign, deleteCampaignDraft, loadCampaignDraft, saveCampaignDraft } from '@/lib/broadcasts/campaign-client';
 import type { CampaignSendExtras } from '@/lib/whatsapp/template-send-params';
 import { csvValueColumns } from '@/lib/broadcast-csv';
 import { fetchSegments } from '@/lib/audience/client';
@@ -55,7 +54,6 @@ function NewBroadcastWizard() {
   const t = useTranslations('Broadcasts.new');
   const tc = useTranslations('Campaigns');
   const locale = useLocale();
-  const { accountId } = useAuth();
   const { data: channelState } = useWorkspaceChannels();
   const enabled = channelState?.enabled ?? ['whatsapp'];
   const { createAndSendBroadcast, isProcessing } = useBroadcastSending();
@@ -75,6 +73,13 @@ function NewBroadcastWizard() {
   const [nameEdited, setNameEdited] = useState(false);
   const [text, setText] = useState('');
   const [igSending, setIgSending] = useState(false);
+  // Step 4's choices live here so a saved draft keeps them: send later and its time (datetime-local,
+  // workspace time zone), the number to send from, and quiet hours.
+  const [later, setLater] = useState(false);
+  const [scheduleAt, setScheduleAt] = useState('');
+  const [fromNumberId, setFromNumberId] = useState<string | null>(null);
+  const [sendWindow, setSendWindow] = useState<{ start: number; end: number } | null>(null);
+  const draftId = editingDraft && fromId && UUID.test(fromId) ? fromId : null;
 
   // An Instagram-only workspace starts on Instagram (and a WhatsApp-only one on WhatsApp),
   // so the Details step never leads into a channel the workspace cannot send on.
@@ -132,15 +137,45 @@ function NewBroadcastWizard() {
     return () => { cancelled = true; };
   }, [presetTemplateId, tc]);
 
-  // ?from= (Duplicate, or a draft's Edit) starts from that campaign of this workspace.
+  // ?from=<id>&draft=1 reopens a saved draft with every field it holds (lib/broadcasts/drafts).
   useEffect(() => {
-    if (!fromId || !UUID.test(fromId)) return;
+    if (!draftId) return;
+    let cancelled = false;
+    (async () => {
+      const draft = await loadCampaignDraft(draftId);
+      if (cancelled) return;
+      setName(draft.name);
+      setNameEdited(true);
+      setChannel(draft.channel);
+      setText(draft.text ?? '');
+      setAudience(draft.audience);
+      setVariables((draft.variables ?? {}) as Record<string, VariableMapping>);
+      setHeaderMediaUrl(draft.headerMediaUrl ?? '');
+      setTrackedUrl(draft.trackedUrl ?? '');
+      setSendExtras((draft.sendExtras ?? {}) as CampaignSendExtras);
+      setLater(!!draft.scheduledAt);
+      setScheduleAt(draft.scheduledAt ?? '');
+      setFromNumberId(draft.whatsappConfigId ?? null);
+      setSendWindow(draft.sendWindow ?? null);
+      if (draft.channel === 'whatsapp' && draft.templateId) {
+        const { data } = await createClient().from('message_templates').select('*').eq('id', draft.templateId).eq('status', 'APPROVED').maybeSingle();
+        if (cancelled) return;
+        if (data) setTemplate(data as MessageTemplate);
+        else toast.error(tc('wizard.templateGone'));
+      }
+    })().catch(() => toast.error(tc('wizard.loadFailed')));
+    return () => { cancelled = true; };
+  }, [draftId, tc]);
+
+  // ?from= alone (Duplicate) starts from that campaign of this workspace.
+  useEffect(() => {
+    if (!fromId || !UUID.test(fromId) || editingDraft) return;
     let cancelled = false;
     (async () => {
       const db = createClient();
       const { data: row } = await db.from('broadcasts').select('*').eq('id', fromId).maybeSingle();
       if (cancelled || !row) return;
-      const prefill = prefillFromBroadcast(row, editingDraft ? undefined : (n) => tc('wizard.copyName', { name: n }));
+      const prefill = prefillFromBroadcast(row, (n) => tc('wizard.copyName', { name: n }));
       setName(prefill.name);
       setNameEdited(true);
       setChannel(prefill.channel);
@@ -162,8 +197,7 @@ function NewBroadcastWizard() {
 
   /** The draft this wizard was opened to finish is replaced by the campaign just created. */
   async function retireDraft() {
-    if (!editingDraft || !fromId || !UUID.test(fromId)) return;
-    await createClient().from('broadcasts').delete().eq('id', fromId).eq('status', 'draft');
+    if (draftId) await deleteCampaignDraft(draftId);
   }
 
   const audienceLabel = useMemo(() => {
@@ -197,6 +231,9 @@ function NewBroadcastWizard() {
           segmentId: audience.segmentId,
           listId: audience.listId,
           ...(audience.type === 'csv' && audience.allowDuplicates ? { allowDuplicates: true } : {}),
+          ...(audience.skipRecentDays ? { skipRecentDays: audience.skipRecentDays } : {}),
+          // The CSV consent tick (Step 2 requires it; the server refuses a CSV audience without it).
+          ...(audience.type === 'csv' ? { consentConfirmed: audience.consentConfirmed === true } : {}),
         },
         variables,
         headerMediaUrl,
@@ -205,6 +242,7 @@ function NewBroadcastWizard() {
         sendExtras,
         whatsappConfigId: options?.whatsappConfigId ?? null,
         clientRequestId,
+        sendWindow,
       });
       await retireDraft().catch(() => undefined);
       router.push(`/broadcasts/${broadcastId}`);
@@ -231,54 +269,33 @@ function NewBroadcastWizard() {
   }
 
   /**
-   * Writes a draft broadcast row — no recipients, no sending. The user
-   * can revisit it from the list (Edit) to finish the flow later: the
-   * wizard reopens with its name, channel, template, mappings and audience.
+   * Saves every wizard field as a draft (lib/broadcasts/drafts): no recipients, no sending.
+   * Editing a draft replaces it in place; Edit on the list reopens it exactly as it was.
    */
   async function handleSaveDraft() {
-    if (!name.trim() || (channel === 'whatsapp' && !template)) {
+    if (!name.trim()) {
       toast.error(t('toastGiveName'));
       return;
     }
-    const db = createClient();
-    const {
-      data: { session },
-    } = await db.auth.getSession();
-    const user = session?.user;
-    if (!user) {
-      toast.error(t('toastNotSignedIn'));
+    try {
+      await saveCampaignDraft({
+        name: name.trim(),
+        channel,
+        ...(channel === 'instagram' ? { text: text.slice(0, 1000) } : {}),
+        templateId: channel === 'whatsapp' ? template?.id ?? null : null,
+        variables,
+        headerMediaUrl,
+        trackedUrl,
+        sendExtras: sendExtras as Record<string, unknown>,
+        scheduledAt: later && scheduleAt ? scheduleAt : undefined,
+        whatsappConfigId: fromNumberId,
+        sendWindow,
+        audience,
+      }, draftId);
+    } catch (err) {
+      toast.error(t('toastFailedDraft', { error: err instanceof Error ? err.message : '' }));
       return;
     }
-    if (!accountId) {
-      toast.error(t('toastNotLinked'));
-      return;
-    }
-
-    const { error } = await db.from('broadcasts').insert({
-      user_id: user.id,
-      account_id: accountId,
-      name: name.trim(),
-      template_name: channel === 'instagram' ? '' : template!.name,
-      template_language: channel === 'instagram' ? 'en_US' : template!.language ?? 'en_US',
-      template_variables: channel === 'instagram' ? {} : variables,
-      audience_filter: {
-        type: audience.type,
-        tagIds: audience.tagIds,
-        excludeTagIds: audience.excludeTagIds,
-        customField: audience.customField,
-        segmentId: audience.segmentId,
-        listId: audience.listId,
-      },
-      status: 'draft',
-      channel,
-      ...(channel === 'instagram' ? { message_text: text.slice(0, 1000) } : {}),
-    });
-
-    if (error) {
-      toast.error(t('toastFailedDraft', { error: error.message }));
-      return;
-    }
-    await retireDraft().catch(() => undefined);
     toast.success(t('toastDraftSaved'));
     router.push('/broadcasts');
   }
@@ -420,6 +437,14 @@ function NewBroadcastWizard() {
               headerMediaUrl={headerMediaUrl}
               sendExtras={sendExtras}
               onSaveDraft={handleSaveDraft}
+              later={later}
+              onLaterChange={setLater}
+              scheduleAt={scheduleAt}
+              onScheduleAtChange={setScheduleAt}
+              fromNumberId={fromNumberId}
+              onFromNumberChange={setFromNumberId}
+              sendWindow={sendWindow}
+              onSendWindowChange={setSendWindow}
               onBack={() => go('personalize')}
               isProcessing={isProcessing}
             />

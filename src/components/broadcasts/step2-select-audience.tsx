@@ -7,6 +7,8 @@ import { audienceReach, fetchLists, fetchSegments, type ListSummary, type Segmen
 import { csvValueColumns, parseBroadcastCsv } from '@/lib/broadcast-csv';
 import { CustomField, Tag } from '@/types';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 import {
   Users,
@@ -43,7 +45,13 @@ interface AudienceConfig {
   allowDuplicates?: boolean;
   /** Wizard only, never sent: the picked file, so toggling duplicates can re-read it after Back. */
   csvText?: string;
+  skipRecentDays?: number;
+  consentConfirmed?: boolean;
+  csvFileName?: string;
 }
+
+/** The "Skip people messaged in the last X days" choices (0 = off). */
+const SKIP_RECENT_CHOICES = [0, 1, 3, 7, 14, 30] as const;
 
 interface Step2Props {
   /** Instagram campaigns cannot use a CSV and count only people inside their 24-hour window. */
@@ -63,6 +71,7 @@ export function Step2SelectAudience({
 }: Step2Props) {
   const t = useTranslations('Broadcasts.wizard');
   const tc = useTranslations('Campaigns');
+  const skipRecentLabel = (days: number) => (days === 0 ? tc('sendControls.skipRecentOff') : tc('sendControls.skipRecentDays', { count: days }));
 
   const OPERATOR_OPTIONS = useMemo<{ value: CustomFieldOperator; label: string }[]>(() => [
     { value: 'is', label: t('selectAudience.operatorIs') },
@@ -123,16 +132,14 @@ export function Step2SelectAudience({
   const [loadingFields, setLoadingFields] = useState(false);
   const [estimatedCount, setEstimatedCount] = useState<number | null>(null);
   const [loadingCount, setLoadingCount] = useState(false);
-  // The picked file's name, shown back to the user. The parsed rows
-  // themselves live on `audience.csvContacts` (owned by the wizard) so
-  // they survive stepping forward and back.
-  const [pickedCsvName, setPickedCsvName] = useState<string | null>(null);
+  // The picked file's name lives on the audience (csvFileName) with the parsed
+  // rows, so both survive stepping back and forth and a saved draft.
   const csvInputRef = useRef<HTMLInputElement>(null);
 
   const csvCount = audience.csvContacts?.length ?? 0;
   // Only meaningful while the rows it produced are still in play —
   // picking another audience type wipes `csvContacts`.
-  const csvFileName = csvCount > 0 ? pickedCsvName : null;
+  const csvFileName = csvCount > 0 ? audience.csvFileName ?? null : null;
 
   // Tags are used both by the primary "Filter by Tags" audience type
   // AND by the exclude-list below — so always load once on mount.
@@ -181,6 +188,7 @@ export function Step2SelectAudience({
           excludeTagIds: audience.excludeTagIds,
           segmentId: audience.segmentId,
           listId: audience.listId,
+          skipRecentDays: audience.skipRecentDays,
         })).eligible);
         return;
       }
@@ -193,6 +201,8 @@ export function Step2SelectAudience({
           excludeTagIds: audience.excludeTagIds,
           segmentId: audience.segmentId,
           listId: audience.listId,
+          allowDuplicates: audience.allowDuplicates,
+          skipRecentDays: audience.skipRecentDays,
         }),
       );
     } catch {
@@ -209,6 +219,8 @@ export function Step2SelectAudience({
     audience.excludeTagIds,
     audience.segmentId,
     audience.listId,
+    audience.allowDuplicates,
+    audience.skipRecentDays,
   ]);
 
   useEffect(() => {
@@ -231,8 +243,7 @@ export function Step2SelectAudience({
       // Clear the input so re-picking the same corrected file still
       // fires `change` (the browser suppresses it for an identical value).
       e.target.value = '';
-      setPickedCsvName(null);
-      onUpdate({ ...audience, csvContacts: undefined });
+      onUpdate({ ...audience, csvContacts: undefined, csvFileName: undefined });
       return;
     }
 
@@ -245,8 +256,8 @@ export function Step2SelectAudience({
       );
     }
 
-    setPickedCsvName(selected.name);
-    onUpdate({ ...audience, csvContacts: result.contacts, csvText: text });
+    // A new file needs its consent confirmed again.
+    onUpdate({ ...audience, csvContacts: result.contacts, csvText: text, csvFileName: selected.name.slice(0, 255), consentConfirmed: false });
   }
 
   function toggleDuplicates(allow: boolean) {
@@ -287,7 +298,8 @@ export function Step2SelectAudience({
       audience.customField.value.length > 0) ||
     (audience.type === 'csv' &&
       audience.csvContacts &&
-      audience.csvContacts.length > 0) ||
+      audience.csvContacts.length > 0 &&
+      audience.consentConfirmed === true) ||
     (audience.type === 'segment' && !!audience.segmentId) ||
     (audience.type === 'list' && !!audience.listId);
 
@@ -325,6 +337,8 @@ export function Step2SelectAudience({
                   listId: option.type === 'list' ? audience.listId : undefined,
                   allowDuplicates: option.type === 'csv' ? audience.allowDuplicates : undefined,
                   csvText: option.type === 'csv' ? audience.csvText : undefined,
+                  csvFileName: option.type === 'csv' ? audience.csvFileName : undefined,
+                  consentConfirmed: option.type === 'csv' ? audience.consentConfirmed : undefined,
                 })
               }
               className={`flex items-start gap-3 rounded-xl border p-4 text-left transition-colors duration-150 ${
@@ -532,16 +546,27 @@ export function Step2SelectAudience({
             className="hidden"
           />
 
-          <label className="flex items-start gap-2 text-sm text-foreground">
-            <input
-              type="checkbox"
+          <label className="flex min-h-11 items-start gap-2 text-sm text-foreground">
+            <Checkbox
               className="mt-0.5"
               checked={audience.allowDuplicates === true}
-              onChange={(e) => toggleDuplicates(e.target.checked)}
+              onCheckedChange={(checked) => toggleDuplicates(checked === true)}
             />
             <span>
               {t('selectAudience.allowDuplicates')}
               <span className="block text-xs text-muted-foreground">{t('selectAudience.allowDuplicatesHint')}</span>
+            </span>
+          </label>
+          {/* Required: a CSV can add people who never wrote to the business. The server refuses it unticked. */}
+          <label className="flex min-h-11 items-start gap-2 rounded-lg bg-muted/50 p-3 text-sm text-foreground">
+            <Checkbox
+              className="mt-0.5"
+              checked={audience.consentConfirmed === true}
+              onCheckedChange={(checked) => onUpdate({ ...audience, consentConfirmed: checked === true })}
+            />
+            <span>
+              {tc('sendControls.csvConsent')}
+              <span className="block text-xs text-muted-foreground">{tc('sendControls.csvConsentHint')}</span>
             </span>
           </label>
           {csvCount > 0 && csvValueColumns(audience.csvContacts ?? []).length > 0 && (
@@ -586,6 +611,25 @@ export function Step2SelectAudience({
             })}
           </div>
         )}
+      </div>
+
+      {/* Frequency cap: applies to every audience type, in the count below and when sending. */}
+      <div className="rounded-xl border border-border bg-card p-4">
+        <p id="skip-recent-label" className="text-sm font-medium text-foreground">{tc('sendControls.skipRecent')}</p>
+        <p className="mt-0.5 text-xs text-muted-foreground">{tc('sendControls.skipRecentHint')}</p>
+        <Select
+          value={String(audience.skipRecentDays ?? 0)}
+          onValueChange={(value) => onUpdate({ ...audience, skipRecentDays: Number(value) || undefined })}
+        >
+          <SelectTrigger aria-labelledby="skip-recent-label" className="mt-2 h-11 w-full sm:w-60">
+            <SelectValue>{(value: string) => skipRecentLabel(Number(value))}</SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            {SKIP_RECENT_CHOICES.map((days) => (
+              <SelectItem key={days} value={String(days)}>{skipRecentLabel(days)}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       {/* Audience Summary */}

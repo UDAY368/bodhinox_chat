@@ -122,6 +122,8 @@ const RECIPIENT_STATUSES: readonly RecipientStatus[] = [
   'sent',
   'failed',
   'pending',
+  // "Cancel remaining" (batch 7): never sent.
+  'cancelled',
 ];
 const RECIPIENT_PAGE = 12;
 

@@ -80,6 +80,11 @@ export const recipientStatusConfig: Record<RecipientStatus, StatusDisplay> = {
     label: "failed",
     classes: "bg-red-500/10 text-red-400 border-red-500/20",
   },
+  // "Cancel remaining": the campaign stopped before this person was sent.
+  cancelled: {
+    label: "cancelled",
+    classes: "bg-slate-500/10 text-muted-foreground border-slate-500/20",
+  },
 };
 
 /**

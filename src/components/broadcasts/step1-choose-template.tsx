@@ -1,10 +1,13 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { createClient } from '@/lib/data/client';
 import { MessageTemplate } from '@/types';
 import { Button } from '@/components/ui/button';
-import { Loader2, FileText, ArrowRight } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { FileText, ArrowRight, Search } from 'lucide-react';
+import { TemplatePreview } from '@/components/templates/template-preview';
+import type { TemplateDraftInput } from '@/components/templates/types';
 import { useTranslations } from 'next-intl';
 import { templateSendRefusal } from '@/lib/whatsapp/template-send-params';
 
@@ -23,6 +26,8 @@ interface Step1Props {
 
 export function Step1ChooseTemplate({ selectedTemplate, onSelect, onNext, onBack }: Step1Props) {
   const t = useTranslations('Broadcasts.wizard');
+  const tc = useTranslations('Campaigns.sendControls');
+  const [query, setQuery] = useState('');
   const [templates, setTemplates] = useState<MessageTemplate[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -38,7 +43,9 @@ export function Step1ChooseTemplate({ selectedTemplate, onSelect, onNext, onBack
           .from('message_templates')
           .select('*')
           .eq('status', 'APPROVED')
-          .order('created_at', { ascending: false });
+          .order('created_at', { ascending: false })
+          // Meta caps a WhatsApp Business Account at 250 templates; this bounds a multi-number workspace.
+          .limit(1000);
 
         if (fetchError) throw fetchError;
         setTemplates(data ?? []);
@@ -52,10 +59,18 @@ export function Step1ChooseTemplate({ selectedTemplate, onSelect, onNext, onBack
     fetchTemplates();
   }, []);
 
+  // Search by name, body text, category or language; the list is already in memory.
+  const shown = useMemo(() => {
+    const needle = query.trim().toLowerCase();
+    if (!needle) return templates;
+    return templates.filter((tpl) => [tpl.name, tpl.body_text, tpl.category, tpl.language]
+      .some((field) => typeof field === 'string' && field.toLowerCase().includes(needle)));
+  }, [templates, query]);
+
   if (loading) {
     return (
-      <div className="flex h-64 items-center justify-center">
-        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3" aria-busy="true">
+        {[0, 1, 2, 3, 4, 5].map((n) => <div key={n} className="h-32 animate-pulse rounded-xl bg-muted" />)}
       </div>
     );
   }
@@ -84,8 +99,26 @@ export function Step1ChooseTemplate({ selectedTemplate, onSelect, onNext, onBack
           <p className="mt-1 text-xs text-muted-foreground">{t('chooseTemplate.createFirst')}</p>
         </div>
       ) : (
+        <>
+        <div className="relative">
+          <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
+          <Input
+            type="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder={tc('templateSearch')}
+            aria-label={tc('templateSearch')}
+            className="h-11 pl-9"
+          />
+        </div>
+        {shown.length === 0 && (
+          <div className="flex h-32 flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border">
+            <p className="text-sm text-muted-foreground">{tc('templateNoMatches')}</p>
+            <Button variant="outline" size="sm" onClick={() => setQuery('')}>{tc('templateClearSearch')}</Button>
+          </div>
+        )}
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {templates.map((template) => {
+          {shown.map((template) => {
             const isSelected = selectedTemplate?.id === template.id;
             const catColor = categoryColors[template.category] ?? categoryColors.Utility;
             // Authentication templates carry a code typed for one person; the server refuses them too.
@@ -94,6 +127,8 @@ export function Step1ChooseTemplate({ selectedTemplate, onSelect, onNext, onBack
             return (
               <button
                 key={template.id}
+                type="button"
+                aria-pressed={isSelected}
                 onClick={() => onSelect(template)}
                 disabled={refused}
                 aria-describedby={refused ? `tpl-refused-${template.id}` : undefined}
@@ -127,6 +162,16 @@ export function Step1ChooseTemplate({ selectedTemplate, onSelect, onNext, onBack
             );
           })}
         </div>
+        {/* The chosen template as the customer will see it. */}
+        {selectedTemplate && (
+          <section aria-label={tc('templatePreview')} className="space-y-2">
+            <p className="text-sm font-medium text-foreground">{tc('templatePreview')}</p>
+            <TemplatePreview
+              template={{ ...(selectedTemplate as unknown as TemplateDraftInput), language: selectedTemplate.language ?? 'en_US' }}
+            />
+          </section>
+        )}
+        </>
       )}
 
       <div className="flex items-center justify-between border-t border-border pt-4">

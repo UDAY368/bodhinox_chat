@@ -2,9 +2,7 @@ import { describe, it, expect } from 'vitest';
 import type { DataClient } from '@/lib/data/types';
 
 import {
-  countAudience,
   resolveAudienceContacts,
-  type AudienceConfig,
 } from './broadcast-audience';
 import type { Contact } from '@/types';
 
@@ -259,7 +257,6 @@ describe('resolveAudienceContacts', () => {
     const kept = [all[0].id, all[3].id];
     expect((await resolveAudienceContacts(db, { type: 'all' }, noCsv)).map((c) => c.id)).toEqual(kept);
     expect((await resolveAudienceContacts(db, { type: 'tags', tagIds: ['tag-1'] }, noCsv)).map((c) => c.id)).toEqual(kept);
-    expect(await countAudience(db, { type: 'all' })).toBe(2);
   });
 
   it('subtracts a large exclude list from a large tag audience', async () => {
@@ -356,85 +353,5 @@ describe('resolveAudienceContacts', () => {
     await expect(
       resolveAudienceContacts(db, { type: 'tags', tagIds: ['t'] }, noCsv)
     ).rejects.toThrow('Failed to fetch contact tags: denied');
-  });
-});
-
-describe('countAudience', () => {
-  it('counts "all" with a head request', async () => {
-    const { db, requests } = cappedPostgrest({ contacts: contacts(2812) });
-    expect(await countAudience(db, { type: 'all' })).toBe(2812);
-    expect(requests).toEqual([{ table: 'contacts', inValues: 0, head: true }]);
-  });
-
-  it('subtracts a large exclude list from "all"', async () => {
-    const all = contacts(2600);
-    const { db } = cappedPostgrest({
-      contacts: all,
-      contact_tags: tagRows(all.slice(0, 1700), 'tag-optout', 'x'),
-    });
-    expect(
-      await countAudience(db, { type: 'all', excludeTagIds: ['tag-optout'] })
-    ).toBe(900);
-  });
-
-  it('counts a tag audience beyond the cap, minus excludes', async () => {
-    const all = contacts(2812);
-    const { db } = cappedPostgrest({
-      contacts: all,
-      contact_tags: [
-        ...tagRows(all, 'tag-big', 't'),
-        ...tagRows(all.slice(0, 1100), 'tag-optout', 'x'),
-      ],
-    });
-    expect(await countAudience(db, { type: 'tags', tagIds: ['tag-big'] })).toBe(
-      2812
-    );
-    expect(
-      await countAudience(db, {
-        type: 'tags',
-        tagIds: ['tag-big'],
-        excludeTagIds: ['tag-optout'],
-      })
-    ).toBe(1712);
-  });
-
-  it('counts a custom-field audience', async () => {
-    const all = contacts(1500);
-    const { db } = cappedPostgrest({
-      contact_custom_values: all.map((c, i) => ({
-        id: uuid('v', i),
-        contact_id: c.id,
-        custom_field_id: 'f',
-        value: 'Gold tier',
-      })),
-    });
-    expect(
-      await countAudience(db, {
-        type: 'custom_field',
-        customField: { fieldId: 'f', operator: 'contains', value: 'gold' },
-      })
-    ).toBe(1500);
-  });
-
-  it('counts CSV rows without a query', async () => {
-    const { db, requests } = cappedPostgrest({});
-    const audience: AudienceConfig = {
-      type: 'csv',
-      csvContacts: [{ phone: '+1' }, { phone: '+2' }],
-    };
-    expect(await countAudience(db, audience)).toBe(2);
-    expect(requests).toHaveLength(0);
-  });
-
-  it('returns null for a partially configured audience', async () => {
-    const { db } = cappedPostgrest({});
-    expect(await countAudience(db, { type: 'tags', tagIds: [] })).toBeNull();
-    expect(
-      await countAudience(db, {
-        type: 'custom_field',
-        customField: { fieldId: 'f', operator: 'is', value: '' },
-      })
-    ).toBeNull();
-    expect(await countAudience(db, { type: 'csv' })).toBeNull();
   });
 });

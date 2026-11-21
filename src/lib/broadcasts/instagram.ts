@@ -232,7 +232,9 @@ export async function deliverInstagramBroadcast(accountId: string, broadcastId: 
   const pace = options.paceMs ?? 150;
 
   for (const [index, row] of rows.entries()) {
-    if (options.shouldStop && index % 10 === 0 && await options.shouldStop()) {
+    if (pace) await new Promise((resolve) => setTimeout(resolve, pace));
+    // Pause, "Cancel remaining" and the send window are read before every send, after the pacing pause.
+    if (options.shouldStop && await options.shouldStop()) {
       result.stopped = true;
       result.remaining += rows.length - index;
       return result;
@@ -244,7 +246,6 @@ export async function deliverInstagramBroadcast(accountId: string, broadcastId: 
     }
     // Outside the try: a lost lease aborts the pass and leaves recipients pending, not failed.
     options.assertLease();
-    if (pace) await new Promise((resolve) => setTimeout(resolve, pace));
     const fail = async (reason: string, uncertain = false) => {
       await markFailed(accountId, row.id, reason, uncertain);
       result.failed++;
