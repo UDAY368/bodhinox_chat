@@ -106,11 +106,14 @@ describe('sequence routes', () => {
       expect(fn).not.toHaveBeenCalled();
   });
 
-  it('answers 503 while Instagram is off and 429 when rate limited', async () => {
+  it('keeps WhatsApp sequences working while Instagram is off, and answers 429 when rate limited', async () => {
     h.instagram = false;
-    expect((await listRoute()).status).toBe(503);
-    expect((await createRoute(req('POST', { name: 'Welcome' }))).status).toBe(503);
+    // The store refuses an Instagram sequence itself (503); the routes no longer gate every call on Instagram.
+    expect((await listRoute()).status).toBe(200);
+    expect((await createRoute(req('POST', { name: 'Welcome', channel: 'whatsapp' }))).status).toBe(201);
+    expect(h.create).toHaveBeenLastCalledWith(me(), 'Welcome', 'whatsapp');
     h.instagram = true;
+    h.create.mockClear();
     h.limited = true;
     expect((await createRoute(req('POST', { name: 'Welcome' }))).status).toBe(429);
     expect(h.create).not.toHaveBeenCalled();
@@ -118,7 +121,15 @@ describe('sequence routes', () => {
 
   it('passes parsed input to the store', async () => {
     expect((await createRoute(req('POST', { name: '  Welcome  ' }))).status).toBe(201);
-    expect(h.create).toHaveBeenCalledWith(me(), 'Welcome');
+    expect(h.create).toHaveBeenCalledWith(me(), 'Welcome', 'instagram');
+    await patchRoute(req('PATCH', { exit_on_reply: true, exit_on_tag_id: null, exit_on_purchase: false, channel: 'whatsapp' }), p);
+    expect(h.update).toHaveBeenLastCalledWith(me(), SEQ, { exit_on_reply: true, exit_on_tag_id: null, exit_on_purchase: false, channel: 'whatsapp' });
+    await addRoute(req('POST', { whatsapp: { text: 'Hi', template: { name: 'promo', params: ['{{contact.name}}'] } } }), p);
+    expect(h.add).toHaveBeenLastCalledWith(me(), SEQ, { kind: 'whatsapp', step: { text: 'Hi', media: null,
+      template: { name: 'promo', language: null, params: ['{{contact.name}}'] } } });
+    await addRoute(req('POST', { whatsapp: { text: 'Later' }, delay_amount: 2, delay_unit: 'hours' }), p);
+    expect(h.add).toHaveBeenLastCalledWith(me(), SEQ, { kind: 'whatsapp', step: { text: 'Later', media: null, template: null },
+      delay: { amount: 2, unit: 'hours' } });
     await patchRoute(req('PATCH', { name: 'Renamed', status: 'paused' }), p);
     expect(h.update).toHaveBeenCalledWith(me(), SEQ, { name: 'Renamed', status: 'paused' });
     expect((await addRoute(req('POST', { create: { name: 'Day one' } }), p)).status).toBe(201);
@@ -145,6 +156,14 @@ describe('sequence routes', () => {
       patchMessageRoute(req('PATCH', { delay_amount: 1, delay_unit: 'weeks' }), pm),
       patchMessageRoute(req('PATCH', {}), pm),
       changeRoute(req('POST', { action: 'subscribe', contact_id: 'x' }), p),
+      createRoute(req('POST', { name: 'ok', channel: 'sms' })),
+      patchRoute(req('PATCH', { exit_on_tag_id: 'nope' }), p),
+      addRoute(req('POST', { whatsapp: { text: '' } }), p),
+      addRoute(req('POST', { whatsapp: { text: 'x' }, flow_id: FLOW }), p),
+      patchMessageRoute(req('PATCH', { whatsapp: { media: { type: 'image', url: 'http://insecure.test/a.png' } } }), pm),
+      addRoute(req('POST', { whatsapp: { text: 'x' }, delay_amount: 1 }), p),
+      addRoute(req('POST', { whatsapp: { text: 'x' }, delay_amount: 400, delay_unit: 'days' }), p),
+      addRoute(req('POST', { whatsapp: { text: 'x' }, create: { name: 'y' } }), p),
     ];
     for (const res of await Promise.all(bad)) expect(res.status).toBe(400);
   });

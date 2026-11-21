@@ -2,7 +2,8 @@
 
 // Instagram › Sequences (Stage 5, 5H): the workspace's sequences with
 // Subscribers, Messages, Open rate and CTR, and "New sequence". A row opens the
-// timeline editor. Members read; agents and above create.
+// timeline editor. Members read; agents and above create. Only Instagram
+// sequences list here; WhatsApp ones list in the Automation list.
 
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import Link from 'next/link';
@@ -23,6 +24,7 @@ import { sequenceApi, sequenceErrorKey, type SequenceSummary } from './sequence-
 import { formatRate } from './sequence-format';
 
 export const sequencePath = (id: string) => `/instagram/sequences/${encodeURIComponent(id)}`;
+const instagramOnly = (rows: SequenceSummary[]) => rows.filter((row) => row.channel === 'instagram');
 
 export function SequenceList() {
   const t = useTranslations('Instagram.sequences');
@@ -37,7 +39,7 @@ export function SequenceList() {
 
   const load = useCallback(async () => {
     try {
-      const next = await sequenceApi.list();
+      const next = instagramOnly(await sequenceApi.list());
       setRows(next);
       setFailed(false);
     } catch {
@@ -48,7 +50,7 @@ export function SequenceList() {
   useEffect(() => {
     if (!accountId) return;
     let live = true;
-    sequenceApi.list().then((next) => { if (live) { setRows(next); setFailed(false); } }, () => { if (live) setFailed(true); });
+    sequenceApi.list().then((next) => { if (live) { setRows(instagramOnly(next)); setFailed(false); } }, () => { if (live) setFailed(true); });
     return () => { live = false; };
   }, [accountId]);
 

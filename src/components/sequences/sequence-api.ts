@@ -7,12 +7,21 @@
 
 import { authFetch } from '@/lib/auth/client';
 import type { SequenceDetail, SequenceSubscriber, SequenceSummary } from '@/lib/sequences/store';
+import type { ExitSettings, SequenceChannel, WaMediaType } from '@/lib/sequences/whatsapp';
 
 export type { SequenceDetail, SequenceMessageView, SequenceSubscriber, SequenceSummary } from '@/lib/sequences/store';
 
 export const SEQUENCE_ERROR_CODES = [
   'invalid_request', 'notFound', 'tooManyMessages', 'flowNotFound', 'busy', 'forbidden', 'instagram_not_enabled',
+  'channelLocked', 'tagNotFound', 'templateNotFound', 'templateUnusable',
 ] as const;
+
+/** A WhatsApp step as the editor sends it (POST/PATCH { whatsapp }). */
+export interface WhatsAppStepInput {
+  text: string | null;
+  media: { type: WaMediaType; url: string; filename: string | null } | null;
+  template: { name: string; language: string | null; params: string[] } | null;
+}
 export type SequenceClientError = (typeof SEQUENCE_ERROR_CODES)[number] | 'generic';
 
 export class SequenceRequestError extends Error {
@@ -47,19 +56,22 @@ const json = (method: string, body: unknown): RequestInit => ({ method, body: JS
 
 export const sequenceApi = {
   list: async () => (await call<{ sequences: SequenceSummary[] }>('/api/sequences')).sequences,
-  create: async (name: string) => (await call<{ sequence: SequenceDetail }>('/api/sequences', json('POST', { name }))).sequence,
+  create: async (name: string, channel: SequenceChannel = 'instagram') =>
+    (await call<{ sequence: SequenceDetail }>('/api/sequences', json('POST', { name, channel }))).sequence,
   get: async (id: string) => (await call<{ sequence: SequenceDetail }>(base(id))).sequence,
-  update: async (id: string, patch: { name?: string; status?: 'active' | 'paused' }) =>
+  update: async (id: string, patch: { name?: string; status?: 'active' | 'paused'; channel?: SequenceChannel } & Partial<ExitSettings>) =>
     (await call<{ sequence: SequenceDetail }>(base(id), json('PATCH', patch))).sequence,
   archive: async (id: string) => { await call<unknown>(base(id), { method: 'DELETE' }); },
   addExisting: async (id: string, flowId: string) =>
     (await call<{ sequence: SequenceDetail }>(`${base(id)}/messages`, json('POST', { flow_id: flowId }))).sequence,
   addNew: async (id: string, name: string) =>
     (await call<{ sequence: SequenceDetail }>(`${base(id)}/messages`, json('POST', { create: { name } }))).sequence,
+  addWhatsApp: async (id: string, step: WhatsAppStepInput, delay?: { delay_amount: number; delay_unit: string }) =>
+    (await call<{ sequence: SequenceDetail }>(`${base(id)}/messages`, json('POST', { whatsapp: step, ...delay }))).sequence,
   reorder: async (id: string, order: string[]) =>
     (await call<{ sequence: SequenceDetail }>(`${base(id)}/messages`, json('PUT', { order }))).sequence,
   updateMessage: async (id: string, messageId: string,
-    patch: { delay_amount?: number; delay_unit?: string; active?: boolean; flow_id?: string }) =>
+    patch: { delay_amount?: number; delay_unit?: string; active?: boolean; flow_id?: string; whatsapp?: WhatsAppStepInput }) =>
     (await call<{ sequence: SequenceDetail }>(`${base(id)}/messages/${encodeURIComponent(messageId)}`, json('PATCH', patch))).sequence,
   removeMessage: async (id: string, messageId: string) =>
     (await call<{ sequence: SequenceDetail }>(`${base(id)}/messages/${encodeURIComponent(messageId)}`, { method: 'DELETE' })).sequence,

@@ -1,4 +1,5 @@
-// PATCH  /api/sequences/:id/messages/:messageId — { delay_amount?, delay_unit?, active?, flow_id? } (agent or above).
+// PATCH  /api/sequences/:id/messages/:messageId — { delay_amount?, delay_unit?, active?, flow_id? (Instagram),
+//   whatsapp? (WhatsApp: the whole step, as on POST) } (agent or above).
 // DELETE /api/sequences/:id/messages/:messageId — remove it and close the gap (agent or above);
 //   409 busy while the worker is sending this sequence to someone.
 // 200 { sequence }; 400 invalid_request; 404 notFound | flowNotFound.
@@ -10,7 +11,6 @@ import { checkRateLimit, rateLimitResponse } from '@/lib/rate-limit';
 import {
   deleteMessage,
   parseMessagePatch,
-  requireInstagram,
   sequenceErrorResponse,
   sequenceHeaders,
   SEQUENCE_WRITE_LIMIT,
@@ -21,7 +21,6 @@ type Params = { params: Promise<{ id: string; messageId: string }> };
 
 async function guard() {
   const ctx = await requireRole('agent');
-  requireInstagram();
   const limit = await checkRateLimit(`sequences:write:${ctx.userId}`, SEQUENCE_WRITE_LIMIT);
   return { ctx, limited: limit.success ? null : rateLimitResponse(limit) };
 }

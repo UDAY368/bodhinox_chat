@@ -13,12 +13,11 @@ import { instagramConfig } from '@/lib/instagram/config';
 export const SEQUENCES_DUE_JOB = 'sequences.due';
 const SLOT_MS = 30_000;
 
-/** Returns how many jobs it offered. Nothing while Instagram is off: the subscriptions wait. */
+/** Returns how many jobs it offered. While Instagram is off its sequences wait; WhatsApp sequences still run. */
 export async function scheduleSequenceSweeps(now: number = Date.now()): Promise<number> {
-  if (!instagramConfig()) return 0;
   const prisma = getWorkerPrisma();
   const slot = Math.floor(now / SLOT_MS);
-  const due = await prisma.$queryRaw<{ account_id: string }[]>`SELECT * FROM crm_due_sequence_accounts()`;
+  const due = await prisma.$queryRaw<{ account_id: string }[]>`SELECT * FROM crm_due_sequence_accounts(${!!instagramConfig()})`;
   for (const { account_id } of due)
     await prisma.$executeRaw`INSERT INTO jobs(type,tenant_id,payload,dedupe_key,max_attempts)
       VALUES(${SEQUENCES_DUE_JOB},${account_id}::uuid,'{}'::jsonb,${`sequences-due:${account_id}:${slot}`},2)

@@ -1,7 +1,8 @@
 // Sequence subscriptions (Stage 5, 5H): how a contact enters and leaves a
 // sequence. Called by the flow engine's Actions step (subscribe_sequence,
 // unsubscribe_sequence) and its `sequence` condition (5B), by Instagram
-// opt-out (5D: endSequencesForContact) and by members on the Sequences page.
+// opt-out (5D: endSequencesForContact), by members on the Sequences page, and
+// (batch 7) by an event feed through exitSequencesFor ("Exit when").
 //
 // Every function takes a tenant transaction of `accountId` (an app session or
 // the worker); RLS keeps it to the workspace, and the composite foreign keys
@@ -14,19 +15,20 @@ import { getWorkerPrisma } from '@/lib/db/prisma';
 import { withTenant, type TenantTransaction } from '@/lib/db/tenant';
 import type { SequenceDelayUnit } from '@/types';
 import { dueAt } from './schedule';
+import type { SequenceExitReason } from './whatsapp';
 
 export type SubscribeResult = 'subscribed' | 'already_subscribed' | 'unavailable';
 
 /**
- * Subscribes the contact. 'unavailable' when the sequence is archived, not an
- * Instagram sequence or not in this workspace, or the contact is not.
+ * Subscribes the contact. 'unavailable' when the sequence is archived or not in
+ * this workspace, or the contact is not. Instagram and WhatsApp sequences alike.
  */
 export async function subscribeInTx(tx: TenantTransaction, accountId: string, contactId: string, sequenceId: string,
   now: Date = new Date()): Promise<SubscribeResult> {
   const [target] = await tx.$queryRaw<{ ok: boolean }[]>`
     SELECT true AS ok FROM sequences q
     JOIN contacts c ON c.account_id = q.account_id AND c.id = ${contactId}::uuid
-    WHERE q.account_id = ${accountId}::uuid AND q.id = ${sequenceId}::uuid AND q.channel = 'instagram' AND q.status <> 'archived'`;
+    WHERE q.account_id = ${accountId}::uuid AND q.id = ${sequenceId}::uuid AND q.status <> 'archived'`;
   if (!target) return 'unavailable';
   // The first message (lowest position) is due its delay after now; no message yet: waits until one is added.
   const [first] = await tx.$queryRaw<{ delay_amount: number; delay_unit: SequenceDelayUnit; position: number }[]>`
@@ -39,7 +41,7 @@ export async function subscribeInTx(tx: TenantTransaction, accountId: string, co
     VALUES(${accountId}::uuid, ${sequenceId}::uuid, ${contactId}::uuid, ${now}, 0, ${due}, 'active')
     ON CONFLICT (account_id, sequence_id, contact_id) DO UPDATE SET
       status = 'active', subscribed_at = EXCLUDED.subscribed_at, next_position = 0, next_due_at = EXCLUDED.next_due_at,
-      claimed_at = NULL, ended_at = NULL
+      claimed_at = NULL, ended_at = NULL, exit_reason = NULL
     WHERE sequence_subscriptions.status IN ('completed','unsubscribed')
     RETURNING 1 AS ok`);
   return rows.length ? 'subscribed' : 'already_subscribed';
@@ -59,6 +61,43 @@ export async function endSequencesForContact(tx: TenantTransaction, accountId: s
   return tx.$executeRaw`UPDATE sequence_subscriptions
     SET status = 'unsubscribed', ended_at = now(), next_due_at = NULL, claimed_at = NULL
     WHERE account_id = ${accountId}::uuid AND contact_id = ${contactId}::uuid AND status IN ('active','sending')`;
+}
+
+/** What happened to the contact, as the event paths name it ('bought' is stored as exit_reason 'purchased'). */
+export type SequenceExitEvent = 'replied' | 'tagged' | 'bought';
+const EXIT_REASON: Record<SequenceExitEvent, SequenceExitReason> = { replied: 'replied', tagged: 'tagged', bought: 'purchased' };
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * "Exit when", pushed by the event paths: the inbound message path (replied),
+ * the tag writers (tagged) and the order.paid event dispatch (bought). Stops
+ * the contact's running subscriptions whose sequence exits on that event
+ * (exit_on_reply, exit_on_tag_id equal to `tagId`, exit_on_purchase) and that
+ * began at or before `at` (default now: an event from before joining never
+ * ends a later subscription). The subscription ends as completed with its
+ * exit_reason. A subscription mid-send ('sending') is left to the worker: its
+ * claimed send must settle (or be reconciled), and the worker's own check
+ * before the next step ends it. `contactId` may list several contacts (bulk tagging). The
+ * worker checks the same rules before every step, so this is the fast path,
+ * not the only one. Runs in the caller's transaction, scoped to `accountId`.
+ * Returns how many ended.
+ */
+export async function exitSequencesFor(tx: TenantTransaction, input: {
+  accountId: string; contactId: string | readonly string[]; reason: SequenceExitEvent; tagId?: string | null; at?: Date;
+}): Promise<number> {
+  const { accountId, reason } = input;
+  const contactIds = (typeof input.contactId === 'string' ? [input.contactId] : [...input.contactId]).filter((id) => UUID.test(id));
+  if (!contactIds.length || !UUID.test(accountId)) return 0;
+  if (reason === 'tagged' && !(input.tagId && UUID.test(input.tagId))) return 0;
+  const rule = reason === 'replied' ? Prisma.sql`q.exit_on_reply`
+    : reason === 'bought' ? Prisma.sql`q.exit_on_purchase`
+    : Prisma.sql`q.exit_on_tag_id = ${input.tagId}::uuid`;
+  return tx.$executeRaw(Prisma.sql`UPDATE sequence_subscriptions s
+    SET status = 'completed', ended_at = now(), next_due_at = NULL, claimed_at = NULL, exit_reason = ${EXIT_REASON[reason]}
+    FROM sequences q
+    WHERE s.account_id = ${accountId}::uuid AND s.contact_id = ANY(${contactIds}::uuid[]) AND s.status = 'active'
+      AND s.subscribed_at <= COALESCE(${input.at ?? null}::timestamptz, now())
+      AND q.account_id = s.account_id AND q.id = s.sequence_id AND ${rule}`);
 }
 
 /** The `sequence` condition: whether the contact has a running subscription to the sequence. */

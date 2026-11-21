@@ -11,6 +11,7 @@ import { recordWhatsAppOrder, withProductNames } from "@/lib/commerce/orders";
 import { notifyAssignedMessage } from "@/lib/notifications/emit";
 import { recordReferralTx, toAdReferralSummary, type AdReferral, type AdReferralSummary } from "@/lib/meta-ads/referrals";
 import { queueConversionEventTx } from "@/lib/meta-ads/capi";
+import { exitSequencesFor } from "@/lib/sequences/subscriptions";
 
 export interface IngestInboundInput {
   accountId: string; userId: string; contactId: string; conversationId: string;
@@ -118,6 +119,8 @@ export async function ingestInboundMessage(input: IngestInboundInput): Promise<{
       last_message_text=${input.contentText || `[${input.contentType}]`},last_message_at=NOW(),
       status=CASE WHEN status='closed' THEN 'open' ELSE status END,updated_at=NOW()
       WHERE account_id=${input.accountId}::uuid AND id=${input.conversationId}::uuid`;
+    // Sequences set to "Exit when replied" stop with the message (WhatsApp and Instagram both land here).
+    await exitSequencesFor(tx, { accountId: input.accountId, contactId: input.contactId, reason: "replied", at: input.createdAt });
     // Keyed by conversation: the worker runs one conversation's actions one at a time, oldest first.
     await tx.$executeRaw`INSERT INTO jobs(type,tenant_id,payload,dedupe_key,max_attempts,lane_key)
       VALUES('inbound.actions',${input.accountId}::uuid,${JSON.stringify(payload)}::jsonb,${`inbound:${inserted[0].id}`},${LONG_RETRY_ATTEMPTS},${conversationLaneKey(input.conversationId)})

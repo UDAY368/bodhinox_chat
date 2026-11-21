@@ -23,6 +23,7 @@ import { listFilter } from '@/lib/audience/lists';
 import { contactSearchSql, loadSegmentFilter } from '@/lib/audience/segments';
 import { PAUSE_MINUTES_CHOICES } from '@/lib/flows/types';
 import { markExplicitPause } from '@/lib/inbox/automation-pause';
+import { exitSequencesFor } from '@/lib/sequences/subscriptions';
 import { conversationVisibleSql } from '@/lib/inbox/inbox-scope';
 import { loadPhoneMask, maskContactIdentifier, maskContactRow } from '@/lib/inbox/masking-apply';
 import { normalizeFieldValue } from './custom-field-types';
@@ -307,6 +308,8 @@ export async function bulkContactAction(ctx: TenantContext, input: unknown): Pro
           INSERT INTO contact_tags(account_id,contact_id,tag_id)
           SELECT ${ctx.accountId}::uuid, id, ${action.tagId}::uuid FROM (${matching}) m(id)
           ON CONFLICT (contact_id, tag_id) DO NOTHING`);
+        // Sequences set to "Exit when tagged" with this tag stop for these contacts (no automations start).
+        await exitSequencesFor(tx, { accountId: ctx.accountId, contactId: ids, reason: 'tagged', tagId: action.tagId });
         break;
       }
       case 'delete':

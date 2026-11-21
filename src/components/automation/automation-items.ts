@@ -64,10 +64,12 @@ export interface RuleRow {
   updated_at: string;
 }
 
-/** An Instagram sequence as GET /api/sequences returns it. */
+/** A sequence as GET /api/sequences returns it. */
 export interface SequenceRow {
   id: string;
   name: string;
+  /** Batch 7: WhatsApp sequences too (absent on older rows means Instagram). */
+  channel?: 'instagram' | 'whatsapp';
   status: 'active' | 'paused' | 'archived';
   subscribers: number;
   messages: number;
@@ -122,7 +124,7 @@ export function ruleItem(rule: RuleRow): AutomationItem {
 export function sequenceItem(sequence: SequenceRow): AutomationItem {
   return {
     key: `sequence:${sequence.id}`, kind: 'sequence', id: sequence.id, name: sequence.name, description: null,
-    channel: 'instagram', status: sequence.status === 'active' ? 'active' : sequence.status === 'archived' ? 'archived' : 'paused',
+    channel: sequence.channel ?? 'instagram', status: sequence.status === 'active' ? 'active' : sequence.status === 'archived' ? 'archived' : 'paused',
     runs: sequence.subscribers, ctr: null, updatedAt: sequence.updated_at, creatorId: null, folderId: null, sequence,
   };
 }

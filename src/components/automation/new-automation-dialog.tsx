@@ -5,7 +5,7 @@
  * card, the channel's rule templates and the flow template gallery with its
  * own search and filters), then for scratch a short form: Name, Type (Flow,
  * Rule or Sequence, each with a hint) and Channel. A sequence runs on
- * Instagram only, so it is offered while Instagram is on and chosen. The AI
+ * WhatsApp, and on Instagram while Instagram is on (batch 7). The AI
  * flow builder stays for WhatsApp.
  */
 
@@ -115,7 +115,7 @@ function DialogBody({ channels, initialChannel, templates, creating, sequencesOn
   const [name, setName] = useState('');
   const [kind, setKind] = useState<AutomationKind>('flow');
   const [nameError, setNameError] = useState(false);
-  const sequenceAllowed = (on: Channel) => sequencesOn && on === 'instagram';
+  const sequenceAllowed = (on: Channel) => on === 'whatsapp' || (sequencesOn && on === 'instagram');
   const chosenKind: AutomationKind = kind === 'sequence' && !sequenceAllowed(channel) ? 'flow' : kind;
 
   const flowTemplates = templates.filter((tpl) => !tpl.channels || tpl.channels.includes(channel));

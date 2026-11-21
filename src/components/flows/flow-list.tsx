@@ -79,6 +79,7 @@ import { ChannelDotMark, KIND_ICON, NewAutomationDialog, type NewAutomationInput
 import { RenameDialog } from "@/components/automation/rename-dialog";
 import { isEventTriggerType } from "@/lib/events/types";
 import { sequenceApi, sequenceErrorKey } from "@/components/sequences/sequence-api";
+import { sequencePath } from "@/components/sequences/sequence-format";
 
 /**
  * Automation: flows, rules and sequences in one list (`channel="all"`,
@@ -306,9 +307,9 @@ export function FlowList({ channel }: { channel: Channel | "all" }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [channel, retryToken]);
 
-  // Instagram sequences list here while Instagram is on (the API answers 503 while it is off).
+  // Sequences list here: WhatsApp ones always, Instagram ones while Instagram is on (the API leaves them out while it is off).
   useEffect(() => {
-    if (!instagramOn || !unified) return;
+    if (!unified) return;
     let live = true;
     sequenceApi.list().then((rows) => { if (live) setSequences(rows as SequenceRow[]); }, () => {});
     return () => { live = false; };
@@ -345,8 +346,8 @@ export function FlowList({ channel }: { channel: Channel | "all" }) {
       else if (input.kind === "rule") await createRule(input.name, input.channel);
       else {
         try {
-          const sequence = await sequenceApi.create(input.name);
-          router.push(`/instagram/sequences/${encodeURIComponent(sequence.id)}`);
+          const sequence = await sequenceApi.create(input.name, input.channel === "whatsapp" ? "whatsapp" : "instagram");
+          router.push(sequencePath(sequence.channel, sequence.id));
         } catch (error) {
           throw new Error(tSeq(`errors.${sequenceErrorKey(error)}`));
         }
@@ -384,7 +385,7 @@ export function FlowList({ channel }: { channel: Channel | "all" }) {
   function openItem(item: AutomationItem) {
     if (item.kind === "flow") router.push(editorPath(item.id, sectionOf(item)));
     else if (item.kind === "rule") router.push(channelPath(sectionOf(item), "automations", item.id));
-    else router.push(`/instagram/sequences/${encodeURIComponent(item.id)}`);
+    else router.push(sequencePath(item.channel, item.id));
   }
 
   async function handleDuplicate(item: AutomationItem) {
