@@ -11,7 +11,8 @@ import { Download, Loader2 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { authFetch } from '@/lib/auth/client';
-import { StepUpFields, sendJson, useActionError, useMfaState } from './step-up';
+import { GroupedListRow } from '@/components/ui/grouped-list';
+import { GroupError, StepUpFields, sendJson, useActionError, useMfaState } from './step-up';
 import { SettingsBlock, SettingsGroup } from '../settings-row';
 
 interface ExportItem {
@@ -96,52 +97,49 @@ export function WorkspaceExportCard() {
   };
 
   return (
-    <SettingsGroup title={t('title')} footer={t('description')}>
-      <SettingsBlock className="space-y-4">
-        {!configured ? (
-          <p className="text-sm text-muted-foreground">{t('notConfigured')}</p>
-        ) : (
-          <>
-            <StepUpFields idPrefix="export" mfa={mfa} identity={false} password="" onPassword={() => undefined} code={code} onCode={setCode} />
-            {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}
-            <Button onClick={request} disabled={busy || pending || (mfa?.enabled === true && !code)}>
-              {busy ? <Loader2 className="size-4 animate-spin" /> : null}
-              {pending ? t('inProgress') : t('request')}
-            </Button>
-          </>
-        )}
-        {items && items.length > 0 ? (
-          <ul className="-mx-4 divide-y divide-separator border-y border-separator text-sm">
-            {items.map((item) => (
-              <li key={item.id} className="flex min-h-11 flex-wrap items-center justify-between gap-2 px-4 py-2">
-                <span className="text-foreground">
-                  {format.dateTime(new Date(item.createdAt), { dateStyle: 'medium', timeStyle: 'short' })}
-                </span>
-                <span className="flex items-center gap-3 text-muted-foreground">
-                  {t(`status.${item.status}`)}
-                  {item.status === 'ready' && item.sizeBytes !== null ? (
-                    <span>{format.number(item.sizeBytes / (1024 * 1024), { maximumFractionDigits: 1 })} MB</span>
-                  ) : null}
-                  {item.status === 'ready' ? (
-                    <a
-                      className="inline-flex items-center gap-1 text-primary hover:underline"
-                      href={`/api/account/export/${item.id}/download`}
-                      onClick={(event) => {
-                        event.preventDefault();
-                        void openExportDownload(item.id);
-                      }}
-                    >
-                      <Download className="size-3.5" />
-                      {t('download')}
-                    </a>
-                  ) : null}
-                </span>
-              </li>
-            ))}
-          </ul>
-        ) : null}
-        <p className="text-xs text-muted-foreground">{t('note')}</p>
-      </SettingsBlock>
+    <SettingsGroup
+      title={t('title')}
+      footer={<><p>{t('description')}</p><p className="mt-1">{t('note')}</p></>}
+      action={configured ? (
+        <Button size="sm" className="min-h-11 sm:min-h-8" onClick={request} disabled={busy || pending || (mfa?.enabled === true && !code)}>
+          {busy ? <Loader2 className="size-4 animate-spin" /> : null}
+          {pending ? t('inProgress') : t('request')}
+        </Button>
+      ) : undefined}
+    >
+      {!configured ? (
+        <SettingsBlock className="py-3"><p className="text-sm text-muted-foreground">{t('notConfigured')}</p></SettingsBlock>
+      ) : (
+        <StepUpFields idPrefix="export" mfa={mfa} identity={false} password="" onPassword={() => undefined} code={code} onCode={setCode} />
+      )}
+      <GroupError error={error} />
+      {items?.map((item) => (
+        <GroupedListRow
+          key={item.id}
+          title={format.dateTime(new Date(item.createdAt), { dateStyle: 'medium', timeStyle: 'short' })}
+          trailing={
+            <span className="flex items-center gap-3">
+              {t(`status.${item.status}`)}
+              {item.status === 'ready' && item.sizeBytes !== null ? (
+                <span>{format.number(item.sizeBytes / (1024 * 1024), { maximumFractionDigits: 1 })} MB</span>
+              ) : null}
+              {item.status === 'ready' ? (
+                <a
+                  className="inline-flex min-h-11 items-center gap-1 text-primary hover:underline"
+                  href={`/api/account/export/${item.id}/download`}
+                  onClick={(event) => {
+                    event.preventDefault();
+                    void openExportDownload(item.id);
+                  }}
+                >
+                  <Download className="size-3.5" />
+                  {t('download')}
+                </a>
+              ) : null}
+            </span>
+          }
+        />
+      ))}
     </SettingsGroup>
   );
 }

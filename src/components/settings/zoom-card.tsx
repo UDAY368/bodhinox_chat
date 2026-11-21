@@ -24,7 +24,8 @@ import { useAuth } from "@/hooks/use-auth";
 import { authFetch } from "@/lib/auth/client";
 import { hasMinRole } from "@/lib/auth/roles";
 import type { MeetingConnectionDto } from "@/lib/meetings/types";
-import { SettingsBlock, SettingsGroup } from "./settings-row";
+import { GroupedListRow } from "@/components/ui/grouped-list";
+import { SettingsBlock, SettingsGroup, SettingsSwitchRow } from "./settings-row";
 import { PageLoading } from "@/components/ui/page-loading";
 
 /** ?zoom=<outcome> values the callback can send. */
@@ -129,47 +130,38 @@ export function ZoomCard() {
     <SettingsGroup
       title={<span className="inline-flex items-center gap-2"><Video className="size-4" aria-hidden="true" /> {t("title")}</span>}
       footer={t("description")}
+      action={state?.available && state.status !== "active" && canEdit ? (
+        <Button type="button" size="sm" className="min-h-11 sm:min-h-8" onClick={connect} disabled={busy}>
+          {busy && <Loader2 className="size-3.5 animate-spin" />}
+          {state.status === "token_invalid" ? t("reconnect") : t("connect")}
+        </Button>
+      ) : undefined}
       more={[{ label: t("disconnect"), icon: Unplug, destructive: true, disabled: busy, hidden: !canEdit || !stored, onSelect: () => void disconnect() }]}
     >
-      <SettingsBlock className="space-y-4">
-        {loadFailed && <InlineError message={t("loadFailed")} onRetry={() => void load()} />}
-        {!state && !loadFailed && <PageLoading rows={2} />}
-        {state && (
-          <>
-            <div className="flex flex-wrap items-center gap-2 text-sm">
-              {badge}
-              {state.available && state.connected_at && stored && (
-                <span className="text-muted-foreground">
-                  {t("connectedOn", { date: new Date(state.connected_at).toLocaleDateString() })}
-                </span>
-              )}
-            </div>
-            {!state.available && <p className="text-muted-foreground text-sm">{t("unavailableHelp")}</p>}
-            {state.available && state.status === "token_invalid" && (
-              <p className="text-muted-foreground text-sm">{t("reconnectHelp")}</p>
-            )}
-            {state.available && state.status !== "active" && canEdit && (
-              <div className="space-y-2">
-                {state.status !== "token_invalid" && <p className="text-muted-foreground text-sm">{t("connectHelp")}</p>}
-                <Button type="button" onClick={connect} disabled={busy}>
-                  {busy && <Loader2 className="size-3.5 animate-spin" />}
-                  {state.status === "token_invalid" ? t("reconnect") : t("connect")}
-                </Button>
-              </div>
-            )}
-            {state.available && state.status === "active" && (
-              <label className="flex items-start gap-3 text-sm">
-                <Switch checked={state.register_attendees} onCheckedChange={(v: boolean) => void setRegister(v)}
-                  disabled={!canEdit || busy} />
-                <span>
-                  <span className="text-foreground block font-medium">{t("registerAttendees")}</span>
-                  <span className="text-muted-foreground block text-xs">{t("registerAttendeesHelp")}</span>
-                </span>
-              </label>
-            )}
-          </>
-        )}
-      </SettingsBlock>
+      {loadFailed && <SettingsBlock><InlineError message={t("loadFailed")} onRetry={() => void load()} /></SettingsBlock>}
+      {!state && !loadFailed && <SettingsBlock><PageLoading rows={2} /></SettingsBlock>}
+      {state && (
+        <>
+          <GroupedListRow
+            title={t("title")}
+            subtitle={!state.available ? t("unavailableHelp")
+              : state.status === "token_invalid" ? t("reconnectHelp")
+              : state.connected_at && stored ? t("connectedOn", { date: new Date(state.connected_at).toLocaleDateString() })
+              : canEdit && state.status !== "active" ? t("connectHelp")
+              : undefined}
+            trailing={badge}
+            className="[&_.truncate]:whitespace-normal"
+          />
+          {state.available && state.status === "active" && (
+            <SettingsSwitchRow
+              title={t("registerAttendees")}
+              description={t("registerAttendeesHelp")}
+              control={<Switch checked={state.register_attendees} onCheckedChange={(v: boolean) => void setRegister(v)}
+                disabled={!canEdit || busy} aria-label={t("registerAttendees")} />}
+            />
+          )}
+        </>
+      )}
     </SettingsGroup>
   );
 }

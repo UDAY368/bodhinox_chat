@@ -9,7 +9,6 @@ import { useWorkspaceChannels } from '@/hooks/use-workspace-channels';
 import { canEditSettings } from '@/lib/auth/roles';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { useConfirm } from '@/components/ui/confirm-dialog';
@@ -29,7 +28,8 @@ import { isOpenRouterBaseUrl, OPENROUTER_BASE_URL, OPENROUTER_FREE_MODEL, type O
 import type { AccountMember } from '@/types';
 import { fetchAccountMembers, memberLabel } from '@/lib/account/members';
 import { useTranslations } from 'next-intl';
-import { SettingsBlock, SettingsGroup } from "./settings-row";
+import { cn } from "@/lib/utils";
+import { SETTINGS_ROW_HAIRLINE, SettingsGroup, SettingsRow, SettingsSwitchRow } from "./settings-row";
 
 const MASKED_KEY = '••••••••••••••••';
 
@@ -323,7 +323,7 @@ export function AiConfig() {
   // The key itself never comes back to the browser; only whether one is stored.
   const connected = configured && savedProvider === provider && (provider === 'gemini' || hasStoredKey);
   const testButton = (
-    <Button variant="outline" onClick={handleTest} disabled={disabled || testing} className="min-h-11 sm:min-h-9">
+    <Button variant="outline" size="sm" onClick={handleTest} disabled={disabled || testing} className="min-h-11 sm:min-h-8">
       {testing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle2 className="mr-2 h-4 w-4" />}
       {t('testConnection')}
     </Button>
@@ -343,269 +343,257 @@ export function AiConfig() {
       )}
 
       <div className="space-y-6">
-        <SettingsGroup title={<><Sparkles className="h-4 w-4 text-primary" /> {t('connectStep')}</>} footer={provider === 'gemini' ? t('geminiSecurityNotice') : t('encryptionNotice')}>
-          <SettingsBlock className="space-y-4">
-            <p className="text-sm font-medium text-muted-foreground" role="status">
-              {connected ? t('connectedKeySaved') : t('notConnected')}
-            </p>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="ai-provider">{t('provider')}</Label>
-                <Select
-                  value={openRouter ? 'openrouter' : provider}
-                  onValueChange={(v) => { if (v) selectProvider(v); }}
-                  disabled={disabled}
-                >
-                  <SelectTrigger id="ai-provider">
-                    <SelectValue>{openRouter ? 'OpenRouter — free models' : provider === 'openai_compatible' ? t('providerOpenAiCompatible') : PROVIDER_LABEL[provider]}</SelectValue>
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="openai">{PROVIDER_LABEL.openai}</SelectItem>
-                    <SelectItem value="anthropic">
-                      {PROVIDER_LABEL.anthropic}
-                    </SelectItem>
-                    <SelectItem value="gemini">{PROVIDER_LABEL.gemini}</SelectItem>
-                    <SelectItem value="openrouter">OpenRouter — free models</SelectItem>
-                    <SelectItem value="openai_compatible">
-                      {t('providerOpenAiCompatible')}
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+        <SettingsGroup
+          title={<><Sparkles className="h-4 w-4 text-primary" /> {t('connectStep')}</>}
+          footer={provider === 'gemini' ? t('geminiSecurityNotice') : t('encryptionNotice')}
+          action={testButton}
+          more={[{
+            label: t('remove'),
+            icon: Trash2,
+            destructive: true,
+            onSelect: () => void handleRemove(),
+            disabled: !canEdit || removing,
+            hidden: !configured,
+          }]}
+        >
+          <div className={cn(SETTINGS_ROW_HAIRLINE, 'flex min-h-11 items-center px-4 py-3 text-sm text-muted-foreground')} role="status">
+            {connected ? t('connectedKeySaved') : t('notConnected')}
+          </div>
+          <SettingsRow label={t('provider')} htmlFor="ai-provider">
+            <Select
+              value={openRouter ? 'openrouter' : provider}
+              onValueChange={(v) => { if (v) selectProvider(v); }}
+              disabled={disabled}
+            >
+              <SelectTrigger id="ai-provider">
+                <SelectValue>{openRouter ? 'OpenRouter — free models' : provider === 'openai_compatible' ? t('providerOpenAiCompatible') : PROVIDER_LABEL[provider]}</SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="openai">{PROVIDER_LABEL.openai}</SelectItem>
+                <SelectItem value="anthropic">
+                  {PROVIDER_LABEL.anthropic}
+                </SelectItem>
+                <SelectItem value="gemini">{PROVIDER_LABEL.gemini}</SelectItem>
+                <SelectItem value="openrouter">OpenRouter — free models</SelectItem>
+                <SelectItem value="openai_compatible">
+                  {t('providerOpenAiCompatible')}
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </SettingsRow>
 
-              <div className="space-y-2">
-                <Label htmlFor={modelList.length ? 'ai-model-pick' : 'ai-model'}>{t('model')}</Label>
-                {modelList.length > 0 && (
-                  <Select
-                    value={modelPick}
-                    onValueChange={(v) => {
-                      if (!v) return;
-                      if (v === OTHER_MODEL) { setOtherModel(true); return; }
-                      setOtherModel(false);
-                      setModel(v);
-                    }}
-                    disabled={disabled}
-                  >
-                    <SelectTrigger id="ai-model-pick">
-                      <SelectValue>
-                        {modelPick === OTHER_MODEL ? t('otherModel') : modelPick === modelList[0] ? t('recommendedModel', { model: modelPick }) : modelPick}
-                      </SelectValue>
-                    </SelectTrigger>
-                    <SelectContent>
-                      {modelList.map((id, i) => (
-                        <SelectItem key={id} value={id}>{i === 0 ? t('recommendedModel', { model: id }) : id}</SelectItem>
-                      ))}
-                      <SelectItem value={OTHER_MODEL}>{t('otherModel')}</SelectItem>
-                    </SelectContent>
-                  </Select>
-                )}
-                {modelPick === OTHER_MODEL && (
-                  <Input
-                    id="ai-model"
-                    aria-label={t('modelId')}
-                    value={model}
-                    onChange={(e) => setModel(e.target.value)}
-                    placeholder={AI_PROVIDER_DEFAULT_MODEL[provider]}
-                    disabled={disabled}
-                  />
-                )}
-                {openRouter && (
-                  <div className="space-y-2">
-                    <Label htmlFor="ai-free-model">{t('freeModels')}</Label>
-                    <Select value={model || OPENROUTER_FREE_MODEL} onValueChange={(v) => { if (v) setModel(v); }} disabled={disabled || modelsLoading}>
-                      <SelectTrigger id="ai-free-model">
-                        <SelectValue>
-                          {model === OPENROUTER_FREE_MODEL || !model ? t('automaticFreeModel') : freeModels.find((item) => item.id === model)?.name ?? model}
-                        </SelectValue>
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value={OPENROUTER_FREE_MODEL}>{t('automaticFreeModel')}</SelectItem>
-                        {model && model !== OPENROUTER_FREE_MODEL && !freeModels.some((item) => item.id === model) && <SelectItem value={model}>{model}</SelectItem>}
-                        {freeModels.filter((item) => item.id !== OPENROUTER_FREE_MODEL).map((item) => (
-                          <SelectItem key={item.id} value={item.id}>{item.name} ({item.id})</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <p className="text-xs text-muted-foreground">{modelsLoading ? t('loadingFreeModels') : !catalogAvailable ? t('freeModelsUnavailable') : t('openRouterHint')}</p>
-                  </div>
-                )}
-              </div>
-
-              {provider === 'openai_compatible' && (
-                <div className="space-y-2">
-                  <Label htmlFor="ai-base-url">{t('baseUrl')}</Label>
-                  <Input
-                    id="ai-base-url"
-                    value={baseUrl}
-                    onChange={(e) => setBaseUrl(e.target.value)}
-                    placeholder="https://api.example.com/v1"
-                    disabled={disabled}
-                    autoComplete="off"
-                  />
-                  <p className="text-xs text-muted-foreground">{t('baseUrlHint')}</p>
-                </div>
-              )}
-            </div>
-
-            {provider === 'gemini' ? (
-              <div className="flex flex-wrap items-center gap-3 rounded-md border border-border bg-muted/40 p-3">
-                <p className="flex-1 text-sm text-muted-foreground">{t('geminiEnvHint')}</p>
-                {testButton}
-              </div>
-            ) : <div className="space-y-2">
-              <Label htmlFor="ai-key">{t('apiKey')}</Label>
-              <div className="flex gap-2">
-                <div className="relative flex-1">
-                  <Input
-                    id="ai-key"
-                    type={showKey ? 'text' : 'password'}
-                    value={apiKey}
-                    onChange={(e) => {
-                      setApiKey(e.target.value);
-                      setKeyEdited(true);
-                    }}
-                    onFocus={() => {
-                      if (!keyEdited && hasStoredKey) {
-                        setApiKey('');
-                        setKeyEdited(true);
-                      }
-                    }}
-                    placeholder={KEY_PLACEHOLDER[provider]}
-                    className="pr-11 sm:pr-9"
-                    disabled={disabled}
-                    autoComplete="off"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowKey((s) => !s)}
-                    aria-label={showKey ? t('hideKey') : t('showKey')}
-                    aria-pressed={showKey}
-                    className="absolute right-0 top-1/2 flex size-11 -translate-y-1/2 items-center justify-center text-muted-foreground hover:text-foreground sm:size-9"
-                  >
-                    {showKey ? (
-                      <EyeOff className="h-4 w-4" />
-                    ) : (
-                      <Eye className="h-4 w-4" />
-                    )}
-                  </button>
-                </div>
-                {testButton}
-              </div>
-            </div>}
-
-            {testResult && (
-              <p role="status" className={testResult.ok ? 'text-sm text-emerald-700 dark:text-emerald-400' : 'text-sm text-destructive'}>
-                {testResult.ok ? testResult.message : t('testFailed', { reason: testResult.message })}
-              </p>
+          <SettingsRow label={t('model')} htmlFor={modelList.length ? 'ai-model-pick' : 'ai-model'}>
+            {modelList.length > 0 && (
+              <Select
+                value={modelPick}
+                onValueChange={(v) => {
+                  if (!v) return;
+                  if (v === OTHER_MODEL) { setOtherModel(true); return; }
+                  setOtherModel(false);
+                  setModel(v);
+                }}
+                disabled={disabled}
+              >
+                <SelectTrigger id="ai-model-pick">
+                  <SelectValue>
+                    {modelPick === OTHER_MODEL ? t('otherModel') : modelPick === modelList[0] ? t('recommendedModel', { model: modelPick }) : modelPick}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {modelList.map((id, i) => (
+                    <SelectItem key={id} value={id}>{i === 0 ? t('recommendedModel', { model: id }) : id}</SelectItem>
+                  ))}
+                  <SelectItem value={OTHER_MODEL}>{t('otherModel')}</SelectItem>
+                </SelectContent>
+              </Select>
             )}
-
-            <div className="space-y-2">
-              <Label htmlFor="ai-embeddings-key">
-                {t('embeddingsKey')}{' '}
-                <span className="font-normal text-muted-foreground">
-                  {t('optionalSemanticSearch')}
-                </span>
-              </Label>
+            {modelPick === OTHER_MODEL && (
               <Input
-                id="ai-embeddings-key"
-                type="password"
-                value={embeddingsKey}
-                onChange={(e) => {
-                  setEmbeddingsKey(e.target.value);
-                  setEmbeddingsKeyEdited(true);
-                }}
-                onFocus={() => {
-                  if (!embeddingsKeyEdited && hasStoredEmbeddingsKey) {
-                    setEmbeddingsKey('');
-                    setEmbeddingsKeyEdited(true);
-                  }
-                }}
-                placeholder="sk-... (OpenAI)"
+                id="ai-model"
+                aria-label={t('modelId')}
+                value={model}
+                onChange={(e) => setModel(e.target.value)}
+                placeholder={AI_PROVIDER_DEFAULT_MODEL[provider]}
+                disabled={disabled}
+                className={modelList.length > 0 ? 'mt-2' : undefined}
+              />
+            )}
+          </SettingsRow>
+
+          {openRouter && (
+            <SettingsRow
+              label={t('freeModels')}
+              htmlFor="ai-free-model"
+              hint={modelsLoading ? t('loadingFreeModels') : !catalogAvailable ? t('freeModelsUnavailable') : t('openRouterHint')}
+            >
+              <Select value={model || OPENROUTER_FREE_MODEL} onValueChange={(v) => { if (v) setModel(v); }} disabled={disabled || modelsLoading}>
+                <SelectTrigger id="ai-free-model">
+                  <SelectValue>
+                    {model === OPENROUTER_FREE_MODEL || !model ? t('automaticFreeModel') : freeModels.find((item) => item.id === model)?.name ?? model}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={OPENROUTER_FREE_MODEL}>{t('automaticFreeModel')}</SelectItem>
+                  {model && model !== OPENROUTER_FREE_MODEL && !freeModels.some((item) => item.id === model) && <SelectItem value={model}>{model}</SelectItem>}
+                  {freeModels.filter((item) => item.id !== OPENROUTER_FREE_MODEL).map((item) => (
+                    <SelectItem key={item.id} value={item.id}>{item.name} ({item.id})</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </SettingsRow>
+          )}
+
+          {provider === 'openai_compatible' && (
+            <SettingsRow label={t('baseUrl')} htmlFor="ai-base-url" hint={t('baseUrlHint')}>
+              <Input
+                id="ai-base-url"
+                value={baseUrl}
+                onChange={(e) => setBaseUrl(e.target.value)}
+                placeholder="https://api.example.com/v1"
                 disabled={disabled}
                 autoComplete="off"
               />
-              <p className="text-xs text-muted-foreground">
-                {t('embeddingsHint', {
-                  sameKeyText: provider === 'openai' ? t('sameKeyText') : '',
-                })}
+            </SettingsRow>
+          )}
+
+          {provider === 'gemini' ? (
+            <div className={cn(SETTINGS_ROW_HAIRLINE, 'flex min-h-11 items-center px-4 py-3 text-sm text-muted-foreground')}>
+              {t('geminiEnvHint')}
+            </div>
+          ) : (
+            <SettingsRow label={t('apiKey')} htmlFor="ai-key">
+              <div className="relative">
+                <Input
+                  id="ai-key"
+                  type={showKey ? 'text' : 'password'}
+                  value={apiKey}
+                  onChange={(e) => {
+                    setApiKey(e.target.value);
+                    setKeyEdited(true);
+                  }}
+                  onFocus={() => {
+                    if (!keyEdited && hasStoredKey) {
+                      setApiKey('');
+                      setKeyEdited(true);
+                    }
+                  }}
+                  placeholder={KEY_PLACEHOLDER[provider]}
+                  className="pr-11 sm:pr-9"
+                  disabled={disabled}
+                  autoComplete="off"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowKey((s) => !s)}
+                  aria-label={showKey ? t('hideKey') : t('showKey')}
+                  aria-pressed={showKey}
+                  className="absolute right-0 top-1/2 flex size-11 -translate-y-1/2 items-center justify-center text-muted-foreground hover:text-foreground sm:size-9"
+                >
+                  {showKey ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
+                </button>
+              </div>
+            </SettingsRow>
+          )}
+
+          {testResult && (
+            <div className={cn(SETTINGS_ROW_HAIRLINE, 'flex min-h-11 items-center px-4 py-3')}>
+              <p role="status" className={testResult.ok ? 'text-sm text-emerald-700 dark:text-emerald-400' : 'text-sm text-destructive'}>
+                {testResult.ok ? testResult.message : t('testFailed', { reason: testResult.message })}
               </p>
             </div>
-          </SettingsBlock>
+          )}
+
+          <SettingsRow
+            label={t('embeddingsKey')}
+            htmlFor="ai-embeddings-key"
+            hint={<>
+              {t('optionalSemanticSearch')}{' '}
+              {t('embeddingsHint', {
+                sameKeyText: provider === 'openai' ? t('sameKeyText') : '',
+              })}
+            </>}
+          >
+            <Input
+              id="ai-embeddings-key"
+              type="password"
+              value={embeddingsKey}
+              onChange={(e) => {
+                setEmbeddingsKey(e.target.value);
+                setEmbeddingsKeyEdited(true);
+              }}
+              onFocus={() => {
+                if (!embeddingsKeyEdited && hasStoredEmbeddingsKey) {
+                  setEmbeddingsKey('');
+                  setEmbeddingsKeyEdited(true);
+                }
+              }}
+              placeholder="sk-... (OpenAI)"
+              disabled={disabled}
+              autoComplete="off"
+            />
+          </SettingsRow>
         </SettingsGroup>
 
         <SettingsGroup title={t('behaviour')} footer={t('behaviourDesc')}>
-          <SettingsBlock className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="ai-prompt">{t('businessContext')}</Label>
-              <Textarea
-                id="ai-prompt"
-                value={systemPrompt}
-                onChange={(e) => setSystemPrompt(e.target.value)}
-                placeholder={t('promptPlaceholder')}
-                rows={5}
-                disabled={disabled}
-              />
-            </div>
+          <SettingsRow label={t('businessContext')} htmlFor="ai-prompt" className="sm:grid-cols-1 sm:items-start sm:gap-2">
+            <Textarea
+              id="ai-prompt"
+              value={systemPrompt}
+              onChange={(e) => setSystemPrompt(e.target.value)}
+              placeholder={t('promptPlaceholder')}
+              rows={5}
+              disabled={disabled}
+            />
+          </SettingsRow>
 
-            <div className="flex items-center justify-between gap-4 rounded-md border border-border p-3">
-              <div>
-                <p className="text-sm font-medium text-foreground">
-                  {t('enableAssistant')}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  {t('enableAssistantDesc')}
-                </p>
-              </div>
+          <SettingsSwitchRow
+            title={t('enableAssistant')}
+            description={t('enableAssistantDesc')}
+            control={
               <Switch
                 checked={isActive}
                 onCheckedChange={setIsActive}
+                aria-label={t('enableAssistant')}
                 disabled={disabled}
               />
-            </div>
+            }
+          />
 
-            <div className="flex items-center justify-between gap-4 rounded-md border border-border p-3">
-              <div>
-                <p className="text-sm font-medium text-foreground">
-                  {t('autoReply')}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  {t('autoReplyDesc')}
-                </p>
-              </div>
+          <SettingsSwitchRow
+            title={t('autoReply')}
+            description={t('autoReplyDesc')}
+            control={
               <Switch
                 checked={autoReplyEnabled}
                 onCheckedChange={setAutoReplyEnabled}
+                aria-label={t('autoReply')}
                 disabled={disabled || !isActive}
               />
-            </div>
+            }
+          />
 
-            {showInstagram && (
-              <div className="flex items-center justify-between gap-4 rounded-md border border-border p-3">
-                <div>
-                  <p className="text-sm font-medium text-foreground">
-                    {t('instagram.autoReply')}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {instagramConnected || instagramAutoReply ? t('instagram.autoReplyHelp') : t('instagram.unavailable')}
-                  </p>
-                </div>
-                {/* Turning it off always works; turning it on needs the assistant on and a connected account. */}
+          {showInstagram && (
+            <SettingsSwitchRow
+              title={t('instagram.autoReply')}
+              description={instagramConnected || instagramAutoReply ? t('instagram.autoReplyHelp') : t('instagram.unavailable')}
+              control={
+                // Turning it off always works; turning it on needs the assistant on and a connected account.
                 <Switch
                   checked={instagramAutoReply}
                   onCheckedChange={setInstagramAutoReply}
                   aria-label={t('instagram.autoReply')}
                   disabled={disabled || (!instagramAutoReply && (!isActive || !instagramConnected))}
                 />
-              </div>
-            )}
+              }
+            />
+          )}
 
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <Label htmlFor="ai-max">{t('maxAutoReplies')}</Label>
-                <p className="text-xs text-muted-foreground">
-                  {t('maxAutoRepliesDesc')}
-                </p>
-              </div>
+          <SettingsRow label={t('maxAutoReplies')} htmlFor="ai-max" hint={t('maxAutoRepliesDesc')}>
+            <div className="flex sm:justify-end">
               <Input
                 id="ai-max"
                 type="number"
@@ -618,38 +606,40 @@ export function AiConfig() {
                   )
                 }
                 disabled={disabled || !anyAutoReply}
-                className="w-20"
+                className="w-24"
               />
             </div>
+          </SettingsRow>
 
-            <div className="space-y-2">
-              <Label htmlFor="ai-handoff">{t('handoffTo')}</Label>
-              <p className="text-xs text-muted-foreground">
-                {t('handoffToDesc')}
-              </p>
-              <Select
-                value={handoffAgentId || HANDOFF_QUEUE}
-                onValueChange={(v) =>
-                  setHandoffAgentId(!v || v === HANDOFF_QUEUE ? '' : v)
-                }
-                disabled={disabled || !anyAutoReply}
-              >
-                <SelectTrigger id="ai-handoff">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={HANDOFF_QUEUE}>
-                    {t('handoffQueue')}
+          <SettingsRow label={t('handoffTo')} htmlFor="ai-handoff" hint={t('handoffToDesc')}>
+            <Select
+              value={handoffAgentId || HANDOFF_QUEUE}
+              onValueChange={(v) =>
+                setHandoffAgentId(!v || v === HANDOFF_QUEUE ? '' : v)
+              }
+              disabled={disabled || !anyAutoReply}
+            >
+              <SelectTrigger id="ai-handoff">
+                <SelectValue>
+                  {(v: string) => {
+                    if (v === HANDOFF_QUEUE) return t('handoffQueue');
+                    const member = members.find((m) => m.user_id === v);
+                    return member ? memberLabel(member) : t('handoffQueue');
+                  }}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={HANDOFF_QUEUE}>
+                  {t('handoffQueue')}
+                </SelectItem>
+                {members.map((m) => (
+                  <SelectItem key={m.user_id} value={m.user_id}>
+                    {memberLabel(m)}
                   </SelectItem>
-                  {members.map((m) => (
-                    <SelectItem key={m.user_id} value={m.user_id}>
-                      {memberLabel(m)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </SettingsBlock>
+                ))}
+              </SelectContent>
+            </Select>
+          </SettingsRow>
         </SettingsGroup>
 
         <AiKnowledgeCard
@@ -662,25 +652,7 @@ export function AiConfig() {
           }
         />
 
-        <div className="flex items-center justify-between">
-          {configured ? (
-            <Button
-              variant="ghost"
-              onClick={handleRemove}
-              disabled={!canEdit || removing}
-              className="min-h-11 text-destructive hover:text-destructive sm:min-h-9"
-            >
-              {removing ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <Trash2 className="mr-2 h-4 w-4" />
-              )}
-              {t('remove')}
-            </Button>
-          ) : (
-            <span />
-          )}
-
+        <div className="flex justify-end">
           <Button onClick={handleSave} disabled={disabled} className="min-h-11 sm:min-h-9">
             {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             {t('save')}

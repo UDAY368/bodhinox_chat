@@ -18,6 +18,8 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog';
+import { GroupedListRow } from '@/components/ui/grouped-list';
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
 import { useTranslations } from 'next-intl';
 import type { Tag } from '@/types';
@@ -35,8 +37,8 @@ const PRESET_COLORS = [
 ];
 
 /**
- * Tags card — colour-coded contact labels. Creation is an inline row
- * (name + colour swatch + Add); deletion goes through a confirmation
+ * Tags card — colour-coded contact labels. "Add tag" opens a sheet
+ * (name, category, colour); deletion goes through a confirmation
  * dialog since it detaches the tag from every contact.
  */
 export function TagManager() {
@@ -55,6 +57,7 @@ export function TagManager() {
   const [selectedColor, setSelectedColor] = useState(PRESET_COLORS[3].value);
   const [editTag, setEditTag] = useState<Tag | null>(null);
   const [editCategory, setEditCategory] = useState('');
+  const [adding, setAdding] = useState(false);
   const categories = [...new Set(tags.map((tag) => tag.category).filter((c): c is string => !!c))].sort();
 
   useEffect(() => {
@@ -112,6 +115,7 @@ export function TagManager() {
       if (error) throw error;
 
       toast.success(t('tagCreated'));
+      setAdding(false);
       setNewTagName('');
       setNewTagCategory('');
       setSelectedColor(PRESET_COLORS[3].value);
@@ -174,11 +178,12 @@ export function TagManager() {
   return (
     <SettingsGroup title={<><TagIcon className="size-4 text-primary" />
           {t('tagsTitle')}</>} footer={t('tagsDesc')}>
-      <SettingsBlock className="space-y-4">
-        {loading ? (
-          <PageLoading rows={4} />
-        ) : (
-          <>
+      {loading ? (
+        <SettingsBlock><PageLoading rows={4} /></SettingsBlock>
+      ) : (
+        <>
+          {/* The tags themselves: a chip cloud grouped by category, not a form. */}
+          <SettingsBlock>
             {tags.length > 0 ? (
               <div className="space-y-3">
                 {groupTagsByCategory(tags).map((group, _, groups) => (
@@ -235,67 +240,73 @@ export function TagManager() {
               </p>
             )}
 
-            {/* Inline create row */}
-            <div className="flex flex-wrap items-center gap-2.5">
+          </SettingsBlock>
+          <GroupedListRow
+            leading={<Plus className="size-4 text-primary" aria-hidden />}
+            title={<span className="text-primary">{t('addTag')}</span>}
+            onClick={() => setAdding(true)}
+          />
+        </>
+      )}
+      <datalist id="tag-categories">
+        {categories.map((c) => <option key={c} value={c} />)}
+      </datalist>
+
+      <Sheet open={adding} onOpenChange={setAdding}>
+        <SheetContent size="sm" className="w-full gap-4 overflow-y-auto p-4">
+          <SheetHeader className="p-0 pr-8">
+            <SheetTitle>{t('addTag')}</SheetTitle>
+            <SheetDescription>{t('tagsDesc')}</SheetDescription>
+          </SheetHeader>
+          <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); void handleCreate(); }}>
+            <div className="space-y-1.5">
+              <Label htmlFor="new-tag-name">{t('tagNameLabel')}</Label>
               <Input
+                id="new-tag-name"
                 placeholder={t('placeholder')}
                 value={newTagName}
                 onChange={(e) => setNewTagName(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') handleCreate();
-                }}
                 disabled={saving}
                 maxLength={40}
-                className="min-w-[180px] flex-1"
               />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="new-tag-category">{t('categoryLabel')}</Label>
               <Input
+                id="new-tag-category"
                 placeholder={t('categoryPlaceholder')}
-                aria-label={t('categoryLabel')}
                 value={newTagCategory}
                 onChange={(e) => setNewTagCategory(e.target.value)}
                 disabled={saving}
                 maxLength={40}
                 list="tag-categories"
-                className="w-40"
               />
-              <datalist id="tag-categories">
-                {categories.map((c) => <option key={c} value={c} />)}
-              </datalist>
-              <div className="flex gap-1.5">
-                {PRESET_COLORS.map((color) => (
-                  <button
-                    key={color.value}
-                    type="button"
-                    onClick={() => setSelectedColor(color.value)}
-                    aria-label={t('useColor', { color: t(`colors.${color.name}` as Parameters<typeof t>[0]) })}
-                    aria-pressed={selectedColor === color.value}
-                    className={cn(
-                      'size-6 rounded-md transition-transform hover:scale-110',
-                      selectedColor === color.value &&
-                        'outline outline-2 outline-offset-2 outline-primary',
-                    )}
-                    style={{ backgroundColor: color.value }}
-                    title={t(`colors.${color.name}` as Parameters<typeof t>[0])}
-                  />
-                ))}
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleCreate}
-                disabled={saving || !newTagName.trim()}
-              >
-                {saving ? (
-                  <Loader2 className="size-4 animate-spin" />
-                ) : (
-                  <Plus className="size-4" />
-                )}
-                {t('addTag')}
-              </Button>
             </div>
-          </>
-        )}
-      </SettingsBlock>
+            <div className="flex flex-wrap gap-1.5">
+              {PRESET_COLORS.map((color) => (
+                <button
+                  key={color.value}
+                  type="button"
+                  onClick={() => setSelectedColor(color.value)}
+                  aria-label={t('useColor', { color: t(`colors.${color.name}` as Parameters<typeof t>[0]) })}
+                  aria-pressed={selectedColor === color.value}
+                  className={cn(
+                    'size-11 rounded-md transition-transform hover:scale-105 sm:size-8',
+                    selectedColor === color.value &&
+                      'outline outline-2 outline-offset-2 outline-primary',
+                  )}
+                  style={{ backgroundColor: color.value }}
+                  title={t(`colors.${color.name}` as Parameters<typeof t>[0])}
+                />
+              ))}
+            </div>
+            <Button type="submit" className="min-h-11 w-full" disabled={saving || !newTagName.trim()}>
+              {saving && <Loader2 className="size-4 animate-spin" />}
+              {t('addTag')}
+            </Button>
+          </form>
+        </SheetContent>
+      </Sheet>
 
       {/* Edit category */}
       <Dialog open={editTag !== null} onOpenChange={(open) => !open && setEditTag(null)}>

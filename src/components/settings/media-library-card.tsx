@@ -15,7 +15,9 @@ import { MediaLibraryBrowser, useFormatBytes, type StorageUsage } from "@/compon
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { authFetch } from "@/lib/auth/client";
-import { SettingsBlock, SettingsGroup } from "./settings-row";
+import { GroupedListRow } from "@/components/ui/grouped-list";
+import { cn } from "@/lib/utils";
+import { SETTINGS_ROW_HAIRLINE, SettingsGroup } from "./settings-row";
 
 export function MediaLibraryCard({ className }: { className?: string }) {
   const t = useTranslations("MediaLibrary");
@@ -37,20 +39,34 @@ export function MediaLibraryCard({ className }: { className?: string }) {
   const percent = usage?.limit_bytes ? Math.min(100, Math.round((usage.used_bytes / usage.limit_bytes) * 100)) : null;
 
   return (
-    <SettingsGroup className={className} title={<><HardDrive className="size-4" aria-hidden />{t("settingsTitle")}</>} footer={t("settingsDescription")}>
-      <SettingsBlock className="space-y-4">
-        {failed ? (
-          <p className="text-sm text-destructive">{t("usageFailed")}</p>
-        ) : !usage ? (
-          <p className="text-sm text-muted-foreground">{t("loading")}</p>
-        ) : (
-          <div className="space-y-2">
-            <p className="text-sm font-medium">
-              {usage.limit_bytes
-                ? t("usedOfLimit", { used: formatBytes(usage.used_bytes), limit: formatBytes(usage.limit_bytes) })
-                : t("used", { used: formatBytes(usage.used_bytes) })}
-            </p>
-            {percent !== null && (
+    <SettingsGroup
+      className={className}
+      title={<><HardDrive className="size-4" aria-hidden />{t("settingsTitle")}</>}
+      footer={t("settingsDescription")}
+      action={
+        <Button type="button" size="sm" variant="outline" className="min-h-11 sm:min-h-8" onClick={() => setOpen(true)}>
+          <FolderOpen className="size-4" aria-hidden />
+          {t("manage")}
+        </Button>
+      }
+    >
+      {failed ? (
+        <div className={cn(SETTINGS_ROW_HAIRLINE, "flex min-h-11 items-center px-4 py-3 text-sm text-destructive")}>{t("usageFailed")}</div>
+      ) : !usage ? (
+        <div className={cn(SETTINGS_ROW_HAIRLINE, "space-y-2 px-4 py-3")} aria-busy="true" aria-label={t("loading")}>
+          <div className="h-4 w-1/3 animate-pulse rounded bg-muted" />
+          <div className="h-3 w-1/2 animate-pulse rounded bg-muted" />
+        </div>
+      ) : (
+        <>
+          <GroupedListRow
+            title={usage.limit_bytes
+              ? t("usedOfLimit", { used: formatBytes(usage.used_bytes), limit: formatBytes(usage.limit_bytes) })
+              : t("used", { used: formatBytes(usage.used_bytes) })}
+            subtitle={t("libraryCount", { count: usage.library_count, size: formatBytes(usage.library_bytes) })}
+          />
+          {percent !== null && (
+            <div className={cn(SETTINGS_ROW_HAIRLINE, "px-4 py-3")}>
               <div
                 className="h-2 w-full overflow-hidden rounded-full bg-muted"
                 role="meter"
@@ -61,18 +77,10 @@ export function MediaLibraryCard({ className }: { className?: string }) {
               >
                 <div className={percent >= 90 ? "h-full bg-destructive" : "h-full bg-primary"} style={{ width: `${percent}%` }} />
               </div>
-            )}
-            <p className="text-xs text-muted-foreground">
-              {t("libraryCount", { count: usage.library_count, size: formatBytes(usage.library_bytes) })}
-            </p>
-          </div>
-        )}
-        <Button type="button" variant="outline" onClick={() => setOpen(true)}>
-          <FolderOpen className="size-4" aria-hidden />
-          {t("manage")}
-        </Button>
-      </SettingsBlock>
-
+            </div>
+          )}
+        </>
+      )}
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetContent size="lg" className="w-full gap-4 overflow-y-auto p-4">
           <SheetHeader className="p-0 pr-8">

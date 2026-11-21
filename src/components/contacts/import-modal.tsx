@@ -28,13 +28,13 @@ import { resolveImportTagIds } from '@/lib/contacts/resolve-import-tags';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from '@/components/ui/dialog';
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+  SheetFooter,
+} from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -382,17 +382,13 @@ export function ImportModal({
   const steps = [tm('steps.file'), tm('steps.match'), tm('steps.done')];
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="flex max-h-[min(90dvh,760px)] flex-col gap-0 overflow-hidden border-border/80 bg-popover p-0 text-popover-foreground sm:max-w-2xl">
-        <div className="shrink-0 space-y-4 border-b border-border/80 px-4 pt-6 pb-4 sm:px-6">
-          <DialogHeader className="gap-1.5">
-            <DialogTitle className="text-lg text-popover-foreground">
-              {t('title')}
-            </DialogTitle>
-            <DialogDescription className="leading-relaxed text-muted-foreground">
-              {tm('desc')}
-            </DialogDescription>
-          </DialogHeader>
+    <Sheet open={open} onOpenChange={handleOpenChange}>
+      <SheetContent side="right" size="xl" className="gap-0 p-0">
+        <div className="shrink-0 space-y-4 border-b border-border/50 pt-4 pr-12 pb-4 pl-4 sm:pl-6">
+          <SheetHeader className="gap-1.5 p-0">
+            <SheetTitle>{t('title')}</SheetTitle>
+            <SheetDescription className="leading-relaxed">{tm('desc')}</SheetDescription>
+          </SheetHeader>
           <ol className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs" aria-label={tm('steps.label')}>
             {steps.map((label, i) => {
               const n = i + 1;
@@ -652,7 +648,7 @@ export function ImportModal({
           )}
         </div>
 
-        <DialogFooter className="mt-0 shrink-0 gap-2 border-t border-border/80 bg-background/50 px-4 py-4 sm:justify-end sm:px-6">
+        <SheetFooter className="mt-0 shrink-0 flex-row justify-end border-t border-border/50 px-4 py-4 sm:px-6">
           {step === 1 && (
             <Button type="button" variant="outline" onClick={() => handleOpenChange(false)}>{t('cancel')}</Button>
           )}
@@ -673,9 +669,9 @@ export function ImportModal({
               <Button type="button" onClick={() => handleOpenChange(false)}>{tm('done')}</Button>
             </>
           )}
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </SheetFooter>
+      </SheetContent>
+    </Sheet>
   );
 }
 

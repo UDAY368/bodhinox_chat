@@ -6,7 +6,6 @@
 // PUT /api/account/members/:userId/capacity. Every member reads the mode; admins
 // and owners change both (the routes check the role again).
 import { useEffect, useState } from 'react';
-import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useTranslations } from 'next-intl';
 
@@ -17,7 +16,8 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { authFetch } from '@/lib/auth/client';
 import type { WorkspaceInboxSettings } from '@/lib/inbox/inbox-settings';
 import { AUTO_ASSIGN_MODES, INBOX_BEHAVIOUR_KEYS, type AccountMember, type AutoAssignMode, type InboxBehaviourSettings } from '@/types';
-import { SettingsBlock, SettingsGroup } from '../settings-row';
+import { cn } from '@/lib/utils';
+import { SETTINGS_ROW_HAIRLINE, SettingsGroup, SettingsRow } from '../settings-row';
 
 /**
  * The PUT body that changes one Stage 5 setting: the loaded core settings
@@ -147,67 +147,66 @@ export function AssignmentModeCard({ canEdit }: { canEdit: boolean }) {
   };
 
   return (
-    <SettingsGroup title={t('title')} footer={t('description')}>
-      <SettingsBlock className="space-y-5">
+    <div className="space-y-6">
+      <SettingsGroup title={t('title')} footer={t('description')}>
         {loadFailed ? (
-          <p className="text-destructive text-xs">{t('loadFailed')}</p>
+          <div className={cn(SETTINGS_ROW_HAIRLINE, 'px-4 py-3')}><p className="text-destructive text-xs" role="alert">{t('loadFailed')}</p></div>
         ) : !settings ? (
-          <Loader2 className="text-primary size-4 animate-spin" />
+          <div className={cn(SETTINGS_ROW_HAIRLINE, 'space-y-2 px-4 py-3')} role="status" aria-busy="true">
+            <div className="h-5 w-2/3 animate-pulse rounded bg-muted motion-reduce:animate-none" />
+            <div className="h-5 w-1/2 animate-pulse rounded bg-muted motion-reduce:animate-none" />
+          </div>
         ) : (
-          <>
-            <RadioGroup
-              value={settings.auto_assign_mode}
-              onValueChange={(value) => void changeMode(value as AutoAssignMode)}
-              disabled={!canEdit || saving}
-              aria-label={t('title')}
-            >
-              {AUTO_ASSIGN_MODES.map((mode) => (
-                <Label key={mode} className="flex items-center gap-2 text-sm font-normal">
-                  <RadioGroupItem value={mode} />
-                  {t(mode)}
-                </Label>
-              ))}
-            </RadioGroup>
-            {canEdit && rows.length > 0 && (
-              <div className="space-y-2">
-                <div>
-                  <p className="text-sm font-medium">{t('capacity')}</p>
-                  <p className="text-muted-foreground text-xs">{t('capacityHelp')}</p>
-                </div>
-                <ul className="space-y-2">
-                  {rows.map((row) => {
-                    const id = `capacity-${row.member.user_id}`;
-                    const changed = row.draft.trim() !== (row.max === null ? '' : String(row.max));
-                    return (
-                      <li key={row.member.user_id} className="flex flex-wrap items-center gap-2">
-                        <Label htmlFor={id} className="min-w-40 flex-1 truncate text-sm font-normal">
-                          {row.member.full_name || row.member.email || row.member.user_id}
-                          <span className="text-muted-foreground ml-2 text-xs">{t('openNow', { count: row.open })}</span>
-                        </Label>
-                        <Input
-                          id={id}
-                          inputMode="numeric"
-                          className="h-8 w-24"
-                          placeholder={t('noLimit')}
-                          value={row.draft}
-                          disabled={saving}
-                          onChange={(event) => {
-                            const draft = event.target.value;
-                            setRows((prev) => prev.map((r) => (r.member.user_id === row.member.user_id ? { ...r, draft } : r)));
-                          }}
-                        />
-                        <Button size="sm" variant="outline" disabled={saving || !changed} onClick={() => void saveCapacity(row)}>
-                          {t('save')}
-                        </Button>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </div>
-            )}
-          </>
+          <RadioGroup
+            className="gap-0"
+            value={settings.auto_assign_mode}
+            onValueChange={(value) => void changeMode(value as AutoAssignMode)}
+            disabled={!canEdit || saving}
+            aria-label={t('title')}
+          >
+            {AUTO_ASSIGN_MODES.map((mode) => (
+              <Label key={mode} className={cn(SETTINGS_ROW_HAIRLINE, 'flex min-h-11 cursor-pointer items-center gap-3 px-4 py-3 text-sm font-normal has-disabled:cursor-default')}>
+                <span className="min-w-0 flex-1">{t(mode)}</span>
+                <RadioGroupItem value={mode} />
+              </Label>
+            ))}
+          </RadioGroup>
         )}
-      </SettingsBlock>
-    </SettingsGroup>
+      </SettingsGroup>
+      {settings && canEdit && rows.length > 0 && (
+        <SettingsGroup title={t('capacity')} footer={t('capacityHelp')}>
+          {rows.map((row) => {
+            const id = `capacity-${row.member.user_id}`;
+            const changed = row.draft.trim() !== (row.max === null ? '' : String(row.max));
+            return (
+              <SettingsRow
+                key={row.member.user_id}
+                htmlFor={id}
+                label={<span className="block truncate">{row.member.full_name || row.member.email || row.member.user_id}</span>}
+                hint={t('openNow', { count: row.open })}
+              >
+                <div className="flex items-center gap-2 sm:justify-end">
+                  <Input
+                    id={id}
+                    inputMode="numeric"
+                    className="h-11 w-full sm:h-8 sm:w-24"
+                    placeholder={t('noLimit')}
+                    value={row.draft}
+                    disabled={saving}
+                    onChange={(event) => {
+                      const draft = event.target.value;
+                      setRows((prev) => prev.map((r) => (r.member.user_id === row.member.user_id ? { ...r, draft } : r)));
+                    }}
+                  />
+                  <Button size="sm" variant="outline" className="min-h-11 shrink-0 sm:min-h-8" disabled={saving || !changed} onClick={() => void saveCapacity(row)}>
+                    {t('save')}
+                  </Button>
+                </div>
+              </SettingsRow>
+            );
+          })}
+        </SettingsGroup>
+      )}
+    </div>
   );
 }

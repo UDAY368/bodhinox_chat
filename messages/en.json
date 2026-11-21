@@ -4884,7 +4884,8 @@
       "editAria": "Edit {name}",
       "save": "Save",
       "tagUpdated": "Tag updated",
-      "failedToUpdateTag": "Could not update the tag"
+      "failedToUpdateTag": "Could not update the tag",
+      "tagNameLabel": "Tag name"
     },
     "templates": {
       "title": "Message templates",
@@ -5625,7 +5626,8 @@
       "deleted": "Attribute deleted",
       "loadFailed": "Could not load attributes",
       "saveFailed": "Could not save the attribute",
-      "deleteFailed": "Could not delete the attribute"
+      "deleteFailed": "Could not delete the attribute",
+      "add": "Add attribute"
     },
     "plan": {
       "title": "Plan & usage",
@@ -15818,7 +15820,9 @@
       },
       "wholePage": "All services",
       "copy": "Copy",
-      "copyNamed": "Copy link for {name}"
+      "copyNamed": "Copy link for {name}",
+      "deleteConfirm": "Delete this booking page?",
+      "deleteBody": "Its link stops working at once."
     },
     "tasks": {
       "title": "Tasks",

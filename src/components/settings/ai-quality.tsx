@@ -9,7 +9,6 @@
  */
 
 import { useCallback, useEffect, useState } from 'react';
-import { Loader2 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 
 import { InlineError } from '@/components/ui/inline-error';
@@ -83,7 +82,11 @@ export function AiQuality() {
         {loadFailed && (
           <InlineError message={t('loadFailed')} onRetry={() => void load()} />
         )}
-        {!view && !loadFailed && <Loader2 className="text-muted-foreground size-4 animate-spin" aria-label={t('loading')} />}
+        {!view && !loadFailed && (
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4" role="status" aria-label={t('loading')}>
+            {Array.from({ length: 8 }, (_, i) => <div key={i} className="h-[4.5rem] animate-pulse rounded-lg bg-muted" />)}
+          </div>
+        )}
         {view && (
           <>
             {view.replies.total === 0 && view.summaries === 0 && <p className="text-muted-foreground text-sm">{t('empty')}</p>}

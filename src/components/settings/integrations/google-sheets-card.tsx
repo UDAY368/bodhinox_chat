@@ -10,7 +10,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { FileSpreadsheet, Loader2 } from 'lucide-react';
+import { FileSpreadsheet, Loader2, Unplug } from 'lucide-react';
 import { toast } from 'sonner';
 import { useTranslations } from 'next-intl';
 
@@ -20,6 +20,8 @@ import { InlineError } from '@/components/ui/inline-error';
 import { useConfirm } from '@/components/ui/confirm-dialog';
 import { authFetch } from '@/lib/auth/client';
 import type { SheetsConnectionDto } from '@/lib/integrations/google-sheets/connection';
+import { GroupedListRow } from '@/components/ui/grouped-list';
+import { PageLoading } from '@/components/ui/page-loading';
 import { SettingsBlock, SettingsGroup } from '../settings-row';
 
 /** ?google_sheets=<outcome> values the callback can send, and refusal codes of the routes. */
@@ -91,40 +93,33 @@ export function GoogleSheetsCard({ canEdit }: { canEdit: boolean }) {
   const needsAttention = state?.status === 'error' || state?.status === 'revoked';
 
   return (
-    <SettingsGroup title={<><FileSpreadsheet className="size-4" aria-hidden="true" /> {t('title')}
+    <SettingsGroup
+      title={<><FileSpreadsheet className="size-4" aria-hidden="true" /> {t('title')}
           {state?.connected && <Badge variant="secondary">{t('statusConnected')}</Badge>}
-          {needsAttention && <Badge variant="outline">{t('statusAttention')}</Badge>}</>} footer={t('description')}>
-      <SettingsBlock className="space-y-3 text-sm">
-        {loadFailed && (
-          <InlineError message={t('loadFailed')} onRetry={() => void load()} />
-        )}
-        {!state && !loadFailed && <Loader2 className="text-muted-foreground size-4 animate-spin" aria-label={t('loading')} />}
-        {state && !state.available && <p className="text-muted-foreground">{t('notEnabled')}</p>}
-        {state && state.available && (
-          <>
-            {state.connected && state.google_email && <p>{t('connectedAs', { email: state.google_email })}</p>}
-            {needsAttention && <p className="text-destructive">{t('error')}</p>}
-            {!canEdit && <p className="text-muted-foreground">{t('readOnly')}</p>}
-            {canEdit && (
-              <div className="flex flex-wrap gap-2">
-                {!state.connected && (
-                  <Button type="button" onClick={() => void connect()} disabled={busy}>
-                    {busy && <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />}
-                    {t('connect')}
-                  </Button>
-                )}
-                {(state.connected || needsAttention) && (
-                  <Button type="button" variant="outline" onClick={() => void disconnect()} disabled={busy}>{t('disconnect')}</Button>
-                )}
-              </div>
-            )}
-          </>
-        )}
-        {/* A connection stored while the integration was switched off can still be removed. */}
-        {state && !state.available && state.status && canEdit && (
-          <Button type="button" variant="outline" size="sm" onClick={() => void disconnect()} disabled={busy}>{t('disconnect')}</Button>
-        )}
-      </SettingsBlock>
+          {needsAttention && <Badge variant="outline">{t('statusAttention')}</Badge>}</>}
+      footer={state?.available && !canEdit ? <>{t('description')} {t('readOnly')}</> : t('description')}
+      action={state?.available && canEdit && !state.connected ? (
+        <Button type="button" size="sm" className="min-h-11 sm:min-h-8" onClick={() => void connect()} disabled={busy}>
+          {busy && <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />}
+          {t('connect')}
+        </Button>
+      ) : undefined}
+      more={[{
+        label: t('disconnect'), icon: Unplug, destructive: true, disabled: busy,
+        // A connection stored while the integration was switched off can still be removed.
+        hidden: !state || !canEdit || (state.available ? !(state.connected || needsAttention) : !state.status),
+        onSelect: () => void disconnect(),
+      }]}
+    >
+      {loadFailed && <SettingsBlock><InlineError message={t('loadFailed')} onRetry={() => void load()} /></SettingsBlock>}
+      {!state && !loadFailed && <SettingsBlock><PageLoading rows={1} /></SettingsBlock>}
+      {state && !state.available && <SettingsBlock><p className="text-muted-foreground text-sm">{t('notEnabled')}</p></SettingsBlock>}
+      {state && state.available && (
+        <GroupedListRow
+          title={state.connected && state.google_email ? t('connectedAs', { email: state.google_email }) : t('title')}
+          subtitle={needsAttention ? <span className="text-destructive">{t('error')}</span> : undefined}
+        />
+      )}
     </SettingsGroup>
   );
 }

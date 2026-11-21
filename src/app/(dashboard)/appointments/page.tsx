@@ -18,7 +18,7 @@ import { Button } from '@/components/ui/button';
 import { InlineError } from '@/components/ui/inline-error';
 import { PageHeader } from '@/components/ui/page-header';
 import { PageLoading } from '@/components/ui/page-loading';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { SegmentedControl } from '@/components/ui/segmented-control';
 import { UpgradeBadge } from '@/components/ui/upgrade-badge';
 import { AppointmentSheet } from '@/components/appointments/appointment-sheet';
 import { BookingPagesPanel } from '@/components/appointments/booking-pages-panel';
@@ -133,11 +133,10 @@ function AppointmentsContent() {
       {config.state === 'ready' && (
         <>
           {!abilities.manage && <p className="text-footnote text-muted-foreground">{t('readOnly')}</p>}
-          <Tabs value={tab} onValueChange={(v) => navigate({ tab: v as AppointmentScreenTab })}>
-            <TabsList className="max-w-full justify-start overflow-x-auto bg-muted [scrollbar-width:none] *:flex-none">
-              {APPOINTMENT_SCREEN_TABS.map((key) => <TabsTrigger key={key} value={key}>{t(`tabs.${key}`)}</TabsTrigger>)}
-            </TabsList>
-            <TabsContent value="schedule" className="space-y-8 pt-4">
+          <div className="space-y-2">
+            <SegmentedControl<AppointmentScreenTab> aria-label={t('title')} value={tab} onValueChange={(v) => navigate({ tab: v })}
+              options={APPOINTMENT_SCREEN_TABS.map((key) => ({ value: key, label: t(`tabs.${key}`) }))} />
+            {tab === 'schedule' && <div className="space-y-8 pt-4">
               <ScheduleView config={config.config} abilities={abilities} refreshKey={refreshKey}
                 view={view} onViewChange={(v) => navigate({ view: v })} onChanged={changed}
                 onOpen={(id) => navigate({ id })} onNew={newBooking}
@@ -145,11 +144,11 @@ function AppointmentsContent() {
               <Section id="attention" title={t('screen.attention')}>
                 <TasksPanel canManage={abilities.manage} onOpenAppointment={(id) => navigate({ id })} />
               </Section>
-            </TabsContent>
-            <TabsContent value="services" className="pt-4">
+            </div>}
+            {tab === 'services' && <div className="pt-4">
               <ServicesPanel config={config.config} canEdit={abilities.settings} onChanged={configChanged} />
-            </TabsContent>
-            <TabsContent value="team" className="space-y-8 pt-4">
+            </div>}
+            {tab === 'team' && <div className="space-y-8 pt-4">
               <Section id="staff">
                 <StaffPanel config={config.config} canEdit={abilities.settings} onChanged={configChanged} />
               </Section>
@@ -159,8 +158,8 @@ function AppointmentsContent() {
               <Section id="locations">
                 <LocationsPanel config={config.config} canEdit={abilities.settings} onChanged={configChanged} />
               </Section>
-            </TabsContent>
-            <TabsContent value="settings" className="space-y-8 pt-4">
+            </div>}
+            {tab === 'settings' && <div className="space-y-8 pt-4">
               <Section id="pages">
                 <BookingPagesPanel config={config.config} canEdit={abilities.settings} />
               </Section>
@@ -171,8 +170,8 @@ function AppointmentsContent() {
               <Section id="deals" title={t('screen.settingsDeals')}>
                 <DealStageCard canEdit={abilities.settings} />
               </Section>
-            </TabsContent>
-          </Tabs>
+            </div>}
+          </div>
 
           <AppointmentSheet id={openId} config={config.config} abilities={abilities}
             onClose={() => navigate({ id: null })} onChanged={changed} />

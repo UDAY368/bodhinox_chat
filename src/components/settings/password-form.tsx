@@ -11,10 +11,9 @@ import { Input } from '@/components/ui/input';
 import { PasswordInput } from '@/components/ui/password-input';
 import { PasswordRequirements } from '@/components/auth/password-requirements';
 import { MIN_PASSWORD_LENGTH, meetsPasswordRequirements } from '@/lib/auth/password-policy';
-import { Label } from '@/components/ui/label';
 import { useTranslations } from 'next-intl';
 import { useRouter } from 'next/navigation';
-import { SettingsBlock, SettingsGroup } from './settings-row';
+import { SettingsGroup, SettingsRow } from './settings-row';
 
 const MIN_PASSWORD = MIN_PASSWORD_LENGTH;
 
@@ -73,89 +72,61 @@ export function PasswordForm() {
   };
 
   return (
-    <SettingsGroup title={<><KeyRound className="size-4 text-primary" />
-          {t('passwordTitle')}</>} footer={t('passwordDesc', { min: MIN_PASSWORD })}>
-
-      <SettingsBlock>
-        <form onSubmit={onSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="current-password" className="text-foreground">
-              {t('currentPassword')}
-            </Label>
-            <PasswordInput
-              id="current-password"
-
-              value={current}
-              onChange={(e) => setCurrent(e.target.value)}
-              autoComplete="current-password"
-              disabled={saving}
-              required
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="password-mfa">Authenticator or recovery code (if enabled)</Label>
-            <Input id="password-mfa" value={mfaCode} onChange={event => setMfaCode(event.target.value)} autoComplete="one-time-code" disabled={saving} />
-          </div>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="new-password" className="text-foreground">
-                {t('newPassword')}
-              </Label>
-              <PasswordInput
-                id="new-password"
-                aria-describedby="password-requirements"
-
-                value={next}
-                onChange={(e) => setNext(e.target.value)}
-                autoComplete="new-password"
-                minLength={MIN_PASSWORD}
-                disabled={saving}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="confirm-password" className="text-foreground">
-                {t('confirmPassword')}
-              </Label>
-              <PasswordInput
-                id="confirm-password"
-
-                value={confirm}
-                onChange={(e) => setConfirm(e.target.value)}
-                autoComplete="new-password"
-                minLength={MIN_PASSWORD}
-                disabled={saving}
-                required
-              />
-            </div>
-          </div>
-
-          <PasswordRequirements id="password-requirements" />
-
-          {confirmError && (
-            <p className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
-              {confirmError}
-            </p>
-          )}
-
-          <div className="flex justify-end">
-            <Button
-              type="submit"
-              disabled={saving || !current || !next || !confirm}
-            >
-              {saving ? (
-                <>
-                  <Loader2 className="size-4 animate-spin" />
-                  {t('updating')}
-                </>
-              ) : (
-                t('updatePassword')
-              )}
-            </Button>
-          </div>
-        </form>
-      </SettingsBlock>
-    </SettingsGroup>
+    <form onSubmit={onSubmit}>
+      <SettingsGroup
+        title={<><KeyRound className="size-4 text-primary" />{t('passwordTitle')}</>}
+        footer={<><p>{t('passwordDesc', { min: MIN_PASSWORD })}</p><PasswordRequirements id="password-requirements" /></>}
+        action={
+          <Button type="submit" size="sm" className="min-h-11 sm:min-h-8" disabled={saving || !current || !next || !confirm}>
+            {saving ? (
+              <>
+                <Loader2 className="size-4 animate-spin" />
+                {t('updating')}
+              </>
+            ) : (
+              t('updatePassword')
+            )}
+          </Button>
+        }
+      >
+        <SettingsRow label={t('currentPassword')} htmlFor="current-password">
+          <PasswordInput
+            id="current-password"
+            value={current}
+            onChange={(e) => setCurrent(e.target.value)}
+            autoComplete="current-password"
+            disabled={saving}
+            required
+          />
+        </SettingsRow>
+        <SettingsRow label="Authenticator or recovery code (if enabled)" htmlFor="password-mfa">
+          <Input id="password-mfa" value={mfaCode} onChange={event => setMfaCode(event.target.value)} autoComplete="one-time-code" disabled={saving} />
+        </SettingsRow>
+        <SettingsRow label={t('newPassword')} htmlFor="new-password">
+          <PasswordInput
+            id="new-password"
+            aria-describedby="password-requirements"
+            value={next}
+            onChange={(e) => setNext(e.target.value)}
+            autoComplete="new-password"
+            minLength={MIN_PASSWORD}
+            disabled={saving}
+            required
+          />
+        </SettingsRow>
+        <SettingsRow label={t('confirmPassword')} htmlFor="confirm-password" error={confirmError} errorId="confirm-password-error">
+          <PasswordInput
+            id="confirm-password"
+            aria-describedby={confirmError ? 'confirm-password-error' : undefined}
+            value={confirm}
+            onChange={(e) => setConfirm(e.target.value)}
+            autoComplete="new-password"
+            minLength={MIN_PASSWORD}
+            disabled={saving}
+            required
+          />
+        </SettingsRow>
+      </SettingsGroup>
+    </form>
   );
 }

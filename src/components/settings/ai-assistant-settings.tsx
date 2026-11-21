@@ -23,7 +23,6 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { InlineError } from '@/components/ui/inline-error';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Checkbox } from '@/components/ui/checkbox';
 import { SegmentedControl } from '@/components/ui/segmented-control';
@@ -32,7 +31,9 @@ import { authFetch } from '@/lib/auth/client';
 import { useWorkspaceChannels } from '@/hooks/use-workspace-channels';
 import { AUTO_REPLY_LEAD_FIELDS, autoReplyGoalsProblem } from '@/lib/ai/goal-rules';
 import { AI_GOAL_LIMITS, AI_GOAL_TYPES, type AiGoal, type AiGoalType } from '@/lib/flows/types';
-import { SettingsBlock, SettingsGroup } from './settings-row';
+import { GroupedListRow } from '@/components/ui/grouped-list';
+import { cn } from '@/lib/utils';
+import { SETTINGS_ROW_HAIRLINE, SettingsBlock, SettingsGroup, SettingsRow, SettingsSwitchRow } from './settings-row';
 
 export type AiToggle = 'summaries_enabled' | 'suggestions_enabled' | 'assessment_enabled' | 'insights_enabled';
 
@@ -118,100 +119,96 @@ export function InstagramGoalsEditor({ initial, busy, onSave }: {
   };
 
   return (
-    <section className="space-y-3 rounded-lg border p-3" aria-labelledby="ai-instagram-goals-title">
-      <div>
-        <h3 id="ai-instagram-goals-title" className="text-sm font-medium">{tg('title')}</h3>
-        <p className="text-muted-foreground text-xs">{tg('description')} {tg('onlyInstagram')}</p>
-      </div>
-      {goals.length === 0 && <p className="text-muted-foreground text-sm">{tg('empty')}</p>}
-      <ol className="space-y-3">
-        {goals.map((goal, index) => {
-          const id = `ai-goal-${index}`;
-          return (
-            <li key={goal.type} className="bg-muted/30 space-y-2 rounded-md border p-3">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-sm font-medium">{tg('goalLabel', { n: index + 1 })}</span>
-                <label className="sr-only" htmlFor={`${id}-type`}>{tg('type')}</label>
-                <Select value={goal.type} disabled={busy}
-                  onValueChange={(v) => { if (v) update(index, blankGoal(v as AiGoalType)); }}>
-                  <SelectTrigger id={`${id}-type`} className="min-h-11 sm:min-h-8">
-                    <SelectValue>{(v: string) => tg(`types.${v as AiGoalType}`)}</SelectValue>
-                  </SelectTrigger>
-                  <SelectContent>
-                    {[goal.type, ...unused].map((type) => <SelectItem key={type} value={type}>{tg(`types.${type}`)}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-                <span className="ml-auto flex gap-1">
-                  <Button type="button" size="icon" variant="ghost" aria-label={tg('moveUp')} disabled={busy || index === 0}
-                    onClick={() => setGoals((list) => moveGoal(list, index, -1))}><ArrowUp className="size-4" aria-hidden="true" /></Button>
-                  <Button type="button" size="icon" variant="ghost" aria-label={tg('moveDown')} disabled={busy || index === goals.length - 1}
-                    onClick={() => setGoals((list) => moveGoal(list, index, 1))}><ArrowDown className="size-4" aria-hidden="true" /></Button>
-                  <Button type="button" size="icon" variant="ghost" aria-label={tg('remove')} disabled={busy}
-                    onClick={() => setGoals((list) => list.filter((_, i) => i !== index))}><Trash2 className="size-4" aria-hidden="true" /></Button>
-                </span>
-              </div>
-              <p className="text-muted-foreground text-xs">{tg(`typeHelp.${goal.type}`)}</p>
-              {goal.type === 'share_link' && (
-                <div className="grid gap-2 sm:grid-cols-2">
-                  <div className="space-y-1">
-                    <Label htmlFor={`${id}-url`}>{tg('url')}</Label>
-                    <Input id={`${id}-url`} type="url" inputMode="url" value={goal.url} maxLength={2048} disabled={busy}
-                      placeholder="https://" onChange={(e) => update(index, { ...goal, url: e.target.value })} />
-                  </div>
-                  <div className="space-y-1">
-                    <Label htmlFor={`${id}-label`}>{tg('linkLabel')}</Label>
-                    <Input id={`${id}-label`} value={goal.label ?? ''} maxLength={80} disabled={busy}
-                      onChange={(e) => update(index, { ...goal, label: e.target.value })} />
-                  </div>
-                </div>
-              )}
-              {goal.type === 'capture_lead' && (
-                <div className="space-y-2">
-                  <fieldset className="space-y-1">
-                    <legend className="text-sm">{tg('fields')}</legend>
-                    <div className="flex flex-wrap gap-3">
-                      {AUTO_REPLY_LEAD_FIELDS.map((field) => (
-                        <label key={field} className="flex items-center gap-2 text-sm">
-                          <Checkbox checked={goal.fields.includes(field)} disabled={busy}
-                            onCheckedChange={(checked: boolean) => update(index, {
-                              ...goal,
-                              fields: checked
-                                ? [...goal.fields.filter((f) => f !== field), field].slice(0, AI_GOAL_LIMITS.leadFields)
-                                : goal.fields.filter((f) => f !== field),
-                            })} />
-                          {tg(`fieldNames.${field}`)}
-                        </label>
-                      ))}
-                    </div>
-                  </fieldset>
-                  <div className="space-y-1">
-                    <p className="text-sm font-medium">{tg('onRefusal')}</p>
-                    <SegmentedControl aria-label={tg('onRefusal')} value={goal.on_refusal}
-                      onValueChange={(v) => { if (!busy) update(index, { ...goal, on_refusal: v }); }}
-                      options={[
-                        { value: 'continue', label: tg('refusalContinue'), disabled: busy },
-                        { value: 'handoff', label: tg('refusalHandoff'), disabled: busy },
-                      ]} />
-                  </div>
-                </div>
-              )}
-            </li>
-          );
-        })}
-      </ol>
-      <div className="flex flex-wrap gap-2">
-        {goals.length < AI_GOAL_LIMITS.goals && unused.length > 0 && (
-          <Button type="button" variant="outline" size="sm" disabled={busy}
-            onClick={() => setGoals((list) => [...list, blankGoal(unused[0])])}>
-            <Plus className="size-3.5" aria-hidden="true" /> {tg('add')}
-          </Button>
-        )}
-        <Button type="button" size="sm" disabled={busy || !dirty} onClick={() => void save()}>
+    <SettingsGroup
+      title={<span id="ai-instagram-goals-title">{tg('title')}</span>}
+      footer={<>{tg('description')} {tg('onlyInstagram')}</>}
+      action={
+        <Button type="button" size="sm" className="min-h-11 sm:min-h-8" disabled={busy || !dirty} onClick={() => void save()}>
           {busy && <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />}
           {tg('save')}
         </Button>
-      </div>
-    </section>
+      }
+    >
+      {goals.length === 0 && (
+        <div className={cn(SETTINGS_ROW_HAIRLINE, 'flex min-h-11 items-center px-4 py-3 text-sm text-muted-foreground')}>{tg('empty')}</div>
+      )}
+      {goals.map((goal, index) => {
+        const id = `ai-goal-${index}`;
+        return (
+          <div key={goal.type} role="group" aria-label={tg('goalLabel', { n: index + 1 })} className={SETTINGS_ROW_HAIRLINE}>
+            <div className="flex min-h-11 flex-wrap items-center gap-2 px-4 pt-3 pb-1">
+              <span className="text-sm font-semibold">{tg('goalLabel', { n: index + 1 })}</span>
+              <label className="sr-only" htmlFor={`${id}-type`}>{tg('type')}</label>
+              <Select value={goal.type} disabled={busy}
+                onValueChange={(v) => { if (v) update(index, blankGoal(v as AiGoalType)); }}>
+                <SelectTrigger id={`${id}-type`} className="min-h-11 sm:min-h-8">
+                  <SelectValue>{(v: string) => tg(`types.${v as AiGoalType}`)}</SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {[goal.type, ...unused].map((type) => <SelectItem key={type} value={type}>{tg(`types.${type}`)}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <span className="ml-auto flex gap-1">
+                <Button type="button" size="icon" variant="ghost" className="size-11 sm:size-9" aria-label={tg('moveUp')} disabled={busy || index === 0}
+                  onClick={() => setGoals((list) => moveGoal(list, index, -1))}><ArrowUp className="size-4" aria-hidden="true" /></Button>
+                <Button type="button" size="icon" variant="ghost" className="size-11 sm:size-9" aria-label={tg('moveDown')} disabled={busy || index === goals.length - 1}
+                  onClick={() => setGoals((list) => moveGoal(list, index, 1))}><ArrowDown className="size-4" aria-hidden="true" /></Button>
+                <Button type="button" size="icon" variant="ghost" className="size-11 text-destructive hover:text-destructive sm:size-9" aria-label={tg('remove')} disabled={busy}
+                  onClick={() => setGoals((list) => list.filter((_, i) => i !== index))}><Trash2 className="size-4" aria-hidden="true" /></Button>
+              </span>
+              <p className="text-muted-foreground w-full text-xs">{tg(`typeHelp.${goal.type}`)}</p>
+            </div>
+            {goal.type === 'share_link' && (
+              <>
+                <SettingsRow label={tg('url')} htmlFor={`${id}-url`}>
+                  <Input id={`${id}-url`} type="url" inputMode="url" value={goal.url} maxLength={2048} disabled={busy}
+                    placeholder="https://" onChange={(e) => update(index, { ...goal, url: e.target.value })} />
+                </SettingsRow>
+                <SettingsRow label={tg('linkLabel')} htmlFor={`${id}-label`}>
+                  <Input id={`${id}-label`} value={goal.label ?? ''} maxLength={80} disabled={busy}
+                    onChange={(e) => update(index, { ...goal, label: e.target.value })} />
+                </SettingsRow>
+              </>
+            )}
+            {goal.type === 'capture_lead' && (
+              <>
+                <SettingsRow label={tg('fields')}>
+                  <div role="group" aria-label={tg('fields')} className="flex flex-wrap gap-x-4 gap-y-1 sm:justify-end">
+                    {AUTO_REPLY_LEAD_FIELDS.map((field) => (
+                      <label key={field} className="flex min-h-11 items-center gap-2 text-sm sm:min-h-8">
+                        <Checkbox checked={goal.fields.includes(field)} disabled={busy}
+                          onCheckedChange={(checked: boolean) => update(index, {
+                            ...goal,
+                            fields: checked
+                              ? [...goal.fields.filter((f) => f !== field), field].slice(0, AI_GOAL_LIMITS.leadFields)
+                              : goal.fields.filter((f) => f !== field),
+                          })} />
+                        {tg(`fieldNames.${field}`)}
+                      </label>
+                    ))}
+                  </div>
+                </SettingsRow>
+                <SettingsRow label={tg('onRefusal')}>
+                  <SegmentedControl aria-label={tg('onRefusal')} value={goal.on_refusal}
+                    onValueChange={(v) => { if (!busy) update(index, { ...goal, on_refusal: v }); }}
+                    options={[
+                      { value: 'continue', label: tg('refusalContinue'), disabled: busy },
+                      { value: 'handoff', label: tg('refusalHandoff'), disabled: busy },
+                    ]} />
+                </SettingsRow>
+              </>
+            )}
+          </div>
+        );
+      })}
+      {goals.length < AI_GOAL_LIMITS.goals && unused.length > 0 && (
+        <GroupedListRow
+          leading={<Plus className="size-4 text-primary" aria-hidden="true" />}
+          title={<span className="text-primary">{tg('add')}</span>}
+          onClick={busy ? undefined : () => setGoals((list) => [...list, blankGoal(unused[0])])}
+        />
+      )}
+    </SettingsGroup>
   );
 }
 
@@ -275,16 +272,39 @@ export function AiAssistantSettings() {
 
   const status = view ? aiStatus(view) : null;
 
+  const placeholder = (
+    <div className={cn(SETTINGS_ROW_HAIRLINE, 'space-y-3 px-4 py-3')} role="status" aria-label={t('loading')}>
+      {[0, 1, 2, 3].map((i) => <div key={i} className="h-8 w-full animate-pulse rounded-md bg-muted" />)}
+    </div>
+  );
+
   return (
-    <SettingsGroup title={<><Sparkles className="size-4" aria-hidden="true" /> {t('title')}</>} footer={t('description')}>
-      <SettingsBlock className="space-y-5">
+    <div className="space-y-6">
+      <SettingsGroup
+        title={<><Sparkles className="size-4" aria-hidden="true" /> {t('title')}</>}
+        footer={<>
+          {t('description')}
+          {view && <span className="mt-2 block">{ts('staffReviewNote')}</span>}
+          {view && (
+            <span className="mt-2 block">
+              {ts('autonomousNote')}{' '}
+              <Link href="/agents" className="text-primary underline-offset-2 hover:underline">{t('autonomousLink')}</Link>
+            </span>
+          )}
+          {view?.settings.updated_at && (
+            <span className="mt-2 block">{t('updatedAt', { date: new Date(view.settings.updated_at).toLocaleString() })}</span>
+          )}
+        </>}
+      >
         {loadFailed && (
-          <InlineError message={t('loadFailed')} onRetry={() => void load()} />
+          <SettingsBlock>
+            <InlineError message={t('loadFailed')} onRetry={() => void load()} />
+          </SettingsBlock>
         )}
-        {!view && !loadFailed && <Loader2 className="text-muted-foreground size-4 animate-spin" aria-label={t('loading')} />}
+        {!view && !loadFailed && placeholder}
         {view && status && (
           <>
-            <div className="flex flex-wrap items-center gap-2 text-sm" role="status">
+            <div className={cn(SETTINGS_ROW_HAIRLINE, 'flex min-h-11 flex-wrap items-center gap-2 px-4 py-3 text-sm')} role="status">
               <Badge variant={status === 'ready' ? 'secondary' : 'outline'}>
                 {status === 'ready' ? ts('status.ready') : t(`badge.${status}`)}
               </Badge>
@@ -296,60 +316,53 @@ export function AiAssistantSettings() {
                 </span>
               )}
             </div>
-
-            <p className="text-muted-foreground text-sm">{ts('staffReviewNote')}</p>
-
-            <div className="-mx-4 divide-y divide-separator border-y border-separator">
-              {AI_TOGGLES.map(({ key, feature }) => (
-                <label key={key} className="flex min-h-11 items-start gap-3 px-4 py-3 text-sm">
+            {AI_TOGGLES.map(({ key, feature }) => (
+              <SettingsSwitchRow
+                key={key}
+                title={ts(`features.${feature}`)}
+                description={<span id={`ai-toggle-${feature}-help`}>{t(`help.${feature}`)}</span>}
+                control={
                   <Switch
                     checked={view.settings[key]}
                     onCheckedChange={(v: boolean) => void save({ [key]: v })}
                     disabled={busy}
+                    aria-label={ts(`features.${feature}`)}
                     aria-describedby={`ai-toggle-${feature}-help`}
                   />
-                  <span className="min-w-0">
-                    <span className="text-foreground block font-medium">{ts(`features.${feature}`)}</span>
-                    <span id={`ai-toggle-${feature}-help`} className="text-muted-foreground block text-xs">{t(`help.${feature}`)}</span>
-                  </span>
-                </label>
-              ))}
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="ai-token-cap">{ts('monthlyTokenCap')}</Label>
-              <div className="flex max-w-sm gap-2">
-                <Input
-                  id="ai-token-cap"
-                  inputMode="numeric"
-                  value={cap}
-                  onChange={(e) => setCap(e.target.value)}
-                  placeholder={t('capPlaceholder')}
-                  disabled={busy}
-                />
-                <Button type="button" variant="outline" onClick={saveCap} disabled={busy}>
-                  {busy && <Loader2 className="size-3.5 animate-spin" />}
-                  {t('saveCap')}
-                </Button>
-              </div>
-              <p className="text-muted-foreground text-xs">{ts('monthlyTokenCapHint')}</p>
-            </div>
-
-            {instagram && (
-              <InstagramGoalsEditor initial={view.settings.instagram_goals ?? NO_GOALS} busy={busy}
-                onSave={(goals) => save({ instagram_goals: goals }, true)} />
-            )}
-
-            <p className="text-muted-foreground text-xs">
-              {ts('autonomousNote')}{' '}
-              <Link href="/agents" className="text-primary underline-offset-2 hover:underline">{t('autonomousLink')}</Link>
-            </p>
-            {view.settings.updated_at && (
-              <p className="text-muted-foreground text-xs">{t('updatedAt', { date: new Date(view.settings.updated_at).toLocaleString() })}</p>
-            )}
+                }
+              />
+            ))}
           </>
         )}
-      </SettingsBlock>
-    </SettingsGroup>
+      </SettingsGroup>
+
+      {view && (
+        <SettingsGroup
+          footer={ts('monthlyTokenCapHint')}
+          action={
+            <Button type="button" size="sm" className="min-h-11 sm:min-h-8" onClick={saveCap} disabled={busy}>
+              {busy && <Loader2 className="size-3.5 animate-spin" />}
+              {t('saveCap')}
+            </Button>
+          }
+        >
+          <SettingsRow label={ts('monthlyTokenCap')} htmlFor="ai-token-cap">
+            <Input
+              id="ai-token-cap"
+              inputMode="numeric"
+              value={cap}
+              onChange={(e) => setCap(e.target.value)}
+              placeholder={t('capPlaceholder')}
+              disabled={busy}
+            />
+          </SettingsRow>
+        </SettingsGroup>
+      )}
+
+      {view && instagram && (
+        <InstagramGoalsEditor initial={view.settings.instagram_goals ?? NO_GOALS} busy={busy}
+          onSave={(goals) => save({ instagram_goals: goals }, true)} />
+      )}
+    </div>
   );
 }

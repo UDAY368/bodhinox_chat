@@ -9,7 +9,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useTranslations } from 'next-intl';
-import { SettingsBlock, SettingsGroup } from './settings-row';
+import { GroupedListRow } from '@/components/ui/grouped-list';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { cn } from '@/lib/utils';
+import { SETTINGS_ROW_HAIRLINE, SettingsGroup } from './settings-row';
 
 interface DocSummary {
   id: string;
@@ -153,121 +156,107 @@ export function AiKnowledgeCard({
   };
 
   return (
-    <SettingsGroup title={<><BookOpen className="h-4 w-4 text-primary" /> {t('title')}</>} footer={<>{t('description', {
+    <SettingsGroup
+      title={<><BookOpen className="h-4 w-4 text-primary" /> {t('title')}</>}
+      footer={<>{t('description', {
             searchType: hasEmbeddingsKey ? t('semanticSearchOn') : t('keywordSearchOn')
           })}
-          <span className="mt-2 block">{t('connectionHint')}</span></>}>
-      <SettingsBlock className="space-y-4">
-        {loading ? (
-          <div className="flex items-center py-4 text-sm text-muted-foreground">
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" /> {t('loading')}
-          </div>
-        ) : (
-          <>
-            {docs.length === 0 && editing === null && (
-              <p className="text-sm text-muted-foreground">
-                {t('noDocs')}
-              </p>
-            )}
+          <span className="mt-2 block">{t('connectionHint')}</span></>}
+      more={[{
+        label: t('reindex'),
+        icon: RefreshCw,
+        onSelect: () => void reindex(),
+        disabled: reindexing,
+        hidden: !canEdit || !hasEmbeddingsKey || docs.length === 0 || loading,
+      }]}
+    >
+      {loading ? (
+        <div className={cn(SETTINGS_ROW_HAIRLINE, 'space-y-2 px-4 py-3')} role="status" aria-label={t('loading')}>
+          <div className="h-5 w-2/3 animate-pulse rounded bg-muted" />
+          <div className="h-5 w-1/2 animate-pulse rounded bg-muted" />
+        </div>
+      ) : (
+        <>
+          {docs.length === 0 && (
+            <div className={cn(SETTINGS_ROW_HAIRLINE, 'flex min-h-11 items-center px-4 py-3 text-sm text-muted-foreground')}>
+              {t('noDocs')}
+            </div>
+          )}
 
-            {docs.length > 0 && (
-              <ul className="-mx-4 divide-y divide-separator border-y border-separator">
-                {docs.map((doc) => (
-                  <li
-                    key={doc.id}
-                    className="flex min-h-11 items-center justify-between gap-2 px-4 py-2"
+          {docs.map((doc) => (
+            <div key={doc.id} className={cn(SETTINGS_ROW_HAIRLINE, 'flex min-h-11 items-center justify-between gap-2 px-4 py-1.5')}>
+              <span className="min-w-0 truncate text-sm text-foreground">{doc.title}</span>
+              {canEdit && (
+                <span className="flex shrink-0 gap-1">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="size-11 sm:size-9"
+                    onClick={() => void openEdit(doc.id)}
+                    title={t('editDoc')}
+                    aria-label={t('editDoc')}
                   >
-                    <span className="min-w-0 truncate text-sm text-foreground">
-                      {doc.title}
-                    </span>
-                    {canEdit && (
-                      <span className="flex shrink-0 gap-1">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-8 w-8 p-0"
-                          onClick={() => void openEdit(doc.id)}
-                          title={t('editDoc')}
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-8 w-8 p-0 text-destructive hover:text-destructive"
-                          onClick={() => void remove(doc.id)}
-                          title={t('deleteDoc')}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </span>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            )}
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="size-11 text-destructive hover:text-destructive sm:size-9"
+                    onClick={() => void remove(doc.id)}
+                    title={t('deleteDoc')}
+                    aria-label={t('deleteDoc')}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </span>
+              )}
+            </div>
+          ))}
 
-            {editing !== null ? (
-              <div className="space-y-3 rounded-md border border-border p-3">
-                <div className="space-y-2">
-                  <Label htmlFor="kb-title">{t('editDocTitle')}</Label>
-                  <Input
-                    id="kb-title"
-                    value={title}
-                    onChange={(e) => setTitle(e.target.value)}
-                    placeholder={t('editDocTitlePlaceholder')}
-                    disabled={saving}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="kb-content">{t('editDocContent')}</Label>
-                  <Textarea
-                    id="kb-content"
-                    value={content}
-                    onChange={(e) => setContent(e.target.value)}
-                    placeholder={t('editDocContentPlaceholder')}
-                    rows={8}
-                    disabled={saving}
-                  />
-                </div>
-                <div className="flex justify-end gap-2">
-                  <Button variant="ghost" onClick={cancelEdit} disabled={saving}>
-                    {t('cancel')}
-                  </Button>
-                  <Button onClick={save} disabled={saving}>
-                    {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    {t('saveDoc')}
-                  </Button>
-                </div>
-              </div>
-            ) : (
-              canEdit && (
-                <div className="flex items-center justify-between">
-                  <Button variant="outline" size="sm" onClick={openNew}>
-                    <Plus className="mr-2 h-4 w-4" /> {t('addDoc')}
-                  </Button>
-                  {hasEmbeddingsKey && docs.length > 0 && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={reindex}
-                      disabled={reindexing}
-                      title={t('reindexTooltip')}
-                    >
-                      {reindexing ? (
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      ) : (
-                        <RefreshCw className="mr-2 h-4 w-4" />
-                      )}
-                      {t('reindex')}
-                    </Button>
-                  )}
-                </div>
-              )
-            )}
-          </>
-        )}
-      </SettingsBlock>
+          {canEdit && (
+            <GroupedListRow
+              leading={<Plus className="size-4 text-primary" aria-hidden />}
+              title={<span className="text-primary">{t('addDoc')}</span>}
+              onClick={openNew}
+            />
+          )}
+        </>
+      )}
+
+      <Sheet open={editing !== null} onOpenChange={(open) => { if (!open && !saving) cancelEdit(); }}>
+        <SheetContent size="md" className="w-full gap-4 overflow-y-auto p-4">
+          <SheetHeader className="p-0 pr-8">
+            <SheetTitle>{editing === 'new' ? t('addDoc') : t('editDoc')}</SheetTitle>
+          </SheetHeader>
+          <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); void save(); }}>
+            <div className="space-y-1.5">
+              <Label htmlFor="kb-title">{t('editDocTitle')}</Label>
+              <Input
+                id="kb-title"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder={t('editDocTitlePlaceholder')}
+                disabled={saving}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="kb-content">{t('editDocContent')}</Label>
+              <Textarea
+                id="kb-content"
+                value={content}
+                onChange={(e) => setContent(e.target.value)}
+                placeholder={t('editDocContentPlaceholder')}
+                rows={12}
+                disabled={saving}
+              />
+            </div>
+            <Button type="submit" className="min-h-11 w-full" disabled={saving}>
+              {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {t('saveDoc')}
+            </Button>
+          </form>
+        </SheetContent>
+      </Sheet>
     </SettingsGroup>
   );
 }

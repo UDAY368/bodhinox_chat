@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { FileText, Loader2 } from "lucide-react";
 
 import { useCan } from "@/hooks/use-can";
+import { useMatchMedia } from "@/hooks/use-match-media";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -15,6 +16,7 @@ import { InlineError } from "@/components/ui/inline-error";
 import { StateBadge } from "./state-badge";
 import type { Tone } from "@/lib/commerce/order-state";
 import { EmptyState } from "@/components/ui/empty-state";
+import { GroupedList, GroupedListRow } from "@/components/ui/grouped-list";
 
 const TONE: Record<QuoteListItem["state"], Tone> = { open: "accent", ordered: "ok", expired: "neutral", revoked: "bad" };
 
@@ -23,6 +25,8 @@ export function QuotesList({ reloadKey, onNewQuote }: { reloadKey: number; onNew
   const t = useTranslations("Commerce.orders.listing");
   const format = useFormatter();
   const canAct = useCan("send-messages");
+  // Phones get grouped rows; the table starts at the sm breakpoint.
+  const wide = useMatchMedia("(min-width: 640px)");
   const [attempt, setAttempt] = useState(0);
   const [revoking, setRevoking] = useState<QuoteListItem | null>(null);
   const [busy, setBusy] = useState(false);
@@ -68,8 +72,32 @@ export function QuotesList({ reloadKey, onNewQuote }: { reloadKey: number; onNew
     );
   }
 
+  const revokeButton = (q: QuoteListItem) => canAct && q.state === "open" ? (
+    <Button variant="ghost" size="sm" className="min-h-11 text-destructive hover:bg-destructive/10 sm:min-h-8" onClick={() => setRevoking(q)}>
+      {t("quotes.revoke")}
+    </Button>
+  ) : null;
+
   return (
     <>
+      {!wide ? (
+        <GroupedList>
+          {quotes.map((q) => (
+            <GroupedListRow
+              key={q.id}
+              title={<span className="font-medium">{q.contact?.name || t("unknownCustomer")}</span>}
+              subtitle={
+                <span className="inline-flex items-center gap-1.5">
+                  <StateBadge tone={TONE[q.state]}>{t(`quotes.state.${q.state}`)}</StateBadge>
+                  {format.dateTime(new Date(q.created_at), { dateStyle: "medium" })}
+                  {q.note ? ` · ${q.note}` : ""}
+                </span>
+              }
+              trailing={revokeButton(q) ?? undefined}
+            />
+          ))}
+        </GroupedList>
+      ) : (
       <div className="overflow-x-auto rounded-xl border border-border bg-card">
         <Table className="[&_td]:px-3.5 [&_td]:py-2.5">
           <TableHeader className="bg-muted [&_th]:h-9 [&_th]:px-3.5 [&_th]:text-xs [&_th]:font-semibold [&_th]:text-muted-foreground">
@@ -93,18 +121,13 @@ export function QuotesList({ reloadKey, onNewQuote }: { reloadKey: number; onNew
                 <TableCell><StateBadge tone={TONE[q.state]}>{t(`quotes.state.${q.state}`)}</StateBadge></TableCell>
                 <TableCell className="whitespace-nowrap text-muted-foreground">{format.dateTime(new Date(q.created_at), { dateStyle: "medium" })}</TableCell>
                 <TableCell className="whitespace-nowrap text-muted-foreground">{format.dateTime(new Date(q.expires_at), { dateStyle: "medium", timeStyle: "short" })}</TableCell>
-                <TableCell className="w-px text-right">
-                  {canAct && q.state === "open" && (
-                    <Button variant="ghost" size="sm" className="min-h-11 text-destructive hover:bg-destructive/10 sm:min-h-8" onClick={() => setRevoking(q)}>
-                      {t("quotes.revoke")}
-                    </Button>
-                  )}
-                </TableCell>
+                <TableCell className="w-px text-right">{revokeButton(q)}</TableCell>
               </TableRow>
             ))}
           </TableBody>
         </Table>
       </div>
+      )}
 
       <Dialog open={revoking !== null} onOpenChange={(open) => !open && !busy && setRevoking(null)}>
         <DialogContent className="sm:max-w-md">

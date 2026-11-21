@@ -43,11 +43,13 @@ function SheetOverlay({ className, ...props }: SheetPrimitive.Backdrop.Props) {
   )
 }
 
-/** Side-sheet widths from 640px up; below that a side sheet is full width. */
-const SHEET_SIZES = {
+/** Side-sheet widths from 640px up; below that a side sheet is full width. xl/2xl suit tables and two-pane forms. */
+export const SHEET_SIZES = {
   sm: "data-[side=left]:sm:max-w-sm data-[side=right]:sm:max-w-sm",
   md: "data-[side=left]:sm:max-w-md data-[side=right]:sm:max-w-md",
   lg: "data-[side=left]:sm:max-w-xl data-[side=right]:sm:max-w-xl",
+  xl: "data-[side=left]:sm:max-w-3xl data-[side=right]:sm:max-w-3xl",
+  "2xl": "data-[side=left]:sm:max-w-5xl data-[side=right]:sm:max-w-5xl",
 } as const
 
 /**

@@ -12,13 +12,13 @@ import { toast } from 'sonner';
 import { useTranslations } from 'next-intl';
 
 import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { authFetch } from '@/lib/auth/client';
 import { PAUSE_MINUTES_CHOICES } from '@/lib/flows/types';
 import type { WorkspaceInboxSettings } from '@/lib/inbox/inbox-settings';
 import { INBOX_BEHAVIOUR_KEYS } from '@/types';
-import { SettingsBlock, SettingsGroup } from '../settings-row';
+import { cn } from '@/lib/utils';
+import { SETTINGS_ROW_HAIRLINE, SettingsGroup, SettingsRow } from '../settings-row';
 
 const NEVER = 'never';
 const toValue = (minutes: number | null) => (minutes === null ? NEVER : String(minutes));
@@ -82,42 +82,41 @@ export function AutomationPauseCard({ canEdit }: { canEdit: boolean }) {
     }
   };
 
+  const ready = !loading && !failed;
+
   return (
-    <SettingsGroup title={t('title')} footer={t('description')}>
-      <SettingsBlock className="space-y-4">
+    <SettingsGroup
+      title={t('title')}
+      footer={<>{t('description')}{ready && !canEdit ? <> {tCommon('readOnly')}</> : null}</>}
+      action={ready && canEdit ? (
+        <Button size="sm" className="min-h-11 sm:min-h-8" onClick={save} disabled={saving}>
+          {saving && <Loader2 className="size-4 animate-spin" aria-hidden />}
+          {t('save')}
+        </Button>
+      ) : undefined}
+    >
         {loading ? (
-          <p className="text-muted-foreground flex items-center gap-2 text-sm">
-            <Loader2 className="size-4 animate-spin" aria-hidden /> {tCommon('loading')}
-          </p>
+          <div className={cn(SETTINGS_ROW_HAIRLINE, 'flex min-h-11 items-center gap-4 px-4 py-3')} role="status" aria-label={tCommon('loading')}>
+            <div className="h-4 flex-1 animate-pulse rounded bg-muted motion-reduce:animate-none" />
+            <div className="h-9 w-40 animate-pulse rounded-md bg-muted motion-reduce:animate-none" />
+          </div>
         ) : failed ? (
-          <p className="text-destructive text-sm" role="alert">{tCommon('error')}</p>
+          <div className={cn(SETTINGS_ROW_HAIRLINE, 'px-4 py-3')}><p className="text-destructive text-sm" role="alert">{tCommon('error')}</p></div>
         ) : (
-          <>
-            <div className="max-w-sm space-y-2">
-              <Label htmlFor="agent-reply-pause">{t('label')}</Label>
-              <Select value={toValue(minutes)} disabled={!canEdit || saving}
-                onValueChange={(value) => setMinutes(value === NEVER || value === null ? null : Number(value))}>
-                <SelectTrigger id="agent-reply-pause" className="w-full">
-                  <SelectValue>{label(minutes)}</SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  {options.map((value) => (
-                    <SelectItem key={toValue(value)} value={toValue(value)}>{label(value)}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            {canEdit ? (
-              <Button onClick={save} disabled={saving}>
-                {saving && <Loader2 className="size-4 animate-spin" aria-hidden />}
-                {t('save')}
-              </Button>
-            ) : (
-              <p className="text-muted-foreground text-sm">{tCommon('readOnly')}</p>
-            )}
-          </>
+          <SettingsRow label={t('label')} htmlFor="agent-reply-pause">
+            <Select value={toValue(minutes)} disabled={!canEdit || saving}
+              onValueChange={(value) => setMinutes(value === NEVER || value === null ? null : Number(value))}>
+              <SelectTrigger id="agent-reply-pause" className="w-full">
+                <SelectValue>{label(minutes)}</SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {options.map((value) => (
+                  <SelectItem key={toValue(value)} value={toValue(value)}>{label(value)}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </SettingsRow>
         )}
-      </SettingsBlock>
     </SettingsGroup>
   );
 }

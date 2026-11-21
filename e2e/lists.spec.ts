@@ -42,6 +42,7 @@ test.describe('static lists, tag categories and workspace attributes', () => {
     await login(page, fixtures().users.admin);
     await page.goto('/settings?tab=fields');
 
+    await page.getByRole('button', { name: 'Add attribute' }).click();
     await page.getByLabel('Key', { exact: true }).fill(key);
     await page.getByLabel('Value', { exact: true }).fill('top-secret-value');
     await page.getByText('Secret', { exact: true }).click();

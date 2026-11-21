@@ -17,7 +17,9 @@ import { useConfirm } from '@/components/ui/confirm-dialog';
 import { Input } from '@/components/ui/input';
 import { authFetch } from '@/lib/auth/client';
 import type { AddonKind } from '@/lib/billing/entitlements-catalogue';
-import { SettingsBlock, SettingsGroup } from '../settings-row';
+import { InlineError } from '@/components/ui/inline-error';
+import { cn } from '@/lib/utils';
+import { SETTINGS_ROW_HAIRLINE, SettingsGroup } from '../settings-row';
 
 export interface AddonPackView { kind: AddonKind; quantity: number; amountMinor: number; currency: string }
 export interface AddonRowView {
@@ -99,64 +101,66 @@ export function AddOnsCard({ onChanged }: { onChanged?: () => void }) {
     }
   };
 
+  const row = cn(SETTINGS_ROW_HAIRLINE, 'flex min-h-11 flex-wrap items-center gap-3 px-4 py-3');
+  const ready = data !== null && data !== 'failed';
+
   return (
-    <SettingsGroup testId="add-ons-card" title={t('title')} footer={t('description')}>
-      <SettingsBlock className="space-y-4">
-        {data === null ? (
-          <Loader2 className="size-5 animate-spin text-primary" />
-        ) : data === 'failed' ? (
-          <div className="flex items-center gap-3 text-sm text-muted-foreground">
-            {t('loadFailed')}
-            <Button variant="outline" size="sm" onClick={() => { setData(null); void load(); }}>{t('retry')}</Button>
-          </div>
-        ) : (
-          <>
-            {!data.configured ? (
-              <p className="text-sm text-muted-foreground">{t('notConfigured')}</p>
-            ) : (
-              <ul className="-mx-4 divide-y divide-separator border-y border-separator">
-                {data.packs.map((pack) => (
-                  <li key={pack.kind} className="flex min-h-11 flex-wrap items-center gap-3 px-4 py-3">
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium text-foreground">{t(`kinds.${pack.kind}`, { count: pack.quantity })}</p>
-                      <p className="text-xs text-muted-foreground">{t('perPack', { price: money(pack.amountMinor, pack.currency) })}</p>
-                    </div>
-                    <label className="flex items-center gap-2 text-xs text-muted-foreground">
-                      {t('packs')}
-                      <Input type="number" min={1} max={MAX_PACKS} className="h-8 w-20" value={packs[pack.kind] ?? 1}
-                        onChange={(e) => setPacks((p) => ({ ...p, [pack.kind]: Math.min(MAX_PACKS, Math.max(1, Math.floor(Number(e.target.value) || 1))) }))} />
-                    </label>
-                    <Button size="sm" disabled={busy !== null} onClick={() => void buy(pack)}>
-                      {busy === pack.kind && <Loader2 className="mr-1 size-3.5 animate-spin" />}
-                      {t('buy', { price: money(pack.amountMinor * (packs[pack.kind] ?? 1), pack.currency) })}
-                    </Button>
-                  </li>
-                ))}
-              </ul>
-            )}
-            {data.configured && <p className="text-xs text-muted-foreground">{t('coverage')}</p>}
-            {data.addOns.length === 0 ? (
-              <p className="text-sm text-muted-foreground">{t('empty')}</p>
-            ) : (
-              <ul className="divide-y divide-border" data-testid="add-ons-list">
-                {data.addOns.map((row) => (
-                  <li key={row.id} className="flex flex-wrap items-center gap-3 py-2 text-sm">
-                    <span className="min-w-0 flex-1 text-foreground">{t(`kinds.${row.kind}`, { count: row.quantity })}</span>
-                    <Badge variant={STATUS_VARIANT[row.status]}>{t(`status.${row.status}`)}</Badge>
-                    <span className="text-xs text-muted-foreground">
-                      {row.status === 'active' && row.endsAt ? t('until', { date: date(row.endsAt) }) : date(row.createdAt)}
-                    </span>
-                    {row.status === 'active' && (
-                      <Button variant="ghost" size="sm" disabled={busy !== null} onClick={() => void cancel(row)}>{t('cancel')}</Button>
-                    )}
-                    {row.status === 'pending' && <p className="basis-full text-xs text-muted-foreground">{t('pendingHint')}</p>}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </>
-        )}
-      </SettingsBlock>
+    <SettingsGroup
+      testId="add-ons-card"
+      title={t('title')}
+      footer={<>{t('description')}{ready && data.configured ? <> {t('coverage')}</> : null}</>}
+    >
+      {data === null ? (
+        <div className={cn(row, 'flex-nowrap')} role="status" aria-busy="true">
+          <div className="h-4 flex-1 animate-pulse rounded bg-muted motion-reduce:animate-none" />
+          <div className="h-8 w-28 animate-pulse rounded-md bg-muted motion-reduce:animate-none" />
+        </div>
+      ) : data === 'failed' ? (
+        <InlineError message={t('loadFailed')} onRetry={() => { setData(null); void load(); }} />
+      ) : (
+        <>
+          {!data.configured ? (
+            <div className={row}><p className="text-sm text-muted-foreground">{t('notConfigured')}</p></div>
+          ) : (
+            data.packs.map((pack) => (
+              <div key={pack.kind} className={row}>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium text-foreground">{t(`kinds.${pack.kind}`, { count: pack.quantity })}</p>
+                  <p className="text-xs text-muted-foreground">{t('perPack', { price: money(pack.amountMinor, pack.currency) })}</p>
+                </div>
+                <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                  {t('packs')}
+                  <Input type="number" min={1} max={MAX_PACKS} className="h-11 w-20 sm:h-8" value={packs[pack.kind] ?? 1}
+                    onChange={(e) => setPacks((p) => ({ ...p, [pack.kind]: Math.min(MAX_PACKS, Math.max(1, Math.floor(Number(e.target.value) || 1))) }))} />
+                </label>
+                <Button size="sm" className="min-h-11 sm:min-h-8" disabled={busy !== null} onClick={() => void buy(pack)}>
+                  {busy === pack.kind && <Loader2 className="mr-1 size-3.5 animate-spin" />}
+                  {t('buy', { price: money(pack.amountMinor * (packs[pack.kind] ?? 1), pack.currency) })}
+                </Button>
+              </div>
+            ))
+          )}
+          {data.addOns.length === 0 ? (
+            <div className={row}><p className="text-sm text-muted-foreground">{t('empty')}</p></div>
+          ) : (
+            <div data-testid="add-ons-list" className={SETTINGS_ROW_HAIRLINE}>
+              {data.addOns.map((addOn) => (
+                <div key={addOn.id} className={cn(row, 'text-sm')}>
+                  <span className="min-w-0 flex-1 text-foreground">{t(`kinds.${addOn.kind}`, { count: addOn.quantity })}</span>
+                  <Badge variant={STATUS_VARIANT[addOn.status]}>{t(`status.${addOn.status}`)}</Badge>
+                  <span className="text-xs text-muted-foreground">
+                    {addOn.status === 'active' && addOn.endsAt ? t('until', { date: date(addOn.endsAt) }) : date(addOn.createdAt)}
+                  </span>
+                  {addOn.status === 'active' && (
+                    <Button variant="ghost" size="sm" className="min-h-11 text-destructive sm:min-h-8" disabled={busy !== null} onClick={() => void cancel(addOn)}>{t('cancel')}</Button>
+                  )}
+                  {addOn.status === 'pending' && <p className="basis-full text-xs text-muted-foreground">{t('pendingHint')}</p>}
+                </div>
+              ))}
+            </div>
+          )}
+        </>
+      )}
     </SettingsGroup>
   );
 }

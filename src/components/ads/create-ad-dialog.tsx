@@ -17,7 +17,7 @@ import { toast } from 'sonner';
 import { useTranslations } from 'next-intl';
 
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -425,12 +425,13 @@ export function CreateAdDialog({ open, onOpenChange, accounts, adAccountId, page
   const steps = [t('steps.goal'), t('steps.audience'), t('steps.ad'), t('steps.review')];
 
   return (
-    <Dialog open={open} onOpenChange={(next) => { if (!busy) onOpenChange(next); }}>
-      <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-3xl max-sm:h-dvh max-sm:max-h-dvh max-sm:max-w-none max-sm:rounded-none" data-testid="create-ad-dialog">
-        <DialogHeader>
-          <DialogTitle>{t('title')}</DialogTitle>
-          <DialogDescription>{pageName ? t('descriptionPage', { page: pageName }) : t('description')}</DialogDescription>
-        </DialogHeader>
+    <Sheet open={open} onOpenChange={(next) => { if (!busy) onOpenChange(next); }}>
+      <SheetContent side="right" size="xl" className="gap-0 p-0" data-testid="create-ad-dialog">
+        <SheetHeader className="border-b border-border/50 pr-12">
+          <SheetTitle>{t('title')}</SheetTitle>
+          <SheetDescription>{pageName ? t('descriptionPage', { page: pageName }) : t('description')}</SheetDescription>
+        </SheetHeader>
+        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4">
 
         <ol className="flex flex-wrap gap-2 text-xs" aria-label={t('progress')}>
           {steps.map((label, i) => (
@@ -846,7 +847,8 @@ export function CreateAdDialog({ open, onOpenChange, accounts, adAccountId, page
           </div>
         )}
 
-        <DialogFooter className="gap-2">
+        </div>
+        <SheetFooter className="flex-row flex-wrap justify-end border-t border-border/50">
           {step > 0 && <Button type="button" variant="outline" onClick={() => setStep(step - 1)} disabled={busy}>{t('back')}</Button>}
           {step < 3 && <Button type="button" onClick={() => setStep(step + 1)} disabled={!stepValid[step]}>{t('next')}</Button>}
           {step === 3 && (
@@ -859,12 +861,12 @@ export function CreateAdDialog({ open, onOpenChange, accounts, adAccountId, page
               </Button>
             </>
           )}
-        </DialogFooter>
-      </DialogContent>
+        </SheetFooter>
+      </SheetContent>
       <LeadFormDialog open={leadFormOpen} onOpenChange={setLeadFormOpen} onCreated={(form) => {
         setForms([...(forms ?? []), { id: form.id, name: form.name }]);
         setLeadFormId(form.id);
       }} />
-    </Dialog>
+    </Sheet>
   );
 }

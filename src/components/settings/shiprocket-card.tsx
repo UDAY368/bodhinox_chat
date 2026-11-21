@@ -21,7 +21,6 @@ import { Button } from "@/components/ui/button";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { SettingsBlock, SettingsGroup, SettingsRow } from "./settings-row";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useCan } from "@/hooks/use-can";
 import { authFetch } from "@/lib/auth/client";
@@ -180,11 +179,10 @@ export function ShiprocketCard() {
     : !connected ? t("notConnected") : reconnect ? t("reconnectNeeded") : t("connectedAs", { email: status.api_email ?? "" });
 
   const dimField = (key: keyof Dims, label: string, step: string) => (
-    <div>
-      <Label htmlFor={`shiprocket-${key}`} className="mb-1 block text-xs text-muted-foreground">{label}</Label>
+    <SettingsRow label={label} hint={key === "length_cm" ? t("defaults") : undefined} htmlFor={`shiprocket-${key}`}>
       <Input id={`shiprocket-${key}`} type="number" inputMode="decimal" min={0} step={step} value={dims[key]}
         onChange={(e) => setDims((d) => ({ ...d, [key]: e.target.value }))} />
-    </div>
+    </SettingsRow>
   );
 
   return (
@@ -200,6 +198,12 @@ export function ShiprocketCard() {
         </span>
       }
       footer={status && (status.available || connected) ? (!canEdit ? <>{description} {t("adminOnly")}</> : description) : undefined}
+      action={canEdit && status?.available ? (
+        <Button size="sm" className="min-h-11 sm:min-h-8" onClick={() => void save()} disabled={!ready}>
+          {busy === "save" && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
+          {connected ? t("save") : t("connect")}
+        </Button>
+      ) : undefined}
       more={[
         { label: status?.webhook_token_set ? t("regenerateToken") : t("generateToken"), icon: KeyRound,
           hidden: !canEdit || !connected || !status?.webhook_url, disabled: !!busy, onSelect: () => void rotate() },
@@ -254,8 +258,7 @@ export function ShiprocketCard() {
 
           {canEdit && status.available && (
             <>
-              <SettingsBlock className="py-2.5"><p className="text-xs text-muted-foreground">{t("apiHelp")}</p></SettingsBlock>
-              <SettingsRow label={t("apiEmail")} htmlFor="shiprocket-email">
+              <SettingsRow label={t("apiEmail")} hint={t("apiHelp")} htmlFor="shiprocket-email">
                 <Input id="shiprocket-email" type="email" value={email} autoComplete="off" spellCheck={false} maxLength={254}
                   onChange={(e) => setEmail(e.target.value)} />
               </SettingsRow>
@@ -274,28 +277,17 @@ export function ShiprocketCard() {
                       {locations?.map((name) => <SelectItem key={name} value={name}>{name}</SelectItem>)}
                     </SelectContent>
                   </Select>
-                  <Button type="button" variant="outline" onClick={() => void test()}
+                  <Button type="button" variant="outline" className="min-h-11 sm:min-h-9" onClick={() => void test()}
                     disabled={!!busy || email.trim().length < 4 || (!password && !connected)}>
                     {busy === "test" && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
                     {t("test")}
                   </Button>
                 </div>
               </SettingsRow>
-              <SettingsBlock>
-                <p className="mb-1 text-xs font-medium text-muted-foreground">{t("defaults")}</p>
-                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                  {dimField("length_cm", t("length"), "0.1")}
-                  {dimField("breadth_cm", t("breadth"), "0.1")}
-                  {dimField("height_cm", t("height"), "0.1")}
-                  {dimField("weight_grams", t("weight"), "1")}
-                </div>
-              </SettingsBlock>
-              <SettingsBlock className="flex justify-end py-2.5">
-                <Button onClick={() => void save()} disabled={!ready}>
-                  {busy === "save" && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
-                  {connected ? t("save") : t("connect")}
-                </Button>
-              </SettingsBlock>
+              {dimField("length_cm", t("length"), "0.1")}
+              {dimField("breadth_cm", t("breadth"), "0.1")}
+              {dimField("height_cm", t("height"), "0.1")}
+              {dimField("weight_grams", t("weight"), "1")}
             </>
           )}
         </>

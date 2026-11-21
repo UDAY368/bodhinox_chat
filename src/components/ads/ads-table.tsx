@@ -16,7 +16,9 @@ import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { downloadCsv } from '@/components/analytics/insights/csv';
-import { LoadingRows, MetricHeader, StatusChip } from '@/components/ads/ads-ui';
+import { LoadingRows, MetricHeader, RowMoreMenu, StatusChip } from '@/components/ads/ads-ui';
+import { GroupedList, GroupedListRow } from '@/components/ui/grouped-list';
+import { cn } from '@/lib/utils';
 import { EmptyState } from '@/components/ui/empty-state';
 import { SegmentBuilderDialog } from '@/components/contacts/segment-builder-dialog';
 import { authFetch } from '@/lib/auth/client';
@@ -41,6 +43,15 @@ export function resultOf(row: AdRow): { value: number | null; kind: ReturnType<t
   const kind = resultKindOf(row.objective);
   const value = kind === 'leads' ? row.leads : kind === 'link_clicks' ? row.linkClicks : kind === 'purchases' ? row.metaPurchases : row.conversationsStarted;
   return { value, kind };
+}
+
+/** An ad's creative thumbnail, or a dashed placeholder when Meta has none. */
+function AdThumb({ url, className }: { url: string | null; className: string }) {
+  return url
+    // Meta's signed creative URL (refreshed by each sync); a plain img keeps it off our image proxy.
+    // eslint-disable-next-line @next/next/no-img-element
+    ? <img src={url} alt="" className={cn('shrink-0 rounded-md border border-border object-cover', className)} loading="lazy" referrerPolicy="no-referrer" />
+    : <span className={cn('flex shrink-0 items-center justify-center rounded-md border border-dashed border-border text-muted-foreground', className)}><ImageOff className="size-4" /></span>;
 }
 
 export interface AdsTableProps {
@@ -188,38 +199,47 @@ export function AdsTable({ canManage, canSegment, range, adAccountId }: AdsTable
       )}
       {rows && rows.length === 0 && <EmptyState icon={BarChart3} title={t('empty')} body={t('emptyBody')} className="rounded-group border border-separator bg-grouped-surface" />}
       {rows && rows.length > 0 && (
-        <ul className="space-y-2 md:hidden" data-testid="ads-cards">
+        <div className="sm:hidden" data-testid="ads-cards">
+        <GroupedList>
           {rows.map((row) => {
             const result = resultOf(row);
+            const spend = row.spend == null ? formatCount(null) : formatSpend(row.spend, row.currency);
+            const metrics = [
+              `${t('spend')} ${spend}`,
+              `${formatCount(result.value)} ${t(`resultKinds.${result.kind}`)}`,
+              `${t('costPerResult')} ${formatMoneyValue(ratio(row.spend, result.value), row.currency)}`,
+              ...(row.revenue !== null && row.spend ? [`${t('roas')} ${t('roasValue', { value: (row.revenue / row.spend).toFixed(2) })}`] : []),
+            ].join(' · ');
+            const open = () => setOpened(row);
+            // With Retarget on offer the row's actions sit in its "more" menu; otherwise the row opens the details.
+            const retargetRow = level === 'ad' && canSegment;
             return (
-              <li key={row.id} className="rounded-xl border border-border bg-card p-3">
-                <div className="flex items-start justify-between gap-2">
-                  <button type="button" onClick={() => setOpened(row)} aria-label={t('openDetails', { name: row.name ?? row.id })}
-                    className="min-w-0 text-left text-sm font-semibold text-foreground outline-none hover:text-primary focus-visible:ring-2 focus-visible:ring-ring">
-                    <span className="line-clamp-2">{row.name ?? row.id}</span>
-                  </button>
-                  <StatusChip status={row.status} />
-                </div>
-                <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
-                  {([
-                    [t('spend'), row.spend == null ? formatCount(null) : formatSpend(row.spend, row.currency)],
-                    [`${t('results')} · ${t(`resultKinds.${result.kind}`)}`, formatCount(result.value)],
-                    [t('costPerResult'), formatMoneyValue(ratio(row.spend, result.value), row.currency)],
-                    [t('roas'), row.revenue !== null && row.spend ? t('roasValue', { value: (row.revenue / row.spend).toFixed(2) }) : '-'],
-                  ] as const).map(([label, value]) => (
-                    <div key={label} className="min-w-0">
-                      <dt className="truncate text-muted-foreground">{label}</dt>
-                      <dd className="font-semibold tabular-nums text-foreground">{value}</dd>
-                    </div>
-                  ))}
-                </dl>
-              </li>
+              <GroupedListRow
+                key={row.id}
+                title={row.name ?? row.id}
+                subtitle={metrics}
+                leading={level === 'ad' ? <AdThumb url={row.thumbnailUrl} className="size-7" /> : undefined}
+                onClick={retargetRow ? undefined : open}
+                chevron={!retargetRow}
+                trailing={
+                  <span className="flex items-center gap-1">
+                    <StatusChip status={row.status} />
+                    {retargetRow && (
+                      <RowMoreMenu actions={[
+                        { label: t('openDetails', { name: row.name ?? row.id }), icon: <BarChart3 className="size-4" />, onSelect: open },
+                        { label: tAds('retarget'), icon: <Target className="size-4" />, onSelect: () => setRetarget([{ field: 'ad', op: 'clicked_any', adIds: [row.id] }]) },
+                      ]} />
+                    )}
+                  </span>
+                }
+              />
             );
           })}
-        </ul>
+        </GroupedList>
+        </div>
       )}
       {rows && rows.length > 0 && (
-        <div className="hidden overflow-x-auto rounded-xl border border-border bg-card md:block">
+        <div className="hidden overflow-x-auto rounded-xl border border-border bg-card sm:block">
           <table className="w-full min-w-[980px] text-sm">
             <thead className="bg-muted text-left text-xs text-muted-foreground">
               <tr>
@@ -245,13 +265,7 @@ export function AdsTable({ canManage, canSegment, range, adAccountId }: AdsTable
                   <tr key={row.id} className="border-t border-border/70 transition-colors duration-150 hover:bg-muted/60">
                     <td className="px-3.5 py-3">
                       <div className="flex items-center gap-3">
-                        {level === 'ad' && (
-                          row.thumbnailUrl
-                            // Meta's signed creative URL (refreshed by each sync); a plain img keeps it off our image proxy.
-                            // eslint-disable-next-line @next/next/no-img-element
-                            ? <img src={row.thumbnailUrl} alt="" className="size-10 shrink-0 rounded-md border border-border object-cover" loading="lazy" referrerPolicy="no-referrer" />
-                            : <span className="flex size-10 shrink-0 items-center justify-center rounded-md border border-dashed border-border text-muted-foreground"><ImageOff className="size-4" /></span>
-                        )}
+                        {level === 'ad' && <AdThumb url={row.thumbnailUrl} className="size-10" />}
                         <div className="min-w-0">
                           {/* Opens the detail drawer: KPIs and the last 14 days. */}
                           <button

@@ -5,7 +5,9 @@ import { useFormatter, useTranslations } from 'next-intl';
 import { Laptop, Smartphone, Tablet, MonitorSmartphone } from 'lucide-react';
 import { authFetch } from '@/lib/auth/client';
 import { Button } from '@/components/ui/button';
-import { SettingsBlock, SettingsGroup } from './settings-row';
+import { GroupedListRow } from '@/components/ui/grouped-list';
+import { cn } from '@/lib/utils';
+import { SETTINGS_ROW_HAIRLINE, SettingsBlock, SettingsGroup } from './settings-row';
 
 type DeviceSession = {
   id: string;
@@ -55,59 +57,62 @@ export function DeviceSessionsCard() {
   const others = sessions?.filter((session) => !session.current).length ?? 0;
   return (
     <SettingsGroup title={t('title')} footer={t('description')}>
-      <SettingsBlock className="flex flex-col gap-3">
-        {sessions === null && !message && <p className="text-muted-foreground text-sm">{t('loading')}</p>}
-        <ul className="divide-border divide-y">
-          {sessions?.map((session) => {
-            const Icon = ICONS[session.device] ?? MonitorSmartphone;
-            const name = [session.browser ?? t('unknownBrowser'), session.os ?? t('unknownOs')].join(' · ');
-            return (
-              <li key={session.id} className="flex items-center gap-3 py-2">
-                <Icon className="text-muted-foreground size-5 shrink-0" aria-hidden />
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium">
-                    {name}
-                    {session.current && <span className="text-primary ml-2 text-xs">{t('thisDevice')}</span>}
-                  </p>
-                  <p className="text-muted-foreground text-xs">
-                    {t('activity', {
-                      lastUsed: format.relativeTime(new Date(session.lastUsedAt)),
-                      signedIn: format.dateTime(new Date(session.createdAt), { dateStyle: 'medium' }),
-                    })}
-                  </p>
-                </div>
-                {!session.current && (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    disabled={busy !== null}
-                    onClick={() => revoke(`id=${encodeURIComponent(session.id)}`, session.id)}
-                  >
-                    {t('signOut')}
-                  </Button>
-                )}
-              </li>
-            );
-          })}
-        </ul>
-        {message && (
+      {sessions === null && !message && (
+        <div className={cn(SETTINGS_ROW_HAIRLINE, 'flex min-h-11 items-center gap-3 px-4 py-3')} aria-busy="true" aria-label={t('loading')}>
+          <div className="size-5 animate-pulse rounded bg-muted" />
+          <div className="flex-1 space-y-1.5">
+            <div className="h-3.5 w-1/2 animate-pulse rounded bg-muted" />
+            <div className="h-3 w-2/3 animate-pulse rounded bg-muted" />
+          </div>
+        </div>
+      )}
+      {sessions?.map((session) => {
+        const Icon = ICONS[session.device] ?? MonitorSmartphone;
+        const name = [session.browser ?? t('unknownBrowser'), session.os ?? t('unknownOs')].join(' · ');
+        return (
+          <div key={session.id} className={cn(SETTINGS_ROW_HAIRLINE, 'flex min-h-11 items-center gap-3 px-4 py-2')}>
+            <Icon className="text-muted-foreground size-5 shrink-0" aria-hidden />
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-medium">
+                {name}
+                {session.current && <span className="text-primary ml-2 text-xs">{t('thisDevice')}</span>}
+              </p>
+              <p className="text-muted-foreground text-xs">
+                {t('activity', {
+                  lastUsed: format.relativeTime(new Date(session.lastUsedAt)),
+                  signedIn: format.dateTime(new Date(session.createdAt), { dateStyle: 'medium' }),
+                })}
+              </p>
+            </div>
+            {!session.current && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="min-h-11 text-destructive sm:min-h-8"
+                disabled={busy !== null}
+                onClick={() => revoke(`id=${encodeURIComponent(session.id)}`, session.id)}
+              >
+                {t('signOut')}
+              </Button>
+            )}
+          </div>
+        );
+      })}
+      {message && (
+        <SettingsBlock className="py-3">
           <p role="status" className="text-sm">
             {message}
           </p>
-        )}
-        {others > 0 && (
-          <Button
-            type="button"
-            variant="outline"
-            className="self-start"
-            disabled={busy !== null}
-            onClick={() => revoke('scope=others', 'others')}
-          >
-            {t('signOutOthers', { count: others })}
-          </Button>
-        )}
-      </SettingsBlock>
+        </SettingsBlock>
+      )}
+      {others > 0 && (
+        <GroupedListRow
+          destructive
+          title={t('signOutOthers', { count: others })}
+          onClick={busy !== null ? undefined : () => void revoke('scope=others', 'others')}
+        />
+      )}
     </SettingsGroup>
   );
 }

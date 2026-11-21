@@ -42,8 +42,12 @@ export function SubscriptionCard({ overview, busy, onCancel, onPay }: {
     </Button>
   ) : null;
 
+  const canCancel = overview.can_manage && !!s?.managed && !s.cancelAtPeriodEnd && s.status !== 'cancelled';
+
   return (
-    <SettingsGroup title={<>{s ? t('current', { plan: s.planName }) : t('none')}
+    <SettingsGroup
+      more={[{ label: t('cancel'), onSelect: onCancel, destructive: true, disabled: busy !== null, hidden: !canCancel }]}
+      title={<>{s ? t('current', { plan: s.planName }) : t('none')}
           {s && <Badge variant={s.status === 'active' || s.status === 'trialing' ? 'secondary' : 'destructive'} data-testid="billing-status">{t(`status.${s.status}`)}</Badge>}</>}>
       <SettingsBlock className="space-y-3 text-sm">
         {!s && <p className="text-muted-foreground">{t('noneHint')}</p>}
@@ -62,13 +66,6 @@ export function SubscriptionCard({ overview, busy, onCancel, onPay }: {
           <div key={i}>{banner(WARN, t(`pending.${p.kind}`))}</div>
         ))}
         {s && <ExpiryNote subscription={s} />}
-        {overview.can_manage && s?.managed && !s.cancelAtPeriodEnd && s.status !== 'cancelled' && (
-          <div className="pt-1">
-            <Button variant="outline" size="sm" onClick={onCancel} disabled={busy !== null}>
-              {busy === 'cancel' && <Loader2 className="size-4 animate-spin" />}{t('cancel')}
-            </Button>
-          </div>
-        )}
       </SettingsBlock>
     </SettingsGroup>
   );

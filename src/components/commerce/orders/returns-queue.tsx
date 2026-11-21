@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { useFormatter, useTranslations } from "next-intl";
 import { Undo2 } from "lucide-react";
 
+import { useMatchMedia } from "@/hooks/use-match-media";
+import { GroupedList, GroupedListRow } from "@/components/ui/grouped-list";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { TablePagination } from "@/components/ui/table-pagination";
@@ -23,6 +25,8 @@ export function ReturnsQueue({ onOpenOrder, reloadKey }: { onOpenOrder: (orderId
   const t = useTranslations("Commerce.orders.listing");
   const tr = useTranslations("Commerce.returns");
   const format = useFormatter();
+  // Phones get grouped rows; the table starts at the sm breakpoint.
+  const wide = useMatchMedia("(min-width: 640px)");
   const [status, setStatus] = useState<ReturnQueueFilter | "">("open");
   const [page, setPage] = useState(0);
   const [attempt, setAttempt] = useState(0);
@@ -41,11 +45,16 @@ export function ReturnsQueue({ onOpenOrder, reloadKey }: { onOpenOrder: (orderId
   }, [status, page, key]);
 
   const totalPages = data ? Math.max(1, Math.ceil(data.total / RETURN_QUEUE_PAGE)) : 1;
+  const pagination = data && data.total > RETURN_QUEUE_PAGE ? (
+    <TablePagination page={page} totalPages={totalPages} onPageChange={setPage}
+      summary={t("pageSummary", { start: page * RETURN_QUEUE_PAGE + 1, end: Math.min((page + 1) * RETURN_QUEUE_PAGE, data.total), total: data.total })}
+      labels={{ nav: t("pageNav"), previous: t("pagePrevious"), next: t("pageNext"), page: (n) => t("pageNumber", { n }) }} />
+  ) : null;
 
   return (
     <div className="space-y-4">
       <Select value={status || ALL} onValueChange={(v) => { setStatus(v === ALL ? "" : (v as ReturnQueueFilter)); setPage(0); }}>
-        <SelectTrigger className="min-h-11 w-48 max-w-full sm:min-h-9" aria-label={t("returns.filter")}>
+        <SelectTrigger className="min-h-11 w-full sm:min-h-9 sm:w-48" aria-label={t("returns.filter")}>
           <SelectValue>{(v: string) => (v === ALL ? t("returns.all") : v === "open" ? t("returns.open") : tr(`statuses.${v as Exclude<ReturnQueueFilter, "open">}`))}</SelectValue>
         </SelectTrigger>
         <SelectContent>
@@ -60,6 +69,29 @@ export function ReturnsQueue({ onOpenOrder, reloadKey }: { onOpenOrder: (orderId
         <RowPlaceholders label={t("loading")} />
       ) : data.returns.length === 0 ? (
         <EmptyState icon={Undo2} title={t("returns.empty")} />
+      ) : !wide ? (
+        <div className="space-y-3">
+          <GroupedList>
+            {data.returns.map((r) => (
+              <GroupedListRow
+                key={r.id}
+                onClick={() => onOpenOrder(r.order_id)}
+                title={<><span className="font-medium tabular-nums">{r.order_ref}</span><span className="text-muted-foreground"> · {r.contact_name || t("unknownCustomer")}</span></>}
+                subtitle={
+                  <span className="inline-flex items-center gap-1.5">
+                    <StateBadge tone={r.pending_approval ? "warn" : TONE[r.status]}>
+                      {r.pending_approval ? t("returns.waitingApproval") : tr(`statuses.${r.status}`)}
+                    </StateBadge>
+                    {r.is_exchange && <StateBadge tone="neutral">{t("returns.exchange")}</StateBadge>}
+                    {format.dateTime(new Date(r.created_at), { dateStyle: "medium" })}
+                  </span>
+                }
+                chevron
+              />
+            ))}
+          </GroupedList>
+          {pagination}
+        </div>
       ) : (
         <div className="overflow-x-auto rounded-xl border border-border bg-card">
           <Table className="[&_td]:px-3.5 [&_td]:py-2.5">
@@ -95,11 +127,7 @@ export function ReturnsQueue({ onOpenOrder, reloadKey }: { onOpenOrder: (orderId
               ))}
             </TableBody>
           </Table>
-          {data.total > RETURN_QUEUE_PAGE && (
-            <TablePagination className="border-t border-border" page={page} totalPages={totalPages} onPageChange={setPage}
-              summary={t("pageSummary", { start: page * RETURN_QUEUE_PAGE + 1, end: Math.min((page + 1) * RETURN_QUEUE_PAGE, data.total), total: data.total })}
-              labels={{ nav: t("pageNav"), previous: t("pagePrevious"), next: t("pageNext"), page: (n) => t("pageNumber", { n }) }} />
-          )}
+          {pagination && <div className="border-t border-border">{pagination}</div>}
         </div>
       )}
     </div>

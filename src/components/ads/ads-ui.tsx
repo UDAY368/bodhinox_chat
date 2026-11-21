@@ -1,9 +1,13 @@
 'use client';
 
 // Small shared pieces for the Ads tabs: the status chip (Meta's delivery
-// status in plain words) and the loading placeholder.
+// status in plain words), the loading placeholder and a phone row's "more" menu.
 
+import type { ReactNode } from 'react';
 import { useTranslations } from 'next-intl';
+import { MoreHorizontal } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 
 export type StatusTone = 'active' | 'paused' | 'review' | 'rejected' | 'issues' | 'ended' | 'billing' | 'other';
@@ -71,5 +75,27 @@ export function MetricHeader({ label, help }: { label: string; help: string }) {
     <span title={help} tabIndex={0} className="cursor-help whitespace-nowrap underline decoration-dotted decoration-muted-foreground/60 underline-offset-4 outline-none focus-visible:ring-2 focus-visible:ring-ring">
       {label}
     </span>
+  );
+}
+
+export type RowAction = { label: string; icon?: ReactNode; onSelect: () => void; destructive?: boolean; disabled?: boolean };
+
+/** The "more" button at the end of a phone list row (44px target), holding that row's actions. */
+export function RowMoreMenu({ actions, label }: { actions: RowAction[]; label?: string }) {
+  const t = useTranslations('UiKit');
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger render={<Button type="button" variant="ghost" size="icon" className="size-11" aria-label={label ?? t('more')} />}>
+        <MoreHorizontal className="size-4" aria-hidden />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-auto min-w-44">
+        {actions.map((a) => (
+          <DropdownMenuItem key={a.label} variant={a.destructive ? 'destructive' : 'default'} disabled={a.disabled} onClick={a.onSelect}>
+            {a.icon}
+            {a.label}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }

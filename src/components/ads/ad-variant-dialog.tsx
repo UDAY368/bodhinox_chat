@@ -9,7 +9,7 @@ import { ImagePlus, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -72,12 +72,13 @@ export function AdVariantDialog({ source, onClose, onCreated, replace = false }:
   };
 
   return (
-    <Dialog open onOpenChange={(next) => { if (!next && !busy) onClose(); }}>
-      <DialogContent className="sm:max-w-xl" data-testid="ad-variant-dialog">
-        <DialogHeader>
-          <DialogTitle>{t(replace ? 'editTitle' : 'title')}</DialogTitle>
-          <DialogDescription>{t(replace ? 'editDescription' : 'description', { name: source.name })}</DialogDescription>
-        </DialogHeader>
+    <Sheet open onOpenChange={(next) => { if (!next && !busy) onClose(); }}>
+      <SheetContent side="right" size="lg" className="gap-0 p-0" data-testid="ad-variant-dialog">
+        <SheetHeader className="border-b border-border/50 pr-12">
+          <SheetTitle>{t(replace ? 'editTitle' : 'title')}</SheetTitle>
+          <SheetDescription>{t(replace ? 'editDescription' : 'description', { name: source.name })}</SheetDescription>
+        </SheetHeader>
+        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4">
         <div className="grid gap-4 sm:grid-cols-[1fr_10rem]">
           <div className="space-y-3">
             <div className="space-y-1">
@@ -109,13 +110,14 @@ export function AdVariantDialog({ source, onClose, onCreated, replace = false }:
           </div>
         </div>
         <p className="text-xs text-muted-foreground">{t('help')}</p>
-        <DialogFooter>
+        </div>
+        <SheetFooter className="flex-row flex-wrap justify-end border-t border-border/50">
           <Button type="button" variant="outline" onClick={onClose} disabled={busy}>{t('cancel')}</Button>
           <Button type="button" onClick={() => void submit()} disabled={busy || uploading || !image || !primaryText.trim()}>
             {busy && <Loader2 className="size-4 animate-spin" />} {t(replace ? 'editCreate' : 'create')}
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </SheetFooter>
+      </SheetContent>
+    </Sheet>
   );
 }

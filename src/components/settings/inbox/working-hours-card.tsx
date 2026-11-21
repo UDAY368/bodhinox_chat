@@ -15,7 +15,6 @@ import { useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { authFetch } from "@/lib/auth/client";
@@ -29,7 +28,7 @@ import {
   type TimeRange,
   type Weekday,
 } from "@/lib/inbox/working-hours";
-import { SETTINGS_ROW_HAIRLINE, SettingsBlock, SettingsGroup, SettingsRow } from "../settings-row";
+import { SETTINGS_ROW_HAIRLINE, SettingsBlock, SettingsGroup, SettingsRow, SettingsSwitchRow } from "../settings-row";
 import { PageLoading } from "@/components/ui/page-loading";
 
 const MAX_AWAY = 1024;
@@ -121,155 +120,152 @@ export function WorkingHoursCard({ canEdit }: { canEdit: boolean }) {
     }
   };
 
-  return (
-    <SettingsGroup title={t("title")} footer={t("description")}>
+  if (loading || loadFailed)
+    return (
+      <SettingsGroup title={t("title")} footer={t("description")}>
         {loading ? (
           <SettingsBlock><PageLoading rows={3} /></SettingsBlock>
-        ) : loadFailed ? (
-          <SettingsBlock><p className="text-xs text-destructive">{t("loadFailed")}</p></SettingsBlock>
         ) : (
-          <>
-            <SettingsRow label={t("timezone")} htmlFor="inbox-timezone">
-              <Input
-                id="inbox-timezone"
-                list="inbox-timezones"
-                value={settings.timezone}
-                maxLength={64}
-                disabled={!editable}
-                onChange={(e) => setSettings({ ...settings, timezone: e.target.value })}
-                className="bg-muted sm:max-w-xs"
-              />
-              <datalist id="inbox-timezones">
-                {zones.map((zone) => <option key={zone} value={zone} />)}
-              </datalist>
-            </SettingsRow>
-
-            <SettingsBlock className="py-2.5">
-              <p className="text-sm font-medium text-foreground">{t("hours")}</p>
-              <p className="text-xs text-muted-foreground">{t("hoursHint")}</p>
-            </SettingsBlock>
-              {WEEKDAYS.map((day) => {
-                const ranges = settings.working_hours[day] ?? [];
-                return (
-                  <div key={day} className={`${SETTINGS_ROW_HAIRLINE} flex min-h-11 flex-col gap-2 px-4 py-3 sm:flex-row sm:items-start`}>
-                    <label className="flex w-36 shrink-0 items-center gap-2 text-sm text-foreground">
-                      <Switch
-                        checked={ranges.length > 0}
-                        disabled={!editable}
-                        onCheckedChange={(open) => setDay(day, open ? [DEFAULT_RANGE] : [])}
-                        aria-label={t("openOn", { day: tDay(day) })}
-                      />
-                      {tDay(day)}
-                    </label>
-                    <div className="min-w-0 flex-1 space-y-1.5">
-                      {ranges.length === 0 && <p className="py-1 text-xs text-muted-foreground">{t("closed")}</p>}
-                      {ranges.map((range, i) => (
-                        <div key={i} className="flex flex-wrap items-center gap-2">
-                          <Input
-                            type="time"
-                            aria-label={t("opensAt", { day: tDay(day) })}
-                            value={range.start}
-                            disabled={!editable}
-                            onChange={(e) => setDay(day, ranges.map((r, j) => (j === i ? { ...r, start: e.target.value } : r)))}
-                            className="bg-muted w-32"
-                          />
-                          <span className="text-xs text-muted-foreground">{t("to")}</span>
-                          <Input
-                            type="time"
-                            aria-label={t("closesAt", { day: tDay(day) })}
-                            value={range.end === "24:00" ? "23:59" : range.end}
-                            disabled={!editable}
-                            onChange={(e) => setDay(day, ranges.map((r, j) => (j === i ? { ...r, end: e.target.value === "23:59" ? "24:00" : e.target.value } : r)))}
-                            className="bg-muted w-32"
-                          />
-                          {editable && (
-                            <Button type="button" variant="ghost" size="sm" aria-label={t("removeRange")}
-                              onClick={() => setDay(day, ranges.filter((_, j) => j !== i))}>
-                              <Trash2 className="size-3.5" />
-                            </Button>
-                          )}
-                        </div>
-                      ))}
-                      {editable && ranges.length > 0 && ranges.length < MAX_RANGES_PER_DAY && ranges[ranges.length - 1].end < "23:59" && (
-                        <Button type="button" variant="ghost" size="sm"
-                          onClick={() => setDay(day, [...ranges, { start: ranges[ranges.length - 1].end, end: "24:00" }])}>
-                          <Plus className="size-3.5" /> {t("addRange")}
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-
-            <div className={`${SETTINGS_ROW_HAIRLINE} space-y-2 px-4 py-3`}>
-              <div className="flex items-center justify-between gap-4">
-                <div>
-                  <p className="text-sm font-medium text-foreground">{t("awayTitle")}</p>
-                  <p className="text-xs text-muted-foreground">{t("awayDescription")}</p>
-                </div>
-                <Switch
-                  checked={settings.away_message_enabled}
-                  disabled={!editable}
-                  onCheckedChange={(on) => setSettings({ ...settings, away_message_enabled: on })}
-                  aria-label={t("awayTitle")}
-                />
-              </div>
-              <Textarea
-                aria-label={t("awayText")}
-                placeholder={t("awayPlaceholder")}
-                value={settings.away_message ?? ""}
-                maxLength={MAX_AWAY}
-                rows={3}
-                disabled={!editable}
-                onChange={(e) => setSettings({ ...settings, away_message: e.target.value })}
-                className="bg-muted"
-              />
-              {showInstagram && (
-                <div className="flex items-center justify-between gap-4 border-t border-border pt-2">
-                  <div>
-                    <p className="text-sm text-foreground">{t("instagramAway.label")}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {hasAwayText ? t("instagramAway.help") : t("instagramAway.needsMessage")}
-                    </p>
-                  </div>
-                  <Switch
-                    checked={settings.instagram_away_message_enabled}
-                    disabled={!editable || (!settings.instagram_away_message_enabled && !hasAwayText)}
-                    onCheckedChange={(on) => setSettings({ ...settings, instagram_away_message_enabled: on })}
-                    aria-label={t("instagramAway.label")}
-                  />
-                </div>
-              )}
-            </div>
-
-            <div className={`${SETTINGS_ROW_HAIRLINE} grid gap-4 px-4 py-3 sm:grid-cols-2`}>
-              <div className="space-y-1.5">
-                <Label htmlFor="inbox-sla">{t("slaLabel")}</Label>
-                <Input id="inbox-sla" type="number" inputMode="numeric" min={1} max={10080} step={1}
-                  placeholder={t("off")} value={sla} disabled={!editable}
-                  onChange={(e) => setSla(e.target.value)} className="bg-muted" />
-                <p className="text-xs text-muted-foreground">{t("slaHint")}</p>
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="inbox-auto-resolve">{t("autoResolveLabel")}</Label>
-                <Input id="inbox-auto-resolve" type="number" inputMode="numeric" min={1} max={720} step={1}
-                  placeholder={t("off")} value={autoResolve} disabled={!editable}
-                  onChange={(e) => setAutoResolve(e.target.value)} className="bg-muted" />
-                <p className="text-xs text-muted-foreground">{t("autoResolveHint")}</p>
-              </div>
-            </div>
-
-            <SettingsBlock className="flex justify-end py-2.5">
-              {canEdit ? (
-                <Button type="button" onClick={save} disabled={!editable}>
-                  {saving && <Loader2 className="size-3.5 animate-spin" />} {t("save")}
-                </Button>
-              ) : (
-                <p className="w-full text-xs text-muted-foreground">{t("adminsOnly")}</p>
-              )}
-            </SettingsBlock>
-          </>
+          <SettingsBlock><p className="text-xs text-destructive" role="alert">{t("loadFailed")}</p></SettingsBlock>
         )}
-    </SettingsGroup>
+      </SettingsGroup>
+    );
+
+  return (
+    <div className="space-y-6" data-testid="working-hours">
+      <SettingsGroup title={t("title")} footer={t("description")}>
+        <SettingsRow label={t("timezone")} htmlFor="inbox-timezone">
+          <Input
+            id="inbox-timezone"
+            list="inbox-timezones"
+            value={settings.timezone}
+            maxLength={64}
+            disabled={!editable}
+            onChange={(e) => setSettings({ ...settings, timezone: e.target.value })}
+            className="bg-muted sm:max-w-xs"
+          />
+          <datalist id="inbox-timezones">
+            {zones.map((zone) => <option key={zone} value={zone} />)}
+          </datalist>
+        </SettingsRow>
+      </SettingsGroup>
+
+      <SettingsGroup title={t("hours")} footer={t("hoursHint")}>
+        {WEEKDAYS.map((day) => {
+          const ranges = settings.working_hours[day] ?? [];
+          return (
+            <div key={day} className={`${SETTINGS_ROW_HAIRLINE} flex min-h-11 flex-col gap-2 px-4 py-3 sm:flex-row sm:items-start`}>
+              <label className="flex min-h-9 w-36 shrink-0 items-center gap-2 text-sm text-foreground">
+                <Switch
+                  checked={ranges.length > 0}
+                  disabled={!editable}
+                  onCheckedChange={(open) => setDay(day, open ? [DEFAULT_RANGE] : [])}
+                  aria-label={t("openOn", { day: tDay(day) })}
+                />
+                {tDay(day)}
+              </label>
+              <div className="min-w-0 flex-1 space-y-1.5">
+                {ranges.length === 0 && <p className="py-1 text-xs text-muted-foreground">{t("closed")}</p>}
+                {ranges.map((range, i) => (
+                  <div key={i} className="flex flex-wrap items-center gap-2">
+                    <Input
+                      type="time"
+                      aria-label={t("opensAt", { day: tDay(day) })}
+                      value={range.start}
+                      disabled={!editable}
+                      onChange={(e) => setDay(day, ranges.map((r, j) => (j === i ? { ...r, start: e.target.value } : r)))}
+                      className="bg-muted w-32"
+                    />
+                    <span className="text-xs text-muted-foreground">{t("to")}</span>
+                    <Input
+                      type="time"
+                      aria-label={t("closesAt", { day: tDay(day) })}
+                      value={range.end === "24:00" ? "23:59" : range.end}
+                      disabled={!editable}
+                      onChange={(e) => setDay(day, ranges.map((r, j) => (j === i ? { ...r, end: e.target.value === "23:59" ? "24:00" : e.target.value } : r)))}
+                      className="bg-muted w-32"
+                    />
+                    {editable && (
+                      <Button type="button" variant="ghost" size="icon" className="size-11 text-destructive sm:size-9" aria-label={t("removeRange")}
+                        onClick={() => setDay(day, ranges.filter((_, j) => j !== i))}>
+                        <Trash2 className="size-3.5" />
+                      </Button>
+                    )}
+                  </div>
+                ))}
+                {editable && ranges.length > 0 && ranges.length < MAX_RANGES_PER_DAY && ranges[ranges.length - 1].end < "23:59" && (
+                  <Button type="button" variant="ghost" size="sm" className="min-h-11 text-primary sm:min-h-8"
+                    onClick={() => setDay(day, [...ranges, { start: ranges[ranges.length - 1].end, end: "24:00" }])}>
+                    <Plus className="size-3.5" /> {t("addRange")}
+                  </Button>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </SettingsGroup>
+
+      <SettingsGroup>
+        <SettingsSwitchRow
+          title={t("awayTitle")}
+          description={t("awayDescription")}
+          control={
+            <Switch
+              checked={settings.away_message_enabled}
+              disabled={!editable}
+              onCheckedChange={(on) => setSettings({ ...settings, away_message_enabled: on })}
+              aria-label={t("awayTitle")}
+            />
+          }
+        />
+        <div className={`${SETTINGS_ROW_HAIRLINE} px-4 py-3`}>
+          <Textarea
+            aria-label={t("awayText")}
+            placeholder={t("awayPlaceholder")}
+            value={settings.away_message ?? ""}
+            maxLength={MAX_AWAY}
+            rows={3}
+            disabled={!editable}
+            onChange={(e) => setSettings({ ...settings, away_message: e.target.value })}
+            className="bg-muted"
+          />
+        </div>
+        {showInstagram && (
+          <SettingsSwitchRow
+            title={t("instagramAway.label")}
+            description={hasAwayText ? t("instagramAway.help") : t("instagramAway.needsMessage")}
+            control={
+              <Switch
+                checked={settings.instagram_away_message_enabled}
+                disabled={!editable || (!settings.instagram_away_message_enabled && !hasAwayText)}
+                onCheckedChange={(on) => setSettings({ ...settings, instagram_away_message_enabled: on })}
+                aria-label={t("instagramAway.label")}
+              />
+            }
+          />
+        )}
+      </SettingsGroup>
+
+      <SettingsGroup footer={canEdit ? undefined : t("adminsOnly")}>
+        <SettingsRow label={t("slaLabel")} htmlFor="inbox-sla" hint={t("slaHint")}>
+          <Input id="inbox-sla" type="number" inputMode="numeric" min={1} max={10080} step={1}
+            placeholder={t("off")} value={sla} disabled={!editable}
+            onChange={(e) => setSla(e.target.value)} className="bg-muted" />
+        </SettingsRow>
+        <SettingsRow label={t("autoResolveLabel")} htmlFor="inbox-auto-resolve" hint={t("autoResolveHint")}>
+          <Input id="inbox-auto-resolve" type="number" inputMode="numeric" min={1} max={720} step={1}
+            placeholder={t("off")} value={autoResolve} disabled={!editable}
+            onChange={(e) => setAutoResolve(e.target.value)} className="bg-muted" />
+        </SettingsRow>
+      </SettingsGroup>
+
+      {canEdit && (
+        <div className="flex justify-end">
+          <Button type="button" className="min-h-11 sm:min-h-9" onClick={save} disabled={!editable}>
+            {saving && <Loader2 className="size-3.5 animate-spin" />} {t("save")}
+          </Button>
+        </div>
+      )}
+    </div>
   );
 }

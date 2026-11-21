@@ -17,7 +17,7 @@ import { toast } from 'sonner';
 import { useTranslations } from 'next-intl';
 
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -428,16 +428,17 @@ export function CampaignsPanel({ canManage, adAccountId = null }: { canManage: b
         </div>
       )}
 
-      <Dialog open={edit !== null} onOpenChange={(next) => { if (!next && !busy) setEdit(null); }}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>{title}</DialogTitle>
-            <DialogDescription>
+      <Sheet open={edit !== null} onOpenChange={(next) => { if (!next && !busy) setEdit(null); }}>
+        <SheetContent side="right" size="md" className="gap-0 p-0">
+          <SheetHeader className="border-b border-border/50 pr-12">
+            <SheetTitle>{title}</SheetTitle>
+            <SheetDescription>
               {edit?.kind === 'cap' ? t('capHelp')
                 : edit?.kind === 'status' ? t(edit.value === 'ACTIVE' ? 'resumeHelp' : 'pauseHelp')
                 : t('editHelp')}
-            </DialogDescription>
-          </DialogHeader>
+            </SheetDescription>
+          </SheetHeader>
+          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4">
           {edit && edit.kind !== 'status' && (
             <div className="space-y-1">
               <Label htmlFor="ad-edit-value">
@@ -457,15 +458,16 @@ export function CampaignsPanel({ canManage, adAccountId = null }: { canManage: b
               {edit.kind === 'cap' && <p className="text-xs text-muted-foreground">{t('capClear')}</p>}
             </div>
           )}
-          <DialogFooter>
+          </div>
+          <SheetFooter className="flex-row flex-wrap justify-end border-t border-border/50">
             <Button type="button" variant="ghost" onClick={() => setEdit(null)} disabled={busy}>{t('cancel')}</Button>
             <Button type="button" onClick={() => void submit()} disabled={busy}>
               {busy && <Loader2 className="size-3.5 animate-spin" />}
               {edit?.kind === 'cap' ? t('save') : edit?.kind === 'status' ? (edit.value === 'ACTIVE' ? t('resume') : t('pause')) : t('sendChange')}
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }

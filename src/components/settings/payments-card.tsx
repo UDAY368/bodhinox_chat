@@ -20,7 +20,7 @@ import { Input } from "@/components/ui/input";
 import { useCan } from "@/hooks/use-can";
 import { authFetch } from "@/lib/auth/client";
 import { SettingsPanelHead } from "./settings-panel-head";
-import { SettingsBlock, SettingsGroup, SettingsRow, SettingsSwitchRow } from "./settings-row";
+import { SettingsGroup, SettingsRow, SettingsSwitchRow } from "./settings-row";
 
 interface RazorpayStatus {
   connected: boolean;
@@ -119,6 +119,12 @@ export function PaymentsCard() {
           </span>
         }
         footer={canEdit ? t("keysHelp") : t("adminOnly")}
+        action={canEdit ? (
+          <Button size="sm" className="min-h-11 sm:min-h-8" onClick={() => void save()} disabled={!ready}>
+            {saving && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
+            {status?.connected ? t("replace") : t("connect")}
+          </Button>
+        ) : undefined}
         more={[
           { label: t("disconnect"), icon: Unplug, destructive: true, disabled: removing, hidden: !canEdit || !status?.connected, onSelect: () => void disconnect() },
         ]}
@@ -145,7 +151,7 @@ export function PaymentsCard() {
           >
             <div className="flex gap-2">
               <Input id="razorpay-webhook-url" readOnly value={status.webhook_url} className="bg-muted font-mono text-xs" onFocus={(e) => e.currentTarget.select()} />
-              <Button type="button" variant="outline" size="icon" onClick={() => void copy()} aria-label={t("copy")}>
+              <Button type="button" variant="outline" size="icon" className="size-11 shrink-0 sm:size-9" onClick={() => void copy()} aria-label={t("copy")}>
                 {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
               </Button>
             </div>
@@ -166,12 +172,6 @@ export function PaymentsCard() {
               <Input id="razorpay-webhook-secret" type="password" value={webhookSecret} autoComplete="new-password" maxLength={200}
                 placeholder={status?.webhook_secret_set ? t("webhookSecretKeep") : undefined} onChange={(e) => setWebhookSecret(e.target.value)} />
             </SettingsRow>
-            <SettingsBlock className="flex justify-end py-2.5">
-              <Button onClick={() => void save()} disabled={!ready}>
-                {saving && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
-                {status?.connected ? t("replace") : t("connect")}
-              </Button>
-            </SettingsBlock>
           </>
         )}
       </SettingsGroup>

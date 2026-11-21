@@ -17,6 +17,8 @@ import { useConfirm } from '@/components/ui/confirm-dialog';
 import { EmptyState } from '@/components/ui/empty-state';
 import { InlineError } from '@/components/ui/inline-error';
 import { OptionSelect } from '@/components/ui/option-select';
+import { GroupedList, GroupedListRow } from '@/components/ui/grouped-list';
+import { RowMoreMenu } from './ads-ui';
 import { useAuth } from '@/hooks/use-auth';
 import { authFetch } from '@/lib/auth/client';
 import { hasMinRole } from '@/lib/auth/roles';
@@ -45,6 +47,16 @@ function query(filters: Filters, cursor?: string | null): string {
   if (cursor) params.set('cursor', cursor);
   const qs = params.toString();
   return qs ? `?${qs}` : '';
+}
+
+/** A phone row's subtitle: when, which form and ad, then the answers (or why there are none). */
+export function leadSummary(lead: LeadDto, t: (key: string) => string): string {
+  const answers = lead.status !== 'fetched'
+    ? [t(`leads.status.${lead.status}`)]
+    : lead.answers.map((a) => a.values.join(', ')).filter(Boolean);
+  return [new Date(lead.receivedAt).toLocaleString(), lead.formName || lead.formId, lead.adName || lead.adId, ...answers]
+    .filter(Boolean)
+    .join(' · ');
 }
 
 export function LeadsTable({ canManage }: LeadsTableProps) {
@@ -218,7 +230,29 @@ export function LeadsTable({ canManage }: LeadsTableProps) {
           <EmptyState icon={Inbox} title={t('leads.empty')} />
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-border bg-card">
+        <>
+        {leads.length > 0 && (
+          <div className="sm:hidden" data-testid="leads-list">
+            <GroupedList>
+              {leads.map((lead) => (
+                <GroupedListRow
+                  key={lead.id}
+                  title={lead.contactName || t('leads.noContact')}
+                  subtitle={leadSummary(lead, (key) => t(key))}
+                  trailing={canManage ? (
+                    busy === lead.id ? <Loader2 className="size-4 animate-spin" aria-hidden /> : (
+                      <RowMoreMenu actions={[{
+                        label: t('leads.deleteLead'), icon: <Trash2 className="size-4" />, destructive: true,
+                        disabled: busy !== null, onSelect: () => void remove(lead),
+                      }]} />
+                    )
+                  ) : undefined}
+                />
+              ))}
+            </GroupedList>
+          </div>
+        )}
+        <div className="hidden overflow-x-auto rounded-xl border border-border bg-card sm:block">
           <table className="w-full text-sm">
             <thead className="bg-muted text-left text-xs text-muted-foreground">
               <tr>
@@ -264,6 +298,7 @@ export function LeadsTable({ canManage }: LeadsTableProps) {
             </tbody>
           </table>
         </div>
+        </>
       )}
 
       {loading && <Loader2 className="size-4 animate-spin text-muted-foreground" aria-hidden />}

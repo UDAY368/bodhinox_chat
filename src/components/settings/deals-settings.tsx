@@ -8,11 +8,10 @@ import { createClient } from "@/lib/data/client";
 import { useAuth } from "@/hooks/use-auth";
 import { CURRENCIES } from "@/lib/currency";
 import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useTranslations } from "next-intl";
 import { SettingsPanelHead } from "./settings-panel-head";
-import { SettingsBlock, SettingsGroup } from "./settings-row";
+import { SettingsGroup, SettingsRow } from "./settings-row";
 
 function currencyLabel(code: string): string {
   const c = CURRENCIES.find((x) => x.code === code);
@@ -75,51 +74,40 @@ export function DealsSettings() {
         title={t("title")}
         description={t("description")}
       />
-      <SettingsGroup title={<><Coins className="size-4 text-primary" />
-            {t("defaultCurrency")}</>} footer={t("defaultCurrencyDesc")}>
-        <SettingsBlock className="space-y-4">
-          <div className="grid gap-2 sm:max-w-xs">
-            <Label htmlFor="deals-currency" className="text-muted-foreground">{t("currencyLabel")}</Label>
-            <Select
-              value={selected}
-              onValueChange={(v) => { if (v) setSelected(String(v)); }}
-              disabled={!canEditSettings || profileLoading}
-            >
-              <SelectTrigger id="deals-currency" className="min-h-11 w-full bg-muted sm:min-h-9">
-                <SelectValue>{(v: string) => currencyLabel(v)}</SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                {CURRENCIES.map((c) => (
-                  <SelectItem key={c.code} value={c.code}>
-                    {c.code} — {c.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {!canEditSettings && (
-              <p className="text-xs text-muted-foreground">
-                {t("adminOnlyHint")}
-              </p>
+      <SettingsGroup
+        title={<><Coins className="size-4 text-primary" />{t("defaultCurrency")}</>}
+        footer={<>{t("defaultCurrencyDesc")}{!canEditSettings && <> {t("adminOnlyHint")}</>}</>}
+        action={canEditSettings ? (
+          <Button size="sm" className="min-h-11 sm:min-h-8" onClick={handleSave} disabled={saving || !dirty}>
+            {saving ? (
+              <>
+                <Loader2 className="size-4 animate-spin" />
+                {t("saving")}
+              </>
+            ) : (
+              t("save")
             )}
-          </div>
-
-          {canEditSettings && (
-            <Button
-              onClick={handleSave}
-              disabled={saving || !dirty}
-              className="bg-primary text-primary-foreground hover:bg-primary/90"
-            >
-              {saving ? (
-                <>
-                  <Loader2 className="size-4 animate-spin" />
-                  {t("saving")}
-                </>
-              ) : (
-                t("save")
-              )}
-            </Button>
-          )}
-        </SettingsBlock>
+          </Button>
+        ) : undefined}
+      >
+        <SettingsRow label={t("currencyLabel")} htmlFor="deals-currency">
+          <Select
+            value={selected}
+            onValueChange={(v) => { if (v) setSelected(String(v)); }}
+            disabled={!canEditSettings || profileLoading}
+          >
+            <SelectTrigger id="deals-currency" className="min-h-11 w-full sm:min-h-9">
+              <SelectValue>{(v: string) => currencyLabel(v)}</SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              {CURRENCIES.map((c) => (
+                <SelectItem key={c.code} value={c.code}>
+                  {c.code} — {c.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </SettingsRow>
       </SettingsGroup>
     </section>
   );

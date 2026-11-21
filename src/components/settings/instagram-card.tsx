@@ -32,7 +32,10 @@ import { useAuth } from '@/hooks/use-auth';
 import { hasMinRole } from '@/lib/auth/roles';
 import { channelPath } from '@/lib/channels/routes';
 import type { InstagramAccountView } from '@/lib/instagram/connection';
-import { SettingsBlock, SettingsGroup, SettingsMoreMenu } from './settings-row';
+import { GroupedListRow } from '@/components/ui/grouped-list';
+import { PageLoading } from '@/components/ui/page-loading';
+import { cn } from '@/lib/utils';
+import { SETTINGS_ROW_HAIRLINE, SettingsBlock, SettingsGroup, SettingsMoreMenu, SettingsSwitchRow } from './settings-row';
 
 type Status =
   | { enabled: false; reason: 'flag_off' | 'not_configured'; accounts: [] }
@@ -137,49 +140,47 @@ export function InstagramCard() {
   const live = accounts.filter((a) => a.status !== 'disconnected');
 
   return (
-    <SettingsGroup title={<><AtSign className="size-4" aria-hidden="true" /> {t('title')}</>} footer={t('description')}>
-      <SettingsBlock className="space-y-5">
-        {loadFailed && (
-          <InlineError message={t('loadFailed')} onRetry={() => void load()} />
-        )}
-        {!status && !loadFailed && <Loader2 className="text-muted-foreground size-4 animate-spin" aria-label={t('loading')} />}
+    <SettingsGroup
+      title={<><AtSign className="size-4" aria-hidden="true" /> {t('title')}</>}
+      footer={status?.enabled && !canEdit ? <>{t('description')} {t('memberReadOnly')}</> : t('description')}
+      action={status?.enabled && canEdit ? (
+        <Button type="button" size="sm" className="min-h-11 sm:min-h-8" onClick={() => void connect()} disabled={!!busy}>
+          {busy === 'connect' && <Loader2 className="size-3.5 animate-spin" />}
+          {busy === 'connect' ? t('connecting') : live.length ? t('connectAnother') : t('connect')}
+        </Button>
+      ) : undefined}
+    >
+      {loadFailed && <SettingsBlock><InlineError message={t('loadFailed')} onRetry={() => void load()} /></SettingsBlock>}
+      {!status && !loadFailed && <SettingsBlock><PageLoading rows={2} /></SettingsBlock>}
 
-        {status && !status.enabled && (
-          <div className="space-y-1 text-sm">
-            <p className="text-foreground font-medium">{t('notEnabled')}</p>
-            <p className="text-muted-foreground">
-              {status.reason === 'not_configured' ? t('reasonNotConfigured') : t('reasonFlagOff')}
-            </p>
-          </div>
-        )}
+      {status && !status.enabled && (
+        <GroupedListRow
+          title={t('notEnabled')}
+          subtitle={status.reason === 'not_configured' ? t('reasonNotConfigured') : t('reasonFlagOff')}
+          className="[&_.truncate]:whitespace-normal"
+        />
+      )}
 
-        {status?.enabled && (
-          <>
-            {accounts.length === 0 && <p className="text-muted-foreground text-sm">{t('noAccounts')}</p>}
-            {accounts.map((account) => (
-              <AccountRow key={account.id} account={account} canEdit={canEdit} busy={busy}
-                onReconnect={connect} onDisconnect={disconnect} onCheck={checkNow} />
-            ))}
-            {!canEdit && <p className="text-muted-foreground text-xs">{t('memberReadOnly')}</p>}
-            {canEdit && (
-              <div className="space-y-3 border-t pt-4">
-                <label className="flex items-start gap-3 text-sm">
-                  <Switch checked={withComments} onCheckedChange={(v: boolean) => setWithComments(v)} disabled={!!busy} />
-                  <span>
-                    <span className="text-foreground block font-medium">{t('includeComments')}</span>
-                    <span className="text-muted-foreground block text-xs">{t('includeCommentsHelp')}</span>
-                  </span>
-                </label>
-                <Button type="button" onClick={() => void connect()} disabled={!!busy}>
-                  {busy === 'connect' && <Loader2 className="size-3.5 animate-spin" />}
-                  {busy === 'connect' ? t('connecting') : live.length ? t('connectAnother') : t('connect')}
-                </Button>
-              </div>
-            )}
-            {status.pageLoginAvailable && <InstagramPageLogin canEdit={canEdit} onConnected={() => void load()} />}
-          </>
-        )}
-      </SettingsBlock>
+      {status?.enabled && (
+        <>
+          {accounts.length === 0 && <GroupedListRow title={<span className="text-muted-foreground">{t('noAccounts')}</span>} />}
+          {accounts.map((account) => (
+            <AccountRow key={account.id} account={account} canEdit={canEdit} busy={busy}
+              onReconnect={connect} onDisconnect={disconnect} onCheck={checkNow} />
+          ))}
+          {canEdit && (
+            <SettingsSwitchRow
+              title={t('includeComments')}
+              description={t('includeCommentsHelp')}
+              control={<Switch checked={withComments} onCheckedChange={(v: boolean) => setWithComments(v)} disabled={!!busy} aria-label={t('includeComments')} />}
+            />
+          )}
+          {status.pageLoginAvailable && (
+            // The Facebook Page login lays out its own form.
+            <SettingsBlock><InstagramPageLogin canEdit={canEdit} onConnected={() => void load()} /></SettingsBlock>
+          )}
+        </>
+      )}
     </SettingsGroup>
   );
 }
@@ -208,7 +209,7 @@ function AccountRow({ account, canEdit, busy, onReconnect, onDisconnect, onCheck
     : <Badge variant="destructive">{account.status === 'token_invalid' ? t('badgeReconnect') : t('badgePermission')}</Badge>;
 
   return (
-    <div className="-mx-4 space-y-3 border-y border-separator px-4 py-3">
+    <div className={cn(SETTINGS_ROW_HAIRLINE, 'space-y-3 px-4 py-3')}>
       <div className="flex flex-wrap items-center gap-2 text-sm">
         <span className="text-foreground font-medium">{handle}</span>
         {badge}
@@ -217,7 +218,7 @@ function AccountRow({ account, canEdit, busy, onReconnect, onDisconnect, onCheck
           <div className="ml-auto flex flex-wrap items-center gap-1">
             {busy === `health:${account.id}` && <Loader2 className="text-muted-foreground size-3.5 animate-spin" />}
             {(account.status === 'token_invalid' || account.status === 'permission_missing' || disconnected) && (
-              <Button type="button" size="sm" onClick={() => void onReconnect()} disabled={!!busy}>
+              <Button type="button" size="sm" className="min-h-11 sm:min-h-8" onClick={() => void onReconnect()} disabled={!!busy}>
                 {disconnected ? t('connect') : t('reconnect')}
               </Button>
             )}

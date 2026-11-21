@@ -21,7 +21,8 @@ import { authFetch } from '@/lib/auth/client';
 import type { CommerceEventName } from '@/lib/commerce/event-rules';
 import { CommerceRulesEditor } from './commerce-rules-editor';
 import { SettingsPanelHead } from './settings-panel-head';
-import { SettingsBlock, SettingsGroup, SettingsMoreMenu } from './settings-row';
+import { cn } from '@/lib/utils';
+import { SETTINGS_ROW_HAIRLINE, SettingsBlock, SettingsGroup, SettingsMoreMenu, SettingsRow } from './settings-row';
 
 interface WooStore {
   id: string;
@@ -131,86 +132,79 @@ function WooCommerceCardInner() {
   return (
     <section>
       <SettingsPanelHead title={t('title')} description={t('description')} />
-      <SettingsGroup>
-        <SettingsBlock className="space-y-6">
-          {loading ? (
-            <PageLoading rows={2} />
-          ) : (
-            <>
-              {stores.length === 0 ? (
-                <p className="text-muted-foreground text-sm">{t('empty')}</p>
-              ) : (
-                <ul className="-mx-4 divide-y divide-separator border-y border-separator">
-                  {stores.map((store) => (
-                    <li key={store.id} className="space-y-2 px-4 py-3">
-                      <div className="flex items-center justify-between gap-3">
-                        <div className="flex min-w-0 items-center gap-2">
-                          <ShoppingBag className="text-muted-foreground h-4 w-4 shrink-0" />
-                          <span className="text-foreground truncate text-sm font-medium">{store.store_url}</span>
-                        </div>
-                        <SettingsMoreMenu actions={[
-                          { label: t('disconnect'), icon: Trash2, destructive: true, disabled: busy, onSelect: () => void disconnect(store.id) },
-                        ]} />
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <code className="bg-muted min-w-0 flex-1 truncate rounded px-2 py-1 text-xs">{store.delivery_url}</code>
-                        <Button variant="outline" size="sm" onClick={() => void copy(store.delivery_url)} aria-label={t('copyUrl')}>
-                          <Copy className="h-3.5 w-3.5" />
-                        </Button>
-                      </div>
-                      <p className="text-muted-foreground text-xs">
-                        {store.consent_meta_key
-                          ? t('consentKeySet', { key: store.consent_meta_key })
-                          : t('consentKeyNone')}
-                      </p>
-                    </li>
-                  ))}
-                </ul>
-              )}
-
-              <div className="border-border space-y-3 border-t pt-4">
-                <p className="text-foreground text-sm font-medium">{t('connectTitle')}</p>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <div className="space-y-1">
-                    <Label htmlFor="woo-store-url" className="text-muted-foreground text-xs">{t('storeUrl')}</Label>
-                    <Input
-                      id="woo-store-url"
-                      type="url"
-                      inputMode="url"
-                      placeholder="https://shop.example.com"
-                      value={storeUrl}
-                      onChange={(e) => setStoreUrl(e.target.value)}
-                    />
+      {loading ? (
+        <SettingsGroup><SettingsBlock><PageLoading rows={2} /></SettingsBlock></SettingsGroup>
+      ) : (
+        <div className="space-y-6">
+          {stores.length > 0 && (
+            <SettingsGroup>
+              {stores.map((store) => (
+                <div key={store.id} className={cn(SETTINGS_ROW_HAIRLINE, 'space-y-2 px-4 py-3')}>
+                  <div className="flex min-h-11 items-center justify-between gap-3 sm:min-h-9">
+                    <div className="flex min-w-0 items-center gap-2">
+                      <ShoppingBag className="text-muted-foreground h-4 w-4 shrink-0" />
+                      <span className="text-foreground truncate text-sm font-medium">{store.store_url}</span>
+                    </div>
+                    <SettingsMoreMenu actions={[
+                      { label: t('disconnect'), icon: Trash2, destructive: true, disabled: busy, onSelect: () => void disconnect(store.id) },
+                    ]} />
                   </div>
-                  <div className="space-y-1">
-                    <Label htmlFor="woo-consent-key" className="text-muted-foreground text-xs">{t('consentKey')}</Label>
-                    <Input
-                      id="woo-consent-key"
-                      placeholder="_whatsapp_opt_in"
-                      value={consentKey}
-                      onChange={(e) => setConsentKey(e.target.value)}
-                    />
+                  <div className="flex items-center gap-2">
+                    <code className="bg-muted min-w-0 flex-1 truncate rounded px-2 py-1 text-xs">{store.delivery_url}</code>
+                    <Button variant="outline" size="icon" className="size-11 sm:size-8" onClick={() => void copy(store.delivery_url)} aria-label={t('copyUrl')}>
+                      <Copy className="h-3.5 w-3.5" />
+                    </Button>
                   </div>
+                  <p className="text-muted-foreground text-xs">
+                    {store.consent_meta_key
+                      ? t('consentKeySet', { key: store.consent_meta_key })
+                      : t('consentKeyNone')}
+                  </p>
                 </div>
-                <p className="text-muted-foreground text-xs">{t('consentKeyHelp')}</p>
-                <div className="flex justify-end">
-                  <Button size="sm" disabled={busy || !storeUrl.trim()} onClick={() => void connect()}>
-                    {busy && <Loader2 className="h-4 w-4 animate-spin" />}
-                    {t('connect')}
-                  </Button>
-                </div>
-              </div>
-
-              {stores.length > 0 && (
-                <div className="border-border space-y-3 border-t pt-4">
-                  <p className="text-foreground text-sm font-medium">{t('rulesTitle')}</p>
-                  <CommerceRulesEditor source="woocommerce" events={WOO_EVENTS} fields={WOO_FIELDS} />
-                </div>
-              )}
-            </>
+              ))}
+            </SettingsGroup>
           )}
-        </SettingsBlock>
-      </SettingsGroup>
+
+          <SettingsGroup
+            title={t('connectTitle')}
+            footer={stores.length === 0 ? t('empty') : undefined}
+            action={
+              <Button size="sm" className="min-h-11 sm:min-h-8" disabled={busy || !storeUrl.trim()} onClick={() => void connect()}>
+                {busy && <Loader2 className="h-4 w-4 animate-spin" />}
+                {t('connect')}
+              </Button>
+            }
+          >
+            <SettingsRow label={t('storeUrl')} htmlFor="woo-store-url">
+              <Input
+                id="woo-store-url"
+                type="url"
+                inputMode="url"
+                placeholder="https://shop.example.com"
+                value={storeUrl}
+                onChange={(e) => setStoreUrl(e.target.value)}
+              />
+            </SettingsRow>
+            <SettingsRow label={t('consentKey')} hint={t('consentKeyHelp')} htmlFor="woo-consent-key">
+              <Input
+                id="woo-consent-key"
+                placeholder="_whatsapp_opt_in"
+                value={consentKey}
+                onChange={(e) => setConsentKey(e.target.value)}
+              />
+            </SettingsRow>
+          </SettingsGroup>
+
+          {stores.length > 0 && (
+            <SettingsGroup title={t('rulesTitle')}>
+              {/* The shared commerce rules editor lays out its own per-event rules. */}
+              <SettingsBlock>
+                <CommerceRulesEditor source="woocommerce" events={WOO_EVENTS} fields={WOO_FIELDS} />
+              </SettingsBlock>
+            </SettingsGroup>
+          )}
+        </div>
+      )}
 
       <Sheet open={created !== null} onOpenChange={(open) => !open && setCreated(null)}>
         <SheetContent size="md" className="w-full gap-4 overflow-y-auto p-4">

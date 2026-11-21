@@ -9,21 +9,31 @@ import { useTranslations } from 'next-intl';
 import { Loader2 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
+import { useConfirm } from '@/components/ui/confirm-dialog';
+import { GroupedListRow } from '@/components/ui/grouped-list';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { StepUpFields, sendJson, useActionError, useMfaState } from './step-up';
-import { SettingsBlock, SettingsGroup } from '../settings-row';
+import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { GroupError, StepUpFields, sendJson, useActionError, useMfaState } from './step-up';
+import { SettingsGroup, SettingsRow } from '../settings-row';
 
 const reloadInto = (path: string) => window.location.assign(path);
 
 export function LeaveWorkspaceCard({ workspaceName }: { workspaceName: string }) {
   const t = useTranslations('Settings.privacy.leave');
   const errorText = useActionError();
-  const [confirming, setConfirming] = useState(false);
+  const confirm = useConfirm();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const leave = async () => {
+    const ok = await confirm({
+      title: t('title'),
+      body: t('description', { name: workspaceName }),
+      confirmLabel: t('confirm'),
+      cancelLabel: t('back'),
+      destructive: true,
+    });
+    if (!ok) return;
     setBusy(true);
     setError(null);
     const result = await sendJson('/api/account/leave', 'POST', {});
@@ -37,20 +47,13 @@ export function LeaveWorkspaceCard({ workspaceName }: { workspaceName: string })
 
   return (
     <SettingsGroup title={t('title')} footer={t('description', { name: workspaceName })}>
-      <SettingsBlock className="space-y-3">
-        {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}
-        {confirming ? (
-          <div className="flex gap-2">
-            <Button variant="destructive" onClick={leave} disabled={busy}>
-              {busy ? <Loader2 className="size-4 animate-spin" /> : null}
-              {t('confirm')}
-            </Button>
-            <Button variant="ghost" onClick={() => setConfirming(false)} disabled={busy}>{t('back')}</Button>
-          </div>
-        ) : (
-          <Button variant="outline" onClick={() => setConfirming(true)}>{t('start')}</Button>
-        )}
-      </SettingsBlock>
+      <GroupedListRow
+        destructive
+        title={t('start')}
+        trailing={busy ? <Loader2 className="size-4 animate-spin" aria-hidden /> : undefined}
+        onClick={busy ? undefined : () => void leave()}
+      />
+      <GroupError error={error} />
     </SettingsGroup>
   );
 }
@@ -75,18 +78,19 @@ export function CreateWorkspaceCard() {
   };
 
   return (
-    <SettingsGroup title={t('title')} footer={t('description')}>
-      <SettingsBlock className="space-y-3">
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="create-workspace-name">{t('name')}</Label>
-          <Input id="create-workspace-name" value={name} maxLength={100} onChange={(e) => setName(e.target.value)} />
-        </div>
-        {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}
-        <Button onClick={create} disabled={busy || !name.trim()}>
+    <SettingsGroup
+      title={t('title')}
+      footer={t('description')}
+      action={
+        <Button size="sm" className="min-h-11 sm:min-h-8" onClick={create} disabled={busy || !name.trim()}>
           {busy ? <Loader2 className="size-4 animate-spin" /> : null}
           {t('submit')}
         </Button>
-      </SettingsBlock>
+      }
+    >
+      <SettingsRow label={t('name')} htmlFor="create-workspace-name" error={error}>
+        <Input id="create-workspace-name" value={name} maxLength={100} onChange={(e) => setName(e.target.value)} />
+      </SettingsRow>
     </SettingsGroup>
   );
 }
@@ -120,40 +124,45 @@ export function DeleteAccountCard() {
 
   return (
     <SettingsGroup title={t('title')} footer={t('description')}>
-      <SettingsBlock className="space-y-3">
-        {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}
-        {!open ? (
-          <Button variant="destructive" onClick={() => setOpen(true)}>{t('start')}</Button>
-        ) : (
-          <div className="space-y-3">
+      <GroupedListRow destructive title={t('start')} onClick={() => setOpen(true)} />
+      {!open ? <GroupError error={error} /> : null}
+      <Sheet open={open} onOpenChange={(next) => { if (!busy) setOpen(next); }}>
+        <SheetContent size="md" className="gap-4 overflow-y-auto">
+          <SheetHeader className="pr-12">
+            <SheetTitle>{t('title')}</SheetTitle>
+            <SheetDescription>{t('description')}</SheetDescription>
+          </SheetHeader>
+          <div className="space-y-4 px-4">
             <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
               <li>{t('effects.ownership')}</li>
               <li>{t('effects.soleWorkspaces')}</li>
               <li>{t('effects.identity')}</li>
             </ul>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="delete-account-confirm">{t('typeKeyword', { keyword })}</Label>
-              <Input id="delete-account-confirm" value={confirmText} onChange={(e) => setConfirmText(e.target.value)} autoComplete="off" />
-            </div>
-            <StepUpFields
-              idPrefix="delete-account"
-              mfa={mfa}
-              identity
-              password={password}
-              onPassword={setPassword}
-              code={code}
-              onCode={setCode}
-            />
-            <div className="flex gap-2">
-              <Button variant="destructive" onClick={submit} disabled={busy || confirmText.trim() !== keyword}>
-                {busy ? <Loader2 className="size-4 animate-spin" /> : null}
-                {t('confirm')}
-              </Button>
-              <Button variant="ghost" onClick={() => setOpen(false)} disabled={busy}>{t('back')}</Button>
-            </div>
+            <SettingsGroup>
+              <SettingsRow label={t('typeKeyword', { keyword })} htmlFor="delete-account-confirm">
+                <Input id="delete-account-confirm" value={confirmText} onChange={(e) => setConfirmText(e.target.value)} autoComplete="off" />
+              </SettingsRow>
+              <StepUpFields
+                idPrefix="delete-account"
+                mfa={mfa}
+                identity
+                password={password}
+                onPassword={setPassword}
+                code={code}
+                onCode={setCode}
+              />
+              <GroupError error={error} />
+            </SettingsGroup>
           </div>
-        )}
-      </SettingsBlock>
+          <SheetFooter>
+            <Button variant="destructive" className="min-h-11" onClick={submit} disabled={busy || confirmText.trim() !== keyword}>
+              {busy ? <Loader2 className="size-4 animate-spin" /> : null}
+              {t('confirm')}
+            </Button>
+            <Button variant="ghost" className="min-h-11" onClick={() => setOpen(false)} disabled={busy}>{t('back')}</Button>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
     </SettingsGroup>
   );
 }

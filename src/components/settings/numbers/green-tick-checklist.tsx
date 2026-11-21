@@ -9,7 +9,8 @@
 
 import { CheckCircle2, Circle, ExternalLink, XCircle } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { SettingsBlock, SettingsGroup } from "../settings-row";
+import { cn } from "@/lib/utils";
+import { SETTINGS_ROW_HAIRLINE, SettingsGroup } from "../settings-row";
 
 
 type StepKey = "businessVerification" | "displayName" | "twoStep" | "notability" | "request";
@@ -32,14 +33,13 @@ export function GreenTickChecklist({ nameStatus }: { nameStatus?: string | null 
     key !== "displayName" || !name ? "todo" : APPROVED_NAMES.has(name) ? "done" : REJECTED_NAMES.has(name) ? "rejected" : "todo";
 
   return (
-    <SettingsGroup title={t("title")} footer={t("description")}>
-      <SettingsBlock>
-        <ol className="space-y-4">
+    <SettingsGroup title={t("title")} footer={<>{t("description")} {t("footnote")}</>}>
+        <ol className="contents">
           {STEPS.map(({ key, href }) => {
             const status = state(key);
             const Icon = status === "done" ? CheckCircle2 : status === "rejected" ? XCircle : Circle;
             return (
-              <li key={key} className="flex gap-3">
+              <li key={key} className={cn(SETTINGS_ROW_HAIRLINE, "flex min-h-11 gap-3 px-4 py-3")}>
                 <Icon
                   aria-hidden
                   className={`mt-0.5 size-5 shrink-0 ${status === "done" ? "text-emerald-600" : status === "rejected" ? "text-destructive" : "text-muted-foreground"}`}
@@ -56,7 +56,7 @@ export function GreenTickChecklist({ nameStatus }: { nameStatus?: string | null 
                     href={href}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline"
+                    className="inline-flex min-h-11 items-center gap-1 text-sm font-medium text-primary hover:underline sm:min-h-0"
                   >
                     {t(`steps.${key}.link`)}
                     <ExternalLink aria-hidden className="size-3.5" />
@@ -67,8 +67,6 @@ export function GreenTickChecklist({ nameStatus }: { nameStatus?: string | null 
             );
           })}
         </ol>
-        <p className="mt-4 text-xs text-muted-foreground">{t("footnote")}</p>
-      </SettingsBlock>
     </SettingsGroup>
   );
 }

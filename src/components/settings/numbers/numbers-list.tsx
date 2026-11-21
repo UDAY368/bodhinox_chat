@@ -17,7 +17,7 @@ import { ACCOUNT_ISSUE_EVENTS } from '@/lib/whatsapp/account-issue';
 import { Button } from '@/components/ui/button';
 import { useConfirm } from '@/components/ui/confirm-dialog';
 import { Input } from '@/components/ui/input';
-import { SETTINGS_ROW_HAIRLINE, SettingsBlock, SettingsGroup, SettingsMoreMenu } from '../settings-row';
+import { SETTINGS_ROW_HAIRLINE, SettingsGroup, SettingsMoreMenu } from '../settings-row';
 import { numberLabel, type WhatsAppNumberDto } from './use-whatsapp-numbers';
 
 const QUALITY_CLASSES: Record<string, string> = {
@@ -113,7 +113,7 @@ export function NumbersList({ numbers, selectedId, adding, canEdit, onSelect, on
         </Button>
       ) : undefined}
     >
-        {numbers.length === 0 && <SettingsBlock><p className="text-muted-foreground text-sm">{t('settings.empty')}</p></SettingsBlock>}
+        {numbers.length === 0 && <div className={cn(SETTINGS_ROW_HAIRLINE, 'flex min-h-11 items-center px-4 py-3 text-sm text-muted-foreground')}>{t('settings.empty')}</div>}
         {numbers.map((n) => {
           const selected = !adding && n.id === selectedId;
           const busy = busyId === n.id;

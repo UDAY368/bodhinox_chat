@@ -18,7 +18,9 @@ import { Input } from "@/components/ui/input";
 import { authFetch } from "@/lib/auth/client";
 import { NumberSelect } from "./numbers/number-select";
 import { useWhatsAppNumbers } from "./numbers/use-whatsapp-numbers";
-import { SettingsBlock, SettingsGroup } from "./settings-row";
+import { GroupedListRow } from "@/components/ui/grouped-list";
+import { cn } from "@/lib/utils";
+import { SETTINGS_ROW_HAIRLINE, SettingsGroup, SettingsRow } from "./settings-row";
 
 const MAX = 4;
 const MAX_LENGTH = 80;
@@ -81,12 +83,24 @@ export function IceBreakersCard({ canEdit, numberId: initialNumberId = null }: {
     }
   };
 
+  const status = (
+    <span className={loadFailed ? "text-destructive" : undefined}>
+      {loadFailed ? t("loadFailed") : syncedAt ? t("syncedAt", { date: new Date(syncedAt).toLocaleString() }) : t("notSynced")}
+    </span>
+  );
+
   return (
-    <SettingsGroup title={t("title")} footer={t("description", { max: MAX })}>
-      <SettingsBlock className="space-y-2">
-        {numbers.length > 1 && (
-          <>
-          <label htmlFor="ice-breakers-number" className="sr-only">{t("numberLabel")}</label>
+    <SettingsGroup
+      title={t("title")}
+      footer={<>{t("description", { max: MAX })} {!loading && status}</>}
+      action={editable && !loading ? (
+        <Button type="button" size="sm" onClick={save} disabled={saving} className="min-h-11 sm:min-h-8">
+          {saving && <Loader2 className="size-3.5 animate-spin" />} {t("save")}
+        </Button>
+      ) : undefined}
+    >
+      {numbers.length > 1 && (
+        <SettingsRow label={t("numberLabel")} htmlFor="ice-breakers-number">
           <NumberSelect
             id="ice-breakers-number"
             numbers={numbers}
@@ -94,43 +108,40 @@ export function IceBreakersCard({ canEdit, numberId: initialNumberId = null }: {
             onChange={setNumberId}
             emptyLabel={t("defaultNumber")}
             disabled={saving}
-            className="border-border bg-card text-foreground mb-2 h-9 w-full rounded-md border px-2 text-sm"
+            className="border-border bg-card text-foreground h-11 w-full rounded-md border px-2 text-sm sm:h-9"
           />
-          </>
-        )}
-        {loading ? (
-          <Loader2 className="size-4 animate-spin text-primary" />
-        ) : (
-          <>
-            {prompts.map((prompt, i) => (
-              <div key={i} className="flex gap-2">
-                <Input aria-label={t("promptN", { n: i + 1 })} value={prompt} maxLength={MAX_LENGTH} disabled={!editable}
-                  onChange={(e) => setPrompts(prompts.map((p, j) => (j === i ? e.target.value : p)))} className="bg-muted" />
-                {editable && (
-                  <Button type="button" variant="ghost" size="sm" aria-label={t("remove")} onClick={() => setPrompts(prompts.filter((_, j) => j !== i))}>
-                    <Trash2 className="size-3.5" />
-                  </Button>
-                )}
-              </div>
-            ))}
-            {editable && (
-              <div className="flex flex-wrap items-center gap-2">
-                {prompts.length < MAX && (
-                  <Button type="button" variant="outline" size="sm" onClick={() => setPrompts([...prompts, ""])}>
-                    <Plus className="size-3.5" /> {t("add")}
-                  </Button>
-                )}
-                <Button type="button" size="sm" onClick={save} disabled={saving}>
-                  {saving && <Loader2 className="size-3.5 animate-spin" />} {t("save")}
+        </SettingsRow>
+      )}
+      {loading ? (
+        <div className={cn(SETTINGS_ROW_HAIRLINE, "space-y-2 px-4 py-3")} aria-busy="true">
+          <div className="h-9 w-full animate-pulse rounded-md bg-muted" />
+          <div className="h-9 w-2/3 animate-pulse rounded-md bg-muted" />
+        </div>
+      ) : (
+        <>
+          {prompts.map((prompt, i) => (
+            <div key={i} className={cn(SETTINGS_ROW_HAIRLINE, "flex min-h-11 items-center gap-2 px-4 py-2")}>
+              <Input aria-label={t("promptN", { n: i + 1 })} value={prompt} maxLength={MAX_LENGTH} disabled={!editable}
+                onChange={(e) => setPrompts(prompts.map((p, j) => (j === i ? e.target.value : p)))} />
+              {editable && (
+                <Button type="button" variant="ghost" size="icon" className="size-11 shrink-0 text-destructive sm:size-9" aria-label={t("remove")} onClick={() => setPrompts(prompts.filter((_, j) => j !== i))}>
+                  <Trash2 className="size-4" />
                 </Button>
-              </div>
-            )}
-            <p className={loadFailed ? "text-xs text-destructive" : "text-xs text-muted-foreground"}>
-              {loadFailed ? t("loadFailed") : syncedAt ? t("syncedAt", { date: new Date(syncedAt).toLocaleString() }) : t("notSynced")}
-            </p>
-          </>
-        )}
-      </SettingsBlock>
+              )}
+            </div>
+          ))}
+          {editable && prompts.length < MAX && (
+            <GroupedListRow
+              leading={<Plus className="size-4 text-primary" aria-hidden />}
+              title={<span className="text-primary">{t("add")}</span>}
+              onClick={() => setPrompts([...prompts, ""])}
+            />
+          )}
+          {prompts.length === 0 && !editable && (
+            <div className={cn(SETTINGS_ROW_HAIRLINE, "flex min-h-11 items-center px-4 py-3 text-sm text-muted-foreground")}>{t("notSynced")}</div>
+          )}
+        </>
+      )}
     </SettingsGroup>
   );
 }
