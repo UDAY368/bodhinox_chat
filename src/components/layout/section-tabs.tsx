@@ -33,7 +33,7 @@ export function SectionTabs() {
                 href={tab.href}
                 aria-current={active ? 'page' : undefined}
                 className={cn(
-                  'flex h-8 items-center rounded-[9px] px-3.5 text-[13px] font-medium whitespace-nowrap transition-[background-color,color,box-shadow] duration-150 focus-visible:outline-2 focus-visible:outline-primary',
+                  'flex h-8 pointer-coarse:h-11 items-center rounded-[9px] px-3.5 text-[13px] font-medium whitespace-nowrap transition-[background-color,color,box-shadow] duration-150 focus-visible:outline-2 focus-visible:outline-primary',
                   active
                     ? 'bg-card text-foreground shadow-[0_1px_3px_rgb(0_0_0/0.12)] dark:bg-[#3a3a3e]'
                     : 'text-muted-foreground hover:text-foreground'

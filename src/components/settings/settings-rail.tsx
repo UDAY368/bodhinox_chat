@@ -37,7 +37,7 @@ const RAIL_DESKTOP_MIN_PX = 1024;
 // horizontal scroller; the active one sits on a muted fill with an accent icon.
 const linkClass = (isActive: boolean) =>
   cn(
-    'flex min-h-[34px] shrink-0 items-center gap-2.5 rounded-full border px-3 py-1.5 text-left text-sm font-medium whitespace-nowrap transition-colors duration-150',
+    'flex min-h-[34px] pointer-coarse:min-h-11 shrink-0 items-center gap-2.5 rounded-full border px-3 py-1.5 text-left text-sm font-medium whitespace-nowrap transition-colors duration-150',
     'lg:w-full lg:rounded-lg lg:border-0 lg:px-2.5',
     isActive
       ? 'border-transparent bg-muted text-foreground'

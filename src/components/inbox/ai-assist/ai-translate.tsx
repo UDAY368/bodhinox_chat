@@ -104,7 +104,7 @@ export function TranslateMenu({ state, draft, onDraft, className }: {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger aria-label={t("button")} title={t("button")} disabled={state.busy}
-        className={className ?? "inline-flex size-8 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors duration-150 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 disabled:opacity-50"}>
+        className={className ?? "inline-flex size-8 pointer-coarse:size-11 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors duration-150 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 disabled:opacity-50"}>
         {state.busy ? <Loader2 className="size-4 animate-spin" aria-hidden /> : <Languages className="size-4" aria-hidden />}
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">

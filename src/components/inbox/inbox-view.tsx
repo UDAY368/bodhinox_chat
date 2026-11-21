@@ -1019,7 +1019,7 @@ function InboxViewInner({ scope }: { scope: InboxScope }) {
                 onClick={() => setSearchOpen(true)}
                 aria-label={tSearch('placeholder')}
                 title={tSearch('placeholder')}
-                className="text-muted-foreground hover:bg-muted hover:text-foreground inline-flex size-8 items-center justify-center rounded-lg transition-colors duration-150"
+                className="text-muted-foreground hover:bg-muted hover:text-foreground inline-flex size-8 pointer-coarse:size-11 items-center justify-center rounded-lg transition-colors duration-150"
               >
                 <TextSearch className="h-4 w-4" />
               </button>

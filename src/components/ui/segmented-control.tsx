@@ -144,6 +144,7 @@ export function SegmentedControl<T extends string>({
               className={cn(
                 "relative z-10 flex items-center justify-center gap-1.5 rounded-[9px] font-medium whitespace-nowrap transition-colors duration-(--motion-fast) outline-none focus-visible:outline-2 focus-visible:outline-primary disabled:pointer-events-none disabled:opacity-40",
                 size === "sm" ? "h-7 px-3 text-[12px]" : "h-8 px-3.5 text-[13px]",
+                "pointer-coarse:h-11",
                 checked ? "text-foreground" : "text-muted-foreground hover:text-foreground",
                 // Before the pill is measured (first paint), the selected item draws its own background.
                 checked && !pill && "bg-card shadow-[0_1px_3px_rgb(0_0_0/0.12)] dark:bg-[#3a3a3e]"

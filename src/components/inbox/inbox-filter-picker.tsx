@@ -79,7 +79,7 @@ export function InboxFilterPicker({ categories, activeCount, iconOnly = false }:
         title={iconOnly ? t('addFilter') : undefined}
         className={cn(
           iconOnly
-            ? 'relative inline-flex size-8 items-center justify-center rounded-lg transition-colors duration-150'
+            ? 'relative inline-flex size-8 pointer-coarse:size-11 items-center justify-center rounded-lg transition-colors duration-150'
             : 'inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-[13px] font-medium whitespace-nowrap transition-colors duration-150',
           iconOnly
             ? activeCount > 0 ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-muted hover:text-foreground'

@@ -112,7 +112,7 @@ export function PageSearch() {
   return (
     <Dialog open={open} onOpenChange={changeOpen}>
       <DialogTrigger
-        className="border-border bg-muted/70 text-muted-foreground hover:bg-muted flex h-9 items-center gap-2 rounded-[10px] border px-3 text-xs transition-colors"
+        className="border-border bg-muted/70 text-muted-foreground hover:bg-muted flex h-9 pointer-coarse:h-11 items-center gap-2 rounded-[10px] border px-3 text-xs transition-colors"
         aria-label={t('trigger')}
       >
         <Search className="size-3.5" />
