@@ -31,6 +31,8 @@ import {
   Images,
   Clock,
   MapPin,
+  Reply,
+  StickyNote,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { GatedButton } from "@/components/ui/gated-button";
@@ -77,7 +79,8 @@ import { INSTAGRAM_LIMITS, utf8Bytes } from "@/lib/instagram/graph-limits";
 import { instagramWindowBanner } from "@/lib/instagram/window";
 import { AiReplySuggestions, type ReplyOptionView } from "./ai-assist/ai-reply-suggestions";
 import { TranslateMenu, TranslationPanel, useAiTranslate } from "./ai-assist/ai-translate";
-import { FollowUpBar } from "./follow-up-bar";
+import { useFollowUps } from "./follow-up-bar";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 import { EmojiPicker, SlashQuickReplies, matchQuickReplies, slashQuery, useQuickReplyList } from "./composer-extras";
 import { LocationDialog, type SendLocationPayload } from "./location-dialog";
 
@@ -820,10 +823,25 @@ export function MessageComposer({
     setDraft((d) => (d ? { ...d, caption } : d));
   }, []);
 
+  // Reminders and scheduled replies: Schedule send sits in the tool row, the queue above the text box.
+  const followUps = useFollowUps({
+    hideReminders: remindersInBanner,
+    conversationId,
+    channel: isInstagram ? "instagram" : "whatsapp",
+    draftText: text,
+    readOnly,
+    scheduleDisabled: windowClosed || overInstagramLimit,
+    onScheduled: () => {
+      setText("");
+      setAiSuggestionId(null);
+      if (textareaRef.current) textareaRef.current.style.height = "auto";
+    },
+  });
+
   // ---- Render --------------------------------------------------------
 
   return (
-    <div className="studio-composer group/composer bg-card px-2 pt-1 pb-3 @md:px-4">
+    <div className="studio-composer group/composer bg-card px-2 pt-0.5 pb-2 @md:px-4">
       {replyTo && !noteMode && (
         <div className="mb-2">
           <ReplyQuote
@@ -850,40 +868,8 @@ export function MessageComposer({
               })}
         </div>
       )}
-      {!draft && !recording && !noteMode && (
-        <FollowUpBar
-          hideReminders={remindersInBanner}
-          conversationId={conversationId}
-          channel={isInstagram ? "instagram" : "whatsapp"}
-          draftText={text}
-          readOnly={readOnly}
-          scheduleDisabled={windowClosed || overInstagramLimit}
-          onScheduled={() => {
-            setText("");
-            setAiSuggestionId(null);
-            if (textareaRef.current) textareaRef.current.style.height = "auto";
-          }}
-          trailing={
-            <>
-              {toolbarExtra}
-              {/* Shown only while the agent is typing (the Reply / Note row carries it when there are tabs). */}
-              {!onAddNote && (
-                <span className="ml-auto hidden shrink-0 text-[10px] text-muted-foreground @xl:group-focus-within/composer:inline">
-                  {t("newLineHint")}
-                </span>
-              )}
-              {isInstagram && text && (
-                <span
-                  data-instagram-bytes
-                  className={cn("shrink-0 pl-2 text-[10px] tabular-nums text-muted-foreground", overInstagramLimit && "text-red-600 dark:text-red-400")}
-                >
-                  {tc("byteCounter", { used: textBytes, max: INSTAGRAM_LIMITS.textBytes })}
-                </span>
-              )}
-            </>
-          }
-        />
-      )}
+      {!draft && !recording && !noteMode && followUps.list}
+      {followUps.dialogs}
       {!isInstagram && sessionExpired && !noteMode && (
         <div className="studio-note mb-2 flex items-center justify-between gap-3 rounded-xl px-3.5 py-2.5">
           <p className="flex min-w-0 items-center gap-2 text-[13px]">
@@ -984,33 +970,10 @@ export function MessageComposer({
         <div
           data-composer-mode={noteMode ? "note" : "reply"}
           className={cn(
-            "studio-composer-box relative flex flex-col rounded-[18px] border border-border px-3 pt-2 pb-2",
+            "studio-composer-box relative flex flex-col rounded-[18px] border border-border px-2.5 pt-1 pb-1.5",
             noteMode ? "studio-note" : "bg-card",
           )}
         >
-          {onAddNote && (
-            <div className="mb-1 flex min-w-0 items-center gap-1" role="tablist" aria-label={t("composeMode")}>
-              {(["reply", "note"] as const).map((value) => (
-                <button
-                  key={value}
-                  type="button"
-                  role="tab"
-                  aria-selected={mode === value}
-                  onClick={() => {
-                    setMode(value);
-                    requestAnimationFrame(() => textareaRef.current?.focus());
-                  }}
-                  className={cn(
-                    "h-7 rounded-full px-3 text-xs font-semibold transition-colors duration-150 focus-visible:outline-2",
-                    mode === value ? "bg-foreground/10 text-foreground" : "text-muted-foreground hover:text-foreground",
-                  )}
-                >
-                  {value === "reply" ? t("tabReply") : t("tabNote")}
-                </button>
-              ))}
-              <span className="text-muted-foreground ml-auto hidden truncate text-[10px] @xl:inline">{t("newLineHint")}</span>
-            </div>
-          )}
           {slash !== null && (
             <SlashQuickReplies
               id={`slash-${conversationId}`}
@@ -1052,7 +1015,25 @@ export function MessageComposer({
               ((windowClosed && !noteMode) || readOnly) && "cursor-not-allowed opacity-50"
             )}
           />
-          <div className="mt-1 flex items-center gap-0.5">
+          {/* One row under the text: Reply / Note, the tools (scrolling sideways if a phone runs out of room), hints, Send. */}
+          <div className="mt-0.5 flex min-w-0 items-center gap-1">
+          {onAddNote && (
+            <SegmentedControl
+              size="sm"
+              aria-label={t("composeMode")}
+              value={mode}
+              onValueChange={(value) => {
+                setMode(value);
+                requestAnimationFrame(() => textareaRef.current?.focus());
+              }}
+              options={[
+                { value: "reply", label: <><Reply className="size-3.5" aria-hidden /><span className="sr-only @md:not-sr-only">{t("tabReply")}</span></> },
+                { value: "note", label: <><StickyNote className="size-3.5" aria-hidden /><span className="sr-only @md:not-sr-only">{t("tabNote")}</span></> },
+              ]}
+              className="shrink-0"
+            />
+          )}
+          <div className="flex min-w-0 items-center gap-0.5 overflow-x-auto [scrollbar-width:none]">
           <EmojiPicker onPick={insertAtCaret} disabled={readOnly || (windowClosed && !noteMode)} />
           {!noteMode && (
           <>
@@ -1223,9 +1204,24 @@ export function MessageComposer({
                 requestAnimationFrame(() => { adjustHeight(); textareaRef.current?.focus(); });
               }} />
           )}
+          {followUps.tools}
+          {toolbarExtra}
           </>
           )}
+          </div>
           <span className="flex-1" />
+          {/* Shown while the agent is typing, where there is room. */}
+          <span className="hidden shrink-0 truncate text-[10px] text-muted-foreground @2xl:group-focus-within/composer:inline">
+            {t("newLineHint")}
+          </span>
+          {isInstagram && text && !noteMode && (
+            <span
+              data-instagram-bytes
+              className={cn("shrink-0 text-[10px] tabular-nums text-muted-foreground", overInstagramLimit && "text-red-600 dark:text-red-400")}
+            >
+              {tc("byteCounter", { used: textBytes, max: INSTAGRAM_LIMITS.textBytes })}
+            </span>
+          )}
           <GatedButton
             size="sm"
             canAct={!readOnly}
