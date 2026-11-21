@@ -3,12 +3,13 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Search } from 'lucide-react';
+import { productPath } from '@/lib/commerce/shop-paths';
 
 export const SEARCH_DEBOUNCE_MS = 250;
 export const SEARCH_MIN_CHARS = 2;
 
 export interface SearchLabels { label: string; placeholder: string; submit: string; suggestions: string; noMatches: string }
-interface Suggestion { id: string; name: string; category: string | null }
+interface Suggestion { id: string; slug: string | null; name: string; category: string | null }
 
 /**
  * The shop's search box: a plain GET form to /s/<handle>/search (works without JavaScript) with a debounced suggestion list
@@ -52,7 +53,7 @@ export function ShopSearch({ handle, labels, preview = false }: { handle: string
     if (!showList || !items.length) return;
     if (event.key === 'ArrowDown') { event.preventDefault(); setActive((i) => (i + 1) % items.length); }
     else if (event.key === 'ArrowUp') { event.preventDefault(); setActive((i) => (i <= 0 ? items.length - 1 : i - 1)); }
-    else if (event.key === 'Enter' && active >= 0) { event.preventDefault(); go(`/s/${handle}/p/${items[active].id}`); }
+    else if (event.key === 'Enter' && active >= 0) { event.preventDefault(); go(productPath(handle, items[active])); }
   };
 
   return (
@@ -71,8 +72,8 @@ export function ShopSearch({ handle, labels, preview = false }: { handle: string
         className="absolute inset-x-0 top-full z-30 mt-1 max-h-80 overflow-auto rounded-[var(--shop-radius)] bg-[var(--shop-surface)] p-1 shadow-lg ring-1 ring-black/15">
         {items.map((item, i) => (
           <li key={item.id} id={`${uid}-o${i}`} role="option" aria-selected={i === active}>
-            <a href={`/s/${handle}/p/${item.id}`} tabIndex={-1} onMouseDown={(e) => e.preventDefault()}
-              onClick={(e) => { e.preventDefault(); go(`/s/${handle}/p/${item.id}`); }}
+            <a href={productPath(handle, item)} tabIndex={-1} onMouseDown={(e) => e.preventDefault()}
+              onClick={(e) => { e.preventDefault(); go(productPath(handle, item)); }}
               className={`flex min-h-11 flex-col justify-center rounded-[var(--shop-radius)] px-3 py-1.5 text-sm ${i === active ? 'bg-black/10' : 'hover:bg-black/5'}`}>
               <span className="font-medium">{item.name}</span>
               {item.category && <span className="text-xs opacity-70">{item.category}</span>}

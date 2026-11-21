@@ -19,6 +19,7 @@ import { normaliseTag } from './collection-rules';
 import { PUBLIC_SHOP_PATH } from '../shop-templates';
 import { appOrigin } from '@/lib/auth/csrf';
 import { bundleAvailability, parseScheduleTime, parseShipDate, preorderProblem, scheduleProblem } from '../selling-rules';
+import { nextSlug, parseSlugInput, recordSlugMove } from './slugs';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export const SKU = /^[A-Za-z0-9._-]{1,64}$/;
@@ -34,6 +35,9 @@ export const MAX_OPTIONS = 4;
 export const MAX_TAGS = 20;
 export const MAX_DETAILS = 12;
 export const IMPORT_MAX = 100;
+/** Search engine listing limits (store Batch 6; the database checks the same). */
+export const SEO_TITLE_MAX = 70;
+export const SEO_DESCRIPTION_MAX = 160;
 
 // ------------------------------------------------------------ errors
 
@@ -183,7 +187,11 @@ function mapDbError(error: unknown, field: string): never {
   const e = error as { code?: string; meta?: { code?: string }; message?: string };
   const code = e?.meta?.code ?? e?.code;
   const message = error instanceof Error ? error.message : '';
-  if (code === '23505' || /23505|unique constraint/i.test(message)) throw new CatalogueError(field === 'sku' ? 'sku_taken' : 'conflict', field);
+  if (code === '23505' || /23505|unique constraint/i.test(message)) {
+    // The slug's unique index names itself (shop_products_slug_key / shop_categories_slug_key).
+    if (/slug/i.test(message)) throw new CatalogueError('slug_taken', 'slug');
+    throw new CatalogueError(field === 'sku' ? 'sku_taken' : 'conflict', field);
+  }
   if (code === '23503' || code === '23514' || /2350[34]|23514|foreign key|check constraint/i.test(message)) throw new CatalogueError('invalid', field);
   throw error;
 }
@@ -201,6 +209,8 @@ const iso = (d: Date | null): string | null => (d ? d.toISOString() : null);
 export interface ShopCategory {
   id: string;
   name: string;
+  /** The readable address /s/<handle>/c/<slug> (null only for a row made before the slug migration finished). */
+  slug: string | null;
   parent_id: string | null;
   position: number;
   archived: boolean;
@@ -208,12 +218,12 @@ export interface ShopCategory {
 }
 
 export async function listCategories(tx: TenantTransaction, accountId: string): Promise<ShopCategory[]> {
-  const rows = await tx.$queryRaw<{ id: string; name: string; parent_id: string | null; position: number; archived_at: Date | null; n: bigint }[]>`
-    SELECT c.id::text AS id, c.name, c.parent_id::text AS parent_id, c.position, c.archived_at,
+  const rows = await tx.$queryRaw<{ id: string; name: string; slug: string | null; parent_id: string | null; position: number; archived_at: Date | null; n: bigint }[]>`
+    SELECT c.id::text AS id, c.name, c.slug, c.parent_id::text AS parent_id, c.position, c.archived_at,
       (SELECT count(*) FROM shop_products p WHERE p.account_id=c.account_id AND p.category_id=c.id AND p.status<>'archived') AS n
     FROM shop_categories c WHERE c.account_id=${accountId}::uuid
     ORDER BY (c.archived_at IS NOT NULL), c.position, lower(c.name), c.id`;
-  return rows.map((r) => ({ id: r.id, name: r.name, parent_id: r.parent_id, position: r.position, archived: !!r.archived_at, product_count: Number(r.n) }));
+  return rows.map((r) => ({ id: r.id, name: r.name, slug: r.slug, parent_id: r.parent_id, position: r.position, archived: !!r.archived_at, product_count: Number(r.n) }));
 }
 
 /** Depth at most two: a parent must be top-level, and a category with children cannot get a parent. */
@@ -237,8 +247,9 @@ export async function createCategory(tx: TenantTransaction, accountId: string, u
   const parentId = has(b, 'parent_id') ? optId(b, 'parent_id') : null;
   const position = has(b, 'position') ? int(b, 'position', 0, 10000) : 0;
   await checkParent(tx, accountId, null, parentId);
+  const slug = await nextSlug(tx, accountId, 'category', { id: null, name, current: null, requested: parseSlugInput(b.slug) });
   const rows = await tx.$queryRaw<{ id: string }[]>`
-    INSERT INTO shop_categories(account_id,name,parent_id,position) VALUES(${accountId}::uuid,${name},${parentId}::uuid,${position})
+    INSERT INTO shop_categories(account_id,name,parent_id,position,slug) VALUES(${accountId}::uuid,${name},${parentId}::uuid,${position},${slug})
     RETURNING id::text AS id`.catch((e) => mapDbError(e, 'name'));
   await auditCatalogue(tx, accountId, userId, 'commerce.category_created', rows[0].id);
   return (await listCategories(tx, accountId)).find((c) => c.id === rows[0].id)!;
@@ -253,9 +264,11 @@ export async function updateCategory(tx: TenantTransaction, accountId: string, u
   const position = has(b, 'position') ? int(b, 'position', 0, 10000) : current.position;
   const archived = has(b, 'archived') ? bool(b, 'archived') : current.archived;
   if (parentId !== current.parent_id) await checkParent(tx, accountId, id, parentId);
-  await tx.$executeRaw`UPDATE shop_categories SET name=${name}, parent_id=${parentId}::uuid, position=${position},
+  const slug = await nextSlug(tx, accountId, 'category', { id, name, current: { slug: current.slug, name: current.name }, requested: parseSlugInput(b.slug) });
+  await tx.$executeRaw`UPDATE shop_categories SET name=${name}, parent_id=${parentId}::uuid, position=${position}, slug=${slug},
       archived_at=CASE WHEN ${archived} THEN COALESCE(archived_at, now()) ELSE NULL END
     WHERE account_id=${accountId}::uuid AND id=${id}::uuid`.catch((e) => mapDbError(e, 'name'));
+  if (current.slug && current.slug !== slug) await recordSlugMove(tx, accountId, userId, 'category', current.slug, slug);
   await auditCatalogue(tx, accountId, userId, 'commerce.category_updated', id, { fields: Object.keys(b).filter((k) => has(b, k)) });
   return (await listCategories(tx, accountId)).find((c) => c.id === id)!;
 }
@@ -465,6 +478,12 @@ export interface ShopProduct {
   digital_url: string | null;
   /** A bundle: its variants are sold at the bundle's own price and take their parts from stock. */
   is_bundle: boolean;
+  /** The readable address /s/<handle>/p/<slug> (null only for a row made before the slug migration finished; it gets one on save). */
+  slug: string | null;
+  /** Search engine listing; null = the name, the description and the first image. `seo_image_id` is one of `images`. */
+  seo_title: string | null;
+  seo_description: string | null;
+  seo_image_id: string | null;
   bundle_parts: BundlePartView[];
   /** How many bundles the parts allow now (null = no limit). */
   bundle_available: number | null;
@@ -491,7 +510,8 @@ export async function getShopProduct(tx: TenantTransaction, accountId: string, i
       p.content_reviewed_by::text AS content_reviewed_by, p.content_reviewed_at, p.follow_up_template, p.follow_up_template_language,
       p.follow_up_after_days, p.repurchase_after_days, p.cod_available, p.tags, p.brand, p.product_type, p.details,
       p.version, p.created_at, p.updated_at, st.currency,
-      p.publish_at, p.hide_at, p.is_digital, p.digital_media_id::text AS digital_media_id, p.digital_url, p.is_bundle
+      p.publish_at, p.hide_at, p.is_digital, p.digital_media_id::text AS digital_media_id, p.digital_url, p.is_bundle,
+      p.slug, p.seo_title, p.seo_description, p.seo_image_id::text AS seo_image_id
     FROM shop_products p LEFT JOIN commerce_settings st ON st.account_id=p.account_id
     WHERE p.account_id=${accountId}::uuid AND p.id=${id}::uuid`;
   const p = rows[0];
@@ -590,7 +610,12 @@ export async function upsertProduct(tx: TenantTransaction, accountId: string, us
     digital_media_id: has(b, 'digital_media_id') ? optId(b, 'digital_media_id') : current?.digital_media_id ?? null,
     digital_url: has(b, 'digital_url') ? optHttpsUrl(b, 'digital_url') : current?.digital_url ?? null,
     is_bundle: has(b, 'is_bundle') ? bool(b, 'is_bundle') : current?.is_bundle ?? false,
+    seo_title: has(b, 'seo_title') ? optPlainLine(b, 'seo_title', SEO_TITLE_MAX) : current?.seo_title ?? null,
+    seo_description: has(b, 'seo_description') ? optPlainLine(b, 'seo_description', SEO_DESCRIPTION_MAX) : current?.seo_description ?? null,
+    seo_image_id: has(b, 'seo_image_id') ? optId(b, 'seo_image_id') : current?.seo_image_id ?? null,
   };
+  // The share image is one of the product's own saved images (the database checks it too).
+  if (next.seo_image_id && !current?.images.some((i) => i.id === next.seo_image_id)) throw new CatalogueError('invalid', 'seo_image_id');
   if (scheduleProblem(next.publish_at, next.hide_at)) throw new CatalogueError('invalid', 'hide_at');
   if (next.is_digital && next.is_bundle) throw new CatalogueError('invalid', 'is_bundle');
   if (!next.is_digital) { next.digital_media_id = null; next.digital_url = null; }
@@ -612,15 +637,20 @@ export async function upsertProduct(tx: TenantTransaction, accountId: string, us
     if (!cat[0]) throw new CatalogueError('invalid', 'category_id');
   }
   let productId = id;
+  // Last before the write: takes the workspace's slug lock.
+  const slug = await nextSlug(tx, accountId, 'product', {
+    id: current?.id ?? null, name: next.name, current: current ? { slug: current.slug, name: current.name } : null, requested: parseSlugInput(b.slug),
+  });
   if (!current) {
     const rows = await tx.$queryRaw<{ id: string }[]>`
       INSERT INTO shop_products(account_id,name,description,disclosure,category_id,follow_up_template,follow_up_template_language,
         follow_up_after_days,repurchase_after_days,cod_available,tags,brand,product_type,details,created_by,
-        publish_at,hide_at,is_digital,digital_media_id,digital_url,is_bundle)
+        publish_at,hide_at,is_digital,digital_media_id,digital_url,is_bundle,slug,seo_title,seo_description)
       VALUES(${accountId}::uuid,${next.name},${next.description},${next.disclosure},${next.category_id}::uuid,${next.follow_up_template},
         ${next.follow_up_template_language},${next.follow_up_after_days},${next.repurchase_after_days},${next.cod_available},
         ${next.tags}::text[],${next.brand},${next.product_type},${JSON.stringify(next.details)}::jsonb,${userId}::uuid,
-        ${next.publish_at}::timestamptz,${next.hide_at}::timestamptz,${next.is_digital},${next.digital_media_id}::uuid,${next.digital_url},${next.is_bundle})
+        ${next.publish_at}::timestamptz,${next.hide_at}::timestamptz,${next.is_digital},${next.digital_media_id}::uuid,${next.digital_url},${next.is_bundle},
+        ${slug},${next.seo_title},${next.seo_description})
       RETURNING id::text AS id`.catch((e) => mapDbError(e, 'name'));
     productId = rows[0].id;
     await auditCatalogue(tx, accountId, userId, 'commerce.product_created', productId);
@@ -635,11 +665,13 @@ export async function upsertProduct(tx: TenantTransaction, accountId: string, us
         tags=${next.tags}::text[], brand=${next.brand}, product_type=${next.product_type}, details=${JSON.stringify(next.details)}::jsonb,
         publish_at=${next.publish_at}::timestamptz, hide_at=${next.hide_at}::timestamptz, is_digital=${next.is_digital},
         digital_media_id=${next.digital_media_id}::uuid, digital_url=${next.digital_url}, is_bundle=${next.is_bundle},
+        slug=${slug}, seo_title=${next.seo_title}, seo_description=${next.seo_description}, seo_image_id=${next.seo_image_id}::uuid,
         content_reviewed_by=CASE WHEN ${rereview} THEN ${userId}::uuid ELSE content_reviewed_by END,
         content_reviewed_at=CASE WHEN ${rereview} THEN now() ELSE content_reviewed_at END,
         version=version+1
       WHERE account_id=${accountId}::uuid AND id=${current.id}::uuid AND version=${current.version}`.catch((e) => mapDbError(e, 'name'));
     if (changed !== 1) throw new CatalogueError('conflict', 'version');
+    if (current.slug && current.slug !== slug) await recordSlugMove(tx, accountId, userId, 'product', current.slug, slug);
     await auditCatalogue(tx, accountId, userId, 'commerce.product_updated', current.id,
       { fields: Object.keys(b).filter((k) => has(b, k) && k !== 'version' && k !== 'images'), rereviewed: rereview });
   }
@@ -673,6 +705,11 @@ async function replaceImages(tx: TenantTransaction, accountId: string, userId: s
     SELECT v.id::text AS id, i.media_id::text AS media_id, i.url FROM shop_variants v
     JOIN shop_product_images i ON i.account_id=v.account_id AND i.product_id=v.product_id AND i.id=v.image_id
     WHERE v.account_id=${accountId}::uuid AND v.product_id=${productId}::uuid`;
+  // The share image (seo_image_id) is cleared by the same delete; it is put back onto the same picture when that picture stays.
+  const [share] = await tx.$queryRaw<{ media_id: string | null; url: string | null }[]>`
+    SELECT i.media_id::text AS media_id, i.url FROM shop_products p
+    JOIN shop_product_images i ON i.account_id=p.account_id AND i.product_id=p.id AND i.id=p.seo_image_id
+    WHERE p.account_id=${accountId}::uuid AND p.id=${productId}::uuid`;
   await tx.$executeRaw`DELETE FROM shop_product_images WHERE account_id=${accountId}::uuid AND product_id=${productId}::uuid`;
   for (const [position, image] of images.entries())
     await tx.$executeRaw`INSERT INTO shop_product_images(account_id,product_id,media_id,url,position)
@@ -683,6 +720,12 @@ async function replaceImages(tx: TenantTransaction, accountId: string, userId: s
           AND ((${pick.media_id}::uuid IS NOT NULL AND media_id=${pick.media_id}::uuid) OR (${pick.url}::text IS NOT NULL AND url=${pick.url}))
         ORDER BY position LIMIT 1)
       WHERE account_id=${accountId}::uuid AND id=${pick.id}::uuid`;
+  if (share)
+    await tx.$executeRaw`UPDATE shop_products SET seo_image_id=(
+        SELECT id FROM shop_product_images WHERE account_id=${accountId}::uuid AND product_id=${productId}::uuid
+          AND ((${share.media_id}::uuid IS NOT NULL AND media_id=${share.media_id}::uuid) OR (${share.url}::text IS NOT NULL AND url=${share.url}))
+        ORDER BY position LIMIT 1)
+      WHERE account_id=${accountId}::uuid AND id=${productId}::uuid`;
   await auditCatalogue(tx, accountId, userId, 'commerce.product_images_set', productId, { count: images.length });
 }
 
@@ -761,14 +804,17 @@ export async function duplicateProduct(tx: TenantTransaction, accountId: string,
   const source = await getShopProduct(tx, accountId, id);
   const category = source.category_id ? (await tx.$queryRaw<{ id: string }[]>`SELECT id::text AS id FROM shop_categories
     WHERE account_id=${accountId}::uuid AND id=${source.category_id}::uuid AND archived_at IS NULL`)[0]?.id ?? null : null;
+  const copyTitle = name ?? copyName(source.name);
+  // The copy gets its own address from its name; the search listing text is copied, the share image is not (new image ids).
+  const slug = await nextSlug(tx, accountId, 'product', { id: null, name: copyTitle, current: null });
   const rows = await tx.$queryRaw<{ id: string }[]>`
     INSERT INTO shop_products(account_id,name,description,disclosure,category_id,follow_up_template,follow_up_template_language,
       follow_up_after_days,repurchase_after_days,cod_available,tags,brand,product_type,details,created_by,
-      is_digital,digital_media_id,digital_url,is_bundle)
-    VALUES(${accountId}::uuid,${name ?? copyName(source.name)},${source.description},${source.disclosure},${category}::uuid,
+      is_digital,digital_media_id,digital_url,is_bundle,slug,seo_title,seo_description)
+    VALUES(${accountId}::uuid,${copyTitle},${source.description},${source.disclosure},${category}::uuid,
       ${source.follow_up_template},${source.follow_up_template_language},${source.follow_up_after_days},${source.repurchase_after_days},
       ${source.cod_available},${source.tags}::text[],${source.brand},${source.product_type},${JSON.stringify(source.details)}::jsonb,${userId}::uuid,
-      ${source.is_digital},${source.digital_media_id}::uuid,${source.digital_url},${source.is_bundle})
+      ${source.is_digital},${source.digital_media_id}::uuid,${source.digital_url},${source.is_bundle},${slug},${source.seo_title},${source.seo_description})
     RETURNING id::text AS id`.catch((e) => mapDbError(e, 'name'));
   const copyId = rows[0].id;
   // The copy is a draft with no schedule; a bundle keeps its parts.
@@ -1064,6 +1110,9 @@ export async function importFromMeta(tx: TenantTransaction, accountId: string, u
         RETURNING id)
       SELECT id::text AS id FROM p`;
     if (!product[0]) { skipped.push({ meta_product_id: m.id, reason: 'exists' }); continue; }
+    const slug = await nextSlug(tx, accountId, 'product', { id: product[0].id, name: m.name.trim().slice(0, 200), current: null });
+    await tx.$executeRaw`UPDATE shop_products SET slug=${slug} WHERE account_id=${accountId}::uuid AND id=${product[0].id}::uuid`
+      .catch((e) => mapDbError(e, 'name'));
     const price = storeCurrency && m.currency === storeCurrency ? minorFromDb(m.price) : null;
     await tx.$executeRaw`
       INSERT INTO shop_variants(account_id,product_id,sku,price_minor) VALUES(${accountId}::uuid,${product[0].id}::uuid,${m.retailer_id},${price}::bigint)`

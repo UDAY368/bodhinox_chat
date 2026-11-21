@@ -52,6 +52,8 @@ import {
 import { orderTrackingPathTx } from './order-tracking-link';
 import { deriveStorefrontToken, storefrontTokenHash, storefrontUrl } from './storefront-token';
 import { isUuid, loadPricingSettings, onlinePaymentReady, pricingRate, selectRates, StoreError } from './store-settings';
+import { searchTerms } from './shop-insights-rules';
+import { loadProductPage } from './shop-products';
 
 export type StorefrontPurpose = 'shop' | 'order' | 'status';
 export const STOREFRONT_TTL = { minHours: 1, maxHours: 168, defaultHours: 24 } as const;
@@ -107,6 +109,8 @@ export async function loadSession(tx: TenantTransaction, accountId: string, sess
 export interface IssuedSession {
   sessionId: string;
   url: string;
+  /** The raw link token (never stored), for the public shop's own checkout URL (shopCheckoutUrl). */
+  token: string;
   expiresAt: string;
   purpose: StorefrontPurpose;
   orderId: string | null;
@@ -145,8 +149,9 @@ export async function issueSessionTx(tx: TenantTransaction, accountId: string, i
   if (!inserted[0]) {
     const existing = await loadSession(tx, accountId, input.sessionId);
     if (!existing || existing.contact_id !== input.contactId) throw new StoreError('conflict');
+    const existingToken = deriveStorefrontToken(existing.id, existing.token_epoch);
     return {
-      sessionId: existing.id, url: storefrontUrl(deriveStorefrontToken(existing.id, existing.token_epoch)),
+      sessionId: existing.id, url: storefrontUrl(existingToken), token: existingToken,
       expiresAt: existing.expires_at.toISOString(), purpose: existing.purpose, orderId: existing.order_id, created: false,
     };
   }
@@ -155,7 +160,7 @@ export async function issueSessionTx(tx: TenantTransaction, accountId: string, i
       WHERE account_id=${accountId}::uuid AND contact_id=${input.contactId}::uuid AND purpose='shop' AND revoked_at IS NULL
         AND order_id IS NULL AND id<>${input.sessionId}::uuid`;
   return {
-    sessionId: input.sessionId, url: storefrontUrl(token), expiresAt: inserted[0].expires_at.toISOString(),
+    sessionId: input.sessionId, url: storefrontUrl(token), token, expiresAt: inserted[0].expires_at.toISOString(),
     purpose: input.purpose, orderId: input.orderId, created: true,
   };
 }
@@ -918,106 +923,51 @@ export async function loadOrderView(tx: TenantTransaction, accountId: string, or
   };
 }
 
-/** Products per storefront catalogue page. */
-export const CATALOGUE_PAGE_SIZE = 24;
-const LAST_POSITION = 2_147_483_647;
-
-/** Where a catalogue page ends: the sort key (category position, product name, id) of its last product. */
-export interface CatalogueCursor { position: number; name: string; id: string }
-
-export function encodeCatalogueCursor(cursor: CatalogueCursor): string {
-  return Buffer.from(JSON.stringify([cursor.position, cursor.name, cursor.id]), 'utf8').toString('base64url');
-}
-
-/** The cursor a client sent back, or null when it is not one this server made. */
-export function decodeCatalogueCursor(value: unknown): CatalogueCursor | null {
-  if (typeof value !== 'string' || value.length === 0 || value.length > 400) return null;
-  try {
-    const parsed: unknown = JSON.parse(Buffer.from(value, 'base64url').toString('utf8'));
-    if (!Array.isArray(parsed) || parsed.length !== 3) return null;
-    const [position, name, id] = parsed as unknown[];
-    if (!Number.isInteger(position) || (position as number) < 0 || (position as number) > LAST_POSITION) return null;
-    if (typeof name !== 'string' || name.length > 300 || typeof id !== 'string' || !isUuid(id)) return null;
-    return { position: position as number, name, id };
-  } catch {
-    return null;
-  }
-}
-
-/** A search term as an ILIKE pattern (wildcards escaped), or null for no search. */
-export function catalogueSearchPattern(query: unknown): string | null {
-  if (typeof query !== 'string') return null;
-  const term = query.trim().slice(0, 80);
-  return term ? `%${term.replace(/[\\%_]/g, (c) => `\\${c}`)}%` : null;
-}
-
 export interface CataloguePage { products: StorefrontProduct[]; nextCursor: string | null }
 export interface CatalogueFilter { query?: unknown; categoryId?: unknown; cursor?: unknown }
 
 /**
- * One page of published products with sellable, priced variants (images as ids
- * only), in category order then by name, optionally searched by name or
- * description and narrowed to one category. Keyset paging: nextCursor is null
- * on the last page.
+ * One page of the token storefront's catalogue (store Batch 6: the shared SQL-paged loader, shop-products.ts): published products
+ * with sellable, priced variants (images as ids only; the page loads them through the token's image route), in category order
+ * then by name, optionally searched (every word in the name, a SKU or the category name) and narrowed to one category. Keyset
+ * paging: nextCursor is null on the last page.
  */
 export async function loadCatalogue(tx: TenantTransaction, accountId: string, filter: CatalogueFilter = {}): Promise<CataloguePage> {
-  const pattern = catalogueSearchPattern(filter.query);
   const categoryId = typeof filter.categoryId === 'string' && isUuid(filter.categoryId) ? filter.categoryId : null;
-  const after = decodeCatalogueCursor(filter.cursor);
-  const rows = await tx.$queryRaw<{ id: string; name: string; description: string | null; disclosure: string | null; category: string | null;
-    position: number; is_digital: boolean }[]>`
-    SELECT p.id::text AS id, p.name, p.description, p.disclosure, c.name AS category, p.is_digital,
-      COALESCE(c.position, ${LAST_POSITION}::int) AS position FROM shop_products p
-    LEFT JOIN shop_categories c ON c.account_id=p.account_id AND c.id=p.category_id AND c.archived_at IS NULL
-    WHERE p.account_id=${accountId}::uuid AND shop_product_live(p.status, p.publish_at, p.hide_at)
-      AND EXISTS (SELECT 1 FROM shop_variants v WHERE v.account_id=p.account_id AND v.product_id=p.id AND v.archived_at IS NULL AND v.price_minor IS NOT NULL)
-      AND (${pattern}::text IS NULL OR p.name ILIKE ${pattern}::text OR p.description ILIKE ${pattern}::text)
-      AND (${categoryId}::uuid IS NULL OR c.id=${categoryId}::uuid)
-      AND (${after === null} OR (COALESCE(c.position, ${LAST_POSITION}::int), p.name, p.id)
-        > (${after?.position ?? 0}::int, ${after?.name ?? ''}::text, ${after?.id ?? '00000000-0000-0000-0000-000000000000'}::uuid))
-    ORDER BY COALESCE(c.position, ${LAST_POSITION}::int), p.name, p.id LIMIT ${CATALOGUE_PAGE_SIZE + 1}`;
-  const more = rows.length > CATALOGUE_PAGE_SIZE;
-  const products = rows.slice(0, CATALOGUE_PAGE_SIZE);
-  if (!products.length) return { products: [], nextCursor: null };
-  const ids = products.map((p) => p.id);
-  const variants = await tx.$queryRaw<{ id: string; product_id: string; sku: string; option_values: Record<string, string>; price_minor: bigint;
-    compare_at_minor: bigint | null; in_stock: boolean; ship_date: string | null }[]>`
-    SELECT v.id::text AS id, v.product_id::text AS product_id, v.sku, v.option_values, v.price_minor, v.compare_at_minor,
-      COALESCE(shop_variant_availability(v.account_id, v.id), 1) > 0 AS in_stock,
-      CASE WHEN v.preorder THEN to_char(v.preorder_ship_date, 'YYYY-MM-DD') END AS ship_date
-    FROM shop_variants v
-    WHERE v.account_id=${accountId}::uuid AND v.product_id = ANY(${ids}::uuid[]) AND v.archived_at IS NULL AND v.price_minor IS NOT NULL
-    ORDER BY v.position, v.sku`;
-  const images = await tx.$queryRaw<{ id: string; product_id: string }[]>`
-    SELECT id::text AS id, product_id::text AS product_id FROM shop_product_images
-    WHERE account_id=${accountId}::uuid AND product_id = ANY(${ids}::uuid[]) ORDER BY position`;
-  const last = products[products.length - 1];
+  // A one-letter search still searches (the shop's search box needs two).
+  const typed = typeof filter.query === 'string' ? filter.query.trim().slice(0, 60) : '';
+  const terms = searchTerms(filter.query);
+  const page = await loadProductPage(tx, accountId, { sort: 'featured', categoryId, terms: terms.length || !typed ? terms : [typed] }, filter.cursor,
+    (image) => image.id);
   return {
-    products: products.map((p) => ({
-      id: p.id, name: p.name, description: p.description, disclosure: p.disclosure, categoryName: p.category, digital: p.is_digital,
-      images: images.filter((i) => i.product_id === p.id).map((i) => i.id),
-      variants: variants.filter((v) => v.product_id === p.id).map((v) => ({
-        id: v.id, sku: v.sku, options: v.option_values ?? {}, priceMinor: minorFromDb(v.price_minor) ?? 0,
-        compareAtMinor: minorFromDb(v.compare_at_minor), inStock: v.in_stock, shipsBy: v.ship_date,
-      })),
+    products: page.products.map((p) => ({
+      id: p.id, name: p.name, description: p.description, disclosure: p.disclosure, categoryName: p.categoryName, digital: p.digital,
+      images: p.images,
+      variants: p.variants.map((v) => ({ id: v.id, sku: v.sku, options: v.options, priceMinor: v.priceMinor, compareAtMinor: v.compareAtMinor,
+        inStock: v.inStock, shipsBy: v.shipsBy })),
     })),
-    nextCursor: more ? encodeCatalogueCursor({ position: last.position, name: last.name, id: last.id }) : null,
+    nextCursor: page.next,
   };
 }
 
+/** The most categories the catalogue's filter chips and the shop's Categories section list. */
+export const CATALOGUE_CATEGORY_LIMIT = 100;
+
 /** The live categories that hold at least one product the catalogue lists, in their order (the storefront's filter chips). */
-export async function loadCatalogueCategories(tx: TenantTransaction, accountId: string): Promise<Array<{ id: string; name: string }>> {
-  return tx.$queryRaw<{ id: string; name: string }[]>`
-    SELECT c.id::text AS id, c.name FROM shop_categories c
+export async function loadCatalogueCategories(tx: TenantTransaction, accountId: string): Promise<Array<{ id: string; name: string; slug: string | null }>> {
+  // slug (store Batch 6): the public shop links a category by it.
+  return tx.$queryRaw<{ id: string; name: string; slug: string | null }[]>`
+    SELECT c.id::text AS id, c.name, c.slug FROM shop_categories c
     WHERE c.account_id=${accountId}::uuid AND c.archived_at IS NULL
       AND EXISTS (SELECT 1 FROM shop_products p WHERE p.account_id=c.account_id AND p.category_id=c.id
         AND shop_product_live(p.status, p.publish_at, p.hide_at) AND EXISTS (SELECT 1 FROM shop_variants v WHERE v.account_id=p.account_id AND v.product_id=p.id AND v.archived_at IS NULL AND v.price_minor IS NOT NULL))
-    ORDER BY c.position, c.name, c.id LIMIT 100`;
+    ORDER BY c.position, c.name, c.id LIMIT ${CATALOGUE_CATEGORY_LIMIT}`;
 }
 
 async function firstCataloguePage(tx: TenantTransaction, accountId: string) {
   const page = await loadCatalogue(tx, accountId);
-  return { products: page.products, productsNext: page.nextCursor, categories: await loadCatalogueCategories(tx, accountId) };
+  // The token storefront's chips need only the id and name.
+  return { products: page.products, productsNext: page.nextCursor, categories: (await loadCatalogueCategories(tx, accountId)).map(({ id, name }) => ({ id, name })) };
 }
 
 /**

@@ -43,3 +43,9 @@ export function isStorefrontTokenFormat(value: unknown): value is string {
 export function storefrontUrl(token: string): string {
   return `${appOrigin()}${STOREFRONT_PATH}${token}`;
 }
+
+/** The public shop's own checkout page (themed, inside the shop): `/s/<handle>/checkout/<token>`. Staff links stay on storefrontUrl. */
+export const SHOP_CHECKOUT_SEGMENT = '/checkout/';
+export function shopCheckoutUrl(handle: string, token: string): string {
+  return `${appOrigin()}/s/${handle}${SHOP_CHECKOUT_SEGMENT}${token}`;
+}

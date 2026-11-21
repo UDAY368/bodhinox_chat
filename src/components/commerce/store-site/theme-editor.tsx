@@ -24,6 +24,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { MediaPicker } from "@/components/inbox/media-library/media-picker";
+import { TemplateGallery } from "./template-gallery";
 import { ShopFrameView } from "@/components/shop-public/shop-frame";
 import type { ShopT } from "@/components/shop-public/shop-link";
 import { ShopPageView } from "@/components/shop-public/shop-page";
@@ -34,7 +35,7 @@ import {
   type FieldValues, type ShopDocument, type ShopField, type ShopMenuLink, type ShopPageSlug, type ShopSection, type ShopSectionType,
 } from "@/lib/commerce/shop-sections";
 import {
-  resolveTheme, SHOP_COLOR_KEYS, SHOP_FONT_IDS, SHOP_FONTS, SHOP_TEMPLATE_IDS, SHOP_TEMPLATES, SHOP_TEXT_LIMITS,
+  resolveTheme, SHOP_COLOR_KEYS, SHOP_FONT_IDS, SHOP_FONTS, SHOP_TEMPLATES, SHOP_TEXT_LIMITS,
   type ShopColors, type ShopThemeSettings,
 } from "@/lib/commerce/shop-templates";
 
@@ -43,6 +44,17 @@ type Device = "phone" | "desktop";
 type PickTarget = (ref: string) => void;
 
 const newId = () => Math.random().toString(36).slice(2, 10).padEnd(6, "0");
+
+/** A stored UTC moment as a datetime-local value in this browser's time zone, and back. */
+const toLocalInput = (iso: string | null) => {
+  if (!iso) return "";
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? "" : new Date(d.getTime() - d.getTimezoneOffset() * 60_000).toISOString().slice(0, 16);
+};
+const fromLocalInput = (value: string) => {
+  const d = new Date(value);
+  return value && !Number.isNaN(d.getTime()) ? d.toISOString() : null;
+};
 const selectClass = "h-9 w-full rounded-md border bg-background px-2 text-sm";
 
 function Field({ id, label, hint, children }: { id: string; label: string; hint?: string; children: ReactNode }) {
@@ -245,6 +257,12 @@ export function ThemeEditor() {
           </select>
         </Field>
       );
+      case "datetime": return (
+        <Field id={id} label={label} hint={t("endsAtHint")}>
+          <Input id={id} type="datetime-local" disabled={!canEdit} value={toLocalInput(value as string | null)}
+            onChange={(e) => set(fromLocalInput(e.target.value))} />
+        </Field>
+      );
       case "number": return <Field id={id} label={label}><Input id={id} type="number" disabled={!canEdit} min={field.min} max={field.max} value={(value as number) ?? field.default}
         onChange={(e) => set(Math.min(field.max, Math.max(field.min, Math.round(Number(e.target.value) || field.default))))} /></Field>;
     }
@@ -383,20 +401,10 @@ export function ThemeEditor() {
                 <div className="space-y-2">
                   <p className="text-sm font-semibold">{ts("templateTitle")}</p>
                   <p className="text-xs text-muted-foreground">{t("switchKeeps")}</p>
-                  <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label={ts("templateTitle")}>
-                    {SHOP_TEMPLATE_IDS.map((id) => {
-                      const tpl = SHOP_TEMPLATES[id];
-                      return (
-                        <button key={id} type="button" role="radio" aria-checked={doc.template === id} disabled={!canEdit}
-                          onClick={() => update({ template: id })}
-                          className={`rounded-md border p-2 text-left text-xs ${doc.template === id ? "border-primary ring-2 ring-primary" : ""}`}
-                          style={{ background: tpl.colors.background, color: tpl.colors.text }}>
-                          <span className="block font-semibold" style={{ fontFamily: SHOP_FONTS[tpl.font.heading] }}>{ts(`templates.${id}.name`)}</span>
-                          <span className="mt-1 flex gap-1">{[tpl.colors.primary, tpl.colors.accent].map((c) => <span key={c} className="size-3 rounded-full" style={{ background: c }} />)}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
+                  <TemplateGallery current={doc.template} canEdit={canEdit} onUse={(id) => update({ template: id })}
+                    shop={{ handle: frameShop.handle, name: frameShop.name, logoUrl: frameShop.logoUrl, whatsappPhone: frameShop.whatsappPhone,
+                      menu: frameShop.menu, footer: frameShop.footer, pages: frameShop.pages }}
+                    settings={doc.theme} products={view.preview.products} ctx={ctx} t={tShop} />
                   <Button type="button" variant="ghost" size="sm" disabled={!canEdit} onClick={() => setTheme({ colors: {}, font: {} })}>{t("resetLook")}</Button>
                 </div>
                 <Field id="theme-logo" label={ts("logo")}>{imageInput({ id: "theme-logo", value: doc.theme.logo, onChange: (logo) => setTheme({ logo }) })}</Field>
@@ -415,7 +423,9 @@ export function ThemeEditor() {
                     <select id={`theme-font-${key}`} disabled={!canEdit} className={selectClass} value={doc.theme.font[key] ?? ""}
                       onChange={(e) => setTheme({ font: { ...doc.theme.font, [key]: (e.target.value || undefined) as never } })}>
                       <option value="">{ts("templateFont", { font: ts(`fonts.${SHOP_TEMPLATES[doc.template].font[key]}`) })}</option>
-                      {SHOP_FONT_IDS.map((f) => <option key={f} value={f}>{ts(`fonts.${f}`)}</option>)}
+                      {/* A font id saved before the self-hosted fonts stays selectable until it is changed. */}
+                      {[...SHOP_FONT_IDS, ...(doc.theme.font[key] && !SHOP_FONT_IDS.includes(doc.theme.font[key]) ? [doc.theme.font[key]] : [])]
+                        .map((f) => <option key={f} value={f} style={{ fontFamily: SHOP_FONTS[f] }}>{ts(`fonts.${f}`)}</option>)}
                     </select>
                   </Field>
                 ))}

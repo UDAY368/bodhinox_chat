@@ -11,6 +11,7 @@ import { NextResponse } from 'next/server';
 import { OrderError } from '@/lib/commerce/orders';
 import { approveReturn, closeReturn, getReturn, inspectReturn, receiveReturn, refundReturn, rejectReturn } from '@/lib/commerce/returns';
 import { jsonBody, lifecycleErrorResponse, NO_STORE, staffContext, writeLimit } from '../../orders/_lib/http';
+import { revalidateShop } from '@/lib/commerce/shop-cache';
 
 type Context = { params: Promise<{ id: string }> };
 
@@ -41,7 +42,11 @@ export async function POST(request: Request, context: Context) {
       case 'inspect':
         return NextResponse.json({ return: await inspectReturn(ctx, id, body.disposition) }, { headers: NO_STORE });
       case 'close':
-        return NextResponse.json({ return: await closeReturn(ctx, id, { restock: body.restock === true }) }, { headers: NO_STORE });
+      {
+        const closed = await closeReturn(ctx, id, { restock: body.restock === true });
+        if (body.restock === true) revalidateShop(ctx.accountId);
+        return NextResponse.json({ return: closed }, { headers: NO_STORE });
+      }
       case 'refund': {
         const amount = typeof body.amount_minor === 'number' ? body.amount_minor : NaN;
         const { refundId, refundedOutside } = await refundReturn(ctx, id, {

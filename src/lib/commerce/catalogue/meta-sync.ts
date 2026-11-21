@@ -106,6 +106,7 @@ export function buildMetaItem(v: SyncVariant, ctx: SyncContext): ItemBuild {
     availability: v.sellable ? 'in stock' : 'out of stock',
     condition: 'new',
     price: `${minorToDecimalString(v.price_minor, v.currency)} ${v.currency}`,
+    // The id link on purpose (Store Batch 6): it 308s to the current slug, and a slug change does not re-sync the item.
     link: `${ctx.origin}/s/${ctx.handle}/p/${v.product_id}`,
     image_link: direct ?? `${ctx.origin}/api/public/store/${ctx.handle}/images/${v.image.id}`,
     ...(brand ? { brand: clip(brand, 100) } : {}),

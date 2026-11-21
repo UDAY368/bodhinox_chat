@@ -195,6 +195,7 @@ function planAlert(accountId: string, alert: AlertRow, facts: VariantFacts, now:
 
     const options = optionText(facts.options);
     const name = options ? `${facts.productName} (${options})` : facts.productName;
+    // A long-lived link: the id address on purpose, which 308s to the product's current slug.
     const url = `${appOrigin()}${PUBLIC_SHOP_PATH}${facts.handle}/p/${facts.productId}`;
     if (windowOpen(conversation, now))
       return { kind: 'send', contactId: contact.id, conversationId: conversation.id, template: null, values: [],

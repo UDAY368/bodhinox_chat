@@ -15,7 +15,8 @@ import { cardVariableKey, templateSendNeeds, type CampaignCardExtras } from '@/l
 import { templateKindOf } from '@/lib/whatsapp/template-validators';
 import type { MessageTemplate } from '@/types';
 import { formatMoney } from './money';
-import { loadProductsWith, resolvePublicShop } from './public-shop';
+import { resolvePublicShop } from './public-shop';
+import { loadProductsWith } from './shop-products';
 
 export const NEW_ARRIVALS_MAX_CARDS = 10;
 

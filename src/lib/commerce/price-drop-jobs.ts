@@ -95,6 +95,7 @@ function plan(accountId: string, dropId: string, contactId: string, variantId: s
       throw error;
     }
     if (isNumberDisconnected(config)) return { kind: 'close', reason: 'number_unavailable' };
+    // A long-lived link: the id address on purpose, which 308s to the product's current slug.
     const url = `${appOrigin()}${PUBLIC_SHOP_PATH}${facts.handle}/p/${facts.productId}`;
     const priceNow = priceText(facts.priceMinor, facts.currency);
     if (windowOpen(conversation, now))

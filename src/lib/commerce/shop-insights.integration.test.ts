@@ -345,7 +345,7 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('store phase 8 batch 7: shop
       const page = await searchShop(handleA, 'soap');
       expect(page?.query).toBe('soap');
       expect(page?.products.map((p) => [p.name, p.variants[0].priceMinor])).toEqual([['Soap Bar', 40000]]);
-      expect(await searchShop(handleA, '')).toEqual({ query: '', products: [] });
+      expect(await searchShop(handleA, '')).toMatchObject({ query: '', products: [], total: 0, next: null });
       await q("UPDATE shop_storefronts SET access_mode='coming_soon' WHERE account_id=$1", [A]);
       expect(await searchShop(handleA, 'soap')).toBeNull();
       expect(await searchSuggestions(handleA, 'soap')).toBeNull();

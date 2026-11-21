@@ -295,13 +295,13 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('shop customer accounts on P
     const res = await checkoutRoute(req({ cart, addressId }, { cookie }), at(handleA));
     expect(res.status).toBe(200);
     const { url } = await res.json();
-    expect(url).toMatch(/\/shop\/[A-Za-z0-9_-]{43}$/);
+    expect(url).toMatch(new RegExp(`/s/${handleA}/checkout/[A-Za-z0-9_-]{43}$`));
     expect(sendTemplate).not.toHaveBeenCalled();
     const sessions = (await db.query(`SELECT contact_id::text, purpose, cart, address->>'name' AS name, address->>'postal_code' AS pin, token_hash
       FROM storefront_sessions WHERE account_id=$1 AND revoked_at IS NULL`, [A])).rows;
     expect(sessions).toHaveLength(1);
     expect(sessions[0]).toMatchObject({ contact_id: buyerY, purpose: 'shop', cart: [{ variant_id: variant, qty: 2 }], name: 'Y Private', pin: '570001',
-      token_hash: sha256(url.split('/shop/')[1]) });
+      token_hash: sha256(url.split('/checkout/')[1]) });
     // An item that is no longer on sale is refused, as from the code path.
     const stale = await checkoutRoute(req({ cart: [{ variantId: gone, qty: 1 }] }, { cookie }), at(handleA));
     expect((await stale.json()).code).toBe('variant_unavailable');

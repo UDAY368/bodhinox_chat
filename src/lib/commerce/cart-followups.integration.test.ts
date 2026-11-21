@@ -187,6 +187,26 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('store phase 3 abandoned car
     expect((await session(id)).reminded_at).not.toBeNull();
   });
 
+  it('links a shop session of an open, published shop to its themed checkout, and a password shop to /shop/<token>', async () => {
+    const origin = new URL(process.env.APP_URL!).origin;
+    const handle = `p3-${account.slice(0, 8)}`;
+    await db.query("INSERT INTO shop_storefronts(account_id,handle,published) VALUES($1,$2,true)", [account, handle]);
+    try {
+      const open = await shopSession(contacts.buyer);
+      await customerWrote(contacts.buyer);
+      expect(await handleAbandonedCartJob(account, { sessionId: open })).toBe('sent');
+      expect(sends.text.mock.calls[0][0].text).toMatch(new RegExp(`${origin}/s/${handle}/checkout/[A-Za-z0-9_-]{43}`));
+
+      await db.query("UPDATE shop_storefronts SET access_mode='password' WHERE account_id=$1", [account]);
+      const locked = await shopSession(contacts.buyer);
+      expect(await handleAbandonedCartJob(account, { sessionId: locked })).toBe('sent');
+      expect(sends.text.mock.calls[1][0].text).toContain(`${origin}/shop/`);
+      expect(sends.text.mock.calls[1][0].text).not.toContain(`/s/${handle}/`);
+    } finally {
+      await db.query('DELETE FROM shop_storefronts WHERE account_id=$1', [account]);
+    }
+  });
+
   it('records an uncertain send for staff and never repeats it', async () => {
     const id = await shopSession(contacts.buyer);
     sends.text.mockRejectedValueOnce(new Error('socket hang up'));

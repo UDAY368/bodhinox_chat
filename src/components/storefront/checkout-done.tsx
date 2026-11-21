@@ -21,7 +21,11 @@ const MAX_POLLS = 75; // about five minutes
 // 'confirmed': a cash-on-delivery order is final at placing (nothing to wait for).
 const SETTLED = new Set(['paid', 'confirmed', 'partially_shipped', 'dispatched', 'fulfilled', 'expired', 'cancelled', 'payment_review']);
 
-export function CheckoutDone({ token }: { token: string }) {
+export function CheckoutDone({ token, backHref = `/shop/${encodeURIComponent(token)}` }: {
+  token: string;
+  /** "Back to order": the page the session lives on (the public shop's themed checkout, or /shop/<token>). */
+  backHref?: string;
+}) {
   const t = useTranslations('Storefront');
   const locale = useLocale();
   const [order, setOrder] = useState<StorefrontOrderView | null>(null);
@@ -76,7 +80,7 @@ export function CheckoutDone({ token }: { token: string }) {
         </div>
       )}
       <OrderSummary order={order} locale={locale} token={token} onOrder={setOrder} />
-      <a href={`/shop/${encodeURIComponent(token)}`} className={buttonVariants({ variant: 'outline', className: 'w-full' })}>{t('backToOrder')}</a>
+      <a href={backHref} className={buttonVariants({ variant: 'outline', className: 'w-full' })}>{t('backToOrder')}</a>
     </div>
   );
 }

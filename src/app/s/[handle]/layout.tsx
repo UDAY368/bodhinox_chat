@@ -9,6 +9,7 @@ import { notFound } from 'next/navigation';
 import { ShopFrame } from '@/components/shop-public/shop-frame';
 import { getShopGate } from '@/components/shop-public/load';
 import { ShopLock } from '@/components/shop-public/shop-lock';
+import { absoluteUrl } from '@/lib/commerce/shop-seo';
 
 export const dynamic = 'force-dynamic';
 
@@ -21,13 +22,18 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   // A locked shop shows only its name and is never indexed.
   if (gate.state !== 'open') return { title: { absolute: shop.name }, robots: { index: false, follow: false } };
   const description = shop.theme.subheadline ?? shop.theme.headline ?? undefined;
+  // Store Batch 6: absolute image addresses (work with or without a root metadataBase). No canonical or og:url here: every page
+  // below would inherit them; the home, product, category and collection pages set their own.
+  const image = shop.bannerUrl ?? shop.logoUrl;
+  const imageUrl = image ? absoluteUrl(image) : undefined;
   return {
     // absolute: a seller's shop never carries the app's own name in the tab.
     title: { absolute: shop.name, template: `%s | ${shop.name}` },
     description,
     robots: { index: true, follow: true },
     icons: shop.logoUrl ? { icon: shop.logoUrl } : undefined,
-    openGraph: { title: shop.name, description, type: 'website', images: shop.bannerUrl ?? shop.logoUrl ?? undefined },
+    openGraph: { title: shop.name, description, type: 'website', siteName: shop.name, images: imageUrl },
+    twitter: { card: imageUrl ? 'summary_large_image' : 'summary', title: shop.name, description, images: imageUrl },
   };
 }
 

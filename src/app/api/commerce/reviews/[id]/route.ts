@@ -7,6 +7,7 @@ import { tenantOf } from '@/lib/audience/http';
 import { moderateReview } from '@/lib/commerce/review-data';
 import { storeErrorResponse } from '@/lib/commerce/store-settings';
 import { checkRateLimit, rateLimitResponse, RATE_LIMITS } from '@/lib/rate-limit';
+import { revalidateShop } from '@/lib/commerce/shop-cache';
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -18,7 +19,9 @@ export async function PATCH(request: Request, { params }: Params) {
     const { id } = await params;
     const body: unknown = await request.json().catch(() => null);
     const status = body && typeof body === 'object' && !Array.isArray(body) ? (body as Record<string, unknown>).status : undefined;
-    return NextResponse.json({ review: await moderateReview({ ...tenantOf(ctx), userId: ctx.userId }, id, status) });
+    const review = await moderateReview({ ...tenantOf(ctx), userId: ctx.userId }, id, status);
+    revalidateShop(ctx.accountId);
+    return NextResponse.json({ review });
   } catch (error) {
     return storeErrorResponse(error);
   }

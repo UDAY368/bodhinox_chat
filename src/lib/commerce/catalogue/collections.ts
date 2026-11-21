@@ -125,6 +125,32 @@ export async function collectionProductIds(tx: TenantTransaction, accountId: str
   return rows.map((r) => r.id);
 }
 
+/**
+ * One page of a collection (store Batch 6): the ids at `offset` (in its sort order) and how many sellable products it holds in all,
+ * paged in SQL (count(*) OVER (), one query), so a large collection is never read whole. An offset past the end has no ids and a
+ * total of 0; the caller asks again for its last page.
+ */
+export async function collectionProductPage(tx: TenantTransaction, accountId: string, def: CollectionDef, offset: number, limit: number):
+  Promise<{ ids: string[]; total: number }> {
+  const at = Math.max(0, Math.floor(offset)), size = Math.min(Math.max(Math.floor(limit), 1), 100);
+  let rows: { id: string; total: number }[];
+  if (def.kind === 'manual') {
+    if (!def.id) return { ids: [], total: 0 };
+    const order = def.sort === 'featured' ? Prisma.sql`cp.position, lower(p.name), p.id` : ORDER[def.sort];
+    rows = await tx.$queryRaw<{ id: string; total: number }[]>(Prisma.sql`
+      SELECT p.id::text AS id, count(*) OVER ()::int AS total FROM shop_collection_products cp
+      JOIN shop_products p ON p.account_id=cp.account_id AND p.id=cp.product_id
+      WHERE cp.account_id=${accountId}::uuid AND cp.collection_id=${def.id}::uuid AND ${SELLABLE}
+      ORDER BY ${order} OFFSET ${at} LIMIT ${size}`);
+  } else {
+    rows = await tx.$queryRaw<{ id: string; total: number }[]>(Prisma.sql`
+      SELECT p.id::text AS id, count(*) OVER ()::int AS total FROM shop_products p
+      WHERE p.account_id=${accountId}::uuid AND ${SELLABLE} AND ${rulesWhere(def.rules, def.match)}
+      ORDER BY ${ORDER[def.sort]} OFFSET ${at} LIMIT ${size}`);
+  }
+  return { ids: rows.map((r) => r.id), total: rows[0]?.total ?? 0 };
+}
+
 // ------------------------------------------------------------ parsing
 
 const CONTROL = /[\u0000-\u001f\u007f]/;

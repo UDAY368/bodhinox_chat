@@ -8,11 +8,15 @@
  */
 import type { ReactNode } from 'react';
 import Link from 'next/link';
-import { Play } from 'lucide-react';
+import { BadgeCheck, Banknote, Headset, Leaf, MessageCircle, Play, RotateCcw, ShieldCheck, Star, Truck, type LucideIcon } from 'lucide-react';
 import type { PublicProduct } from '@/lib/commerce/public-shop';
-import { categoryTree, pickCollectionProducts, pickProducts, youtubeId, type FieldValues, type ShopSection } from '@/lib/commerce/shop-sections';
+import { categoryPath } from '@/lib/commerce/shop-paths';
+import { categoryTree, pickCollectionProducts, pickProducts, youtubeId, type FieldValues, type ShopSection, type TrustIcon } from '@/lib/commerce/shop-sections';
 import type { ResolvedShopTheme } from '@/lib/commerce/shop-templates';
-import { ProductCard, ProductGrid } from './product-card';
+import { OfferCountdown } from './offer-countdown';
+import { cardLabels, ProductCard, ProductGrid } from './product-card';
+import { RecentlyViewed } from './recently-viewed';
+import { imageSrcSet } from '@/lib/commerce/shop-images';
 import { ShopLink, type ShopT } from './shop-link';
 
 export interface SectionContext {
@@ -22,14 +26,16 @@ export interface SectionContext {
   currency: string | null;
   locale: string;
   products: PublicProduct[];
-  categories: Array<{ id: string; name: string }>;
-  tree: Array<{ id: string; parentId: string | null; name?: string }>;
+  categories: Array<{ id: string; slug?: string | null; name: string }>;
+  tree: Array<{ id: string; slug?: string | null; parentId: string | null; name?: string }>;
   /** Collections that "featured collection" sections name (published ones on the shop; every one in the editor's preview). */
   collections?: Record<string, { slug: string; title: string; productIds: string[] }>;
   whatsappPhone: string | null;
   /** An image ref (https URL or media:<id>) to a URL the page can load. */
   image: (ref: string | null) => string | null;
   t: ShopT;
+  /** "Best sellers" products in sales rank order (the home loader); the editor's preview uses its first products instead. */
+  bestSellers?: PublicProduct[];
   /** The editor's preview: empty sections show a hint instead of nothing. */
   preview?: boolean;
 }
@@ -59,7 +65,7 @@ function Empty({ ctx }: { ctx: SectionContext }) {
 
 function Img({ src, className, alt = '' }: { src: string; className: string; alt?: string }) {
   // eslint-disable-next-line @next/next/no-img-element -- shop images come from our own route or the shop's https URL
-  return <img src={src} alt={alt} loading="lazy" className={className} />;
+  return <img src={src} srcSet={imageSrcSet(src)} sizes="100vw" alt={alt} loading="lazy" className={className} />;
 }
 
 function Banner({ s, ctx }: { s: ShopSection; ctx: SectionContext }) {
@@ -125,7 +131,7 @@ function Categories({ s, ctx }: { s: ShopSection; ctx: SectionContext }) {
       {ctx.theme.layout.categories === 'tiles' ? (
         <div className="grid grid-cols-2 gap-3 @2xl:grid-cols-3 @5xl:grid-cols-4">
           {ctx.categories.map((c) => (
-            <Link key={c.id} href={`${ctx.base}/c/${c.id}`}
+            <Link key={c.id} href={categoryPath(ctx.handle, c)}
               className="flex min-h-20 items-end rounded-[var(--shop-radius)] bg-[var(--shop-accent)] p-4 font-semibold text-[var(--shop-on-accent)] hover:opacity-90">
               {c.name}
             </Link>
@@ -134,7 +140,7 @@ function Categories({ s, ctx }: { s: ShopSection; ctx: SectionContext }) {
       ) : (
         <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1">
           {ctx.categories.map((c) => (
-            <Link key={c.id} href={`${ctx.base}/c/${c.id}`}
+            <Link key={c.id} href={categoryPath(ctx.handle, c)}
               className="inline-flex h-11 shrink-0 items-center rounded-full border border-black/15 bg-[var(--shop-surface)] px-4 text-sm hover:border-black/40">
               {c.name}
             </Link>
@@ -156,7 +162,7 @@ function Products({ s, ctx }: { s: ShopSection; ctx: SectionContext }) {
     : pickProducts(ctx.products, s.settings, categoryTree(ctx.tree));
   const categoryName = category ? ctx.tree.find((c) => c.id === category)?.name ?? ctx.categories.find((c) => c.id === category)?.name : null;
   const title = str(s.settings, 'title') ?? collection?.title ?? categoryName ?? ctx.t('featured');
-  const viewAll = collection ? `${ctx.base}/collections/${collection.slug}` : category ? `${ctx.base}/c/${category}` : `${ctx.base}/all`;
+  const viewAll = collection ? `${ctx.base}/collections/${collection.slug}` : category ? categoryPath(ctx.handle, ctx.tree.find((c) => c.id === category) ?? ctx.categories.find((c) => c.id === category) ?? { id: category }) : `${ctx.base}/all`;
   const id = `shop-${s.id}`;
   return (
     <section aria-labelledby={id} className="flex flex-col gap-3">
@@ -167,7 +173,7 @@ function Products({ s, ctx }: { s: ShopSection; ctx: SectionContext }) {
       {products.length === 0 ? <p className="opacity-70">{ctx.t('noProducts')}</p> : (
         <ProductGrid columns={ctx.theme.layout.columns}>
           {products.map((p) => <ProductCard key={p.id} handle={ctx.handle} product={p} currency={ctx.currency} layout={ctx.theme.layout}
-            locale={ctx.locale} labels={{ soldOut: ctx.t('soldOut'), from: ctx.t('from') }} />)}
+            locale={ctx.locale} labels={cardLabels(ctx.t)} />)}
         </ProductGrid>
       )}
     </section>
@@ -303,9 +309,130 @@ function WhatsApp({ s, ctx }: { s: ShopSection; ctx: SectionContext }) {
   );
 }
 
+/** Whether an ISO moment has passed (kept out of render bodies). */
+const isPast = (iso: string) => Date.parse(iso) <= Date.now();
+
+function Offer({ s, ctx }: { s: ShopSection; ctx: SectionContext }) {
+  const endsAt = str(s.settings, 'endsAt');
+  const title = str(s.settings, 'heading');
+  if (!endsAt || !title) return <Empty ctx={ctx} />;
+  if (isPast(endsAt)) return ctx.preview ? <p className="rounded-[var(--shop-radius)] border border-dashed border-black/20 p-6 text-center text-sm opacity-70">{ctx.t('offer.ended')}</p> : null;
+  const label = str(s.settings, 'buttonLabel');
+  return (
+    <OfferCountdown endsAt={endsAt} className="flex flex-col items-start rounded-[var(--shop-radius)] bg-[var(--shop-primary)] p-6 text-[var(--shop-on-primary)] @2xl:p-10"
+      labels={{ endsIn: ctx.t('offer.endsIn'), days: ctx.t('offer.days'), hours: ctx.t('offer.hours'), minutes: ctx.t('offer.minutes'), seconds: ctx.t('offer.seconds') }}
+      after={label ? <div className="mt-5"><Button link={str(s.settings, 'buttonLink') ?? '/all'} base={ctx.base} label={label} tone="accent" /></div> : null}>
+      <p className="text-xs font-semibold uppercase tracking-wide opacity-90">{ctx.t('offer.endsIn')}</p>
+      <h2 className="mt-1 text-2xl font-semibold @2xl:text-4xl" style={heading}>{title}</h2>
+      {str(s.settings, 'text') && <p className="mt-2 max-w-xl opacity-90">{str(s.settings, 'text')}</p>}
+    </OfferCountdown>
+  );
+}
+
+const TRUST_ICON: Record<TrustIcon, LucideIcon> = {
+  truck: Truck, shield: ShieldCheck, returns: RotateCcw, cash: Banknote, leaf: Leaf, star: Star, support: Headset, badge: BadgeCheck,
+};
+
+function TrustBadges({ s, ctx }: { s: ShopSection; ctx: SectionContext }) {
+  const items = s.items.filter((i) => str(i, 'text'));
+  if (!items.length) return <Empty ctx={ctx} />;
+  const title = str(s.settings, 'title');
+  return (
+    <section className="flex flex-col gap-3">
+      {title && <Title>{title}</Title>}
+      <ul className="grid grid-cols-2 gap-3 @3xl:grid-cols-4">
+        {items.map((item, i) => {
+          const Icon = TRUST_ICON[item.icon as TrustIcon] ?? Truck;
+          return (
+            <li key={i} className="flex items-center gap-3 rounded-[var(--shop-radius)] bg-[var(--shop-surface)] p-4 ring-1 ring-black/5">
+              <Icon className="size-6 shrink-0 text-[var(--shop-primary)]" aria-hidden />
+              <span className="text-sm font-medium">{str(item, 'text')}</span>
+            </li>
+          );
+        })}
+      </ul>
+    </section>
+  );
+}
+
+function LogoStrip({ s, ctx }: { s: ShopSection; ctx: SectionContext }) {
+  const logos = s.items.flatMap((item) => { const src = ctx.image(str(item, 'image')); return src ? [{ src, name: str(item, 'name') ?? '' }] : []; });
+  if (!logos.length) return <Empty ctx={ctx} />;
+  const title = str(s.settings, 'title');
+  return (
+    <section className="flex flex-col items-center gap-4">
+      {title && <Title>{title}</Title>}
+      <ul className="flex flex-wrap items-center justify-center gap-x-8 gap-y-4">
+        {logos.map((logo, i) => <li key={i}><Img src={logo.src} alt={logo.name} className="h-10 w-auto max-w-[140px] object-contain opacity-80 @2xl:h-12" /></li>)}
+      </ul>
+    </section>
+  );
+}
+
+function Gallery({ s, ctx }: { s: ShopSection; ctx: SectionContext }) {
+  const pictures = s.items.flatMap((item) => { const src = ctx.image(str(item, 'image')); return src ? [{ src, link: str(item, 'link') }] : []; });
+  if (!pictures.length) return <Empty ctx={ctx} />;
+  const title = str(s.settings, 'title');
+  return (
+    <section className="flex flex-col gap-3">
+      {title && <Title>{title}</Title>}
+      <div className="grid grid-cols-2 gap-2 @2xl:grid-cols-3 @5xl:grid-cols-4">
+        {pictures.map((pic, i) => {
+          const img = <Img src={pic.src} className="aspect-square w-full rounded-[var(--shop-radius)] object-cover" />;
+          return pic.link ? <ShopLink key={i} link={pic.link} base={ctx.base} className="block">{img}</ShopLink> : <div key={i}>{img}</div>;
+        })}
+      </div>
+    </section>
+  );
+}
+
+function SignUp({ s, ctx }: { s: ShopSection; ctx: SectionContext }) {
+  // No anonymous subscriber list exists, so sign-up opens the shop's WhatsApp chat with "Subscribe" typed in; the buyer sends it.
+  if (!ctx.whatsappPhone) return <Empty ctx={ctx} />;
+  const href = `https://wa.me/${ctx.whatsappPhone}?text=${encodeURIComponent(ctx.t('signup.message'))}`;
+  return (
+    <section className="flex flex-col items-center gap-3 rounded-[var(--shop-radius)] bg-[var(--shop-surface)] p-6 text-center ring-1 ring-black/5 @2xl:p-10">
+      <Title>{str(s.settings, 'heading') ?? ctx.t('signup.heading')}</Title>
+      <p className="max-w-xl opacity-80">{str(s.settings, 'text') ?? ctx.t('signup.text')}</p>
+      <a href={href} target="_blank" rel="noopener noreferrer"
+        className="inline-flex h-12 items-center gap-2 rounded-[var(--shop-radius)] bg-[var(--shop-primary)] px-6 font-semibold text-[var(--shop-on-primary)]">
+        <MessageCircle className="size-5" aria-hidden />{str(s.settings, 'buttonLabel') ?? ctx.t('signup.button')}
+      </a>
+      <p className="text-xs opacity-70">{ctx.t('signup.note')}</p>
+    </section>
+  );
+}
+
+function BestSellers({ s, ctx }: { s: ShopSection; ctx: SectionContext }) {
+  const limit = typeof s.settings.limit === 'number' ? s.settings.limit : 4;
+  // The editor's preview has no sales to rank, so it shows the first products as stand-ins.
+  const products = (ctx.preview ? ctx.products : ctx.bestSellers ?? []).slice(0, limit);
+  if (!products.length) return ctx.preview ? <Empty ctx={ctx} /> : null;
+  const id = `shop-${s.id}`;
+  return (
+    <section aria-labelledby={id} className="flex flex-col gap-3">
+      <Title id={id}>{str(s.settings, 'title') ?? ctx.t('bestSellers')}</Title>
+      <ProductGrid columns={ctx.theme.layout.columns}>
+        {products.map((p) => <ProductCard key={p.id} handle={ctx.handle} product={p} currency={ctx.currency} layout={ctx.theme.layout} locale={ctx.locale} labels={cardLabels(ctx.t)} />)}
+      </ProductGrid>
+    </section>
+  );
+}
+
+function Recent({ s, ctx }: { s: ShopSection; ctx: SectionContext }) {
+  const labels = cardLabels(ctx.t);
+  return (
+    <RecentlyViewed handle={ctx.handle} limit={typeof s.settings.limit === 'number' ? s.settings.limit : 4} layout={ctx.theme.layout}
+      currency={ctx.currency} locale={ctx.locale} preview={ctx.preview} sample={ctx.preview ? ctx.products : []}
+      title={<Title>{str(s.settings, 'title') ?? ctx.t('recentlyViewed')}</Title>}
+      labels={{ soldOut: labels.soldOut, from: labels.from, add: labels.add, added: labels.added, sale: ctx.t('card.sale', { percent: '{percent}' }) }} />
+  );
+}
+
 const RENDERERS: Record<ShopSection['type'], (props: { s: ShopSection; ctx: SectionContext }) => ReactNode> = {
   announcement: Announcement, banner: Banner, slideshow: Slideshow, categories: Categories, featured_collection: Products,
   product_grid: Products, image_text: ImageText, testimonials: Testimonials, faq: Faq, video: Video, text: Text, whatsapp: WhatsApp,
+  offer: Offer, trust_badges: TrustBadges, logo_strip: LogoStrip, gallery: Gallery, signup: SignUp, best_sellers: BestSellers, recently_viewed: Recent,
 };
 
 export function ShopSectionsView({ sections, ctx, selected }: { sections: ShopSection[]; ctx: SectionContext; selected?: string | null }) {

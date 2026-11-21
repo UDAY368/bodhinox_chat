@@ -13,7 +13,7 @@ export const dynamic = 'force-dynamic';
 type Params = { params: Promise<{ token: string; imageId: string }> };
 
 export async function GET(request: Request, { params }: Params) {
-  if (!(await burstAllowed('read', request))) return tooMany();
+  if (!(await burstAllowed('image', request))) return tooMany();
   try {
     const { token, imageId } = await params;
     if (!isStorefrontTokenFormat(token) || !isUuid(imageId)) return notFound();

@@ -16,6 +16,7 @@ import { tenantOf } from '@/lib/audience/http';
 import { getThemeEditor, parseDraftInput, parseThemeAction, runThemeAction, saveThemeDraft } from '@/lib/commerce/shop-theme';
 import { StoreError, storeErrorResponse } from '@/lib/commerce/store-settings';
 import { checkRateLimit, rateLimitResponse, RATE_LIMITS } from '@/lib/rate-limit';
+import { revalidateShop } from '@/lib/commerce/shop-cache';
 
 export const runtime = 'nodejs';
 
@@ -58,7 +59,10 @@ export async function POST(request: Request) {
     const limit = await checkRateLimit(`commerce:store-theme:${ctx.userId}`, RATE_LIMITS.adminAction);
     if (!limit.success) return rateLimitResponse(limit);
     const input = parseThemeAction(await readJson(request));
-    return NextResponse.json(await runThemeAction({ ...tenantOf(ctx), userId: ctx.userId }, input));
+    const done = await runThemeAction({ ...tenantOf(ctx), userId: ctx.userId }, input);
+    // Publish and restore change what visitors see (a draft save does not).
+    revalidateShop(ctx.accountId);
+    return NextResponse.json(done);
   } catch (error) {
     return storeErrorResponse(error);
   }

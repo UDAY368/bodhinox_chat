@@ -42,6 +42,9 @@ export const SHOP_LIMITS = {
 /** In-memory burst budgets per IP (best effort; the durable limits are the backstop). */
 export const SHOP_BURST = {
   read: { limit: 120, windowMs: 60_000 },
+  // Product and theme images (immutable, cached a year): a phone opening a few product grids asks for dozens. Their own budget,
+  // so browsing never uses up 'read' and leaves the buyer's checkout page (GET /api/public/shop/<token>) answering 429.
+  image: { limit: 600, windowMs: 60_000 },
   mutate: { limit: 60, windowMs: 60_000 },
 } as const;
 

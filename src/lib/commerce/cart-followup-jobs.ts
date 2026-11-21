@@ -32,7 +32,7 @@ import {
   orderTemplateOutcome, worker, type Outcome, type TemplateRow,
 } from './order-followup';
 import { linkMessageText } from './storefront';
-import { deriveStorefrontToken, storefrontUrl } from './storefront-token';
+import { sessionLinkTx } from './shop-session-link';
 
 export interface ContactRow {
   id: string; name: string | null; phone: string | null; wa_user_id: string | null; blocked_at: Date | null; opted_out_at: Date | null;
@@ -75,10 +75,11 @@ export const abandonedCartIntentKey = (sessionId: string) => `session:${sessionI
 async function planAbandonedCart(accountId: string, sessionId: string, now: Date): Promise<CartPlan> {
   return worker(accountId, async (tx): Promise<CartPlan> => {
     const [session] = await tx.$queryRaw<{ id: string; contact_id: string; conversation_id: string | null; whatsapp_config_id: string | null;
-      purpose: string; token_epoch: number; expires_at: Date; revoked_at: Date | null; order_id: string | null; lines: number; reminded_at: Date | null }[]>`
+      purpose: string; token_epoch: number; expires_at: Date; revoked_at: Date | null; order_id: string | null; lines: number; reminded_at: Date | null;
+      is_quote: boolean; created_by: string | null }[]>`
       SELECT id::text AS id, contact_id::text AS contact_id, conversation_id::text AS conversation_id,
         whatsapp_config_id::text AS whatsapp_config_id, purpose, token_epoch, expires_at, revoked_at, order_id::text AS order_id,
-        jsonb_array_length(cart) AS lines, reminded_at
+        jsonb_array_length(cart) AS lines, reminded_at, is_quote, created_by::text AS created_by
       FROM storefront_sessions WHERE account_id=${accountId}::uuid AND id=${sessionId}::uuid`;
     if (!session) return { kind: 'done' };
     const [settings] = await tx.$queryRaw<{ delay: number | null; checkout_enabled: boolean }[]>`
@@ -129,7 +130,8 @@ async function planAbandonedCart(accountId: string, sessionId: string, now: Date
     }
     if (isNumberDisconnected(config)) return { kind: 'skip', reason: 'number_unavailable' };
 
-    const url = storefrontUrl(deriveStorefrontToken(session.id, session.token_epoch));
+    // The public shop's themed checkout for a shop session of an open, published shop, else /shop/<token>.
+    const url = await sessionLinkTx(tx, accountId, session, 'checkout');
     if (windowOpen(conversation, now))
       return { kind: 'send', contactId: contact.id, conversationId: conversation.id, template: null, values: [],
         text: linkMessageText(getT('OrderNotices')('abandonedCart'), url) };

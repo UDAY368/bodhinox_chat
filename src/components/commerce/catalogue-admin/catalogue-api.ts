@@ -74,7 +74,7 @@ export async function fetchShopProduct(id: string): Promise<ApiResult<ShopProduc
 
 export type ProductBody = Partial<Pick<ShopProduct, "name" | "description" | "disclosure" | "category_id" | "follow_up_template"
   | "follow_up_template_language" | "follow_up_after_days" | "repurchase_after_days" | "cod_available" | "tags" | "brand" | "product_type" | "details"
-  | "publish_at" | "hide_at" | "is_digital" | "digital_media_id" | "digital_url" | "is_bundle">> & { version?: number; images?: ({ url: string } | { media_id: string })[] };
+  | "publish_at" | "hide_at" | "is_digital" | "digital_media_id" | "digital_url" | "is_bundle" | "slug" | "seo_title" | "seo_description" | "seo_image_id">> & { version?: number; images?: ({ url: string } | { media_id: string })[] };
 
 /** One row of the options matrix as the product form saves it (blank SKU = generated on the server). */
 export interface VariantRowBody extends Omit<VariantBody, "archived" | "position" | "image_id"> {

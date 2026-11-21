@@ -1,25 +1,34 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { permanentRedirect } from 'next/navigation';
 import { getLocale, getTranslations } from 'next-intl/server';
 import { ProductBuy } from '@/components/shop-public/product-buy';
 import { ProductCard, ProductGrid } from '@/components/shop-public/product-card';
 import { ProductReviewsSection } from '@/components/shop-public/product-reviews';
+import { RecordRecentlyViewed } from '@/components/shop-public/recently-viewed';
 import { loadShopProduct } from '@/lib/commerce/public-shop';
 import { notFoundOrRedirect } from '@/lib/commerce/shop-not-found';
+import { categoryPath, isUuidShaped, jsonLdScript, productPath } from '@/lib/commerce/shop-paths';
+import { absoluteUrl, productJsonLd, productListing } from '@/lib/commerce/shop-seo';
 
 export const dynamic = 'force-dynamic';
 
+// `productId` is the address segment: the product's slug, or its id from an old link (answered with a 308 to the slug address).
 type Props = { params: Promise<{ handle: string; productId: string }> };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { handle, productId } = await params;
   const page = await loadShopProduct(handle, productId);
   if (!page) return { robots: { index: false, follow: false } };
-  const description = page.product.description?.slice(0, 160) ?? undefined;
+  // Store Batch 6: the seller's search listing (else name, description, first image); canonical and og:url are the slug address.
+  const listing = productListing({ handle, shopName: page.shop.name, currency: page.shop.currency, product: page.product, seo: page.seo });
+  const url = absoluteUrl(productPath(handle, page.product));
+  const image = listing.image ? absoluteUrl(listing.image) : undefined;
   return {
-    title: page.product.name, description,
-    alternates: { canonical: `/s/${handle}/p/${productId}` },
-    openGraph: { title: page.product.name, description, images: page.product.images[0] },
+    title: listing.title, description: listing.description,
+    alternates: { canonical: url },
+    openGraph: { type: 'website', url, siteName: page.shop.name, title: listing.title, description: listing.description, images: image },
+    twitter: { card: image ? 'summary_large_image' : 'summary', title: listing.title, description: listing.description, images: image },
   };
 }
 
@@ -27,22 +36,29 @@ export default async function ShopProductPage({ params }: Props) {
   const { handle, productId } = await params;
   const page = await loadShopProduct(handle, productId);
   if (!page) return notFoundOrRedirect(handle, `/p/${productId}`);
+  // An old id link moves for good to the readable address (308).
+  if (isUuidShaped(productId) && page.product.slug) permanentRedirect(productPath(handle, page.product));
   const t = await getTranslations('ShopPublic');
   const locale = await getLocale();
   const { product, reviews } = page;
   const summary = reviews.summary;
   return (
     <div className="flex flex-col gap-10">
+      {/* JSON is escaped for a script body (no "</script>" break-out): jsonLdScript. */}
+      <script type="application/ld+json" dangerouslySetInnerHTML={{
+        __html: jsonLdScript(productJsonLd({ handle, shopName: page.shop.name, currency: page.shop.currency, product, seo: page.seo })) }} />
       <nav aria-label={t('breadcrumb')} className="text-sm opacity-70">
         <Link href={`/s/${handle}`} className="hover:underline">{t('home')}</Link>
         {product.categoryId && product.categoryName && (
           <>
             {' / '}
-            <Link href={`/s/${handle}/c/${product.categoryId}`} className="hover:underline">{product.categoryName}</Link>
+            <Link href={categoryPath(handle, { id: product.categoryId, slug: product.categorySlug })} className="hover:underline">{product.categoryName}</Link>
           </>
         )}
       </nav>
-      <ProductBuy handle={handle} product={product} currency={page.shop.currency} canNotify={page.shop.ordering.whatsapp} />
+      <ProductBuy handle={handle} product={product} currency={page.shop.currency} canNotify={page.shop.ordering.whatsapp}
+        layout={page.shop.theme.layout} whatsappPhone={page.shop.whatsappPhone} />
+      <RecordRecentlyViewed handle={handle} productId={product.id} />
       <ProductReviewsSection reviews={reviews} locale={locale} labels={{
         title: t('reviews.title'), customer: t('reviews.customer'), stars: (rating) => t('reviews.stars', { rating }),
         average: summary ? t('reviews.average', { average: summary.average }) : '', count: summary ? t('reviews.count', { count: summary.count }) : '',

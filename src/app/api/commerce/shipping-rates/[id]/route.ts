@@ -7,6 +7,7 @@ import { requireRole } from '@/lib/auth/account';
 import { tenantOf } from '@/lib/audience/http';
 import { deleteShippingRate, parseShippingRate, storeErrorResponse, updateShippingRate } from '@/lib/commerce/store-settings';
 import { checkRateLimit, rateLimitResponse, RATE_LIMITS } from '@/lib/rate-limit';
+import { revalidateShop } from '@/lib/commerce/shop-cache';
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -17,7 +18,9 @@ export async function PATCH(request: Request, { params }: Params) {
     if (!limit.success) return rateLimitResponse(limit);
     const { id } = await params;
     const input = parseShippingRate(await request.json().catch(() => null));
-    return NextResponse.json({ rate: await updateShippingRate({ ...tenantOf(ctx), userId: ctx.userId }, id, input) });
+    const rate = await updateShippingRate({ ...tenantOf(ctx), userId: ctx.userId }, id, input);
+    revalidateShop(ctx.accountId);
+    return NextResponse.json({ rate });
   } catch (error) {
     return storeErrorResponse(error);
   }
@@ -30,6 +33,7 @@ export async function DELETE(_request: Request, { params }: Params) {
     if (!limit.success) return rateLimitResponse(limit);
     const { id } = await params;
     await deleteShippingRate({ ...tenantOf(ctx), userId: ctx.userId }, id);
+    revalidateShop(ctx.accountId);
     return NextResponse.json({ ok: true });
   } catch (error) {
     return storeErrorResponse(error);

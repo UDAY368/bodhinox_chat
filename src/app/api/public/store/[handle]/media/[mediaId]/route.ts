@@ -1,4 +1,4 @@
-// GET /api/public/store/<handle>/media/<mediaId>  an image of the shop from
+// GET /api/public/store/<handle>/media/<mediaId>[?w=320|640|1080]  an image of the shop from
 // the media library: logo, banner, a section's image or the About page image.
 // Only an id the published theme or published content names is served (never
 // the draft's), so no other library file becomes public.
@@ -7,6 +7,7 @@ import { isUuid } from '@/lib/commerce/store-settings';
 import { isShopHandleFormat, withPublicShop } from '@/lib/commerce/public-shop';
 import { readThemeSettings } from '@/lib/commerce/shop-templates';
 import { contentMediaIds, readShopContent } from '@/lib/commerce/shop-sections';
+import { readImageWidth } from '@/lib/commerce/shop-images';
 import { streamShopMedia } from '../../../_lib/media';
 import { burstAllowed, notFound, publicError, tooMany } from '../../../../shop/_lib/public';
 
@@ -16,7 +17,7 @@ export const dynamic = 'force-dynamic';
 type Params = { params: Promise<{ handle: string; mediaId: string }> };
 
 export async function GET(request: Request, { params }: Params) {
-  if (!(await burstAllowed('read', request))) return tooMany();
+  if (!(await burstAllowed('image', request))) return tooMany();
   try {
     const { handle, mediaId } = await params;
     if (!isShopHandleFormat(handle) || !isUuid(mediaId)) return notFound();
@@ -28,7 +29,7 @@ export async function GET(request: Request, { params }: Params) {
       // The logo and banner also show on the lock screen of a password or coming-soon shop.
     }, 'none');
     if (!accountId) return notFound();
-    return streamShopMedia(accountId, null, mediaId.toLowerCase());
+    return streamShopMedia(accountId, null, mediaId.toLowerCase(), readImageWidth(new URL(request.url).searchParams.get('w')));
   } catch (error) {
     return publicError(error, 'store:media');
   }

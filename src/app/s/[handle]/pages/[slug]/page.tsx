@@ -2,7 +2,8 @@ import type { Metadata } from 'next';
 import { getLocale, getTranslations } from 'next-intl/server';
 import type { ShopT } from '@/components/shop-public/shop-link';
 import { ShopPageView } from '@/components/shop-public/shop-page';
-import { loadShopPage, themeImageUrl } from '@/lib/commerce/public-shop';
+import { loadShopPage } from '@/lib/commerce/public-shop';
+import { themeImageUrl } from '@/lib/commerce/shop-images';
 import { notFoundOrRedirect } from '@/lib/commerce/shop-not-found';
 import { isPageSlug, pagesOn } from '@/lib/commerce/shop-sections';
 

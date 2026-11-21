@@ -12,6 +12,7 @@ import { isUuid } from '@/lib/commerce/store-settings';
 import {
   burstAllowed, enforceTokenLimit, inPublicTenant, json, notFound, publicError, readBody, resolveToken, tooMany, versionOf, type TokenParams,
 } from '../../_lib/public';
+import { revalidateShop } from '@/lib/commerce/shop-cache';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -50,6 +51,7 @@ export async function POST(request: Request, { params }: TokenParams) {
       // An optional email; "Email me offers" counts only when ticked.
       ...(typeof email === 'string' ? { email } : {}), ...(offers === undefined ? {} : { emailOffers: offers }),
     });
+    if (placed.created) revalidateShop(ref.accountId); // stock went down
     const view = await inPublicTenant(ref.accountId, (tx) => loadStorefrontView(tx, ref.accountId, ref.sessionId));
     return json({ created: placed.created, view }, placed.created ? 201 : 200);
   } catch (error) {

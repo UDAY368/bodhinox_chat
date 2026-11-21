@@ -16,6 +16,7 @@ import { withTenant, type TenantContext, type TenantTransaction } from '@/lib/db
 import { getT } from '@/lib/i18n/translate';
 import { CatalogueError } from '@/lib/commerce/catalogue/products';
 import { checkRateLimit, rateLimitResponse } from '@/lib/rate-limit';
+import { revalidateShop } from '@/lib/commerce/shop-cache';
 
 export const noStore = { 'Cache-Control': 'private, no-store' };
 const t = getT('Commerce.catalogue.errors');
@@ -24,6 +25,8 @@ export interface StaffCaller {
   tenant: TenantContext & { userId: string; role: AccountRole };
   accountId: string;
   userId: string;
+  /** A write request (Origin + CSRF checked): inTenant drops the public shop's cached pages once its transaction commits. */
+  mutating: boolean;
 }
 
 export async function staffCaller(request: Request, options: { min: AccountRole; mutation?: boolean; permission?: FeaturePermission }):
@@ -33,11 +36,17 @@ export async function staffCaller(request: Request, options: { min: AccountRole;
   if (!hasMinRole(session.role, options.min)) throw new ForbiddenError('Insufficient workspace role');
   const tenant = { accountId: session.accountId, userId: session.userId, role: session.role };
   if (options.permission) await requirePermission(tenant, options.permission);
-  return { tenant, accountId: session.accountId, userId: session.userId };
+  return { tenant, accountId: session.accountId, userId: session.userId, mutating: !!options.mutation };
 }
 
-export function inTenant<T>(caller: StaffCaller, work: (tx: TenantTransaction) => Promise<T>): Promise<T> {
-  return withTenant(caller.tenant, work);
+/**
+ * The caller's tenant transaction. After a write commits (never inside it), the shop's cached public pages are dropped
+ * (store Batch 6, shop-cache.ts): products, variants, prices, bundles, images, categories, collections and stock all change here.
+ */
+export async function inTenant<T>(caller: StaffCaller, work: (tx: TenantTransaction) => Promise<T>): Promise<T> {
+  const result = await withTenant(caller.tenant, work);
+  if (caller.mutating) revalidateShop(caller.accountId);
+  return result;
 }
 
 /** Per-member burst limit for catalogue writes; null when allowed. */
