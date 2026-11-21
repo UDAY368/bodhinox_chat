@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useFormatter, useLocale, useTranslations } from "next-intl";
 import { toast } from "sonner";
 import {
@@ -34,9 +33,12 @@ import {
 } from "@/lib/commerce/order-state";
 import { StateBadge } from "./state-badge";
 import { BulkDispatchSheet, type BulkOrder } from "./bulk-dispatch-sheet";
-import { ListError, RowPlaceholders } from "./list-states";
+import { RowPlaceholders } from "./list-states";
+import { InlineError } from "@/components/ui/inline-error";
 import { QuotesList } from "./quotes-list";
 import { ReturnsQueue } from "./returns-queue";
+import { PageHeader } from "@/components/ui/page-header";
+import { EmptyState } from "@/components/ui/empty-state";
 
 const ALL = "all";
 const CASH_DUE = "cash_due";
@@ -63,7 +65,6 @@ export function OrdersList() {
   const ts = useTranslations("Sales.orders");
   const canAct = useCan("send-messages");
   const canAdmin = useCan("edit-settings");
-  const router = useRouter();
 
   const [tab, setTab] = useState<Tab>("orders");
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -88,39 +89,25 @@ export function OrdersList() {
 
   return (
     <div className="space-y-5">
-      <header className="flex flex-wrap items-end justify-between gap-3">
-        <div className="min-w-0">
-          <h1 className="text-[22px] font-bold tracking-tight text-foreground">{t("title")}</h1>
-          <p className="mt-1 max-w-2xl text-sm text-muted-foreground">{t("description")}</p>
-        </div>
-        <div className="flex items-center gap-2">
-          {(canAct || canAdmin) && (
-            <DropdownMenu>
-              <DropdownMenuTrigger aria-label={tl("more")}
-                className="inline-flex size-11 items-center justify-center rounded-lg border border-border text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-primary sm:size-9">
-                <MoreHorizontal className="h-4 w-4" />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
-                {canAct && <DropdownMenuItem onClick={() => setCreating("quote")}><FileText className="h-4 w-4" /> {t("quote.open")}</DropdownMenuItem>}
-                {canAdmin && <DropdownMenuItem onClick={() => router.push("/commerce/orders/counter")}><ShoppingBag className="h-4 w-4" /> {t("counter.open")}</DropdownMenuItem>}
-                {canAdmin && (
-                  <DropdownMenuItem disabled={exporting} onClick={() => void runExport()}>
-                    {exporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />} {t("exportCsv")}
-                  </DropdownMenuItem>
-                )}
-                {canAct && <DropdownMenuSeparator />}
-                {canAct && <DropdownMenuItem onClick={() => setSettingsOpen(true)}><Settings2 className="h-4 w-4" /> {t("settings.open")}</DropdownMenuItem>}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
-          {canAct && (
-            <Button className="min-h-11 sm:min-h-9" onClick={() => setCreating("order")}>
-              <Plus className="h-4 w-4" />
-              {ts("newOrder")}
-            </Button>
-          )}
-        </div>
-      </header>
+      <PageHeader
+        className="mb-0"
+        title={t("title")}
+        subtitle={t("description")}
+        moreActions={[
+          ...(canAct ? [{ label: t("quote.open"), icon: FileText, onSelect: () => setCreating("quote") }] : []),
+          ...(canAdmin ? [
+            { label: t("counter.open"), icon: ShoppingBag, href: "/commerce/orders/counter" },
+            { label: t("exportCsv"), icon: exporting ? Loader2 : Download, disabled: exporting, onSelect: () => void runExport() },
+          ] : []),
+          ...(canAct ? [{ label: t("settings.open"), icon: Settings2, onSelect: () => setSettingsOpen(true) }] : []),
+        ]}
+        primaryAction={canAct ? (
+          <Button className="min-h-11 sm:min-h-9" onClick={() => setCreating("order")}>
+            <Plus className="h-4 w-4" />
+            {ts("newOrder")}
+          </Button>
+        ) : undefined}
+      />
 
       <Tabs value={tab} onValueChange={(v) => setTab(v as Tab)}>
         <TabsList className="h-11 sm:h-9">
@@ -341,20 +328,16 @@ function OrdersTab({ reloadKey, onOpenOrder, onNewOrder, onQueryChange }: {
       )}
 
       {failed ? (
-        <ListError message={t("loadError")} retry={tl("retry")} onRetry={() => setAttempt((n) => n + 1)} />
+        <InlineError message={t("loadError")} onRetry={() => setAttempt((n) => n + 1)} />
       ) : loading ? (
         <RowPlaceholders label={t("loading")} />
       ) : orders.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border px-6 py-16 text-center">
-          <div className="flex size-[52px] items-center justify-center rounded-2xl bg-primary/10">
-            <ShoppingBag className="h-6 w-6 text-primary" />
-          </div>
-          <h2 className="mt-4 text-base font-semibold text-foreground">{filtered ? t("noMatches") : t("emptyTitle")}</h2>
-          {!filtered && <p className="mt-1 max-w-md text-sm text-muted-foreground">{t("emptyDesc")}</p>}
-          {canAct && !filtered && (
-            <Button className="mt-4 min-h-11 sm:min-h-9" variant="outline" onClick={onNewOrder}><Plus className="h-4 w-4" /> {ts("newOrder")}</Button>
-          )}
-        </div>
+        <EmptyState
+          icon={ShoppingBag}
+          title={filtered ? t("noMatches") : t("emptyTitle")}
+          body={filtered ? undefined : t("emptyDesc")}
+          action={canAct && !filtered ? <Button className="min-h-11 sm:min-h-9" variant="outline" onClick={onNewOrder}><Plus className="h-4 w-4" /> {ts("newOrder")}</Button> : undefined}
+        />
       ) : (
         <div className="overflow-x-auto rounded-xl border border-border bg-card">
           <Table className="[&_td]:px-3.5 [&_td]:py-2.5">

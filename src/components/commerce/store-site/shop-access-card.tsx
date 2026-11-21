@@ -16,6 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { SHOP_ACCESS_MODES, type ShopAccessMode } from "@/lib/commerce/selling-rules";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
 interface Access { mode: ShopAccessMode; passwordSet: boolean; comingSoonMessage: string | null; shopSaved: boolean }
 
@@ -69,18 +70,18 @@ export function ShopAccessCard({ canEdit }: { canEdit: boolean }) {
       </CardHeader>
       <CardContent className="space-y-4">
         {!access.shopSaved && <p className="text-sm text-muted-foreground">{t("needsShop")}</p>}
-        <fieldset className="space-y-2" disabled={!canEdit || !access.shopSaved}>
-          <legend className="sr-only">{t("title")}</legend>
+        <RadioGroup aria-label={t("title")} className="gap-3" value={mode} disabled={!canEdit || !access.shopSaved}
+          onValueChange={(v) => setMode(v as typeof mode)}>
           {SHOP_ACCESS_MODES.map((m) => (
-            <label key={m} className="flex items-start gap-2 text-sm">
-              <input type="radio" name="shop-access-mode" className="mt-0.5 size-4" checked={mode === m} onChange={() => setMode(m)} />
+            <label key={m} className="flex min-h-11 items-start gap-2 text-sm sm:min-h-0">
+              <RadioGroupItem value={m} className="mt-0.5" />
               <span>
                 <span className="block font-medium text-foreground">{t(`modes.${m}`)}</span>
                 <span className="block text-xs text-muted-foreground">{t(`modeHints.${m}`)}</span>
               </span>
             </label>
           ))}
-        </fieldset>
+        </RadioGroup>
         {mode === "password" && (
           <div className="space-y-1.5 sm:max-w-sm">
             <Label htmlFor="shop-access-password">{access.passwordSet ? t("newPassword") : t("password")}</Label>

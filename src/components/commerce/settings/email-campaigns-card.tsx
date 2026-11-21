@@ -22,8 +22,8 @@ import { Textarea } from "@/components/ui/textarea";
 import type { AudiencePreview, CampaignView } from "@/lib/commerce/email-campaigns";
 import { EMAIL_LIMITS } from "@/lib/commerce/email-limits";
 import { useReportDirty } from "./section-dirty";
+import { OptionSelect } from "@/components/commerce/option-select";
 
-const selectClass = "h-9 w-full rounded-lg border border-border bg-card px-2 text-sm text-foreground";
 type Segment = { id: string; name: string };
 
 export function EmailCampaignsCard({ canEdit, connected }: { canEdit: boolean; connected: boolean }) {
@@ -104,10 +104,15 @@ export function EmailCampaignsCard({ canEdit, connected }: { canEdit: boolean; c
               </div>
               <div className="space-y-1">
                 <Label htmlFor="ec-audience">{t("audience")}</Label>
-                <select id="ec-audience" className={selectClass} value={form.segment_id} onChange={(e) => setForm({ ...form, segment_id: e.target.value })}>
-                  <option value="">{t("everyone")}</option>
-                  {segments.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-                </select>
+                <OptionSelect
+                  id="ec-audience"
+                  value={form.segment_id}
+                  onValueChange={(v) => setForm({ ...form, segment_id: v })}
+                  options={[
+                    { value: "", label: t("everyone") },
+                    ...segments.map((s) => ({ value: s.id, label: s.name })),
+                  ]}
+                />
               </div>
               <div className="space-y-1 sm:col-span-2">
                 <Label htmlFor="ec-subject">{t("subject")}</Label>

@@ -25,6 +25,8 @@ import type { ContactBalances, LoyaltySettingsView } from "@/lib/commerce/store-
 import { listSellableVariants, type SellableVariant } from "../orders/order-api";
 import { storeApi } from "./settings-api";
 import { useReportDirty } from "./section-dirty";
+import { OptionSelect } from "@/components/commerce/option-select";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 
 type Result<T> = { ok: true; value: T } | { ok: false; code?: string; error?: string };
 type Option = { id: string; name: string };
@@ -37,7 +39,6 @@ async function call<T>(url: string, key: string, method = "GET", body?: unknown)
   return { ok: false, code: typeof json.code === "string" ? json.code : undefined, error: typeof json.error === "string" ? json.error : undefined };
 }
 
-const selectClass = "h-9 w-full rounded-md border bg-background px-2 text-sm";
 const minor = (value: string, currency: string): number | null => {
   try {
     const n = parseMoney(value.trim(), currency);
@@ -71,10 +72,16 @@ function Field({ id, label, help, children, wide }: { id: string; label: string;
 
 function Picker({ id, value, onChange, options, empty }: { id: string; value: string; onChange: (v: string) => void; options: Option[]; empty?: string }) {
   return (
-    <select id={id} className={selectClass} value={value} onChange={(e) => onChange(e.target.value)}>
-      {empty !== undefined && <option value="">{empty}</option>}
-      {options.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
-    </select>
+    <OptionSelect
+      id={id}
+      className="w-full"
+      value={value}
+      onValueChange={onChange}
+      options={[
+        ...(empty !== undefined ? [{ value: "", label: empty }] : []),
+        ...options.map((o) => ({ value: o.id, label: o.name })),
+      ]}
+    />
   );
 }
 
@@ -252,10 +259,16 @@ function CustomerGroups({ groups, canEdit, reload }: { groups: CustomerGroupView
                   {canEdit && (
                     <div className="grid gap-2 sm:grid-cols-[1fr_1fr_auto]">
                       <Input aria-label={t("searchCustomer")} placeholder={t("searchCustomer")} value={search} maxLength={80} onChange={(e) => setSearch(e.target.value)} />
-                      <select aria-label={t("customer")} className={selectClass} value={contactId} onChange={(e) => setContactId(e.target.value)}>
-                        <option value="">{t("chooseCustomer")}</option>
-                        {contacts.map((c) => <option key={c.id} value={c.id}>{c.name || c.phone || c.id.slice(0, 8)}</option>)}
-                      </select>
+                      <OptionSelect
+                        className="w-full"
+                        aria-label={t("customer")}
+                        value={contactId}
+                        onValueChange={(v) => setContactId(v)}
+                        options={[
+                          { value: "", label: t("chooseCustomer") },
+                          ...contacts.map((c) => ({ value: c.id, label: c.name || c.phone || c.id.slice(0, 8) })),
+                        ]}
+                      />
                       <Button size="sm" disabled={busy || !contactId}
                         onClick={() => void run(`${base(g.id)}/members`, "customer_group", "POST", { contact_id: contactId }).then((ok) => { if (ok) setContactId(""); })}>{t("addMember")}</Button>
                     </div>
@@ -412,11 +425,16 @@ function DiscountRules({ currency, canEdit, pickers }: { currency: string; canEd
           <div className="grid gap-3 rounded-md border p-3 sm:grid-cols-2">
             <Field id="dr-name" label={t("name")}><Input id="dr-name" maxLength={80} value={draft.name} onChange={(e) => set({ name: e.target.value })} /></Field>
             <Field id="dr-target" label={t("appliesTo")}>
-              <select id="dr-target" className={selectClass} value={draft.target} onChange={(e) => set({ target: e.target.value as RuleDraft["target"] })}>
-                <option value="product">{t("oneProduct")}</option>
-                <option value="category">{t("oneCategory")}</option>
-                <option value="all">{t("everyProduct")}</option>
-              </select>
+              <SegmentedControl
+                aria-label={t("appliesTo")}
+                value={draft.target}
+                onValueChange={(v) => set({ target: v as RuleDraft["target"] })}
+                options={[
+                  { value: "product", label: t("oneProduct") },
+                  { value: "category", label: t("oneCategory") },
+                  { value: "all", label: t("everyProduct") },
+                ]}
+              />
             </Field>
             {draft.target === "product" && (
               <Field id="dr-product" label={t("product")}><Picker id="dr-product" value={draft.product} onChange={(product) => set({ product })} options={pickers.products} empty={t("chooseProduct")} /></Field>
@@ -430,10 +448,15 @@ function DiscountRules({ currency, canEdit, pickers }: { currency: string; canEd
               <Picker id="dr-group" value={draft.group} onChange={(group) => set({ group })} options={pickers.groups} empty={t("everyone")} />
             </Field>
             <Field id="dr-kind" label={t("kind")}>
-              <select id="dr-kind" className={selectClass} value={draft.kind} onChange={(e) => set({ kind: e.target.value as RuleDraft["kind"], value: "" })}>
-                <option value="percent">{t("kindPercent")}</option>
-                <option value="fixed">{t("kindFixed", { currency })}</option>
-              </select>
+              <SegmentedControl
+                aria-label={t("kind")}
+                value={draft.kind}
+                onValueChange={(v) => set({ kind: v as RuleDraft["kind"], value: "" })}
+                options={[
+                  { value: "percent", label: t("kindPercent") },
+                  { value: "fixed", label: t("kindFixed", { currency }) },
+                ]}
+              />
             </Field>
             <Field id="dr-value" label={draft.kind === "percent" ? t("kindPercent") : t("kindFixed", { currency })}>
               <Input id="dr-value" inputMode="decimal" value={draft.value} onChange={(e) => set({ value: e.target.value })} />
@@ -505,10 +528,15 @@ function GiftRules({ currency, canEdit, pickers }: { currency: string; canEdit: 
           <div className="grid gap-3 rounded-md border p-3 sm:grid-cols-2">
             <Field id="gr-name" label={t("name")} help={t("giftNameHelp")}><Input id="gr-name" maxLength={80} value={draft.name} onChange={(e) => set({ name: e.target.value })} /></Field>
             <Field id="gr-condition" label={t("condition")}>
-              <select id="gr-condition" className={selectClass} value={draft.condition} onChange={(e) => set({ condition: e.target.value as GiftDraft["condition"] })}>
-                <option value="spend">{t("conditionSpend", { currency })}</option>
-                <option value="product">{t("conditionProduct")}</option>
-              </select>
+              <SegmentedControl
+                aria-label={t("condition")}
+                value={draft.condition}
+                onValueChange={(v) => set({ condition: v as GiftDraft["condition"] })}
+                options={[
+                  { value: "spend", label: t("conditionSpend", { currency }) },
+                  { value: "product", label: t("conditionProduct") },
+                ]}
+              />
             </Field>
             {draft.condition === "spend" ? (
               <Field id="gr-spend" label={t("conditionSpend", { currency })}><Input id="gr-spend" inputMode="decimal" value={draft.spend} onChange={(e) => set({ spend: e.target.value })} /></Field>
@@ -631,10 +659,16 @@ function Balances({ currency, canEdit }: { currency: string; canEdit: boolean })
         <div className="grid gap-3 sm:grid-cols-2">
           <Field id="bal-search" label={t("searchCustomer")}><Input id="bal-search" value={search} maxLength={80} onChange={(e) => setSearch(e.target.value)} /></Field>
           <Field id="bal-contact" label={t("customer")}>
-            <select id="bal-contact" className={selectClass} value={contactId} onChange={(e) => setContactId(e.target.value)}>
-              <option value="">{t("chooseCustomer")}</option>
-              {contacts.map((c) => <option key={c.id} value={c.id}>{c.name || c.phone || c.id.slice(0, 8)}</option>)}
-            </select>
+            <OptionSelect
+              className="w-full"
+              id="bal-contact"
+              value={contactId}
+              onValueChange={(v) => setContactId(v)}
+              options={[
+                { value: "", label: t("chooseCustomer") },
+                ...contacts.map((c) => ({ value: c.id, label: c.name || c.phone || c.id.slice(0, 8) })),
+              ]}
+            />
           </Field>
         </div>
         {balances && (
@@ -662,10 +696,15 @@ function Balances({ currency, canEdit }: { currency: string; canEdit: boolean })
             {canEdit && (
               <div className="grid gap-3 rounded-md border p-3 sm:grid-cols-2">
                 <Field id="bal-ledger" label={t("adjustWhat")}>
-                  <select id="bal-ledger" className={selectClass} value={ledger} onChange={(e) => { setLedger(e.target.value as "credit" | "points"); setAmount(""); }}>
-                    <option value="credit">{t("storeCredit")}</option>
-                    <option value="points">{t("points")}</option>
-                  </select>
+                  <SegmentedControl
+                    aria-label={t("adjustWhat")}
+                    value={ledger}
+                    onValueChange={(v) => { setLedger(v as "credit" | "points"); setAmount(""); }}
+                    options={[
+                      { value: "credit", label: t("storeCredit") },
+                      { value: "points", label: t("points") },
+                    ]}
+                  />
                 </Field>
                 <Field id="bal-amount" label={ledger === "credit" ? t("adjustCredit", { currency }) : t("adjustPoints")} help={t("adjustHelp")}>
                   <Input id="bal-amount" inputMode="decimal" value={amount} maxLength={20} onChange={(e) => setAmount(e.target.value)} />

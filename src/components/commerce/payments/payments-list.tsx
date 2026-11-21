@@ -29,6 +29,8 @@ import { Input } from "@/components/ui/input";
 import { getOrder } from "@/components/commerce/orders/order-api";
 import { OfflinePaymentDialog } from "./offline-payment-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { SegmentedControl } from "@/components/ui/segmented-control";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatMoney, minorToDecimalString } from "@/lib/commerce/money";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -41,6 +43,9 @@ import {
   type LinkStatsRow, type PaymentLinkItem, type PaymentLinkStatus,
 } from "./payment-api";
 import { PaymentStatusBadge } from "./payment-status-badge";
+import { PageHeader } from "@/components/ui/page-header";
+import { PageLoading } from "@/components/ui/page-loading";
+import { EmptyState } from "@/components/ui/empty-state";
 
 
 export function PaymentsList() {
@@ -50,10 +55,7 @@ export function PaymentsList() {
   const [tab, setTab] = useState("links");
   return (
     <div>
-      <div>
-        <h1 className="text-[22px] font-bold tracking-tight text-foreground">{t("title")}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t("description")}</p>
-      </div>
+      <PageHeader className="mb-0" title={t("title")} subtitle={t("description")} />
       <Tabs value={tab} onValueChange={(v) => setTab(String(v))} className="mt-5">
         <TabsList className="max-w-full justify-start overflow-x-auto [scrollbar-width:none] *:flex-none">
           <TabsTrigger value="links">{tTabs("links")}</TabsTrigger>
@@ -106,6 +108,7 @@ function LinkStatsCards({ stats }: { stats: LinkStatsRow[] }) {
 }
 
 const SEGMENTS = ["", "paid", "created", "expired"] as const;
+const ALL = "__all__";
 const MORE_STATUSES = PAYMENT_LINK_STATUSES.filter((s) => !(SEGMENTS as readonly string[]).includes(s));
 
 /** Payment links, newest first (agents and above). */
@@ -113,6 +116,7 @@ export function PaymentLinksList() {
   const t = useTranslations("Payments.list");
   const ts = useTranslations("Sales.payments");
   const tStatus = useTranslations("Payments.statuses");
+  const confirm = useConfirm();
   const format = useFormatter();
   const locale = useLocale();
   const canAct = useCan("send-messages");
@@ -174,7 +178,7 @@ export function PaymentLinksList() {
   const replace = (updated: PaymentLinkItem) => setLinks((prev) => prev.map((l) => (l.id === updated.id ? updated : l)));
 
   const act = async (link: PaymentLinkItem, action: "reconcile" | "cancel") => {
-    if (action === "cancel" && !window.confirm(t("cancelConfirm"))) return;
+    if (action === "cancel" && !(await confirm({ title: t("cancelConfirm"), confirmLabel: t("cancel"), destructive: true }))) return;
     setWorking(link.id);
     try {
       const updated = await paymentLinkAction(link.id, action, t("actionFailed"));
@@ -251,16 +255,17 @@ export function PaymentLinksList() {
     <div className="space-y-4">
       {stats && <LinkStatsCards stats={stats.stats} />}
       <div className="flex flex-wrap items-center gap-2">
-        <div className="inline-flex max-w-full overflow-x-auto rounded-xl bg-muted p-[3px] [scrollbar-width:none]" role="group" aria-label={t("statusFilter")}>
-          {SEGMENTS.map((s) => (
-            <button key={s || "all"} type="button" aria-pressed={status === s} onClick={() => setStatus(s)}
-              className={`inline-flex h-[26px] shrink-0 items-center gap-1.5 rounded-[9px] px-3 text-[13px] font-medium transition-[background-color,color] duration-150 focus-visible:outline-2 focus-visible:outline-primary ${
-                status === s ? "bg-card text-foreground shadow-[0_1px_3px_rgb(0_0_0/0.12)] dark:bg-input" : "text-muted-foreground hover:text-foreground"}`}>
-              {segLabel(s)}{stats && <b className="text-xs font-semibold tabular-nums opacity-70">{count(s)}</b>}
-            </button>
-          ))}
-        </div>
-        <Select value={(MORE_STATUSES as readonly string[]).includes(status) ? status : ""} onValueChange={(v) => setStatus(v ? String(v) : "")}>
+        <SegmentedControl
+          aria-label={t("statusFilter")}
+          value={(SEGMENTS as readonly string[]).includes(status) ? status || ALL : "__more__"}
+          onValueChange={(v) => setStatus(v === ALL ? "" : v)}
+          options={SEGMENTS.map((s) => ({ value: s || ALL, label: segLabel(s), count: stats ? count(s) : undefined }))}
+        />
+        <Select
+          items={MORE_STATUSES.map((s) => ({ value: s, label: tStatus(s) }))}
+          value={(MORE_STATUSES as readonly string[]).includes(status) ? status : null}
+          onValueChange={(v) => setStatus(v ? String(v) : "")}
+        >
           <SelectTrigger className="w-44 max-w-full" aria-label={ts("moreStatuses")}><SelectValue placeholder={ts("moreStatuses")} /></SelectTrigger>
           <SelectContent>
             {MORE_STATUSES.map((s) => <SelectItem key={s} value={s}>{tStatus(s)}{stats ? ` (${count(s)})` : ""}</SelectItem>)}
@@ -282,15 +287,14 @@ export function PaymentLinksList() {
 
       <div className="overflow-x-auto rounded-xl border border-border bg-card">
         {loading ? (
-          <div className="flex justify-center p-10"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
+          <PageLoading rows={3} />
         ) : links.length === 0 ? (
-          <div className="flex flex-col items-center gap-2 px-4 py-12 text-center text-sm text-muted-foreground">
-            <span className="mb-1 flex size-[52px] items-center justify-center rounded-2xl bg-primary/10 text-primary"><CreditCard className="size-6" /></span>
-            <p>{status || q ? ts("noMatches") : t("empty")}</p>
-            {status || q ? (
-              <Button variant="outline" size="sm" onClick={() => { setStatus(""); setDraft(""); }}>{ts("clearFilters")}</Button>
-            ) : <p className="text-xs">{t("emptyHelp")}</p>}
-          </div>
+          <EmptyState
+            icon={CreditCard}
+            title={status || q ? ts("noMatches") : t("empty")}
+            body={status || q ? undefined : t("emptyHelp")}
+            action={status || q ? <Button variant="outline" className="min-h-11 sm:min-h-9" onClick={() => { setStatus(""); setDraft(""); }}>{ts("clearFilters")}</Button> : undefined}
+          />
         ) : (
           <Table className="[&_td]:px-3.5 [&_td]:py-2.5">
             <TableHeader className="bg-muted [&_th]:h-9 [&_th]:px-3.5 [&_th]:text-xs [&_th]:font-semibold [&_th]:text-muted-foreground">

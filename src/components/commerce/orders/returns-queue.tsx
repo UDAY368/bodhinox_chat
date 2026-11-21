@@ -8,9 +8,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { TablePagination } from "@/components/ui/table-pagination";
 import { listReturnQueue, RETURN_QUEUE_PAGE, type ReturnQueueFilter, type ReturnQueueItem } from "./orders-list-api";
-import { ListError, RowPlaceholders } from "./list-states";
+import { RowPlaceholders } from "./list-states";
+import { InlineError } from "@/components/ui/inline-error";
 import { StateBadge } from "./state-badge";
 import type { Tone } from "@/lib/commerce/order-state";
+import { EmptyState } from "@/components/ui/empty-state";
 
 const FILTERS: ReturnQueueFilter[] = ["open", "requested", "received", "inspected", "closed", "rejected"];
 const ALL = "all";
@@ -53,14 +55,11 @@ export function ReturnsQueue({ onOpenOrder, reloadKey }: { onOpenOrder: (orderId
       </Select>
 
       {failed ? (
-        <ListError message={t("returns.loadError")} retry={t("retry")} onRetry={() => setAttempt((n) => n + 1)} />
+        <InlineError message={t("returns.loadError")} onRetry={() => setAttempt((n) => n + 1)} />
       ) : !data ? (
         <RowPlaceholders label={t("loading")} />
       ) : data.returns.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border px-6 py-14 text-center">
-          <Undo2 className="h-6 w-6 text-muted-foreground" />
-          <p className="mt-3 text-sm text-muted-foreground">{t("returns.empty")}</p>
-        </div>
+        <EmptyState icon={Undo2} title={t("returns.empty")} />
       ) : (
         <div className="overflow-x-auto rounded-xl border border-border bg-card">
           <Table className="[&_td]:px-3.5 [&_td]:py-2.5">

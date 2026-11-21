@@ -16,6 +16,8 @@ import { formatMoney } from "@/lib/commerce/money";
 import { fetchMetaLink, importMetaProducts, type MetaLinkReport } from "./catalogue-api";
 import { useCatalogueError } from "./catalogue-admin";
 import { MetaSyncSection } from "./meta-sync-section";
+import { Checkbox } from "@/components/ui/checkbox";
+import { PageLoading } from "@/components/ui/page-loading";
 
 const IMPORT_MAX = 100;
 
@@ -49,7 +51,7 @@ export function MetaLinkPanel({ canManage }: { canManage: boolean }) {
     await load();
   };
 
-  if (report === null) return <div className="flex justify-center p-6"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>;
+  if (report === null) return <PageLoading rows={3} />;
   const importable = report.meta_without_variant.filter((m) => m.importable);
   const toggle = (id: string) => setSelected((prev) => {
     const next = new Set(prev);
@@ -111,8 +113,8 @@ export function MetaLinkPanel({ canManage }: { canManage: boolean }) {
             {report.meta_without_variant.map((m) => (
               <li key={m.meta_product_id} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2">
                 {canManage && (
-                  <input type="checkbox" aria-label={m.name} disabled={!m.importable} checked={selected.has(m.meta_product_id)}
-                    onChange={() => toggle(m.meta_product_id)} />
+                  <Checkbox aria-label={m.name} disabled={!m.importable} checked={selected.has(m.meta_product_id)}
+                    onCheckedChange={() => toggle(m.meta_product_id)} />
                 )}
                 <span className="font-mono text-xs text-muted-foreground">{m.retailer_id}</span>
                 <span className="text-foreground">{m.name}</span>

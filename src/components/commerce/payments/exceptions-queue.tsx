@@ -14,13 +14,17 @@ import { toast } from "sonner";
 import { CheckCircle2, Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useConfirm } from "@/components/ui/confirm-dialog";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatMoney } from "@/lib/commerce/money";
 import { listExceptions, resolveException, type PaymentExceptionItem, type Resolution } from "./customer-payments-api";
+import { PageLoading } from "@/components/ui/page-loading";
+import { EmptyState } from "@/components/ui/empty-state";
 
 export function ExceptionsQueue() {
   const t = useTranslations("Payments.exceptions");
+  const confirm = useConfirm();
   const format = useFormatter();
   const locale = useLocale();
   const [status, setStatus] = useState<"open" | "resolved">("open");
@@ -42,7 +46,7 @@ export function ExceptionsQueue() {
   useEffect(() => { void load(); }, [load]);
 
   const resolve = async (row: PaymentExceptionItem, resolution: Resolution) => {
-    if (!window.confirm(t(`confirm.${resolution}`))) return;
+    if (!(await confirm({ title: t(`confirm.${resolution}`), confirmLabel: t(`resolutions.${resolution}`), destructive: resolution === "dismissed" }))) return;
     setWorking(row.id);
     try {
       await resolveException(row.id, resolution, t("resolveFailed"));
@@ -59,22 +63,18 @@ export function ExceptionsQueue() {
     <div>
       <div className="flex items-center justify-between gap-2">
         <p className="text-sm text-muted-foreground">{t("description")}</p>
-        <Select value={status} onValueChange={(v) => v && setStatus(v as "open" | "resolved")}>
-          <SelectTrigger className="w-40" aria-label={t("statusFilter")}><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="open">{t("open")}</SelectItem>
-            <SelectItem value="resolved">{t("resolvedFilter")}</SelectItem>
-          </SelectContent>
-        </Select>
+        <SegmentedControl
+          aria-label={t("statusFilter")}
+          value={status}
+          onValueChange={setStatus}
+          options={[{ value: "open", label: t("open") }, { value: "resolved", label: t("resolvedFilter") }]}
+        />
       </div>
       <div className="mt-4 overflow-x-auto rounded-xl border border-border bg-card">
         {loading ? (
-          <div className="flex justify-center p-10"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
+          <PageLoading rows={3} />
         ) : rows.length === 0 ? (
-          <div className="flex flex-col items-center gap-2 p-10 text-center text-sm text-muted-foreground">
-            <CheckCircle2 className="h-6 w-6" />
-            <p>{status === "open" ? t("emptyOpen") : t("emptyResolved")}</p>
-          </div>
+          <EmptyState icon={CheckCircle2} title={status === "open" ? t("emptyOpen") : t("emptyResolved")} />
         ) : (
           <Table className="[&_td]:px-3.5 [&_td]:py-2.5">
             <TableHeader className="bg-muted [&_th]:h-9 [&_th]:px-3.5 [&_th]:text-xs [&_th]:font-semibold [&_th]:text-muted-foreground">

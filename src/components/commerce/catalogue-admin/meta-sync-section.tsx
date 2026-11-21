@@ -19,6 +19,9 @@ import { StateBadge } from "@/components/commerce/orders/state-badge";
 import type { Tone } from "@/lib/commerce/order-state";
 import { fetchMetaSync, reconcileMetaSyncItem, runMetaSync, saveMetaSync, type MetaSyncView } from "./catalogue-api";
 import { useCatalogueError } from "./catalogue-admin";
+import { Checkbox } from "@/components/ui/checkbox";
+import { SegmentedControl } from "@/components/ui/segmented-control";
+import { PageLoading } from "@/components/ui/page-loading";
 
 type Status = keyof MetaSyncView["counts"];
 const TONES: Record<Status, Tone> = { synced: "ok", pending: "accent", not_synced: "neutral", failed: "bad", uncertain: "warn" };
@@ -63,7 +66,7 @@ export function MetaSyncSection({ canManage }: { canManage: boolean }) {
     await load();
   };
 
-  if (view === null) return <div className="flex justify-center p-6"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>;
+  if (view === null) return <PageLoading rows={3} />;
   const reason = (code: string | null) => (code && t.has(`reasons.${code}`) ? t(`reasons.${code}`) : t("reasons.generic"));
 
   return (
@@ -97,15 +100,12 @@ export function MetaSyncSection({ canManage }: { canManage: boolean }) {
             )}
           </div>
 
-          <fieldset className="flex flex-wrap gap-x-5 gap-y-1 text-sm" disabled={!canManage || busy !== null}>
-            <legend className="sr-only">{t("scopeLabel")}</legend>
-            {(["all", "selected"] as const).map((scope) => (
-              <label key={scope} className="flex items-center gap-2">
-                <input type="radio" name="meta-sync-scope" checked={view.scope === scope} onChange={() => void save("scope", { scope })} />
-                {t(`scope.${scope}`)}
-              </label>
-            ))}
-          </fieldset>
+          <SegmentedControl
+            aria-label={t("scopeLabel")}
+            value={view.scope}
+            onValueChange={(scope) => void save("scope", { scope })}
+            options={(["all", "selected"] as const).map((scope) => ({ value: scope, label: t(`scope.${scope}`), disabled: !canManage || busy !== null }))}
+          />
 
           {view.problems.length > 0 && (
             <div className="space-y-2">
@@ -140,8 +140,8 @@ export function MetaSyncSection({ canManage }: { canManage: boolean }) {
                   return (
                     <li key={p.product_id} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2">
                       {view.scope === "selected" && (
-                        <input type="checkbox" aria-label={t("selectProduct", { name: p.name })} checked={p.selected} disabled={!canManage || busy !== null}
-                          onChange={() => void save(p.product_id, p.selected ? { deselect: p.product_id } : { select: p.product_id })} />
+                        <Checkbox aria-label={t("selectProduct", { name: p.name })} checked={p.selected} disabled={!canManage || busy !== null}
+                          onCheckedChange={() => void save(p.product_id, p.selected ? { deselect: p.product_id } : { select: p.product_id })} />
                       )}
                       <span className="text-foreground">{p.name}</span>
                       <span className="text-xs text-muted-foreground">{t("variants", { count: p.variants })}</span>

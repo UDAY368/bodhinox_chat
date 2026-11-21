@@ -7,13 +7,15 @@ import { Loader2 } from "lucide-react";
 
 import { useCan } from "@/hooks/use-can";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 import { Textarea } from "@/components/ui/textarea";
 import { useApprovedTemplates } from "@/components/flows/forms/use-pickers";
 import { ORDER_CONFIRMATION_FIELDS } from "@/lib/commerce/order-format";
 import { getOrderSettings, saveOrderSettings, type OrderSettings } from "./order-api";
+import { PageLoading } from "@/components/ui/page-loading";
 
 const EMPTY: OrderSettings = { confirmation_mode: "off", confirmation_text: null, template_name: null, template_language: null, variable_map: {} };
 
@@ -73,27 +75,29 @@ export function OrderSettingsDialog({ open, onOpenChange }: { open: boolean; onO
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle>{t("title")}</DialogTitle>
-          <DialogDescription>{t("description")}</DialogDescription>
-        </DialogHeader>
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent size="md" className="w-full gap-0">
+        <SheetHeader>
+          <SheetTitle>{t("title")}</SheetTitle>
+          <SheetDescription>{t("description")}</SheetDescription>
+        </SheetHeader>
+        <div className="flex-1 space-y-4 overflow-y-auto px-4 pb-4">
         {loading ? (
-          <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
+          <PageLoading rows={3} />
         ) : (
           <fieldset disabled={!canEdit || saving} className="space-y-4">
             <div className="space-y-1.5">
-              <Label htmlFor="order-confirm-mode">{t("modeLabel")}</Label>
-              <Select value={settings.confirmation_mode}
-                onValueChange={(v) => setSettings((s) => ({ ...s, confirmation_mode: v as OrderSettings["confirmation_mode"] }))}>
-                <SelectTrigger id="order-confirm-mode"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="off">{t("modeOff")}</SelectItem>
-                  <SelectItem value="text">{t("modeText")}</SelectItem>
-                  <SelectItem value="template">{t("modeTemplate")}</SelectItem>
-                </SelectContent>
-              </Select>
+              <Label>{t("modeLabel")}</Label>
+              <SegmentedControl<OrderSettings["confirmation_mode"]>
+                aria-label={t("modeLabel")}
+                value={settings.confirmation_mode}
+                onValueChange={(v) => setSettings((s) => ({ ...s, confirmation_mode: v }))}
+                options={[
+                  { value: "off", label: t("modeOff"), disabled: !canEdit || saving },
+                  { value: "text", label: t("modeText"), disabled: !canEdit || saving },
+                  { value: "template", label: t("modeTemplate"), disabled: !canEdit || saving },
+                ]}
+              />
             </div>
 
             {settings.confirmation_mode === "text" && (
@@ -118,7 +122,8 @@ export function OrderSettingsDialog({ open, onOpenChange }: { open: boolean; onO
               <div className="space-y-3">
                 <div className="space-y-1.5">
                   <Label htmlFor="order-confirm-template">{t("templateLabel")}</Label>
-                  <Select value={templateKey}
+                  <Select value={templateKey || null}
+                    items={templates.map((x) => ({ value: `${x.name}|${x.language ?? ""}`, label: `${x.name} (${x.language})` }))}
                     onValueChange={(v) => {
                       if (!v) return;
                       const [name, language] = v.split("|");
@@ -136,7 +141,8 @@ export function OrderSettingsDialog({ open, onOpenChange }: { open: boolean; onO
                 {Array.from({ length: variables }, (_, i) => String(i + 1)).map((n) => (
                   <div key={n} className="flex items-center gap-2">
                     <span className="w-12 font-mono text-xs text-muted-foreground">{`{{${n}}}`}</span>
-                    <Select value={settings.variable_map[n] ?? ""}
+                    <Select value={settings.variable_map[n] || null}
+                      items={ORDER_CONFIRMATION_FIELDS.map((f) => ({ value: f, label: t(`fields.${f}`) }))}
                       onValueChange={(field) => field && setSettings((s) => ({ ...s, variable_map: { ...s.variable_map, [n]: field } }))}>
                       <SelectTrigger aria-label={t("variableLabel", { n })}><SelectValue placeholder={t("variablePlaceholder")} /></SelectTrigger>
                       <SelectContent>
@@ -151,7 +157,8 @@ export function OrderSettingsDialog({ open, onOpenChange }: { open: boolean; onO
             {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
           </fieldset>
         )}
-        <DialogFooter>
+        </div>
+        <SheetFooter className="border-t border-border sm:flex-row sm:justify-end">
           <Button variant="outline" onClick={() => onOpenChange(false)}>{t("cancel")}</Button>
           {canEdit && (
             <Button onClick={save} disabled={loading || saving || textInvalid || templateInvalid}>
@@ -159,8 +166,8 @@ export function OrderSettingsDialog({ open, onOpenChange }: { open: boolean; onO
               {t("save")}
             </Button>
           )}
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </SheetFooter>
+      </SheetContent>
+    </Sheet>
   );
 }

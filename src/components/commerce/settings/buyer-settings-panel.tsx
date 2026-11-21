@@ -20,6 +20,7 @@ import { CUSTOM_FIELD_TYPES, EXTRAS_LIMITS } from "@/lib/commerce/checkout-extra
 import type { CustomField } from "@/lib/commerce/checkout-extras";
 import type { BuyerSettings } from "@/lib/commerce/buyer-settings";
 import { useReportDirty } from "./section-dirty";
+import { OptionSelect } from "@/components/commerce/option-select";
 
 const newId = () => Math.random().toString(36).slice(2, 8);
 
@@ -134,10 +135,15 @@ export function BuyerSettingsPanel({ canEdit }: { canEdit: boolean }) {
               <div className="grid gap-2 sm:grid-cols-[1fr_9rem]">
                 <Input aria-label={t("fieldLabel")} placeholder={t("fieldLabel")} maxLength={EXTRAS_LIMITS.fieldLabel} disabled={!canEdit} value={f.label}
                   onChange={(e) => setField(f.id, { label: e.target.value })} />
-                <select aria-label={t("fieldType")} className="h-9 rounded-md border bg-background px-2 text-sm" disabled={!canEdit} value={f.type}
-                  onChange={(e) => setField(f.id, { type: e.target.value as CustomField["type"], options: e.target.value === "select" ? (f.options.length ? f.options : ["", ""]) : [] })}>
-                  {CUSTOM_FIELD_TYPES.map((type) => <option key={type} value={type}>{t(`types.${type}`)}</option>)}
-                </select>
+                <OptionSelect
+                  aria-label={t("fieldType")}
+                  value={f.type}
+                  onValueChange={(v) => setField(f.id, { type: v as CustomField["type"], options: v === "select" ? (f.options.length ? f.options : ["", ""]) : [] })}
+                  disabled={!canEdit}
+                  options={[
+                    ...CUSTOM_FIELD_TYPES.map((type) => ({ value: type, label: t(`types.${type}`) })),
+                  ]}
+                />
               </div>
               {f.type === "select" && (
                 <Input aria-label={t("fieldOptions")} placeholder={t("fieldOptionsHint")} disabled={!canEdit} value={f.options.join(", ")}

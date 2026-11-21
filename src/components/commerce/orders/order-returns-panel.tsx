@@ -14,6 +14,8 @@ import { canStartReturn } from "@/lib/commerce/order-state";
 import {
   createOrderReturn, moveReturn, refundReturn, type ApiResult, type OrderDetail, type OrderReturn, type ReturnAction,
 } from "./order-api";
+import { Checkbox } from "@/components/ui/checkbox";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 
 const REASONS = new Set(["wrong_item", "damaged", "not_as_described", "size_fit", "changed_mind", "other"]);
 
@@ -185,13 +187,13 @@ export function OrderReturnsPanel({ order, returns, canAct, canAdmin, onChanged 
                 {r.items.map((l) => (
                   <div key={l.order_item_id} className="flex items-center justify-between gap-2 text-xs">
                     <span className="min-w-0 flex-1 truncate">{nameOf.get(l.order_item_id) ?? "-"}</span>
-                    {(["restock", "discard"] as const).map((d) => (
-                      <Button key={d} size="sm" variant={disposition[r.id]?.[l.order_item_id] === d ? "default" : "outline"}
-                        aria-pressed={disposition[r.id]?.[l.order_item_id] === d}
-                        onClick={() => setDisposition({ ...disposition, [r.id]: { ...disposition[r.id], [l.order_item_id]: d } })}>
-                        {t(`dispositions.${d}`)}
-                      </Button>
-                    ))}
+                    <SegmentedControl
+                      size="sm"
+                      aria-label={nameOf.get(l.order_item_id) ?? "-"}
+                      value={disposition[r.id]?.[l.order_item_id] ?? ""}
+                      onValueChange={(d) => setDisposition({ ...disposition, [r.id]: { ...disposition[r.id], [l.order_item_id]: d } })}
+                      options={(["restock", "discard"] as const).map((d) => ({ value: d, label: t(`dispositions.${d}`) }))}
+                    />
                   </div>
                 ))}
                 <div className="flex flex-wrap gap-2">
@@ -217,8 +219,8 @@ export function OrderReturnsPanel({ order, returns, canAct, canAdmin, onChanged 
                   <div className="space-y-1 rounded-md bg-muted p-2 text-xs">
                     <p>{t("refundOutsideNeeded")}</p>
                     <label className="flex items-start gap-2">
-                      <input type="checkbox" className="mt-0.5 size-4" checked={outsideConfirmed[r.id] === true}
-                        onChange={(e) => setOutsideConfirmed({ ...outsideConfirmed, [r.id]: e.target.checked })} />
+                      <Checkbox className="mt-0.5" checked={outsideConfirmed[r.id] === true}
+                        onCheckedChange={(checked) => setOutsideConfirmed({ ...outsideConfirmed, [r.id]: checked })} />
                       <span>{t("refundOutsideConfirm")}</span>
                     </label>
                   </div>

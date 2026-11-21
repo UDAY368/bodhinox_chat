@@ -16,7 +16,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import {
   Archive, ArchiveRestore, ChevronLeft, ChevronRight, Copy, ExternalLink, Eye, EyeOff, LayoutGrid, Link2, List, MessageCircle, MoreHorizontal,
-  Package, Pencil, Plus, RotateCw, Search, Tag,
+  Package, Pencil, Plus, Search, Tag,
 } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { toast } from "sonner";
@@ -48,11 +48,15 @@ import {
   publishShopProduct, saveVariant, unpublishShopProduct,
   type ApiResult, type BulkAction, type ProductListFilter, type ProductPage, type ShopCategory, type ShopProductSummary,
 } from "./catalogue-api";
+import { OptionSelect } from "@/components/commerce/option-select";
+import { PageHeader } from "@/components/ui/page-header";
+import { SegmentedControl } from "@/components/ui/segmented-control";
+import { EmptyState } from "@/components/ui/empty-state";
+import { InlineError } from "@/components/ui/inline-error";
 
 const PAGE = 50;
 const TABS = ["products", "categories", "collections", "inventory", "locations", "purchaseOrders", "meta"] as const;
 type Tab = (typeof TABS)[number];
-export const selectClass = "h-9 rounded-lg border border-border bg-card px-2.5 text-sm text-foreground";
 
 /** The translated message for a failed call (Commerce.catalogue.errors.<code>, else by HTTP status). */
 export function useCatalogueError() {
@@ -102,10 +106,7 @@ export function CatalogueAdmin() {
   const canManage = useCan("edit-settings");
   return (
     <div className="space-y-5">
-      <header>
-        <h1 className="text-[22px] font-bold tracking-tight text-foreground">{t("title")}</h1>
-        <p className="mt-1 max-w-2xl text-sm text-muted-foreground">{t("description")}</p>
-      </header>
+      <PageHeader className="mb-0" title={t("title")} subtitle={t("description")} />
       <div role="tablist" aria-label={t("title")} className="flex flex-wrap gap-1 border-b border-border">
         {TABS.map((key) => (
           <button key={key} role="tab" type="button" aria-selected={tab === key} onClick={() => setTab(key)}
@@ -402,31 +403,39 @@ function ProductsTab({ canManage, onOpenCategories }: { canManage: boolean; onOp
           <Search className="pointer-events-none absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input type="search" value={filter.q ?? ""} onChange={(e) => update({ q: e.target.value })} placeholder={t("search")} aria-label={t("search")} className="pl-8" />
         </div>
-        <select aria-label={t("statusFilter")} className={`${selectClass} max-w-full`} value={filter.status ?? ""}
-          onChange={(e) => update({ status: (e.target.value || undefined) as ProductListFilter["status"] })}>
-          <option value="">{t("activeStatuses")}</option>
-          <option value="draft">{tStatus("draft")}</option>
-          <option value="published">{tStatus("published")}</option>
-          <option value="archived">{tStatus("archived")}</option>
-          <option value="all">{t("allStatuses")}</option>
-        </select>
-        <select aria-label={t("stockFilter")} className={`${selectClass} max-w-full`} value={filter.stock ?? ""}
-          onChange={(e) => update({ stock: (e.target.value || undefined) as ProductListFilter["stock"] })}>
-          <option value="">{t("allStock")}</option>
-          <option value="in_stock">{t("stock.in_stock")}</option>
-          <option value="low">{t("stock.low")}</option>
-          <option value="out">{t("stock.out")}</option>
-        </select>
-        <div className="inline-flex rounded-xl bg-muted p-[3px]" role="group" aria-label={ts("viewLabel")}>
-          {(["grid", "table"] as const).map((v) => (
-            <button key={v} type="button" aria-pressed={view === v} aria-label={v === "grid" ? ts("gridView") : ts("tableView")}
-              onClick={() => chooseView(v)}
-              className={`inline-flex h-[26px] items-center rounded-[9px] px-2.5 transition-[background-color,color] duration-150 focus-visible:outline-2 focus-visible:outline-primary ${
-                view === v ? "bg-card text-foreground shadow-[0_1px_3px_rgb(0_0_0/0.12)] dark:bg-input" : "text-muted-foreground hover:text-foreground"}`}>
-              {v === "grid" ? <LayoutGrid className="h-4 w-4" /> : <List className="h-4 w-4" />}
-            </button>
-          ))}
-        </div>
+        <OptionSelect
+          aria-label={t("statusFilter")}
+          value={filter.status ?? ""}
+          onValueChange={(v) => update({ status: (v || undefined) as ProductListFilter["status"] })}
+          className="max-w-full"
+          options={[
+            { value: "", label: t("activeStatuses") },
+            { value: "draft", label: tStatus("draft") },
+            { value: "published", label: tStatus("published") },
+            { value: "archived", label: tStatus("archived") },
+            { value: "all", label: t("allStatuses") },
+          ]}
+        />
+        <SegmentedControl
+          aria-label={t("stockFilter")}
+          value={filter.stock ?? ""}
+          onValueChange={(v) => update({ stock: (v || undefined) as ProductListFilter["stock"] })}
+          options={[
+            { value: "", label: t("allStock") },
+            { value: "in_stock", label: t("stock.in_stock") },
+            { value: "low", label: t("stock.low") },
+            { value: "out", label: t("stock.out") },
+          ]}
+        />
+        <SegmentedControl
+          aria-label={ts("viewLabel")}
+          value={view}
+          onValueChange={chooseView}
+          options={(["grid", "table"] as const).map((v) => ({
+            value: v,
+            label: <>{v === "grid" ? <LayoutGrid className="h-4 w-4" aria-hidden /> : <List className="h-4 w-4" aria-hidden />}<span className="sr-only">{v === "grid" ? ts("gridView") : ts("tableView")}</span></>,
+          }))}
+        />
       </div>
 
       {canManage && selected.length > 0 && (
@@ -469,15 +478,13 @@ function ProductsTab({ canManage, onOpenCategories }: { canManage: boolean; onOp
           ))}
         </ul>
       ) : page.products.length === 0 ? (
-        <div className="flex flex-col items-center rounded-xl border border-dashed border-border px-6 py-10 text-center">
-          <span className="flex size-[52px] items-center justify-center rounded-2xl bg-primary/10 text-primary"><Package className="size-6" /></span>
-          <p className="mt-3 text-sm text-muted-foreground">
-            {failed ? t("loadError") : filter.q || filter.status || filter.stock || filter.categoryId ? t("noMatches") : t("empty")}
-          </p>
-          {failed
-            ? <Button className="mt-3" variant="outline" onClick={refresh}><RotateCw className="h-4 w-4" /> {tl("retry")}</Button>
-            : canManage && <Button className="mt-3" variant="outline" onClick={() => setEditing(null)}><Plus className="h-4 w-4" /> {t("create")}</Button>}
-        </div>
+        failed ? <InlineError message={t("loadError")} onRetry={refresh} /> : (
+          <EmptyState
+            icon={Package}
+            title={filter.q || filter.status || filter.stock || filter.categoryId ? t("noMatches") : t("empty")}
+            action={canManage ? <Button className="min-h-11 sm:min-h-9" variant="outline" onClick={() => setEditing(null)}><Plus className="h-4 w-4" /> {t("create")}</Button> : undefined}
+          />
+        )
       ) : (
         <>
           {canManage && (

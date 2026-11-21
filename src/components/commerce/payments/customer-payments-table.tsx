@@ -16,10 +16,13 @@ import { Loader2, RefreshCw, Undo2, Wallet } from "lucide-react";
 import { useCan } from "@/hooks/use-can";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatMoney } from "@/lib/commerce/money";
 import { listCustomerPayments, listRefunds, refundAction, type CustomerPaymentItem, type CustomerRefundItem } from "./customer-payments-api";
 import { RefundDialog } from "./refund-dialog";
+import { PageLoading } from "@/components/ui/page-loading";
+import { EmptyState } from "@/components/ui/empty-state";
 
 const SETTLEMENT_VARIANT = { settled: "default", pending: "outline", exception: "destructive", unattached: "secondary" } as const;
 const REFUND_VARIANT = { processed: "default", pending: "outline", requested: "outline", sending: "outline", unknown: "destructive", failed: "destructive" } as const;
@@ -27,6 +30,7 @@ const REFUND_VARIANT = { processed: "default", pending: "outline", requested: "o
 export function CustomerPaymentsTable({ orderId, restockByDefault = false }: { orderId?: string; restockByDefault?: boolean }) {
   const t = useTranslations("Payments.customer");
   const tr = useTranslations("Payments.refunds");
+  const confirm = useConfirm();
   const format = useFormatter();
   const locale = useLocale();
   const isAdmin = useCan("edit-settings");
@@ -52,7 +56,7 @@ export function CustomerPaymentsTable({ orderId, restockByDefault = false }: { o
   useEffect(() => { void load(); }, [load]);
 
   const act = async (refund: CustomerRefundItem, action: "reconcile" | "retry") => {
-    if (action === "retry" && !window.confirm(tr("retryConfirm"))) return;
+    if (action === "retry" && !(await confirm({ title: tr("retryConfirm"), confirmLabel: tr("retry") }))) return;
     setWorking(refund.id);
     try {
       await refundAction(refund.id, action, tr("actionFailed"));
@@ -67,16 +71,13 @@ export function CustomerPaymentsTable({ orderId, restockByDefault = false }: { o
 
   const date = (iso: string | null) => (iso ? format.dateTime(new Date(iso), { dateStyle: "medium", timeStyle: "short" }) : "—");
 
-  if (loading) return <div className="flex justify-center p-10"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>;
+  if (loading) return <PageLoading rows={3} />;
 
   return (
     <div className="space-y-6">
       <div className="overflow-x-auto rounded-xl border border-border bg-card">
         {payments.length === 0 ? (
-          <div className="flex flex-col items-center gap-2 p-10 text-center text-sm text-muted-foreground">
-            <Wallet className="h-6 w-6" />
-            <p>{t("empty")}</p>
-          </div>
+          <EmptyState icon={Wallet} title={t("empty")} />
         ) : (
           <Table className="[&_td]:px-3.5 [&_td]:py-2.5">
             <TableHeader className="bg-muted [&_th]:h-9 [&_th]:px-3.5 [&_th]:text-xs [&_th]:font-semibold [&_th]:text-muted-foreground">

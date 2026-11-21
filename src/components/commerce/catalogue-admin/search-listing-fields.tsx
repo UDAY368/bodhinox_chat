@@ -13,6 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { isShopSlug } from "@/lib/commerce/shop-paths";
 import type { ShopProduct } from "./catalogue-api";
+import { OptionSelect } from "@/components/commerce/option-select";
 
 export const SEO_TITLE_MAX = 70;
 export const SEO_DESCRIPTION_MAX = 160;
@@ -69,11 +70,17 @@ export function SearchListingFields({ value, onChange, images, readOnly }: {
         {images.length > 0 && (
           <div className="space-y-1">
             <Label htmlFor="p-seo-image">{t("shareImage")}</Label>
-            <select id="p-seo-image" className="h-11 w-full rounded-md border border-input bg-background px-3 text-sm" value={value.seoImageId}
-              disabled={readOnly} onChange={set("seoImageId")}>
-              <option value="">{t("firstImage")}</option>
-              {images.map((image, i) => <option key={image.id} value={image.id}>{t("imageN", { n: i + 1 })}</option>)}
-            </select>
+            <OptionSelect
+              id="p-seo-image"
+              className="w-full"
+              value={value.seoImageId}
+              disabled={readOnly}
+              onValueChange={(v) => onChange({ ...value, seoImageId: v })}
+              options={[
+                { value: "", label: t("firstImage") },
+                ...images.map((image, i) => ({ value: image.id, label: t("imageN", { n: i + 1 }) })),
+              ]}
+            />
           </div>
         )}
     </div>

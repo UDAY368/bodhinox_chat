@@ -9,13 +9,14 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ArrowDown, ArrowUp, Loader2, Pencil, Plus, Trash2, X } from "lucide-react";
+import { ArrowDown, ArrowUp, Pencil, Plus, Trash2, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -26,8 +27,12 @@ import {
   deleteCollection, fetchCategories, fetchCollection, fetchCollections, fetchShopProducts, previewCollection, saveCollection,
   type CollectionBody, type CollectionRule, type ShopCategory, type ShopCollection, type ShopCollectionDetail,
 } from "./catalogue-api";
-import { selectClass, useCatalogueError } from "./catalogue-admin";
+import { useCatalogueError } from "./catalogue-admin";
 import { moneyInput, moneyText } from "./catalogue-format";
+import { OptionSelect } from "@/components/commerce/option-select";
+import { Checkbox } from "@/components/ui/checkbox";
+import { SegmentedControl } from "@/components/ui/segmented-control";
+import { PageLoading } from "@/components/ui/page-loading";
 
 /** A rule as typed: every value is text until it is turned into the API shape. */
 interface DraftRule { field: RuleField; op: string; value: string }
@@ -78,7 +83,7 @@ export function CollectionsPanel({ canManage }: { canManage: boolean }) {
     if (r.ok) setEditing(r.data); else toast.error(errorText(r));
   };
 
-  if (items === null) return <div className="flex justify-center p-6"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>;
+  if (items === null) return <PageLoading rows={3} />;
   return (
     <section className="space-y-4">
       <div className="flex flex-wrap items-center gap-3">
@@ -127,7 +132,7 @@ function CollectionDialog({ collection, canManage, categories, currency, onClose
   const [rules, setRules] = useState<DraftRule[]>(() => (collection?.rules ?? []).map((r) => toDraft(r, currency)));
   const [picked, setPicked] = useState<Array<{ id: string; name: string }>>(() => (collection?.products ?? []).map((p) => ({ id: p.id, name: p.name })));
   const [busy, setBusy] = useState(false);
-  const [confirmDelete, setConfirmDelete] = useState(false);
+  const confirm = useConfirm();
   const ro = !canManage;
 
   const apiRules = useMemo(() => rules.map((r) => toRule(r, currency)), [rules, currency]);
@@ -160,13 +165,14 @@ function CollectionDialog({ collection, canManage, categories, currency, onClose
   };
 
   return (
-    <Dialog open onOpenChange={(o) => { if (!o) onClose(); }}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>{collection ? collection.title : t("new")}</DialogTitle>
-          <DialogDescription>{t("dialogHint")}</DialogDescription>
-        </DialogHeader>
-        <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); void submit(); }}>
+    <Sheet open onOpenChange={(o) => { if (!o) onClose(); }}>
+      <SheetContent size="lg" className="w-full gap-0">
+        <SheetHeader>
+          <SheetTitle>{collection ? collection.title : t("new")}</SheetTitle>
+          <SheetDescription>{t("dialogHint")}</SheetDescription>
+        </SheetHeader>
+        <form className="flex min-h-0 flex-1 flex-col" onSubmit={(e) => { e.preventDefault(); void submit(); }}>
+          <div className="flex-1 space-y-4 overflow-y-auto px-4 pb-4">
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1">
               <Label htmlFor="col-title">{t("name")}</Label>
@@ -185,20 +191,32 @@ function CollectionDialog({ collection, canManage, categories, currency, onClose
           </div>
           <div className="grid gap-3 sm:grid-cols-3">
             <div className="space-y-1">
-              <Label htmlFor="col-kind">{t("kind")}</Label>
-              <select id="col-kind" className={`${selectClass} w-full`} value={kind} disabled={ro} onChange={(e) => setKind(e.target.value as "manual" | "smart")}>
-                <option value="manual">{t("kinds.manual")}</option>
-                <option value="smart">{t("kinds.smart")}</option>
-              </select>
+              <Label>{t("kind")}</Label>
+              <SegmentedControl
+                aria-label={t("kind")}
+                value={kind}
+                onValueChange={(v) => setKind(v as "manual" | "smart")}
+                options={[
+                  { value: "manual", label: t("kinds.manual"), disabled: ro },
+                  { value: "smart", label: t("kinds.smart"), disabled: ro },
+                ]}
+              />
             </div>
             <div className="space-y-1">
               <Label htmlFor="col-sort">{t("sort")}</Label>
-              <select id="col-sort" className={`${selectClass} w-full`} value={sort} disabled={ro} onChange={(e) => setSort(e.target.value)}>
-                {COLLECTION_SORTS.map((s) => <option key={s} value={s}>{t(`sorts.${s}`)}</option>)}
-              </select>
+              <OptionSelect
+                id="col-sort"
+                value={sort}
+                onValueChange={(v) => setSort(v)}
+                disabled={ro}
+                className="w-full"
+                options={[
+                  ...COLLECTION_SORTS.map((s) => ({ value: s, label: t(`sorts.${s}`) })),
+                ]}
+              />
             </div>
             <label className="flex items-center gap-2 self-end pb-2 text-sm">
-              <input type="checkbox" className="size-4" checked={published} disabled={ro} onChange={(e) => setPublished(e.target.checked)} />
+              <Checkbox checked={published} disabled={ro} onCheckedChange={setPublished} />
               {t("publishedLabel")}
             </label>
           </div>
@@ -209,25 +227,22 @@ function CollectionDialog({ collection, canManage, categories, currency, onClose
             <ManualProducts picked={picked} setPicked={setPicked} ro={ro} />
           )}
           <LivePreview kind={kind} match={match} apiRules={apiRules} rulesOk={rulesOk} productIds={picked.map((p) => p.id)} />
+          </div>
 
-          <DialogFooter className="gap-2 sm:justify-between">
+          <SheetFooter className="gap-2 border-t border-border sm:flex-row sm:justify-between">
             {canManage && collection ? (
-              confirmDelete ? (
-                <span className="flex items-center gap-2 text-sm">
-                  {t("deleteConfirm")}
-                  <Button type="button" variant="destructive" size="sm" disabled={busy} onClick={() => void remove()}>{t("deleteYes")}</Button>
-                  <Button type="button" variant="ghost" size="sm" onClick={() => setConfirmDelete(false)}>{t("cancel")}</Button>
-                </span>
-              ) : <Button type="button" variant="ghost" onClick={() => setConfirmDelete(true)}><Trash2 className="h-4 w-4" />{t("delete")}</Button>
+              <Button type="button" variant="ghost" className="text-destructive" disabled={busy} onClick={async () => {
+                if (await confirm({ title: t("deleteConfirm"), confirmLabel: t("deleteYes"), destructive: true })) void remove();
+              }}><Trash2 className="h-4 w-4" />{t("delete")}</Button>
             ) : <span />}
             <span className="flex gap-2">
               <Button type="button" variant="outline" onClick={onClose}>{t("close")}</Button>
               {canManage && <Button type="submit" disabled={busy || !valid}>{t("save")}</Button>}
             </span>
-          </DialogFooter>
+          </SheetFooter>
         </form>
-      </DialogContent>
-    </Dialog>
+      </SheetContent>
+    </Sheet>
   );
 }
 
@@ -242,32 +257,59 @@ function SmartRules({ rules, setRules, match, setMatch, categories, currency, ro
       <legend className="px-1 text-sm font-medium text-foreground">{t("rules")}</legend>
       <div className="flex items-center gap-2 text-sm">
         {t("matchPrefix")}
-        <select aria-label={t("match")} className={selectClass} value={match} disabled={ro} onChange={(e) => setMatch(e.target.value as "all" | "any")}>
-          <option value="all">{t("matchAll")}</option>
-          <option value="any">{t("matchAny")}</option>
-        </select>
+        <SegmentedControl
+          aria-label={t("match")}
+          value={match}
+          onValueChange={(v) => setMatch(v as "all" | "any")}
+          options={[
+            { value: "all", label: t("matchAll"), disabled: ro },
+            { value: "any", label: t("matchAny"), disabled: ro },
+          ]}
+        />
         {t("matchSuffix")}
       </div>
       {rules.length === 0 && <p className="text-xs text-muted-foreground">{t("noRules")}</p>}
       {rules.map((r, i) => (
         <div key={i} className="flex flex-wrap items-center gap-2">
-          <select aria-label={t("field")} className={selectClass} value={r.field} disabled={ro}
-            onChange={(e) => { const field = e.target.value as RuleField; set(i, { field, op: RULE_FIELDS[field].ops[0], value: field === "on_sale" ? "true" : "" }); }}>
-            {RULE_FIELD_NAMES.map((f) => <option key={f} value={f}>{t(`fields.${f}`)}</option>)}
-          </select>
-          <select aria-label={t("operator")} className={selectClass} value={r.op} disabled={ro} onChange={(e) => set(i, { op: e.target.value })}>
-            {(RULE_FIELDS[r.field].ops as readonly string[]).map((op) => <option key={op} value={op}>{t(`ops.${op}`)}</option>)}
-          </select>
+          <OptionSelect
+            aria-label={t("field")}
+            value={r.field}
+            onValueChange={(v) => { const field = v as RuleField; set(i, { field, op: RULE_FIELDS[field].ops[0], value: field === "on_sale" ? "true" : "" }); }}
+            disabled={ro}
+            options={[
+              ...RULE_FIELD_NAMES.map((f) => ({ value: f, label: t(`fields.${f}`) })),
+            ]}
+          />
+          <OptionSelect
+            aria-label={t("operator")}
+            value={r.op}
+            onValueChange={(v) => set(i, { op: v })}
+            disabled={ro}
+            options={[
+              ...(RULE_FIELDS[r.field].ops as readonly string[]).map((op) => ({ value: op, label: t(`ops.${op}`) })),
+            ]}
+          />
           {r.field === "category" ? (
-            <select aria-label={t("value")} className={selectClass} value={r.value} disabled={ro} onChange={(e) => set(i, { value: e.target.value })}>
-              <option value="">{t("pickCategory")}</option>
-              {categories.filter((c) => !c.archived).map((c) => <option key={c.id} value={c.id}>{c.parent_id ? `— ${c.name}` : c.name}</option>)}
-            </select>
+            <OptionSelect
+              aria-label={t("value")}
+              value={r.value}
+              onValueChange={(v) => set(i, { value: v })}
+              disabled={ro}
+              options={[
+                { value: "", label: t("pickCategory") },
+                ...categories.filter((c) => !c.archived).map((c) => ({ value: c.id, label: c.parent_id ? `— ${c.name}` : c.name })),
+              ]}
+            />
           ) : r.field === "on_sale" ? (
-            <select aria-label={t("value")} className={selectClass} value={r.value} disabled={ro} onChange={(e) => set(i, { value: e.target.value })}>
-              <option value="true">{t("onSaleYes")}</option>
-              <option value="false">{t("onSaleNo")}</option>
-            </select>
+            <SegmentedControl
+              aria-label={t("value")}
+              value={r.value}
+              onValueChange={(v) => set(i, { value: v })}
+              options={[
+                { value: "true", label: t("onSaleYes"), disabled: ro },
+                { value: "false", label: t("onSaleNo"), disabled: ro },
+              ]}
+            />
           ) : (
             <Input aria-label={t("value")} className="h-9 w-44" value={r.value} maxLength={80} readOnly={ro} inputMode={r.field === "price" ? "decimal" : undefined}
               placeholder={r.field === "price" ? currency ?? "" : ""} onChange={(e) => set(i, { value: e.target.value })} />

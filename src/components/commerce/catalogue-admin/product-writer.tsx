@@ -16,7 +16,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { authFetch } from "@/lib/auth/client";
 import { WRITER_LIMITS, WRITER_TONES, type WriterTone } from "@/lib/ai/product-writer-limits";
-import { selectClass } from "./catalogue-admin";
+import { OptionSelect } from "@/components/commerce/option-select";
 
 export function ProductWriter({ name, onUse }: { name: string; onUse: (text: string) => void }) {
   const t = useTranslations("Commerce.catalogue.editor.writer");
@@ -61,9 +61,14 @@ export function ProductWriter({ name, onUse }: { name: string; onUse: (text: str
       <div className="flex flex-wrap items-end gap-2">
         <div className="space-y-1">
           <Label htmlFor="pw-tone">{t("tone")}</Label>
-          <select id="pw-tone" className={selectClass} value={tone} onChange={(e) => setTone(e.target.value as WriterTone)}>
-            {WRITER_TONES.map((v) => <option key={v} value={v}>{t(`tones.${v}`)}</option>)}
-          </select>
+          <OptionSelect
+            id="pw-tone"
+            value={tone}
+            onValueChange={(v) => setTone(v as WriterTone)}
+            options={[
+              ...WRITER_TONES.map((v) => ({ value: v, label: t(`tones.${v}`) })),
+            ]}
+          />
         </div>
         <Button type="button" size="sm" onClick={write} disabled={busy || !name.trim() || tooMany}>
           {busy ? <Loader2 className="size-4 animate-spin" /> : <Sparkles className="size-4" />}{t("write")}

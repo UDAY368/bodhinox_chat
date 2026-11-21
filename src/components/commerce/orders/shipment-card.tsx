@@ -22,11 +22,13 @@ import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import { useCan } from "@/hooks/use-can";
 import { authFetch } from "@/lib/auth/client";
 import type { OrderStatus } from "@/lib/commerce/order-format";
 import { isReadyToShip } from "@/lib/commerce/order-state";
 import { shipmentTrackingUrl, type OrderShipmentView } from "@/lib/fulfilment/types";
+import { OptionSelect } from "@/components/commerce/option-select";
 
 export interface ShipmentCardProps {
   orderId: string;
@@ -81,6 +83,7 @@ function trackingUrl(shipment: OrderShipmentView): string | null {
 export function ShipmentCard({ orderId, orderStatus, unpaidCod = false, refundedInFull = false, onChanged }: ShipmentCardProps) {
   const readyToShip = !refundedInFull && isReadyToShip({ status: orderStatus, unpaidCod });
   const t = useTranslations("Commerce.shipments");
+  const confirm = useConfirm();
   const canManage = useCan("edit-settings");
   const [state, setState] = useState<ShipmentState | null>(null);
   const [form, setForm] = useState<Dims | null>(null);
@@ -163,10 +166,10 @@ export function ShipmentCard({ orderId, orderStatus, unpaidCod = false, refunded
     : Number.isInteger(Number(form.weight_grams)) && Number(form.weight_grams) > 0);
   const formValid = dimsValid && weightValid && (!state.lines || itemsValid);
 
-  const create = () => {
+  const create = async () => {
     if (!form || !formValid) return;
     const wallet = !chosen || chosen.id === "shiprocket";
-    if (!window.confirm(wallet ? t("confirm") : t("confirmCourier", { name: chosen.name }))) return;
+    if (!(await confirm({ title: wallet ? t("confirm") : t("confirmCourier", { name: chosen.name }), confirmLabel: t("createConfirm") }))) return;
     const body: Record<string, unknown> = {
       length_cm: Number(form.length_cm), breadth_cm: Number(form.breadth_cm), height_cm: Number(form.height_cm),
       weight_grams: form.weight_grams.trim() === "" ? null : Number(form.weight_grams),
@@ -179,12 +182,12 @@ export function ShipmentCard({ orderId, orderStatus, unpaidCod = false, refunded
   };
 
   const of = (s: OrderShipmentView) => `?shipment_id=${encodeURIComponent(s.id)}`;
-  const cancel = (s: OrderShipmentView) => {
-    if (!window.confirm(t("cancelConfirm"))) return;
+  const cancel = async (s: OrderShipmentView) => {
+    if (!(await confirm({ title: t("cancelConfirm"), confirmLabel: t("cancel"), destructive: true }))) return;
     void act("cancel", s.id, () => authFetch(`${endpoint}${of(s)}`, { method: "DELETE" }), t("cancelled"));
   };
-  const assignAgain = (s: OrderShipmentView) => {
-    if (!window.confirm(t("assignConfirm"))) return;
+  const assignAgain = async (s: OrderShipmentView) => {
+    if (!(await confirm({ title: t("assignConfirm"), confirmLabel: t("assignAgain") }))) return;
     void act("awb", s.id, () => authFetch(`${endpoint}/awb${of(s)}`, { method: "POST" }), t("assignQueued"));
   };
   const pickupAgain = (s: OrderShipmentView) => {
@@ -281,14 +284,14 @@ export function ShipmentCard({ orderId, orderStatus, unpaidCod = false, refunded
                 </Button>
               )}
               {canManage && live && shipment.create_state === "created" && shipment.awb_state === "failed" && state.connected && (
-                <Button size="sm" variant="outline" onClick={() => assignAgain(shipment)} disabled={!!busy}>
+                <Button size="sm" variant="outline" onClick={() => void assignAgain(shipment)} disabled={!!busy}>
                   {spinning("awb", shipment) ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <RotateCcw className="mr-1 h-4 w-4" />}
                   {t("assignAgain")}
                 </Button>
               )}
               {canManage && live && shipment.create_state === "created" && shipment.awb_state !== "assigning"
                 && shipment.awb_state !== "unknown" && (shipment.tracking_rank ?? 0) < PICKED_UP_RANK && state.connected && (
-                <Button size="sm" variant="outline" onClick={() => cancel(shipment)} disabled={!!busy}>
+                <Button size="sm" variant="outline" onClick={() => void cancel(shipment)} disabled={!!busy}>
                   {spinning("cancel", shipment) ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <X className="mr-1 h-4 w-4" />}
                   {t("cancel")}
                 </Button>
@@ -308,10 +311,15 @@ export function ShipmentCard({ orderId, orderStatus, unpaidCod = false, refunded
           {couriers.length > 1 && (
             <div>
               <Label htmlFor={`shipment-${orderId}-courier`} className="mb-1 block text-xs text-muted-foreground">{t("chooseCourier")}</Label>
-              <select id={`shipment-${orderId}-courier`} value={chosen?.id ?? ""} onChange={(e) => setCourierId(e.target.value)}
-                className="h-9 w-full rounded-md border border-border bg-background px-2 text-sm text-foreground">
-                {couriers.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </select>
+              <OptionSelect
+                id={`shipment-${orderId}-courier`}
+                value={chosen?.id ?? ""}
+                onValueChange={(v) => setCourierId(v)}
+                className="w-full"
+                options={[
+                  ...couriers.map((c) => ({ value: c.id, label: c.name })),
+                ]}
+              />
             </div>
           )}
           {(!chosen || chosen.id === "shiprocket")
@@ -342,7 +350,7 @@ export function ShipmentCard({ orderId, orderStatus, unpaidCod = false, refunded
           </div>
           {!!state.lines && <p className="text-xs text-muted-foreground">{t("weightFromItems")}</p>}
           <div className="flex flex-wrap gap-2">
-            <Button size="sm" onClick={create} disabled={!formValid || !!busy}>
+            <Button size="sm" onClick={() => void create()} disabled={!formValid || !!busy}>
               {busy?.kind === "create" && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
               {t("createConfirm")}
             </Button>

@@ -23,8 +23,10 @@ import {
   changePurchaseOrderStatus, createPurchaseOrder, fetchLocations, fetchPurchaseOrder, fetchPurchaseOrders, fetchShopProducts, receivePurchaseOrder,
   type InventoryRow, type PoAction, type PurchaseOrder, type PurchaseOrderSummary, type StockLocation,
 } from "./catalogue-api";
-import { selectClass, useCatalogueError } from "./catalogue-admin";
+import { useCatalogueError } from "./catalogue-admin";
 import { variantLabel, VariantPicker } from "./locations-panel";
+import { OptionSelect } from "@/components/commerce/option-select";
+import { PageLoading } from "@/components/ui/page-loading";
 
 type DraftLine = { variant: InventoryRow; qty: string; cost: string };
 
@@ -46,7 +48,7 @@ export function PurchaseOrdersPanel({ canManage }: { canManage: boolean }) {
     fetchShopProducts({ limit: 1 }).then((r) => { if (r.ok) setCurrency(r.data.currency); });
   }, [reload]);
 
-  if (orders === null) return <div className="flex justify-center p-6"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>;
+  if (orders === null) return <PageLoading rows={3} />;
   return (
     <section className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -238,9 +240,14 @@ function OrderDetail({ id, canManage, onChanged }: { id: string; canManage: bool
             <>
               <div className="space-y-1">
                 <Label htmlFor="po-location">{t("receiveAt")}</Label>
-                <select id="po-location" className={selectClass} value={location} onChange={(e) => setLocation(e.target.value)}>
-                  {locations.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
-                </select>
+                <OptionSelect
+                  id="po-location"
+                  value={location}
+                  onValueChange={(v) => setLocation(v)}
+                  options={[
+                    ...locations.map((l) => ({ value: l.id, label: l.name })),
+                  ]}
+                />
               </div>
               <Button size="sm" disabled={busy || !receiving.length} onClick={() => void receive()}>{busy && <Loader2 className="h-4 w-4 animate-spin" />}{t("receive")}</Button>
             </>

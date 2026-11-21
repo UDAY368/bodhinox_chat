@@ -18,7 +18,7 @@ import { Loader2, Plus, Trash2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -28,8 +28,8 @@ import { createManualOrder, createQuote, listSellableVariants, type OrderDetail,
 import { sendOrderPaymentLink } from "./order-actions";
 import { orderRef } from "@/lib/commerce/order-state";
 import { withChosenOption } from "./customer-options";
+import { OptionSelect } from "@/components/commerce/option-select";
 
-const selectClass = "h-9 w-full min-w-0 rounded-lg border border-border bg-card px-2.5 text-sm text-foreground outline-none transition-[border-color,box-shadow] duration-150 focus:border-primary focus:ring-3 focus:ring-ring/30 disabled:opacity-60";
 const MAX_QTY = 99;
 
 interface Line { key: number; variantId: string; qty: string }
@@ -200,24 +200,30 @@ export function NewOrderDialog({ open, mode = "order", onOpenChange, onCreated, 
   const contactOptions = withChosenOption(contacts, chosenContact);
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle>{quote ? tQuote("title") : t("title")}</DialogTitle>
-          <DialogDescription>{quote ? tQuote("description") : t("totalHelp")}</DialogDescription>
-        </DialogHeader>
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent size="md" className="w-full gap-0">
+        <SheetHeader>
+          <SheetTitle>{quote ? tQuote("title") : t("title")}</SheetTitle>
+          <SheetDescription>{quote ? tQuote("description") : t("totalHelp")}</SheetDescription>
+        </SheetHeader>
+        <div className="flex-1 space-y-4 overflow-y-auto px-4 pb-4">
         <div className="space-y-4 text-sm">
           <div className="space-y-1.5">
             <Label htmlFor="new-order-customer-search">{t("customer")}</Label>
             <Input id="new-order-customer-search" placeholder={t("customerSearch")} value={search} onChange={(e) => setSearch(e.target.value)} />
-            <select aria-label={t("customer")} aria-invalid={!!errors.contact} className={selectClass} value={contactId} onChange={(e) => {
-                const id = e.target.value;
+            <OptionSelect
+              aria-label={t("customer")}
+              invalid={!!errors.contact}
+              value={contactId}
+              onValueChange={(id) => {
                 setContactId(id);
                 setChosenContact(contactOptions.find((c) => c.id === id) ?? null);
-              }}>
-              <option value="">{t("chooseCustomer")}</option>
-              {contactOptions.map((c) => <option key={c.id} value={c.id}>{c.name || c.phone || c.id.slice(0, 8)}</option>)}
-            </select>
+              }}
+              options={[
+                { value: "", label: t("chooseCustomer") },
+                ...contactOptions.map((c) => ({ value: c.id, label: c.name || c.phone || c.id.slice(0, 8) })),
+              ]}
+            />
             {errors.contact && <p className="text-xs font-medium text-destructive">{errors.contact}</p>}
           </div>
 
@@ -233,15 +239,16 @@ export function NewOrderDialog({ open, mode = "order", onOpenChange, onCreated, 
               const v = byId.get(l.variantId);
               return (
                 <div key={l.key} className="flex flex-wrap items-center gap-2">
-                  <select aria-label={t("product")} className={`${selectClass} flex-1 basis-48`} value={l.variantId}
-                    onChange={(e) => update(l.key, { variantId: e.target.value })}>
-                    {v && !catalogue?.variants.some((opt) => opt.id === v.id) && (
-                      <option value={v.id}>{v.name} · {money(v.price_minor)}</option>
-                    )}
-                    {catalogue?.variants.map((opt) => (
-                      <option key={opt.id} value={opt.id}>{opt.name} · {money(opt.price_minor)}</option>
-                    ))}
-                  </select>
+                  <OptionSelect
+                    aria-label={t("product")}
+                    className="flex-1 basis-48"
+                    value={l.variantId}
+                    onValueChange={(id) => update(l.key, { variantId: id })}
+                    options={[
+                      ...(v && !catalogue?.variants.some((opt) => opt.id === v.id) ? [{ value: v.id, label: `${v.name} · ${money(v.price_minor)}` }] : []),
+                      ...(catalogue?.variants ?? []).map((opt) => ({ value: opt.id, label: `${opt.name} · ${money(opt.price_minor)}` })),
+                    ]}
+                  />
                   <Input aria-label={t("qty")} type="number" inputMode="numeric" min={1} max={MAX_QTY} step={1} className="w-20 shrink-0"
                     value={l.qty} onChange={(e) => update(l.key, { qty: e.target.value })} />
                   <Button type="button" variant="ghost" size="icon-sm" aria-label={t("removeItem")} disabled={lines.length === 1}
@@ -275,9 +282,14 @@ export function NewOrderDialog({ open, mode = "order", onOpenChange, onCreated, 
           {quote ? (
             <div className="space-y-1.5">
               <Label htmlFor="new-quote-hours">{tQuote("expires")}</Label>
-              <select id="new-quote-hours" className={selectClass} value={hours} onChange={(e) => setHours(e.target.value)}>
-                {["24", "48", "72", "168"].map((h) => <option key={h} value={h}>{tQuote(`h${h}`)}</option>)}
-              </select>
+              <OptionSelect
+                id="new-quote-hours"
+                value={hours}
+                onValueChange={(v) => setHours(v)}
+                options={[
+                  ...["24", "48", "72", "168"].map((h) => ({ value: h, label: tQuote(`h${h}`) })),
+                ]}
+              />
             </div>
           ) : (
             <label className="flex items-center gap-2">
@@ -286,13 +298,14 @@ export function NewOrderDialog({ open, mode = "order", onOpenChange, onCreated, 
             </label>
           )}
         </div>
-        <DialogFooter>
+        </div>
+        <SheetFooter className="border-t border-border sm:flex-row sm:justify-end">
           <Button variant="outline" onClick={() => onOpenChange(false)}>{tOrders("cancel")}</Button>
           <Button disabled={busy || noProducts || catalogue === null || !requestId} onClick={() => void submit()}>
             {busy && <Loader2 className="h-4 w-4 animate-spin" />} {quote ? tQuote("send") : t("create")}
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </SheetFooter>
+      </SheetContent>
+    </Sheet>
   );
 }

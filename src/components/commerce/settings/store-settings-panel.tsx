@@ -31,6 +31,7 @@ import { ShippingRates } from "./shipping-rates";
 import {
   DEFAULT_STORE_SECTION, STORE_SECTION_GROUPS, resolveStoreSection, storeSectionHref, type StoreSection,
 } from "./store-settings-sections";
+import { PageHeader } from "@/components/ui/page-header";
 
 const ICONS: Record<StoreSection, LucideIcon> = {
   general: Store, taxes: Receipt, checkout: CreditCard, shipping: Truck, discounts: BadgePercent,
@@ -89,10 +90,7 @@ export function StoreSettingsScreen({ settings, loadError, canEdit, savedVersion
 
   return (
     <div className="mx-auto w-full max-w-5xl">
-      <header className={cn(selected && "hidden md:block")}>
-        <h1 className="text-[22px] font-bold tracking-tight text-foreground">{t("title")}</h1>
-        <p className="text-sm text-muted-foreground">{t("subtitle")}</p>
-      </header>
+      <PageHeader className={cn("mb-0", selected && "hidden md:flex")} title={t("title")} subtitle={t("subtitle")} />
 
       <div className="mt-5 md:grid md:grid-cols-[13rem_minmax(0,1fr)] md:items-start md:gap-8">
         <nav aria-label={ts("navLabel")} className={cn("space-y-5 md:sticky md:top-4 md:space-y-4", selected && "hidden md:block")}>

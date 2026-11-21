@@ -15,6 +15,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { REDIRECT_LIMIT } from "@/lib/commerce/shop-insights-rules";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 
 interface Rule { id: string; from: string; to: string; code: 301 | 302; created_at: string }
 
@@ -91,12 +92,16 @@ export function RedirectsCard({ canEdit }: { canEdit: boolean }) {
               <Input id="redirect-to" value={to} maxLength={220} placeholder="/p/…" onChange={(e) => setTo(e.target.value)} />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="redirect-code">{t("type")}</Label>
-              <select id="redirect-code" value={code} onChange={(e) => setCode(Number(e.target.value) === 302 ? 302 : 301)}
-                className="h-9 w-full rounded-md border bg-background px-2 text-sm">
-                <option value={301}>{t("permanent")}</option>
-                <option value={302}>{t("temporary")}</option>
-              </select>
+              <Label>{t("type")}</Label>
+              <SegmentedControl
+                aria-label={t("type")}
+                value={String(code)}
+                onValueChange={(v) => setCode(Number(v) === 302 ? 302 : 301)}
+                options={[
+                  { value: "301", label: t("permanent") },
+                  { value: "302", label: t("temporary") },
+                ]}
+              />
             </div>
             <Button type="button" onClick={add} disabled={busy || !from.trim() || !to.trim()}>
               {busy && <Loader2 className="size-4 animate-spin" />}{t("add")}

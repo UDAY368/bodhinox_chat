@@ -96,7 +96,7 @@ export function TemplateGallery({ current, onUse, canEdit, shop, settings, produ
       </ul>
 
       <Sheet open={picked !== null} onOpenChange={(open) => { if (!open) setPicked(null); }}>
-        <SheetContent side="right" className="w-full gap-0 p-0 sm:max-w-[440px]">
+        <SheetContent side="right" size="md" className="w-full gap-0 p-0">
           {picked && (
             <>
               <SheetHeader className="border-b p-4">

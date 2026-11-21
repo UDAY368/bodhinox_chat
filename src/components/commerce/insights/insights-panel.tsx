@@ -17,6 +17,8 @@ import { formatMoney } from "@/lib/commerce/money";
 import type { LiveView } from "@/lib/commerce/shop-live";
 import type { SalesReport, StockValueReport, TaxReport } from "@/lib/commerce/shop-reports";
 import { LIVE_WINDOW_MINUTES } from "@/lib/commerce/shop-insights-rules";
+import { OptionSelect } from "@/components/commerce/option-select";
+import { PageHeader } from "@/components/ui/page-header";
 
 const PRESETS = ["7d", "30d", "90d", "this_month", "last_month", "custom"] as const;
 type Preset = (typeof PRESETS)[number];
@@ -34,18 +36,19 @@ export function InsightsPanel() {
   const query = reportQuery({ preset, from: custom ? from : null, to: custom ? to : null });
   return (
     <div className="mx-auto w-full max-w-[1200px] min-w-0 space-y-4">
-      <div>
-        <h1 className="text-xl font-semibold tracking-tight">{t("title")}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t("description")}</p>
-      </div>
+      <PageHeader className="mb-0" title={t("title")} subtitle={t("description")} />
       <LivePanel />
       <div className="flex flex-wrap items-end gap-3 rounded-xl border border-border bg-card p-4">
         <div className="space-y-1.5">
           <Label htmlFor="insights-range">{t("range.label")}</Label>
-          <select id="insights-range" value={preset} onChange={(e) => setPreset(e.target.value as Preset)}
-            className="h-9 rounded-md border border-input bg-background px-2 text-sm">
-            {PRESETS.map((p) => <option key={p} value={p}>{t(`range.${p}`)}</option>)}
-          </select>
+          <OptionSelect
+            id="insights-range"
+            value={preset}
+            onValueChange={(v) => setPreset(v as Preset)}
+            options={[
+              ...PRESETS.map((p) => ({ value: p, label: t(`range.${p}`) })),
+            ]}
+          />
         </div>
         {custom && (
           <>
