@@ -86,6 +86,49 @@ export function mergeConversations(prev: Conversation[], changed: Conversation[]
   return [...byId.values()].sort((a, b) => lastMessageMs(b) - lastMessageMs(a) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
 }
 
+// ---------------------------------------------------------------- server-paged list (batch 7)
+
+/** The list's order: latest activity first, or (the open-window queue) the window closing soonest first. */
+export type ListOrder = 'recent' | 'window';
+
+const customerMs = (c: Conversation) => (c.last_customer_message_at ? Date.parse(c.last_customer_message_at) : Number.POSITIVE_INFINITY);
+
+/** Compares two rows in the server's list order (conversation-list.ts); ties go by id. */
+export function compareListRows(order: ListOrder, a: Conversation, b: Conversation): number {
+  const byKey = order === 'window' ? customerMs(a) - customerMs(b) : lastMessageMs(b) - lastMessageMs(a);
+  return byKey || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+}
+
+/**
+ * Merge rows the server says match the list (a page, a realtime check or a
+ * resync) into the loaded rows, and drop `removedIds`. While more pages
+ * remain, only rows that sort above the last loaded row are kept: a new row
+ * below it, or a loaded row that moved below it (the open-window queue, after
+ * a new customer message), arrives with its page instead, so pages never
+ * duplicate or skip a row. Every page loaded: everything is kept. `activeId`
+ * keeps unread 0 (the agent is reading it) and is never dropped.
+ */
+export function upsertListRows(
+  prev: Conversation[],
+  rows: Conversation[],
+  options: { order: ListOrder; hasMore: boolean; activeId?: string | null; removedIds?: readonly string[] },
+): Conversation[] {
+  const removed = new Set((options.removedIds ?? []).filter((id) => id !== options.activeId));
+  if (rows.length === 0 && removed.size === 0) return prev;
+  const last = prev[prev.length - 1];
+  const byId = new Map(prev.filter((c) => !removed.has(c.id)).map((c) => [c.id, c]));
+  for (const row of rows) {
+    const loaded = byId.get(row.id);
+    const active = row.id === options.activeId;
+    if (options.hasMore && last && last.id !== row.id && !active && compareListRows(options.order, row, last) > 0) {
+      byId.delete(row.id);
+      continue;
+    }
+    byId.set(row.id, loaded && active ? { ...row, unread_count: 0 } : row);
+  }
+  return [...byId.values()].sort((a, b) => compareListRows(options.order, a, b));
+}
+
 /** Raw shape returned by {@link CONVERSATION_SELECT} before flattening. */
 type RawContact = Contact & { contact_tags?: { tags: Tag | null }[] };
 type RawConversation = Omit<Conversation, "contact"> & {

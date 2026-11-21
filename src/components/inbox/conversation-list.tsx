@@ -3,7 +3,7 @@
 import './inbox.css';
 import { avatarTone, initials } from '@/lib/ui/avatar-tone';
 import { WindowRing, WindowStrip, WINDOW_TEXT, rowWindow } from './session-rail';
-import { matchesConsentFilter, type ConsentFilter } from '@/lib/contacts/consent-view';
+import type { ConsentFilter } from '@/lib/contacts/consent-view';
 import { contactHandle } from '@/lib/whatsapp/wa-identity';
 
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -12,10 +12,10 @@ import { savedViewChannel } from '@/lib/inbox/saved-filters';
 import {
   labelFilter,
   labelOfFilter,
-  matchesAgentFilter,
-  matchesInboxFilter,
+  listQueryParams,
   parseInboxFilter,
   type InboxFilter,
+  type InboxListQuery,
 } from '@/lib/inbox/inbox-filters';
 import { useMyTeamMembers } from '@/components/inbox/use-my-team';
 import { useAgentFilter } from '@/components/inbox/use-agent-filter';
@@ -32,14 +32,19 @@ import {
   type ReactNode,
 } from 'react';
 import { createClient } from '@/lib/data/client';
+import { INBOX_FULL_RELOAD_MS, nextSyncCursor, type ListOrder } from '@/lib/inbox/conversations';
+import type { SessionFilter } from '@/lib/inbox/session';
 import {
-  INBOX_FULL_RELOAD_MS,
-  loadInboxConversations,
-  matchesContactFilters,
-  nextSyncCursor,
-  normalizeConversations,
-} from '@/lib/inbox/conversations';
-import { getSessionWindow, matchesSessionFilter, type SessionFilter } from '@/lib/inbox/session';
+  BulkRequestError,
+  fetchListChanges,
+  fetchListPage,
+  postBulkAction,
+  type BulkAction,
+  type InboxListCounts,
+} from '@/components/inbox/inbox-list-api';
+import { Checkbox } from '@/components/ui/checkbox';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import { toast } from 'sonner';
 import { useSessionClock } from '@/hooks/use-session-clock';
 import { cn } from '@/lib/utils';
 import type { Conversation, Tag } from '@/types';
@@ -67,6 +72,7 @@ import {
   Phone,
   ShieldCheck,
   BellOff,
+  CheckCheck,
 } from 'lucide-react';
 import { InboxFilterPicker, type FilterCategory } from '@/components/inbox/inbox-filter-picker';
 import { formatDistanceToNow } from 'date-fns';
@@ -103,7 +109,6 @@ import type { ConversationChannel } from '@/types';
 import {
   ConversationNumberBadge,
   inboxFilterNumbers,
-  matchesNumberFilter,
   NO_NUMBER,
 } from '@/components/settings/numbers/conversation-number';
 import { numberOptionLabel } from '@/components/settings/numbers/number-select';
@@ -115,13 +120,24 @@ import {
 interface ConversationListProps {
   activeConversationId: string | null;
   onSelect: (conversation: Conversation) => void;
+  /** The loaded rows, in list order: the server filtered and paged them (GET /api/inbox/conversations). */
   conversations: Conversation[];
+  /** The first page of the current filter: replaces the loaded rows. */
   onConversationsLoaded: (conversations: Conversation[]) => void;
+  /** A further page (infinite scroll): added below the loaded rows. */
+  onConversationsAppended: (conversations: Conversation[]) => void;
   /**
-   * Receives only the conversations changed since the last sync (a resync
-   * between full reloads). Without it every resync reloads the whole list.
+   * A resync between full reloads: rows changed since the last sync that
+   * match the filter (replace or add), and ids that no longer match (drop).
    */
-  onConversationsChanged?: (changed: Conversation[]) => void;
+  onConversationsChanged: (changes: { conversations: Conversation[]; removedIds: string[] }) => void;
+  /**
+   * The list's current query (URL parameters), order and whether more pages
+   * remain, so realtime updates can be checked against the same filter.
+   */
+  onListState?: (state: { params: string; order: ListOrder; hasMore: boolean }) => void;
+  /** Ticking rows and the bulk actions (agents and above). */
+  canBulk?: boolean;
   /**
    * Increment to force the fetch effect below to refire. The parent
    * bumps this on realtime reconnect / tab visibility → visible so the
@@ -151,6 +167,9 @@ interface ConversationListProps {
 /** What a row's context menu can do. */
 export type RowAction = 'read' | 'unread' | 'assign-me' | 'close' | 'reopen';
 
+/** The most conversations one "Select all" action reaches (bulk-actions.ts MAX_BULK_CONVERSATIONS). */
+const MAX_BULK = 5000;
+
 /** Views shown as status tabs instead of in the views menu. */
 const TAB_VIEWS: readonly string[] = ['lifecycle-requesting', 'lifecycle-assigned'];
 
@@ -166,6 +185,9 @@ export function ConversationList({
   folders,
   onNewMessage,
   onRowAction,
+  onConversationsAppended,
+  onListState,
+  canBulk = false,
 }: ConversationListProps) {
   const t = useTranslations('Inbox.conversationList');
   const tFolders = useTranslations('Inbox.folders');
@@ -204,7 +226,7 @@ export function ConversationList({
   // Members of the caller's teams; null when the caller is in no team.
   const myTeam = useMyTeamMembers();
   const ta = useTranslations('Inbox.agentFilter');
-  const agentFilter = useAgentFilter(resyncToken);
+  const agentFilter = useAgentFilter();
   const setAgentFilter = agentFilter.setAgent;
   const agentName = (id: string) => agentFilter.members.find((m) => m.id === id)?.name || ta('anyAgent');
   const FILTER_OPTIONS: { label: string; value: InboxFilter }[] = useMemo(
@@ -250,8 +272,13 @@ export function ConversationList({
   );
 
   const [search, setSearch] = useState('');
-  // Searching also looks inside every message (the server's inbox search), so a
-  // chat whose older message matches is listed with the matching words marked.
+  // The server filters by the search box; it waits until typing pauses.
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(search.trim()), 350);
+    return () => clearTimeout(timer);
+  }, [search]);
+  // Matching words inside an older message, shown on the row (the server's inbox search).
   const [messageHits, setMessageHits] = useState<{ q: string; hits: Map<string, string> } | null>(null);
   useEffect(() => {
     const q = search.trim();
@@ -268,7 +295,7 @@ export function ConversationList({
         for (const hit of data.results ?? []) if (!hits.has(hit.conversation_id)) hits.set(hit.conversation_id, hit.snippet);
         if (!cancelled) setMessageHits({ q, hits });
       } catch {
-        // Names, numbers and last messages still match without it.
+        // The rows still match; only the marked words are missing.
       }
     }, 350);
     return () => {
@@ -293,9 +320,7 @@ export function ConversationList({
   const [sessionFilter, setSessionFilter] = useState<SessionFilter>('all');
   const now = useSessionClock();
   const [loading, setLoading] = useState(true);
-  // The last load failed; with nothing loaded the list shows what happened and Retry.
-  const [loadError, setLoadError] = useState(false);
-  const [retryToken, setRetryToken] = useState(0);
+  const [loadFailed, setLoadFailed] = useState(false);
   // Contact-based filters (issue #272). Tags use OR logic (a conversation
   // matches if its contact carries any selected tag), consistent with
   // Broadcast audience filtering. Company is an exact match on the field.
@@ -306,82 +331,131 @@ export function ConversationList({
   const [consentFilter, setConsentFilter] = useState<ConsentFilter>('any');
   const tConsent = useTranslations('Inbox.consent');
 
-  // Keep the latest callback in a ref so the fetch effect below can
-  // have a stable, empty-dep identity. Previously the fetch useCallback
-  // depended on `onConversationsLoaded`, which depends on the parent's
-  // `deepLinkConvId` — so every URL change (including one the parent
-  // triggered via router.replace after a click) caused a fresh
-  // conversations fetch. That extra refetch was the trigger for the
-  // deep-link auto-select running a second time and wiping the active
-  // thread's messages.
-  // Mutation lives in an effect (not render) per React 19's refs rule;
-  // the fetch runs once on mount so it's fine to read the slightly
-  // older value — the very next render updates the ref for any
-  // subsequent async completion.
-  const onConversationsLoadedRef = useRef(onConversationsLoaded);
-  const onConversationsChangedRef = useRef(onConversationsChanged);
+  // Everything the list filters by, as the server query (inbox-filters.ts).
+  const listQuery: InboxListQuery = useMemo(
+    () => ({
+      scope,
+      filter,
+      channel: activeChannelFilter,
+      numberId: activeNumberFilter,
+      agent: agentFilter.agent,
+      tagIds: selectedTagIds,
+      company: selectedCompany,
+      consent: consentFilter,
+      search: debouncedSearch,
+      session: sessionFilter,
+    }),
+    [scope, filter, activeChannelFilter, activeNumberFilter, agentFilter.agent, selectedTagIds, selectedCompany, consentFilter, debouncedSearch, sessionFilter]
+  );
+  const queryKey = listQueryParams(listQuery).toString();
+  const order: ListOrder = sessionFilter === 'active' ? 'window' : 'recent';
+
+  // Latest callbacks in refs, so the fetch effects run only when the query
+  // (or a resync) changes, never because the parent re-rendered.
+  const loadedRef = useRef(onConversationsLoaded);
+  const appendedRef = useRef(onConversationsAppended);
+  const changedRef = useRef(onConversationsChanged);
   useEffect(() => {
-    onConversationsLoadedRef.current = onConversationsLoaded;
-    onConversationsChangedRef.current = onConversationsChanged;
+    loadedRef.current = onConversationsLoaded;
+    appendedRef.current = onConversationsAppended;
+    changedRef.current = onConversationsChanged;
   });
-  // Incremental sync state: a resync reads only conversations whose
-  // updated_at moved past `cursor`; a full reload (on mount, then at most
-  // every INBOX_FULL_RELOAD_MS) also drops deleted rows and refreshes
-  // contact names and tags, which do not touch the conversation row.
-  const syncRef = useRef<{ cursor: string | null; fullAt: number }>({ cursor: null, fullAt: 0 });
+  const [counts, setCounts] = useState<InboxListCounts | null>(null);
+  const [companies, setCompanies] = useState<string[]>([]);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [reloadToken, setReloadToken] = useState(0);
+  // Resync state: a resync reads only the rows changed since `cursor`; the
+  // first page is reloaded at most every INBOX_FULL_RELOAD_MS (deleted rows,
+  // contact edits) while only that page is loaded.
+  const syncRef = useRef<{ key: string; cursor: string | null; fullAt: number; pages: number }>({ key: '', cursor: null, fullAt: 0, pages: 0 });
 
   useEffect(() => {
-    const db = createClient();
+    onListState?.({ params: queryKey, order, hasMore: nextCursor !== null });
+  }, [onListState, queryKey, order, nextCursor]);
+
+  // The first page whenever the query changes (or a reload is asked for).
+  useEffect(() => {
     let cancelled = false;
-
-    (async () => {
-      const sync = syncRef.current;
-      const incremental =
-        !!onConversationsChangedRef.current &&
-        sync.cursor !== null &&
-        Date.now() - sync.fullAt < INBOX_FULL_RELOAD_MS;
-      const startedAt = Date.now();
-      const { data, error } = await loadInboxConversations(db, {
-        ...(incremental ? { updatedSince: sync.cursor! } : {}),
-        // A channel inbox reads only its channel's rows.
-        ...(scope === 'all' ? {} : { channel: scope }),
+    const startedAt = Date.now();
+    fetchListPage(queryKey)
+      .then((page) => {
+        if (cancelled) return;
+        syncRef.current = { key: queryKey, cursor: nextSyncCursor(page.conversations, null), fullAt: startedAt, pages: 1 };
+        setLoadFailed(false);
+        setNextCursor(page.nextCursor);
+        if (page.counts) setCounts(page.counts);
+        if (page.companies) setCompanies(page.companies);
+        loadedRef.current(page.conversations);
+      })
+      .catch(() => {
+        if (!cancelled) setLoadFailed(true);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
       });
-
-      if (cancelled) return;
-
-      if (error) {
-        setLoadError(true);
-        // Supabase errors have non-enumerable properties — log fields explicitly
-        console.error('Failed to fetch conversations:', {
-          message: error.message,
-          details: error.details,
-          hint: error.hint,
-          code: error.code,
-        });
-        setLoading(false);
-        return;
-      }
-
-      const rows = normalizeConversations(data ?? []);
-      syncRef.current = {
-        cursor: nextSyncCursor(rows, incremental ? sync.cursor : null),
-        fullAt: incremental ? sync.fullAt : startedAt,
-      };
-      if (incremental) onConversationsChangedRef.current?.(rows);
-      else onConversationsLoadedRef.current(rows);
-      setLoadError(false);
-      setLoading(false);
-    })();
-
     return () => {
       cancelled = true;
     };
-    // `resyncToken` is included so the parent can force a refetch when
-    // the realtime channel reconnects, the tab regains focus or the
-    // server's 30-second resync arrives. Between full reloads it reads
-    // only the conversations changed since the last sync. `scope` is fixed
-    // for a page (each inbox is its own route).
-  }, [resyncToken, scope, retryToken]);
+  }, [queryKey, reloadToken]);
+
+  // A resync (realtime reconnect, tab shown, the server's periodic resync):
+  // only the rows changed since the last sync, checked against the query.
+  const lastResync = useRef(resyncToken);
+  useEffect(() => {
+    if (lastResync.current === resyncToken) return;
+    lastResync.current = resyncToken;
+    const sync = syncRef.current;
+    if (sync.key !== queryKey) return;
+    if (!sync.cursor || (sync.pages <= 1 && Date.now() - sync.fullAt >= INBOX_FULL_RELOAD_MS)) {
+      setReloadToken((n) => n + 1);
+      return;
+    }
+    let cancelled = false;
+    fetchListChanges(queryKey, sync.cursor)
+      .then((changes) => {
+        if (cancelled || syncRef.current.key !== queryKey) return;
+        if (changes.overflow) {
+          setReloadToken((n) => n + 1);
+          return;
+        }
+        syncRef.current = { ...syncRef.current, cursor: nextSyncCursor(changes.conversations, syncRef.current.cursor) };
+        if (changes.counts) setCounts(changes.counts);
+        changedRef.current({ conversations: changes.conversations, removedIds: changes.removedIds });
+      })
+      .catch(() => {
+        // The next resync tries again.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [resyncToken, queryKey]);
+
+  // The next page, when the end of the list scrolls into view.
+  const loadMore = useCallback(() => {
+    if (!nextCursor || loadingMore) return;
+    const key = queryKey;
+    setLoadingMore(true);
+    fetchListPage(key, nextCursor)
+      .then((page) => {
+        if (syncRef.current.key !== key) return;
+        syncRef.current = { ...syncRef.current, pages: syncRef.current.pages + 1 };
+        setNextCursor(page.nextCursor);
+        appendedRef.current(page.conversations);
+      })
+      .catch(() => toast.error(t('loadFailed')))
+      .finally(() => setLoadingMore(false));
+  }, [nextCursor, loadingMore, queryKey, t]);
+  const sentinelRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el || !nextCursor) return;
+    const observer = new IntersectionObserver((entries) => {
+      if (entries.some((entry) => entry.isIntersecting)) loadMore();
+    }, { rootMargin: '400px 0px' });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [loadMore, nextCursor]);
 
   // Tag definitions for the filter picker — loaded once so labels/colours
   // stay stable regardless of which conversations happen to be loaded.
@@ -397,18 +471,6 @@ export function ConversationList({
     };
   }, []);
 
-  // Company options are derived from the loaded conversations — there's no
-  // separate companies table, and only companies with a live conversation
-  // are worth offering as an inbox filter.
-  const companies = useMemo(() => {
-    const set = new Set<string>();
-    for (const c of conversations) {
-      const co = c.contact?.company?.trim();
-      if (co) set.add(co);
-    }
-    return Array.from(set).sort((a, b) => a.localeCompare(b));
-  }, [conversations]);
-
   const tagsById = useMemo(() => {
     const m = new Map<string, Tag>();
     for (const t of tags) m.set(t.id, t);
@@ -416,107 +478,98 @@ export function ConversationList({
   }, [tags]);
 
   const folderContext = folders?.context;
-  const baseFiltered = useMemo(() => {
-    // A channel inbox shows only its channel, whatever reached the list.
-    let result = allChannels ? conversations : conversations.filter((c) => inScope(scope, c));
-
-    result = result.filter((c) => matchesInboxFilter(c, filter, now, myTeam ?? undefined, folderContext));
-
-    if (activeNumberFilter !== null) {
-      // A number filter is a WhatsApp filter: Instagram conversations have no number.
-      result = result.filter(
-        (c) => conversationChannel(c) === 'whatsapp' && matchesNumberFilter(c, activeNumberFilter)
-      );
-    }
-
-    if (activeChannelFilter !== null) {
-      result = result.filter((c) => conversationChannel(c) === activeChannelFilter);
-    }
-
-    if (agentFilter.agent) {
-      result = result.filter((c) => matchesAgentFilter(c, agentFilter.agent, agentFilter.handledIds));
-    }
-
-    // Contact-based filters (tags via OR logic, exact company match).
-    if (selectedTagIds.length > 0 || selectedCompany !== null) {
-      result = result.filter((c) =>
-        matchesContactFilters(c, {
-          tagIds: selectedTagIds,
-          company: selectedCompany,
-        })
-      );
-    }
-
-    if (consentFilter !== 'any') {
-      // WhatsApp consent: Instagram chats have their own subscription, so they drop out here.
-      result = result.filter((c) => conversationChannel(c) === 'whatsapp' && matchesConsentFilter(c.contact, consentFilter));
-    }
-
-    if (search.trim()) {
-      const q = search.toLowerCase();
-      result = result.filter((c) => {
-        const name = c.contact?.name?.toLowerCase() ?? '';
-        const phone = c.contact?.phone?.toLowerCase() ?? '';
-        const lastMsg = c.last_message_text?.toLowerCase() ?? '';
-        return name.includes(q) || phone.includes(q) || lastMsg.includes(q) || !!searchHits?.has(c.id);
-      });
-    }
-
-    return result;
-  }, [conversations, allChannels, scope, filter, search, searchHits, selectedTagIds, selectedCompany, now, activeNumberFilter, activeChannelFilter, myTeam, folderContext, agentFilter.agent, agentFilter.handledIds, consentFilter]);
+  // The server filtered and ordered the rows; a channel inbox still shows only
+  // its channel, whatever a realtime event put in the list.
+  const filtered = useMemo(
+    () => (allChannels ? conversations : conversations.filter((c) => inScope(scope, c))),
+    [conversations, allChannels, scope]
+  );
 
   // Channel tabs (the All inbox): how many chats each channel holds in the current view.
-  const channelCounts = useMemo(() => {
-    const inView = conversations.filter((c) => matchesInboxFilter(c, filter, now, myTeam ?? undefined, folderContext));
-    return {
-      all: inView.length,
-      whatsapp: inView.filter((c) => conversationChannel(c) === 'whatsapp').length,
-      instagram: inView.filter((c) => conversationChannel(c) === 'instagram').length,
-    };
-  }, [conversations, filter, now, myTeam, folderContext]);
+  const channelCounts = counts?.channels ?? { all: 0, whatsapp: 0, instagram: 0 };
+  /** Every conversation the filter matches on the server (what "Select all" reaches). */
+  const total = Math.max(counts?.total ?? 0, filtered.length);
 
   // Quick views above the list, each with how many of this inbox's chats it holds.
   const quickViews = useMemo(() => {
-    const inThisInbox = allChannels ? conversations : conversations.filter((c) => inScope(scope, c));
     const values: InboxFilter[] = ['all', 'open', 'unread', 'unassigned', ...(folders ? (['mine'] as const) : []), 'closed', 'lifecycle-requesting', 'lifecycle-assigned'];
     return values.map((value) => ({
       value,
       label: (FILTER_OPTIONS.find((o) => o.value === value) ?? FOLDER_OPTIONS.find((o) => o.value === value))?.label ?? value,
-      count: inThisInbox.filter((c) => matchesInboxFilter(c, value, now, myTeam ?? undefined, folderContext)).length,
+      count: counts?.views[value as keyof InboxListCounts['views']],
     }));
-  }, [allChannels, conversations, scope, folders, FILTER_OPTIONS, FOLDER_OPTIONS, now, myTeam, folderContext]);
+  }, [counts, folders, FILTER_OPTIONS, FOLDER_OPTIONS]);
 
-  const activeWindowCount = useMemo(
-    () =>
-      (allChannels ? conversations : conversations.filter((c) => inScope(scope, c))).filter((c) =>
-        matchesSessionFilter(c.last_customer_message_at, 'active', now)
-      ).length,
-    [allChannels, conversations, scope, now]
-  );
+  const activeWindowCount = counts?.activeWindow ?? 0;
+  const sessionCounts = { expired: counts?.windows.expired ?? 0 };
 
-  const sessionCounts = useMemo(() => {
-    const active = baseFiltered.filter((c) =>
-      matchesSessionFilter(c.last_customer_message_at, 'active', now)
-    ).length;
-    return {
-      all: baseFiltered.length,
-      active,
-      expired: baseFiltered.length - active,
-    };
-  }, [baseFiltered, now]);
-  const filtered = useMemo(() => {
-    const sessionMatched = baseFiltered.filter((c) =>
-      matchesSessionFilter(c.last_customer_message_at, sessionFilter, now)
-    );
-    // Stable sort on the last message time; chats with no message go last when newest first.
-    const at = (c: Conversation) => (c.last_message_at ? Date.parse(c.last_message_at) : 0);
-    if (sessionFilter === 'active') {
-      // Answer-first queue: the window closing soonest leads.
-      const closes = (c: Conversation) => getSessionWindow(c.last_customer_message_at, now).remainingMs;
-      return sessionMatched.sort((a, b) => closes(a) - closes(b));
+  // ---------------------------------------------------------------- selection and bulk actions
+  const [selected, setSelected] = useState<ReadonlySet<string>>(() => new Set());
+  /** "Select all N matching": the action goes to the server's filter, not the ticked ids. */
+  const [allMatching, setAllMatching] = useState(false);
+  /** Phones: the Select button turns taps into ticks. */
+  const [selectMode, setSelectMode] = useState(false);
+  const anchorRef = useRef<string | null>(null);
+  const [selectionKey, setSelectionKey] = useState(queryKey);
+  if (selectionKey !== queryKey) {
+    // A new filter starts a new selection.
+    setSelectionKey(queryKey);
+    setSelected(new Set());
+    setAllMatching(false);
+  }
+  const selecting = canBulk && (selectMode || selected.size > 0 || allMatching);
+  const toggleSelected = useCallback((id: string, range: boolean) => {
+    setAllMatching(false);
+    setSelected((prev) => {
+      const next = new Set(prev);
+      const ids = filtered.map((c) => c.id);
+      const from = anchorRef.current ? ids.indexOf(anchorRef.current) : -1;
+      const to = ids.indexOf(id);
+      if (range && from >= 0 && to >= 0) {
+        for (const pick of ids.slice(Math.min(from, to), Math.max(from, to) + 1)) next.add(pick);
+      } else if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+    anchorRef.current = id;
+  }, [filtered]);
+  const clearSelection = useCallback(() => {
+    setSelected(new Set());
+    setAllMatching(false);
+    setSelectMode(false);
+    anchorRef.current = null;
+  }, []);
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const [confirmAction, setConfirmAction] = useState<{ action: BulkAction; label: string } | null>(null);
+  const selectedCount = allMatching ? total : selected.size;
+  const runBulk = useCallback(async (action: BulkAction) => {
+    setBulkBusy(true);
+    try {
+      const result = await postBulkAction(action, allMatching ? { query: queryKey } : { ids: [...selected] });
+      toast.success(t('bulkDone', { count: result.changed }));
+      if (result.refusedIds.length) toast.message(t('bulkRefused', { count: result.refusedIds.length }));
+      if (action.type === 'label') folders?.reloadLabels();
+      clearSelection();
+      setReloadToken((n) => n + 1);
+    } catch (error) {
+      toast.error(error instanceof BulkRequestError && error.code === 'too_many'
+        ? t('bulkTooMany', { max: MAX_BULK.toLocaleString() })
+        : t('bulkFailed'));
+    } finally {
+      setBulkBusy(false);
     }
-    return sessionMatched.sort((a, b) => at(b) - at(a));
-  }, [baseFiltered, sessionFilter, now]);
+  }, [allMatching, queryKey, selected, t, folders, clearSelection]);
+  // Every matching conversation, and resolving, ask first; a few ticked rows act at once.
+  const askBulk = (action: BulkAction, label: string) => {
+    if (allMatching || action.type === 'resolve') setConfirmAction({ action, label });
+    else void runBulk(action);
+  };
+  const loadedIds = filtered.map((c) => c.id);
+  const allLoadedSelected = allMatching || (loadedIds.length > 0 && loadedIds.every((id) => selected.has(id)));
+  const toggleAllLoaded = () => {
+    setAllMatching(false);
+    setSelected(allLoadedSelected ? new Set() : new Set(loadedIds));
+  };
 
   const toggleTag = useCallback((id: string) => {
     setSelectedTagIds((prev) =>
@@ -737,7 +790,7 @@ export function ConversationList({
   }, [folders?.reminders]);
 
   const windowStrip = (
-    <WindowStrip conversations={baseFiltered} now={now} activeConversationId={activeConversationId} onSelect={handleSelect} />
+    <WindowStrip conversations={filtered} now={now} activeConversationId={activeConversationId} onSelect={handleSelect} />
   );
 
   const searchBox = (
@@ -889,6 +942,17 @@ export function ConversationList({
       <InboxFilterPicker categories={filterCategories} activeCount={pickedCount} iconOnly />
       <SavedFiltersMenu current={currentFilters} onApply={applySavedFilters} scope={scope} store={savedStore} iconOnly />
       {headerAction}
+      {canBulk && (
+        <button
+          type="button"
+          onClick={() => (selecting ? clearSelection() : setSelectMode(true))}
+          aria-pressed={selecting}
+          data-select-mode
+          className="text-primary inline-flex h-11 shrink-0 items-center rounded-lg px-2 text-sm font-medium"
+        >
+          {selecting ? t('done') : t('select')}
+        </button>
+      )}
       {onNewMessage && (
         <button
           type="button"
@@ -1007,14 +1071,8 @@ export function ConversationList({
       <ScrollArea className="min-h-0 flex-1">
         {loading ? (
           <PageLoading rows={8} />
-        ) : loadError && conversations.length === 0 ? (
-          <InlineError
-            message={t('loadFailed')}
-            onRetry={() => {
-              setLoading(true);
-              setRetryToken((n) => n + 1);
-            }}
-          />
+        ) : loadFailed && filtered.length === 0 ? (
+          <InlineError message={t('loadFailed')} onRetry={() => setReloadToken((n) => n + 1)} />
         ) : filtered.length === 0 ? (
           <div className="flex flex-col items-center px-4 py-12 text-center">
             <span className="bg-muted text-muted-foreground mb-3 flex size-11 items-center justify-center rounded-2xl" aria-hidden>
@@ -1022,7 +1080,7 @@ export function ConversationList({
             </span>
             <p className="text-muted-foreground text-sm">
               {/* An empty channel inbox (nothing to filter) names its channel. */}
-              {scope !== 'all' && !conversations.some((c) => inScope(scope, c))
+              {scope !== 'all' && counts?.views.all === 0
                 ? tci(scope === 'instagram' ? 'emptyInstagram' : 'emptyWhatsapp')
                 : t('noConversations')}
             </p>
@@ -1060,7 +1118,17 @@ export function ConversationList({
                 key={conv.id}
                 conversation={conv}
                 isActive={conv.id === activeConversationId}
-                onSelect={handleSelect}
+                onSelect={selecting ? (c) => toggleSelected(c.id, false) : handleSelect}
+                selection={
+                  canBulk
+                    ? {
+                        selecting,
+                        selected: allMatching || selected.has(conv.id),
+                        onToggle: (range) => toggleSelected(conv.id, range),
+                        label: t('selectRow', { name: conv.contact?.name || conv.contact?.phone || t('unknown') }),
+                      }
+                    : undefined
+                }
                 t={t}
                 tl={tl}
                 now={now}
@@ -1089,9 +1157,39 @@ export function ConversationList({
                 }
               />
             ))}
+            {nextCursor && (
+              <div ref={sentinelRef} className="flex h-12 items-center justify-center" data-list-more>
+                {loadingMore && <span className="border-primary size-4 animate-spin rounded-full border-2 border-t-transparent" aria-label={t('loadingMore')} />}
+              </div>
+            )}
           </div>
         )}
       </ScrollArea>
+      {selecting && (
+        <BulkBar
+          count={selectedCount}
+          busy={bulkBusy}
+          allLoadedSelected={allLoadedSelected}
+          canSelectAll={!allMatching && allLoadedSelected && total > selected.size}
+          total={total}
+          members={agentFilter.members}
+          labels={labels ?? []}
+          onToggleAllLoaded={toggleAllLoaded}
+          onSelectAll={() => setAllMatching(true)}
+          onAction={askBulk}
+        />
+      )}
+      <ConfirmDialog
+        open={confirmAction !== null}
+        onOpenChange={(open) => !open && setConfirmAction(null)}
+        title={t('bulkConfirmTitle', { action: confirmAction?.label ?? '', count: selectedCount })}
+        body={allMatching ? t('bulkConfirmMatching') : t('bulkConfirmResolve')}
+        confirmLabel={confirmAction?.label}
+        destructive={allMatching}
+        onConfirm={async () => {
+          if (confirmAction) await runBulk(confirmAction.action);
+        }}
+      />
       {rowMenu && onRowAction && (
         <RowContextMenu
           x={rowMenu.x}
@@ -1196,6 +1294,113 @@ function RowContextMenu({
 }
 
 
+/**
+ * Edit mode's bar under the list (Apple's way): Select All or Deselect All
+ * and how many are ticked, "Select all N" when every loaded row is ticked and
+ * more match, then Assign, Resolve, Label and Mark read as 44px toolbar items.
+ */
+function BulkBar({
+  count,
+  busy,
+  allLoadedSelected,
+  canSelectAll,
+  total,
+  members,
+  labels,
+  onToggleAllLoaded,
+  onSelectAll,
+  onAction,
+}: {
+  count: number;
+  busy: boolean;
+  allLoadedSelected: boolean;
+  canSelectAll: boolean;
+  total: number;
+  members: { id: string; name: string }[];
+  labels: ConversationLabel[];
+  onToggleAllLoaded: () => void;
+  onSelectAll: () => void;
+  onAction: (action: BulkAction, label: string) => void;
+}) {
+  const t = useTranslations('Inbox.conversationList');
+  const ta = useTranslations('Inbox.agentFilter');
+  const item = 'text-primary hover:bg-muted inline-flex h-11 min-w-11 flex-1 flex-col items-center justify-center gap-0.5 rounded-lg px-1 text-[11px] font-medium disabled:text-muted-foreground disabled:opacity-60';
+  const off = busy || count === 0;
+  const tooMany = t('bulkTooMany', { max: MAX_BULK.toLocaleString() });
+  return (
+    <div
+      role="toolbar"
+      aria-label={t('bulkActions')}
+      data-bulk-bar
+      className="border-border bg-card flex shrink-0 flex-col border-t px-2 pt-1 pb-[max(0.25rem,env(safe-area-inset-bottom))]"
+    >
+      <div className="flex min-w-0 items-center gap-2 text-sm">
+        <button type="button" onClick={onToggleAllLoaded} className="text-primary h-11 shrink-0 px-1 font-medium" data-bulk-toggle-all>
+          {allLoadedSelected ? t('deselectAll') : t('selectAllLoaded')}
+        </button>
+        <span className="text-foreground min-w-0 flex-1 truncate text-center font-semibold tabular-nums" data-bulk-count aria-live="polite">
+          {t('selectedCount', { count })}
+        </span>
+        {canSelectAll ? (
+          total <= MAX_BULK ? (
+            <button type="button" onClick={onSelectAll} className="text-primary h-11 shrink-0 px-1 font-medium" data-bulk-select-all>
+              {t('selectAllMatching', { count: total })}
+            </button>
+          ) : (
+            <span className="text-muted-foreground max-w-32 shrink-0 truncate text-xs" title={tooMany}>
+              {tooMany}
+            </span>
+          )
+        ) : (
+          // Keeps the count centred.
+          <span className="w-11 shrink-0" aria-hidden />
+        )}
+      </div>
+      <div className="flex min-w-0 items-stretch gap-0.5">
+        <DropdownMenu>
+          <DropdownMenuTrigger className={item} disabled={off} data-bulk-assign>
+            <UserPlus className="size-5" aria-hidden />
+            {t('bulkAssign')}
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" side="top" className="border-border bg-popover max-h-[60vh] w-56 overflow-y-auto">
+            {members.map((member) => (
+              <DropdownMenuItem key={member.id} className="min-h-11" onClick={() => onAction({ type: 'assign', agentId: member.id }, t('bulkAssign'))}>
+                <span className="truncate">{member.name || ta('anyAgent')}</span>
+              </DropdownMenuItem>
+            ))}
+            <DropdownMenuSeparator className="bg-border" />
+            <DropdownMenuItem className="min-h-11" onClick={() => onAction({ type: 'assign', agentId: null }, t('bulkUnassign'))}>
+              {t('bulkUnassign')}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+        <button type="button" className={item} disabled={off} onClick={() => onAction({ type: 'resolve' }, t('bulkResolve'))} data-bulk-resolve>
+          <Check className="size-5" aria-hidden />
+          {t('bulkResolve')}
+        </button>
+        <DropdownMenu>
+          <DropdownMenuTrigger className={item} disabled={off || labels.length === 0} data-bulk-label>
+            <TagIcon className="size-5" aria-hidden />
+            {t('bulkLabel')}
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" side="top" className="border-border bg-popover max-h-[60vh] w-56 overflow-y-auto">
+            {labels.map((label) => (
+              <DropdownMenuItem key={label.id} onClick={() => onAction({ type: 'label', labelId: label.id }, t('bulkLabel'))} className="min-h-11 gap-2">
+                <LabelDot color={label.color} />
+                <span className="truncate">{label.name}</span>
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+        <button type="button" className={item} disabled={off} onClick={() => onAction({ type: 'read' }, t('bulkMarkRead'))} data-bulk-read>
+          <CheckCheck className="size-5" aria-hidden />
+          {t('bulkMarkRead')}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function ChannelDot({ channel }: { channel: ConversationChannel }) {
   return <span aria-hidden className={cn('size-2 shrink-0 rounded-full', channel === 'whatsapp' ? 'bg-emerald-500' : 'bg-pink-500')} />;
 }
@@ -1225,6 +1430,8 @@ interface ConversationItemProps {
   reminderAt?: string | null;
   /** Right-click (or Shift+F10) opens the row menu. */
   onContextMenu?: (event: React.MouseEvent<HTMLButtonElement>) => void;
+  /** The row's tick box (bulk actions); shown on hover, or always while selecting. */
+  selection?: { selecting: boolean; selected: boolean; onToggle: (range: boolean) => void; label: string };
 }
 
 const NO_NUMBERS: WhatsAppNumberDto[] = [];
@@ -1252,6 +1459,7 @@ function ConversationItem({
   snippet = null,
   reminderAt = null,
   onContextMenu,
+  selection,
 }: ConversationItemProps) {
   const format = useFormatter();
   const contact = conversation.contact;
@@ -1267,6 +1475,7 @@ function ConversationItem({
   const handleClick = useCallback(() => {
     onSelect(conversation);
   }, [onSelect, conversation]);
+  const shiftRef = useRef(false);
 
   const timeAgo = conversation.last_message_at
     ? formatDistanceToNow(new Date(conversation.last_message_at), {
@@ -1275,6 +1484,27 @@ function ConversationItem({
     : '';
 
   return (
+    <div className="group/row relative" data-row-selected={selection?.selected || undefined}>
+    {selection && (
+      // Over the avatar: the shared tick box with a 44px hit area. Shift-click ticks every row from the last one ticked.
+      <div
+        onClickCapture={(event) => {
+          shiftRef.current = event.shiftKey;
+        }}
+        className={cn(
+          'absolute top-0.5 left-0.5 z-10 flex size-11 items-center justify-center transition-opacity duration-150 focus-within:opacity-100',
+          selection.selecting ? 'opacity-100' : 'opacity-0 group-hover/row:opacity-100'
+        )}
+      >
+        <Checkbox
+          checked={selection.selected}
+          onCheckedChange={() => selection.onToggle(shiftRef.current)}
+          aria-label={selection.label}
+          data-row-checkbox
+          className="relative size-5 rounded-md after:absolute after:-inset-3 after:content-['']"
+        />
+      </div>
+    )}
     <button
       type="button"
       onClick={handleClick}
@@ -1378,6 +1608,7 @@ function ConversationItem({
         </div>
       </div>
     </button>
+    </div>
   );
 }
 

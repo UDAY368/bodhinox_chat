@@ -23,9 +23,11 @@ import {
 } from '@/lib/inbox/inbox-scope';
 import {
   CONVERSATION_SELECT,
-  mergeConversations,
   normalizeConversation,
+  upsertListRows,
+  type ListOrder,
 } from '@/lib/inbox/conversations';
+import { fetchListMatches } from '@/components/inbox/inbox-list-api';
 import {
   applyRealtimeInsert,
   applyMessageUpdate,
@@ -207,11 +209,6 @@ function InboxViewInner({ scope }: { scope: InboxScope }) {
   const [jumpRequest, setJumpRequest] = useState<JumpRequest | null>(null);
   const jumpNonceRef = useRef(0);
 
-  // Tracks conversations whose hydrate fetch is currently in flight. The
-  // conv-INSERT and the first-message-INSERT events both call into
-  // hydrateConversation; the dedupe here keeps it at one refetch per
-  // new conversation even when both events arrive within milliseconds.
-  const hydratingConvIdsRef = useRef<Set<string>>(new Set());
 
   /**
    * Conversations of another channel seen by this channel inbox's realtime
@@ -255,79 +252,67 @@ function InboxViewInner({ scope }: { scope: InboxScope }) {
     knownConvIdsRef.current = next;
   }, [conversations]);
 
-  // Pull the conversation row with its `contact` joined and merge it
-  // into state. Needed because Supabase Realtime payloads only carry the
-  // row's own columns — a brand-new conversation arrives without a
-  // contact, which surfaced as "Unknown" names, empty avatars, and
-  // (when the conv-INSERT event was delayed past the message-INSERT)
-  // conversations stuck on "No messages yet" until the user reloaded.
-  // Also self-heals if a realtime event was missed: callers can invoke
-  // this whenever they reference a conversation id they don't recognise.
-  const hydrateConversation = useCallback(async (convId: string) => {
-    if (hydratingConvIdsRef.current.has(convId) || otherChannelConvIdsRef.current.has(convId)) return;
-    hydratingConvIdsRef.current.add(convId);
-    try {
-      const db = createClient();
-      let query = db
-        .from('conversations')
-        .select(CONVERSATION_SELECT)
-        .eq('id', convId);
-      // A channel inbox never reads another channel's row (the column is NOT NULL).
-      if (scope !== 'all') query = query.eq('channel', scope);
-      const { data, error } = await query.maybeSingle();
-      if (error) {
-        // Supabase errors have non-enumerable properties — log fields
-        // explicitly so the console message isn't just `{}`.
-        console.error('Failed to hydrate conversation:', {
-          message: error.message,
-          details: error.details,
-          hint: error.hint,
-          code: error.code,
+  /**
+   * The list is filtered and paged by the server (GET /api/inbox/conversations).
+   * Its current query, order and whether more pages remain, as the list reports
+   * them, so a realtime event is checked against the same filter.
+   */
+  const listStateRef = useRef<{ params: string; order: ListOrder; hasMore: boolean }>({ params: '', order: 'recent', hasMore: false });
+  const handleListState = useCallback((state: { params: string; order: ListOrder; hasMore: boolean }) => {
+    listStateRef.current = state;
+  }, []);
+  const activeIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    activeIdRef.current = activeConversation?.id ?? null;
+  });
+  /** Whether the list has a view or narrowing (every row of an unfiltered list matches). */
+  const listFiltered = () => {
+    const params = new URLSearchParams(listStateRef.current.params);
+    params.delete('scope');
+    return params.size > 0;
+  };
+
+  // Conversations a realtime event named that must be checked against the
+  // list's filter: one batched request (ids=) answers which match now, with
+  // their row and contact (realtime payloads carry neither the contact nor the
+  // computed reply times). A match is added or refreshed in place, a row that
+  // no longer matches leaves the list; the rest of the list is not refetched.
+  const pendingChecksRef = useRef<Set<string>>(new Set());
+  const checkTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const flushChecksRef = useRef<() => void>(() => undefined);
+  useEffect(() => {
+    flushChecksRef.current = () => {
+      checkTimerRef.current = null;
+      const ids = [...pendingChecksRef.current].slice(0, 100);
+      if (!ids.length) return;
+      for (const id of ids) pendingChecksRef.current.delete(id);
+      if (pendingChecksRef.current.size) checkTimerRef.current = setTimeout(() => flushChecksRef.current(), 300);
+      const state = listStateRef.current;
+      fetchListMatches(state.params, ids)
+        .then((changes) => {
+          // A new filter loads its own first page.
+          if (listStateRef.current.params !== state.params) return;
+          const current = listStateRef.current;
+          setConversations((prev) => upsertListRows(prev, changes.conversations, {
+            order: current.order,
+            hasMore: current.hasMore,
+            activeId: activeIdRef.current,
+            removedIds: changes.removedIds,
+          }));
+        })
+        .catch(() => {
+          // The next resync catches up.
         });
-        return;
-      }
-      if (!data) {
-        if (scope !== 'all') {
-          // Not this channel's conversation: remember it, and drop the row a
-          // realtime payload without its channel may have prepended.
-          otherChannelConvIdsRef.current.add(convId);
-          setConversations((prev) => prev.filter((c) => c.id !== convId));
-        }
-        return;
-      }
-      const fetched = normalizeConversation(data);
-      if (!belongsHere(fetched)) {
-        // Prepended from a realtime payload that did not name its channel.
-        setConversations((prev) => prev.filter((c) => c.id !== fetched.id));
-        return;
-      }
-      setConversations((prev) => {
-        const existing = prev.find((c) => c.id === fetched.id);
-        if (existing) {
-          // Already in state — keep its fields (a realtime UPDATE may
-          // have landed while the fetch was in flight and patched
-          // last_message_text / unread_count to fresher values than
-          // the row we just read). Only backfill `contact`, which the
-          // realtime payloads never carry.
-          return prev.map((c) =>
-            c.id === fetched.id
-              ? {
-                  ...c,
-                  contact: c.contact ?? fetched.contact,
-                  last_reply_at: fetched.last_reply_at,
-                  last_customer_message_at:
-                    c.last_customer_message_at ??
-                    fetched.last_customer_message_at,
-                }
-              : c
-          );
-        }
-        return [fetched, ...prev];
-      });
-    } finally {
-      hydratingConvIdsRef.current.delete(convId);
-    }
-  }, [belongsHere, scope]);
+    };
+  });
+  const hydrateConversation = useCallback((convId: string) => {
+    if (otherChannelConvIdsRef.current.has(convId)) return;
+    pendingChecksRef.current.add(convId);
+    if (!checkTimerRef.current) checkTimerRef.current = setTimeout(() => flushChecksRef.current(), 300);
+  }, []);
+  useEffect(() => () => {
+    if (checkTimerRef.current) clearTimeout(checkTimerRef.current);
+  }, []);
 
   // Check WhatsApp connection status on mount (the WhatsApp inbox's banner only).
   useEffect(() => {
@@ -397,7 +382,8 @@ function InboxViewInner({ scope }: { scope: InboxScope }) {
 
   // Stage 5 folders (labels, favourites, the member's pending reminders and snoozes).
   const folderFilter = parseInboxFilter(searchParams.get('filter'));
-  const folders = useInboxFolders(scope, resyncToken, folderFilter === 'failed');
+  // The server applies the Failed folder itself, so its ids are not loaded here.
+  const folders = useInboxFolders(scope, resyncToken);
   // The member's own pending snoozes: a snoozed conversation leaves their list until the time passes
   // (or they wake it) and comes back by itself. Personal; nobody else's list changes. The Reminders
   // folder lists snoozed conversations too.
@@ -406,6 +392,17 @@ function InboxViewInner({ scope }: { scope: InboxScope }) {
     const timer = setInterval(() => setSnoozeClock(Date.now()), 60_000);
     return () => clearInterval(timer);
   }, []);
+  // A snooze that just ran out: the server left that conversation out of the
+  // pages, so ask whether it matches now (it comes back in its place).
+  const lastSnoozeTickRef = useRef(snoozeClock);
+  useEffect(() => {
+    const since = lastSnoozeTickRef.current;
+    lastSnoozeTickRef.current = snoozeClock;
+    for (const r of folders.reminders) {
+      const at = Date.parse(r.remind_at);
+      if (r.kind === 'snooze' && at > since && at <= snoozeClock) hydrateConversation(r.conversation_id);
+    }
+  }, [snoozeClock, folders.reminders, hydrateConversation]);
   const listedConversations = useMemo(() => {
     if (folderFilter === 'reminders') return conversations;
     const hidden = new Set(
@@ -443,25 +440,21 @@ function InboxViewInner({ scope }: { scope: InboxScope }) {
         // knownConvIdsRef for why a closure flag inside the updater would
         // always read false here.
         if (knownConvIdsRef.current.has(newMsg.conversation_id)) {
-          setConversations((prev) =>
-            prev.map((c) =>
-              c.id === newMsg.conversation_id
-                ? {
-                    ...c,
-                    last_message_text: newMsg.content_text ?? '',
-                    last_message_at: newMsg.created_at,
-                    last_customer_message_at: latestCustomerMessageAt(
-                      c.last_customer_message_at,
-                      newMsg
-                    ),
-                    unread_count:
-                      activeConversation?.id === newMsg.conversation_id
-                        ? 0
-                        : c.unread_count + 1,
-                  }
-                : c
-            )
-          );
+          // Patched in place, then moved to its place in the list order.
+          setConversations((prev) => {
+            const loaded = prev.find((c) => c.id === newMsg.conversation_id);
+            if (!loaded) return prev;
+            const patched = {
+              ...loaded,
+              last_message_text: newMsg.content_text ?? '',
+              last_message_at: newMsg.created_at,
+              last_customer_message_at: latestCustomerMessageAt(loaded.last_customer_message_at, newMsg),
+              unread_count: activeConversation?.id === newMsg.conversation_id ? 0 : loaded.unread_count + 1,
+            };
+            return upsertListRows(prev, [patched], { order: listStateRef.current.order, hasMore: listStateRef.current.hasMore, activeId: activeConversation?.id });
+          });
+          // A view that depends on messages (unread, waiting, the 24-hour window) may no longer hold it.
+          if (listFiltered()) hydrateConversation(newMsg.conversation_id);
         } else {
           // First time we're seeing this conv: the conv-INSERT event
           // hasn't landed yet, or was missed. Hydrate from the DB so
@@ -496,18 +489,9 @@ function InboxViewInner({ scope }: { scope: InboxScope }) {
       if (conv.channel !== undefined && !belongsHere(conv)) return;
 
       if (event.eventType === 'INSERT') {
-        // Prepend immediately for snappy UX so the new conv shows in the
-        // list right away, then hydrate to fill in the `contact` join
-        // (realtime payloads never include joins). Skip both if we
-        // already have the row — that shouldn't happen normally, but
-        // out-of-order delivery would have us prepending a duplicate.
-        if (!knownConvIdsRef.current.has(conv.id)) {
-          setConversations((prev) => {
-            if (prev.some((c) => c.id === conv.id)) return prev;
-            return [conv, ...prev];
-          });
-          hydrateConversation(conv.id);
-        }
+        // A new conversation joins the list (in its place) once the server
+        // says it matches the filter; the check also brings its contact.
+        if (!knownConvIdsRef.current.has(conv.id)) hydrateConversation(conv.id);
       }
 
       if (event.eventType === 'UPDATE') {
@@ -518,17 +502,14 @@ function InboxViewInner({ scope }: { scope: InboxScope }) {
           // back on for the ~100ms it takes for the reset effect's server
           // UPDATE to round-trip. Non-active convs take the value as-is.
           const isActive = activeConversation?.id === conv.id;
-          setConversations((prev) =>
-            prev.map((c) =>
-              c.id === conv.id
-                ? {
-                    ...c,
-                    ...conv,
-                    unread_count: isActive ? 0 : conv.unread_count,
-                  }
-                : c
-            )
-          );
+          setConversations((prev) => {
+            const loaded = prev.find((c) => c.id === conv.id);
+            if (!loaded) return prev;
+            const patched = { ...loaded, ...conv, contact: loaded.contact, unread_count: isActive ? 0 : conv.unread_count };
+            return upsertListRows(prev, [patched], { order: listStateRef.current.order, hasMore: listStateRef.current.hasMore, activeId: activeConversation?.id });
+          });
+          // In place; a filtered list also asks whether it still matches (resolved, reassigned, read).
+          if (listFiltered()) hydrateConversation(conv.id);
         } else {
           // UPDATE arrived before the INSERT (or after a missed INSERT)
           // — fetch the row so it surfaces with its contact joined. The
@@ -666,24 +647,59 @@ function InboxViewInner({ scope }: { scope: InboxScope }) {
     [deepLinkConvId, activeConversation?.id]
   );
 
-  const handleConversationsLoaded = useCallback(
+  // A ?c=<id> conversation the loaded page does not hold (older, or outside
+  // the filter) is read on its own, so a deep link always opens its thread.
+  const deepLinkFetchRef = useRef<string | null>(null);
+  const resolveDeepLinkOrFetch = useCallback(
     (loaded: Conversation[]) => {
-      setConversations(loaded);
+      if (deepLinkConvId && !loaded.some((c) => c.id === deepLinkConvId) && deepLinkFetchRef.current !== deepLinkConvId
+        && autoSelectedForDeepLinkRef.current !== deepLinkConvId) {
+        deepLinkFetchRef.current = deepLinkConvId;
+        let query = createClient().from('conversations').select(CONVERSATION_SELECT).eq('id', deepLinkConvId);
+        if (scope !== 'all') query = query.eq('channel', scope);
+        void query.maybeSingle().then(({ data }) => {
+          if (data) resolveDeepLink([normalizeConversation(data)]);
+        });
+        return;
+      }
       resolveDeepLink(loaded);
     },
-    [resolveDeepLink]
+    [deepLinkConvId, resolveDeepLink, scope]
   );
 
-  // A resync between full reloads: patch in only the conversations that
-  // changed, so the list keeps its rows and the open thread is untouched.
-  // A ?c=<id> link opened since the last sync (a notification click) is
-  // resolved against the changed rows and the list already loaded.
-  const handleConversationsChanged = useCallback(
-    (changed: Conversation[]) => {
-      setConversations((prev) => mergeConversations(prev, changed, activeConversation?.id));
-      resolveDeepLink([...changed, ...conversations]);
+  // The first page of the list's filter replaces the rows; the open thread stays.
+  const handleConversationsLoaded = useCallback(
+    (loaded: Conversation[]) => {
+      const activeId = activeIdRef.current;
+      setConversations(activeId ? loaded.map((c) => (c.id === activeId ? { ...c, unread_count: 0 } : c)) : loaded);
+      resolveDeepLinkOrFetch(loaded);
     },
-    [activeConversation?.id, conversations, resolveDeepLink]
+    [resolveDeepLinkOrFetch]
+  );
+
+  // A further page (infinite scroll) goes below the loaded rows.
+  // A loaded copy of a row the page also holds is replaced by the fresh one, in its place.
+  const handleConversationsAppended = useCallback((page: Conversation[]) => {
+    setConversations((prev) => upsertListRows(prev, page, { order: listStateRef.current.order, hasMore: false, activeId: activeIdRef.current }));
+  }, []);
+
+  // A resync between full reloads: patch in only the conversations that
+  // changed (or drop those that left the filter), so the list keeps its rows
+  // and the open thread is untouched. A ?c=<id> link opened since the last
+  // sync (a notification click) is resolved against the changed rows and the
+  // list already loaded.
+  const handleConversationsChanged = useCallback(
+    (changes: { conversations: Conversation[]; removedIds: string[] }) => {
+      const state = listStateRef.current;
+      setConversations((prev) => upsertListRows(prev, changes.conversations, {
+        order: state.order,
+        hasMore: state.hasMore,
+        activeId: activeConversation?.id,
+        removedIds: changes.removedIds,
+      }));
+      resolveDeepLinkOrFetch([...changes.conversations, ...conversations]);
+    },
+    [activeConversation?.id, conversations, resolveDeepLinkOrFetch]
   );
 
   const handleSelectConversation = useCallback(
@@ -988,7 +1004,10 @@ function InboxViewInner({ scope }: { scope: InboxScope }) {
             onSelect={handleSelectConversation}
             conversations={listedConversations}
             onConversationsLoaded={handleConversationsLoaded}
+            onConversationsAppended={handleConversationsAppended}
             onConversationsChanged={handleConversationsChanged}
+            onListState={handleListState}
+            canBulk={canSendMessages}
             resyncToken={resyncToken}
             channel={scope}
             folders={folders}

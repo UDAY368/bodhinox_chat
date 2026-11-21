@@ -92,6 +92,19 @@ export async function conversationHandlingHistory(ctx: TenantContext, conversati
   });
 }
 
+/**
+ * SQL boolean over the conversations row aliased `c`: `memberId` (a checked
+ * uuid) handled it. Shared with the inbox list's "Handled by" filter.
+ */
+export function handledBySql(memberId: string): Prisma.Sql {
+  return Prisma.sql`(c.assigned_agent_id = ${memberId}::uuid OR c.resolved_by = ${memberId}::uuid
+    OR EXISTS (SELECT 1 FROM conversation_handling_events e
+      WHERE e.account_id = c.account_id AND e.conversation_id = c.id
+        AND (e.to_user_id = ${memberId}::uuid OR e.actor_user_id = ${memberId}::uuid))
+    OR EXISTS (SELECT 1 FROM messages m
+      WHERE m.account_id = c.account_id AND m.sender_id = ${memberId}::uuid AND m.conversation_id = c.id))`;
+}
+
 /** The most conversation ids one "Handled by" lookup returns. */
 export const HANDLED_BY_LIMIT = 5000;
 
@@ -107,12 +120,7 @@ export async function conversationsHandledBy(ctx: TenantContext, memberId: strin
     const rows = await tx.$queryRaw<{ id: string }[]>(Prisma.sql`
       SELECT c.id::text FROM conversations c
       WHERE c.account_id = ${ctx.accountId}::uuid AND ${conversationVisible('c')}
-        AND (c.assigned_agent_id = ${memberId}::uuid OR c.resolved_by = ${memberId}::uuid
-          OR EXISTS (SELECT 1 FROM conversation_handling_events e
-            WHERE e.account_id = c.account_id AND e.conversation_id = c.id
-              AND (e.to_user_id = ${memberId}::uuid OR e.actor_user_id = ${memberId}::uuid))
-          OR EXISTS (SELECT 1 FROM messages m
-            WHERE m.account_id = c.account_id AND m.sender_id = ${memberId}::uuid AND m.conversation_id = c.id))
+        AND ${handledBySql(memberId)}
       ORDER BY c.last_message_at DESC NULLS LAST, c.id
       LIMIT ${HANDLED_BY_LIMIT}`);
     return rows.map((r) => r.id);
