@@ -9,6 +9,8 @@ import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
+import { GroupedList, GroupedListRow } from '@/components/ui/grouped-list';
+import { Sheet, SheetContent, SheetFooter, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { currentZoneName } from '@/lib/appointments/time-zone-names';
@@ -59,65 +61,70 @@ export function LocationsPanel({ config, canEdit, onChanged }: { config: Appoint
     onChanged();
   }
 
-  const form = (
-    <div className="grid gap-3 rounded-xl border border-border p-3 text-sm sm:grid-cols-2">
-      <div className="space-y-1">
-        <Label htmlFor="loc-name">{t('locations.name')}</Label>
-        <Input id="loc-name" maxLength={120} value={draft.name} onChange={(e) => set('name')(e.target.value)} />
-      </div>
-      <div className="space-y-1">
-        <p className="text-sm font-medium">{t('locations.kind')}</p>
-        <SegmentedControl<Draft['kind']> aria-label={t('locations.kind')} value={draft.kind} onValueChange={set('kind')}
-          options={[{ value: 'physical', label: t('locations.kinds.physical') }, { value: 'online', label: t('locations.kinds.online') }]} />
-      </div>
-      <div className="space-y-1 sm:col-span-2">
-        <Label htmlFor="loc-address">{t('locations.address')}</Label>
-        <Input id="loc-address" maxLength={500} value={draft.address} onChange={(e) => set('address')(e.target.value)} />
-      </div>
-      <div className="space-y-1 sm:col-span-2">
-        <Label htmlFor="loc-tz">{t('locations.timezone')}</Label>
-        {zones.length ? (
-          <OptionSelect id="loc-tz" value={draft.timezone} onValueChange={set('timezone')}
-            options={[...(zones.includes(draft.timezone) ? [] : [draft.timezone]), ...zones].map((z) => ({ value: z, label: z }))} />
-        ) : <Input id="loc-tz" value={draft.timezone} onChange={(e) => set('timezone')(e.target.value)} />}
-        <p className="text-[11px] text-muted-foreground">{t('locations.timezoneHelp')}</p>
-      </div>
-      <div className="flex gap-2 sm:col-span-2">
-        <Button type="button" size="sm" disabled={busy || !draft.name.trim()} onClick={() => void save()}>{t('sheet.save')}</Button>
-        <Button type="button" size="sm" variant="ghost" onClick={() => setEditing(null)}>{t('sheet.close')}</Button>
-      </div>
-    </div>
-  );
+  const current = editing && editing !== 'new' ? config.locations.find((l) => l.id === editing) ?? null : null;
 
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <h2 className="text-base font-semibold tracking-tight">{t('locations.title')}</h2>
-        {canEdit && editing === null && <Button type="button" size="sm" onClick={() => edit('new')}>{t('locations.add')}</Button>}
+        {canEdit && <Button type="button" className="min-h-11 sm:min-h-8" size="sm" onClick={() => edit('new')}>{t('locations.add')}</Button>}
       </div>
-      {editing === 'new' && form}
-      {config.locations.length === 0 && editing !== 'new' && <EmptyState icon={MapPin} title={t('locations.empty')} />}
-      <ul className="space-y-2">
-        {config.locations.map((l) => (
-          <li key={l.id}>
-            {editing === l.id ? form : (
-              <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border bg-card p-3 text-sm">
-                <span className="font-medium">{l.name}</span>
-                <span className="text-xs text-muted-foreground">{t(`locations.kinds.${l.kind}`)} · {l.timezone}{l.address ? ` · ${l.address}` : ''}</span>
-                {l.archived_at && <span className="text-xs text-muted-foreground">({t('services.archived')})</span>}
-                {canEdit && (
-                  <span className="ml-auto flex gap-1">
-                    {!l.archived_at && <Button type="button" size="sm" variant="ghost" onClick={() => edit(l)}>{t('form.edit')}</Button>}
-                    <Button type="button" size="sm" variant="ghost" onClick={() => void archive(l)}>
-                      {l.archived_at ? t('services.restore') : t('locations.archive')}
-                    </Button>
-                  </span>
-                )}
-              </div>
+      {config.locations.length === 0 && <EmptyState icon={MapPin} title={t('locations.empty')} />}
+      {config.locations.length > 0 && (
+        <GroupedList>
+          {config.locations.map((l) => {
+            const facts = `${t(`locations.kinds.${l.kind}`)} · ${l.timezone}${l.address ? ` · ${l.address}` : ''}`;
+            return l.archived_at ? (
+              <GroupedListRow key={l.id} title={<span className="text-muted-foreground">{l.name}</span>}
+                subtitle={`${t('services.archived')} · ${facts}`}
+                trailing={canEdit ? (
+                  <Button type="button" size="sm" variant="ghost" className="-mr-2 min-h-11 sm:min-h-8" onClick={() => void archive(l)}>
+                    {t('services.restore')}
+                  </Button>
+                ) : undefined} />
+            ) : (
+              <GroupedListRow key={l.id} title={l.name} subtitle={facts} onClick={canEdit ? () => edit(l) : undefined} chevron={canEdit} />
+            );
+          })}
+        </GroupedList>
+      )}
+
+      <Sheet open={editing !== null} onOpenChange={(v) => { if (!v) setEditing(null); }}>
+        <SheetContent size="md" className="overflow-y-auto">
+          <SheetHeader className="pr-12"><SheetTitle>{current ? current.name : t('locations.add')}</SheetTitle></SheetHeader>
+          <div className="grid gap-3 px-4 pb-4 text-sm sm:grid-cols-2">
+            <div className="space-y-1">
+              <Label htmlFor="loc-name">{t('locations.name')}</Label>
+              <Input id="loc-name" maxLength={120} value={draft.name} onChange={(e) => set('name')(e.target.value)} />
+            </div>
+            <div className="space-y-1">
+              <p className="text-sm font-medium">{t('locations.kind')}</p>
+              <SegmentedControl<Draft['kind']> aria-label={t('locations.kind')} value={draft.kind} onValueChange={set('kind')}
+                options={[{ value: 'physical', label: t('locations.kinds.physical') }, { value: 'online', label: t('locations.kinds.online') }]} />
+            </div>
+            <div className="space-y-1 sm:col-span-2">
+              <Label htmlFor="loc-address">{t('locations.address')}</Label>
+              <Input id="loc-address" maxLength={500} value={draft.address} onChange={(e) => set('address')(e.target.value)} />
+            </div>
+            <div className="space-y-1 sm:col-span-2">
+              <Label htmlFor="loc-tz">{t('locations.timezone')}</Label>
+              {zones.length ? (
+                <OptionSelect id="loc-tz" value={draft.timezone} onValueChange={set('timezone')}
+                  options={[...(zones.includes(draft.timezone) ? [] : [draft.timezone]), ...zones].map((z) => ({ value: z, label: z }))} />
+              ) : <Input id="loc-tz" value={draft.timezone} onChange={(e) => set('timezone')(e.target.value)} />}
+              <p className="text-[11px] text-muted-foreground">{t('locations.timezoneHelp')}</p>
+            </div>
+          </div>
+          <SheetFooter className="flex-row flex-wrap justify-end border-t border-border/50">
+            {current && (
+              <Button type="button" variant="outline" disabled={busy} onClick={() => { void archive(current); setEditing(null); }}>
+                {t('locations.archive')}
+              </Button>
             )}
-          </li>
-        ))}
-      </ul>
+            <Button type="button" disabled={busy || !draft.name.trim()} onClick={() => void save()}>{t('sheet.save')}</Button>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }

@@ -18,7 +18,8 @@ import { toast } from 'sonner';
 import { useLocale, useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { GroupedList, GroupedListRow } from '@/components/ui/grouped-list';
+import { Sheet, SheetContent, SheetFooter, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
@@ -112,45 +113,44 @@ export function ServicesPanel({ config, canEdit, onChanged }: { config: Appointm
     set('weekdays')(next.length === 7 ? null : next);
   };
 
+  // The service being edited, read from the live config so the offerings and intake form show saved changes.
+  const current = editing && editing !== 'new' ? config.services.find((x) => x.id === editing.id) ?? editing : null;
+  const facts = (s: ServiceDto) => [
+    t(`services.modes.${s.mode}`),
+    `${s.duration_minutes}′`,
+    (s.price_minor != null && s.currency ? formatMoney(s.price_minor, s.currency, { locale }) : '') || t('services.free'),
+    ...(s.allowed_weekdays ? [s.allowed_weekdays.map((d) => tDay(WEEKDAYS[d - 1])).join(', ')] : []),
+  ].join(' · ');
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-base font-semibold tracking-tight">{t('services.title')}</h2>
-        {canEdit && <Button type="button" size="sm" onClick={() => open('new')}>{t('services.add')}</Button>}
+        {canEdit && <Button type="button" className="min-h-11 sm:min-h-8" size="sm" onClick={() => open('new')}>{t('services.add')}</Button>}
       </div>
       {config.services.length === 0 && <EmptyState icon={Briefcase} title={t('services.empty')} />}
-      <ul className="space-y-3">
-        {config.services.map((s) => (
-          <li key={s.id} className="rounded-xl border border-border bg-card p-3 text-sm">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="font-medium">{s.name}</span>
-              <span className="text-xs text-muted-foreground">
-                {t(`services.modes.${s.mode}`)} · {s.duration_minutes}′ · {(s.price_minor != null && s.currency ? formatMoney(s.price_minor, s.currency, { locale }) : '') || t('services.free')}
-                {s.allowed_weekdays ? ` · ${s.allowed_weekdays.map((d) => tDay(WEEKDAYS[d - 1])).join(', ')}` : ''}
-              </span>
-              {s.archived_at && <span className="text-xs text-muted-foreground">({t('services.archived')})</span>}
-              {canEdit && (
-                <span className="ml-auto flex gap-1">
-                  {!s.archived_at && <Button type="button" size="sm" variant="ghost" onClick={() => open(s)}>{t('form.edit')}</Button>}
-                  <Button type="button" size="sm" variant="ghost" onClick={() => void archive(s, !s.archived_at)}>
-                    {s.archived_at ? t('services.restore') : t('services.archive')}
-                  </Button>
-                </span>
-              )}
-            </div>
-            {!s.archived_at && <OfferingsEditor service={s} config={config} canEdit={canEdit} onChanged={onChanged} />}
-            {!s.archived_at && canEdit && (
-              <IntakeFormPicker serviceId={s.id} value={(s as ServiceDto & { intake_form_id?: string | null }).intake_form_id ?? null}
-                intake={intake} onChanged={onChanged} />
-            )}
-          </li>
-        ))}
-      </ul>
+      {config.services.length > 0 && (
+        <GroupedList>
+          {config.services.map((s) => s.archived_at ? (
+            <GroupedListRow key={s.id} title={<span className="text-muted-foreground">{s.name}</span>}
+              subtitle={`${t('services.archived')} · ${facts(s)}`}
+              trailing={canEdit ? (
+                <Button type="button" size="sm" variant="ghost" className="-mr-2 min-h-11 sm:min-h-8" onClick={() => void archive(s, false)}>
+                  {t('services.restore')}
+                </Button>
+              ) : undefined} />
+          ) : (
+            // Everyone can open a service to see where and with whom it is offered; only admins can change it.
+            <GroupedListRow key={s.id} title={s.name} subtitle={facts(s)} onClick={() => open(s)} chevron />
+          ))}
+        </GroupedList>
+      )}
 
-      <Dialog open={editing !== null} onOpenChange={(v) => { if (!v) setEditing(null); }}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
-          <DialogHeader><DialogTitle>{editing === 'new' ? t('services.add') : t('services.title')}</DialogTitle></DialogHeader>
-          <div className="grid gap-3 text-sm sm:grid-cols-2">
+      <Sheet open={editing !== null} onOpenChange={(v) => { if (!v) setEditing(null); }}>
+        <SheetContent size="lg" className="overflow-y-auto">
+          <SheetHeader className="pr-12"><SheetTitle>{editing === 'new' ? t('services.add') : current?.name ?? t('services.title')}</SheetTitle></SheetHeader>
+          <div className="space-y-5 px-4 pb-4">
+          <fieldset disabled={!canEdit} className="grid min-w-0 gap-3 text-sm sm:grid-cols-2">
             <Field label={t('services.name')} id="svc-name" wide>
               <Input id="svc-name" maxLength={120} value={draft.name} onChange={(e) => set('name')(e.target.value)} />
             </Field>
@@ -212,12 +212,25 @@ export function ServicesPanel({ config, canEdit, onChanged }: { config: Appointm
               </label>
               <p className="text-[11px] text-muted-foreground">{t('services.paymentRequiredHelp')}</p>
             </div>
+          </fieldset>
+          {current && <OfferingsEditor service={current} config={config} canEdit={canEdit} onChanged={onChanged} />}
+          {current && canEdit && (
+            <IntakeFormPicker serviceId={current.id} value={(current as ServiceDto & { intake_form_id?: string | null }).intake_form_id ?? null}
+              intake={intake} onChanged={onChanged} />
+          )}
           </div>
-          <DialogFooter>
-            <Button type="button" disabled={busy || !draft.name.trim()} onClick={() => void save()}>{t('sheet.save')}</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          {canEdit && (
+            <SheetFooter className="flex-row flex-wrap justify-end border-t border-border/50">
+              {current && (
+                <Button type="button" variant="outline" disabled={busy} onClick={() => { void archive(current, true); setEditing(null); }}>
+                  {t('services.archive')}
+                </Button>
+              )}
+              <Button type="button" disabled={busy || !draft.name.trim()} onClick={() => void save()}>{t('sheet.save')}</Button>
+            </SheetFooter>
+          )}
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
@@ -254,7 +267,7 @@ function OfferingsEditor({
   }
 
   return (
-    <div className="mt-3 space-y-2 border-t border-border pt-2">
+    <div className="space-y-2 border-t border-border pt-4">
       <div className="text-xs font-medium text-muted-foreground">{t('services.offerings')}</div>
       {locations.map((loc) => {
         const rows = config.offerings.filter((o) => o.service_id === service.id && o.location_id === loc.id);
@@ -322,7 +335,7 @@ function IntakeFormPicker({ serviceId, value, intake, onChanged }: { serviceId: 
 
   const id = `svc-intake-${serviceId}`;
   return (
-    <div className="mt-3 space-y-1">
+    <div className="space-y-1">
       <Label htmlFor={id}>{t('label')}</Label>
       <div className="flex flex-wrap items-center gap-2">
         <OptionSelect id={id} className="max-w-xs" value={value ?? ''} disabled={busy} onValueChange={(v) => void choose(v)}

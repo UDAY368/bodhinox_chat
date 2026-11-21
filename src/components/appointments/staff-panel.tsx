@@ -12,6 +12,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
+import { GroupedList, GroupedListRow } from '@/components/ui/grouped-list';
+import { Sheet, SheetContent, SheetFooter, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { parseWorkingHours, type WorkingHours } from '@/lib/inbox/working-hours';
@@ -66,6 +68,8 @@ export function StaffPanel({ config, canEdit, onChanged }: { config: Appointment
   const [name, setName] = useState('');
   const [linked, setLinked] = useState('');
   const [busy, setBusy] = useState(false);
+  // 'new' opens the add sheet; an id opens that practitioner's sheet.
+  const [sheet, setSheet] = useState<string | 'new' | null>(null);
   const zoomConnected = useZoomConnected();
 
   async function add() {
@@ -75,6 +79,7 @@ export function StaffPanel({ config, canEdit, onChanged }: { config: Appointment
     if (!r.ok) return void toast.error(r.status === 402 ? t('staff.limitReachedGeneric') : failureText(r));
     setName('');
     setLinked('');
+    setSheet(null);
     onChanged();
   }
 
@@ -84,45 +89,77 @@ export function StaffPanel({ config, canEdit, onChanged }: { config: Appointment
     onChanged();
   }
 
+  const current = sheet && sheet !== 'new' ? config.staff.find((s) => s.id === sheet) ?? null : null;
+  const memberName = (userId: string | null) => (userId ? memberOptions.find((o) => o.value === userId)?.label ?? '' : t('staff.noMember'));
+  const facts = (s: StaffDto) => [
+    ...(s.archived_at ? [t('services.archived')] : []),
+    memberName(s.user_id),
+    ...(zoomConnected && (s as StaffWithHostDto).meeting_host_email ? [(s as StaffWithHostDto).meeting_host_email as string] : []),
+  ].filter(Boolean).join(' · ');
+
   return (
     <div className="space-y-6">
       <section className="space-y-3">
-        <h2 className="text-base font-semibold tracking-tight">{t('staff.title')}</h2>
+        <div className="flex items-center justify-between">
+          <h2 className="text-base font-semibold tracking-tight">{t('staff.title')}</h2>
+          {canEdit && <Button type="button" className="min-h-11 sm:min-h-8" size="sm" onClick={() => setSheet('new')}>{t('staff.add')}</Button>}
+        </div>
         {config.staff.length === 0 && <EmptyState icon={Users} title={t('staff.empty')} />}
-        {config.staff.length > 0 && <ul className="divide-y divide-separator rounded-group border border-separator bg-grouped-surface text-sm">
-          {config.staff.map((s) => (
-            <li key={s.id} className="flex flex-wrap items-center gap-2 p-3">
-              <span className="font-medium">{s.display_name}</span>
-              {s.archived_at && <span className="text-xs text-muted-foreground">({t('services.archived')})</span>}
-              <OptionSelect aria-label={t('staff.linkedMember')} className="ml-auto w-48" disabled={!canEdit || !!s.archived_at}
-                value={s.user_id ?? ''} onValueChange={(v) => void update(s, { user_id: v || null })} options={memberOptions} />
-              {canEdit && (
-                <Button type="button" size="sm" variant="ghost" onClick={() => void update(s, { archived: !s.archived_at })}>
-                  {s.archived_at ? t('services.restore') : t('staff.archive')}
-                </Button>
-              )}
-              {zoomConnected && (
-                <ZoomHostEmail key={(s as StaffWithHostDto).meeting_host_email ?? ''} staff={s as StaffWithHostDto} canEdit={canEdit}
-                  onSave={(email) => update(s, { meeting_host_email: email })} />
-              )}
-            </li>
-          ))}
-        </ul>}
-        {canEdit && (
-          <div className="flex flex-wrap items-end gap-2">
-            <div className="space-y-1">
-              <Label htmlFor="staff-name">{t('staff.name')}</Label>
-              <Input id="staff-name" maxLength={80} value={name} onChange={(e) => setName(e.target.value)} />
-            </div>
-            <div className="space-y-1">
-              <Label htmlFor="staff-member">{t('staff.linkedMember')}</Label>
-              <OptionSelect id="staff-member" className="w-48" value={linked} onValueChange={setLinked} options={memberOptions} />
-            </div>
-            <Button type="button" disabled={busy || !name.trim()} onClick={() => void add()}>{t('staff.add')}</Button>
-          </div>
+        {config.staff.length > 0 && (
+          <GroupedList footer={zoomConnected ? t('staff.zoomHostHelp') : undefined}>
+            {config.staff.map((s) => s.archived_at ? (
+              <GroupedListRow key={s.id} title={<span className="text-muted-foreground">{s.display_name}</span>} subtitle={facts(s)}
+                trailing={canEdit ? (
+                  <Button type="button" size="sm" variant="ghost" className="-mr-2 min-h-11 sm:min-h-8" onClick={() => void update(s, { archived: false })}>
+                    {t('services.restore')}
+                  </Button>
+                ) : undefined} />
+            ) : (
+              <GroupedListRow key={s.id} title={s.display_name} subtitle={facts(s)}
+                onClick={canEdit ? () => setSheet(s.id) : undefined} chevron={canEdit} />
+            ))}
+          </GroupedList>
         )}
-        {zoomConnected && <p className="text-xs text-muted-foreground">{t('staff.zoomHostHelp')}</p>}
       </section>
+
+      <Sheet open={sheet !== null} onOpenChange={(v) => { if (!v) setSheet(null); }}>
+        <SheetContent size="md" className="overflow-y-auto">
+          <SheetHeader className="pr-12"><SheetTitle>{current ? current.display_name : t('staff.add')}</SheetTitle></SheetHeader>
+          {current ? (
+            <div className="space-y-4 px-4 pb-4 text-sm">
+              <div className="space-y-1">
+                <Label htmlFor="staff-linked">{t('staff.linkedMember')}</Label>
+                <OptionSelect id="staff-linked" value={current.user_id ?? ''} onValueChange={(v) => void update(current, { user_id: v || null })} options={memberOptions} />
+              </div>
+              {zoomConnected && (
+                <>
+                  <ZoomHostEmail key={(current as StaffWithHostDto).meeting_host_email ?? ''} staff={current as StaffWithHostDto} canEdit={canEdit}
+                    onSave={(email) => update(current, { meeting_host_email: email })} />
+                  <p className="text-xs text-muted-foreground">{t('staff.zoomHostHelp')}</p>
+                </>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-4 px-4 pb-4 text-sm">
+              <div className="space-y-1">
+                <Label htmlFor="staff-name">{t('staff.name')}</Label>
+                <Input id="staff-name" maxLength={80} value={name} onChange={(e) => setName(e.target.value)} />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="staff-member">{t('staff.linkedMember')}</Label>
+                <OptionSelect id="staff-member" value={linked} onValueChange={setLinked} options={memberOptions} />
+              </div>
+            </div>
+          )}
+          <SheetFooter className="flex-row flex-wrap justify-end border-t border-border/50">
+            {current ? (
+              <Button type="button" variant="outline" onClick={() => { void update(current, { archived: true }); setSheet(null); }}>{t('staff.archive')}</Button>
+            ) : (
+              <Button type="button" disabled={busy || !name.trim()} onClick={() => void add()}>{t('staff.add')}</Button>
+            )}
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
 
       <HoursSection config={config} canEdit={canEdit} />
     </div>

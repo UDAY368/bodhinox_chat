@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 
 import { useCan } from "@/hooks/use-can";
+import { useMatchMedia } from "@/hooks/use-match-media";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -39,6 +40,7 @@ import { QuotesList } from "./quotes-list";
 import { ReturnsQueue } from "./returns-queue";
 import { PageHeader } from "@/components/ui/page-header";
 import { EmptyState } from "@/components/ui/empty-state";
+import { GroupedList, GroupedListRow } from "@/components/ui/grouped-list";
 
 const ALL = "all";
 const CASH_DUE = "cash_due";
@@ -149,6 +151,8 @@ function OrdersTab({ reloadKey, onOpenOrder, onNewOrder, onQueryChange }: {
   const locale = useLocale();
   const canAct = useCan("send-messages");
   const canAdmin = useCan("edit-settings");
+  // Phones get grouped rows; the table (and its sideways scroll) starts at the sm breakpoint.
+  const wide = useMatchMedia("(min-width: 640px)");
 
   const [status, setStatus] = useState<OrderStatus | "">("");
   const [source, setSource] = useState<OrderSource | "">("");
@@ -236,19 +240,19 @@ function OrdersTab({ reloadKey, onOpenOrder, onNewOrder, onQueryChange }: {
   return (
     <div className="space-y-4">
       <form
-        className="flex flex-wrap items-center gap-2"
+        className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center"
         onSubmit={(e) => {
           e.preventDefault();
           setQ(draft.trim());
         }}
       >
-        <div className="relative min-w-0 flex-1 basis-48 sm:max-w-xs">
+        <div className="relative col-span-2 min-w-0 sm:flex-1 sm:basis-48 sm:max-w-xs">
           <Search className="pointer-events-none absolute top-1/2 left-2.5 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input value={draft} onChange={(e) => setDraft(e.target.value)} onBlur={() => setQ(draft.trim())}
             placeholder={t("searchPlaceholder")} aria-label={t("searchPlaceholder")} className="min-h-11 pl-8 sm:min-h-9" maxLength={100} />
         </div>
         <Select value={status || ALL} onValueChange={(v) => setStatus(v === ALL ? "" : (v as OrderStatus))}>
-          <SelectTrigger className="min-h-11 w-44 max-w-full sm:min-h-9" aria-label={t("filterStatus")}>
+          <SelectTrigger className="min-h-11 w-full sm:min-h-9 sm:w-44" aria-label={t("filterStatus")}>
             <SelectValue>{(v: string) => (v === ALL ? t("allStatuses") : tStatus(v as OrderStatus))}</SelectValue>
           </SelectTrigger>
           <SelectContent>
@@ -257,7 +261,7 @@ function OrdersTab({ reloadKey, onOpenOrder, onNewOrder, onQueryChange }: {
           </SelectContent>
         </Select>
         <Select value={payment || ALL} onValueChange={(v) => setPayment(v === ALL ? "" : (v as PaymentFilter | typeof CASH_DUE))}>
-          <SelectTrigger className="min-h-11 w-48 max-w-full sm:min-h-9" aria-label={tl("filterPayment")}>
+          <SelectTrigger className="min-h-11 w-full sm:min-h-9 sm:w-48" aria-label={tl("filterPayment")}>
             <SelectValue>{(v: string) => (v === ALL ? tl("allPayments") : tl(`payment.${v as PaymentFilter | typeof CASH_DUE}`))}</SelectValue>
           </SelectTrigger>
           <SelectContent>
@@ -268,7 +272,7 @@ function OrdersTab({ reloadKey, onOpenOrder, onNewOrder, onQueryChange }: {
           </SelectContent>
         </Select>
         <Select value={datePreset} onValueChange={(v) => setDatePreset(v as DatePreset)}>
-          <SelectTrigger className="min-h-11 w-40 max-w-full sm:min-h-9" aria-label={tl("filterDate")}>
+          <SelectTrigger className="min-h-11 w-full sm:min-h-9 sm:w-40" aria-label={tl("filterDate")}>
             <SelectValue>{(v: string) => tl(`date.${v as DatePreset}`)}</SelectValue>
           </SelectTrigger>
           <SelectContent>
@@ -278,13 +282,13 @@ function OrdersTab({ reloadKey, onOpenOrder, onNewOrder, onQueryChange }: {
         {datePreset === "custom" && (
           <>
             <Input type="date" value={customFrom} max={customTo || undefined} onChange={(e) => setCustomFrom(e.target.value)}
-              aria-label={tl("dateFrom")} className="min-h-11 w-40 sm:min-h-9" />
+              aria-label={tl("dateFrom")} className="min-h-11 w-full sm:min-h-9 sm:w-40" />
             <Input type="date" value={customTo} min={customFrom || undefined} onChange={(e) => setCustomTo(e.target.value)}
-              aria-label={tl("dateTo")} className="min-h-11 w-40 sm:min-h-9" />
+              aria-label={tl("dateTo")} className="min-h-11 w-full sm:min-h-9 sm:w-40" />
           </>
         )}
         <Select value={source || ALL} onValueChange={(v) => setSource(v === ALL ? "" : (v as OrderSource))}>
-          <SelectTrigger className="min-h-11 w-40 max-w-full sm:min-h-9" aria-label={t("filterSource")}>
+          <SelectTrigger className="min-h-11 w-full sm:min-h-9 sm:w-40" aria-label={t("filterSource")}>
             <SelectValue>{(v: string) => (v === ALL ? t("allSources") : tSource(v as OrderSource))}</SelectValue>
           </SelectTrigger>
           <SelectContent>
@@ -293,7 +297,7 @@ function OrdersTab({ reloadKey, onOpenOrder, onNewOrder, onQueryChange }: {
           </SelectContent>
         </Select>
         <Select value={codConfirmation || ALL} onValueChange={(v) => setCodConfirmation(v === ALL ? "" : (v as "pending" | "declined"))}>
-          <SelectTrigger className="min-h-11 w-48 max-w-full sm:min-h-9" aria-label={t("filterCodConfirmation")}>
+          <SelectTrigger className="min-h-11 w-full sm:min-h-9 sm:w-48" aria-label={t("filterCodConfirmation")}>
             <SelectValue>{(v: string) => (v === ALL ? t("allCodConfirmations") : t(`cod.confirmation.${v as "pending" | "declined"}`))}</SelectValue>
           </SelectTrigger>
           <SelectContent>
@@ -303,7 +307,7 @@ function OrdersTab({ reloadKey, onOpenOrder, onNewOrder, onQueryChange }: {
           </SelectContent>
         </Select>
         <Input value={tag} onChange={(e) => setTag(e.target.value.slice(0, 24))} placeholder={t("tags.filter")} aria-label={t("tags.filter")}
-          className="min-h-11 w-36 sm:min-h-9" maxLength={24} />
+          className="min-h-11 w-full sm:min-h-9 sm:w-36" maxLength={24} />
       </form>
       {payment === CASH_DUE && <p className="text-xs text-muted-foreground">{tl("cashDueHelp")}</p>}
 
@@ -334,6 +338,55 @@ function OrdersTab({ reloadKey, onOpenOrder, onNewOrder, onQueryChange }: {
           body={filtered ? undefined : t("emptyDesc")}
           action={canAct && !filtered ? <Button className="min-h-11 sm:min-h-9" variant="outline" onClick={onNewOrder}><Plus className="h-4 w-4" /> {ts("newOrder")}</Button> : undefined}
         />
+      ) : !wide ? (
+        <GroupedList
+          header={selectable ? (
+            <label className="-ml-1 flex min-h-11 items-center gap-2">
+              <Checkbox checked={allSelected} indeterminate={!allSelected && selected.size > 0}
+                onCheckedChange={(on) => setSelected(on ? new Set(orders.map((o) => o.id)) : new Set())} />
+              {tl("selectAll")}
+            </label>
+          ) : undefined}
+        >
+          {orders.map((order) => {
+            const ref = orderRef(order);
+            const pay = paymentState(order);
+            const ful = fulfilmentState(order.status);
+            const step = canAct ? listStep(order) : null;
+            return (
+              <GroupedListRow
+                key={order.id}
+                className="hover:bg-muted/60"
+                chevron
+                leading={selectable ? (
+                  <label className="relative z-10 flex size-11 items-center justify-center">
+                    <Checkbox checked={selected.has(order.id)} aria-label={tl("select", { ref })} onCheckedChange={(on) => toggle(order.id, on)} />
+                  </label>
+                ) : undefined}
+                title={
+                  // The whole row opens the order; the checkbox and the menu sit above this button.
+                  <button type="button" aria-label={ts("openOrderLabel", { ref })} onClick={() => onOpenOrder(order.id)}
+                    className="block w-full truncate text-left outline-none after:absolute after:inset-0 focus-visible:after:ring-2 focus-visible:after:ring-primary focus-visible:after:ring-inset">
+                    <span className="font-medium tabular-nums">{ref}</span>
+                    <span className="text-muted-foreground"> · {order.contact?.name || order.contact?.phone || t("unknownCustomer")}</span>
+                  </button>
+                }
+                subtitle={
+                  <span className="inline-flex items-center gap-1.5">
+                    <span className="font-medium tabular-nums text-foreground">{money(order.total_minor ?? order.subtotal_minor, order.currency)}</span>
+                    <StateBadge tone={FULFILMENT_TONE[ful]}>{ts(`ful.${ful}`)}</StateBadge>
+                    <StateBadge tone={PAYMENT_TONE[pay]}>{ts(`pay.${pay}`)}</StateBadge>
+                    {order.cod_confirmation && (
+                      <StateBadge tone={COD_CONFIRM_TONE[order.cod_confirmation]}>{t(`cod.confirmation.${order.cod_confirmation}`)}</StateBadge>
+                    )}
+                    <OrderRiskBadge risk={order.risk} />
+                  </span>
+                }
+                trailing={<span className="relative z-10 -mr-2 flex"><OrderRowMenu order={order} step={step} onOpenOrder={onOpenOrder} /></span>}
+              />
+            );
+          })}
+        </GroupedList>
       ) : (
         <div className="overflow-x-auto rounded-xl border border-border bg-card">
           <Table className="[&_td]:px-3.5 [&_td]:py-2.5">
@@ -398,32 +451,7 @@ function OrdersTab({ reloadKey, onOpenOrder, onNewOrder, onQueryChange }: {
                     </TableCell>
                     <TableCell><StateBadge tone={FULFILMENT_TONE[ful]}>{ts(`ful.${ful}`)}</StateBadge></TableCell>
                     <TableCell className="w-px text-right" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger aria-label={ts("orderActions", { ref })}
-                          className="inline-flex size-11 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-primary sm:size-8">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-56">
-                          <DropdownMenuItem onClick={() => onOpenOrder(order.id)}><Eye className="h-4 w-4" /> {ts("openOrder")}</DropdownMenuItem>
-                          {step && <DropdownMenuItem onClick={() => onOpenOrder(order.id, "step")}><Truck className="h-4 w-4" /> {ts(`next.${step}`)}</DropdownMenuItem>}
-                          {canAct && canTakeLinkPayment(order) && (
-                            <DropdownMenuItem onClick={() => onOpenOrder(order.id, "link")}><Link2 className="h-4 w-4" /> {ts("sendPaymentLink")}</DropdownMenuItem>
-                          )}
-                          {canAdmin && canCancelUnpaid(order) && (
-                            <DropdownMenuItem onClick={() => onOpenOrder(order.id, "pay")}><Banknote className="h-4 w-4" /> {ts("recordPayment")}</DropdownMenuItem>
-                          )}
-                          {canAct && order.conversation_id && (
-                            <DropdownMenuItem onClick={() => onOpenOrder(order.id, "update")}><Send className="h-4 w-4" /> {ts("sendUpdate")}</DropdownMenuItem>
-                          )}
-                          {((canAdmin && order.status === "paid") || (canAct && canCancelUnpaid(order))) && <DropdownMenuSeparator />}
-                          {canAdmin && order.status === "paid" && (
-                            <DropdownMenuItem variant="destructive" onClick={() => onOpenOrder(order.id, "refund")}><Undo2 className="h-4 w-4" /> {ts("refund")}</DropdownMenuItem>
-                          )}
-                          {canAct && canCancelUnpaid(order) && (
-                            <DropdownMenuItem variant="destructive" onClick={() => onOpenOrder(order.id, "cancel")}><X className="h-4 w-4" /> {ts("cancelOrder")}</DropdownMenuItem>
-                          )}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                      <OrderRowMenu order={order} step={step} onOpenOrder={onOpenOrder} />
                     </TableCell>
                   </TableRow>
                 );
@@ -454,5 +482,45 @@ function OrdersTab({ reloadKey, onOpenOrder, onNewOrder, onQueryChange }: {
           onDone={() => setAttempt((n) => n + 1)} />
       )}
     </div>
+  );
+}
+
+/** A row's actions: open, the next step, payment link, record payment, send update, refund and cancel (each opens the order). */
+function OrderRowMenu({ order, step, onOpenOrder }: {
+  order: OrderListItem;
+  step: ReturnType<typeof listStep>;
+  onOpenOrder: (id: string, intent?: OrderIntent | null) => void;
+}) {
+  const ts = useTranslations("Sales.orders");
+  const canAct = useCan("send-messages");
+  const canAdmin = useCan("edit-settings");
+  const ref = orderRef(order);
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger aria-label={ts("orderActions", { ref })}
+        className="inline-flex size-11 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-primary sm:size-8">
+        <MoreHorizontal className="h-4 w-4" />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-56">
+        <DropdownMenuItem onClick={() => onOpenOrder(order.id)}><Eye className="h-4 w-4" /> {ts("openOrder")}</DropdownMenuItem>
+        {step && <DropdownMenuItem onClick={() => onOpenOrder(order.id, "step")}><Truck className="h-4 w-4" /> {ts(`next.${step}`)}</DropdownMenuItem>}
+        {canAct && canTakeLinkPayment(order) && (
+          <DropdownMenuItem onClick={() => onOpenOrder(order.id, "link")}><Link2 className="h-4 w-4" /> {ts("sendPaymentLink")}</DropdownMenuItem>
+        )}
+        {canAdmin && canCancelUnpaid(order) && (
+          <DropdownMenuItem onClick={() => onOpenOrder(order.id, "pay")}><Banknote className="h-4 w-4" /> {ts("recordPayment")}</DropdownMenuItem>
+        )}
+        {canAct && order.conversation_id && (
+          <DropdownMenuItem onClick={() => onOpenOrder(order.id, "update")}><Send className="h-4 w-4" /> {ts("sendUpdate")}</DropdownMenuItem>
+        )}
+        {((canAdmin && order.status === "paid") || (canAct && canCancelUnpaid(order))) && <DropdownMenuSeparator />}
+        {canAdmin && order.status === "paid" && (
+          <DropdownMenuItem variant="destructive" onClick={() => onOpenOrder(order.id, "refund")}><Undo2 className="h-4 w-4" /> {ts("refund")}</DropdownMenuItem>
+        )}
+        {canAct && canCancelUnpaid(order) && (
+          <DropdownMenuItem variant="destructive" onClick={() => onOpenOrder(order.id, "cancel")}><X className="h-4 w-4" /> {ts("cancelOrder")}</DropdownMenuItem>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }

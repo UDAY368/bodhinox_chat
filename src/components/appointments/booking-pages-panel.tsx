@@ -8,7 +8,7 @@
 import { EmptyState } from '@/components/ui/empty-state';
 import { OptionSelect } from '@/components/ui/option-select';
 import { useCallback, useEffect, useState } from 'react';
-import { Copy, Link2 } from 'lucide-react';
+import { Copy, Link2, Pencil, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
@@ -16,7 +16,9 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { GroupedList, GroupedListRow } from '@/components/ui/grouped-list';
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { useConfirm } from '@/components/ui/confirm-dialog';
+import { SettingsMoreMenu } from '@/components/settings/settings-row';
 import { Switch } from '@/components/ui/switch';
 import { useWhatsAppNumbers } from '@/components/settings/numbers/use-whatsapp-numbers';
 import { apiRequest, useFailureText, type AppointmentConfig } from './shared';
@@ -57,6 +59,7 @@ export function pageLinks(origin: string, page: Pick<BookingPageDto, 'slug' | 's
 export function BookingPagesPanel({ config, canEdit }: { config: AppointmentConfig; canEdit: boolean }) {
   const t = useTranslations('Appointments');
   const failureText = useFailureText();
+  const confirm = useConfirm();
   const { numbers } = useWhatsAppNumbers();
   const [pages, setPages] = useState<BookingPageDto[] | null>(null);
   const [editing, setEditing] = useState<string | 'new' | null>(null);
@@ -100,9 +103,20 @@ export function BookingPagesPanel({ config, canEdit }: { config: AppointmentConf
   }
 
   async function remove(id: string) {
+    if (!(await confirm({ title: t('pages.deleteConfirm'), body: t('pages.deleteBody'), confirmLabel: t('exceptions.delete'), destructive: true }))) return;
     const r = await apiRequest(`/api/appointments/booking-pages/${id}`, { method: 'DELETE' });
     if (!r.ok) return void toast.error(failureText(r));
     void load();
+  }
+
+  /** The On/Off switch on a row: saves at once, and puts the switch back if the save fails. */
+  async function setActive(id: string, active: boolean) {
+    setPages((prev) => prev?.map((p) => (p.id === id ? { ...p, active } : p)) ?? prev);
+    const r = await apiRequest(`/api/appointments/booking-pages/${id}`, { method: 'PATCH', body: { active } });
+    if (!r.ok) {
+      setPages((prev) => prev?.map((p) => (p.id === id ? { ...p, active: !active } : p)) ?? prev);
+      toast.error(failureText(r));
+    }
   }
 
   async function copy(slug: string) {
@@ -124,76 +138,85 @@ export function BookingPagesPanel({ config, canEdit }: { config: AppointmentConf
     .map((kind) => ({ kind, items: links.filter((l) => l.kind === kind) }))
     .filter((g) => g.items.length > 0);
 
-  const form = (
-    <div className="grid gap-3 rounded-xl border border-border p-3 text-sm sm:grid-cols-2">
-      <div className="space-y-1">
-        <Label htmlFor="page-title">{t('pages.titleLabel')}</Label>
-        <Input id="page-title" maxLength={120} value={draft.title} onChange={(e) => set('title')(e.target.value)} />
-      </div>
-      <div className="space-y-1">
-        <Label htmlFor="page-slug">{t('pages.slug')}</Label>
-        <Input id="page-slug" maxLength={48} value={draft.slug} onChange={(e) => set('slug')(e.target.value.toLowerCase())} />
-        <p className="text-[11px] text-muted-foreground">{t('pages.slugHelp')}</p>
-      </div>
-      <div className="space-y-1">
-        <Label htmlFor="page-location">{t('pages.location')}</Label>
-        <OptionSelect id="page-location" value={draft.locationId} onValueChange={set('locationId')}
-          options={[{ value: '', label: t('schedule.all') }, ...config.locations.filter((l) => !l.archived_at).map((l) => ({ value: l.id, label: l.name }))]} />
-      </div>
-      <div className="space-y-1">
-        <Label htmlFor="page-number">{t('pages.number')}</Label>
-        <OptionSelect id="page-number" value={draft.numberId} onValueChange={set('numberId')}
-          options={[{ value: '', label: t('pages.defaultNumber') }, ...numbers.filter((n) => !n.removed).map((n) => ({ value: n.id, label: n.display_name || n.phone_number_id }))]} />
-      </div>
-      <div className="space-y-1 sm:col-span-2">
-        <Label>{t('pages.services')}</Label>
-        <div className="flex flex-wrap gap-3">
-          {services.map((s) => (
-            <label key={s.id} className="flex items-center gap-1.5">
-              <Checkbox checked={draft.serviceIds.includes(s.id)}
-                onCheckedChange={(v) => set('serviceIds')(v ? [...draft.serviceIds, s.id] : draft.serviceIds.filter((x) => x !== s.id))} />
-              {s.name}
-            </label>
-          ))}
-        </div>
-      </div>
-      <label className="flex items-center gap-2">
-        <Switch checked={draft.active} onCheckedChange={(v) => set('active')(v)} aria-label={t('pages.active')} /> {t('pages.active')}
-      </label>
-      <div className="flex gap-2 sm:col-span-2">
-        <Button type="button" size="sm" disabled={busy || !draft.title.trim() || draft.serviceIds.length === 0} onClick={() => void save()}>{t('sheet.save')}</Button>
-        <Button type="button" size="sm" variant="ghost" onClick={() => setEditing(null)}>{t('sheet.close')}</Button>
-      </div>
-    </div>
-  );
+  const current = editing && editing !== 'new' ? pages?.find((p) => p.id === editing) ?? null : null;
 
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <h2 className="text-base font-semibold tracking-tight">{t('pages.title')}</h2>
-        {canEdit && editing === null && <Button type="button" size="sm" onClick={() => edit('new')}>{t('pages.add')}</Button>}
+        {canEdit && <Button type="button" className="min-h-11 sm:min-h-8" size="sm" onClick={() => edit('new')}>{t('pages.add')}</Button>}
       </div>
-      {editing === 'new' && form}
-      {pages && pages.length === 0 && editing !== 'new' && <EmptyState icon={Link2} title={t('pages.empty')} />}
-      <ul className="space-y-2">
-        {(pages ?? []).map((p) => (
-          <li key={p.id}>
-            {editing === p.id ? form : (
-              <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border bg-card p-3 text-sm">
-                <span className="font-medium">{p.title}</span>
-                <code className="truncate text-xs text-muted-foreground">/book/{p.slug}</code>
-                {!p.active && <span className="text-xs text-muted-foreground">({t('pages.inactive')})</span>}
-                <span className="ml-auto flex gap-1">
-                  <Button type="button" size="sm" variant="ghost" onClick={() => void copy(p.slug)}><Copy className="h-3.5 w-3.5" /> {t('pages.copyLink')}</Button>
-                  <Button type="button" size="sm" variant="ghost" onClick={() => setLinksFor(p.id)}><Link2 className="h-3.5 w-3.5" /> {t('pages.links')}</Button>
-                  {canEdit && <Button type="button" size="sm" variant="ghost" onClick={() => edit(p)}>{t('form.edit')}</Button>}
-                  {canEdit && <Button type="button" size="sm" variant="ghost" onClick={() => void remove(p.id)}>{t('exceptions.delete')}</Button>}
+      {pages && pages.length === 0 && <EmptyState icon={Link2} title={t('pages.empty')} />}
+      {!!pages?.length && (
+        <GroupedList>
+          {pages.map((p) => (
+            <GroupedListRow
+              key={p.id}
+              title={p.title}
+              subtitle={`/book/${p.slug}${p.active ? '' : ` · ${t('pages.inactive')}`}`}
+              trailing={
+                <span className="-mr-2 flex items-center gap-1">
+                  {canEdit && (
+                    <Switch checked={p.active} onCheckedChange={(v) => void setActive(p.id, v)} aria-label={`${t('pages.active')}: ${p.title}`} />
+                  )}
+                  <SettingsMoreMenu actions={[
+                    { label: t('pages.copyLink'), icon: Copy, onSelect: () => void copy(p.slug) },
+                    { label: t('pages.links'), icon: Link2, onSelect: () => setLinksFor(p.id) },
+                    { label: t('form.edit'), icon: Pencil, onSelect: () => edit(p), hidden: !canEdit },
+                    { label: t('exceptions.delete'), icon: Trash2, onSelect: () => void remove(p.id), destructive: true, hidden: !canEdit },
+                  ]} />
                 </span>
+              }
+            />
+          ))}
+        </GroupedList>
+      )}
+
+      <Sheet open={editing !== null} onOpenChange={(open) => { if (!open) setEditing(null); }}>
+        <SheetContent size="md" className="overflow-y-auto">
+          <SheetHeader className="pr-12"><SheetTitle>{current ? current.title : t('pages.add')}</SheetTitle></SheetHeader>
+          <div className="grid gap-3 px-4 pb-4 text-sm sm:grid-cols-2">
+            <div className="space-y-1">
+              <Label htmlFor="page-title">{t('pages.titleLabel')}</Label>
+              <Input id="page-title" maxLength={120} value={draft.title} onChange={(e) => set('title')(e.target.value)} />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="page-slug">{t('pages.slug')}</Label>
+              <Input id="page-slug" maxLength={48} value={draft.slug} onChange={(e) => set('slug')(e.target.value.toLowerCase())} />
+              <p className="text-[11px] text-muted-foreground">{t('pages.slugHelp')}</p>
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="page-location">{t('pages.location')}</Label>
+              <OptionSelect id="page-location" value={draft.locationId} onValueChange={set('locationId')}
+                options={[{ value: '', label: t('schedule.all') }, ...config.locations.filter((l) => !l.archived_at).map((l) => ({ value: l.id, label: l.name }))]} />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="page-number">{t('pages.number')}</Label>
+              <OptionSelect id="page-number" value={draft.numberId} onValueChange={set('numberId')}
+                options={[{ value: '', label: t('pages.defaultNumber') }, ...numbers.filter((n) => !n.removed).map((n) => ({ value: n.id, label: n.display_name || n.phone_number_id }))]} />
+            </div>
+            <div className="space-y-1 sm:col-span-2">
+              <Label>{t('pages.services')}</Label>
+              <div className="flex flex-wrap gap-3">
+                {services.map((s) => (
+                  <label key={s.id} className="flex min-h-11 items-center gap-1.5 sm:min-h-0">
+                    <Checkbox checked={draft.serviceIds.includes(s.id)}
+                      onCheckedChange={(v) => set('serviceIds')(v ? [...draft.serviceIds, s.id] : draft.serviceIds.filter((x) => x !== s.id))} />
+                    {s.name}
+                  </label>
+                ))}
               </div>
-            )}
-          </li>
-        ))}
-      </ul>
+            </div>
+            <label className="flex min-h-11 items-center gap-2">
+              <Switch checked={draft.active} onCheckedChange={(v) => set('active')(v)} aria-label={t('pages.active')} /> {t('pages.active')}
+            </label>
+          </div>
+          <SheetFooter className="flex-row flex-wrap justify-end border-t border-border/50">
+            <Button type="button" variant="outline" onClick={() => setEditing(null)}>{t('sheet.close')}</Button>
+            <Button type="button" disabled={busy || !draft.title.trim() || draft.serviceIds.length === 0} onClick={() => void save()}>{t('sheet.save')}</Button>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
 
       <Sheet open={linksPage !== null} onOpenChange={(open) => { if (!open) setLinksFor(null); }}>
         <SheetContent size="md" className="overflow-y-auto">

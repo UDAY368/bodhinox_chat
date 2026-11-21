@@ -13,6 +13,7 @@ import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { useLocale, useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
+import { GroupedList, GroupedListRow } from '@/components/ui/grouped-list';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import type { TimeRange } from '@/lib/inbox/working-hours';
@@ -84,18 +85,20 @@ export function ExceptionsPanel({ config, canEdit }: { config: AppointmentConfig
           options={locations.map((l) => ({ value: l.id, label: l.name }))} />
       </div>
       {rows && rows.length === 0 && <EmptyState icon={CalendarOff} title={t('exceptions.empty')} />}
-      {!!rows?.length && <ul className="divide-y divide-separator rounded-group border border-separator bg-grouped-surface text-sm">
-        {(rows ?? []).map((e) => (
-          <li key={e.id} className="flex flex-wrap items-center gap-2 p-3">
-            <span className="font-medium">{formatDay(e.starts_on, locale)}{e.ends_on !== e.starts_on ? ` – ${formatDay(e.ends_on, locale)}` : ''}</span>
-            <span className="text-xs text-muted-foreground">
-              {staffName(e.staff_id)} · {e.ranges ? e.ranges.map((r) => `${r.start}–${r.end}`).join(', ') : t('exceptions.closed')}
-              {e.reason ? ` · ${e.reason}` : ''}
-            </span>
-            {canEdit && <Button type="button" size="sm" variant="ghost" className="ml-auto" onClick={() => void remove(e.id)}>{t('exceptions.delete')}</Button>}
-          </li>
-        ))}
-      </ul>}
+      {!!rows?.length && (
+        <GroupedList>
+          {rows.map((e) => (
+            <GroupedListRow key={e.id}
+              title={`${formatDay(e.starts_on, locale)}${e.ends_on !== e.starts_on ? ` – ${formatDay(e.ends_on, locale)}` : ''}`}
+              subtitle={`${staffName(e.staff_id)} · ${e.ranges ? e.ranges.map((r) => `${r.start}–${r.end}`).join(', ') : t('exceptions.closed')}${e.reason ? ` · ${e.reason}` : ''}`}
+              trailing={canEdit ? (
+                <Button type="button" size="sm" variant="ghost" className="-mr-2 min-h-11 text-destructive hover:bg-destructive/10 sm:min-h-8" onClick={() => void remove(e.id)}>
+                  {t('exceptions.delete')}
+                </Button>
+              ) : undefined} />
+          ))}
+        </GroupedList>
+      )}
       {canEdit && (
         <div className="grid gap-3 rounded-xl border border-border p-3 text-sm sm:grid-cols-2">
           <div className="font-medium sm:col-span-2">{t('exceptions.add')}</div>
