@@ -163,6 +163,14 @@ describe("explainMetaError — account state and throttling", () => {
     expect(x.side).toBe("meta");
     expect(x.summary).toMatch(/code 131000/);
   });
+
+  it("133016 → register attempts used up: wait, do not retry with the PIN", () => {
+    const x = explainMetaError(metaErr({ code: 133016 }), "register");
+    expect(x.side).toBe("meta");
+    expect(x.summary).toMatch(/code 133016/);
+    expect(x.summary).toMatch(/Do not save with the PIN again/);
+    expect(x.summary).not.toMatch(/Retry in a minute/);
+  });
 });
 
 describe("explainMetaError — fallbacks", () => {
