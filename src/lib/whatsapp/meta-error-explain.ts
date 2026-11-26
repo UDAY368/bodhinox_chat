@@ -298,6 +298,17 @@ export function explainMetaError(
       'meta',
     )
   }
+  // 133016 is a per-number cap on /register calls, so "retry in a minute" only uses up more attempts.
+  if (code === 133016) {
+    return build(
+      'Meta is refusing more registration attempts for this number for now (code 133016): it was ' +
+        'tried too many times. Do not save with the PIN again yet, because every try counts. If this ' +
+        'number was already registered, clear the PIN and save. Otherwise wait (Meta\'s limit can ' +
+        'take up to 72 hours to clear), then save once with the correct PIN.',
+      null,
+      'meta',
+    )
+  }
   if (TEMPORARY_CODES.has(code ?? -1)) {
     return build(
       `Meta returned a temporary error while ${STEP_LABEL[step]} (code ${code}). Retry in a minute; ` +
